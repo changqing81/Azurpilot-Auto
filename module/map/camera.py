@@ -404,6 +404,7 @@ class Camera(MapOperation):
                 if x != 0 or y != 0:
                     old_camera = self.camera
                     self.map_swipe((x, y))
+                    logger.info(f'camera: {old_camera} -> {self.camera}')
                     if self.camera == old_camera:
                         no_change_count += 1
                         logger.info(f'[地图-摄像机] 滑动后视角无变化({no_change_count}/3)')
