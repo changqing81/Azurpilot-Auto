@@ -79,12 +79,15 @@ class TaskConfigMixin(WebUIMixinBase):
         """渲染任务菜单及配置搜索入口。"""
         # 如果菜单和搜索入口已渲染且数据未变，仅调用 alas_overview 更新概览，
         # 跳过重建数百个 put_button 和数千条搜索索引。
+        data_sig = (id(self.ALAS_MENU), id(self.ALAS_ARGS), lang.LANG, self.alas_name)
         if getattr(self, "_menu_rendered", False):
-            data_sig = (id(self.ALAS_MENU), id(self.ALAS_ARGS), lang.LANG, self.alas_name)
             if getattr(self, "_menu_data_sig", None) == data_sig:
+                # 数据未变时不重建菜单，但 @use_scope("menu", clear=True) 已清空，
+                # 需要重新渲染菜单项，否则菜单会消失。
+                self._render_task_menu_items()
                 self.alas_overview()
                 return
-            self._menu_data_sig = data_sig
+        self._menu_data_sig = data_sig
 
         put_scope("task_config_search")
         put_scope("task_config_search_results")

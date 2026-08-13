@@ -49,6 +49,8 @@ class HomeMixin(WebUIMixinBase):
         self.init_menu(name="HomePage")
         self.set_title(t("Gui.MenuDevelop.HomePage"))
         self.alas_name = ""
+        self._menu_rendered = False
+        self._menu_data_sig = None
         if hasattr(self, "alas"):
             del self.alas
         self.set_status(0)
