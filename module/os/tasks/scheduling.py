@@ -1193,6 +1193,13 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 f'[大世界-买行动力] 第 {buy_round} 次购买完成，'
                 f'开始侵蚀1练级，持续消耗行动力'
             )
+            self.notify_push(
+                title='[AzurPilot] 大世界-买行动力',
+                content=(
+                    f'第 {buy_round}/{buy_limit} 次购买行动力完成\n'
+                    f'下一步任务：侵蚀1练级'
+                ),
+            )
             with self.config.temporary(OpsiGeneral_BuyActionPointLimit=0):
                 while True:
                     try:
@@ -1251,6 +1258,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 break
 
             # 步骤1：检查当前行动力，决定是否需要购买
+            bought_this_round = False
             _, current_ap = self._get_scheduling_action_point()
             if current_ap >= lower_threshold:
                 logger.info(
@@ -1274,6 +1282,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 current_ap = int(
                     getattr(self, '_action_point_current', current_ap) or current_ap
                 )
+                bought_this_round = True
 
             # 步骤2：按动态优先级表执行海域任务
             buy_count = self._get_buy_action_point_count()
@@ -1295,6 +1304,22 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             )
             logger.info(
                 f'[大世界-买行动力] 第 {buy_count} 次购买后优先级表: {task_names}'
+            )
+
+            # 推送本轮购买状态和下一步任务
+            if bought_this_round:
+                push_content = (
+                    f'第 {buy_round}/{buy_limit} 次购买行动力完成\n'
+                    f'下一步任务：{task_names}'
+                )
+            else:
+                push_content = (
+                    f'行动力充足，跳过购买\n'
+                    f'下一步任务：{task_names}'
+                )
+            self.notify_push(
+                title='[AzurPilot] 大世界-买行动力',
+                content=push_content,
             )
 
             # 临时禁用 BuyActionPointLimit，防止子任务自动购买
