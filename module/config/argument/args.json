@@ -2362,6 +2362,14 @@
         "type": "checkbox",
         "value": false
       },
+      "HighValueCommissionFilterCount": {
+        "type": "input",
+        "value": 32
+      },
+      "HighValueCommissionReserve": {
+        "type": "input",
+        "value": 2
+      },
       "VanguardLevelMin": {
         "type": "input",
         "value": 1,
@@ -2871,6 +2879,14 @@
         "type": "checkbox",
         "value": false
       },
+      "HighValueCommissionFilterCount": {
+        "type": "input",
+        "value": 32
+      },
+      "HighValueCommissionReserve": {
+        "type": "input",
+        "value": 2
+      },
       "VanguardLevelMin": {
         "type": "input",
         "value": 1,
@@ -3379,6 +3395,14 @@
       "CommissionLimit": {
         "type": "checkbox",
         "value": false
+      },
+      "HighValueCommissionFilterCount": {
+        "type": "input",
+        "value": 32
+      },
+      "HighValueCommissionReserve": {
+        "type": "input",
+        "value": 2
       },
       "VanguardLevelMin": {
         "type": "input",
@@ -15195,6 +15219,7 @@
         "option": [
           "None",
           "cheese",
+          "citrus_coffee",
           "strawberry_milkshake",
           "morning_light",
           "wake_up_call",
@@ -15207,6 +15232,7 @@
         "option": [
           "None",
           "cheese",
+          "citrus_coffee",
           "strawberry_milkshake",
           "morning_light",
           "wake_up_call",
@@ -15219,6 +15245,7 @@
         "option": [
           "None",
           "cheese",
+          "citrus_coffee",
           "strawberry_milkshake",
           "morning_light",
           "wake_up_call",
@@ -15231,6 +15258,7 @@
         "option": [
           "None",
           "cheese",
+          "citrus_coffee",
           "strawberry_milkshake",
           "morning_light",
           "wake_up_call",
@@ -15243,6 +15271,7 @@
         "option": [
           "None",
           "cheese",
+          "citrus_coffee",
           "strawberry_milkshake",
           "morning_light",
           "wake_up_call",
@@ -15482,9 +15511,17 @@
         "type": "input",
         "value": 300
       },
+      "ChickenFilter": {
+        "type": "textarea",
+        "value": "WorkerJuu"
+      },
       "MinPork": {
         "type": "input",
         "value": 300
+      },
+      "PigFilter": {
+        "type": "textarea",
+        "value": "WorkerJuu"
       },
       "Milk": {
         "type": "checkbox",

@@ -1445,13 +1445,25 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             self.config.task_stop()
 
         logger.info('[大世界-智能调度+] 执行一轮耄耋相接')
-        # 智能调度上下文外层已查询行动力，跳过子任务内的冗余弹窗
-        self._run_with_opsi_task_context(
-            self.TASK_NAME_MEOWFFICER_FARMING,
-            self.run_meowfficer_farming_once,
-            ap_preserve=ap_preserve,
-            ap_checked=True,
-        )
+        with self.config.temporary(
+            OS_ACTION_POINT_PRESERVE=self.config.OS_ACTION_POINT_PRESERVE,
+        ):
+            try:
+                # 智能调度上下文外层已查询行动力，跳过子任务内的冗余弹窗
+                self._run_with_opsi_task_context(
+                    self.TASK_NAME_MEOWFFICER_FARMING,
+                    self.run_meowfficer_farming_once,
+                    ap_preserve=ap_preserve,
+                    ap_checked=True,
+                )
+            except ActionPointLimit as e:
+                if ap_preserve > 0 and getattr(e, 'preserve', None) == ap_preserve:
+                    logger.info(
+                        f'[大世界-智能调度+] 耄耋相接已达到行动力保留值 '
+                        f'({e.total} <= {ap_preserve})，返回智能调度+'
+                    )
+                    return
+                raise
 
     def handle_first_auto_search(self, run):
         """由智能调度+决策是否执行 os_init 阶段跳过的首次自律寻敌。"""
