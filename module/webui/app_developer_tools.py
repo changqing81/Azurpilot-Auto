@@ -173,6 +173,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
             """直接在当前页面弹出错误弹窗（无需刷新）。"""
             from module.handler.task_failure_protection import TaskFailureTracker, _now_iso
             import json
+            import time
 
             instance = _get_debug_target_instance()
             if not instance:
