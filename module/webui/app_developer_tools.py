@@ -172,7 +172,6 @@ class DeveloperToolsMixin(WebUIMixinBase):
         def _simulate_error_popup():
             """直接弹出错误提示卡片（复用 alas-update-notice 完整模板）。"""
             from module.handler.task_failure_protection import TaskFailureTracker, _now_iso
-            import json
             import time
 
             instance = _get_debug_target_instance()
@@ -226,9 +225,13 @@ class DeveloperToolsMixin(WebUIMixinBase):
 
             with use_scope("ROOT"):
                 put_html(html)
+
                 def _go_handle():
                     run_js(remove_js)
-                    toast("去处理：已跳转到该任务", color="info")
+                    try:
+                        self.alas_set_group('Commission')
+                    except Exception:
+                        pass
 
                 def _later():
                     run_js(remove_js)

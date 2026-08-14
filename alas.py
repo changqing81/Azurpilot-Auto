@@ -350,7 +350,7 @@ class AzurLaneAutoScript:
             # 汇总所有未读通知，构造暂停任务列表
             all_unread = self.failure_tracker.get_unread_notifications()
             paused_tasks = [
-                f"{_get_task_display_name(n.get('task', n.get('task', '')))}"
+                _get_task_display_name(n.get('task', ''))
                 for n in all_unread
             ]
             paused_count = len(paused_tasks)
