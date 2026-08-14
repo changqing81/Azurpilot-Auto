@@ -170,7 +170,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
         )
 
         def _simulate_error_popup():
-            """直接在当前页面弹出错误弹窗（无需刷新）。"""
+            """直接弹出错误提示卡片（复用 alas-update-notice 完整模板）。"""
             from module.handler.task_failure_protection import TaskFailureTracker, _now_iso
             import json
             import time
@@ -180,7 +180,6 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 toast("未找到可用实例，无法模拟错误弹窗", color="warning")
                 return
 
-            # 写入记录文件，保证真实链路也走通
             try:
                 tracker = TaskFailureTracker(instance)
                 tracker._data.setdefault('notifications', [])
@@ -195,48 +194,53 @@ class DeveloperToolsMixin(WebUIMixinBase):
             except Exception as e:
                 toast(f"写入记录失败：{e}", color="warning")
 
-            # 立即在页面弹出浮动通知卡片
             notice_id = f"task_failure_sim_{int(time.time() * 1000)}"
+            actions_id = f"task_failure_sim_actions_{int(time.time() * 1000)}"
+
             remove_js = (
-                f"var e=document.getElementById('{notice_id}');"
-                f"if(e)e.parentNode.removeChild(e);"
+                f"var el=document.getElementById('{notice_id}');"
+                f"if(el&&el.parentNode)el.parentNode.removeChild(el);"
             )
 
             html = (
-                '<div id="' + notice_id + '" class="alas-update-notice" role="status" aria-live="polite"'
-                ' style="max-height:70vh;overflow:hidden;">'
-                '<div class="alas-update-notice-header">'
-                '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f03e3e"'
-                ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">'
+                '<div id="' + notice_id + '" class="alas-update-notice" role="status" aria-live="polite">'
+                '<div class="alas-update-notice__halo"></div>'
+                '<div class="alas-update-notice__icon" aria-hidden="true" style="color:#f03e3e;background:rgba(240,62,62,0.08)">'
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+                ' stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
                 '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
                 '<line x1="12" y1="9" x2="12" y2="13"/>'
                 '<line x1="12" y1="17" x2="12.01" y2="17"/>'
                 '</svg>'
-                '<span style="font-weight:700;font-size:1.05rem;line-height:1.3;">1 个任务已自动关闭</span>'
                 '</div>'
-                '<div style="padding:0 16px 12px;">'
-                '<div style="display:flex;align-items:center;justify-content:space-between;'
-                'padding:6px 8px;margin-bottom:4px;'
-                'background:rgba(240,62,62,0.06);border-radius:6px;gap:8px;">'
-                '<div style="min-width:0;flex:1;">'
-                '<div style="font-weight:700;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">委托</div>'
-                '<div style="font-size:0.78rem;opacity:0.7;line-height:1.3;">GameStuckError · 3 次</div>'
+                '<div class="alas-update-notice__body">'
+                '<div class="alas-update-notice__eyebrow" style="color:#f03e3e">任务异常</div>'
+                '<div class="alas-update-notice__title">委托任务已自动关闭</div>'
+                '<div class="alas-update-notice__text">'
+                '该任务因 GameStuckError 连续失败 3 次，已触发失败保护自动关闭。请检查配置后重新启用。'
                 '</div>'
-                '</div>'
-                '</div>'
-                '<div class="alas-update-notice-actions" id="' + notice_id + '_actions">'
-                '<button class="btn btn-danger btn-sm" onclick="' + remove_js + '">去处理</button>'
-                '<button class="btn btn-secondary btn-sm" onclick="' + remove_js + '">全部已知晓</button>'
+                '<div id="pywebio-scope-' + actions_id + '" class="alas-update-notice__actions"></div>'
                 '</div>'
                 '</div>'
             )
 
-            run_js(
-                '(function(){'
-                'var e=document.getElementById("ROOT");'
-                'if(e)e.insertAdjacentHTML("beforeend",' + json.dumps(html) + ');'
-                '})();'
-            )
+            with use_scope("ROOT"):
+                put_html(html)
+                def _go_handle():
+                    run_js(remove_js)
+                    toast("去处理：已跳转到该任务", color="info")
+
+                def _later():
+                    run_js(remove_js)
+
+                put_buttons(
+                    [
+                        {"label": "去处理", "value": "handle", "color": "danger"},
+                        {"label": "稍后再说", "value": "later", "color": "secondary"},
+                    ],
+                    onclick=[_go_handle, _later],
+                    scope=actions_id,
+                )
 
             toast("模拟错误弹窗已弹出", color="success")
 
