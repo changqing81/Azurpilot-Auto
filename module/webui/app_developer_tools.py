@@ -172,7 +172,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
             """写入一条测试失败通知，下次仪表盘刷新时弹出错误提示卡片。"""
             from module.handler.task_failure_protection import TaskFailureTracker, _now_iso
 
-            instance = getattr(self, "alas_name", DEFAULT_CONFIG_NAME)
+            instance = _get_debug_target_instance()
             if not instance:
                 toast("未找到可用实例，无法模拟错误弹窗", color="warning")
                 return
