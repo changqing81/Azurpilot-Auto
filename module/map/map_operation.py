@@ -258,7 +258,9 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                     continue
 
                 # 进入战役
-                if campaign_timer.reached() and self.appear_then_click(button):
+                if campaign_timer.reached() and self.appear(button):
+                    self.device.click(button)
+                    self.device.sleep(0.2)  # 给游戏过渡动画响应时间，避免点击过快导致卡死
                     campaign_click += 1
                     campaign_timer.reset()
                     continue
