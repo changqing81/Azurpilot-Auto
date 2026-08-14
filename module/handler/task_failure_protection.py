@@ -3,7 +3,7 @@
 跟踪任务失败记录，在用户设定的时间窗口内同一错误原因累计达到阈值时，
 自动关闭该任务并生成通知供 WebUI 弹窗展示。
 
-数据持久化在 ``config/<config_name>.task_failure.json``，结构如下::
+数据持久化在 ``log/<config_name>.task_failure.json``，结构如下::
 
     {
         "failures": {
@@ -30,8 +30,6 @@ import json
 import os
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
-
-from module.config.utils import filepath_config
 from module.logger import logger
 
 
@@ -52,14 +50,36 @@ class TaskFailureTracker:
     """任务失败记录跟踪器。
 
     每个配置实例对应一个独立的跟踪器，数据持久化到 JSON 文件。
+    数据文件存放在 ``log/`` 目录下，避免与 ``config/`` 目录中的配置文件混淆。
     跟踪器记录每个任务的每种错误原因的失败时间戳列表，
     并在达到阈值时生成通知。
     """
 
     def __init__(self, config_name: str):
         self.config_name = config_name
-        self.filepath = filepath_config(config_name).replace('.json', '.task_failure.json')
+        self.filepath = self._make_filepath(config_name)
         self._data: Dict[str, Any] = self._load()
+
+    @staticmethod
+    def _make_filepath(config_name: str) -> str:
+        """将失败记录文件存放在 ``log/`` 目录下。
+
+        使用 ``log/<config_name>.task_failure.json``，与配置文件分离，
+        避免 ``config/`` 目录中的杂项文件被误识别为配置文件。
+        文件不存在时会自动创建 ``log/`` 目录。
+
+        Args:
+            config_name: 配置实例名。
+
+        Returns:
+            失败记录文件的绝对路径。
+        """
+        log_dir = os.path.join(os.getcwd(), 'log')
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except OSError:
+            pass
+        return os.path.join(log_dir, f'{config_name}.task_failure.json')
 
     def _load(self) -> Dict[str, Any]:
         """从磁盘加载失败记录，文件不存在或损坏时返回空结构。"""

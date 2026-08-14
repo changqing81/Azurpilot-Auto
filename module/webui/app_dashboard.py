@@ -2,12 +2,12 @@
 
 import json
 import os
+import time
 
 from module.webui.app_dependencies import (
     Function,
     LogRes,
     clear,
-    close_popup,
     current_time,
     datetime,
     deep_get,
@@ -21,8 +21,8 @@ from module.webui.app_dependencies import (
     put_row,
     put_scope,
     put_text,
-    popup,
     re,
+    run_js,
     t,
     use_scope,
 )
@@ -107,10 +107,11 @@ class DashboardMixin(WebUIMixinBase):
                 put_text(t("Gui.Overview.NoTask")).style("--overview-notask-text--")
 
     def _check_task_failure_notifications(self) -> None:
-        """检查任务失败保护通知并弹出提示。
+        """检查任务失败保护通知并弹出浮动提示卡片。
 
-        读取当前实例对应的失败记录文件，如果存在未读通知则弹出对话框。
-        用户点击"去处理"跳转到该任务的设置页，点击"我已知晓"关闭弹窗。
+        读取当前实例对应的失败记录文件（存放在 ``log/`` 目录），
+        如果存在未读通知则显示类似更新提示的浮动通知卡片。
+        用户点击"去处理"跳转到该任务的设置页，点击"我已知晓"关闭提示。
         已展示过的通知不会重复弹出。
         """
         if not self.alas_name:
@@ -120,8 +121,8 @@ class DashboardMixin(WebUIMixinBase):
         if getattr(self, "_failure_popup_shown", False):
             return
 
-        # 读取失败记录文件
-        filepath = os.path.join('./config', f'{self.alas_name}.task_failure.json')
+        # 失败记录文件存放在 log 目录下
+        filepath = os.path.join('./log', f'{self.alas_name}.task_failure.json')
         if not os.path.exists(filepath):
             return
         try:
@@ -135,15 +136,10 @@ class DashboardMixin(WebUIMixinBase):
         if not unread:
             return
 
-        # 取第一条未读通知展示
-        notice = unread[0]
-        task = notice.get('task', '')
-        reason = notice.get('reason', '')
-        count = notice.get('count', 0)
-        timestamp = notice.get('timestamp', '')
-
-        # 避免重复弹窗：记录已展示的通知标识
-        notice_key = f'{task}_{timestamp}'
+        # 避免重复弹窗：所有未读通知组合成一个标识
+        notice_key = '_'.join(
+            f'{n.get("task", "")}_{n.get("timestamp", "")}' for n in unread
+        )
         shown_set = getattr(self, '_shown_failure_keys', set())
         if notice_key in shown_set:
             return
@@ -151,64 +147,117 @@ class DashboardMixin(WebUIMixinBase):
         self._shown_failure_keys = shown_set
         self._failure_popup_shown = True
 
-        # 获取任务显示名
-        task_display = task
-        try:
-            task_display = t(f'Task.{task}.name')
-        except Exception:
-            pass
+        # 生成唯一 scope id
+        notice_id = f"task_failure_batch_{int(time.time() * 1000)}"
 
-        title = f'任务 {task_display} 已自动关闭'
-        content_html = (
-            f'<div style="padding: .5rem 0;">'
-            f'<p style="font-size: 1rem; margin-bottom: .5rem;">'
-            f'任务 <b>{task_display}</b> 因连续失败已被自动关闭'
-            f'</p>'
-            f'<div style="background: rgba(255,255,255,.06); border-radius: .375rem; padding: .5rem .75rem; margin-bottom: .5rem;">'
-            f'<p style="margin: 0 0 .25rem;">错误原因：<b>{reason}</b></p>'
-            f'<p style="margin: 0 0 .25rem;">累计失败：<b>{count}</b> 次</p>'
-            f'<p style="margin: 0;">触发时间：{timestamp}</p>'
-            f'</div>'
-            f'<p style="color: rgba(255,255,255,.6); font-size: .85rem; margin: 0;">'
-            f'请检查该任务的配置是否正确，确认后手动重新启用该任务。'
-            f'</p>'
-            f'</div>'
+        _remove_js = (
+            "(function () {\n"
+            "    var el = document.getElementById('" + notice_id + "');\n"
+            "    if (el && el.parentNode) {\n"
+            "        el.parentNode.removeChild(el);\n"
+            "    }\n"
+            "})();\n"
         )
 
-        def go_handle():
-            """跳转到出错任务的设置页。"""
-            close_popup()
-            self._failure_popup_shown = False
-            # 标记通知已读
-            self._mark_failure_notification_read(task)
-            # 跳转到任务设置页
-            self.alas_set_group(task)
+        def _remove_failure_notice():
+            run_js(_remove_js)
 
-        def acknowledge():
-            """关闭弹窗，标记通知已读。"""
-            close_popup()
-            self._failure_popup_shown = False
-            self._mark_failure_notification_read(task)
+        # 为每个未读通知准备任务信息
+        task_rows = []
+        for n in unread:
+            task = n.get('task', '')
+            reason = n.get('reason', '')
+            count = n.get('count', 0)
+            ts = n.get('timestamp', '')
+            task_display = task
+            try:
+                task_display = t(f'Task.{task}.name')
+            except Exception:
+                pass
+            task_rows.append((task, task_display, reason, count, ts))
 
-        try:
-            popup(
-                title=title,
-                content=[
-                    put_html(content_html),
-                    put_buttons(
-                        [
-                            {'label': '去处理', 'value': 'handle', 'color': 'danger'},
-                            {'label': '我已知晓', 'value': 'ack', 'color': 'secondary'},
-                        ],
-                        onclick=[go_handle, acknowledge],
-                    ),
+        unread_count = len(task_rows)
+        title_text = (
+            f'{unread_count} 个任务已自动关闭' if unread_count > 1
+            else '1 个任务已自动关闭'
+        )
+
+        # 构建每个任务的列表行 HTML（信息展示，不绑按钮）
+        rows_html = []
+        for idx, (task, task_display, reason, count, ts) in enumerate(task_rows):
+            rows_html.append(
+                '<div style="display: flex; align-items: center; justify-content: space-between;'
+                ' padding: 6px 8px; margin-bottom: 4px;'
+                ' background: rgba(240, 62, 62, 0.06); border-radius: 6px; gap: 8px;">'
+                '<div style="min-width: 0; flex: 1;">'
+                '<div style="font-weight: 700; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">'
+                '{task_display}</div>'
+                '<div style="font-size: 0.78rem; opacity: 0.7; line-height: 1.3;">'
+                '{reason} &middot; {count} 次</div>'
+                '</div>'
+                '</div>'
+            ).format(task_display=task_display, reason=reason, count=count)
+        rows_html_str = '\n'.join(rows_html)
+
+        html = (
+            '<div id="{}" class="alas-update-notice" role="status" aria-live="polite" '
+            'style="max-height: 70vh; overflow: hidden;">'
+            '<div class="alas-update-notice__halo"></div>'
+            '<div class="alas-update-notice__icon" aria-hidden="true">'
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+            ' stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M12 9v4"></path>'
+            '<path d="M12 17h.01"></path>'
+            '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>'
+            '</svg>'
+            '</div>'
+            '<div class="alas-update-notice__body">'
+            '<div class="alas-update-notice__eyebrow">任务异常</div>'
+            '<div class="alas-update-notice__title">{title_text}</div>'
+            '<div class="alas-update-notice__text">'
+            '以下任务因连续失败已被自动关闭，请逐一处理。</div>'
+            '<div style="max-height: 180px; overflow-y: auto; margin: 4px 0 8px 0;">'
+            '{rows_html}'
+            '</div>'
+            '<div id="pywebio-scope-{scope_id}_actions" class="alas-update-notice__actions"></div>'
+            '</div>'
+            '</div>'
+        ).format(notice_id, title_text=title_text, rows_html=rows_html_str,
+                 scope_id=notice_id)
+
+        # 先移除已存在的同 id 提示
+        run_js(_remove_js)
+
+        with use_scope("ROOT"):
+            put_html(html)
+
+            # 汇总所有未读通知，"去处理"跳转到第一个出错任务的设置页
+            first_task = task_rows[0][0] if task_rows else ''
+
+            def _go_handle_first():
+                _remove_failure_notice()
+                self._failure_popup_shown = False
+                for n in unread:
+                    self._mark_failure_notification_read(n.get('task', ''))
+                if first_task:
+                    self.alas_set_group(first_task)
+
+            def acknowledge_all():
+                """关闭提示，标记所有通知已读。"""
+                _remove_failure_notice()
+                self._failure_popup_shown = False
+                for n in unread:
+                    self._mark_failure_notification_read(n.get('task', ''))
+
+            put_buttons(
+                [
+                    {"label": "去处理", "value": "handle", "color": "danger"},
+                    {"label": "全部已知晓", "value": "ack", "color": "secondary"},
                 ],
-                implicit_close=False,
-                closable=True,
+                onclick=[_go_handle_first, acknowledge_all],
+                small=True,
+                scope=f"{notice_id}_actions",
             )
-        except Exception as e:
-            logger.warning(f'[WebUI] 任务失败保护弹窗显示失败: {e}')
-            self._failure_popup_shown = False
 
     def _mark_failure_notification_read(self, task: str) -> None:
         """将指定任务的失败保护通知标记为已读。
@@ -218,7 +267,7 @@ class DashboardMixin(WebUIMixinBase):
         """
         if not self.alas_name:
             return
-        filepath = os.path.join('./config', f'{self.alas_name}.task_failure.json')
+        filepath = os.path.join('./log', f'{self.alas_name}.task_failure.json')
         if not os.path.exists(filepath):
             return
         try:

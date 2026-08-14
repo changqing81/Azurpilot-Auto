@@ -79,6 +79,10 @@ class AzurLaneAutoScript:
         # 任务失败保护跟踪器
         from module.handler.task_failure_protection import TaskFailureTracker
         self.failure_tracker = TaskFailureTracker(config_name)
+        # 任务失败保护自动关闭的任务名集合（运行时禁用列表）。
+        # 命中此列表的任务在 ``get_next_task`` 阶段直接跳过，
+        # 确保被保护关闭的任务不会再被调度，即使配置尚未持久化。
+        self._disabled_tasks_by_protection: set = set()
 
     def _try_restart_emulator(self):
         """
@@ -329,6 +333,9 @@ class AzurLaneAutoScript:
             self.config.modified[f'{task}.Scheduler.Enable'] = False
             self.config.save()
 
+            # 加入运行时禁用列表，即使配置持久化未生效也确保不再调度该任务
+            self._disabled_tasks_by_protection.add(task)
+
             # 生成通知
             self.failure_tracker.add_notification(task, reason, count)
 
@@ -339,17 +346,38 @@ class AzurLaneAutoScript:
                 push_enabled = False
 
             task_display = _get_task_display_name(task)
+
+            # 汇总所有未读通知，构造暂停任务列表
+            all_unread = self.failure_tracker.get_unread_notifications()
+            paused_tasks = [
+                f"{_get_task_display_name(n.get('task', n.get('task', '')))}"
+                for n in all_unread
+            ]
+            paused_count = len(paused_tasks)
+            paused_list = '、'.join(paused_tasks)
+
             if push_enabled:
+                title = (
+                    f"[AzurPilot] <{self.config_name}> {paused_count} 个任务已自动关闭"
+                    if paused_count > 1
+                    else f"[AzurPilot] <{self.config_name}> 1 个任务已自动关闭"
+                )
+                content = (
+                    f"<{self.config_name}> 本次任务 {task_display} 因 {reason} "
+                    f"连续失败 {count} 次已自动关闭。\n\n"
+                    f"当前共暂停 {paused_count} 个任务：{paused_list}\n\n"
+                    f"请检查各任务配置后重新启用。"
+                )
                 handle_notify(
                     self.config.Error_OnePushConfig,
-                    title=f"[AzurPilot] <{self.config_name}> 任务已自动关闭",
-                    content=f"<{self.config_name}> 任务 {task_display} 因连续失败 {count} 次已被自动关闭，"
-                            f"错误原因: {reason}。请检查配置后重新启用该任务。",
+                    title=title,
+                    content=content,
                 )
+
             notify_webui(
                 self.config_name,
-                title=f"任务 {task_display} 已自动关闭",
-                content=f"任务 {task_display} 因 {reason} 连续失败 {count} 次已被自动关闭",
+                title=title,
+                content=f"当前共暂停 {paused_count} 个任务：{paused_list}",
             )
 
             # 重置该任务的失败计数器，避免下次启用后立即触发
@@ -1306,6 +1334,9 @@ class AzurLaneAutoScript:
         如果任务尚未到执行时间，根据 Optimization_WhenTaskQueueEmpty 设置
         选择等待策略（关闭游戏 / 前往主页 / 停留原地），然后阻塞等待。
 
+        同时检查任务是否在运行时禁用列表中（因失败保护被自动关闭），
+        命中则强制延迟该任务并继续选取下一个，避免重复调度。
+
         Returns:
             str: 下一个任务的方法名（如 'Restart'、'Commission'）。
         """
@@ -1313,6 +1344,15 @@ class AzurLaneAutoScript:
             task = self.config.get_next()
             self.config.task = task
             self.config.bind(task)
+
+            # 任务因失败保护被自动关闭，跳过并强制延迟该任务
+            if task.command in self._disabled_tasks_by_protection:
+                logger.info(
+                    f'[Alas] 任务 `{task.command}` 因失败保护处于禁用状态，跳过调度'
+                )
+                self.config.task_delay(task.command, target=current_time() + timedelta(hours=24))
+                del_cached_property(self, 'config')
+                continue
 
             from module.base.resource import release_resources
             if self.config.task.command != 'Alas':

@@ -168,6 +168,36 @@ class DeveloperToolsMixin(WebUIMixinBase):
             scope="develop_detail",
         )
 
+        def _simulate_error_popup():
+            """写入一条测试失败通知，下次仪表盘刷新时弹出错误提示卡片。"""
+            from module.handler.task_failure_protection import TaskFailureTracker, _now_iso
+
+            instance = getattr(self, "alas_name", DEFAULT_CONFIG_NAME)
+            if not instance:
+                toast("未找到可用实例，无法模拟错误弹窗", color="warning")
+                return
+            try:
+                tracker = TaskFailureTracker(instance)
+                tracker._data.setdefault('notifications', [])
+                tracker._data['notifications'].append({
+                    'task': 'Commission',
+                    'reason': 'GameStuckError',
+                    'count': 3,
+                    'timestamp': _now_iso(),
+                    'read': False,
+                })
+                tracker._save()
+                toast("测试失败通知已写入，请刷新仪表盘查看错误弹窗", color="success")
+            except Exception as e:
+                toast(f"写入测试失败通知失败：{e}", color="error")
+
+        put_button(
+            label="模拟错误弹窗",
+            onclick=_simulate_error_popup,
+            color="danger",
+            scope="develop_detail",
+        )
+
         def _force_restart():
             if State.restart_event is None:
                 toast(t("Gui.Toast.ReloadEnabled"), color="error")
