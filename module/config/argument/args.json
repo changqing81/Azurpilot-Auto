@@ -504,6 +504,40 @@
         "valuetype": "str"
       }
     },
+    "TaskFailureProtection": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotify": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "MaxFailures": {
+        "type": "input",
+        "value": 3,
+        "validate": [
+          1,
+          10
+        ]
+      },
+      "TimeWindowHours": {
+        "type": "input",
+        "value": 24,
+        "validate": [
+          1,
+          168
+        ]
+      }
+    },
     "Optimization": {
       "OcrDevice": {
         "type": "select",
@@ -6118,24 +6152,22 @@
         "value": "campaign_main",
         "option": [
           "coalition_20230323",
-          "coalition_20260122",
           "coalition_20260723"
         ],
         "option_cn": [
           "coalition_20260723"
         ],
         "option_en": [
-          "coalition_20260122"
+          "coalition_20260723"
         ],
         "option_jp": [
-          "coalition_20260122"
+          "coalition_20260723"
         ],
         "option_tw": [
           "coalition_20230323"
         ],
         "option_bold": [
           "coalition_20230323",
-          "coalition_20260122",
           "coalition_20260723"
         ]
       },
@@ -6421,24 +6453,22 @@
         "value": "campaign_main",
         "option": [
           "coalition_20230323",
-          "coalition_20260122",
           "coalition_20260723"
         ],
         "option_cn": [
           "coalition_20260723"
         ],
         "option_en": [
-          "coalition_20260122"
+          "coalition_20260723"
         ],
         "option_jp": [
-          "coalition_20260122"
+          "coalition_20260723"
         ],
         "option_tw": [
           "coalition_20230323"
         ],
         "option_bold": [
           "coalition_20230323",
-          "coalition_20260122",
           "coalition_20260723"
         ]
       },
@@ -10177,24 +10207,22 @@
         "value": "campaign_main",
         "option": [
           "coalition_20230323",
-          "coalition_20260122",
           "coalition_20260723"
         ],
         "option_cn": [
           "coalition_20260723"
         ],
         "option_en": [
-          "coalition_20260122"
+          "coalition_20260723"
         ],
         "option_jp": [
-          "coalition_20260122"
+          "coalition_20260723"
         ],
         "option_tw": [
           "coalition_20230323"
         ],
         "option_bold": [
           "coalition_20230323",
-          "coalition_20260122",
           "coalition_20260723"
         ]
       },

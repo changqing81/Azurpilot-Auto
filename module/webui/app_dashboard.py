@@ -1,20 +1,27 @@
 """WebUI仪表盘刷新逻辑"""
 
+import json
+import os
+
 from module.webui.app_dependencies import (
     Function,
     LogRes,
     clear,
+    close_popup,
     current_time,
     datetime,
     deep_get,
     get_dashboard_scope_id,
     get_group_scope_id,
+    logger,
     put_button,
+    put_buttons,
     put_column,
     put_html,
     put_row,
     put_scope,
     put_text,
+    popup,
     re,
     t,
     use_scope,
@@ -36,6 +43,9 @@ class DashboardMixin(WebUIMixinBase):
             return
         self.alas_config.load()
         self.alas_config.get_next_task()
+
+        # 检查任务失败保护通知
+        self._check_task_failure_notifications()
 
         if len(self.alas_config.pending_task) >= 1:
             if self.alas.alive:
@@ -95,6 +105,135 @@ class DashboardMixin(WebUIMixinBase):
                     put_task(task)
             else:
                 put_text(t("Gui.Overview.NoTask")).style("--overview-notask-text--")
+
+    def _check_task_failure_notifications(self) -> None:
+        """检查任务失败保护通知并弹出提示。
+
+        读取当前实例对应的失败记录文件，如果存在未读通知则弹出对话框。
+        用户点击"去处理"跳转到该任务的设置页，点击"我已知晓"关闭弹窗。
+        已展示过的通知不会重复弹出。
+        """
+        if not self.alas_name:
+            return
+
+        # 弹窗已显示时不重复检查
+        if getattr(self, "_failure_popup_shown", False):
+            return
+
+        # 读取失败记录文件
+        filepath = os.path.join('./config', f'{self.alas_name}.task_failure.json')
+        if not os.path.exists(filepath):
+            return
+        try:
+            with open(filepath, encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception:
+            return
+
+        notifications = data.get('notifications', [])
+        unread = [n for n in notifications if not n.get('read', False)]
+        if not unread:
+            return
+
+        # 取第一条未读通知展示
+        notice = unread[0]
+        task = notice.get('task', '')
+        reason = notice.get('reason', '')
+        count = notice.get('count', 0)
+        timestamp = notice.get('timestamp', '')
+
+        # 避免重复弹窗：记录已展示的通知标识
+        notice_key = f'{task}_{timestamp}'
+        shown_set = getattr(self, '_shown_failure_keys', set())
+        if notice_key in shown_set:
+            return
+        shown_set.add(notice_key)
+        self._shown_failure_keys = shown_set
+        self._failure_popup_shown = True
+
+        # 获取任务显示名
+        task_display = task
+        try:
+            task_display = t(f'Task.{task}.name')
+        except Exception:
+            pass
+
+        title = f'任务 {task_display} 已自动关闭'
+        content_html = (
+            f'<div style="padding: .5rem 0;">'
+            f'<p style="font-size: 1rem; margin-bottom: .5rem;">'
+            f'任务 <b>{task_display}</b> 因连续失败已被自动关闭'
+            f'</p>'
+            f'<div style="background: rgba(255,255,255,.06); border-radius: .375rem; padding: .5rem .75rem; margin-bottom: .5rem;">'
+            f'<p style="margin: 0 0 .25rem;">错误原因：<b>{reason}</b></p>'
+            f'<p style="margin: 0 0 .25rem;">累计失败：<b>{count}</b> 次</p>'
+            f'<p style="margin: 0;">触发时间：{timestamp}</p>'
+            f'</div>'
+            f'<p style="color: rgba(255,255,255,.6); font-size: .85rem; margin: 0;">'
+            f'请检查该任务的配置是否正确，确认后手动重新启用该任务。'
+            f'</p>'
+            f'</div>'
+        )
+
+        def go_handle():
+            """跳转到出错任务的设置页。"""
+            close_popup()
+            self._failure_popup_shown = False
+            # 标记通知已读
+            self._mark_failure_notification_read(task)
+            # 跳转到任务设置页
+            self.alas_set_group(task)
+
+        def acknowledge():
+            """关闭弹窗，标记通知已读。"""
+            close_popup()
+            self._failure_popup_shown = False
+            self._mark_failure_notification_read(task)
+
+        try:
+            popup(
+                title=title,
+                content=[
+                    put_html(content_html),
+                    put_buttons(
+                        [
+                            {'label': '去处理', 'value': 'handle', 'color': 'danger'},
+                            {'label': '我已知晓', 'value': 'ack', 'color': 'secondary'},
+                        ],
+                        onclick=[go_handle, acknowledge],
+                    ),
+                ],
+                implicit_close=False,
+                closable=True,
+            )
+        except Exception as e:
+            logger.warning(f'[WebUI] 任务失败保护弹窗显示失败: {e}')
+            self._failure_popup_shown = False
+
+    def _mark_failure_notification_read(self, task: str) -> None:
+        """将指定任务的失败保护通知标记为已读。
+
+        Args:
+            task: 任务名称。
+        """
+        if not self.alas_name:
+            return
+        filepath = os.path.join('./config', f'{self.alas_name}.task_failure.json')
+        if not os.path.exists(filepath):
+            return
+        try:
+            with open(filepath, encoding='utf-8') as f:
+                data = json.load(f)
+            changed = False
+            for n in data.get('notifications', []):
+                if n.get('task') == task and not n.get('read', False):
+                    n['read'] = True
+                    changed = True
+            if changed:
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.warning(f'[WebUI] 标记失败保护通知已读失败: {e}')
 
     def _update_dashboard(self, num=None, groups_to_display=None):
         x = 0

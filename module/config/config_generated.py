@@ -127,6 +127,12 @@ class GeneratedConfig:
     Error_LlmApiBase = 'https://api.xiaomimimo.com/v1'
     Error_LlmModel = 'mimo-v2.5-pro'
 
+    # 配置组 `TaskFailureProtection`
+    TaskFailureProtection_Enable = False  # True, False
+    TaskFailureProtection_PushNotify = False  # True, False
+    TaskFailureProtection_MaxFailures = 3
+    TaskFailureProtection_TimeWindowHours = 24
+
     # 配置组 `Optimization`
     Optimization_OcrDevice = 'auto'  # auto, qnn_npu, openvino_npu, openvino_gpu, gpu, openvino_cpu, cpu, ane
     Optimization_OcrBackend = 'auto'  # auto, onnxruntime, ncnn
