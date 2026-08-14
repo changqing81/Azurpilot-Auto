@@ -10537,17 +10537,30 @@
         "type": "checkbox",
         "value": false
       },
-      "GemNotify": {
-        "type": "checkbox",
-        "value": false
-      },
-      "CommissionNotifyReward": {
-        "type": "checkbox",
-        "value": false
-      },
-      "CommissionNotifyRewardStatistics": {
+      "NotifyReward": {
         "type": "checkbox",
         "value": true
+      },
+      "NotifyRewardStatistics": {
+        "type": "checkbox",
+        "value": true
+      },
+      "GemNotify": {
+        "type": "checkbox",
+        "value": true
+      },
+      "GemStatistics": {
+        "type": "checkbox",
+        "value": false
+      },
+      "GemStatisticsPeriod": {
+        "type": "select",
+        "value": "month",
+        "option": [
+          "today",
+          "week",
+          "month"
+        ]
       },
       "CommissionNotifyRewardCube": {
         "type": "checkbox",
