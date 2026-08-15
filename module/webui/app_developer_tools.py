@@ -24,6 +24,7 @@ from module.webui.app_dependencies import (
     put_text,
     put_warning,
     raise_exception,
+    run_js,
     t,
     toast,
     use_scope,
@@ -165,6 +166,91 @@ class DeveloperToolsMixin(WebUIMixinBase):
             label="清除图标模拟状态",
             onclick=_clear_mock_icon_state,
             color="secondary",
+            scope="develop_detail",
+        )
+
+        def _simulate_error_popup():
+            """直接弹出错误提示卡片（复用 alas-update-notice 完整模板）。"""
+            from module.handler.task_failure_protection import TaskFailureTracker, _now_iso
+            import time
+
+            instance = _get_debug_target_instance()
+            if not instance:
+                toast("未找到可用实例，无法模拟错误弹窗", color="warning")
+                return
+
+            try:
+                tracker = TaskFailureTracker(instance)
+                tracker._data.setdefault('notifications', [])
+                tracker._data['notifications'].append({
+                    'task': 'Commission',
+                    'reason': 'GameStuckError',
+                    'count': 3,
+                    'timestamp': _now_iso(),
+                    'read': False,
+                })
+                tracker._save()
+            except Exception as e:
+                toast(f"写入记录失败：{e}", color="warning")
+
+            notice_id = f"task_failure_sim_{int(time.time() * 1000)}"
+            actions_id = f"task_failure_sim_actions_{int(time.time() * 1000)}"
+
+            remove_js = (
+                f"var el=document.getElementById('{notice_id}');"
+                f"if(el&&el.parentNode)el.parentNode.removeChild(el);"
+            )
+
+            html = (
+                '<div id="' + notice_id + '" class="alas-update-notice" role="status" aria-live="polite">'
+                '<div class="alas-update-notice__halo"></div>'
+                '<div class="alas-update-notice__icon" aria-hidden="true" style="color:#f03e3e;background:rgba(240,62,62,0.08)">'
+                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+                ' stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
+                '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>'
+                '<line x1="12" y1="9" x2="12" y2="13"/>'
+                '<line x1="12" y1="17" x2="12.01" y2="17"/>'
+                '</svg>'
+                '</div>'
+                '<div class="alas-update-notice__body">'
+                '<div class="alas-update-notice__eyebrow" style="color:#f03e3e">任务异常</div>'
+                '<div class="alas-update-notice__title">委托任务已自动关闭</div>'
+                '<div class="alas-update-notice__text">'
+                '该任务因 GameStuckError 连续失败 3 次，已触发失败保护自动关闭。请检查配置后重新启用。'
+                '</div>'
+                '<div id="pywebio-scope-' + actions_id + '" class="alas-update-notice__actions"></div>'
+                '</div>'
+                '</div>'
+            )
+
+            with use_scope("ROOT"):
+                put_html(html)
+
+                def _go_handle():
+                    run_js(remove_js)
+                    try:
+                        self.alas_set_group('Commission')
+                    except Exception:
+                        pass
+
+                def _later():
+                    run_js(remove_js)
+
+                put_buttons(
+                    [
+                        {"label": "去处理", "value": "handle", "color": "danger"},
+                        {"label": "稍后再说", "value": "later", "color": "secondary"},
+                    ],
+                    onclick=[_go_handle, _later],
+                    scope=actions_id,
+                )
+
+            toast("模拟错误弹窗已弹出", color="success")
+
+        put_button(
+            label="模拟错误弹窗",
+            onclick=_simulate_error_popup,
+            color="danger",
             scope="develop_detail",
         )
 

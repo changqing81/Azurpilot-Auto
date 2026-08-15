@@ -30,7 +30,7 @@ from module.base.filter import Filter
 from module.base.timer import Timer
 from module.base.utils import point_limit
 from module.config.utils import dict_to_kv
-from module.exception import MapWalkError
+from module.exception import MapWalkError, GameTooManyClickError
 from module.handler.assets import MAINTENANCE_ANNOUNCE
 from module.logger import logger
 from module.map.fleet import Fleet
@@ -430,6 +430,8 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         # 记录剧情历史以清除点击记录
         clicked_story = False
         clicked_story_count = 0
+        # 累计剧情选项点击轮数（不在清空时重置），用于检测卡死
+        clicked_story_total = 0
 
         confirm_timer.reset()
 
@@ -448,6 +450,7 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                 if event == 'story_skip':
                     clicked_story = True
                     clicked_story_count += 1
+                    clicked_story_total += 1
                     # 清除点击记录，避免塞壬扫描装置中超过 6 个选项导致的 GameTooManyClickError
                     # 塞壬扫描装置中提交物品的流程为
                     # STORY_OPTION_2_OF_3 -> POPUP_CONFIRM_STORY_SKIP
@@ -457,6 +460,12 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                         logger.info('[大世界-剧情] 剧情中连续选项')
                         self.device.click_record_clear()
                         clicked_story_count = 0
+                        # 连续多轮无进展地点击剧情选项，判定为大世界剧情卡死，触发重启
+                        # 正常剧情选项一般连续 1~2 轮即可推进，3 轮以上无任何进展视为卡死
+                        if clicked_story_total >= 33:
+                            logger.warning('[大世界-剧情] 连续多次剧情选项无进展，判定剧情卡死，触发重启')
+                            self.device.click_record_clear()
+                            raise GameTooManyClickError('[大世界-剧情] 连续多次剧情选项无进展')
                 elif event == 'map_get_items':
                     # story_skip -> map_get_items 表示收到了深渊进度奖励
                     if clicked_story:
@@ -464,10 +473,12 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                         self.device.click_record_clear()
                         clicked_story = False
                     clicked_story_count = 0
+                    clicked_story_total = 0
                 else:
                     # 处理了其他事件，清除历史记录
                     clicked_story = False
                     clicked_story_count = 0
+                    clicked_story_total = 0
                 continue
             if self.handle_retirement():
                 confirm_timer.reset()
