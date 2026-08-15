@@ -1246,7 +1246,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         lower_threshold = self._get_buy_action_point_lower_threshold()
         logger.info(
             f'[大世界-买行动力] 阈值配置: 上限={upper_threshold}（超过则跳过购买），'
-            f'下限={lower_threshold}（任务执行中AP低于此值则回购买）'
+            f'下限={lower_threshold}（低于则回购买）'
         )
         while True:
             current_count = self._get_buy_action_point_count()
@@ -1260,15 +1260,15 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             # 步骤1：检查当前行动力，决定是否需要购买
             bought_this_round = False
             _, current_ap = self._get_scheduling_action_point()
-            if current_ap >= upper_threshold:
+            if current_ap >= lower_threshold:
                 logger.info(
-                    f'[大世界-买行动力] 当前行动力 {current_ap} >= 上限阈值 {upper_threshold}，'
-                    f'行动力充足，跳过购买直接执行海域任务'
+                    f'[大世界-买行动力] 当前行动力 {current_ap} >= 下限阈值 {lower_threshold}，'
+                    f'跳过购买直接执行海域任务'
                 )
             else:
                 buy_round = current_count + 1
                 logger.info(
-                    f'[大世界-买行动力] 当前行动力 {current_ap} < 上限阈值 {upper_threshold}，'
+                    f'[大世界-买行动力] 当前行动力 {current_ap} < 下限阈值 {lower_threshold}，'
                     f'准备第 {buy_round}/{buy_limit} 次购买行动力'
                 )
                 if not self._buy_one_action_point():
@@ -1314,7 +1314,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 )
             else:
                 push_content = (
-                    f'行动力充足（>= {upper_threshold}），跳过购买\n'
+                    f'行动力充足，跳过购买\n'
                     f'下一步任务：{task_names}'
                 )
             self.notify_push(
