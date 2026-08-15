@@ -185,7 +185,7 @@ class DashboardMixin(WebUIMixinBase):
         # 构建每个任务的列表行 HTML（信息展示，不绑按钮）
         rows_html = []
         for idx, (task, task_display, reason, count, ts) in enumerate(task_rows):
-            rows_html.append(
+            row_html = (
                 '<div style="display: flex; align-items: center; justify-content: space-between;'
                 ' padding: 6px 8px; margin-bottom: 4px;'
                 ' background: rgba(240, 62, 62, 0.06); border-radius: 6px; gap: 8px;">'
@@ -197,6 +197,7 @@ class DashboardMixin(WebUIMixinBase):
                 '</div>'
                 '</div>'
             ).format(task_display=task_display, reason=reason, count=count)
+            rows_html.append(row_html)
         rows_html_str = '\n'.join(rows_html)
 
         html = (
