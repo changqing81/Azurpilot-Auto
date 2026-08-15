@@ -356,12 +356,13 @@ class AzurLaneAutoScript:
             paused_count = len(paused_tasks)
             paused_list = '、'.join(paused_tasks)
 
+            title = (
+                f"[AzurPilot] <{self.config_name}> {paused_count} 个任务已自动关闭"
+                if paused_count > 1
+                else f"[AzurPilot] <{self.config_name}> 1 个任务已自动关闭"
+            )
+
             if push_enabled:
-                title = (
-                    f"[AzurPilot] <{self.config_name}> {paused_count} 个任务已自动关闭"
-                    if paused_count > 1
-                    else f"[AzurPilot] <{self.config_name}> 1 个任务已自动关闭"
-                )
                 content = (
                     f"<{self.config_name}> 本次任务 {task_display} 因 {reason} "
                     f"连续失败 {count} 次已自动关闭。\n\n"
@@ -1549,14 +1550,23 @@ class AzurLaneAutoScript:
                 # 任务失败保护：在时间窗口内同一错误原因累计达到阈值时自动关闭任务
                 if self._check_task_failure_protection(task, success):
                     # 任务已被自动关闭，跳过后续的退出逻辑，继续调度其他任务
+                    # 同时重置 failure_record，避免残留计数在用户重新启用任务后误触发退出
+                    deep_set(self.failure_record, keys=task, value=0)
                     del_cached_property(self, 'config')
                     self.checker.check_now()
                     continue
 
+                # 当 TaskFailureProtection 启用时，由 TFP 统一控制失败次数阈值，
+                # 跳过硬编码 3 次退出逻辑，避免 TFP 配置 >3 时被提前终止
+                try:
+                    tfp_enabled = self.config.TaskFailureProtection_Enable
+                except Exception:
+                    tfp_enabled = False
+
                 strict_restart = self.config.Error_StrictRestart and failed >= 1 and self.config.cross_get(
                     keys=f'{task}.Scheduler.Sensitive', default=False
                 )
-                if failed >= 3 or strict_restart:
+                if (failed >= 3 and not tfp_enabled) or strict_restart:
                     reason = '任务配置或使用方式不符合要求，也可能是任务本身存在问题。'
                     action = '检查任务选项帮助和错误现场；确认配置正确后再重试。'
                     if strict_restart:
