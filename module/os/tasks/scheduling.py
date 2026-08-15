@@ -1257,6 +1257,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     f'[大世界-买行动力] 当前行动力 {current_ap} >= 上限阈值 {upper_threshold}，'
                     f'行动力充足，跳过购买直接执行海域任务'
                 )
+            elif current_ap >= lower_threshold:
+                logger.info(
+                    f'[大世界-买行动力] 当前行动力 {current_ap} >= 下限阈值 {lower_threshold}，'
+                    f'已达到下限阈值，跳过购买直接执行海域任务'
+                )
             else:
                 buy_round = current_count + 1
                 logger.info(
