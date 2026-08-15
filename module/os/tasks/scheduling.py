@@ -1260,7 +1260,13 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             # 步骤1：检查当前行动力，决定是否需要购买
             bought_this_round = False
             _, current_ap = self._get_scheduling_action_point()
-            if current_ap >= lower_threshold:
+
+            if current_ap >= upper_threshold:
+                logger.info(
+                    f'[大世界-买行动力] 当前行动力 {current_ap} >= 上限阈值 {upper_threshold}，'
+                    f'行动力充足，跳过购买直接执行海域任务'
+                )
+            elif current_ap >= lower_threshold:
                 logger.info(
                     f'[大世界-买行动力] 当前行动力 {current_ap} >= 下限阈值 {lower_threshold}，'
                     f'跳过购买直接执行海域任务'
