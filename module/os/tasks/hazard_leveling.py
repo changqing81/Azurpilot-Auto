@@ -183,8 +183,8 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         yellow_coins = self.get_yellow_coins()
         if not self.is_running_smart_scheduling_task():
             self._cl1_resource_check(yellow_coins)
-            self.check_and_notify_action_point_threshold()
             self._cl1_ap_check()
+        self.check_and_notify_action_point_threshold()
 
         # ===== 确保在安全海域地图上（战前导航）=====
         if self.config.OpsiHazard1Leveling_TargetZone != 0:
