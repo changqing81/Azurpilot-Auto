@@ -1211,6 +1211,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                         )
                         break
 
+            # 练级结束后强制刷新体力缓存，触发行动力变化推送通知
+            self._get_scheduling_action_point(force_refresh=True)
+
         logger.info('[大世界-买行动力] 功能1主循环结束')
         return False
 
