@@ -122,9 +122,6 @@ class GeneratedConfig:
     Error_GameStuckThreshold = 3
     Error_AdbOfflineRestart = False
     Error_AdbOfflineThreshold = 3
-    Error_WatchdogLogTimeout = 300
-    Error_WatchdogTaskTimeout = 120
-    Error_RestartOperationTimeout = 120
     Error_LlmAnalysis = True
     Error_LlmApiKey = None
     Error_LlmApiBase = 'https://api.xiaomimimo.com/v1'
@@ -135,6 +132,10 @@ class GeneratedConfig:
     TaskFailureProtection_PushNotify = False  # True, False
     TaskFailureProtection_MaxFailures = 3
     TaskFailureProtection_TimeWindowHours = 24
+    TaskFailureProtection_WatchdogEnable = True  # True, False
+    TaskFailureProtection_WatchdogLogTimeout = 300
+    TaskFailureProtection_WatchdogTaskTimeout = 120
+    TaskFailureProtection_RestartOperationTimeout = 120
 
     # 配置组 `Optimization`
     Optimization_OcrDevice = 'auto'  # auto, qnn_npu, openvino_npu, openvino_gpu, gpu, openvino_cpu, cpu, ane

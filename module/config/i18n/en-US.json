@@ -743,18 +743,6 @@
       "name": "Device restart threshold not detected",
       "help": "The number of times the device cannot be detected in a row triggers a restart."
     },
-    "WatchdogLogTimeout": {
-      "name": "Log Heartbeat Timeout (sec)",
-      "help": "If no log output occurs for the specified seconds during task execution, the main thread is judged stuck and the emulator is force-stopped to unblock.\n0 = disabled; 99999 = virtually unlimited.\nDefault 300 sec (5 min)."
-    },
-    "WatchdogTaskTimeout": {
-      "name": "Task Stuck Watchdog Timeout (min)",
-      "help": "If a single task runs longer than this, the watchdog treats it as a logic loop (e.g. unskippable story, pathfinding loop) and force-restarts the emulator.\n0 = disabled; 99999 = virtually unlimited.\nDefault 120 min (2h)."
-    },
-    "RestartOperationTimeout": {
-      "name": "Restart Operation Timeout (sec)",
-      "help": "Hard timeout in seconds for app stop/start or emulator stop/start operations. Exceeding this judges the emulator or atx-agent as stuck and triggers immediate emulator restart.\nDefault 120 sec."
-    },
     "LlmAnalysis": {
       "name": "Enable LLM Error Analysis",
       "help": "Automatically use LLM to analyze errors when they occur."
@@ -796,6 +784,24 @@
     "TimeWindowHours": {
       "name": "Time Window (hours)",
       "help": "The time range for counting failures. Failure count resets after this period. For example, set to 3 to require 3 failures within 3 hours. Range: 1~168."
+    },
+    "WatchdogEnable": {
+      "name": "Enable Watchdog",
+      "help": "When enabled, the watchdog thread monitors log heartbeat and task runtime during task execution, and force-restarts the emulator to unblock when a deadlock is detected.",
+      "True": "True",
+      "False": "False"
+    },
+    "WatchdogLogTimeout": {
+      "name": "Log Heartbeat Timeout (sec)",
+      "help": "If no log output occurs during task execution for the specified seconds, the main thread is considered stuck, and the emulator is force-stopped to unblock.\n0 disables; 99999 means virtually unlimited.\nDefault 300 seconds (5 minutes)."
+    },
+    "WatchdogTaskTimeout": {
+      "name": "Task Stuck Watchdog Timeout (min)",
+      "help": "After a single task runs longer than the specified time, the watchdog judges it as a logic infinite loop (e.g. story cannot be skipped, pathfinding loops) and force-restarts the emulator to interrupt the task.\n0 disables; 99999 means virtually unlimited.\nDefault 120 minutes (2 hours)."
+    },
+    "RestartOperationTimeout": {
+      "name": "Restart Operation Timeout (sec)",
+      "help": "Hard timeout in seconds for app stop/start and emulator stop/start operations. Exceeding this time means the emulator or atx-agent is stuck, and an emulator restart is triggered immediately.\nDefault 120 seconds."
     }
   },
   "Optimization": {
@@ -6519,9 +6525,7 @@
       "WebuiSSLKey": "SSL Key File",
       "WebuiSSLKeyHelp": "SSL key path for WebUI HTTPS. Must be set together with the certificate.",
       "WebuiSSLCert": "SSL Certificate File",
-      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key.",
-      "HideUpdateNotice": "Hide Update Notice",
-      "HideUpdateNoticeHelp": "When enabled, the bottom-right update notice will not appear when an update is detected."
+      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key."
     },
     "StartupRun": {
       "Title": "Auto-run on Startup",

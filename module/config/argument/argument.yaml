@@ -192,15 +192,6 @@ Error:
   AdbOfflineThreshold:
     value: 3
     validate: [1, 10]
-  WatchdogLogTimeout:
-    value: 300
-    validate: [0, 99999]
-  WatchdogTaskTimeout:
-    value: 120
-    validate: [0, 99999]
-  RestartOperationTimeout:
-    value: 120
-    validate: [1, 99999]
   LlmAnalysis: true
   LlmApiKey:
     type: textarea
@@ -226,6 +217,19 @@ TaskFailureProtection:
   TimeWindowHours:
     value: 24
     validate: [1, 168]
+  WatchdogEnable:
+    type: checkbox
+    value: true
+    option: [true, false]
+  WatchdogLogTimeout:
+    value: 300
+    validate: [0, 99999]
+  WatchdogTaskTimeout:
+    value: 120
+    validate: [0, 99999]
+  RestartOperationTimeout:
+    value: 120
+    validate: [1, 99999]
 Optimization:
   OcrDevice:
     value: auto

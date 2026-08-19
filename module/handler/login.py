@@ -16,7 +16,6 @@
 # 基于原版 login.py 增加了智能的游戏重启逻辑
 # 用于处理登录流程中的各种弹窗、公告以及在应用崩溃时执行重启恢复操作。
 # 最后更新: 2025-08-25 20:41
-import threading
 import time
 
 import numpy as np
@@ -35,6 +34,10 @@ from module.base.timer import Timer
 from module.base.utils import color_similarity_2d, crop
 from module.config.deep import deep_get
 from module.handler.assets import *
+from module.handler.task_failure_protection import (
+    RESTART_OPERATION_TIMEOUT,
+    emulator_op_with_timeout,
+)
 from module.logger import logger
 from module.map.assets import *
 from module.ui.assets import *
@@ -49,12 +52,12 @@ RESTART_FIRST_TRY_WAIT_SECONDS = 30
 RESTART_SUBSEQUENT_TRY_WAIT_SECONDS = 20
 RESTART_OBSERVE_SECONDS = 180
 RESTART_OBSERVE_INTERVAL = 15
-# 单次 app_stop/app_start 操作的硬超时秒数。
+# 单次 app_stop/app_start 操作的硬超时秒数 RESTART_OPERATION_TIMEOUT 统一定义在
+# 任务失败保护模块（module/handler/task_failure_protection.py），与看门狗共用。
 # atx-agent 自恢复可能耗时 70 秒以上，给 120 秒余量；超过则判定模拟器或
 # atx-agent 卡死，立即抛出 EmulatorNotRunningError 触发模拟器重启，
 # 避免 u2 调用无限挂起导致 LoginWaitTimeout / GameStuckRestart 等保护机制
 # （依赖 screenshot() 中的 stuck_record_check）均无法触发的死锁。
-RESTART_OPERATION_TIMEOUT = 120
 
 
 class LoginHandler(UI):
@@ -251,24 +254,24 @@ class LoginHandler(UI):
     def _restart_operation_timeout(self):
         """
         获取 app_stop/app_start 操作的硬超时秒数。
-        对应配置项 Alas.Error.RestartOperationTimeout，超时则判定模拟器或
-        atx-agent 卡死，立即抛出 EmulatorNotRunningError 触发模拟器重启。
+        对应配置项 Alas.TaskFailureProtection.RestartOperationTimeout，超时则判定
+        模拟器或 atx-agent 卡死，立即抛出 EmulatorNotRunningError 触发模拟器重启。
         """
         value = deep_get(
-            self.config.data, 'Alas.Error.RestartOperationTimeout',
+            self.config.data, 'Alas.TaskFailureProtection.RestartOperationTimeout',
             default=RESTART_OPERATION_TIMEOUT,
         )
         try:
             timeout = int(value)
         except (TypeError, ValueError):
             logger.warning(
-                f'[重启] Alas.Error.RestartOperationTimeout 配置非法（{value!r}），'
+                f'[重启] TaskFailureProtection.RestartOperationTimeout 配置非法（{value!r}），'
                 f'回退默认 {RESTART_OPERATION_TIMEOUT} 秒'
             )
             return RESTART_OPERATION_TIMEOUT
         if not (timeout > 0):
             logger.warning(
-                f'[重启] Alas.Error.RestartOperationTimeout 配置非法（{value!r}），'
+                f'[重启] TaskFailureProtection.RestartOperationTimeout 配置非法（{value!r}），'
                 f'回退默认 {RESTART_OPERATION_TIMEOUT} 秒'
             )
             return RESTART_OPERATION_TIMEOUT
@@ -285,11 +288,12 @@ class LoginHandler(UI):
         触发——它们依赖 screenshot() 中的 stuck_record_check，而 app_restart
         流程不调用截图。
 
-        本方法在独立守护线程中执行操作，主线程在 timeout 后立即抛出
-        EmulatorNotRunningError，由上层调度器（alas.py 中的 EmulatorNotRunningError
-        处理分支）触发 _try_restart_emulator() 来杀掉并重启模拟器。模拟器重启
-        会同时杀死 atx-agent 进程，残留线程的 HTTP 连接将被重置，daemon 线程
-        会快速失败退出，不会影响新设备。
+        本方法复用任务失败保护模块的 emulator_op_with_timeout（守护线程 +
+        硬超时），并将超时异常转换为 EmulatorNotRunningError，由上层调度器
+        （alas.py 中的 EmulatorNotRunningError 处理分支）触发
+        _try_restart_emulator() 来杀掉并重启模拟器。模拟器重启会同时杀死
+        atx-agent 进程，残留线程的 HTTP 连接将被重置，daemon 线程会快速
+        失败退出，不会影响新设备。
 
         Args:
             func: 无参数的可调用对象，通常为 self.device.app_stop 等。
@@ -300,20 +304,11 @@ class LoginHandler(UI):
             EmulatorNotRunningError: 操作超时。
             Exception: 操作本身抛出的异常会被原样向上抛出。
         """
-        result = [None]
-        exception = [None]
-
-        def worker():
-            try:
-                result[0] = func()
-            except BaseException as e:
-                exception[0] = e
-
-        thread = threading.Thread(target=worker, daemon=True)
-        thread.start()
-        thread.join(timeout=timeout)
-
-        if thread.is_alive():
+        try:
+            return emulator_op_with_timeout(
+                func, timeout=timeout, operation_name=f'[重启] {operation_name}'
+            )
+        except TimeoutError:
             logger.critical(
                 f'[重启] {operation_name} 超过 {timeout}s 未完成，'
                 f'判定模拟器或 atx-agent 卡死，触发模拟器重启'
@@ -323,10 +318,6 @@ class LoginHandler(UI):
                 f'[重启] {operation_name} 超过 {timeout}s 未完成，'
                 f'判定模拟器或 atx-agent 卡死'
             )
-
-        if exception[0] is not None:
-            raise exception[0]
-        return result[0]
 
     # def app_restart(self):
     #     logger.hr('App restart')
