@@ -229,6 +229,7 @@ class Watchdog:
         Args:
             task_name: 当前执行的任务名（如 'Main'），用于超时日志。
         """
+        # 防御：若上一任务异常退出未 deactivate，重置计时器避免累积误判
         self._task_start = time.monotonic()
         self._task_name = task_name
         self._active = True
