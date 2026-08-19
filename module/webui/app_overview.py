@@ -89,9 +89,7 @@ class OverviewMixin(WebUIMixinBase):
         switch_scheduler = BinarySwitchButton(
             label_on=t("Gui.Button.Stop"),
             label_off=t("Gui.Button.Start"),
-            onclick_on=lambda: self.alas.stop_by_user(
-                self.alas_config.Optimization_WhenSchedulerStopped
-            ),
+            onclick_on=lambda: self.alas.stop_by_user(),
             onclick_off=self._alas_start,
             get_state=lambda: self.alas.alive,
             color_on="off",
@@ -312,9 +310,7 @@ class OverviewMixin(WebUIMixinBase):
         switch_scheduler = BinarySwitchButton(
             label_on=t("Gui.Button.Stop"),
             label_off=t("Gui.Button.Start"),
-            onclick_on=lambda: self.alas.stop_by_user(
-                self.alas_config.Optimization_WhenSchedulerStopped
-            ),
+            onclick_on=lambda: self.alas.stop_by_user(),
             onclick_off=lambda: self.alas.start(task),
             get_state=lambda: self.alas.alive,
             color_on="off",
