@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 import shutil
@@ -26,6 +27,31 @@ from module.config.utils import (
 from module.exception import *
 from module.logger import logger
 from module.notify import handle_notify, notify_webui
+
+# 看门狗配置
+# 守护线程每 N 秒检查一次最近一条日志的时间戳；任务执行期间若超过
+# WATCHDOG_LOG_TIMEOUT_DEFAULT 秒无任何日志输出，则判定主线程卡死，强制杀死模拟器
+# 进程以解除阻塞（主线程的下次 I/O 调用会失败并走异常恢复流程）。
+# 看门狗仅在任务执行阶段（self.run() 期间）激活，空闲等待（wait_until、
+# 服务器维护检查）期间自动暂停，避免误触发。
+WATCHDOG_CHECK_INTERVAL = 30
+WATCHDOG_LOG_TIMEOUT_DEFAULT = 300
+WATCHDOG_TASK_TIMEOUT_DEFAULT = 120
+RESTART_EMULATOR_OP_TIMEOUT = 120
+
+
+class _LogHeartbeatHandler(logging.Handler):
+    """记录最近一条日志时间戳的日志处理器，供看门狗线程检测主线程卡死。
+    任何 logger.info/warning/error 等调用都会更新 last_log_time，
+    包括看门狗自身的日志——这恰好防止看门狗在触发恢复后立即再次触发。
+    """
+
+    def __init__(self):
+        super().__init__(level=logging.DEBUG)
+        self.last_log_time = time.monotonic()
+
+    def emit(self, record):
+        self.last_log_time = time.monotonic()
 
 # 缓存 i18n 任务名查找
 _i18n_task_names = None
@@ -72,8 +98,17 @@ class AzurLaneAutoScript:
         # 连续卡死/ADB 离线计数，用于判断是否需要重启模拟器
         self.consecutive_game_stuck = 0
         self.consecutive_adb_offline = 0
+        # 未预期异常连续计数，先重启游戏，连续多次才重启模拟器
+        self.consecutive_unexpected_error = 0
         # 上次计划重启模拟器的时间戳
         self.last_emulator_restart_time = time.monotonic()
+        # 看门狗状态
+        self._watchdog_stop = threading.Event()
+        self._watchdog_active = False
+        self._watchdog_thread = None
+        self._log_heartbeat = _LogHeartbeatHandler()
+        self._watchdog_task_start = 0.0
+        self._watchdog_task_name = ''
         # 最近一次任务执行的错误原因（异常类名），供失败保护模块使用
         self._last_task_error: str | None = None
         # 任务失败保护跟踪器
@@ -134,10 +169,18 @@ class AzurLaneAutoScript:
                     device = PlatformWindows(self.config)
 
             logger.info('[Alas] 正在停止模拟器...')
-            device.emulator_stop()
+            self._emulator_op_with_timeout(
+                device.emulator_stop,
+                timeout=RESTART_EMULATOR_OP_TIMEOUT,
+                operation_name='模拟器停止',
+            )
             time.sleep(5)
             logger.info('[Alas] 正在启动模拟器...')
-            device.emulator_start()
+            self._emulator_op_with_timeout(
+                device.emulator_start,
+                timeout=RESTART_EMULATOR_OP_TIMEOUT,
+                operation_name='模拟器启动',
+            )
             logger.info('[Alas] 模拟器重启完成')
 
             # 清除 device 缓存，下次访问时重新建立连接
@@ -152,6 +195,169 @@ class AzurLaneAutoScript:
                 action='检查模拟器进程权限、ADB 服务和模拟器管理配置。',
             )
             return False
+
+    def _emulator_op_with_timeout(self, func, *, timeout, operation_name):
+        """带硬超时执行模拟器启停操作，防止恢复流程本身卡死。
+
+        emulator_stop / emulator_start 底层调用 subprocess（taskkill /
+        ldconsole / MuMuManager 等），正常情况下秒级完成。但若模拟器进程
+        僵死或子进程管理卡住，调用可能长时间不返回。此方法在独立 daemon
+        线程中执行操作，超时后抛出 TimeoutError，由外层 try/except 捕获
+        并返回 False，调度器会退避重试。
+
+        Args:
+            func: 无参数的可调用对象。
+            timeout (int | float): 超时秒数。
+            operation_name (str): 操作名称，用于日志。
+
+        Raises:
+            TimeoutError: 操作超时。
+            Exception: 操作本身抛出的异常会被原样向上抛出。
+        """
+        result = [None]
+        exception = [None]
+
+        def worker():
+            try:
+                result[0] = func()
+            except BaseException as e:
+                exception[0] = e
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
+        thread.join(timeout=timeout)
+
+        if thread.is_alive():
+            logger.critical(
+                f'[Alas] {operation_name} 超过 {timeout}s 未完成，'
+                f'跳过此操作（daemon 线程残留，进程退出时自动清理）'
+            )
+            raise TimeoutError(
+                f'{operation_name} 超过 {timeout}s 未完成'
+            )
+
+        if exception[0] is not None:
+            raise exception[0]
+        return result[0]
+
+    def _start_watchdog(self):
+        """启动看门狗守护线程，并注册日志心跳处理器。"""
+        if self._watchdog_thread is not None and self._watchdog_thread.is_alive():
+            logger.warning('[Alas][看门狗] 看门狗已在运行，跳过启动')
+            return
+        if self._log_heartbeat not in logger.handlers:
+            logger.addHandler(self._log_heartbeat)
+        self._watchdog_stop.clear()
+        self._log_heartbeat.last_log_time = time.monotonic()
+        self._watchdog_thread = threading.Thread(
+            target=self._watchdog_loop, daemon=True, name='alas-watchdog'
+        )
+        self._watchdog_thread.start()
+        logger.info('[Alas][看门狗] 看门狗已启动')
+
+    def _stop_watchdog(self):
+        """停止看门狗守护线程。"""
+        self._watchdog_stop.set()
+        if self._watchdog_thread is not None:
+            self._watchdog_thread.join(timeout=5)
+            self._watchdog_thread = None
+        logger.info('[Alas][看门狗] 看门狗已停止')
+
+    def _watchdog_loop(self):
+        """看门狗主循环：检测两类异常并强制恢复。
+
+        1. 日志心跳超时：任务执行期间 WATCHDOG_LOG_TIMEOUT 秒无任何日志输出
+           → 主线程卡死在 I/O 调用中（u2 HTTP / ADB shell）
+        2. 任务运行时间超时：单个任务运行超过配置的 WatchdogTaskTimeout 分钟
+           → 任务逻辑死循环（如 story_skip 不断点击但剧情无法跳过）
+           此时日志仍在更新，但任务无法自然退出
+
+        两类异常的恢复方式相同：强制杀死模拟器进程，使主线程的下次 I/O
+        调用因连接断开而失败并抛出异常，触发正常的异常恢复流程
+       （EmulatorNotRunningError → _try_restart_emulator + task_call('Restart')）。
+        """
+        while not self._watchdog_stop.wait(WATCHDOG_CHECK_INTERVAL):
+            if not self._watchdog_active:
+                continue
+
+            # 检查 1：日志心跳超时（主线程卡死）
+            try:
+                log_timeout = int(self.config.Error_WatchdogLogTimeout)
+            except Exception:
+                log_timeout = WATCHDOG_LOG_TIMEOUT_DEFAULT
+            if log_timeout > 0:
+                elapsed_log = time.monotonic() - self._log_heartbeat.last_log_time
+                if elapsed_log > log_timeout:
+                    self._watchdog_recover(elapsed_log, reason='log_timeout')
+                    continue
+
+            # 检查 2：任务运行时间超时（逻辑死循环）
+            if self._watchdog_task_start > 0:
+                try:
+                    timeout_min = int(self.config.Error_WatchdogTaskTimeout)
+                except Exception:
+                    timeout_min = WATCHDOG_TASK_TIMEOUT_DEFAULT
+                if timeout_min > 0:
+                    elapsed_task = time.monotonic() - self._watchdog_task_start
+                    if elapsed_task > timeout_min * 60:
+                        self._watchdog_recover(
+                            elapsed_task,
+                            reason='task_timeout',
+                            task_name=self._watchdog_task_name,
+                        )
+
+    def _watchdog_recover(self, elapsed, reason='log_timeout', task_name=''):
+        """看门狗恢复动作：强制杀死模拟器进程以解除主线程阻塞。
+
+        主线程可能卡在 u2 HTTP 调用、ADB shell、截图等 I/O 操作中，
+        或陷入逻辑死循环（如 story_skip 不断点击但剧情无法跳过）。
+        杀死模拟器进程会同时杀死 atx-agent，使主线程的下次 I/O 调用
+        因连接断开而失败并抛出异常，触发正常的异常恢复流程。
+
+        本方法的日志会更新 last_log_time，防止看门狗在恢复期间重复触发；
+        若主线程仍未恢复，下一个阈值周期后看门狗会再次触发。
+        emulator_stop() 本身也可能卡住（如 psutil 遍历缓慢或 subprocess
+        不返回），因此用 _emulator_op_with_timeout 包装，超时后放弃本轮
+        恢复，等待下一个阈值周期重试。
+        """
+        if reason == 'task_timeout':
+            try:
+                timeout_min = int(self.config.Error_WatchdogTaskTimeout)
+            except Exception:
+                timeout_min = WATCHDOG_TASK_TIMEOUT_DEFAULT
+            logger.critical(
+                f'[Alas][看门狗] 任务 `{task_name}` 已运行 {int(elapsed)} 秒'
+                f'（超过 {timeout_min} 分钟），判定逻辑死循环，'
+                f'强制杀死模拟器进程以中断任务'
+            )
+        else:
+            try:
+                log_timeout = int(self.config.Error_WatchdogLogTimeout)
+            except Exception:
+                log_timeout = WATCHDOG_LOG_TIMEOUT_DEFAULT
+            logger.critical(
+                f'[Alas][看门狗] 任务执行中已 {int(elapsed)} 秒无任何日志输出'
+                f'（超过 {log_timeout} 秒），判定主线程卡死，'
+                f'强制杀死模拟器进程以解除阻塞'
+            )
+
+        try:
+            from module.device.platform import Platform
+            platform = Platform(self.config, connect=False)
+            self._emulator_op_with_timeout(
+                platform.emulator_stop,
+                timeout=RESTART_EMULATOR_OP_TIMEOUT,
+                operation_name='[看门狗] 强制停止模拟器',
+            )
+            logger.info(
+                '[Alas][看门狗] 已强制停止模拟器，主线程的下次 I/O 调用将失败并触发恢复'
+            )
+        except TimeoutError:
+            logger.warning(
+                '[Alas][看门狗] 强制停止模拟器超时，等待下个周期重试'
+            )
+        except Exception as e:
+            logger.warning(f'[Alas][看门狗] 强制停止模拟器失败: {e}')
 
     def _start_emulator_after_long_wait(self):
         """
@@ -634,6 +840,7 @@ class AzurLaneAutoScript:
             exit(1)
         except Exception as e:
             self._last_task_error = type(e).__name__
+            self.consecutive_unexpected_error += 1
             logger.exception_context(
                 title=f'任务执行发生未处理异常（{command}）', exc=e,
                 impact='当前任务无法确认执行结果，调度器将保留现场并终止。',
@@ -651,7 +858,22 @@ class AzurLaneAutoScript:
                 title=f"出大问题了喵！{self.config_name}崩溃了喵！",
                 content=f"因为 发生异常 喵！",
             )
-            raise
+            # 分级恢复：先重启游戏，连续多次失败才重启模拟器
+            if self.consecutive_unexpected_error >= 3:
+                logger.warning('[Alas] 未预期异常连续发生 3 次，正在重启模拟器...')
+                if self._try_restart_emulator():
+                    self.consecutive_unexpected_error = 0
+                    self.config.task_call('Restart')
+                    return 'recoverable'
+                else:
+                    raise
+            else:
+                logger.warning(
+                    f'[Alas] 未预期异常（第 {self.consecutive_unexpected_error}/3 次），'
+                    f'尝试重启游戏恢复'
+                )
+                self.config.task_call('Restart')
+                return 'recoverable'
 
     def keep_last_errlog(self, folder_path, n: int = 30):
         """
@@ -1462,6 +1684,9 @@ class AzurLaneAutoScript:
         RESTART_DELAY = 20
         LONG_WAIT = 300
 
+        # 启动看门狗守护线程
+        self._start_watchdog()
+
         while 1:
             try:
                 # 检查来自GUI的更新事件
@@ -1469,6 +1694,7 @@ class AzurLaneAutoScript:
                     if self.stop_event.is_set():
                         logger.info('[Alas] 检测到更新事件')
                         logger.info(f"[Alas] [{self.config_name}] 已退出。原因: 更新 | Reason: Update")
+                        self._stop_watchdog()
                         break
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()
@@ -1510,7 +1736,14 @@ class AzurLaneAutoScript:
                 self.device.stuck_record_clear()
                 self.device.click_record_clear()
                 logger.hr(task, level=0)
+                # 激活看门狗：任务执行期间监控日志心跳和运行时间
+                self._watchdog_task_start = time.monotonic()
+                self._watchdog_task_name = task
+                self._watchdog_active = True
                 success = self.run(inflection.underscore(task))
+                # 任务结束，暂停看门狗（等待期间不监控）
+                self._watchdog_active = False
+                self._watchdog_task_start = 0.0
                 logger.info(f'[Alas] 调度器: 结束任务 `{task}`')
                 self.is_first_task = False
 
@@ -1598,6 +1831,7 @@ class AzurLaneAutoScript:
                     consecutive_global_failures = 0 # 任务成功时重置全局失败计数器
                     self.consecutive_game_stuck = 0
                     self.consecutive_adb_offline = 0
+                    self.consecutive_unexpected_error = 0
                     # 任务成功，清除该任务的失败保护记录
                     self.failure_tracker.clear_task_failures(task)
                     continue
@@ -1607,12 +1841,16 @@ class AzurLaneAutoScript:
                     self.checker.check_now()
                     continue
                 else:
+                    self._stop_watchdog()
                     break
 
             # 捕获全局异常并执行重启
             except Exception as e:
                 consecutive_global_failures += 1
                 self.is_first_task = False
+                # 暂停看门狗，避免恢复期间误触发
+                self._watchdog_active = False
+                self._watchdog_task_start = 0.0
                 import traceback
                 logger.exception_context(
                     title='调度器循环发生未处理异常',
