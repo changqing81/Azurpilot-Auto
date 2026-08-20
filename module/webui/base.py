@@ -102,7 +102,6 @@ class Frame(Base):
                 可设 True 跳过重复 clear，减少一次 WebSocket 往返。
         """
         self.visible = True
-        self.page = name
         self.task_handler.remove_pending_task()
         with self._page_lock:
             js_parts = []
@@ -141,13 +140,20 @@ class Frame(Base):
                 clear("content")
 
     @staticmethod
-    def init_aside_menu(name: str) -> None:
-        """展开菜单并高亮 aside 按钮（合并为一次 WebSocket）。"""
+    def set_statistics_content_visible(visible: bool) -> None:
+        """在普通内容区与可复用的统计内容区之间切换。"""
         run_js(
-            "$('.container-menu-collapsed').removeClass('container-menu-collapsed');\n"
-            "$('#pywebio-scope-content').addClass('container-content-collapsed');\n"
-            "$('button.btn-aside').removeClass('btn-aside-active');\n"
-            "$('div[style*=\"--aside-" + name + "--\"]>button').addClass('btn-aside-active');\n"
+            """
+            (function () {
+                var content = document.getElementById("pywebio-scope-content");
+                var statistics = document.getElementById(
+                    "pywebio-scope-statistics-content"
+                );
+                if (content) content.style.display = visible ? "none" : "";
+                if (statistics) statistics.style.display = visible ? "" : "none";
+            })();
+            """,
+            visible=visible,
         )
 
     @staticmethod
@@ -168,6 +174,7 @@ class Frame(Base):
                 put_scope("aside"),
                 put_scope("menu"),
                 put_scope("content"),
+                put_scope("statistics-content").style("display: none;"),
             ],
         )
 
@@ -179,7 +186,7 @@ class Frame(Base):
     @staticmethod
     def collapse_menu() -> None:
         run_js(
-            f"""
+            """
             $("#pywebio-scope-menu").addClass("container-menu-collapsed");
             $(".container-content-collapsed").removeClass("container-content-collapsed");
         """
@@ -188,9 +195,10 @@ class Frame(Base):
     @staticmethod
     def expand_menu() -> None:
         run_js(
-            f"""
+            """
             $(".container-menu-collapsed").removeClass("container-menu-collapsed");
-            $("#pywebio-scope-content").addClass("container-content-collapsed");
+            $("#pywebio-scope-content, #pywebio-scope-statistics-content")
+                .addClass("container-content-collapsed");
         """
         )
 
