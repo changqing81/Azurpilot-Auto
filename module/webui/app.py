@@ -15,6 +15,79 @@ from hashlib import sha256
 from pathlib import Path
 from threading import Lock
 
+from module.webui.app_dashboard import DashboardMixin
+from module.webui.app_dependencies import (
+    Dict,
+    Frame,
+    IS_ON_PHONE_CLOUD,
+    List,
+    PUBLIC_WEBUI_PASSWORD_GENERATE_FAILED_MESSAGE,
+    ProcessManager,
+    RESTRICTED_DEVICE_IDS,
+    RESTRICTED_DEVICE_MESSAGE,
+    RichLog,
+    State,
+    argparse,
+    asgi_app,
+    get_device_id,
+    get_localstorage_values,
+    info,
+    lang,
+    load_webui_styles,
+    local,
+    logger,
+    login,
+    popup,
+    run_js,
+    set_env,
+    task_handler,
+    time,
+    updater,
+    webconfig,
+)
+from module.webui.app_developer_menu import DeveloperMenuMixin
+from module.webui.app_developer_settings import DeveloperSettingsMixin
+from module.webui.app_developer_tools import DeveloperToolsMixin
+from module.webui.app_developer_update import DeveloperUpdateMixin
+from module.webui.app_event_tools import EventToolsMixin
+from module.webui.app_fleet_management import FleetManagementMixin
+from module.webui.app_helpers import (
+    DEMO_DEVICE_ID_TEXT,
+    WEBUI_AUTO_PASSWORD_FILE,
+    build_copyable_device_id,
+    build_muted_notice,
+    build_recommendation_box,
+    build_simple_table,
+    build_title_block,
+    ensure_public_webui_password,
+    generate_webui_password,
+    is_demo_mode,
+    is_public_webui_host,
+    is_webui_password_set,
+    read_webapp_template,
+    timedelta_to_text,
+)
+from module.webui.app_home import HomeMixin
+from module.webui.app_instances import InstanceMixin
+from module.webui.app_lifecycle import clearup, startup
+from module.webui.app_manage import app_manage
+from module.webui.app_overview import OverviewMixin
+from module.webui.app_shell import (
+    AppShellMixin,
+    normalize_webui_theme,
+    pywebio_theme_for,
+)
+from module.webui.app_stat_action_point import ActionPointStatisticsMixin
+from module.webui.app_stat_action_point_toolbar import ActionPointToolbarMixin
+from module.webui.app_stat_commission import CommissionIncomeStatisticsMixin
+from module.webui.app_stat_opsi import OpsiStatisticsMixin
+from module.webui.app_stat_opsi_export import OpsiExportMixin
+from module.webui.app_stat_resource import ResourceStatisticsMixin
+from module.webui.app_stat_ship import ShipExperienceStatisticsMixin
+from module.webui.app_statistics_page import StatisticsPageMixin
+from module.webui.app_task_config import TaskConfigMixin
+from module.webui.fastapi import INITIAL_LOADING_STYLE_MARKER
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -55,13 +128,15 @@ WEBUI_THEME_STYLE_NAMES = {
 INITIAL_LOADING_JS = """
 (function () {
     var observer = null;
-    function markReady() {
+    function hasContent() {
         var root = document.getElementById("pywebio-scope-ROOT");
         var inputs = document.getElementById("input-cards");
-        var hasContent = (root && root.firstElementChild)
+        return (root && root.firstElementChild)
             || (inputs && inputs.firstElementChild)
             || document.querySelector(".modal");
-        if (!hasContent) return;
+    }
+    function markReady() {
+        if (!hasContent()) return;
         document.documentElement.classList.add("alas-initial-ready");
         if (observer) observer.disconnect();
     }
@@ -94,6 +169,7 @@ def _initial_loading_css(theme: str) -> str:
         accent = "#4e4c97"
         track = "rgba(78, 76, 151, .22)"
     return f"""
+/* {INITIAL_LOADING_STYLE_MARKER} */
 html:not(.alas-initial-ready) #pywebio-scope-ROOT:empty {{
     position: fixed;
     inset: 0;
@@ -256,7 +332,11 @@ def app():
     )
     args, _ = parser.parse_known_args()
 
-    initial_theme = State.deploy_config.Theme
+    initial_theme = normalize_webui_theme(State.deploy_config.Theme)
+    initial_pywebio_theme = pywebio_theme_for(initial_theme)
+    AlasGUI.theme = initial_theme
+    State.theme = initial_theme
+    State.deploy_config.Theme = initial_theme
     initial_style_names = _initial_style_names(initial_theme)
     initial_css_files = (
         INITIAL_WEBUI_CSS,
@@ -266,14 +346,6 @@ def app():
         ),
     )
     initial_loading_css = _initial_loading_css(initial_theme)
-    # 通过直接调用 webconfig(theme=...) 设置 PyWebIO 全局主题配置，
-    # 使 render_page() 在首次渲染时加载正确的 bs-theme/<theme>.min.css。
-    # 不在 @webconfig 装饰器内设置 theme，避免 theme 固定为启动时的值，
-    # 确保运行时 set_theme() 切换主题后下次渲染能用新主题。
-    # 注意 PyWebIO 仅提供 dark/default/minty/sketchy/yeti 主题，没有 light.min.css，
-    # 因此 light 与其他主题统一回退到 default（default.min.css 即亮色主题）。
-    pywebio_theme = "dark" if initial_theme == "dark" else "default"
-    webconfig(theme=pywebio_theme)
     lang.LANG = State.deploy_config.Language
     key = args.key if is_webui_password_set(args.key) else State.deploy_config.Password
     key, password_error = ensure_public_webui_password(key)
@@ -326,7 +398,14 @@ def app():
         return True
 
     def _run_gui(initial_page: str = "home") -> None:
-        AlasGUI.set_theme(theme=State.deploy_config.Theme)
+        session_theme = normalize_webui_theme(State.deploy_config.Theme)
+        if session_theme != initial_theme:
+            # 应用运行期间切换主题时，当前 HTML 仍是启动时主题，需要兼容热切换。
+            AlasGUI.set_theme(theme=session_theme)
+        else:
+            # 正常首屏已预载正确主题，避免通过 WebSocket 删除并重复发送 CSS。
+            AlasGUI.theme = session_theme
+            State.theme = session_theme
         set_env(title="AzurPilot", output_animation=False)
         load_webui_styles(
             theme=AlasGUI.theme,
@@ -352,6 +431,7 @@ def app():
         gui.run(initial_page=initial_page, localstorage=localstorage)
 
     @webconfig(
+        theme=initial_pywebio_theme,
         css_file=initial_css_files,
         css_style=initial_loading_css,
         js_code=INITIAL_LOADING_JS,
@@ -360,6 +440,7 @@ def app():
         _run_gui()
 
     @webconfig(
+        theme=initial_pywebio_theme,
         css_file=initial_css_files,
         css_style=initial_loading_css,
         js_code=INITIAL_LOADING_JS,
