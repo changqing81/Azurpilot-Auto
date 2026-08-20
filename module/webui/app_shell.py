@@ -142,6 +142,9 @@ class AppShellMixin(WebUIMixinBase):
         self._simulator_logger_pm = None
         self._overview_log = None
         self._overview_log_config_name = None
+        self._statistics_cache_key = None
+        self._statistics_source_signature = None
+        self._statistics_refresh_pending = False
 
     @property
     def simulator(self):
