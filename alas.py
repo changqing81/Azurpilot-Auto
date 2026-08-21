@@ -83,6 +83,9 @@ class AzurLaneAutoScript:
         self.last_emulator_restart_time = time.monotonic()
         # 最近一次任务执行的错误原因（异常类名），供失败保护模块使用
         self._last_task_error: str | None = None
+        # 模拟器启停操作锁：防止主线程（_try_restart_emulator / app_restart）和
+        # 看门狗线程（Watchdog._recover）并发操作模拟器导致进程状态竞态
+        self._emulator_lock = threading.Lock()
         # 任务失败保护：失败记录跟踪器 + 看门狗守护线程
         from module.handler.task_failure_protection import TaskFailureTracker
         self.failure_tracker = TaskFailureTracker(config_name)
@@ -129,45 +132,48 @@ class AzurLaneAutoScript:
             return False
 
         logger.hr('[Alas] 正在重启模拟器', level=1)
-        try:
-            # 优先使用已缓存的设备对象
-            device = self.__dict__.get('device', None)
-            if device is None:
-                # device 缓存不存在时，按平台回退创建新实例
-                if sys.platform == 'darwin':
-                    from module.device.platform.platform_mac import PlatformMac
-                    device = PlatformMac(self.config)
-                else:
-                    from module.device.platform.platform_windows import PlatformWindows
-                    device = PlatformWindows(self.config)
+        # 加锁防止看门狗线程同时调用 emulator_stop/start 导致进程状态竞态。
+        # 看门狗触发恢复时也会等待此锁（Watchdog._recover 已加）。
+        with self._emulator_lock:
+            try:
+                # 优先使用已缓存的设备对象
+                device = self.__dict__.get('device', None)
+                if device is None:
+                    # device 缓存不存在时，按平台回退创建新实例
+                    if sys.platform == 'darwin':
+                        from module.device.platform.platform_mac import PlatformMac
+                        device = PlatformMac(self.config)
+                    else:
+                        from module.device.platform.platform_windows import PlatformWindows
+                        device = PlatformWindows(self.config)
 
-            logger.info('[Alas] 正在停止模拟器...')
-            emulator_op_with_timeout(
-                device.emulator_stop,
-                timeout=RESTART_OPERATION_TIMEOUT,
-                operation_name='模拟器停止',
-            )
-            time.sleep(5)
-            logger.info('[Alas] 正在启动模拟器...')
-            emulator_op_with_timeout(
-                device.emulator_start,
-                timeout=RESTART_OPERATION_TIMEOUT,
-                operation_name='模拟器启动',
-            )
-            logger.info('[Alas] 模拟器重启完成')
+                logger.info('[Alas] 正在停止模拟器...')
+                emulator_op_with_timeout(
+                    device.emulator_stop,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='模拟器停止',
+                )
+                time.sleep(5)
+                logger.info('[Alas] 正在启动模拟器...')
+                emulator_op_with_timeout(
+                    device.emulator_start,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='模拟器启动',
+                )
+                logger.info('[Alas] 模拟器重启完成')
 
-            # 清除 device 缓存，下次访问时重新建立连接
-            if 'device' in self.__dict__:
-                del_cached_property(self, 'device')
-            return True
-        except Exception as e:
-            logger.exception_context(
-                title='重启模拟器失败',
-                exc=e,
-                impact='模拟器仍可能处于离线状态，当前任务无法恢复。',
-                action='检查模拟器进程权限、ADB 服务和模拟器管理配置。',
-            )
-            return False
+                # 清除 device 缓存，下次访问时重新建立连接
+                if 'device' in self.__dict__:
+                    del_cached_property(self, 'device')
+                return True
+            except Exception as e:
+                logger.exception_context(
+                    title='重启模拟器失败',
+                    exc=e,
+                    impact='模拟器仍可能处于离线状态，当前任务无法恢复。',
+                    action='检查模拟器进程权限、ADB 服务和模拟器管理配置。',
+                )
+                return False
 
     def _start_emulator_after_long_wait(self):
         """

@@ -254,28 +254,17 @@ class LoginHandler(UI):
     def _restart_operation_timeout(self):
         """
         获取 app_stop/app_start 操作的硬超时秒数。
-        对应配置项 Alas.TaskFailureProtection.RestartOperationTimeout，超时则判定
+        对应配置项 TaskFailureProtection.RestartOperationTimeout，超时则判定
         模拟器或 atx-agent 卡死，立即抛出 EmulatorNotRunningError 触发模拟器重启。
         """
-        value = deep_get(
-            self.config.data, 'Alas.TaskFailureProtection.RestartOperationTimeout',
-            default=RESTART_OPERATION_TIMEOUT,
-        )
         try:
-            timeout = int(value)
-        except (TypeError, ValueError):
+            return int(self.config.TaskFailureProtection_RestartOperationTimeout)
+        except Exception:
             logger.warning(
-                f'[重启] TaskFailureProtection.RestartOperationTimeout 配置非法（{value!r}），'
+                f'[重启] TaskFailureProtection.RestartOperationTimeout 配置读取失败，'
                 f'回退默认 {RESTART_OPERATION_TIMEOUT} 秒'
             )
             return RESTART_OPERATION_TIMEOUT
-        if not (timeout > 0):
-            logger.warning(
-                f'[重启] TaskFailureProtection.RestartOperationTimeout 配置非法（{value!r}），'
-                f'回退默认 {RESTART_OPERATION_TIMEOUT} 秒'
-            )
-            return RESTART_OPERATION_TIMEOUT
-        return timeout
 
     def _call_with_restart_deadline(self, func, *, timeout, operation_name):
         """带硬超时调用设备操作，超时判定模拟器或 atx-agent 卡死。

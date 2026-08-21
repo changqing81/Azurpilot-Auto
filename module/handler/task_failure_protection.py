@@ -105,6 +105,12 @@ def emulator_op_with_timeout(func, *, timeout, operation_name):
     线程中执行操作，超时后抛出 TimeoutError，由外层 try/except 捕获
     并由调用方决定退避重试。
 
+    注意：daemon 线程超时后无法被强制终止，Python 线程不支持外部 kill。
+    超时后线程会继续在后台运行直到 func() 自然返回或进程退出。这是
+    Python 语言层面的限制；多次超时会累积后台线程，但 daemon 线程
+    不会阻塞进程退出，且后续 func() 调用通常会在 ADB 连接断开后快速
+    失败，不会无限堆积。
+
     Args:
         func: 无参数的可调用对象。
         timeout (int | float): 超时秒数。
@@ -130,7 +136,7 @@ def emulator_op_with_timeout(func, *, timeout, operation_name):
     if thread.is_alive():
         logger.critical(
             f'[Watchdog] {operation_name} 超过 {timeout}s 未完成，'
-            f'跳过此操作（daemon 线程残留，进程退出时自动清理）'
+            f'跳过此操作（后台线程仍在运行，将随进程退出自动清理）'
         )
         raise TimeoutError(
             f'{operation_name} 超过 {timeout}s 未完成'
@@ -311,12 +317,29 @@ class Watchdog:
 
         try:
             from module.device.platform import Platform
-            platform = Platform(self.alas.config, connect=False)
-            emulator_op_with_timeout(
-                platform.emulator_stop,
-                timeout=RESTART_OPERATION_TIMEOUT,
-                operation_name='[Watchdog] 强制停止模拟器',
-            )
+            # 加锁防止与主线程 _try_restart_emulator 并发操作模拟器。
+            # 若主线程正在重启模拟器，看门狗等待锁释放后再触发恢复
+            # （此时主线程可能已经处理过该问题，看门狗操作可能因设备
+            # 状态变化快速失败，由外层 except 捕获）。
+            lock = getattr(self.alas, '_emulator_lock', None)
+            if lock is not None:
+                lock.acquire(timeout=RESTART_OPERATION_TIMEOUT + 10)
+                try:
+                    platform = Platform(self.alas.config, connect=False)
+                    emulator_op_with_timeout(
+                        platform.emulator_stop,
+                        timeout=RESTART_OPERATION_TIMEOUT,
+                        operation_name='[Watchdog] 强制停止模拟器',
+                    )
+                finally:
+                    lock.release()
+            else:
+                platform = Platform(self.alas.config, connect=False)
+                emulator_op_with_timeout(
+                    platform.emulator_stop,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='[Watchdog] 强制停止模拟器',
+                )
             logger.info(
                 '[Watchdog] 已强制停止模拟器，主线程的下次 I/O 调用将失败并触发恢复'
             )
@@ -576,15 +599,18 @@ class TaskFailureTracker:
                 del failures[task]
                 changed = True
 
-        # 清理已读通知（保留最近 50 条）
+        # 清理已读通知（保留最近 50 条）。
+        # 注意：必须用原始列表切片而非 id() 或 timestamp 去重——
+        # id() 是对象内存地址，JSON 反序列化每次都创建新对象，
+        # id() 每次都不同，无法稳定比较；
+        # set(timestamp) 会把同一时刻的多条通知合并去重，导致保留数量不足。
+        # 直接对已读列表的原始顺序切片 [-50:] 是最简单且正确的做法。
         notifications = self._data.get('notifications', [])
         read_notifications = [n for n in notifications if n.get('read', False)]
         if len(read_notifications) > 50:
-            keep_ids = set(id(n) for n in read_notifications[-50:])
-            self._data['notifications'] = [
-                n for n in notifications
-                if not n.get('read', False) or id(n) in keep_ids
-            ]
+            # 保留未读全部 + 已读最后 50 条，保持原始顺序
+            unread = [n for n in notifications if not n.get('read', False)]
+            self._data['notifications'] = unread + read_notifications[-50:]
             changed = True
 
         if changed:
