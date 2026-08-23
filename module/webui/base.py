@@ -104,6 +104,7 @@ class Frame(Base):
         self.visible = True
         self.task_handler.remove_pending_task()
         with self._page_lock:
+            self.page = name
             js_parts = []
 
             js_parts.append(
