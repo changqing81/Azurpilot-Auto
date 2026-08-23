@@ -140,6 +140,8 @@ class Frame(Base):
             if not skip_clear:
                 clear("content")
 
+        self.set_statistics_content_visible(name == "Stat")
+
     @staticmethod
     def set_statistics_content_visible(visible: bool) -> None:
         """在普通内容区与可复用的统计内容区之间切换。"""
