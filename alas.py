@@ -79,6 +79,8 @@ class AzurLaneAutoScript:
         self.consecutive_adb_offline = 0
         # 未预期异常连续计数，先重启游戏，连续多次才重启模拟器
         self.consecutive_unexpected_error = 0
+        # ScriptError 连续计数，重试 3 次后才退出（代码 bug 缓冲）
+        self.script_error_count = 0
         # 上次计划重启模拟器的时间戳
         self.last_emulator_restart_time = time.monotonic()
         # 最近一次任务执行的错误原因（异常类名），供失败保护模块使用
@@ -559,24 +561,51 @@ class AzurLaneAutoScript:
                 self.checker.wait_until_available()
                 return False
         except ScriptError as e:
+            # 代码 bug，先重试 3 次再退出，给瞬时性脚本错误缓冲
+            self.script_error_count += 1
             self._last_task_error = 'ScriptError'
             logger.exception_context(
-                title='任务脚本执行失败', exc=e,
-                impact='当前任务无法继续，调度器将终止并保留错误现场。',
+                title=f'任务脚本执行失败（第 {self.script_error_count}/3 次）', exc=e,
+                impact='当前任务无法继续，将尝试重启恢复。',
                 action='根据堆栈定位脚本错误；如果是新版本回归，请提交错误日志和截图。',
                 level=50,
             )
+            self.save_error_log()
+            self._check_sensitive_exit(command, e)
+
+            if self.script_error_count >= 3:
+                logger.error_context(
+                    title='ScriptError 重试次数已达上限',
+                    reason=f'脚本错误已连续发生 {self.script_error_count} 次，可能是代码 bug。',
+                    impact='重试无意义，AzurPilot 将退出。',
+                    action='查看错误现场中的 log.txt 和截图，修复代码后重新启动。',
+                    level=50,
+                )
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config_name}> 崩溃",
+                    content=f"<{self.config_name}> ScriptError (连续 {self.script_error_count} 次)",
+                )
+                notify_webui(
+                    self.config_name,
+                    title=f"出大问题了喵！{self.config_name}崩溃了喵！",
+                    content=f"因为 ScriptError 连续 {self.script_error_count} 次喵！",
+                )
+                raise
+
+            logger.warning(f'[Alas] ScriptError 第 {self.script_error_count}/3 次，尝试重启恢复')
             handle_notify(
                 self.config.Error_OnePushConfig,
-                title=f"AzurPilot <{self.config_name}> 崩溃",
-                content=f"<{self.config_name}> ScriptError",
+                title=f"AzurPilot <{self.config_name}> 警告",
+                content=f"<{self.config_name}> ScriptError - 将尝试重启恢复 ({self.script_error_count}/3)",
             )
             notify_webui(
                 self.config_name,
-                title=f"出大问题了喵！{self.config_name}崩溃了喵！",
-                content=f"因为 ScriptError 喵！",
+                title=f"<{self.config_name}> 发出了警告喵！",
+                content=f"<{self.config_name}> ScriptError 将尝试重启恢复喵~",
             )
-            raise
+            self.config.task_call('Restart')
+            return 'recoverable'
         except EmulatorNotRunningError as e:
             self._last_task_error = 'EmulatorNotRunningError'
             # 模拟器离线或死机，尝试自动重启
@@ -604,30 +633,48 @@ class AzurLaneAutoScript:
                 )
                 return 'recoverable'
             else:
-                # 重启失败或未启用自动重启，终止程序
+                # 重启失败：退避等待后继续重试，7×24 场景下永不放弃
+                limit = int(self.config.Error_AdbOfflineThreshold)
+                wait_seconds = min(300, 30 * (self.consecutive_adb_offline - limit + 1))
                 logger.error_context(
-                    title='模拟器无法自动恢复',
+                    title='模拟器本次重启失败',
                     reason='模拟器离线重启失败或已达到自动重启次数限制。',
-                    impact='调度器将终止，任务不会继续执行。',
-                    action='手动启动模拟器并确认 ADB 可见，再重新启动 AzurPilot。',
-                    level=50,
+                    impact=f'调度器不会退出，将在 {wait_seconds} 秒后继续尝试恢复。',
+                    action='若长时间无法恢复，请手动检查模拟器进程、端口和 ADB 服务。',
+                    level=30,
                 )
-                handle_notify(
-                    self.config.Error_OnePushConfig,
-                    title=f"AzurPilot <{self.config_name}> 崩溃",
-                    content=f"<{self.config_name}> EmulatorNotRunningError",
-                )
-                notify_webui(
-                    self.config_name,
-                    title=f"出大问题了喵！{self.config_name}崩溃了喵！",
-                    content=f"因为 模拟器出问题了 喵！",
-                )
-                exit(1)
+                time.sleep(wait_seconds)
+                self.config.task_call('Restart')
+                return 'recoverable'
         except RequestHumanTakeover:
             self._last_task_error = 'RequestHumanTakeover'
             logger.error_context(
-                title='任务需要人工介入',
+                title='任务需要人工介入（将尝试自动恢复）',
                 reason='当前状态无法由自动化流程安全判断或修复。',
+                impact='调度器将先尝试重启模拟器恢复，恢复失败才终止。',
+                action='查看错误现场和堆栈；若自动恢复失败，再手动处理。',
+                level=50,
+            )
+            self.save_error_log()
+            self._check_sensitive_exit(command, e)
+            # 先通过重启模拟器自愈一次，失败才退出
+            if self._try_restart_emulator():
+                logger.warning('[Alas] RequestHumanTakeover: 模拟器重启成功，调度 Restart 任务恢复')
+                self.config.task_call('Restart')
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config_name}> 警告",
+                    content=f"<{self.config_name}> 需要人工介入 - 已自动重启模拟器恢复",
+                )
+                notify_webui(
+                    self.config_name,
+                    title=f"{self.config_name} 出了点小问题喵~",
+                    content=f"遇到需要人工介入的问题喵 已重启模拟器恢复喵",
+                )
+                return 'recoverable'
+            logger.error_context(
+                title='自动恢复失败',
+                reason='模拟器重启未能解决需要人工介入的状态。',
                 impact='调度器将终止，避免继续执行造成误操作。',
                 action='查看错误现场和堆栈，按日志中的具体建议处理后重新启动。',
                 level=50,
@@ -1676,6 +1723,7 @@ class AzurLaneAutoScript:
                     self.consecutive_game_stuck = 0
                     self.consecutive_adb_offline = 0
                     self.consecutive_unexpected_error = 0
+                    self.script_error_count = 0
                     # 任务成功，清除该任务的失败保护记录
                     self.failure_tracker.clear_task_failures(task)
                     continue
