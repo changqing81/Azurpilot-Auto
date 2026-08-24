@@ -144,24 +144,15 @@ class Secretary(SecretaryDockMixin,UI):
     def open_ship_select(self, button):
         logger.hr("Enter Secretary select")
 
-        while True:
-            self.device.screenshot()
+        for _ in self.loop(timeout=15, skip_first=False):
             if self.appear(SECRETARY_DOCK_CHECK):
                 logger.info("Already in secretary dock")
                 return
 
-            self.device.click(button)
+            if self.appear_then_click(button, interval=3):
+                continue
 
-            logger.info(f"Click secretary slot: {button}")
-
-            # 等页面切换
-            self.device.sleep(1)
-
-            self.device.screenshot()
-
-            if self.appear(SECRETARY_DOCK_CHECK):
-                logger.info("Enter secretary dock")
-                return
+        logger.warning("Enter secretary dock timeout")
 
     def choose_secretary(self, initialize=True):
 
@@ -410,16 +401,16 @@ class Secretary(SecretaryDockMixin,UI):
             duration=0.4,
         )
 
-        self.device.sleep(1)
-
     def _notify_worker(self, title, content):
         instance = self.config.config_name
 
-        handle_notify(
-            self.config.Error_OnePushConfig,
-            title=title,
-            content=content,
-        )
+        # 使用 Secretary 组专属推送配置（GUI 中可独立开关与选择渠道）
+        if self.config.Secretary_Notify:
+            handle_notify(
+                self.config.Secretary_OnePushConfig,
+                title=title,
+                content=content,
+            )
 
         notify_webui(
             instance,
@@ -522,8 +513,6 @@ class Secretary(SecretaryDockMixin,UI):
             self.device.screenshot()
 
             if self.appear(target):
-                self.device.sleep(0.5)
-                self.device.screenshot()
                 return
 
             self.appear_then_click(
@@ -671,8 +660,6 @@ class Secretary(SecretaryDockMixin,UI):
             self.button_center(ship.button),
             self.button_center(SECRETARY_SLOT[0]),
         )
-
-        self.device.sleep(1)
 
     def refresh_secretary_group(self):
 
