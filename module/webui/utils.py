@@ -729,8 +729,23 @@ def login(password, stored_password=_LOCALSTORAGE_UNSET):
 
 
 def get_window_visibility_state():
-    ret = eval_js("document.visibilityState")
-    return False if ret == "hidden" else True
+    """返回缓存的窗口可见性状态。
+
+    真实状态由前端 visibilitychange 事件通过 set_window_visibility_state()
+    推送更新。此函数只读缓存，不再阻塞式 eval_js 轮询浏览器——
+    旧实现每 1~15 秒阻塞调度线程一次，页面隐藏时反而加密到 1 秒，
+    是 UI 点击延迟的主要来源之一。
+    """
+    return _window_visibility_state
+
+
+_window_visibility_state = True
+
+
+def set_window_visibility_state(visible: bool) -> None:
+    """供前端事件回调更新窗口可见性缓存。"""
+    global _window_visibility_state
+    _window_visibility_state = bool(visible)
 
 
 # https://pywebio.readthedocs.io/zh_CN/latest/cookbook.html#cookie-and-localstorage-manipulation

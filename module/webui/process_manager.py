@@ -57,6 +57,11 @@ class ProcessManager:
     _lifecycle_locks_lock = threading.Lock()
     MANUAL_STOP_ACTION_TIMEOUT = 30
 
+    # alive/state 的探测涉及跨进程文件锁、JSON 读盘和 psutil 调用，
+    # 而 UI 刷新任务每 1~2 秒就会查询一次。短 TTL 缓存消除重复探测，
+    # 启停等关键路径通过 invalidate_state_cache() 主动失效。
+    STATE_CACHE_TTL = 0.75
+
     def __init__(self, config_name: str = DEFAULT_CONFIG_NAME) -> None:
         self.config_name = config_name
         self._renderable_queue: queue.Queue[ConsoleRenderable] = State.manager.Queue()
@@ -67,6 +72,15 @@ class ProcessManager:
         self.thd_log_queue_handler: threading.Thread | None = None
         self._state_override: int | None = None
         self._state_override_deadline: float | None = None
+        self._alive_cache: bool | None = None
+        self._state_cache: int | None = None
+        self._state_cache_time: float = 0.0
+
+    def invalidate_state_cache(self) -> None:
+        """在启停等关键操作后立即失效状态缓存，保证 UI 及时反映变化。"""
+        self._alive_cache = None
+        self._state_cache = None
+        self._state_cache_time = 0.0
 
     @classmethod
     def _get_lifecycle_lock(cls, config_name: str) -> threading.RLock:
@@ -157,6 +171,7 @@ class ProcessManager:
                         self._terminate_unregistered_process(process)
                         self._process = None
                         raise
+                    self.invalidate_state_cache()
                     self.start_log_queue_handler()
             finally:
                 State.cleanup_lock.release()
@@ -256,6 +271,7 @@ class ProcessManager:
                 self.renderables.append(
                     Text(f"[{self.config_name}] exited. Reason: Manual stop\n")
                 )
+            self.invalidate_state_cache()
         if not stopped:
             logger.error(f"[{self.config_name}] 停止工作进程失败 PID {pid}")
         log_queue_handler = self.thd_log_queue_handler
@@ -590,6 +606,15 @@ class ProcessManager:
 
     @property
     def alive(self) -> bool:
+        now = time.monotonic()
+        if self._alive_cache is not None and now - self._state_cache_time < self.STATE_CACHE_TTL:
+            return self._alive_cache
+        result = self._probe_alive()
+        self._alive_cache = result
+        self._state_cache_time = now
+        return result
+
+    def _probe_alive(self) -> bool:
         with self._get_lifecycle_lock(self.config_name):
             if self._is_process_alive(self._process):
                 return True
@@ -606,6 +631,15 @@ class ProcessManager:
         override_state = self._get_state_override()
         if override_state is not None:
             return override_state
+        now = time.monotonic()
+        if self._state_cache is not None and now - self._state_cache_time < self.STATE_CACHE_TTL:
+            return self._state_cache
+        result = self._compute_state()
+        self._state_cache = result
+        self._state_cache_time = now
+        return result
+
+    def _compute_state(self) -> int:
         if self.alive:
             return 1
         elif len(self.renderables) == 0:

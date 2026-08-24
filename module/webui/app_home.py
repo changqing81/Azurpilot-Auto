@@ -14,8 +14,10 @@ from module.webui.app_dependencies import (
     lang,
     load_webui_styles,
     logger,
+    pin_on_change,
     put_buttons,
     put_html,
+    put_input,
     put_markdown,
     put_text,
     register_thread,
@@ -463,6 +465,59 @@ class HomeMixin(WebUIMixinBase):
         # 先发送页面骨架，再读取恢复页面所需的 localStorage。即使浏览器端
         # RPC 较慢，用户也能立即看到真实外壳，且该读取不再阻塞首条内容。
         self.mount_shell()
+
+        # 窗口可见性改为前端事件推送：visibilitychange 触发时通过 Pin 回调
+        # 上报状态，服务端 Switch 只读缓存，不再阻塞式 eval_js 轮询浏览器。
+        # 必须在 mount_shell() 之后创建隐藏输入框——_show() 会 clear ROOT，
+        # 提前创建会被抹掉。
+        if not getattr(self, "_visibility_listener_installed", False):
+            self._visibility_listener_installed = True
+            from module.webui.utils import set_window_visibility_state
+
+            def _on_visibility_change(visible):
+                # 前端上报的是字符串 "True"/"False"
+                set_window_visibility_state(str(visible).lower() == "true")
+
+            put_input(
+                name="__alas_window_visible",
+                value="True",
+            ).style("display:none")
+            pin_on_change(
+                name="__alas_window_visible",
+                onchange=_on_visibility_change,
+                clear=True,
+                serial_mode=True,
+            )
+            run_js(
+                """
+                (function () {
+                    if (window.__alasVisibilityHooked) return;
+                    window.__alasVisibilityHooked = true;
+                    var attempts = 0;
+                    function install() {
+                        var input = document.querySelector(
+                            'input[name="__alas_window_visible"]'
+                        );
+                        if (!input) {
+                            attempts += 1;
+                            if (attempts < 20) window.setTimeout(install, 100);
+                            return;
+                        }
+                        var notify = function () {
+                            var visible = !document.hidden;
+                            if (input.value === String(visible)) return;
+                            input.value = String(visible);
+                            input.dispatchEvent(new Event('input', {bubbles: true}));
+                            input.dispatchEvent(new Event('change', {bubbles: true}));
+                        };
+                        document.addEventListener('visibilitychange', notify);
+                        notify();
+                    }
+                    install();
+                })();
+                """
+            )
+
         if localstorage is None:
             localstorage = get_localstorage_values(("clarity_notice_shown", "aside"))
         aside = localstorage.get("aside")
