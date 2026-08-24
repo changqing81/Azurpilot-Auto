@@ -836,7 +836,7 @@
     },
     "OcrModelVersionEnglish": {
       "name": "OCR英文模型版本喵",
-      "help": "选择英文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用standard喵。alocr_en_v2_6为旧版AlOCR专用英文模型喵，仅ONNX后端可用喵。该项影响英文Azur Lane模型。",
+      "help": "选择英文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用旧版alocr_en_v2_6喵。alocr_en_v2_6为旧版AlOCR专用英文模型喵，仅ONNX后端可用喵。该项影响英文Azur Lane模型。",
       "auto": "自动推荐喵",
       "lite": "Lite 轻量喵",
       "standard": "Standard 标准喵",
@@ -845,7 +845,7 @@
     },
     "OcrModelVersionChinese": {
       "name": "OCR中文模型版本喵",
-      "help": "选择简体中文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用standard喵。alocr_cn_v3为旧版AlOCR专用中文模型喵，仅ONNX后端可用喵。该项影响cnocr/中文模型。",
+      "help": "选择简体中文OCR模型档位喵。lite轻量最快喵，standard均衡喵，pro精度最高喵。auto使用旧版alocr_cn_v3喵。alocr_cn_v3为旧版AlOCR专用中文模型喵，仅ONNX后端可用喵。该项影响cnocr/中文模型。",
       "auto": "自动推荐喵",
       "lite": "Lite 轻量喵",
       "standard": "Standard 标准喵",
@@ -892,6 +892,14 @@
       "stay_there": "停在原地发呆",
       "goto_main": "回主界面喵",
       "close_game": "关闭游戏喵"
+    },
+    "WhenSchedulerStopped": {
+      "name": "停止调度器后",
+      "help": "在 WebUI 停止调度器后执行的操作喵~",
+      "stay_there": "停在原地发呆",
+      "goto_main": "回主界面喵",
+      "close_game": "关闭游戏喵",
+      "close_emulator": "关闭模拟器喵"
     }
   },
   "DropRecord": {
@@ -6525,7 +6533,9 @@
       "WebuiSSLKey": "SSL 密钥文件",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密钥路径，需和证书同时设置喵。",
       "WebuiSSLCert": "SSL 证书文件",
-      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。",
+      "HideUpdateNotice": "隐藏更新提示",
+      "HideUpdateNoticeHelp": "开启后检测到更新时不再在右下角弹出提示喵。"
     },
     "StartupRun": {
       "Title": "启动时自动运行喵",
