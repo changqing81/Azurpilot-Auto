@@ -70,6 +70,8 @@ class ProcessManager:
         self.renderables_reduce_length = 80
         self._process: Process | None = None
         self.thd_log_queue_handler: threading.Thread | None = None
+        self._manual_stop_action_thread: threading.Thread | None = None
+        self._manual_stop_action_process: Process | None = None
         self._state_override: int | None = None
         self._state_override_deadline: float | None = None
         self._alive_cache: bool | None = None
@@ -143,6 +145,9 @@ class ProcessManager:
                         return
                     if self.alive:
                         return
+                    # 上一次手动停止的收尾动作（如关闭游戏）可能仍在
+                    # 后台运行，必须先终止，避免与新 worker 抢占设备。
+                    self._cancel_pending_manual_stop_action()
                     # alive 在登记不可验证时保守返回 False；
                     # 此处再次确认登记状态，防止在登记不一致时启动重复 worker。
                     _pid, _, _verified = self._registered_worker()
@@ -285,18 +290,39 @@ class ProcessManager:
         return stopped, should_run_action
 
     def _run_manual_stop_action_locked(self) -> None:
-        """在 worker 退出后运行独立收尾进程，并限制其最长运行时间。"""
+        """启动独立收尾进程，由后台线程等待其结束。
+
+        Windows spawn 模式下收尾子进程冷启动（新解释器 + 配置栈导入）
+        需要 3-6 秒。若在点击回调里同步 join，会持有生命周期锁阻塞
+        alive 探测，导致单线程 TaskHandler 的所有 UI 刷新任务排队、
+        整页冻结数秒。因此这里只负责启动进程并派发守护线程等待。
+        """
         process = Process(
             target=ProcessManager.run_manual_stop_action,
             args=(self.config_name,),
         )
+        self._manual_stop_action_process = process
         try:
             process.start()
         except Exception:
             logger.exception(f"[{self.config_name}] 启动停止收尾进程失败")
+            self._manual_stop_action_process = None
             return
 
+        thread = threading.Thread(
+            target=self._wait_manual_stop_action,
+            args=(process,),
+            daemon=True,
+            name=f"manual-stop-action-{self.config_name}",
+        )
+        self._manual_stop_action_thread = thread
+        thread.start()
+
+    def _wait_manual_stop_action(self, process: Process) -> None:
+        """在后台线程中等待收尾进程退出，超时则逐级终止。"""
         process.join(timeout=self.MANUAL_STOP_ACTION_TIMEOUT)
+        if self._manual_stop_action_process is process:
+            self._manual_stop_action_process = None
         try:
             alive = process.is_alive()
         except (OSError, ValueError, AssertionError):
@@ -312,6 +338,19 @@ class ProcessManager:
         exitcode = getattr(process, "exitcode", None)
         if exitcode not in (None, 0):
             logger.warning(f"[{self.config_name}] 停止收尾进程异常退出: {exitcode}")
+
+    def _cancel_pending_manual_stop_action(self) -> None:
+        """启动 worker 前取消仍在运行的收尾进程，避免与新 worker 抢占设备。
+
+        收尾动作（如关闭游戏）与重新启动调度器互斥：用户停止后立即
+        启动时，收尾子进程可能还在冷启动中，必须先终止它。
+        """
+        process = self._manual_stop_action_process
+        if process is None:
+            return
+        logger.info(f"[{self.config_name}] 检测到未完成的停止收尾动作，正在取消")
+        self._manual_stop_action_process = None
+        self._terminate_manual_stop_action(process)
 
     @staticmethod
     def _terminate_manual_stop_action(process: Process) -> None:
