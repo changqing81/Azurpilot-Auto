@@ -1,7 +1,6 @@
-﻿import json
+import json
 
 from pathlib import Path
-import json
 
 STATE_FILE = Path("./config/report_state.json")
 def load_state():
@@ -194,8 +193,9 @@ def try_send_daily_report(
         get_wecom_webhook,
         send_template_card,
     )
+    # 日报复用 Secretary 组的 OnePush 配置（企业微信机器人渠道）
     webhook = get_wecom_webhook(
-        config.OnePushConfig
+        config.Secretary_OnePushConfig
     )
     lines = get_today_report(
         instance
