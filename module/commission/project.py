@@ -144,8 +144,8 @@ COMMISSION_FILTER = CommissionFilter(
         '-?'
         '(resource|chip|event|drill|part|cube|oil|book|retrofit|box|gem|ship)?'
         '-?'
-        '(\d\d?:\d\d)?'
-        '(\d\d?.\d\d?|\d\d?)?'
+        r'(\d\d?:\d\d)?'
+        r'(\d\d?.\d\d?|\d\d?)?'
     ),
     attr=('category_str', 'genre_str', 'duration_hm', 'duration_hour'),
     preset=('shortest', 'tier')
@@ -588,7 +588,7 @@ class Commission:
         """
         # OCR 常将 0 识别为 D，此处修正
         string = string.replace('D', '0')
-        result = re.search('(\d+):(\d+):(\d+)', string)
+        result = re.search(r'(\d+):(\d+):(\d+)', string)
         if not result:
             logger.warning(f'无效的时间字符串: {string}')
             self.valid = False
