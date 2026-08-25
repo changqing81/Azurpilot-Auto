@@ -6082,6 +6082,10 @@
       "name": "Restart the emulator regularly",
       "help": "Once enabled, the emulator will automatically restart at specified intervals to avoid memory leaks or lagging caused by long-term running. The restart will wait until the current task is completed before executing it."
     },
+    "ForceScheduledRestart": {
+      "name": "Force scheduled restart",
+      "help": "Once enabled, the emulator will be forcibly restarted at the restart interval even if a non-sensitive task is currently running, ensuring on-time maintenance. Sensitive tasks will not be interrupted. Requires \"Restart the emulator regularly\" to be enabled."
+    },
     "RestartIntervalHours": {
       "name": "Restart interval (hours)",
       "help": "Automatically restart the emulator every few hours."

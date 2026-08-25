@@ -1034,6 +1034,7 @@ class GeneratedConfig:
 
     # 配置组 `EmulatorManagement`
     EmulatorManagement_ScheduledEmulatorRestart = False
+    EmulatorManagement_ForceScheduledRestart = False
     EmulatorManagement_RestartIntervalHours = 4
 
     # 配置组 `EmulatorManager`

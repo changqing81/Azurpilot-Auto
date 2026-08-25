@@ -147,6 +147,7 @@
     },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": false,
+      "ForceScheduledRestart": false,
       "RestartIntervalHours": 4
     },
     "Storage": {

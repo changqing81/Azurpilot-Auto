@@ -55,6 +55,8 @@ import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
+import inflection
+
 from module.logger import logger
 
 # 看门狗配置常量（默认值，实际运行时从配置 TaskFailureProtection 组读取）
@@ -245,13 +247,64 @@ class Watchdog:
         self._active = False
         self._task_start = 0.0
 
+    def _check_force_scheduled_restart(self) -> bool:
+        """非敏感任务准点强制定时重启（维护性）。
+
+        当 EmulatorManagement.ScheduledEmulatorRestart 与
+        EmulatorManagement.ForceScheduledRestart 同时开启时，即使当前
+        正在运行非敏感任务，也到点强制重启模拟器，保证准点维护。
+        敏感任务跳过，避免打断正在运行的关键操作。
+        故障性任务超时检测（task_timeout）不受敏感属性限制。
+
+        Returns:
+            bool: 已触发强制重启（供 _loop 内 continue 跳过本轮超时
+            检测）返回 True；否则返回 False。
+        """
+        try:
+            scheduled = bool(self.alas.config.EmulatorManagement_ScheduledEmulatorRestart)
+            force = bool(self.alas.config.EmulatorManagement_ForceScheduledRestart)
+        except Exception:
+            return False
+        if not (scheduled and force) or not self._task_name:
+            return False
+
+        # 敏感任务跳过维护性重启
+        try:
+            sensitive = self.alas.config.cross_get(
+                keys=f'{inflection.camelize(self._task_name)}.Scheduler.Sensitive',
+                default=False,
+            )
+        except Exception:
+            sensitive = False
+        if sensitive:
+            return False
+
+        # 到重启间隔才触发（与任务间隙的常规计划重启共享时间戳，避免重复触发）
+        try:
+            interval = int(self.alas.config.EmulatorManagement_RestartIntervalHours)
+        except Exception:
+            interval = 4
+        elapsed_hours = (time.monotonic() - self.alas.last_emulator_restart_time) / 3600
+        if elapsed_hours < interval:
+            return False
+
+        self._recover(
+            elapsed_hours * 3600,
+            reason='force_scheduled_restart',
+            task_name=self._task_name,
+        )
+        return True
+
     # ------------------------------------------------------------------
     # 检测循环
     # ------------------------------------------------------------------
 
     def _loop(self):
-        """看门狗主循环：检测两类异常并强制恢复。
+        """看门狗主循环：检测维护性重启与两类异常并强制恢复。
 
+        0. 强制定时重启（维护性）：到达重启间隔且当前为非敏感任务时，
+           准点强制重启模拟器（需 EmulatorManagement.ForceScheduledRestart
+           与 ScheduledEmulatorRestart 同时开启）
         1. 日志心跳超时：任务执行期间 WATCHDOG_LOG_TIMEOUT 秒无任何日志输出
            → 主线程卡死在 I/O 调用中（u2 HTTP / ADB shell）
         2. 任务运行时间超时：单个任务运行超过配置的 WatchdogTaskTimeout 分钟
@@ -260,6 +313,10 @@ class Watchdog:
         """
         while not self._stop_event.wait(WATCHDOG_CHECK_INTERVAL):
             if not self._active or not self._enabled():
+                continue
+
+            # 检查 0：强制定时重启（维护性，跳动敏感任务）
+            if self._check_force_scheduled_restart():
                 continue
 
             # 检查 1：日志心跳超时（主线程卡死）
@@ -306,6 +363,13 @@ class Watchdog:
                 f'（超过 {timeout_min} 分钟），判定逻辑死循环，'
                 f'强制杀死模拟器进程以中断任务'
             )
+        elif reason == 'force_scheduled_restart':
+            logger.critical(
+                f'[Watchdog] 任务 `{task_name}` 执行期间到达计划重启间隔'
+                f'（已持续 {int(elapsed / 3600)} 小时），强制定时重启模拟器'
+            )
+            # 更新重启时间戳，避免恢复后立即重复触发
+            self.alas.last_emulator_restart_time = time.monotonic()
         else:
             log_timeout = self._get_config_int(
                 'WatchdogLogTimeout', WATCHDOG_LOG_TIMEOUT_DEFAULT)

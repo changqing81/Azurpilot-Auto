@@ -2011,6 +2011,7 @@ GameManager:
   AutoRestart: true
 EmulatorManagement:
   ScheduledEmulatorRestart: false
+  ForceScheduledRestart: false
   RestartIntervalHours:
     value: 4
     validate: [1, 24]

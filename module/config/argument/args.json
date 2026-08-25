@@ -781,6 +781,10 @@
         "type": "checkbox",
         "value": false
       },
+      "ForceScheduledRestart": {
+        "type": "checkbox",
+        "value": false
+      },
       "RestartIntervalHours": {
         "type": "input",
         "value": 4,
