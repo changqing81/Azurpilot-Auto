@@ -262,6 +262,7 @@ $RECYCLE.BIN/
 adb_port.txt
 adb_port.ini
 alas.exe
+alas-launcher.exe
 !popup.exe
 *.zip
 console.bat
@@ -314,3 +315,7 @@ cursor-helper/**/review/reports/files/
 
 AGENTS.md
 RTK.md
+
+# 运行时产物与临时目录
+.tmp_cmp/
+wallpaper_*.jpg
