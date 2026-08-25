@@ -237,8 +237,9 @@ class TestCommissionTierFilter(unittest.TestCase):
 
 
 class TestCommissionAlgorithmSwitch(unittest.TestCase):
-    def test_dynamic_programming_is_disabled_by_default(self):
-        self.assertIs(GeneratedConfig.Commission_DynamicProgramming, False)
+    def test_dynamic_programming_is_enabled_by_default(self):
+        # 83cfe779b 起默认启用全局最优策略（实验性），测试同步更新
+        self.assertIs(GeneratedConfig.Commission_DynamicProgramming, True)
         self.assertIsNone(GeneratedConfig.Commission_Blacklist)
         self.assertIsInstance(GeneratedConfig.Commission_DelayHalfLife, float)
         self.assertIsInstance(GeneratedConfig.Commission_DeadlineFutureHorizon, float)
@@ -371,8 +372,11 @@ class TestCommissionValueModel(unittest.TestCase):
         self.assertLess(threshold, deadline)
 
     def test_delaying_more_high_value_jobs_reduces_threshold(self):
-        one = delay_threshold_seconds(1, 1, 12 * 60 * 60)
-        three = delay_threshold_seconds(1, 3, 12 * 60 * 60)
+        # 默认模型 H=100h 下等待惩罚极弱，阈值会饱和到 deadline-1，
+        # 单调性不可观测；改用显式小 H 模型验证公式本身的单调性。
+        model = CommissionValueModel(delay_half_life=3 * 60 * 60)
+        one = delay_threshold_seconds(1, 1, 12 * 60 * 60, model=model)
+        three = delay_threshold_seconds(1, 3, 12 * 60 * 60, model=model)
 
         self.assertLess(three, one)
 

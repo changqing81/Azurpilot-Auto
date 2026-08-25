@@ -206,6 +206,7 @@ class TestInitialRendering(unittest.TestCase):
             theme="default",
             is_mobile=False,
             mount_shell=lambda: events.append("shell"),
+            init_wallpaper=lambda: None,
         )
         with (
             patch("module.webui.app_home.set_env"),
@@ -268,7 +269,7 @@ class TestTaskConfigRendering(unittest.TestCase):
                     }
                 }
             }
-            gui.init_menu = lambda name: None
+            gui.init_menu = lambda name, skip_clear=False: None
             gui.set_title = lambda text: None
             gui._bind_config_watcher = lambda path: None
             gui._build_navigator = lambda group: put_text(group[0])
