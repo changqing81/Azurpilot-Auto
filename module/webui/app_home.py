@@ -53,6 +53,11 @@ _PIXIV_PROXY_DOMAINS = [
     "pximg.obfs.dev",
 ]
 
+# LOLICON 图源接口
+_LOLICON_API = "https://api.lolicon.app/setu/v2"
+# nyan.run 图源接口，返回的图片地址已自带 Pixiv 反代，无需再走额外反代域名
+_NYAN_API = "https://sex.nyan.run/api/v2/"
+
 
 # 主页右下角"纯背景模式"圆点的常驻注入脚本。
 # 通过 JS 挂到 document 顶层，保证幂等且样式常驻：
@@ -230,9 +235,9 @@ class HomeMixin(WebUIMixinBase):
     def init_wallpaper(self):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
-        壁纸 URL 在后台线程中获取，后台并发对多个 Pixiv 图片反代域名测速，
-        选中其中可访问且时延最低的反代，成功后通过 JS 动态注入 CSS 变量，
-        避免网络请求阻塞页面首次渲染。
+        后台线程依次尝试候选图源：优先 LOLICON（并发对多个 Pixiv 反代测速，
+        选中可访问且时延最低者），失败则回退到 nyan.run，成功后通过 JS 动态
+        注入 CSS 变量，避免网络请求阻塞页面首次渲染。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -241,62 +246,96 @@ class HomeMixin(WebUIMixinBase):
         self.wallpaper_url = ""
 
         def _fetch_wallpaper():
-            # 先调一次接口拿到一张图的相对路径，再并发对候选反代各自测速，
-            # 选中“可访问且时延最低”的反代，避免固定顺序选中一个慢但可用的域名。
-            try:
-                response = requests.get(
-                    "https://api.lolicon.app/setu/v2",
-                    params={
-                        "r18": 0,
-                        "num": 1,
-                        "size": "original",
-                        "excludeAI": True,
-                        "aspectRatio": "gt1",
-                        "dsc": False,
-                        "tag": "碧蓝航线|AzurLane|Azur Lane|アズールレーン",
-                    },
-                    timeout=10,
-                )
-                response.raise_for_status()
-
-                # 仅保留路径部分，便于再用不同反代域名拼接后对比速度
-                image_path = urlparse(
-                    response.json()["data"][0]["urls"]["original"]
-                ).path
-                if not image_path:
-                    return
-            except Exception as e:
-                logger.info(f"[WebUI] 获取图源失败，跳过: {e}")
+            # 依次尝试候选图源，任一成功即应用
+            if self._fetch_lolicon_wallpaper():
                 return
-
-            # 并发对同一图片各自测速，返回顺序与输入一致
-            with ThreadPoolExecutor(
-                max_workers=len(_PIXIV_PROXY_DOMAINS)
-            ) as executor:
-                results = executor.map(
-                    lambda p: (p, self._probe_image(f"https://{p}{image_path}")),
-                    _PIXIV_PROXY_DOMAINS,
-                )
-
-            # 过滤出可访问的反代，取其中时延最低者
-            reachable = [
-                (latency, proxy) for proxy, (latency, ok) in results if ok
-            ]
-            if reachable:
-                _, best = min(reachable, key=lambda x: x[0])
-                logger.info(f"[WebUI] 测速选中最快反代 [{best}]")
-                self._apply_wallpaper(f"https://{best}{image_path}")
+            if self._fetch_nyan_wallpaper():
                 return
-
-            # 全部不可访问时回退到列表首项，保证至少能尝试渲染
-            logger.info("[WebUI] 所有反代测速均不可访问，回退使用首个反代")
-            self._apply_wallpaper(
-                f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}"
-            )
+            logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
         thread.start()
+
+    def _fetch_lolicon_wallpaper(self):
+        """从 LOLICON 获取壁纸：先取一张图的路径，再并发对候选反代各自测速，
+        选中可访问且时延最低的反代。返回是否已应用一张壁纸。
+        """
+        try:
+            response = requests.get(
+                _LOLICON_API,
+                params={
+                    "r18": 0,
+                    "num": 1,
+                    "size": "original",
+                    "excludeAI": True,
+                    "aspectRatio": "gt1",
+                    "dsc": False,
+                    "tag": "碧蓝航线|AzurLane|Azur Lane|アズールレーン",
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            # 仅保留路径部分，便于再用不同反代域名拼接后对比速度
+            image_path = urlparse(
+                response.json()["data"][0]["urls"]["original"]
+            ).path
+            if not image_path:
+                return False
+        except Exception as e:
+            logger.info(f"[WebUI] LOLICON 获取图源失败: {e}")
+            return False
+
+        # 并发对同一图片各自测速，返回顺序与输入一致
+        with ThreadPoolExecutor(
+            max_workers=len(_PIXIV_PROXY_DOMAINS)
+        ) as executor:
+            results = executor.map(
+                lambda p: (p, self._probe_image(f"https://{p}{image_path}")),
+                _PIXIV_PROXY_DOMAINS,
+            )
+
+        # 过滤出可访问的反代，取其中时延最低者
+        reachable = [
+            (latency, proxy) for proxy, (latency, ok) in results if ok
+        ]
+        if reachable:
+            _, best = min(reachable, key=lambda x: x[0])
+            logger.info(f"[WebUI] 测速选中最快反代 [{best}]")
+            self._apply_wallpaper(f"https://{best}{image_path}")
+            return True
+
+        # 全部不可访问时回退到列表首项，保证至少能尝试渲染
+        logger.info("[WebUI] 所有反代测速均不可访问，回退使用首个反代")
+        self._apply_wallpaper(f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}")
+        return True
+
+    def _fetch_nyan_wallpaper(self):
+        """从 nyan.run 获取壁纸：该图源返回的图片地址自带 Pixiv 反代，可直接使用。
+        返回是否已应用一张壁纸。
+        """
+        try:
+            response = requests.get(
+                _NYAN_API,
+                params={
+                    "r18": 0,
+                    "num": 1,
+                    "keyword": "azur lane",
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            payload = response.json()
+            if not payload.get("data"):
+                logger.info("[WebUI] nyan.run 未返回有效图片数据")
+                return False
+            self._apply_wallpaper(payload["data"][0]["url"])
+            return True
+        except Exception as e:
+            logger.info(f"[WebUI] nyan.run 获取图源失败: {e}")
+            return False
 
     @staticmethod
     def _probe_image(url, timeout=8):
