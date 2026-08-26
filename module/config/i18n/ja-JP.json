@@ -2433,20 +2433,20 @@
   },
   "Report": {
     "_info": {
-      "name": "Report._info.name",
-      "help": "Report._info.help"
+      "name": "大世界デイリーレポート",
+      "help": "毎日大世界の資源統計レポートをWeComボット経由で送信します"
     },
     "Enable": {
-      "name": "Report.Enable.name",
-      "help": "Report.Enable.help"
+      "name": "レポートを有効化",
+      "help": "設定した時刻になると毎日大世界レポートを自動送信します"
     },
     "TriggerTime": {
-      "name": "Report.TriggerTime.name",
-      "help": "Report.TriggerTime.help"
+      "name": "送信時刻",
+      "help": "レポート送信時刻。形式 HH:MM、例：23:50"
     },
     "OnePushConfig": {
-      "name": "Report.OnePushConfig.name",
-      "help": "Report.OnePushConfig.help"
+      "name": "OnePush 通知設定",
+      "help": "レポート送信用の通知設定（WeComボットチャンネル）"
     }
   },
   "GeneralShop": {

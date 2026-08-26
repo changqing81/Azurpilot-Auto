@@ -2433,20 +2433,20 @@
   },
   "Report": {
     "_info": {
-      "name": "Report._info.name",
-      "help": "Report._info.help"
+      "name": "OPS Daily Report",
+      "help": "Send a daily OPS resource statistics report via WeCom bot"
     },
     "Enable": {
-      "name": "Report.Enable.name",
-      "help": "Report.Enable.help"
+      "name": "Enable Report",
+      "help": "Send the daily OPS report automatically at the configured trigger time"
     },
     "TriggerTime": {
-      "name": "Report.TriggerTime.name",
-      "help": "Report.TriggerTime.help"
+      "name": "Trigger Time",
+      "help": "Daily report send time, format HH:MM, e.g. 23:50"
     },
     "OnePushConfig": {
-      "name": "Report.OnePushConfig.name",
-      "help": "Report.OnePushConfig.help"
+      "name": "OnePush Configuration",
+      "help": "Notification config for daily report (WeCom bot channel)"
     }
   },
   "GeneralShop": {

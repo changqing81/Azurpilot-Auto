@@ -2433,20 +2433,20 @@
   },
   "Report": {
     "_info": {
-      "name": "Report._info.name",
-      "help": "Report._info.help"
+      "name": "大世界日報",
+      "help": "每天定時推播大世界資源統計日報，透過企業微信機器人發送"
     },
     "Enable": {
-      "name": "Report.Enable.name",
-      "help": "Report.Enable.help"
+      "name": "啟用日報",
+      "help": "開啟後每天到達觸發時間時自動發送大世界日報"
     },
     "TriggerTime": {
-      "name": "Report.TriggerTime.name",
-      "help": "Report.TriggerTime.help"
+      "name": "觸發時間",
+      "help": "每天發送日報的時間，格式 HH:MM，例如 23:50"
     },
     "OnePushConfig": {
-      "name": "Report.OnePushConfig.name",
-      "help": "Report.OnePushConfig.help"
+      "name": "OnePush 推送設定",
+      "help": "用於日報推送的通知設定（企業微信機器人頻道）"
     }
   },
   "GeneralShop": {

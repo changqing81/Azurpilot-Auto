@@ -2433,20 +2433,20 @@
   },
   "Report": {
     "_info": {
-      "name": "Report._info.name",
-      "help": "Report._info.help"
+      "name": "大世界日报",
+      "help": "每天定时推送大世界资源统计日报，通过企业微信机器人发送"
     },
     "Enable": {
-      "name": "Report.Enable.name",
-      "help": "Report.Enable.help"
+      "name": "启用日报",
+      "help": "开启后每天到达触发时间时自动发送大世界日报"
     },
     "TriggerTime": {
-      "name": "Report.TriggerTime.name",
-      "help": "Report.TriggerTime.help"
+      "name": "触发时间",
+      "help": "每天发送日报的时间，格式 HH:MM，例如 23:50"
     },
     "OnePushConfig": {
-      "name": "Report.OnePushConfig.name",
-      "help": "Report.OnePushConfig.help"
+      "name": "OnePush 推送配置",
+      "help": "用于日报推送的通知配置（企业微信机器人渠道）"
     }
   },
   "GeneralShop": {
