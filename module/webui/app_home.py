@@ -62,15 +62,38 @@ _PIXIV_PROXY_DOMAINS = [
 
 # LOLICON 图源接口
 _LOLICON_API = "https://api.lolicon.app/setu/v2"
-# nyan.run 图源接口，返回的图片地址已自带 Pixiv 反代，无需再走额外反代域名
-_NYAN_API = "https://sex.nyan.run/api/v2/"
 # imgapi.lie.moe 图源接口：通用 JSON 随机图，返回 {"pic": [url, ...]}
 _IMGAPI_LIEMOE_API = "https://imgapi.lie.moe/random"
 
-# 用户自定义图源相关配置
+# 内置默认图源列表：首次使用或“恢复默认”时以此为准。
+# - type=lolicon 走专用反代测速逻辑（tag 等参数保持代码默认，不开放修改）
+# - type=imgapi 走通用 JSON 提取逻辑
+# - enabled 状态会在配置文件中持久化，用户可禁用/启用
+_BUILTIN_SOURCES = [
+    {
+        "key": "lolicon",
+        "type": "lolicon",
+        "name": "LOLICON",
+        "url": _LOLICON_API,
+        "image_path": "data[0].url",
+        "enabled": True,
+    },
+    {
+        "key": "imgapi",
+        "type": "imgapi",
+        "name": "imgapi.lie.moe",
+        "url": _IMGAPI_LIEMOE_API,
+        "image_path": "pic[0]",
+        "enabled": True,
+    },
+]
+# 内置源专属类型标记；恢复默认仅作用于这些源
+_BUILTIN_TYPES = {"lolicon", "imgapi"}
+
+# 图源配置文件相关
 # 配置文件存于 wallpapers/ 目录（已被 .gitignore 忽略，且不会被当成 Alas 配置识别）
 _SOURCES_FILE_NAME = "wallpaper_sources.json"
-# 自定义图源默认的图片地址 JSON 提取路径，例如 luxunny 等通用接口的 data[0].url
+# 自定义图源默认的图片地址 JSON 提取路径
 _DEFAULT_IMAGE_PATH = "data[0].url"
 
 # 自定义背景图片扩展名 → MIME 映射
@@ -286,9 +309,9 @@ class HomeMixin(WebUIMixinBase):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
         若用户启用了自定义背景且图片存在，则直接应用自定义背景；否则在后台
-        线程并发尝试全部启用的图源（内置 LOLICON 多反代测速、nyan.run、
-        imgapi.lie.moe，以及用户添加的自定义 JSON 图源），先返回有效图片
-        地址者胜出并应用，成功后通过 JS 动态注入，避免网络请求阻塞页面首次渲染。
+        线程并发尝试全部启用的图源（内置 LOLICON 多反代测速、imgapi.lie.moe，
+        以及用户添加的自定义 JSON 图源），先返回有效图片地址者胜出并应用，
+        成功后通过 JS 动态注入，避免网络请求阻塞页面首次渲染。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -305,14 +328,24 @@ class HomeMixin(WebUIMixinBase):
                 return
 
         def _fetch_wallpaper():
-            # 内置图源 + 启用的自定义图源，全部并发请求，先返回有效图片地址者胜出
-            fetcher_items = [
-                ("LOLICON", self._fetch_lolicon_wallpaper),
-                ("nyan.run", self._fetch_nyan_wallpaper),
-                ("imgapi.lie.moe", self._fetch_imgapi_wallpaper),
-            ]
-            for source in self._load_custom_sources():
-                if source.get("enabled", True):
+            # 全部启用的图源并发请求，先返回有效图片地址者胜出
+            fetcher_items = []
+            for source in self._load_sources():
+                if not source.get("enabled", True):
+                    continue
+                source_type = source.get("type")
+                if source_type == "lolicon":
+                    fetcher_items.append(
+                        (source.get("name", "LOLICON"), self._fetch_lolicon_wallpaper)
+                    )
+                elif source_type == "imgapi":
+                    fetcher_items.append(
+                        (
+                            source.get("name", "imgapi.lie.moe"),
+                            self._fetch_imgapi_wallpaper,
+                        )
+                    )
+                else:
                     fetcher_items.append(
                         (
                             source.get("name", "自定义"),
@@ -395,31 +428,6 @@ class HomeMixin(WebUIMixinBase):
         logger.info("[WebUI] 所有反代测速均不可访问，回退使用首个反代")
         return f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}"
 
-    def _fetch_nyan_wallpaper(self):
-        """从 nyan.run 获取壁纸：该图源返回的图片地址自带 Pixiv 反代，可直接使用。
-        不限定关键词/tag，返回全站随机图，增加壁纸多样性。
-        返回图片地址；未取到有效数据时返回 None。
-        """
-        try:
-            response = requests.get(
-                _NYAN_API,
-                params={
-                    "r18": 0,
-                    "num": 1,
-                },
-                timeout=10,
-            )
-            response.raise_for_status()
-
-            payload = response.json()
-            if not payload.get("data"):
-                logger.info("[WebUI] nyan.run 未返回有效图片数据")
-                return None
-            return payload["data"][0]["url"]
-        except Exception as e:
-            logger.info(f"[WebUI] nyan.run 获取图源失败: {e}")
-            return None
-
     @staticmethod
     def _probe_image(url, timeout=8):
         """探测图片反代加载时延与可访问性，返回 (时延秒, 是否可访问)。
@@ -475,32 +483,57 @@ class HomeMixin(WebUIMixinBase):
         """自定义图源配置文件路径（wallpapers/ 已被 .gitignore 忽略）。"""
         return self._wallpapers_dir() / _SOURCES_FILE_NAME
 
-    def _load_custom_sources(self) -> list:
-        """读取用户自定义图源列表；无配置或解析失败返回空列表。"""
+    @staticmethod
+    def _default_sources() -> list:
+        """返回内置默认图源列表副本（lolicon / imgapi）。
+
+        默认图源的 type、URL、tag 等参数由 _BUILTIN_SOURCES 决定，保持代码
+        默认行为；enabled 状态会持久化到配置文件，用户可单独禁用或恢复。
+        """
+        return json.loads(json.dumps(_BUILTIN_SOURCES))
+
+    def _load_sources(self) -> list:
+        """读取全部图源配置（内置默认源 + 用户自定义源）。
+
+        - 配置文件缺失或损坏时返回默认源列表（不写盘）；
+        - 兼容旧版本 {"custom_sources": [...]} 结构，自动迁移为
+          {"sources": [...]} 并补全内置默认源，自定义源保持不变；
+        - 内置源以配置文件中持久化的 enabled 状态为准。
+        """
         try:
             data = json.loads(
                 self._sources_file().read_text(encoding="utf-8")
             )
-            if not isinstance(data, dict):
-                return []
-            return data.get("custom_sources") or []
         except Exception:
-            return []
+            return self._default_sources()
+        if not isinstance(data, dict):
+            return self._default_sources()
 
-    def _save_custom_sources(self, sources: list) -> None:
-        """保存用户自定义图源列表。"""
+        sources = data.get("sources")
+        if sources is None:
+            # 兼容旧版本自定义源配置，迁移到新结构
+            sources = [dict(s) for s in (data.get("custom_sources") or [])]
+            for s in sources:
+                s.setdefault("type", "custom")
+            sources = self._default_sources() + sources
+            self._save_sources(sources)
+            return sources
+        return [dict(s) for s in sources]
+
+    def _save_sources(self, sources: list) -> None:
+        """保存全部图源配置。"""
         try:
             self._wallpapers_dir().mkdir(parents=True, exist_ok=True)
             self._sources_file().write_text(
                 json.dumps(
-                    {"custom_sources": sources},
+                    {"sources": sources},
                     ensure_ascii=False,
                     indent=2,
                 ),
                 encoding="utf-8",
             )
         except Exception as e:
-            logger.warning(f"[WebUI] 保存自定义图源失败: {e}")
+            logger.warning(f"[WebUI] 保存图源配置失败: {e}")
 
     @staticmethod
     def _get_by_path(data, path: str):
@@ -561,14 +594,19 @@ class HomeMixin(WebUIMixinBase):
         self.init_wallpaper()
 
     def _manage_wallpaper_sources(self) -> None:
-        """图源管理：选择添加或删除用户自定义图源。"""
+        """图源管理：添加/删除图源、启用禁用图源、恢复默认图源设置。"""
         action = input_group(
             "图源管理",
             [
                 _p_radio(
                     label="选择操作",
                     name="action",
-                    options=["添加图源", "删除图源"],
+                    options=[
+                        "添加图源",
+                        "启用/禁用图源",
+                        "删除图源",
+                        "恢复默认图源设置",
+                    ],
                     required=True,
                 ),
                 actions(
@@ -591,10 +629,15 @@ class HomeMixin(WebUIMixinBase):
         )
         if not action:
             return
-        if action["action"] == "添加图源":
+        operation = action["action"]
+        if operation == "添加图源":
             self._add_custom_source_dialog()
-        elif action["action"] == "删除图源":
-            self._remove_custom_source_dialog()
+        elif operation == "启用/禁用图源":
+            self._toggle_source_dialog()
+        elif operation == "删除图源":
+            self._remove_source_dialog()
+        elif operation == "恢复默认图源设置":
+            self._reset_default_sources()
 
     def _add_custom_source_dialog(self) -> None:
         """弹窗填写自定义 JSON 图源信息并保存。"""
@@ -660,9 +703,10 @@ class HomeMixin(WebUIMixinBase):
             if "=" in pair:
                 key, _, value = pair.partition("=")
                 params[key.strip()] = value.strip()
-        sources = self._load_custom_sources()
+        sources = self._load_sources()
         sources.append(
             {
+                "type": "custom",
                 "name": name,
                 "url": url,
                 "params": params,
@@ -673,26 +717,88 @@ class HomeMixin(WebUIMixinBase):
                 "enabled": resp.get("enabled") == "是",
             }
         )
-        self._save_custom_sources(sources)
+        self._save_sources(sources)
         toast(f"已添加图源: {name}", color="success")
         logger.info(f"[WebUI] 已添加自定义图源: {name} -> {url}")
         self._refresh_random_wallpaper()
 
-    def _remove_custom_source_dialog(self) -> None:
-        """弹窗列出已添加的自定义图源并选择删除。"""
-        sources = self._load_custom_sources()
+    def _toggle_source_dialog(self) -> None:
+        """弹窗列出全部图源并选择切换启用/禁用状态。"""
+        sources = self._load_sources()
         if not sources:
-            toast("暂无自定义图源", color="warning")
+            toast("暂无图源", color="warning")
+            return
+        resp = input_group(
+            "启用/禁用图源",
+            [
+                _p_radio(
+                    label="选择图源（括号内为当前状态）",
+                    name="index",
+                    options=[
+                        f"{i + 1}. {s.get('name', '未命名')} - "
+                        f"{'已启用' if s.get('enabled', True) else '已禁用'} "
+                        f"({s.get('url', '')})"
+                        for i, s in enumerate(sources)
+                    ],
+                    required=True,
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "切换",
+                            "value": "ok",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if not resp:
+            return
+        index = resp["index"].split(".")[0].strip()
+        if not index.isdigit():
+            return
+        index = int(index) - 1
+        if 0 <= index < len(sources):
+            current = sources[index].get("enabled", True)
+            sources[index]["enabled"] = not current
+            self._save_sources(sources)
+            toast(
+                f"图源 [{sources[index].get('name', '未命名')}] "
+                f"{'已禁用' if current else '已启用'}",
+                color="success",
+            )
+            logger.info(
+                f"[WebUI] 图源 [{sources[index].get('name')}] -> "
+                f"{'禁用' if current else '启用'}"
+            )
+            self._refresh_random_wallpaper()
+
+    def _remove_source_dialog(self) -> None:
+        """弹窗列出可删除的自定义图源并选择删除（内置默认源不可删除）。"""
+        sources = self._load_sources()
+        removable = [
+            s for s in sources if s.get("type") not in _BUILTIN_TYPES
+        ]
+        if not removable:
+            toast("没有可删除的自定义图源（内置源不可删除，可禁用）", color="warning")
             return
         resp = input_group(
             "删除图源",
             [
                 _p_radio(
-                    label="选择要删除的图源",
+                    label="选择要删除的自定义图源",
                     name="index",
                     options=[
                         f"{i + 1}. {s.get('name', '未命名')} ({s.get('url', '')})"
-                        for i, s in enumerate(sources)
+                        for i, s in enumerate(removable)
                     ],
                     required=True,
                 ),
@@ -720,12 +826,44 @@ class HomeMixin(WebUIMixinBase):
         if not index.isdigit():
             return
         index = int(index) - 1
-        if 0 <= index < len(sources):
-            removed = sources.pop(index)
-            self._save_custom_sources(sources)
+        if 0 <= index < len(removable):
+            removed = removable.pop(index)
+            # 按元素身份从完整列表移除
+            new_sources = [
+                s
+                for s in sources
+                if s is not removed
+            ]
+            self._save_sources(new_sources)
             toast(f"已删除图源: {removed.get('name', '未命名')}", color="success")
             logger.info(f"[WebUI] 已删除自定义图源: {removed.get('name')}")
             self._refresh_random_wallpaper()
+
+    def _reset_default_sources(self) -> None:
+        """恢复默认图源设置：内置默认源重置并重新启用，自定义源不受影响。"""
+        sources = self._load_sources()
+        defaults = self._default_sources()
+        for default_entry in defaults:
+            found = False
+            for entry in sources:
+                if entry.get("key") == default_entry["key"]:
+                    entry.update(
+                        {
+                            "type": default_entry["type"],
+                            "name": default_entry["name"],
+                            "url": default_entry["url"],
+                            "image_path": default_entry["image_path"],
+                            "enabled": True,
+                        }
+                    )
+                    found = True
+                    break
+            if not found:
+                sources.append(default_entry)
+        self._save_sources(sources)
+        toast("已恢复默认图源设置", color="success")
+        logger.info("[WebUI] 已恢复默认图源设置")
+        self._refresh_random_wallpaper()
 
     # ---------- 自定义背景 ----------
 
