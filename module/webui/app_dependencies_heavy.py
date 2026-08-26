@@ -25,7 +25,13 @@ import_fake_pil_module()
 import pywebio.output as pywebio_output
 import pywebio.pin as pywebio_pin
 from pywebio import config as _webconfig
-from pywebio.input import actions, file_upload as _file_upload, input_group
+from pywebio.input import (
+    actions,
+    file_upload as _file_upload,
+    input as _input,
+    input_group,
+    radio as _radio,
+)
 from pywebio.output import (
     Output,
     clear,
@@ -140,7 +146,9 @@ pin_on_change: Callable[..., Any] = cast(
 )
 eval_js: Callable[..., Any] = cast(Callable[..., Any], _eval_js)
 file_upload: Callable[..., Any] = cast(Callable[..., Any], _file_upload)
+input: Callable[..., Any] = cast(Callable[..., Any], _input)
 put_button: Callable[..., Any] = cast(Callable[..., Any], _put_button)
+radio: Callable[..., Any] = cast(Callable[..., Any], _radio)
 set_env: Callable[..., Any] = cast(Callable[..., Any], _set_env)
 webconfig: Callable[..., Any] = cast(Callable[..., Any], _webconfig)
 
