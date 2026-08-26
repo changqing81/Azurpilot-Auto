@@ -2,7 +2,7 @@ import json
 
 from pathlib import Path
 
-STATE_FILE = Path("./config/report_state.json")
+STATE_FILE = Path("./cache/report_state.json")
 def load_state():
     if STATE_FILE.exists():
         return json.loads(
