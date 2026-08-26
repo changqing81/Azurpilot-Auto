@@ -498,7 +498,6 @@ class HomeMixin(WebUIMixinBase):
                     placeholder="选择图片",
                     accept="image/*",
                     required=True,
-                    max_size="5M",
                 ),
                 actions(
                     name="action",
