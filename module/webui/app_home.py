@@ -36,6 +36,22 @@ from module.webui.app_dependencies import (
 from module.webui.app_types import WebUIMixinBase
 
 
+# Pixiv 图片反代域名列表，按优先级排序。
+# LOLICON API 的 proxy 参数可指定图片所属反代域名；当前反代请求失败或返回的
+# 图片不可访问时，会自动切换到下一个候选域名，避免单个反代失效导致壁纸加载失败。
+# 注：反代服务可能随时变更或下线，若需新增/调整优先级，请维护此列表即可。
+_PIXIV_PROXY_DOMAINS = [
+    "i.pixiv.re",
+    "i.pixiv.nl",
+    "pixiv.yuki.sh",
+    "proxy.pixivel.moe",
+    "i.yuki.sh",
+    "i.suimoe.com",
+    "pximg.cocomi.eu.org",
+    "pximg.obfs.dev",
+]
+
+
 # 主页右下角"纯背景模式"圆点的常驻注入脚本。
 # 通过 JS 挂到 document 顶层，保证幂等且样式常驻：
 # - 圆点仅存在一个（不存在才创建），定位样式常驻 head，切页后不会丢失；
@@ -212,8 +228,9 @@ class HomeMixin(WebUIMixinBase):
     def init_wallpaper(self):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
-        壁纸 URL 在后台线程中获取，获取成功后通过 JS 动态注入 CSS 变量，
-        避免网络请求阻塞页面首次渲染。
+        壁纸 URL 在后台线程中获取，后台按优先级依次尝试多个 Pixiv 图片反代域名，
+        当前反代的请求失败或返回的图片不可访问时自动切换到下一个，成功后通过 JS
+        动态注入 CSS 变量，避免网络请求阻塞页面首次渲染。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -222,16 +239,21 @@ class HomeMixin(WebUIMixinBase):
         self.wallpaper_url = ""
 
         def _fetch_wallpaper():
-            MAX_RETRIES = 5
+            # 记录首个成功返回数据但图片校验未通过的反代 URL，作为兜底图，
+            # 保证即便所有反代校验都失败，也能优先展示第一张可用壁纸。
+            fallback_url = None
 
-            for attempt in range(1, MAX_RETRIES + 1):
+            # 按优先级逐域尝试；单个反代失败不影响其他反代，实现自动切换
+            for proxy in _PIXIV_PROXY_DOMAINS:
                 try:
                     response = requests.get(
                         "https://api.lolicon.app/setu/v2",
                         params={
                             "r18": 0,
-                            "num": 1,
+                            # 多取几张，校验不过时可顺延下一张，增加成功概率
+                            "num": 3,
                             "size": "original",
+                            "proxy": proxy,
                             "excludeAI": True,
                             "aspectRatio": "gt1",
                             "dsc": False,
@@ -241,30 +263,61 @@ class HomeMixin(WebUIMixinBase):
                     )
                     response.raise_for_status()
 
-                    data = response.json()["data"][0]
-                    image_url = data["urls"]["original"]
+                    for item in response.json()["data"]:
+                        image_url = item["urls"]["original"]
+                        if fallback_url is None:
+                            fallback_url = image_url
+                        if self._wallpaper_accessible(image_url):
+                            self._apply_wallpaper(image_url)
+                            return
 
-                    self.wallpaper_url = image_url
-                    logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
-
-                    css_value = f'url("{image_url}")'
-                    run_js(
-                        'document.documentElement.style.setProperty('
-                        '"--alas-apple-bg-image", '
-                        f'{json.dumps(css_value)}'
-                        ');'
+                    logger.info(
+                        f"[WebUI] 反代 [{proxy}] 的图片不可访问，自动切换下一个"
                     )
-                    return
-
                 except Exception:
-                    if attempt == MAX_RETRIES:
-                        logger.info(
-                            f"[WebUI] 获取背景图连续 {MAX_RETRIES} 次失败，已跳过"
-                        )
+                    logger.info(
+                        f"[WebUI] 反代 [{proxy}] 请求失败，自动切换下一个"
+                    )
+
+            if fallback_url:
+                logger.info(
+                    "[WebUI] 所有反代图片均不可访问，使用首个成功返回的图片作为兜底"
+                )
+                self._apply_wallpaper(fallback_url)
+                return
+
+            logger.info("[WebUI] 获取背景图连续失败，已跳过")
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
         thread.start()
+
+    @staticmethod
+    def _wallpaper_accessible(url, timeout=10):
+        """轻量校验图片反代地址是否可访问，避免选中已失效的反代。
+
+        只发起流式请求并检查状态码，不下载完整图片。
+        """
+        try:
+            resp = requests.get(url, timeout=timeout, stream=True)
+            ok = resp.status_code == 200
+            resp.close()
+            return ok
+        except Exception:
+            return False
+
+    def _apply_wallpaper(self, image_url):
+        """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。"""
+        self.wallpaper_url = image_url
+        logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
+
+        css_value = f'url("{image_url}")'
+        run_js(
+            'document.documentElement.style.setProperty('
+            '"--alas-apple-bg-image", '
+            f'{json.dumps(css_value)}'
+            ');'
+        )
 
     def download_wallpaper(self):
         """
