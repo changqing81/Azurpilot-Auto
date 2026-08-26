@@ -1,4 +1,5 @@
 """WebUI首页和会话运行"""
+import base64
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -8,6 +9,9 @@ from module.webui.app_dependencies import (
     State,
     Switch,
     _t,
+    actions,
+    file_upload,
+    input_group,
     alas_instance,
     eval_js,
     get_localstorage_values,
@@ -57,6 +61,16 @@ _PIXIV_PROXY_DOMAINS = [
 _LOLICON_API = "https://api.lolicon.app/setu/v2"
 # nyan.run 图源接口，返回的图片地址已自带 Pixiv 反代，无需再走额外反代域名
 _NYAN_API = "https://sex.nyan.run/api/v2/"
+
+# 自定义背景图片扩展名 → MIME 映射
+_CUSTOM_BG_MIMES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+}
 
 
 # 主页右下角"纯背景模式"圆点的常驻注入脚本。
@@ -196,6 +210,25 @@ class HomeMixin(WebUIMixinBase):
             ).style(
                 "text-align: center"
             )
+            put_text("Background / 背景").style("text-align: center; font-weight: 600")
+            put_buttons(
+                [
+                    {
+                        "label": "上传自定义背景",
+                        "value": "upload",
+                        "color": "light",
+                    },
+                    {
+                        "label": "随机背景",
+                        "value": "random",
+                        "color": "dark",
+                    },
+                ],
+                onclick=[
+                    lambda _: self._upload_custom_background(),
+                    lambda _: self._switch_to_random_background(),
+                ],
+            ).style("text-align: center")
             put_html('<div class="alas-home-marker" aria-hidden="true"></div>')
             # 一次性、常驻注入右下角"纯背景模式"圆点，仅在主页显示
             self._inject_wallpaper_toggle()
@@ -235,15 +268,23 @@ class HomeMixin(WebUIMixinBase):
     def init_wallpaper(self):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
-        后台线程依次尝试候选图源：优先 LOLICON（并发对多个 Pixiv 反代测速，
-        选中可访问且时延最低者），失败则回退到 nyan.run，成功后通过 JS 动态
-        注入 CSS 变量，避免网络请求阻塞页面首次渲染。
+        若用户启用了自定义背景且图片存在，则直接应用自定义背景；否则在后台
+        线程并发尝试候选图源（LOLICON 多反代测速、nyan.run），先返回有效图片
+        地址者胜出并应用，成功后通过 JS 动态注入，避免网络请求阻塞页面首次渲染。
         """
         if getattr(self, "wallpaper_url", None):
             return
 
         # 标记为空字符串，避免重复触发
         self.wallpaper_url = ""
+
+        # 用户启用了自定义背景且存在自定义图片时，直接应用并跳过随机图源
+        if self._load_background_mode() == "custom":
+            data_url = self._custom_background_data_url()
+            if data_url:
+                self._inject_custom_background(data_url)
+                logger.info("[WebUI] 已应用自定义背景")
+                return
 
         def _fetch_wallpaper():
             # 并发尝试两个图源，先返回有效图片地址者胜出并应用，响应快者优先
@@ -369,10 +410,177 @@ class HomeMixin(WebUIMixinBase):
             ');'
         )
 
+    # ---------- 自定义背景 ----------
+
+    def _wallpapers_dir(self) -> Path:
+        """壁纸保存目录。"""
+        return Path(__file__).resolve().parents[2] / "wallpapers"
+
+    def _background_mode_file(self) -> Path:
+        """自定义背景模式配置文件路径。"""
+        return self._wallpapers_dir() / "background_setting.json"
+
+    def _load_background_mode(self) -> str:
+        """读取当前背景模式，默认随机（"random"）。"""
+        try:
+            data = json.loads(
+                self._background_mode_file().read_text(encoding="utf-8")
+            )
+            return data.get("mode", "random")
+        except Exception:
+            return "random"
+
+    def _save_background_mode(self, mode: str) -> None:
+        """保存当前背景模式："random" 随机图源 / "custom" 自定义图片。"""
+        try:
+            self._background_mode_file().write_text(
+                json.dumps({"mode": mode}), encoding="utf-8"
+            )
+        except Exception as e:
+            logger.warning(f"[WebUI] 保存背景模式失败: {e}")
+
+    def _custom_background_data_url(self) -> str:
+        """构造自定义背景的 data URL；无自定义图片时返回空字符串。"""
+        try:
+            files = sorted(self._wallpapers_dir().glob("custom_background.*"))
+            if not files:
+                return ""
+            content = files[0].read_bytes()
+            ext = files[0].suffix.lower()
+            mime = _CUSTOM_BG_MIMES.get(ext, "image/png")
+            data_url = f"data:{mime};base64," + base64.b64encode(
+                content
+            ).decode("ascii")
+            return data_url
+        except Exception:
+            return ""
+
+    def _inject_custom_background(self, data_url: str) -> None:
+        """注入自定义背景：以带 !important 的 body 规则覆盖所有主题背景。"""
+        run_js(
+            """
+            (function () {
+                var css = 'body{'
+                    + 'background-image:url("%s") !important;'
+                    + 'background-repeat:no-repeat !important;'
+                    + 'background-size:cover !important;'
+                    + 'background-attachment:fixed !important;'
+                    + 'background-position:center !important;'
+                    + '}';
+                var el = document.getElementById('alas-custom-bg-style');
+                if (el) { el.textContent = css; }
+                else {
+                    el = document.createElement('style');
+                    el.id = 'alas-custom-bg-style';
+                    el.textContent = css;
+                    document.head.appendChild(el);
+                }
+            })();
+            """
+            % data_url
+        )
+
+    def _clear_custom_background(self) -> None:
+        """移除自定义背景注入样式，恢复主题默认背景。"""
+        run_js(
+            "(function(){var el=document.getElementById('alas-custom-bg-style');"
+            "if(el){el.parentNode.removeChild(el);}})();"
+        )
+
+    def _upload_custom_background(self) -> None:
+        """上传自定义背景图片并立即应用，同时对所有主题生效。"""
+        resp = input_group(
+            label="上传自定义背景",
+            inputs=[
+                file_upload(
+                    label="选择图片（PNG/JPG/WebP 等）",
+                    name="file",
+                    placeholder="选择图片",
+                    accept="image/*",
+                    required=True,
+                    max_size="5M",
+                ),
+                actions(
+                    name="action",
+                    buttons=[
+                        {
+                            "label": "上传",
+                            "value": "confirm",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if resp is None:
+            return
+
+        upload = resp["file"]
+        content = upload["content"]
+        filename = upload["filename"]
+
+        ext = Path(filename).suffix.lower()
+        if ext not in _CUSTOM_BG_MIMES:
+            ext = ".png"
+
+        wallpapers_dir = self._wallpapers_dir()
+        wallpapers_dir.mkdir(parents=True, exist_ok=True)
+        # 只保留一份自定义背景，避免多文件读取歧义
+        for old in wallpapers_dir.glob("custom_background.*"):
+            old.unlink(missing_ok=True)
+        target = wallpapers_dir / f"custom_background{ext}"
+        target.write_bytes(content)
+
+        self._save_background_mode("custom")
+        mime = _CUSTOM_BG_MIMES[ext]
+        data_url = f"data:{mime};base64," + base64.b64encode(content).decode(
+            "ascii"
+        )
+        self._inject_custom_background(data_url)
+        toast(f"自定义背景已应用: {target.resolve()}", color="success")
+        logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
+
+    def _switch_to_random_background(self) -> None:
+        """切换回随机背景：清理自定义背景注入并重新拉取随机壁纸。"""
+        self._save_background_mode("random")
+        self._clear_custom_background()
+        # 重置后重新触发随机图源加载
+        self.wallpaper_url = ""
+        self.init_wallpaper()
+        toast("已切换为随机背景", color="success")
+
     def download_wallpaper(self):
         """
-        下载当前背景图
+        保存当前背景图：随机背景下从远程 URL 下载；自定义背景下直接复制本地图片。
         """
+        # 自定义背景：当前展示的是本地文件，直接复制一份到壁纸目录
+        if self._load_background_mode() == "custom":
+            files = sorted(self._wallpapers_dir().glob("custom_background.*"))
+            if not files:
+                toast(
+                    "当前没有自定义背景图",
+                    color="error",
+                )
+                return
+            src = files[0]
+            filename = time.strftime(
+                f"wallpaper_%Y-%m-%d_%H-%M-%S{src.suffix.lower()}"
+            )
+            file_path = (self._wallpapers_dir() / filename).resolve()
+            file_path.write_bytes(src.read_bytes())
+            toast(
+                f"已保存当前背景: {file_path}",
+                color="success",
+            )
+            logger.info(f"[WebUI] 背景图已保存: {file_path}")
+            return
+
         if not getattr(self, "wallpaper_url", None):
             toast(
                 "当前没有背景图地址",
