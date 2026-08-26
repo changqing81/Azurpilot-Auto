@@ -184,9 +184,30 @@ class ModuleExtractor:
         folder = os.path.join(MODULE_FOLDER, self.name)
         if not os.path.exists(folder):
             os.mkdir(folder)
+        docstring = self.read_docstring()
         with open(os.path.join(folder, BUTTON_FILE), 'w', newline='') as f:
+            if docstring:
+                f.write(docstring + '\n\n')
             for text in self.expression:
                 f.write(text + '\n')
+
+    def read_docstring(self):
+        """保留现有 assets.py 顶部的模块 docstring，避免重写后与仓库版本产生差异。"""
+        try:
+            path = os.path.join(MODULE_FOLDER, self.name, BUTTON_FILE)
+            if not os.path.exists(path):
+                return None
+            with open(path, encoding='utf-8') as file:
+                content = file.read()
+            stripped = content.lstrip()
+            if stripped.startswith('"""'):
+                end = stripped.find('"""', 3)
+                if end != -1:
+                    return stripped[:end + 3]
+        except Exception:
+            # 读取失败时不阻断生成，仅不保留 docstring
+            return None
+        return None
 
 
 def worker(module):
