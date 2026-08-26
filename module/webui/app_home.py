@@ -1,5 +1,8 @@
 """WebUI首页和会话运行"""
 import requests
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
+
 from module.webui.app_dependencies import (
     State,
     Switch,
@@ -36,10 +39,8 @@ from module.webui.app_dependencies import (
 from module.webui.app_types import WebUIMixinBase
 
 
-# Pixiv 图片反代域名列表，按优先级排序。
-# LOLICON API 的 proxy 参数可指定图片所属反代域名；当前反代请求失败或返回的
-# 图片不可访问时，会自动切换到下一个候选域名，避免单个反代失效导致壁纸加载失败。
-# 注：反代服务可能随时变更或下线，若需新增/调整优先级，请维护此列表即可。
+# Pixiv 图片反代域名列表，用于壁纸加载时并发测速，选中其中可访问且时延最低的
+# 一个。反代服务可能随时变更或下线，如需新增/调整候选，请维护此列表即可。
 _PIXIV_PROXY_DOMAINS = [
     "i.pixiv.re",
     "i.pixiv.nl",
@@ -228,9 +229,9 @@ class HomeMixin(WebUIMixinBase):
     def init_wallpaper(self):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
-        壁纸 URL 在后台线程中获取，后台按优先级依次尝试多个 Pixiv 图片反代域名，
-        当前反代的请求失败或返回的图片不可访问时自动切换到下一个，成功后通过 JS
-        动态注入 CSS 变量，避免网络请求阻塞页面首次渲染。
+        壁纸 URL 在后台线程中获取，后台并发对多个 Pixiv 图片反代域名测速，
+        选中其中可访问且时延最低的反代，成功后通过 JS 动态注入 CSS 变量，
+        避免网络请求阻塞页面首次渲染。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -239,72 +240,78 @@ class HomeMixin(WebUIMixinBase):
         self.wallpaper_url = ""
 
         def _fetch_wallpaper():
-            # 记录首个成功返回数据但图片校验未通过的反代 URL，作为兜底图，
-            # 保证即便所有反代校验都失败，也能优先展示第一张可用壁纸。
-            fallback_url = None
-
-            # 按优先级逐域尝试；单个反代失败不影响其他反代，实现自动切换
-            for proxy in _PIXIV_PROXY_DOMAINS:
-                try:
-                    response = requests.get(
-                        "https://api.lolicon.app/setu/v2",
-                        params={
-                            "r18": 0,
-                            # 多取几张，校验不过时可顺延下一张，增加成功概率
-                            "num": 3,
-                            "size": "original",
-                            "proxy": proxy,
-                            "excludeAI": True,
-                            "aspectRatio": "gt1",
-                            "dsc": False,
-                            "tag": "碧蓝航线|AzurLane|Azur Lane|アズールレーン",
-                        },
-                        timeout=10,
-                    )
-                    response.raise_for_status()
-
-                    for item in response.json()["data"]:
-                        image_url = item["urls"]["original"]
-                        if fallback_url is None:
-                            fallback_url = image_url
-                        if self._wallpaper_accessible(image_url):
-                            self._apply_wallpaper(image_url)
-                            return
-
-                    logger.info(
-                        f"[WebUI] 反代 [{proxy}] 的图片不可访问，自动切换下一个"
-                    )
-                except Exception:
-                    logger.info(
-                        f"[WebUI] 反代 [{proxy}] 请求失败，自动切换下一个"
-                    )
-
-            if fallback_url:
-                logger.info(
-                    "[WebUI] 所有反代图片均不可访问，使用首个成功返回的图片作为兜底"
+            # 先调一次接口拿到一张图的相对路径，再并发对候选反代各自测速，
+            # 选中“可访问且时延最低”的反代，避免固定顺序选中一个慢但可用的域名。
+            try:
+                response = requests.get(
+                    "https://api.lolicon.app/setu/v2",
+                    params={
+                        "r18": 0,
+                        "num": 1,
+                        "size": "original",
+                        "excludeAI": True,
+                        "aspectRatio": "gt1",
+                        "dsc": False,
+                        "tag": "碧蓝航线|AzurLane|Azur Lane|アズールレーン",
+                    },
+                    timeout=10,
                 )
-                self._apply_wallpaper(fallback_url)
+                response.raise_for_status()
+
+                # 仅保留路径部分，便于再用不同反代域名拼接后对比速度
+                image_path = urlparse(
+                    response.json()["data"][0]["urls"]["original"]
+                ).path
+                if not image_path:
+                    return
+            except Exception as e:
+                logger.info(f"[WebUI] 获取图源失败，跳过: {e}")
                 return
 
-            logger.info("[WebUI] 获取背景图连续失败，已跳过")
+            # 并发对同一图片各自测速，返回顺序与输入一致
+            with ThreadPoolExecutor(
+                max_workers=len(_PIXIV_PROXY_DOMAINS)
+            ) as executor:
+                results = executor.map(
+                    lambda p: (p, self._probe_image(f"https://{p}{image_path}")),
+                    _PIXIV_PROXY_DOMAINS,
+                )
+
+            # 过滤出可访问的反代，取其中时延最低者
+            reachable = [
+                (latency, proxy) for proxy, (latency, ok) in results if ok
+            ]
+            if reachable:
+                _, best = min(reachable, key=lambda x: x[0])
+                logger.info(f"[WebUI] 测速选中最快反代 [{best}]")
+                self._apply_wallpaper(f"https://{best}{image_path}")
+                return
+
+            # 全部不可访问时回退到列表首项，保证至少能尝试渲染
+            logger.info("[WebUI] 所有反代测速均不可访问，回退使用首个反代")
+            self._apply_wallpaper(
+                f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}"
+            )
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
         thread.start()
 
     @staticmethod
-    def _wallpaper_accessible(url, timeout=10):
-        """轻量校验图片反代地址是否可访问，避免选中已失效的反代。
+    def _probe_image(url, timeout=8):
+        """探测图片反代加载时延与可访问性，返回 (时延秒, 是否可访问)。
 
-        只发起流式请求并检查状态码，不下载完整图片。
+        流式请求只取首块，记录响应耗时，不下载完整图片。
         """
+        start = time.perf_counter()
         try:
             resp = requests.get(url, timeout=timeout, stream=True)
             ok = resp.status_code == 200
+            latency = time.perf_counter() - start
             resp.close()
-            return ok
+            return latency, ok
         except Exception:
-            return False
+            return float("inf"), False
 
     def _apply_wallpaper(self, image_url):
         """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。"""
