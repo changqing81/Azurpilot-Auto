@@ -191,7 +191,7 @@ def try_send_daily_report(
         return
     from module.statistics.report_sender import (
         get_wecom_webhook,
-        send_template_card,
+        send_text_message,
     )
     # 日报使用 Report 组的 OnePush 配置（企业微信机器人渠道）
     webhook = get_wecom_webhook(
@@ -203,7 +203,7 @@ def try_send_daily_report(
 
     if not lines:
         return
-    ok = send_template_card(
+    ok = send_text_message(
         webhook,
         f"📊 大世界日报 {today}",
         lines,
