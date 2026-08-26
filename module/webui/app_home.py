@@ -1,6 +1,6 @@
 """WebUI首页和会话运行"""
 import requests
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -246,11 +246,17 @@ class HomeMixin(WebUIMixinBase):
         self.wallpaper_url = ""
 
         def _fetch_wallpaper():
-            # 依次尝试候选图源，任一成功即应用
-            if self._fetch_lolicon_wallpaper():
-                return
-            if self._fetch_nyan_wallpaper():
-                return
+            # 并发尝试两个图源，先返回有效图片地址者胜出并应用，响应快者优先
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [
+                    executor.submit(self._fetch_lolicon_wallpaper),
+                    executor.submit(self._fetch_nyan_wallpaper),
+                ]
+                for fut in as_completed(futures):
+                    image_url = fut.result()
+                    if image_url:
+                        self._apply_wallpaper(image_url)
+                        return
             logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
@@ -259,7 +265,7 @@ class HomeMixin(WebUIMixinBase):
 
     def _fetch_lolicon_wallpaper(self):
         """从 LOLICON 获取壁纸：先取一张图的路径，再并发对候选反代各自测速，
-        选中可访问且时延最低的反代。返回是否已应用一张壁纸。
+        返回可访问且时延最低的反代图片地址；图源不可用时返回 None。
         """
         try:
             response = requests.get(
@@ -282,10 +288,10 @@ class HomeMixin(WebUIMixinBase):
                 response.json()["data"][0]["urls"]["original"]
             ).path
             if not image_path:
-                return False
+                return None
         except Exception as e:
             logger.info(f"[WebUI] LOLICON 获取图源失败: {e}")
-            return False
+            return None
 
         # 并发对同一图片各自测速，返回顺序与输入一致
         with ThreadPoolExecutor(
@@ -303,17 +309,15 @@ class HomeMixin(WebUIMixinBase):
         if reachable:
             _, best = min(reachable, key=lambda x: x[0])
             logger.info(f"[WebUI] 测速选中最快反代 [{best}]")
-            self._apply_wallpaper(f"https://{best}{image_path}")
-            return True
+            return f"https://{best}{image_path}"
 
         # 全部不可访问时回退到列表首项，保证至少能尝试渲染
         logger.info("[WebUI] 所有反代测速均不可访问，回退使用首个反代")
-        self._apply_wallpaper(f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}")
-        return True
+        return f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}"
 
     def _fetch_nyan_wallpaper(self):
         """从 nyan.run 获取壁纸：该图源返回的图片地址自带 Pixiv 反代，可直接使用。
-        返回是否已应用一张壁纸。
+        返回图片地址；未取到有效数据时返回 None。
         """
         try:
             response = requests.get(
@@ -330,12 +334,11 @@ class HomeMixin(WebUIMixinBase):
             payload = response.json()
             if not payload.get("data"):
                 logger.info("[WebUI] nyan.run 未返回有效图片数据")
-                return False
-            self._apply_wallpaper(payload["data"][0]["url"])
-            return True
+                return None
+            return payload["data"][0]["url"]
         except Exception as e:
             logger.info(f"[WebUI] nyan.run 获取图源失败: {e}")
-            return False
+            return None
 
     @staticmethod
     def _probe_image(url, timeout=8):
