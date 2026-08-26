@@ -318,4 +318,7 @@ RTK.md
 
 # 运行时产物与临时目录
 .tmp_cmp/
+# 壁纸目录：保留目录占位文件以便随仓库分发，但忽略其中实际下载的壁纸图片
+wallpapers/*
+!wallpapers/.gitkeep
 wallpaper_*.jpg

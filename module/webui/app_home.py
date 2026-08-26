@@ -352,13 +352,13 @@ class HomeMixin(WebUIMixinBase):
             # 统一保存到项目根目录下的 wallpapers 文件夹，目录不存在时自动创建
             wallpaper_dir = Path(__file__).resolve().parents[2] / "wallpapers"
             wallpaper_dir.mkdir(parents=True, exist_ok=True)
-            file_path = wallpaper_dir / filename
+            file_path = (wallpaper_dir / filename).resolve()
 
             with open(file_path, "wb") as f:
                 f.write(response.content)
 
             toast(
-                f"下载完成: {filename}",
+                f"下载完成，已保存到: {file_path}",
                 color="success",
             )
 
