@@ -114,18 +114,6 @@ def get_today_report(instance):
             0,
         )
     )
-    va_now = last.get(
-        "virtual_asset",
-        0,
-    )
-
-    va_delta = (
-        va_now
-        - first.get(
-            "virtual_asset",
-            0,
-        )
-    )
     coin_list = data.get(
         "coins_snapshots",
         []
@@ -146,12 +134,13 @@ def get_today_report(instance):
     else:
         y_now = y_delta = p_now = p_delta = 0
     return [
-        f"⚡ {fmt(ap_now, ap_delta)}",
-        f"🟡 {fmt(y_now, y_delta)}",
-        f"🟣 {fmt(p_now, p_delta)}",
-        f"🌊 {fmt(sea_now, sea_delta)}",
-        f"💰 {fmt(round(va_now), round(va_delta))}",
-        f"🏦 {fmt(round(asset_now), round(asset_delta))}",
+        f"⚡ 行动力 {fmt(ap_now, ap_delta)}",
+        f"🟡 黄币资源 {fmt(y_now, y_delta)}",
+        f"🟣 紫币资源 {fmt(p_now, p_delta)}",
+        f"🌊 海里 {fmt(sea_now, sea_delta)}",
+        f"🏦 仓库资产 {fmt(round(asset_now), round(asset_delta))}",
+        "",
+        "数值说明：当前值 (本日变化, 变化百分比)  |  海里为总海里数 (本日增加)",
     ]
 def should_send(config):
     report_time = getattr(
