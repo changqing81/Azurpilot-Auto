@@ -1,6 +1,7 @@
 """WebUI首页和会话运行"""
 import requests
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib.parse import urlparse
 
 from module.webui.app_dependencies import (
@@ -344,14 +345,16 @@ class HomeMixin(WebUIMixinBase):
             )
             response.raise_for_status()
 
-            filename = time.strftime(
-                "wallpaper_%Y-%m-%d_%H-%M-%S.jpg"
-            )
+            # 按 URL 后缀推断图片格式，避免一律存成 .jpg 与实际格式不符
+            ext = Path(urlparse(self.wallpaper_url).path).suffix or ".jpg"
+            filename = time.strftime(f"wallpaper_%Y-%m-%d_%H-%M-%S{ext}")
 
-            if not filename:
-                filename = "wallpaper.jpg"
+            # 统一保存到项目根目录下的 wallpapers 文件夹，目录不存在时自动创建
+            wallpaper_dir = Path(__file__).resolve().parents[2] / "wallpapers"
+            wallpaper_dir.mkdir(parents=True, exist_ok=True)
+            file_path = wallpaper_dir / filename
 
-            with open(filename, "wb") as f:
+            with open(file_path, "wb") as f:
                 f.write(response.content)
 
             toast(
@@ -360,7 +363,7 @@ class HomeMixin(WebUIMixinBase):
             )
 
             logger.info(
-                f"[WebUI] 背景图已保存: {filename}"
+                f"[WebUI] 背景图已保存: {file_path}"
             )
 
         except Exception as e:
