@@ -454,6 +454,11 @@ class GeneratedConfig:
     Awaken_LevelCap = 'level120'  # level120, level125
     Awaken_Favourite = False
 
+    # 配置组 `Report`
+    Report_Enable = False
+    Report_TriggerTime = '23:50'
+    Report_OnePushConfig = 'provider: null'
+
     # 配置组 `GeneralShop`
     GeneralShop_Enable = True
     GeneralShop_UseGems = False

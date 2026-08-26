@@ -2431,6 +2431,24 @@
       "help": ""
     }
   },
+  "Report": {
+    "_info": {
+      "name": "Report._info.name",
+      "help": "Report._info.help"
+    },
+    "Enable": {
+      "name": "Report.Enable.name",
+      "help": "Report.Enable.help"
+    },
+    "TriggerTime": {
+      "name": "Report.TriggerTime.name",
+      "help": "Report.TriggerTime.help"
+    },
+    "OnePushConfig": {
+      "name": "Report.OnePushConfig.name",
+      "help": "Report.OnePushConfig.help"
+    }
+  },
   "GeneralShop": {
     "_info": {
       "name": "武器商人（雑貨店）",
@@ -6537,9 +6555,7 @@
       "WebuiSSLKey": "SSL キーファイル",
       "WebuiSSLKeyHelp": "WebUI HTTPS 用の SSL キーです。証明書とセットで設定してください。",
       "WebuiSSLCert": "SSL 証明書ファイル",
-      "WebuiSSLCertHelp": "WebUI HTTPS 用の SSL 証明書です。キーとセットで設定してください。",
-      "HideUpdateNotice": "更新通知を非表示",
-      "HideUpdateNoticeHelp": "有効にすると、更新が検出されても右下に通知が表示されなくなります。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 用の SSL 証明書です。キーとセットで設定してください。"
     },
     "StartupRun": {
       "Title": "起動時に自動実行",

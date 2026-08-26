@@ -156,12 +156,12 @@ def get_today_report(instance):
 def should_send(config):
     report_time = getattr(
         config,
-        "ReportDailyTime",
+        "Report_TriggerTime",
         "23:50",
     )
     hour, minute = map(
         int,
-        report_time.split(":")
+        str(report_time).split(":")
     )
     now = datetime.now()
     return (
@@ -174,7 +174,7 @@ def try_send_daily_report(
 ):
     if not getattr(
         config,
-        "ReportEnable",
+        "Report_Enable",
         False,
     ):
         return
@@ -193,9 +193,9 @@ def try_send_daily_report(
         get_wecom_webhook,
         send_template_card,
     )
-    # 日报复用 Secretary 组的 OnePush 配置（企业微信机器人渠道）
+    # 日报使用 Report 组的 OnePush 配置（企业微信机器人渠道）
     webhook = get_wecom_webhook(
-        config.Secretary_OnePushConfig
+        getattr(config, "Report_OnePushConfig", "provider: null")
     )
     lines = get_today_report(
         instance

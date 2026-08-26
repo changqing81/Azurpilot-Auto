@@ -96,6 +96,9 @@ class AzurLaneAutoScript:
         # 命中此列表的任务在 ``get_next_task`` 阶段直接跳过，
         # 确保被保护关闭的任务不会再被调度，即使配置尚未持久化。
         self._disabled_tasks_by_protection: set = set()
+        # 独立日报定时检查线程；运行完全不依赖设备连接与任务调度。
+        self._daily_report_stop = threading.Event()
+        self._daily_report_thread = None
 
     def _try_restart_emulator(self):
         """
@@ -1525,6 +1528,53 @@ class AzurLaneAutoScript:
         AzurLaneConfig.is_hoarding_task = False
         return task.command
 
+    # ---------- 独立日报定时检查 ----------
+
+    def _daily_report_send(self) -> bool:
+        """尝试发送大世界日报；启用且未发送过今天才真正发送。
+
+        Returns:
+            bool: 当天日报是否已处理（无论发没发）。
+        """
+        try:
+            from module.statistics.daily_report import try_send_daily_report
+            return bool(
+                try_send_daily_report(self.config_name, self.config)
+            )
+        except Exception as error:
+            logger.warning(f'[日报] 检查失败，已忽略: {type(error).__name__}')
+            return False
+
+    def _daily_report_loop(self):
+        """独立守护线程：定期检查日报是否到触发时刻。"""
+        while not self._daily_report_stop.is_set():
+            self._daily_report_send()
+            self._daily_report_stop.wait(30)
+
+    def _start_daily_report_scheduler(self):
+        """启动独立的日报定时检查线程，不依赖任务执行与设备连接。"""
+        if (
+            self._daily_report_thread is not None
+            and self._daily_report_thread.is_alive()
+        ):
+            return
+        self._daily_report_stop.clear()
+        self._daily_report_thread = threading.Thread(
+            target=self._daily_report_loop,
+            daemon=True,
+            name=f'daily-report-{self.config_name}',
+        )
+        self._daily_report_thread.start()
+        logger.info('[日报] 独立定时检查已启动')
+
+    def _stop_daily_report_scheduler(self):
+        """停止日报定时检查线程。"""
+        self._daily_report_stop.set()
+        if self._daily_report_thread is not None:
+            self._daily_report_thread.join(timeout=5)
+            self._daily_report_thread = None
+        logger.info('[日报] 独立定时检查已停止')
+
     def loop(self):
         logger.set_file_logger(self.config_name)
         logger.info(f'[Alas] 启动调度器循环: {self.config_name}')
@@ -1559,6 +1609,8 @@ class AzurLaneAutoScript:
 
         # 启动看门狗守护线程
         self.watchdog.start()
+        # 启动独立的日报定时检查线程（与看门狗并行，互不影响）
+        self._start_daily_report_scheduler()
 
         while 1:
             try:
@@ -1568,6 +1620,7 @@ class AzurLaneAutoScript:
                         logger.info('[Alas] 检测到更新事件')
                         logger.info(f"[Alas] [{self.config_name}] 已退出。原因: 更新 | Reason: Update")
                         self.watchdog.stop()
+                        self._stop_daily_report_scheduler()
                         break
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()
@@ -1734,6 +1787,7 @@ class AzurLaneAutoScript:
                     continue
                 else:
                     self.watchdog.stop()
+                    self._stop_daily_report_scheduler()
                     break
 
             # 捕获全局异常并执行重启

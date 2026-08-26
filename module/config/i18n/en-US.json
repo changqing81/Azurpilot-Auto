@@ -2431,6 +2431,24 @@
       "help": ""
     }
   },
+  "Report": {
+    "_info": {
+      "name": "Report._info.name",
+      "help": "Report._info.help"
+    },
+    "Enable": {
+      "name": "Report.Enable.name",
+      "help": "Report.Enable.help"
+    },
+    "TriggerTime": {
+      "name": "Report.TriggerTime.name",
+      "help": "Report.TriggerTime.help"
+    },
+    "OnePushConfig": {
+      "name": "Report.OnePushConfig.name",
+      "help": "Report.OnePushConfig.help"
+    }
+  },
   "GeneralShop": {
     "_info": {
       "name": "General Shop",
@@ -6537,9 +6555,7 @@
       "WebuiSSLKey": "SSL Key File",
       "WebuiSSLKeyHelp": "SSL key path for WebUI HTTPS. Must be set together with the certificate.",
       "WebuiSSLCert": "SSL Certificate File",
-      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key.",
-      "HideUpdateNotice": "Hide Update Notice",
-      "HideUpdateNoticeHelp": "When enabled, the bottom-right update notice will not appear when an update is detected."
+      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key."
     },
     "StartupRun": {
       "Title": "Auto-run on Startup",

@@ -846,6 +846,14 @@ Awaken:
     option: [level120, level125]
   Favourite:
     value: false
+Report:
+  Enable: false
+  TriggerTime:
+    value: "23:50"
+  OnePushConfig:
+    type: textarea
+    mode: yaml
+    value: "provider: null"
 GeneralShop:
   Enable: true
   UseGems: false

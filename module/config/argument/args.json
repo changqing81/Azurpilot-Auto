@@ -570,6 +570,21 @@
         ]
       }
     },
+    "Report": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "TriggerTime": {
+        "type": "input",
+        "value": "23:50"
+      },
+      "OnePushConfig": {
+        "type": "textarea",
+        "value": "provider: null",
+        "mode": "yaml"
+      }
+    },
     "Optimization": {
       "OcrDevice": {
         "type": "select",
