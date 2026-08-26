@@ -29,49 +29,50 @@ def get_wecom_webhook(onepush_config):
         return None
 
 
+def is_valid_webhook(url: str) -> bool:
+    """校验 webhook URL，降低 SSRF / 误用风险。"""
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+
+    # Only allow http or https schemes (prefer https)
+    if parsed.scheme not in ("http", "https"):
+        return False
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+
+    # Allowed hosts can be provided via environment variable
+    allowed = os.environ.get("REPORT_ALLOWED_HOSTS")
+    if allowed:
+        allowed_hosts = {h.strip() for h in allowed.split(",") if h.strip()}
+    else:
+        # Default to official WeCom API host for enterprise robot
+        allowed_hosts = {"qyapi.weixin.qq.com"}
+
+    if hostname not in allowed_hosts:
+        return False
+
+    # Resolve hostname and ensure it does not point to private/loopback addresses
+    try:
+        infos = socket.getaddrinfo(hostname, None)
+        for info in infos:
+            addr = info[4][0]
+            ip = ipaddress.ip_address(addr)
+            if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_multicast:
+                return False
+    except Exception:
+        # If DNS resolution fails, reject
+        return False
+
+    return True
+
+
 def send_template_card(webhook, title, content_lines):
-    # Basic validation of webhook URL to reduce SSRF / misuse risk.
-    def is_valid_webhook(url: str) -> bool:
-        if not url or not isinstance(url, str):
-            return False
-        try:
-            parsed = urlparse(url)
-        except Exception:
-            return False
-
-        # Only allow http or https schemes (prefer https)
-        if parsed.scheme not in ("http", "https"):
-            return False
-
-        hostname = parsed.hostname
-        if not hostname:
-            return False
-
-        # Allowed hosts can be provided via environment variable
-        allowed = os.environ.get("REPORT_ALLOWED_HOSTS")
-        if allowed:
-            allowed_hosts = {h.strip() for h in allowed.split(",") if h.strip()}
-        else:
-            # Default to official WeCom API host for enterprise robot
-            allowed_hosts = {"qyapi.weixin.qq.com"}
-
-        if hostname not in allowed_hosts:
-            return False
-
-        # Resolve hostname and ensure it does not point to private/loopback addresses
-        try:
-            infos = socket.getaddrinfo(hostname, None)
-            for info in infos:
-                addr = info[4][0]
-                ip = ipaddress.ip_address(addr)
-                if ip.is_private or ip.is_loopback or ip.is_reserved or ip.is_multicast:
-                    return False
-        except Exception:
-            # If DNS resolution fails, reject
-            return False
-
-        return True
-
     if not is_valid_webhook(webhook):
         logger.warning(f"Rejected webhook by validation: {webhook}")
         return False
