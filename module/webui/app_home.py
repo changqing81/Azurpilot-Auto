@@ -225,8 +225,8 @@ class HomeMixin(WebUIMixinBase):
                     },
                 ],
                 onclick=[
-                    lambda _: self._upload_custom_background(),
-                    lambda _: self._switch_to_random_background(),
+                    self._upload_custom_background,
+                    self._switch_to_random_background,
                 ],
             ).style("text-align: center")
             put_html('<div class="alas-home-marker" aria-hidden="true"></div>')
