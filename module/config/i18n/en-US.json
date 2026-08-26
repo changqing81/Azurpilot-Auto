@@ -784,6 +784,24 @@
     "TimeWindowHours": {
       "name": "Time Window (hours)",
       "help": "The time range for counting failures. Failure count resets after this period. For example, set to 3 to require 3 failures within 3 hours. Range: 1~168."
+    },
+    "WatchdogEnable": {
+      "name": "Enable Watchdog",
+      "help": "When enabled, the watchdog thread monitors log heartbeat and task runtime during task execution, and force-restarts the emulator to unblock when a deadlock is detected.",
+      "True": "True",
+      "False": "False"
+    },
+    "WatchdogLogTimeout": {
+      "name": "Log Heartbeat Timeout (sec)",
+      "help": "If no log output occurs during task execution for the specified seconds, the main thread is considered stuck, and the emulator is force-stopped to unblock.\n0 disables; 99999 means virtually unlimited.\nDefault 300 seconds (5 minutes)."
+    },
+    "WatchdogTaskTimeout": {
+      "name": "Task Stuck Watchdog Timeout (min)",
+      "help": "After a single task runs longer than the specified time, the watchdog judges it as a logic infinite loop (e.g. story cannot be skipped, pathfinding loops) and force-restarts the emulator to interrupt the task.\n0 disables; 99999 means virtually unlimited.\nDefault 120 minutes (2 hours)."
+    },
+    "RestartOperationTimeout": {
+      "name": "Restart Operation Timeout (sec)",
+      "help": "Hard timeout in seconds for app stop/start and emulator stop/start operations. Exceeding this time means the emulator or atx-agent is stuck, and an emulator restart is triggered immediately.\nDefault 120 seconds."
     }
   },
   "Optimization": {
@@ -2411,6 +2429,24 @@
     "Favourite": {
       "name": "Only awaken favorited ships",
       "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "OPS Daily Report",
+      "help": "Send a daily OPS resource statistics report via WeCom bot"
+    },
+    "Enable": {
+      "name": "Enable Report",
+      "help": "Send the daily OPS report automatically at the configured trigger time"
+    },
+    "TriggerTime": {
+      "name": "Trigger Time",
+      "help": "Daily report send time, format HH:MM, e.g. 23:50"
+    },
+    "OnePushConfig": {
+      "name": "OnePush Configuration",
+      "help": "Notification config for daily report (WeCom bot channel)"
     }
   },
   "GeneralShop": {
@@ -6064,6 +6100,10 @@
       "name": "Restart the emulator regularly",
       "help": "Once enabled, the emulator will automatically restart at specified intervals to avoid memory leaks or lagging caused by long-term running. The restart will wait until the current task is completed before executing it."
     },
+    "ForceScheduledRestart": {
+      "name": "Force scheduled restart",
+      "help": "Once enabled, the emulator will be forcibly restarted at the restart interval even if a non-sensitive task is currently running, ensuring on-time maintenance. Sensitive tasks will not be interrupted. Requires \"Restart the emulator regularly\" to be enabled."
+    },
     "RestartIntervalHours": {
       "name": "Restart interval (hours)",
       "help": "Automatically restart the emulator every few hours."
@@ -6515,9 +6555,7 @@
       "WebuiSSLKey": "SSL Key File",
       "WebuiSSLKeyHelp": "SSL key path for WebUI HTTPS. Must be set together with the certificate.",
       "WebuiSSLCert": "SSL Certificate File",
-      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key.",
-      "HideUpdateNotice": "Hide Update Notice",
-      "HideUpdateNoticeHelp": "When enabled, the bottom-right update notice will not appear when an update is detected."
+      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key."
     },
     "StartupRun": {
       "Title": "Auto-run on Startup",

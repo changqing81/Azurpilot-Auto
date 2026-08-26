@@ -133,11 +133,6 @@ Deploy:
     # [默认] 08:00
     # [Default] 08:00
     AutoRestartTime: 08:00
-    # 隐藏更新提示
-    # Hide update notice
-    # [默认] false
-    # [Default] false
-    HideUpdateNotice: false
 
   Misc:
     # 启用 Discord 富状态展示
@@ -170,7 +165,7 @@ Deploy:
     # [Default] null
     # [格式] host:port
     # [Format] host:port
-    SSHServer: remote.nanoda.work:1022
+    SSHServer: remote.cn.shiyan.nanoda.work:11022
     # SSH 可执行文件 `ssh.exe` 的路径
     # Filepath of SSH executable `ssh.exe`
     # [默认] ssh（在系统 PATH 中查找）

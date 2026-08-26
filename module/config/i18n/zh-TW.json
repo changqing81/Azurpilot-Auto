@@ -784,6 +784,24 @@
     "TimeWindowHours": {
       "name": "累計時間視窗（小時）",
       "help": "統計失敗次數的時間範圍。超過此時間後失敗計數自動歸零。例如設為 3，表示 3 小時內同一錯誤累計達到設定次數才關閉任務。取值範圍 1~168。"
+    },
+    "WatchdogEnable": {
+      "name": "啟用看門狗守護",
+      "help": "開啟後，看門狗執行緒在任務執行期間監控日誌心跳和任務執行時間，偵測到卡死時強制重新啟動模擬器以解除阻塞。",
+      "True": "是",
+      "False": "否"
+    },
+    "WatchdogLogTimeout": {
+      "name": "日誌心跳逾時（秒）",
+      "help": "任務執行期間超過指定秒數無任何日誌輸出時，判定主執行緒卡死，強制停止模擬器以解除阻塞。\n0 表示停用；99999 表示幾乎無限制。\n預設 300 秒（5 分鐘）。"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "任務卡死保護逾時（分鐘）",
+      "help": "單一任務執行超過指定時間後，看門狗判定任務邏輯死循環（如劇情無法跳過、尋路死循環等），強制重新啟動模擬器以中斷任務。\n0 表示停用；99999 表示幾乎無限制。\n預設 120 分鐘（2 小時）。"
+    },
+    "RestartOperationTimeout": {
+      "name": "重新啟動操作逾時（秒）",
+      "help": "應用停止/啟動或模擬器停止/啟動操作的硬逾時秒數。超過此時間判定模擬器或 atx-agent 卡死，立即觸發模擬器重新啟動。\n預設 120 秒。"
     }
   },
   "Optimization": {
@@ -2411,6 +2429,24 @@
     "Favourite": {
       "name": "僅覺醒常用艦船",
       "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "大世界日報",
+      "help": "每天定時推播大世界資源統計日報，透過企業微信機器人發送"
+    },
+    "Enable": {
+      "name": "啟用日報",
+      "help": "開啟後每天到達觸發時間時自動發送大世界日報"
+    },
+    "TriggerTime": {
+      "name": "觸發時間",
+      "help": "每天發送日報的時間，格式 HH:MM，例如 23:50"
+    },
+    "OnePushConfig": {
+      "name": "OnePush 推送設定",
+      "help": "用於日報推送的通知設定（企業微信機器人頻道）"
     }
   },
   "GeneralShop": {
@@ -6064,6 +6100,10 @@
       "name": "定時重啟模擬器",
       "help": "啟用後，每隔指定時間自動重啟模擬器，避免長時間執行導致的記憶體洩漏或卡頓問題。重啟會等當前任務完成後再執行。"
     },
+    "ForceScheduledRestart": {
+      "name": "強制定時重啟",
+      "help": "啟用後，到達重啟間隔時即使當前正在執行非敏感任務也會強制重啟模擬器，保證準點維護。敏感任務不會被中斷。需同時開啟「定時重啟模擬器」。"
+    },
     "RestartIntervalHours": {
       "name": "重啟間隔（小時）",
       "help": "每隔多少小時自動重啟一次模擬器。"
@@ -6515,9 +6555,7 @@
       "WebuiSSLKey": "SSL 密鑰檔案",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密鑰路徑，需和憑證同時設定。",
       "WebuiSSLCert": "SSL 憑證檔案",
-      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 憑證路徑，需和密鑰同時設定。",
-      "HideUpdateNotice": "隱藏更新提示",
-      "HideUpdateNoticeHelp": "開啟後檢測到更新時不再在右下角彈出提示。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 憑證路徑，需和密鑰同時設定。"
     },
     "StartupRun": {
       "Title": "啟動時自動執行",

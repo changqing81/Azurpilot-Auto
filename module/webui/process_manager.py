@@ -57,6 +57,11 @@ class ProcessManager:
     _lifecycle_locks_lock = threading.Lock()
     MANUAL_STOP_ACTION_TIMEOUT = 30
 
+    # alive/state 的探测涉及跨进程文件锁、JSON 读盘和 psutil 调用，
+    # 而 UI 刷新任务每 1~2 秒就会查询一次。短 TTL 缓存消除重复探测，
+    # 启停等关键路径通过 invalidate_state_cache() 主动失效。
+    STATE_CACHE_TTL = 0.75
+
     def __init__(self, config_name: str = DEFAULT_CONFIG_NAME) -> None:
         self.config_name = config_name
         self._renderable_queue: queue.Queue[ConsoleRenderable] = State.manager.Queue()
@@ -65,8 +70,19 @@ class ProcessManager:
         self.renderables_reduce_length = 80
         self._process: Process | None = None
         self.thd_log_queue_handler: threading.Thread | None = None
+        self._manual_stop_action_thread: threading.Thread | None = None
+        self._manual_stop_action_process: Process | None = None
         self._state_override: int | None = None
         self._state_override_deadline: float | None = None
+        self._alive_cache: bool | None = None
+        self._state_cache: int | None = None
+        self._state_cache_time: float = 0.0
+
+    def invalidate_state_cache(self) -> None:
+        """在启停等关键操作后立即失效状态缓存，保证 UI 及时反映变化。"""
+        self._alive_cache = None
+        self._state_cache = None
+        self._state_cache_time = 0.0
 
     @classmethod
     def _get_lifecycle_lock(cls, config_name: str) -> threading.RLock:
@@ -129,6 +145,9 @@ class ProcessManager:
                         return
                     if self.alive:
                         return
+                    # 上一次手动停止的收尾动作（如关闭游戏）可能仍在
+                    # 后台运行，必须先终止，避免与新 worker 抢占设备。
+                    self._cancel_pending_manual_stop_action()
                     # alive 在登记不可验证时保守返回 False；
                     # 此处再次确认登记状态，防止在登记不一致时启动重复 worker。
                     _pid, _, _verified = self._registered_worker()
@@ -157,6 +176,7 @@ class ProcessManager:
                         self._terminate_unregistered_process(process)
                         self._process = None
                         raise
+                    self.invalidate_state_cache()
                     self.start_log_queue_handler()
             finally:
                 State.cleanup_lock.release()
@@ -256,6 +276,7 @@ class ProcessManager:
                 self.renderables.append(
                     Text(f"[{self.config_name}] exited. Reason: Manual stop\n")
                 )
+            self.invalidate_state_cache()
         if not stopped:
             logger.error(f"[{self.config_name}] 停止工作进程失败 PID {pid}")
         log_queue_handler = self.thd_log_queue_handler
@@ -269,18 +290,39 @@ class ProcessManager:
         return stopped, should_run_action
 
     def _run_manual_stop_action_locked(self) -> None:
-        """在 worker 退出后运行独立收尾进程，并限制其最长运行时间。"""
+        """启动独立收尾进程，由后台线程等待其结束。
+
+        Windows spawn 模式下收尾子进程冷启动（新解释器 + 配置栈导入）
+        需要 3-6 秒。若在点击回调里同步 join，会持有生命周期锁阻塞
+        alive 探测，导致单线程 TaskHandler 的所有 UI 刷新任务排队、
+        整页冻结数秒。因此这里只负责启动进程并派发守护线程等待。
+        """
         process = Process(
             target=ProcessManager.run_manual_stop_action,
             args=(self.config_name,),
         )
+        self._manual_stop_action_process = process
         try:
             process.start()
         except Exception:
             logger.exception(f"[{self.config_name}] 启动停止收尾进程失败")
+            self._manual_stop_action_process = None
             return
 
+        thread = threading.Thread(
+            target=self._wait_manual_stop_action,
+            args=(process,),
+            daemon=True,
+            name=f"manual-stop-action-{self.config_name}",
+        )
+        self._manual_stop_action_thread = thread
+        thread.start()
+
+    def _wait_manual_stop_action(self, process: Process) -> None:
+        """在后台线程中等待收尾进程退出，超时则逐级终止。"""
         process.join(timeout=self.MANUAL_STOP_ACTION_TIMEOUT)
+        if self._manual_stop_action_process is process:
+            self._manual_stop_action_process = None
         try:
             alive = process.is_alive()
         except (OSError, ValueError, AssertionError):
@@ -296,6 +338,19 @@ class ProcessManager:
         exitcode = getattr(process, "exitcode", None)
         if exitcode not in (None, 0):
             logger.warning(f"[{self.config_name}] 停止收尾进程异常退出: {exitcode}")
+
+    def _cancel_pending_manual_stop_action(self) -> None:
+        """启动 worker 前取消仍在运行的收尾进程，避免与新 worker 抢占设备。
+
+        收尾动作（如关闭游戏）与重新启动调度器互斥：用户停止后立即
+        启动时，收尾子进程可能还在冷启动中，必须先终止它。
+        """
+        process = self._manual_stop_action_process
+        if process is None:
+            return
+        logger.info(f"[{self.config_name}] 检测到未完成的停止收尾动作，正在取消")
+        self._manual_stop_action_process = None
+        self._terminate_manual_stop_action(process)
 
     @staticmethod
     def _terminate_manual_stop_action(process: Process) -> None:
@@ -590,6 +645,15 @@ class ProcessManager:
 
     @property
     def alive(self) -> bool:
+        now = time.monotonic()
+        if self._alive_cache is not None and now - self._state_cache_time < self.STATE_CACHE_TTL:
+            return self._alive_cache
+        result = self._probe_alive()
+        self._alive_cache = result
+        self._state_cache_time = now
+        return result
+
+    def _probe_alive(self) -> bool:
         with self._get_lifecycle_lock(self.config_name):
             if self._is_process_alive(self._process):
                 return True
@@ -606,6 +670,15 @@ class ProcessManager:
         override_state = self._get_state_override()
         if override_state is not None:
             return override_state
+        now = time.monotonic()
+        if self._state_cache is not None and now - self._state_cache_time < self.STATE_CACHE_TTL:
+            return self._state_cache
+        result = self._compute_state()
+        self._state_cache = result
+        self._state_cache_time = now
+        return result
+
+    def _compute_state(self) -> int:
         if self.alive:
             return 1
         elif len(self.renderables) == 0:

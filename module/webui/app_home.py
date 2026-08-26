@@ -14,8 +14,10 @@ from module.webui.app_dependencies import (
     lang,
     load_webui_styles,
     logger,
+    pin_on_change,
     put_buttons,
     put_html,
+    put_input,
     put_markdown,
     put_text,
     register_thread,
@@ -32,6 +34,56 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+
+
+# 主页右下角"纯背景模式"圆点的常驻注入脚本。
+# 通过 JS 挂到 document 顶层，保证幂等且样式常驻：
+# - 圆点仅存在一个（不存在才创建），定位样式常驻 head，切页后不会丢失；
+# - 仅在 body 带有 alas-wallpaper-toggle-visible 类时显示，其余页面隐藏，
+#   既符合"仅在主页显示"的设计，也不会退化为块级元素撑出垂直滚动条。
+_WALLPAPER_TOGGLE_JS = r"""
+(function () {
+    function ensureStyle() {
+        if (document.getElementById('alas-wallpaper-style')) return;
+        var css = [
+            '#alas-wallpaper-toggle{position:fixed;bottom:10px;right:10px;z-index:99999;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.6);backdrop-filter:blur(6px);border:1px solid rgba(0,0,0,0.12);display:none;align-items:center;justify-content:center;cursor:pointer;font-size:11px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,0.2);user-select:none;transition:background 0.15s;}',
+            '#alas-wallpaper-toggle:hover{background:rgba(255,255,255,0.9);}',
+            'body.alas-wallpaper-toggle-visible #alas-wallpaper-toggle{display:flex;}',
+            'body.alas-wallpaper-mode #pywebio-scope-content,body.alas-wallpaper-mode #pywebio-scope-header,body.alas-wallpaper-mode #pywebio-scope-aside,body.alas-wallpaper-mode #pywebio-scope-menu{display:none !important;}'
+        ].join('\n');
+        var style = document.createElement('style');
+        style.id = 'alas-wallpaper-style';
+        style.type = 'text/css';
+        style.appendChild(document.createTextNode(css));
+        document.head.appendChild(style);
+    }
+    function ensureToggle() {
+        var el = document.getElementById('alas-wallpaper-toggle');
+        if (el) return el;
+        el = document.createElement('div');
+        el.id = 'alas-wallpaper-toggle';
+        el.title = '纯背景模式';
+        el.textContent = '\u25C9';
+        el.onclick = function () {
+            document.body.classList.toggle('alas-wallpaper-mode');
+        };
+        document.body.appendChild(el);
+        return el;
+    }
+    ensureStyle();
+    ensureToggle();
+    window.alasToggleWallpaper = function () {
+        document.body.classList.toggle('alas-wallpaper-mode');
+    };
+    window.alasWallpaperToggle = function (visible) {
+        ensureStyle();
+        ensureToggle();
+        document.body.classList.toggle('alas-wallpaper-toggle-visible', visible);
+    };
+    // 主页渲染默认显示
+    document.body.classList.add('alas-wallpaper-toggle-visible');
+})();
+"""
 
 
 class HomeMixin(WebUIMixinBase):
@@ -121,55 +173,9 @@ class HomeMixin(WebUIMixinBase):
             ).style(
                 "text-align: center"
             )
-            put_html(
-                '<div id="alas-wallpaper-toggle" onclick="alasToggleWallpaper()" title="纯背景模式">\u25C9</div>'
-            )
             put_html('<div class="alas-home-marker" aria-hidden="true"></div>')
-            put_html(
-                """
-                <style>
-                #alas-wallpaper-toggle {
-                    position: fixed;
-                    bottom: 10px;
-                    right: 10px;
-                    z-index: 99999;
-                    width: 24px;
-                    height: 24px;
-                    border-radius: 50%;
-                    background: rgba(255,255,255,0.6);
-                    backdrop-filter: blur(6px);
-                    border: 1px solid rgba(0,0,0,0.12);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    font-size: 11px;
-                    line-height: 1;
-                    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-                    user-select: none;
-                    transition: background 0.15s;
-                }
-                #alas-wallpaper-toggle:hover {
-                    background: rgba(255,255,255,0.9);
-                }
-                body.alas-wallpaper-mode #pywebio-scope-content,
-                body.alas-wallpaper-mode #pywebio-scope-header,
-                body.alas-wallpaper-mode #pywebio-scope-aside,
-                body.alas-wallpaper-mode #pywebio-scope-menu {
-                    display: none !important;
-                }
-                </style>
-                <script>
-                (function(){
-                    var btn = document.getElementById('alas-wallpaper-toggle');
-                    if (btn) { document.body.appendChild(btn); }
-                })();
-                function alasToggleWallpaper() {
-                    document.body.classList.toggle('alas-wallpaper-mode');
-                }
-                </script>
-                """
-            )
+            # 一次性、常驻注入右下角"纯背景模式"圆点，仅在主页显示
+            self._inject_wallpaper_toggle()
             # show something
             put_markdown(
                 """
@@ -191,6 +197,18 @@ class HomeMixin(WebUIMixinBase):
                 position="right",
                 onclick=_disable,
             )
+    def _inject_wallpaper_toggle(self) -> None:
+        """一次性、常驻注入右下角"纯背景模式"圆点。
+
+        圆点及其定位样式通过 JS 直接挂到 document 顶层，并常驻用于幂等注入：
+        - 圆点常驻且仅在 ``body.alas-wallpaper-toggle-visible`` 时显示，避免每次
+          进入主页重复创建、以及切页后样式被清空导致圆点退化为块级元素撑出
+          垂直滚动条；
+        - 主页加载时默认显示，其余页面由 base.py 的导航钩子调用
+          ``window.alasWallpaperToggle(visible)`` 控制隐藏。
+        """
+        run_js(_WALLPAPER_TOGGLE_JS)
+
     def init_wallpaper(self):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
@@ -463,6 +481,59 @@ class HomeMixin(WebUIMixinBase):
         # 先发送页面骨架，再读取恢复页面所需的 localStorage。即使浏览器端
         # RPC 较慢，用户也能立即看到真实外壳，且该读取不再阻塞首条内容。
         self.mount_shell()
+
+        # 窗口可见性改为前端事件推送：visibilitychange 触发时通过 Pin 回调
+        # 上报状态，服务端 Switch 只读缓存，不再阻塞式 eval_js 轮询浏览器。
+        # 必须在 mount_shell() 之后创建隐藏输入框——_show() 会 clear ROOT，
+        # 提前创建会被抹掉。
+        if not getattr(self, "_visibility_listener_installed", False):
+            self._visibility_listener_installed = True
+            from module.webui.utils import set_window_visibility_state
+
+            def _on_visibility_change(visible):
+                # 前端上报的是字符串 "True"/"False"
+                set_window_visibility_state(str(visible).lower() == "true")
+
+            put_input(
+                name="__alas_window_visible",
+                value="True",
+            ).style("display:none")
+            pin_on_change(
+                name="__alas_window_visible",
+                onchange=_on_visibility_change,
+                clear=True,
+                serial_mode=True,
+            )
+            run_js(
+                """
+                (function () {
+                    if (window.__alasVisibilityHooked) return;
+                    window.__alasVisibilityHooked = true;
+                    var attempts = 0;
+                    function install() {
+                        var input = document.querySelector(
+                            'input[name="__alas_window_visible"]'
+                        );
+                        if (!input) {
+                            attempts += 1;
+                            if (attempts < 20) window.setTimeout(install, 100);
+                            return;
+                        }
+                        var notify = function () {
+                            var visible = !document.hidden;
+                            if (input.value === String(visible)) return;
+                            input.value = String(visible);
+                            input.dispatchEvent(new Event('input', {bubbles: true}));
+                            input.dispatchEvent(new Event('change', {bubbles: true}));
+                        };
+                        document.addEventListener('visibilitychange', notify);
+                        notify();
+                    }
+                    install();
+                })();
+                """
+            )
+
         if localstorage is None:
             localstorage = get_localstorage_values(("clarity_notice_shown", "aside"))
         aside = localstorage.get("aside")

@@ -1113,16 +1113,6 @@ class RewardCommission(UI, InfoHandler):
                             title=webui_title,
                             content=text,
                         )
-                        handle_notify(
-                            self.config.Error_OnePushConfig,
-                            title=title,
-                            content=text,
-                        )
-                        notify_webui(
-                            instance,
-                            title=webui_title,
-                            content=text,
-                        )
 
         except Exception as e:
             logger.warning(f'[委托-收入] 委托收入记录失败: {e}')

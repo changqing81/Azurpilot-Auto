@@ -217,6 +217,19 @@ TaskFailureProtection:
   TimeWindowHours:
     value: 24
     validate: [1, 168]
+  WatchdogEnable:
+    type: checkbox
+    value: true
+    option: [true, false]
+  WatchdogLogTimeout:
+    value: 300
+    validate: [0, 99999]
+  WatchdogTaskTimeout:
+    value: 120
+    validate: [0, 99999]
+  RestartOperationTimeout:
+    value: 120
+    validate: [1, 99999]
 Optimization:
   OcrDevice:
     value: auto
@@ -833,6 +846,14 @@ Awaken:
     option: [level120, level125]
   Favourite:
     value: false
+Report:
+  Enable: false
+  TriggerTime:
+    value: "23:50"
+  OnePushConfig:
+    type: textarea
+    mode: yaml
+    value: "provider: null"
 GeneralShop:
   Enable: true
   UseGems: false
@@ -1998,6 +2019,7 @@ GameManager:
   AutoRestart: true
 EmulatorManagement:
   ScheduledEmulatorRestart: false
+  ForceScheduledRestart: false
   RestartIntervalHours:
     value: 4
     validate: [1, 24]

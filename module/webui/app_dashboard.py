@@ -294,8 +294,11 @@ class DashboardMixin(WebUIMixinBase):
             else groups_to_display
         )
         time_now = current_time().replace(microsecond=0)
+        # LogRes 的 groups 是 cached_property，每实例独立缓存。
+        # 提出循环外复用同一实例，避免每个资源都重新读盘解析 dashboard.json。
+        log_res = LogRes(self.alas_config)
         for group_name in _arg_group:
-            group = LogRes(self.alas_config).group(group_name)
+            group = log_res.group(group_name)
             if group is None:
                 continue
 

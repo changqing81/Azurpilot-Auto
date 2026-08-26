@@ -26,6 +26,7 @@
 - CampaignEvent: 战役活动配置管理
 """
 
+import os
 import re
 import typing as t
 from copy import deepcopy
@@ -635,6 +636,10 @@ class ConfigGenerator:
 
 
 class ConfigUpdater:
+    # read_file 的 mtime 缓存：(config_name, is_template) -> (mtime, config)
+    # 类级共享，同一进程内多个 AzurLaneConfig 实例复用同一份缓存。
+    _read_cache = {}
+
     # 格式：source, target, (可选) convert_func
     redirection = [
         # ('OpsiDaily.OpsiDaily.BuySupply', 'OpsiShop.Scheduler.Enable'),
@@ -910,6 +915,12 @@ class ConfigUpdater:
         """
         读取并更新配置文件。
 
+        WebUI 每次点击任务组、刷新概览都会调用此方法。完整流程
+        （读盘 + JSON 解析 + config_update 全量迁移）开销较大，
+        因此按文件 mtime 缓存结果；文件未变化时直接返回缓存副本。
+        写入路径（write_file / _save_config）会调用 invalidate_read_cache()
+        保证缓存一致性。
+
         Args:
             config_name: 配置文件名，对应 ./config/{file}.json。
             is_template: 是否为模板配置。
@@ -917,11 +928,31 @@ class ConfigUpdater:
         Returns:
             更新后的配置字典。
         """
-        old = read_file(filepath_config(config_name))
+        path = filepath_config(config_name)
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            mtime = None
+
+        cache_key = (config_name, is_template)
+        cached = self._read_cache.get(cache_key)
+        if cached is not None and cached[0] == mtime:
+            return deepcopy(cached[1])
+
+        old = read_file(path)
         new = self.config_update(old, is_template=is_template)
         # 更新后的配置未写回文件，出于性能考虑已注释掉写入操作
         # self.write_file(config_name, new)
-        return new
+        self._read_cache[cache_key] = (mtime, new)
+        return deepcopy(new)
+
+    def invalidate_read_cache(self, config_name=None):
+        """清除 read_file 的 mtime 缓存；不传参数时全部清除。"""
+        if config_name is None:
+            self._read_cache.clear()
+        else:
+            self._read_cache.pop((config_name, False), None)
+            self._read_cache.pop((config_name, True), None)
 
     @staticmethod
     def write_file(config_name, data, mod_name='alas'):
@@ -934,6 +965,7 @@ class ConfigUpdater:
             mod_name: 模块名称，默认为 'alas'。
         """
         write_file(filepath_config(config_name, mod_name), data)
+        ConfigUpdater._read_cache.clear()
 
     @timer
     def update_file(self, config_name, is_template=False):

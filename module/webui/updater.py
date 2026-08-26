@@ -57,11 +57,23 @@ class Updater(DeployConfig, GitManager):
         ).stdout
         return log
 
+    # get_commit 结果缓存：(revision, n, short_sha1) -> (到期时间, 结果)
+    # 每次进入概览页都会调用，spawn git 子进程在 Windows 上开销明显。
+    # 版本号展示场景下 60 秒缓存完全够用；更新流程走 _check_update 不受影响。
+    _commit_cache: dict = {}
+    COMMIT_CACHE_TTL = 60
+
     def get_commit(self, revision="", n=1, short_sha1=False) -> Tuple:
         """
         Return:
             (sha1, author, isotime, message,)
         """
+        cache_key = (revision, n, short_sha1)
+        cached = Updater._commit_cache.get(cache_key)
+        now = time.time()
+        if cached is not None and now < cached[0]:
+            return cached[1]
+
         ph = "h" if short_sha1 else "H"
 
         log = self.execute_output(
@@ -69,15 +81,18 @@ class Updater(DeployConfig, GitManager):
         )
 
         if not log:
-            return None, None, None, None
-
-        logs = log.split("\n")
-        logs = list(map(lambda log: tuple(log.split("---")), logs))
-
-        if n == 1:
-            return logs[0]
+            result = None, None, None, None
         else:
-            return logs
+            logs = log.split("\n")
+            logs = list(map(lambda log: tuple(log.split("---")), logs))
+
+            if n == 1:
+                result = logs[0]
+            else:
+                result = logs
+
+        Updater._commit_cache[cache_key] = (now + self.COMMIT_CACHE_TTL, result)
+        return result
 
     def _check_cloud_update(self) -> bool:
         """检查云端更新开关"""

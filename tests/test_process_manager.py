@@ -459,9 +459,88 @@ class TestProcessManagerRegistry(unittest.TestCase):
             args=("alas",),
         )
         process.start.assert_called_once_with()
-        process.join.assert_called_once_with(
-            timeout=ProcessManager.MANUAL_STOP_ACTION_TIMEOUT
-        )
+
+    def test_manual_stop_action_join_runs_in_background_thread(self):
+        """收尾进程的 join 必须在后台线程执行，点击回调不能被阻塞。"""
+        manager = ProcessManager.get_manager("alas")
+        join_started = threading.Event()
+        release_join = threading.Event()
+        process = Mock()
+
+        def blocking_join(timeout=None):
+            join_started.set()
+            release_join.wait(timeout=5)
+            return
+
+        process.join.side_effect = blocking_join
+        process.is_alive.return_value = False
+        process.exitcode = 0
+
+        try:
+            with patch(
+                "module.webui.process_manager.Process", return_value=process
+            ):
+                manager._run_manual_stop_action_locked()
+
+            # 点击回调返回时 join 尚未结束（进程仍在运行）
+            self.assertIs(manager._manual_stop_action_process, process)
+            self.assertTrue(join_started.wait(timeout=5))
+            self.assertTrue(process.join.called)
+        finally:
+            release_join.set()
+            thread = manager._manual_stop_action_thread
+            if thread is not None:
+                thread.join(timeout=5)
+
+    def test_start_cancels_pending_manual_stop_action(self):
+        """启动 worker 前必须终止仍在运行的收尾进程，避免抢占设备。"""
+        manager = ProcessManager.get_manager("alas")
+        pending = Mock()
+        manager._manual_stop_action_process = pending
+        process = Mock()
+        process.pid = 12345
+
+        with (
+            patch("module.webui.process_manager.Process", return_value=process),
+            patch.object(manager, "_register_process"),
+            patch.object(manager, "start_log_queue_handler"),
+            patch.object(
+                ProcessManager,
+                "alive",
+                new_callable=PropertyMock,
+                return_value=False,
+            ),
+            patch.object(
+                ProcessManager, "_cancel_pending_manual_stop_action"
+            ) as cancel,
+        ):
+            manager.start("alas")
+
+        cancel.assert_called_once_with()
+
+    def test_cancel_pending_manual_stop_action_terminates_process(self):
+        manager = ProcessManager.get_manager("alas")
+        pending = Mock()
+        manager._manual_stop_action_process = pending
+
+        with patch.object(
+            ProcessManager, "_terminate_manual_stop_action"
+        ) as terminate:
+            manager._cancel_pending_manual_stop_action()
+
+        terminate.assert_called_once_with(pending)
+        self.assertIsNone(manager._manual_stop_action_process)
+
+    def test_cancel_pending_manual_stop_action_skips_when_none(self):
+        manager = ProcessManager.get_manager("alas")
+        manager._manual_stop_action_process = None
+
+        with patch.object(
+            ProcessManager, "_terminate_manual_stop_action"
+        ) as terminate:
+            manager._cancel_pending_manual_stop_action()
+
+        terminate.assert_not_called()
 
     def test_manual_stop_action_timeout_terminates_helper(self):
         manager = ProcessManager.get_manager("alas")
@@ -475,5 +554,8 @@ class TestProcessManagerRegistry(unittest.TestCase):
             ) as terminate,
         ):
             manager._run_manual_stop_action_locked()
+            thread = manager._manual_stop_action_thread
+            if thread is not None:
+                thread.join(timeout=5)
 
         terminate.assert_called_once_with(process)

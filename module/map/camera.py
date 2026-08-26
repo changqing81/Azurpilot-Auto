@@ -439,6 +439,10 @@ class Camera(MapOperation):
         Args:
             location: 目标格子坐标。
             swipe_limit (tuple): (x, y)。滑动限制在 (-x, -y, x, y) 范围内。
+
+        Returns:
+            bool: 是否成功聚焦到目标位置。摄像机顶死地图边缘
+                且目标不可达时返回 False。
         """
         location = location_ensure(location)
         logger.info('[地图-摄像机] 聚焦到: %s' % location2node(location))
@@ -447,7 +451,7 @@ class Camera(MapOperation):
             vector = np.array(location) - self.camera
 
             if np.all(vector == 0):
-                break
+                return True
 
             swipe = tuple(np.min([np.abs(vector), swipe_limit], axis=0) * np.sign(vector))
 
@@ -458,6 +462,12 @@ class Camera(MapOperation):
 
             if not has_swiped:
                 break
+
+        logger.warning(
+            f'[地图-摄像机] 无法聚焦到 {location2node(location)}，'
+            f'当前摄像机: {location2node(self.camera)}（可能已到达地图边缘）'
+        )
+        return False
 
     def full_scan(self, queue=None, must_scan=None, battle_count=0, mystery_count=0, siren_count=0, carrier_count=0,
                   mode='normal'):

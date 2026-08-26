@@ -166,8 +166,11 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         )
 
         # 获取当前区域
+        # zone_init() 会循环截图等待画面稳定并处理弹窗，OCR 失败可重试；
+        # 裸调 get_current_zone() 直接 OCR 旧帧，经验检测 ui_back 后立即调用
+        # 会读到详情页关闭动画的过渡帧，导致 MapDetectionError。
         try:
-            self.get_current_zone()
+            self.zone_init()
         except MapDetectionError as e:
             logger.error("[大世界-侵蚀1练级] OS地图区域识别失败，请确保游戏已进入OS海域地图界面")
             logger.error(f"[大世界-侵蚀1练级] OCR识别错误: {e}")

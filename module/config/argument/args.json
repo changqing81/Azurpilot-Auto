@@ -536,6 +536,53 @@
           1,
           168
         ]
+      },
+      "WatchdogEnable": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "WatchdogLogTimeout": {
+        "type": "input",
+        "value": 300,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "WatchdogTaskTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "RestartOperationTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          1,
+          99999
+        ]
+      }
+    },
+    "Report": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "TriggerTime": {
+        "type": "input",
+        "value": "23:50"
+      },
+      "OnePushConfig": {
+        "type": "textarea",
+        "value": "provider: null",
+        "mode": "yaml"
       }
     },
     "Optimization": {
@@ -746,6 +793,10 @@
     },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ForceScheduledRestart": {
         "type": "checkbox",
         "value": false
       },

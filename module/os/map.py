@@ -1705,15 +1705,25 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             while len(queue) > 0:
                 logger.hr(f"重新扫描 {queue[0]}")
                 queue = queue.sort_by_camera_distance(self.camera)
-                self.focus_to(queue[0], swipe_limit=(6, 5))
-                self.focus_to_grid_center(0.3)
+                if not self.focus_to(queue[0], swipe_limit=(6, 5)):
+                    # 摄像机顶死边缘无法聚焦到该区域，跳过避免无效检测
+                    logger.warning(
+                        f"[大世界-扫描] 无法聚焦到 {queue[0]}，跳过该区域的重扫"
+                    )
+                    queue = queue[1:]
+                    continue
 
-                if self.map_rescan_current(drop=drop):
-                    result = True
-                    break
+                try:
+                    self.focus_to_grid_center(0.3)
+                    if self.map_rescan_current(drop=drop):
+                        result = True
+                        break
+                except MapDetectionError:
+                    # 单个区域检测失败不应炸掉整个重扫流程
+                    logger.warning(
+                        f"[大世界-扫描] 区域 {self.camera} 重扫时地图检测失败，跳过"
+                    )
                 queue = queue[1:]
-
-        logger.info(f"[大世界-扫描] 地图重新扫描一次结束, 结果={result}")
         return result
 
     def map_rescan(self, rescan_mode="full", drop=None):
@@ -1831,8 +1841,15 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
     def _try_fixed_patrol_move(self, fleet_index, target_grid, primary_target):
         """尝试将指定舰队移动到候选落点。"""
-        self.focus_to(target_grid.location)
-        self.update()
+        try:
+            self.focus_to(target_grid.location)
+            self.update()
+        except MapDetectionError:
+            # 摄像机顶死边缘无法聚焦到目标，让上层更换候选落点
+            logger.warning(
+                f"无法将视角聚焦到 {target_grid.location}（可能已到达地图边缘），放弃当前落点"
+            )
+            return False
         try:
             clickable_grid = self.convert_global_to_local(target_grid.location)
         except KeyError:
@@ -1871,13 +1888,13 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                     recovered = False
                 if recovered:
                     time.sleep(0.5)
-                    self.focus_to(target_grid.location)
-                    self.update()
                     try:
+                        self.focus_to(target_grid.location)
+                        self.update()
                         clickable_grid = self.convert_global_to_local(
                             target_grid.location
                         )
-                    except KeyError:
+                    except (MapDetectionError, KeyError):
                         clickable_grid = None
                     if clickable_grid:
                         continue

@@ -85,6 +85,14 @@ class Frame(Base):
                 "$('div[style*=\"--aside-" + name + "--\"]>button').addClass('btn-aside-active');\n"
             )
             set_localstorage("aside", name)
+        # 主页右下角"纯背景模式"圆点仅在主页(aside=Home)显示
+        js_parts.append(
+            "(function () {\n"
+            "  if (window.alasWallpaperToggle) {\n"
+            "    window.alasWallpaperToggle(" + json.dumps(name == "Home") + ");\n"
+            "  }\n"
+            "})();\n"
+        )
         if js_parts:
             run_js("".join(js_parts))
 
@@ -131,6 +139,15 @@ class Frame(Base):
                     "$('button.btn-menu').removeClass('btn-menu-active');\n"
                     "$('div[style*=\"--menu-" + name + "--\"]>button').addClass('btn-menu-active');\n"
                 )
+
+            # 主页右下角"纯背景模式"圆点仅在主页(menu=HomePage)显示
+            js_parts.append(
+                "(function () {\n"
+                "  if (window.alasWallpaperToggle) {\n"
+                "    window.alasWallpaperToggle(" + json.dumps(name == "HomePage") + ");\n"
+                "  }\n"
+                "})();\n"
+            )
 
             if js_parts:
                 run_js("".join(js_parts))

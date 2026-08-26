@@ -784,6 +784,24 @@
     "TimeWindowHours": {
       "name": "累计时间窗口（小时）",
       "help": "统计失败次数的时间范围。超过此时间后失败计数自动清零。例如设为 3，表示 3 小时内同一错误累计达到设定次数才关闭任务。取值范围 1~168。"
+    },
+    "WatchdogEnable": {
+      "name": "启用看门狗守护",
+      "help": "开启后，看门狗线程在任务执行期间监控日志心跳和任务运行时间，检测到卡死时强制重启模拟器以解除阻塞。",
+      "True": "是",
+      "False": "否"
+    },
+    "WatchdogLogTimeout": {
+      "name": "日志心跳超时（秒）",
+      "help": "任务执行期间超过指定秒数无任何日志输出时，判定主线程卡死，强制停止模拟器以解除阻塞。\n0 表示禁用；99999 表示几乎无限制。\n默认 300 秒（5 分钟）。"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "任务卡死保护超时（分钟）",
+      "help": "单个任务运行超过指定时间后，看门狗判定任务逻辑死循环（如剧情无法跳过、寻路死循环等），强制重启模拟器以中断任务。\n0 表示禁用；99999 表示几乎无限制。\n默认 120 分钟（2 小时）。"
+    },
+    "RestartOperationTimeout": {
+      "name": "重启操作超时（秒）",
+      "help": "应用停止/启动或模拟器停止/启动操作的硬超时秒数。超过此时间判定模拟器或 atx-agent 卡死，立即触发模拟器重启。\n默认 120 秒。"
     }
   },
   "Optimization": {
@@ -2411,6 +2429,24 @@
     "Favourite": {
       "name": "仅觉醒常用舰船",
       "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "大世界日报",
+      "help": "每天定时推送大世界资源统计日报，通过企业微信机器人发送"
+    },
+    "Enable": {
+      "name": "启用日报",
+      "help": "开启后每天到达触发时间时自动发送大世界日报"
+    },
+    "TriggerTime": {
+      "name": "触发时间",
+      "help": "每天发送日报的时间，格式 HH:MM，例如 23:50"
+    },
+    "OnePushConfig": {
+      "name": "OnePush 推送配置",
+      "help": "用于日报推送的通知配置（企业微信机器人渠道）"
     }
   },
   "GeneralShop": {
@@ -6064,6 +6100,10 @@
       "name": "定时重启模拟器",
       "help": "启用后，每隔指定时间自动重启模拟器，避免长时间运行导致的内存泄漏或卡顿问题。重启会等当前任务完成后再执行。"
     },
+    "ForceScheduledRestart": {
+      "name": "强制定时重启",
+      "help": "启用后，到达重启间隔时即使当前正在运行非敏感任务也会强制重启模拟器，保证准点维护。敏感任务不会被中断。需同时开启“定时重启模拟器”。"
+    },
     "RestartIntervalHours": {
       "name": "重启间隔（小时）",
       "help": "每隔多少小时自动重启一次模拟器。"
@@ -6515,9 +6555,7 @@
       "WebuiSSLKey": "SSL 密钥文件",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密钥路径，需和证书同时设置。",
       "WebuiSSLCert": "SSL 证书文件",
-      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置。",
-      "HideUpdateNotice": "隐藏更新提示",
-      "HideUpdateNoticeHelp": "开启后检测到更新时不再在右下角弹出提示。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置。"
     },
     "StartupRun": {
       "Title": "启动时自动运行",

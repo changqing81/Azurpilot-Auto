@@ -108,7 +108,9 @@ class TestWebUIStaticAssets(unittest.TestCase):
 
         self.assertNotIn("fonts.googleapis.com", theme_css)
         self.assertNotIn("fonts.gstatic.com", theme_css)
-        self.assertIn('url("https://api.yppp.net/api.php")', theme_css)
+        # 随机背景已改为运行时由 app_home.init_wallpaper() 动态注入，
+        # CSS 内不再硬编码外部图片 URL（c0d33d3dd）。
+        self.assertNotIn("api.yppp.net", theme_css)
         self.assertNotIn("fonts.googleapis.com", obs_overlay)
         self.assertNotIn("fonts.gstatic.com", obs_overlay)
 

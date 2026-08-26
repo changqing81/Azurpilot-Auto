@@ -591,6 +591,14 @@ class UI(InfoHandler):
         if self.handle_urgent_commission():
             return True
 
+        # 大舰队弹窗：全页面通用处理（含岛屿页面）
+        # 岛屿任务退出回主界面时可能弹出大舰队弹窗（如大舰队作战邀请），
+        # 若仅在非岛屿页面处理，弹窗会遮蔽导航按钮导致 ui_goto 超时。
+        # 弹窗按钮位于屏幕中央 (422~856, 449~487)，与岛屿 UI 无重叠，
+        # 且需 CANCEL 与 CONFIRM 同时出现才触发，无误检风险。
+        if self.handle_guild_popup_cancel():
+            return True
+
         # 主界面和奖励页面弹窗
         # 仅在非岛屿页面时处理，避免岛屿页面的 UI 元素被误检测为 GET_SHIP/GET_ITEMS
         # 例如岛屿管理界面的邮箱按钮与 GET_SHIP 检测区域 (1104,610,1110,630) 重叠

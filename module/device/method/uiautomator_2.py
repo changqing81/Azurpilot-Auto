@@ -105,7 +105,11 @@ def retry(func):
             '_app_start_u2_am', '_app_start_u2_monkey',
             'screenshot_uiautomator2',
             'app_current_uiautomator2',
+            'app_stop_uiautomator2',
         ]:
+            # app_stop_uiautomator2 失败属于应用重启失败，按项目规则
+            # 必须抛 EmulatorNotRunningError 触发模拟器重启，
+            # 而非 RequestHumanTakeover（会被错误地视为不可恢复）
             logger.critical(f'[设备-U2] 重试 {func.__name__}() 失败')
             raise EmulatorNotRunningError
 
@@ -207,7 +211,7 @@ class Uiautomator2(Connection):
 
     def drag_uiautomator2(self, p1, p2, segments=1, shake=(0, 15), point_random=(-10, -10, 10, 10),
                           shake_random=(-5, -5, 5, 5), swipe_duration=0.25, shake_duration=0.1):
-        """拖拽并抖动，示意如下:
+        r"""拖拽并抖动，示意如下:
                      /\
         +-----------+  +  +
                         \/

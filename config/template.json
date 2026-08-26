@@ -110,7 +110,16 @@
       "Enable": false,
       "PushNotify": false,
       "MaxFailures": 3,
-      "TimeWindowHours": 24
+      "TimeWindowHours": 24,
+      "WatchdogEnable": true,
+      "WatchdogLogTimeout": 300,
+      "WatchdogTaskTimeout": 120,
+      "RestartOperationTimeout": 120
+    },
+    "Report": {
+      "Enable": false,
+      "TriggerTime": "23:50",
+      "OnePushConfig": "provider: null"
     },
     "Optimization": {
       "OcrDevice": "auto",
@@ -143,6 +152,7 @@
     },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": false,
+      "ForceScheduledRestart": false,
       "RestartIntervalHours": 4
     },
     "Storage": {

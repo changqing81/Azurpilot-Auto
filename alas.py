@@ -24,6 +24,11 @@ from module.config.utils import (
     read_file,
 )
 from module.exception import *
+from module.handler.task_failure_protection import (
+    RESTART_OPERATION_TIMEOUT,
+    Watchdog,
+    emulator_op_with_timeout,
+)
 from module.logger import logger
 from module.notify import handle_notify, notify_webui
 
@@ -72,17 +77,28 @@ class AzurLaneAutoScript:
         # 连续卡死/ADB 离线计数，用于判断是否需要重启模拟器
         self.consecutive_game_stuck = 0
         self.consecutive_adb_offline = 0
+        # 未预期异常连续计数，先重启游戏，连续多次才重启模拟器
+        self.consecutive_unexpected_error = 0
+        # ScriptError 连续计数，重试 3 次后才退出（代码 bug 缓冲）
+        self.script_error_count = 0
         # 上次计划重启模拟器的时间戳
         self.last_emulator_restart_time = time.monotonic()
         # 最近一次任务执行的错误原因（异常类名），供失败保护模块使用
         self._last_task_error: str | None = None
-        # 任务失败保护跟踪器
+        # 模拟器启停操作锁：防止主线程（_try_restart_emulator / app_restart）和
+        # 看门狗线程（Watchdog._recover）并发操作模拟器导致进程状态竞态
+        self._emulator_lock = threading.Lock()
+        # 任务失败保护：失败记录跟踪器 + 看门狗守护线程
         from module.handler.task_failure_protection import TaskFailureTracker
         self.failure_tracker = TaskFailureTracker(config_name)
+        self.watchdog = Watchdog(self)
         # 任务失败保护自动关闭的任务名集合（运行时禁用列表）。
         # 命中此列表的任务在 ``get_next_task`` 阶段直接跳过，
         # 确保被保护关闭的任务不会再被调度，即使配置尚未持久化。
         self._disabled_tasks_by_protection: set = set()
+        # 独立日报定时检查线程；运行完全不依赖设备连接与任务调度。
+        self._daily_report_stop = threading.Event()
+        self._daily_report_thread = None
 
     def _try_restart_emulator(self):
         """
@@ -121,37 +137,48 @@ class AzurLaneAutoScript:
             return False
 
         logger.hr('[Alas] 正在重启模拟器', level=1)
-        try:
-            # 优先使用已缓存的设备对象
-            device = self.__dict__.get('device', None)
-            if device is None:
-                # device 缓存不存在时，按平台回退创建新实例
-                if sys.platform == 'darwin':
-                    from module.device.platform.platform_mac import PlatformMac
-                    device = PlatformMac(self.config)
-                else:
-                    from module.device.platform.platform_windows import PlatformWindows
-                    device = PlatformWindows(self.config)
+        # 加锁防止看门狗线程同时调用 emulator_stop/start 导致进程状态竞态。
+        # 看门狗触发恢复时也会等待此锁（Watchdog._recover 已加）。
+        with self._emulator_lock:
+            try:
+                # 优先使用已缓存的设备对象
+                device = self.__dict__.get('device', None)
+                if device is None:
+                    # device 缓存不存在时，按平台回退创建新实例
+                    if sys.platform == 'darwin':
+                        from module.device.platform.platform_mac import PlatformMac
+                        device = PlatformMac(self.config)
+                    else:
+                        from module.device.platform.platform_windows import PlatformWindows
+                        device = PlatformWindows(self.config)
 
-            logger.info('[Alas] 正在停止模拟器...')
-            device.emulator_stop()
-            time.sleep(5)
-            logger.info('[Alas] 正在启动模拟器...')
-            device.emulator_start()
-            logger.info('[Alas] 模拟器重启完成')
+                logger.info('[Alas] 正在停止模拟器...')
+                emulator_op_with_timeout(
+                    device.emulator_stop,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='模拟器停止',
+                )
+                time.sleep(5)
+                logger.info('[Alas] 正在启动模拟器...')
+                emulator_op_with_timeout(
+                    device.emulator_start,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='模拟器启动',
+                )
+                logger.info('[Alas] 模拟器重启完成')
 
-            # 清除 device 缓存，下次访问时重新建立连接
-            if 'device' in self.__dict__:
-                del_cached_property(self, 'device')
-            return True
-        except Exception as e:
-            logger.exception_context(
-                title='重启模拟器失败',
-                exc=e,
-                impact='模拟器仍可能处于离线状态，当前任务无法恢复。',
-                action='检查模拟器进程权限、ADB 服务和模拟器管理配置。',
-            )
-            return False
+                # 清除 device 缓存，下次访问时重新建立连接
+                if 'device' in self.__dict__:
+                    del_cached_property(self, 'device')
+                return True
+            except Exception as e:
+                logger.exception_context(
+                    title='重启模拟器失败',
+                    exc=e,
+                    impact='模拟器仍可能处于离线状态，当前任务无法恢复。',
+                    action='检查模拟器进程权限、ADB 服务和模拟器管理配置。',
+                )
+                return False
 
     def _start_emulator_after_long_wait(self):
         """
@@ -537,24 +564,51 @@ class AzurLaneAutoScript:
                 self.checker.wait_until_available()
                 return False
         except ScriptError as e:
+            # 代码 bug，先重试 3 次再退出，给瞬时性脚本错误缓冲
+            self.script_error_count += 1
             self._last_task_error = 'ScriptError'
             logger.exception_context(
-                title='任务脚本执行失败', exc=e,
-                impact='当前任务无法继续，调度器将终止并保留错误现场。',
+                title=f'任务脚本执行失败（第 {self.script_error_count}/3 次）', exc=e,
+                impact='当前任务无法继续，将尝试重启恢复。',
                 action='根据堆栈定位脚本错误；如果是新版本回归，请提交错误日志和截图。',
                 level=50,
             )
+            self.save_error_log()
+            self._check_sensitive_exit(command, e)
+
+            if self.script_error_count >= 3:
+                logger.error_context(
+                    title='ScriptError 重试次数已达上限',
+                    reason=f'脚本错误已连续发生 {self.script_error_count} 次，可能是代码 bug。',
+                    impact='重试无意义，AzurPilot 将退出。',
+                    action='查看错误现场中的 log.txt 和截图，修复代码后重新启动。',
+                    level=50,
+                )
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config_name}> 崩溃",
+                    content=f"<{self.config_name}> ScriptError (连续 {self.script_error_count} 次)",
+                )
+                notify_webui(
+                    self.config_name,
+                    title=f"出大问题了喵！{self.config_name}崩溃了喵！",
+                    content=f"因为 ScriptError 连续 {self.script_error_count} 次喵！",
+                )
+                raise
+
+            logger.warning(f'[Alas] ScriptError 第 {self.script_error_count}/3 次，尝试重启恢复')
             handle_notify(
                 self.config.Error_OnePushConfig,
-                title=f"AzurPilot <{self.config_name}> 崩溃",
-                content=f"<{self.config_name}> ScriptError",
+                title=f"AzurPilot <{self.config_name}> 警告",
+                content=f"<{self.config_name}> ScriptError - 将尝试重启恢复 ({self.script_error_count}/3)",
             )
             notify_webui(
                 self.config_name,
-                title=f"出大问题了喵！{self.config_name}崩溃了喵！",
-                content=f"因为 ScriptError 喵！",
+                title=f"<{self.config_name}> 发出了警告喵！",
+                content=f"<{self.config_name}> ScriptError 将尝试重启恢复喵~",
             )
-            raise
+            self.config.task_call('Restart')
+            return 'recoverable'
         except EmulatorNotRunningError as e:
             self._last_task_error = 'EmulatorNotRunningError'
             # 模拟器离线或死机，尝试自动重启
@@ -582,30 +636,48 @@ class AzurLaneAutoScript:
                 )
                 return 'recoverable'
             else:
-                # 重启失败或未启用自动重启，终止程序
+                # 重启失败：退避等待后继续重试，7×24 场景下永不放弃
+                limit = int(self.config.Error_AdbOfflineThreshold)
+                wait_seconds = min(300, 30 * (self.consecutive_adb_offline - limit + 1))
                 logger.error_context(
-                    title='模拟器无法自动恢复',
+                    title='模拟器本次重启失败',
                     reason='模拟器离线重启失败或已达到自动重启次数限制。',
-                    impact='调度器将终止，任务不会继续执行。',
-                    action='手动启动模拟器并确认 ADB 可见，再重新启动 AzurPilot。',
-                    level=50,
+                    impact=f'调度器不会退出，将在 {wait_seconds} 秒后继续尝试恢复。',
+                    action='若长时间无法恢复，请手动检查模拟器进程、端口和 ADB 服务。',
+                    level=30,
                 )
-                handle_notify(
-                    self.config.Error_OnePushConfig,
-                    title=f"AzurPilot <{self.config_name}> 崩溃",
-                    content=f"<{self.config_name}> EmulatorNotRunningError",
-                )
-                notify_webui(
-                    self.config_name,
-                    title=f"出大问题了喵！{self.config_name}崩溃了喵！",
-                    content=f"因为 模拟器出问题了 喵！",
-                )
-                exit(1)
+                time.sleep(wait_seconds)
+                self.config.task_call('Restart')
+                return 'recoverable'
         except RequestHumanTakeover:
             self._last_task_error = 'RequestHumanTakeover'
             logger.error_context(
-                title='任务需要人工介入',
+                title='任务需要人工介入（将尝试自动恢复）',
                 reason='当前状态无法由自动化流程安全判断或修复。',
+                impact='调度器将先尝试重启模拟器恢复，恢复失败才终止。',
+                action='查看错误现场和堆栈；若自动恢复失败，再手动处理。',
+                level=50,
+            )
+            self.save_error_log()
+            self._check_sensitive_exit(command, e)
+            # 先通过重启模拟器自愈一次，失败才退出
+            if self._try_restart_emulator():
+                logger.warning('[Alas] RequestHumanTakeover: 模拟器重启成功，调度 Restart 任务恢复')
+                self.config.task_call('Restart')
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config_name}> 警告",
+                    content=f"<{self.config_name}> 需要人工介入 - 已自动重启模拟器恢复",
+                )
+                notify_webui(
+                    self.config_name,
+                    title=f"{self.config_name} 出了点小问题喵~",
+                    content=f"遇到需要人工介入的问题喵 已重启模拟器恢复喵",
+                )
+                return 'recoverable'
+            logger.error_context(
+                title='自动恢复失败',
+                reason='模拟器重启未能解决需要人工介入的状态。',
                 impact='调度器将终止，避免继续执行造成误操作。',
                 action='查看错误现场和堆栈，按日志中的具体建议处理后重新启动。',
                 level=50,
@@ -634,6 +706,7 @@ class AzurLaneAutoScript:
             exit(1)
         except Exception as e:
             self._last_task_error = type(e).__name__
+            self.consecutive_unexpected_error += 1
             logger.exception_context(
                 title=f'任务执行发生未处理异常（{command}）', exc=e,
                 impact='当前任务无法确认执行结果，调度器将保留现场并终止。',
@@ -651,7 +724,22 @@ class AzurLaneAutoScript:
                 title=f"出大问题了喵！{self.config_name}崩溃了喵！",
                 content=f"因为 发生异常 喵！",
             )
-            raise
+            # 分级恢复：先重启游戏，连续多次失败才重启模拟器
+            if self.consecutive_unexpected_error >= 3:
+                logger.warning('[Alas] 未预期异常连续发生 3 次，正在重启模拟器...')
+                if self._try_restart_emulator():
+                    self.consecutive_unexpected_error = 0
+                    self.config.task_call('Restart')
+                    return 'recoverable'
+                else:
+                    raise
+            else:
+                logger.warning(
+                    f'[Alas] 未预期异常（第 {self.consecutive_unexpected_error}/3 次），'
+                    f'尝试重启游戏恢复'
+                )
+                self.config.task_call('Restart')
+                return 'recoverable'
 
     def keep_last_errlog(self, folder_path, n: int = 30):
         """
@@ -1440,6 +1528,53 @@ class AzurLaneAutoScript:
         AzurLaneConfig.is_hoarding_task = False
         return task.command
 
+    # ---------- 独立日报定时检查 ----------
+
+    def _daily_report_send(self) -> bool:
+        """尝试发送大世界日报；启用且未发送过今天才真正发送。
+
+        Returns:
+            bool: 当天日报是否已处理（无论发没发）。
+        """
+        try:
+            from module.statistics.daily_report import try_send_daily_report
+            return bool(
+                try_send_daily_report(self.config_name, self.config)
+            )
+        except Exception as error:
+            logger.warning(f'[日报] 检查失败，已忽略: {type(error).__name__}')
+            return False
+
+    def _daily_report_loop(self):
+        """独立守护线程：定期检查日报是否到触发时刻。"""
+        while not self._daily_report_stop.is_set():
+            self._daily_report_send()
+            self._daily_report_stop.wait(30)
+
+    def _start_daily_report_scheduler(self):
+        """启动独立的日报定时检查线程，不依赖任务执行与设备连接。"""
+        if (
+            self._daily_report_thread is not None
+            and self._daily_report_thread.is_alive()
+        ):
+            return
+        self._daily_report_stop.clear()
+        self._daily_report_thread = threading.Thread(
+            target=self._daily_report_loop,
+            daemon=True,
+            name=f'daily-report-{self.config_name}',
+        )
+        self._daily_report_thread.start()
+        logger.info('[日报] 独立定时检查已启动')
+
+    def _stop_daily_report_scheduler(self):
+        """停止日报定时检查线程。"""
+        self._daily_report_stop.set()
+        if self._daily_report_thread is not None:
+            self._daily_report_thread.join(timeout=5)
+            self._daily_report_thread = None
+        logger.info('[日报] 独立定时检查已停止')
+
     def loop(self):
         logger.set_file_logger(self.config_name)
         logger.info(f'[Alas] 启动调度器循环: {self.config_name}')
@@ -1472,6 +1607,11 @@ class AzurLaneAutoScript:
         RESTART_DELAY = 20
         LONG_WAIT = 300
 
+        # 启动看门狗守护线程
+        self.watchdog.start()
+        # 启动独立的日报定时检查线程（与看门狗并行，互不影响）
+        self._start_daily_report_scheduler()
+
         while 1:
             try:
                 # 检查来自GUI的更新事件
@@ -1479,6 +1619,8 @@ class AzurLaneAutoScript:
                     if self.stop_event.is_set():
                         logger.info('[Alas] 检测到更新事件')
                         logger.info(f"[Alas] [{self.config_name}] 已退出。原因: 更新 | Reason: Update")
+                        self.watchdog.stop()
+                        self._stop_daily_report_scheduler()
                         break
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()
@@ -1541,7 +1683,11 @@ class AzurLaneAutoScript:
                 self.device.stuck_record_clear()
                 self.device.click_record_clear()
                 logger.hr(task, level=0)
+                # 激活看门狗：任务执行期间监控日志心跳和运行时间
+                self.watchdog.activate(task)
                 success = self.run(inflection.underscore(task))
+                # 任务结束，暂停看门狗（等待期间不监控）
+                self.watchdog.deactivate()
                 logger.info(f'[Alas] 调度器: 结束任务 `{task}`')
                 self.is_first_task = False
 
@@ -1629,6 +1775,8 @@ class AzurLaneAutoScript:
                     consecutive_global_failures = 0 # 任务成功时重置全局失败计数器
                     self.consecutive_game_stuck = 0
                     self.consecutive_adb_offline = 0
+                    self.consecutive_unexpected_error = 0
+                    self.script_error_count = 0
                     # 任务成功，清除该任务的失败保护记录
                     self.failure_tracker.clear_task_failures(task)
                     continue
@@ -1638,12 +1786,16 @@ class AzurLaneAutoScript:
                     self.checker.check_now()
                     continue
                 else:
+                    self.watchdog.stop()
+                    self._stop_daily_report_scheduler()
                     break
 
             # 捕获全局异常并执行重启
             except Exception as e:
                 consecutive_global_failures += 1
                 self.is_first_task = False
+                # 暂停看门狗，避免恢复期间误触发
+                self.watchdog.deactivate()
                 import traceback
                 logger.exception_context(
                     title='调度器循环发生未处理异常',

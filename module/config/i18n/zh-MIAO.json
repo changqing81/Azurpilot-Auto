@@ -784,6 +784,24 @@
     "TimeWindowHours": {
       "name": "累计时间窗口（小时）喵",
       "help": "统计失败次数的时间范围喵。超过此时间后失败计数自动清零喵。例如设为 3，表示 3 小时内同一错误累计达到设定次数才关闭任务喵。取值范围 1~168 喵。"
+    },
+    "WatchdogEnable": {
+      "name": "启用看门狗守护喵",
+      "help": "开启后，看门狗线程在任务执行期间监控日志心跳和任务运行时间，检测到卡死时强制重启模拟器以解除阻塞喵。",
+      "True": "是",
+      "False": "否"
+    },
+    "WatchdogLogTimeout": {
+      "name": "日志心跳超时（秒）喵",
+      "help": "任务执行期间超过指定秒数无任何日志输出时，判定主线程卡死，强制停止模拟器以解除阻塞喵。\n0 表示禁用；99999 表示几乎无限制喵。\n默认 300 秒（5 分钟）喵。"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "任务卡死保护超时（分钟）喵",
+      "help": "单个任务运行超过指定时间后，看门狗判定任务逻辑死循环（如剧情无法跳过、寻路死循环等），强制重启模拟器以中断任务喵。\n0 表示禁用；99999 表示几乎无限制喵。\n默认 120 分钟（2 小时）喵。"
+    },
+    "RestartOperationTimeout": {
+      "name": "重启操作超时（秒）喵",
+      "help": "应用停止/启动或模拟器停止/启动操作的硬超时秒数喵。超过此时间判定模拟器或 atx-agent 卡死，立即触发模拟器重启喵。\n默认 120 秒喵。"
     }
   },
   "Optimization": {
@@ -2411,6 +2429,24 @@
     "Favourite": {
       "name": "仅觉醒常用舰船",
       "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "大世界日报喵",
+      "help": "每天定时推送大世界资源统计日报喵，通过企业微信机器人发送喵！"
+    },
+    "Enable": {
+      "name": "启用日报喵",
+      "help": "开启后每天到触发时间就自动发送大世界日报喵～"
+    },
+    "TriggerTime": {
+      "name": "触发时间喵",
+      "help": "每天发送日报的时间喵，格式 HH:MM，比如 23:50"
+    },
+    "OnePushConfig": {
+      "name": "OnePush 推送配置喵",
+      "help": "用于日报推送的通知配置喵（企业微信机器人渠道）"
     }
   },
   "GeneralShop": {
@@ -6064,6 +6100,10 @@
       "name": "定时重启模拟器",
       "help": "每隔指定时间自动重启模拟器，防内存泄漏卡顿，等当前任务完成再重启喵。 (´・ω・`)"
     },
+    "ForceScheduledRestart": {
+      "name": "强制定时重启",
+      "help": "到点就算在跑非敏感任务也会强制重启模拟器，保证准点维护喵。敏感任务不会被中断的。要先开「定时重启模拟器」喵。 (≧ω≦)"
+    },
     "RestartIntervalHours": {
       "name": "重启间隔",
       "help": ""
@@ -6515,9 +6555,7 @@
       "WebuiSSLKey": "SSL 密钥文件",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密钥路径，需和证书同时设置喵。",
       "WebuiSSLCert": "SSL 证书文件",
-      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。",
-      "HideUpdateNotice": "隐藏更新提示",
-      "HideUpdateNoticeHelp": "开启后检测到更新时不再在右下角弹出提示喵。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。"
     },
     "StartupRun": {
       "Title": "启动时自动运行喵",

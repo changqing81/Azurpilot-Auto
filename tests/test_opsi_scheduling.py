@@ -65,7 +65,7 @@ class SchedulingMeowHarness:
         self.config = MeowPreserveConfig()
         self.executed_task_name = None
 
-    def run_meowfficer_farming_once(self, ap_preserve):
+    def run_meowfficer_farming_once(self, ap_preserve, ap_checked=False):
         self.config.OS_ACTION_POINT_PRESERVE = ap_preserve
         raise ActionPointLimit(total=5985, preserve=ap_preserve)
 
@@ -78,7 +78,7 @@ class SchedulingMeowHarness:
 
 
 class SchedulingMeowCostLimitHarness(SchedulingMeowHarness):
-    def run_meowfficer_farming_once(self, ap_preserve):
+    def run_meowfficer_farming_once(self, ap_preserve, ap_checked=False):
         self.config.OS_ACTION_POINT_PRESERVE = ap_preserve
         raise ActionPointLimit(current=15, total=15, cost=120)
 

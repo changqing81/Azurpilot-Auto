@@ -1,9 +1,8 @@
-﻿import json
-
-from pathlib import Path
 import json
 
-STATE_FILE = Path("./config/report_state.json")
+from pathlib import Path
+
+STATE_FILE = Path("./cache/report_state.json")
 def load_state():
     if STATE_FILE.exists():
         return json.loads(
@@ -115,18 +114,6 @@ def get_today_report(instance):
             0,
         )
     )
-    va_now = last.get(
-        "virtual_asset",
-        0,
-    )
-
-    va_delta = (
-        va_now
-        - first.get(
-            "virtual_asset",
-            0,
-        )
-    )
     coin_list = data.get(
         "coins_snapshots",
         []
@@ -147,22 +134,23 @@ def get_today_report(instance):
     else:
         y_now = y_delta = p_now = p_delta = 0
     return [
-        f"⚡ {fmt(ap_now, ap_delta)}",
-        f"🟡 {fmt(y_now, y_delta)}",
-        f"🟣 {fmt(p_now, p_delta)}",
-        f"🌊 {fmt(sea_now, sea_delta)}",
-        f"💰 {fmt(round(va_now), round(va_delta))}",
-        f"🏦 {fmt(round(asset_now), round(asset_delta))}",
+        f"⚡ 行动力 {fmt(ap_now, ap_delta)}",
+        f"🟡 黄币资源 {fmt(y_now, y_delta)}",
+        f"🟣 紫币资源 {fmt(p_now, p_delta)}",
+        f"🌊 海里 {fmt(sea_now, sea_delta)}",
+        f"🏦 仓库资产 {fmt(round(asset_now), round(asset_delta))}",
+        "",
+        "数值说明：当前值 (本日变化, 变化百分比)  |  海里为总海里数 (本日增加)",
     ]
 def should_send(config):
     report_time = getattr(
         config,
-        "ReportDailyTime",
+        "Report_TriggerTime",
         "23:50",
     )
     hour, minute = map(
         int,
-        report_time.split(":")
+        str(report_time).split(":")
     )
     now = datetime.now()
     return (
@@ -175,7 +163,7 @@ def try_send_daily_report(
 ):
     if not getattr(
         config,
-        "ReportEnable",
+        "Report_Enable",
         False,
     ):
         return
@@ -192,10 +180,11 @@ def try_send_daily_report(
         return
     from module.statistics.report_sender import (
         get_wecom_webhook,
-        send_template_card,
+        send_text_message,
     )
+    # 日报使用 Report 组的 OnePush 配置（企业微信机器人渠道）
     webhook = get_wecom_webhook(
-        config.OnePushConfig
+        getattr(config, "Report_OnePushConfig", "provider: null")
     )
     lines = get_today_report(
         instance
@@ -203,7 +192,7 @@ def try_send_daily_report(
 
     if not lines:
         return
-    ok = send_template_card(
+    ok = send_text_message(
         webhook,
         f"📊 大世界日报 {today}",
         lines,

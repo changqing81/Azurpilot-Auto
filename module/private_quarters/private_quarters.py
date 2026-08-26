@@ -33,7 +33,11 @@ Pages:
 """
 
 import module.config.server as server
+from datetime import timedelta
 from module.base.timer import Timer
+from module.base.utils import ensure_time
+from module.config.deep import deep_get
+from module.config.utils import get_server_next_update
 from module.logger import logger
 from module.private_quarters.assets import *
 from module.private_quarters.interact import PQInteract
@@ -239,6 +243,26 @@ class PrivateQuarters(PQInteract, PQShop):
             # 执行互动
             self.pq_execute_interact(target_ship)
 
+    def _parse_random_delay(self):
+        """
+        解析 Restart.RandomDelay 配置，返回随机延迟分钟数。
+
+        使用 deep_get 直接从配置数据读取，避免 bind() 未绑定 Restart 任务组导致
+        getattr(self.config, 'Restart_RandomDelay') 返回默认值而非实际配置值的问题。
+
+        Returns:
+            int: 随机延迟分钟数，用于确保私人休息室任务在重启后执行。
+        """
+        random_delay = deep_get(self.config.data, keys='Restart.Restart.RandomDelay', default=0)
+        if isinstance(random_delay, list) and len(random_delay) == 2:
+            random_delay = tuple(random_delay)
+        try:
+            delay = int(ensure_time(random_delay, n=1, precision=0))
+        except (TypeError, ValueError):
+            logger.warning(f'[私人休息室] 无效的重启随机延后设置: {random_delay}, 使用 0 分钟')
+            delay = 0
+        return max(delay, 0)
+
     def run(self):
         """
         私人宿舍任务入口。
@@ -259,4 +283,8 @@ class PrivateQuarters(PQInteract, PQShop):
             target_ship=self.config.PrivateQuarters_TargetShip
         )
 
-        self.config.task_delay(server_update=True)
+        # 基于重启时间计算私人休息室下次执行时间
+        random_delay_minutes = self._parse_random_delay()
+        next_run = get_server_next_update(self.config.Scheduler_ServerUpdate) + timedelta(minutes=random_delay_minutes)
+        logger.info(f'[私人休息室-调度] 下次执行时间: {next_run}')
+        self.config.task_delay(target=next_run)

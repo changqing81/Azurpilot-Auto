@@ -33,6 +33,9 @@ class ServerChecker:
     """
 
     def __init__(self, server: str) -> None:
+        # 注意：API 提供方未部署与本域名匹配的 TLS 证书（https 握手失败），
+        # 只能使用 http。查询仅包含服务器名称、不携带任何敏感数据，
+        # 响应仅影响任务调度判断；并通过下方严格的响应结构校验弥补完整性。
         self._base: str = 'http://sc.shiratama.cn'
         self._api: dict = {
             'get_state': '/server/get_state',           # POST 请求
@@ -78,6 +81,13 @@ class ServerChecker:
             )
             if resp.status_code == 200:
                 j = resp.json()
+                # 响应结构校验：防止 API 变更或被劫持后返回异常数据误导调度
+                if not isinstance(j, dict) \
+                        or not isinstance(j.get('state'), int) \
+                        or not isinstance(j.get('last_update'), int):
+                    raise ScriptError(
+                        f'Invalid response structure. Response is {resp.text}'
+                    )
                 if j['state'] != 1:
                     self._state.append(True)
                     logger.info(f'[服务器检查] 服务器 "{self._server}" 可用。')

@@ -355,8 +355,8 @@ class ConnectionAttr:
                 with OpenKey(HKEY_LOCAL_MACHINE, r"SOFTWARE\BlueStacks_nxt_cn") as key:
                     directory = QueryValueEx(key, 'UserDefinedDir')[0]
             except FileNotFoundError:
-                logger.error('[设备-属性] 未找到注册表 HKEY_LOCAL_MACHINE\SOFTWARE\BlueStacks_nxt '
-                             '或 HKEY_LOCAL_MACHINE\SOFTWARE\BlueStacks_nxt_cn')
+                logger.error(r'[设备-属性] 未找到注册表 HKEY_LOCAL_MACHINE\SOFTWARE\BlueStacks_nxt '
+                             r'或 HKEY_LOCAL_MACHINE\SOFTWARE\BlueStacks_nxt_cn')
                 logger.error('[设备-属性] 请确认使用的是蓝叠 5 Hyper-V 版本，而非普通蓝叠 5')
                 raise RequestHumanTakeover
         logger.info(f"配置文件目录: {directory}")

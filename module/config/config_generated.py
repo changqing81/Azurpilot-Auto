@@ -132,6 +132,10 @@ class GeneratedConfig:
     TaskFailureProtection_PushNotify = False  # True, False
     TaskFailureProtection_MaxFailures = 3
     TaskFailureProtection_TimeWindowHours = 24
+    TaskFailureProtection_WatchdogEnable = True  # True, False
+    TaskFailureProtection_WatchdogLogTimeout = 300
+    TaskFailureProtection_WatchdogTaskTimeout = 120
+    TaskFailureProtection_RestartOperationTimeout = 120
 
     # 配置组 `Optimization`
     Optimization_OcrDevice = 'auto'  # auto, qnn_npu, openvino_npu, openvino_gpu, gpu, openvino_cpu, cpu, ane
@@ -449,6 +453,11 @@ class GeneratedConfig:
     # 配置组 `Awaken`
     Awaken_LevelCap = 'level120'  # level120, level125
     Awaken_Favourite = False
+
+    # 配置组 `Report`
+    Report_Enable = False
+    Report_TriggerTime = '23:50'
+    Report_OnePushConfig = 'provider: null'
 
     # 配置组 `GeneralShop`
     GeneralShop_Enable = True
@@ -1030,6 +1039,7 @@ class GeneratedConfig:
 
     # 配置组 `EmulatorManagement`
     EmulatorManagement_ScheduledEmulatorRestart = False
+    EmulatorManagement_ForceScheduledRestart = False
     EmulatorManagement_RestartIntervalHours = 4
 
     # 配置组 `EmulatorManager`
