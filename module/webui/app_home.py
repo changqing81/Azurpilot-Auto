@@ -1,5 +1,4 @@
 """WebUI首页和会话运行"""
-import base64
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
@@ -95,6 +94,11 @@ _BUILTIN_TYPES = {"lolicon", "imgapi"}
 _SOURCES_FILE_NAME = "wallpaper_sources.json"
 # 自定义图源默认的图片地址 JSON 提取路径
 _DEFAULT_IMAGE_PATH = "data[0].url"
+
+# 自定义背景压缩参数：最长边与 JPEG 质量。大图会被缩放重编码，
+# 显著降低远控低带宽环境的首次加载耗时
+_CUSTOM_BG_MAX_EDGE = 2560
+_CUSTOM_BG_JPEG_QUALITY = 85
 
 # 自定义背景图片扩展名 → MIME 映射
 _CUSTOM_BG_MIMES = {
@@ -321,9 +325,9 @@ class HomeMixin(WebUIMixinBase):
 
         # 用户启用了自定义背景且存在自定义图片时，直接应用并跳过随机图源
         if self._load_background_mode() == "custom":
-            data_url = self._custom_background_data_url()
-            if data_url:
-                self._inject_custom_background(data_url)
+            image_url = self._custom_background_url()
+            if image_url:
+                self._inject_custom_background(image_url)
                 logger.info("[WebUI] 已应用自定义背景")
                 return
 
@@ -894,24 +898,25 @@ class HomeMixin(WebUIMixinBase):
         except Exception as e:
             logger.warning(f"[WebUI] 保存背景模式失败: {e}")
 
-    def _custom_background_data_url(self) -> str:
-        """构造自定义背景的 data URL；无自定义图片时返回空字符串。"""
+    def _custom_background_url(self) -> str:
+        """构造自定义背景的 HTTP URL（经 /images/custom-background 提供，
+        可被浏览器长缓存）；无自定义图片时返回空字符串。
+        """
         try:
             files = sorted(self._wallpapers_dir().glob("custom_background.*"))
             if not files:
                 return ""
-            content = files[0].read_bytes()
-            ext = files[0].suffix.lower()
-            mime = _CUSTOM_BG_MIMES.get(ext, "image/png")
-            data_url = f"data:{mime};base64," + base64.b64encode(
-                content
-            ).decode("ascii")
-            return data_url
+            # 用文件 mtime 作为版本号，上传新图后 URL 随之变化，浏览器缓存自动失效
+            version = int(files[0].stat().st_mtime)
+            return f"/images/custom-background?v={version}"
         except Exception:
             return ""
 
-    def _inject_custom_background(self, data_url: str) -> None:
-        """注入自定义背景：以带 !important 的 body 规则覆盖所有主题背景。"""
+    def _inject_custom_background(self, image_url: str) -> None:
+        """注入自定义背景：以带 !important 的 body 规则覆盖所有主题背景。
+
+        只注入短小的 CSS 引用而非图片数据本体，图片由浏览器按 URL 加载并缓存。
+        """
         run_js(
             """
             (function () {
@@ -932,7 +937,7 @@ class HomeMixin(WebUIMixinBase):
                 }
             })();
             """
-            % data_url
+            % image_url
         )
 
     def _clear_custom_background(self) -> None:
@@ -983,6 +988,9 @@ class HomeMixin(WebUIMixinBase):
         if ext not in _CUSTOM_BG_MIMES:
             ext = ".png"
 
+        # 压缩图片体积，远控低带宽环境下加载更快
+        content, ext = self._compress_custom_background_bytes(content, ext)
+
         wallpapers_dir = self._wallpapers_dir()
         wallpapers_dir.mkdir(parents=True, exist_ok=True)
         # 只保留一份自定义背景，避免多文件读取歧义
@@ -992,13 +1000,56 @@ class HomeMixin(WebUIMixinBase):
         target.write_bytes(content)
 
         self._save_background_mode("custom")
-        mime = _CUSTOM_BG_MIMES[ext]
-        data_url = f"data:{mime};base64," + base64.b64encode(content).decode(
-            "ascii"
+        self._inject_custom_background(
+            f"/images/custom-background?v={int(target.stat().st_mtime)}"
         )
-        self._inject_custom_background(data_url)
         toast(f"自定义背景已应用: {target.resolve()}", color="success")
         logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
+
+    @staticmethod
+    def _compress_custom_background_bytes(content: bytes, ext: str):
+        """压缩自定义背景图片，返回 (压缩后字节, 保存扩展名)。
+
+        - GIF 动图不做重编码，原样保留动画；
+        - 其余格式解码后若最长边超过上限则等比缩放，再编码为 JPEG 控制体积；
+        - 带 alpha 通道的图合成到白底，避免变黑；
+        - 解码或编码失败时保留原始字节，避免上传中断。
+        """
+        if ext == ".gif":
+            return content, ".gif"
+        try:
+            import cv2
+            import numpy as np
+
+            image = cv2.imdecode(
+                np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_UNCHANGED
+            )
+            if image is None:
+                return content, (ext or ".png")
+            if image.ndim == 3 and image.shape[2] == 4:
+                alpha = image[:, :, 3:4].astype(np.float32) / 255.0
+                rgb = image[:, :, :3].astype(np.float32)
+                image = (rgb * alpha + 255 * (1 - alpha)).astype(np.uint8)
+
+            height, width = image.shape[:2]
+            scale = max(width, height) / _CUSTOM_BG_MAX_EDGE
+            if scale > 1:
+                image = cv2.resize(
+                    image,
+                    (round(width / scale), round(height / scale)),
+                    interpolation=cv2.INTER_AREA,
+                )
+            ok, encoded = cv2.imencode(
+                ".jpg",
+                image,
+                [int(cv2.IMWRITE_JPEG_QUALITY), _CUSTOM_BG_JPEG_QUALITY],
+            )
+            if ok and len(encoded) < len(content):
+                return encoded.tobytes(), ".jpg"
+            return content, (ext or ".png")
+        except Exception as e:
+            logger.warning(f"[WebUI] 压缩自定义背景失败，保留原图: {e}")
+            return content, (ext or ".png")
 
     def _switch_to_random_background(self) -> None:
         """切换回随机背景：清理自定义背景注入并重新拉取随机壁纸。"""

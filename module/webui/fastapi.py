@@ -137,8 +137,11 @@ class HeaderMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         path = request.url.path
-        is_static_asset = path.startswith("/static/assets/") or path.startswith(
-            "/pywebio_static/"
+        is_static_asset = (
+            path.startswith("/static/assets/")
+            or path.startswith("/pywebio_static/")
+            # 自定义背景图带 ?v=mtime 版本号，可安全长缓存
+            or path.startswith("/images/")
         )
         is_cacheable_response = (
             200 <= response.status_code < 300 or response.status_code == 304
