@@ -23,7 +23,11 @@ from module.device.pkg_resources import get_distribution
 _ = get_distribution
 
 from adbutils import AdbError, Network
-from starlette.responses import JSONResponse, HTMLResponse, StreamingResponse
+from starlette.responses import (
+    HTMLResponse,
+    JSONResponse,
+    StreamingResponse,
+)
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
 from module.device.method.scrcpy import const as scrcpy_const

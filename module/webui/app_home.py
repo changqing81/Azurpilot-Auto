@@ -1,9 +1,19 @@
 """WebUI首页和会话运行"""
+import base64
 import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import partial
+from pathlib import Path
+from urllib.parse import urlparse
+
 from module.webui.app_dependencies import (
     State,
     Switch,
     _t,
+    actions,
+    file_upload,
+    input as _p_input,
+    input_group,
     alas_instance,
     eval_js,
     get_localstorage_values,
@@ -20,6 +30,7 @@ from module.webui.app_dependencies import (
     put_input,
     put_markdown,
     put_text,
+    radio as _p_radio,
     register_thread,
     run_js,
     set_env,
@@ -34,6 +45,71 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+
+
+# Pixiv 图片反代域名列表，用于壁纸加载时并发测速，选中其中可访问且时延最低的
+# 一个。反代服务可能随时变更或下线，如需新增/调整候选，请维护此列表即可。
+_PIXIV_PROXY_DOMAINS = [
+    "i.pixiv.re",
+    "i.pixiv.nl",
+    "pixiv.yuki.sh",
+    "proxy.pixivel.moe",
+    "i.yuki.sh",
+    "i.suimoe.com",
+    "pximg.cocomi.eu.org",
+    "pximg.obfs.dev",
+]
+
+# LOLICON 图源接口
+_LOLICON_API = "https://api.lolicon.app/setu/v2"
+# imgapi.lie.moe 图源接口：通用 JSON 随机图，返回 {"pic": [url, ...]}
+_IMGAPI_LIEMOE_API = "https://imgapi.lie.moe/random"
+
+# 内置默认图源列表：首次使用或“恢复默认”时以此为准。
+# - type=lolicon 走专用反代测速逻辑（tag 等参数保持代码默认，不开放修改）
+# - type=imgapi 走通用 JSON 提取逻辑
+# - enabled 状态会在配置文件中持久化，用户可禁用/启用
+_BUILTIN_SOURCES = [
+    {
+        "key": "lolicon",
+        "type": "lolicon",
+        "name": "LOLICON",
+        "url": _LOLICON_API,
+        "image_path": "data[0].url",
+        "enabled": True,
+    },
+    {
+        "key": "imgapi",
+        "type": "imgapi",
+        "name": "imgapi.lie.moe",
+        "url": _IMGAPI_LIEMOE_API,
+        "image_path": "pic[0]",
+        "enabled": True,
+    },
+]
+# 内置源专属类型标记；恢复默认仅作用于这些源
+_BUILTIN_TYPES = {"lolicon", "imgapi"}
+
+# 图源配置文件相关
+# 配置文件存于 wallpapers/ 目录（已被 .gitignore 忽略，且不会被当成 Alas 配置识别）
+_SOURCES_FILE_NAME = "wallpaper_sources.json"
+# 自定义图源默认的图片地址 JSON 提取路径
+_DEFAULT_IMAGE_PATH = "data[0].url"
+
+# 自定义背景压缩参数：最长边与 JPEG 质量。大图会被缩放重编码，
+# 控制内联进页面的 data URI 体积，适配远控低带宽环境
+_CUSTOM_BG_MAX_EDGE = 1920
+_CUSTOM_BG_JPEG_QUALITY = 82
+
+# 自定义背景图片扩展名 → MIME 映射
+_CUSTOM_BG_MIMES = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".bmp": "image/bmp",
+}
 
 
 # 主页右下角"纯背景模式"圆点的常驻注入脚本。
@@ -173,6 +249,31 @@ class HomeMixin(WebUIMixinBase):
             ).style(
                 "text-align: center"
             )
+            put_text("Background / 背景").style("text-align: center; font-weight: 600")
+            put_buttons(
+                [
+                    {
+                        "label": "上传自定义背景",
+                        "value": "upload",
+                        "color": "light",
+                    },
+                    {
+                        "label": "随机背景",
+                        "value": "random",
+                        "color": "dark",
+                    },
+                    {
+                        "label": "管理图源",
+                        "value": "sources",
+                        "color": "light",
+                    },
+                ],
+                onclick=[
+                    self._upload_custom_background,
+                    self._switch_to_random_background,
+                    self._manage_wallpaper_sources,
+                ],
+            ).style("text-align: center")
             put_html('<div class="alas-home-marker" aria-hidden="true"></div>')
             # 一次性、常驻注入右下角"纯背景模式"圆点，仅在主页显示
             self._inject_wallpaper_toggle()
@@ -212,8 +313,10 @@ class HomeMixin(WebUIMixinBase):
     def init_wallpaper(self):
         """异步获取壁纸 URL，页面先渲染不阻塞。
 
-        壁纸 URL 在后台线程中获取，获取成功后通过 JS 动态注入 CSS 变量，
-        避免网络请求阻塞页面首次渲染。
+        若用户启用了自定义背景且图片存在，则直接应用自定义背景；否则在后台
+        线程并发尝试全部启用的图源（内置 LOLICON 多反代测速、imgapi.lie.moe，
+        以及用户添加的自定义 JSON 图源），先返回有效图片地址者胜出并应用，
+        成功后通过 JS 动态注入，避免网络请求阻塞页面首次渲染。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -221,55 +324,776 @@ class HomeMixin(WebUIMixinBase):
         # 标记为空字符串，避免重复触发
         self.wallpaper_url = ""
 
+        # 用户启用了自定义背景且存在自定义图片时，直接应用并跳过随机图源
+        if self._load_background_mode() == "custom":
+            image_url = self._custom_background_data_uri()
+            if image_url:
+                self._inject_custom_background(image_url)
+                logger.info("[WebUI] 已应用自定义背景")
+                return
+
         def _fetch_wallpaper():
-            MAX_RETRIES = 5
-
-            for attempt in range(1, MAX_RETRIES + 1):
-                try:
-                    response = requests.get(
-                        "https://api.lolicon.app/setu/v2",
-                        params={
-                            "r18": 0,
-                            "num": 1,
-                            "size": "original",
-                            "excludeAI": True,
-                            "aspectRatio": "gt1",
-                            "dsc": False,
-                            "tag": "碧蓝航线|AzurLane|Azur Lane|アズールレーン",
-                        },
-                        timeout=10,
+            # 全部启用的图源并发请求，先返回有效图片地址者胜出
+            fetcher_items = []
+            for source in self._load_sources():
+                if not source.get("enabled", True):
+                    continue
+                source_type = source.get("type")
+                if source_type == "lolicon":
+                    fetcher_items.append(
+                        (source.get("name", "LOLICON"), self._fetch_lolicon_wallpaper)
                     )
-                    response.raise_for_status()
-
-                    data = response.json()["data"][0]
-                    image_url = data["urls"]["original"]
-
-                    self.wallpaper_url = image_url
-                    logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
-
-                    css_value = f'url("{image_url}")'
-                    run_js(
-                        'document.documentElement.style.setProperty('
-                        '"--alas-apple-bg-image", '
-                        f'{json.dumps(css_value)}'
-                        ');'
-                    )
-                    return
-
-                except Exception:
-                    if attempt == MAX_RETRIES:
-                        logger.info(
-                            f"[WebUI] 获取背景图连续 {MAX_RETRIES} 次失败，已跳过"
+                elif source_type == "imgapi":
+                    fetcher_items.append(
+                        (
+                            source.get("name", "imgapi.lie.moe"),
+                            self._fetch_imgapi_wallpaper,
                         )
+                    )
+                else:
+                    fetcher_items.append(
+                        (
+                            source.get("name", "自定义"),
+                            partial(self._fetch_custom_source, source),
+                        )
+                    )
+            if not fetcher_items:
+                logger.info("[WebUI] 没有启用的图源，已跳过")
+                return
+
+            with ThreadPoolExecutor(max_workers=len(fetcher_items)) as executor:
+                futures = {
+                    executor.submit(func): name
+                    for name, func in fetcher_items
+                }
+                for fut in as_completed(futures):
+                    try:
+                        image_url = fut.result()
+                    except Exception as e:
+                        logger.info(f"[WebUI] 图源 [{futures[fut]}] 异常: {e}")
+                        continue
+                    if image_url:
+                        self._apply_wallpaper(image_url)
+                        return
+            logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
         thread.start()
 
+    def _fetch_lolicon_wallpaper(self):
+        """从 LOLICON 获取壁纸：先取一张图的路径，再并发对候选反代各自测速，
+        返回可访问且时延最低的反代图片地址；图源不可用时返回 None。
+        """
+        try:
+            response = requests.get(
+                _LOLICON_API,
+                params={
+                    "r18": 0,
+                    "num": 1,
+                    "size": "original",
+                    "excludeAI": True,
+                    "aspectRatio": "gt1",
+                    "dsc": False,
+                    "tag": "碧蓝航线|AzurLane|Azur Lane|アズールレーン",
+                },
+                timeout=10,
+            )
+            response.raise_for_status()
+
+            # 仅保留路径部分，便于再用不同反代域名拼接后对比速度
+            image_path = urlparse(
+                response.json()["data"][0]["urls"]["original"]
+            ).path
+            if not image_path:
+                return None
+        except Exception as e:
+            logger.info(f"[WebUI] LOLICON 获取图源失败: {e}")
+            return None
+
+        # 并发对同一图片各自测速，返回顺序与输入一致
+        with ThreadPoolExecutor(
+            max_workers=len(_PIXIV_PROXY_DOMAINS)
+        ) as executor:
+            results = executor.map(
+                lambda p: (p, self._probe_image(f"https://{p}{image_path}")),
+                _PIXIV_PROXY_DOMAINS,
+            )
+
+        # 过滤出可访问的反代，取其中时延最低者
+        reachable = [
+            (latency, proxy) for proxy, (latency, ok) in results if ok
+        ]
+        if reachable:
+            _, best = min(reachable, key=lambda x: x[0])
+            logger.info(f"[WebUI] 测速选中最快反代 [{best}]")
+            return f"https://{best}{image_path}"
+
+        # 全部不可访问时回退到列表首项，保证至少能尝试渲染
+        logger.info("[WebUI] 所有反代测速均不可访问，回退使用首个反代")
+        return f"https://{_PIXIV_PROXY_DOMAINS[0]}{image_path}"
+
+    @staticmethod
+    def _probe_image(url, timeout=8):
+        """探测图片反代加载时延与可访问性，返回 (时延秒, 是否可访问)。
+
+        流式请求只取首块，记录响应耗时，不下载完整图片。
+        """
+        start = time.perf_counter()
+        try:
+            resp = requests.get(url, timeout=timeout, stream=True)
+            ok = resp.status_code == 200
+            latency = time.perf_counter() - start
+            resp.close()
+            return latency, ok
+        except Exception:
+            return float("inf"), False
+
+    def _fetch_imgapi_wallpaper(self):
+        """从 imgapi.lie.moe 获取壁纸：绿色健康随机二次元图，JSON 输出图片地址。
+        返回图片地址；未取到有效数据时返回 None。
+        """
+        try:
+            response = requests.get(
+                _IMGAPI_LIEMOE_API,
+                params={"type": "json"},
+                timeout=10,
+            )
+            response.raise_for_status()
+            pics = response.json().get("pic") or []
+            if not pics:
+                logger.info("[WebUI] imgapi.lie.moe 未返回有效图片数据")
+                return None
+            return pics[0]
+        except Exception as e:
+            logger.info(f"[WebUI] imgapi.lie.moe 获取图源失败: {e}")
+            return None
+
+    def _apply_wallpaper(self, image_url):
+        """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。"""
+        self.wallpaper_url = image_url
+        logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
+
+        css_value = f'url("{image_url}")'
+        run_js(
+            'document.documentElement.style.setProperty('
+            '"--alas-apple-bg-image", '
+            f'{json.dumps(css_value)}'
+            ');'
+        )
+
+    # ---------- 图源管理 ----------
+
+    def _sources_file(self) -> Path:
+        """自定义图源配置文件路径（wallpapers/ 已被 .gitignore 忽略）。"""
+        return self._wallpapers_dir() / _SOURCES_FILE_NAME
+
+    @staticmethod
+    def _default_sources() -> list:
+        """返回内置默认图源列表副本（lolicon / imgapi）。
+
+        默认图源的 type、URL、tag 等参数由 _BUILTIN_SOURCES 决定，保持代码
+        默认行为；enabled 状态会持久化到配置文件，用户可单独禁用或恢复。
+        """
+        return json.loads(json.dumps(_BUILTIN_SOURCES))
+
+    def _load_sources(self) -> list:
+        """读取全部图源配置（内置默认源 + 用户自定义源）。
+
+        - 配置文件缺失或损坏时返回默认源列表（不写盘）；
+        - 兼容旧版本 {"custom_sources": [...]} 结构，自动迁移为
+          {"sources": [...]} 并补全内置默认源，自定义源保持不变；
+        - 内置源以配置文件中持久化的 enabled 状态为准。
+        """
+        try:
+            data = json.loads(
+                self._sources_file().read_text(encoding="utf-8")
+            )
+        except Exception:
+            return self._default_sources()
+        if not isinstance(data, dict):
+            return self._default_sources()
+
+        sources = data.get("sources")
+        if sources is None:
+            # 兼容旧版本自定义源配置，迁移到新结构
+            sources = [dict(s) for s in (data.get("custom_sources") or [])]
+            for s in sources:
+                s.setdefault("type", "custom")
+            sources = self._default_sources() + sources
+            self._save_sources(sources)
+            return sources
+        return [dict(s) for s in sources]
+
+    def _save_sources(self, sources: list) -> None:
+        """保存全部图源配置。"""
+        try:
+            self._wallpapers_dir().mkdir(parents=True, exist_ok=True)
+            self._sources_file().write_text(
+                json.dumps(
+                    {"sources": sources},
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        except Exception as e:
+            logger.warning(f"[WebUI] 保存图源配置失败: {e}")
+
+    @staticmethod
+    def _get_by_path(data, path: str):
+        """按点号/数字路径从 JSON 结构中提取值，支持 "data[0].url"、"[0].url" 等写法。"""
+        if not path:
+            return None
+        node = data
+        # 将 "[0]" 统一转换为 ".0" 便于按点号分段取值
+        for seg in path.replace("[", ".").replace("]", "").split("."):
+            seg = seg.strip()
+            if not seg:
+                continue
+            if isinstance(node, list) and seg.isdigit():
+                idx = int(seg)
+                node = node[idx] if idx < len(node) else None
+            elif isinstance(node, dict):
+                node = node.get(seg)
+            else:
+                return None
+            if node is None:
+                return None
+        return node
+
+    def _fetch_custom_source(self, source: dict):
+        """通用 JSON 图源获取：请求配置的 API，按 image_path 从响应中提取图片地址。
+        要求提取结果必须是 http(s) 开头的字符串，否则视为无效。
+        """
+        url = (source.get("url") or "").strip()
+        if not url.startswith(("http://", "https://")):
+            logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] API 地址无效")
+            return None
+        try:
+            response = requests.get(
+                url,
+                params=source.get("params") or {},
+                timeout=10,
+            )
+            response.raise_for_status()
+            image_url = self._get_by_path(
+                response.json(),
+                (source.get("image_path") or _DEFAULT_IMAGE_PATH).strip(),
+            )
+            if isinstance(image_url, str) and image_url.startswith(
+                ("http://", "https://")
+            ):
+                return image_url
+            logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] 未提取到有效图片地址")
+            return None
+        except Exception as e:
+            logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] 获取失败: {e}")
+            return None
+
+    def _refresh_random_wallpaper(self) -> None:
+        """清空当前背景地址并重新从随机图源拉取一张（自定义背景下不覆盖）。"""
+        self.wallpaper_url = ""
+        if self._load_background_mode() == "custom":
+            return
+        self.init_wallpaper()
+
+    def _manage_wallpaper_sources(self) -> None:
+        """图源管理：添加/删除图源、启用禁用图源、恢复默认图源设置。"""
+        action = input_group(
+            "图源管理",
+            [
+                _p_radio(
+                    label="选择操作",
+                    name="action",
+                    options=[
+                        "添加图源",
+                        "启用/禁用图源",
+                        "删除图源",
+                        "恢复默认图源设置",
+                    ],
+                    required=True,
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "确定",
+                            "value": "ok",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if not action:
+            return
+        operation = action["action"]
+        if operation == "添加图源":
+            self._add_custom_source_dialog()
+        elif operation == "启用/禁用图源":
+            self._toggle_source_dialog()
+        elif operation == "删除图源":
+            self._remove_source_dialog()
+        elif operation == "恢复默认图源设置":
+            self._reset_default_sources()
+
+    def _add_custom_source_dialog(self) -> None:
+        """弹窗填写自定义 JSON 图源信息并保存。"""
+        resp = input_group(
+            "添加图源",
+            [
+                _p_input(
+                    label="名称（如：我的图源）",
+                    name="name",
+                    required=True,
+                    placeholder="图源名称",
+                ),
+                _p_input(
+                    label="API 地址（GET 请求，需返回 JSON）",
+                    name="url",
+                    required=True,
+                    placeholder="https://example.com/api/img",
+                ),
+                _p_input(
+                    label="附加参数（可选），格式：key=value,key2=value2，如 keyword=azur lane,r18=0",
+                    name="params",
+                    placeholder="留空表示不带参数",
+                ),
+                _p_input(
+                    label=f"图片地址 JSON 路径（可选），默认 {_DEFAULT_IMAGE_PATH}",
+                    name="image_path",
+                    value=_DEFAULT_IMAGE_PATH,
+                ),
+                _p_radio(
+                    label="是否启用",
+                    name="enabled",
+                    options=["是", "否"],
+                    value="是",
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "添加",
+                            "value": "ok",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if not resp:
+            return
+        name = (resp["name"] or "").strip()
+        url = (resp["url"] or "").strip()
+        if not name or not url:
+            toast("名称和 API 地址不能为空", color="error")
+            return
+        params = {}
+        for pair in (resp.get("params") or "").split(","):
+            pair = pair.strip()
+            if "=" in pair:
+                key, _, value = pair.partition("=")
+                params[key.strip()] = value.strip()
+        sources = self._load_sources()
+        sources.append(
+            {
+                "type": "custom",
+                "name": name,
+                "url": url,
+                "params": params,
+                "image_path": (
+                    (resp.get("image_path") or _DEFAULT_IMAGE_PATH).strip()
+                    or _DEFAULT_IMAGE_PATH
+                ),
+                "enabled": resp.get("enabled") == "是",
+            }
+        )
+        self._save_sources(sources)
+        toast(f"已添加图源: {name}", color="success")
+        logger.info(f"[WebUI] 已添加自定义图源: {name} -> {url}")
+        self._refresh_random_wallpaper()
+
+    def _toggle_source_dialog(self) -> None:
+        """弹窗列出全部图源并选择切换启用/禁用状态。"""
+        sources = self._load_sources()
+        if not sources:
+            toast("暂无图源", color="warning")
+            return
+        resp = input_group(
+            "启用/禁用图源",
+            [
+                _p_radio(
+                    label="选择图源（括号内为当前状态）",
+                    name="index",
+                    options=[
+                        f"{i + 1}. {s.get('name', '未命名')} - "
+                        f"{'已启用' if s.get('enabled', True) else '已禁用'} "
+                        f"({s.get('url', '')})"
+                        for i, s in enumerate(sources)
+                    ],
+                    required=True,
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "切换",
+                            "value": "ok",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if not resp:
+            return
+        index = resp["index"].split(".")[0].strip()
+        if not index.isdigit():
+            return
+        index = int(index) - 1
+        if 0 <= index < len(sources):
+            current = sources[index].get("enabled", True)
+            sources[index]["enabled"] = not current
+            self._save_sources(sources)
+            toast(
+                f"图源 [{sources[index].get('name', '未命名')}] "
+                f"{'已禁用' if current else '已启用'}",
+                color="success",
+            )
+            logger.info(
+                f"[WebUI] 图源 [{sources[index].get('name')}] -> "
+                f"{'禁用' if current else '启用'}"
+            )
+            self._refresh_random_wallpaper()
+
+    def _remove_source_dialog(self) -> None:
+        """弹窗列出可删除的自定义图源并选择删除（内置默认源不可删除）。"""
+        sources = self._load_sources()
+        removable = [
+            s for s in sources if s.get("type") not in _BUILTIN_TYPES
+        ]
+        if not removable:
+            toast("没有可删除的自定义图源（内置源不可删除，可禁用）", color="warning")
+            return
+        resp = input_group(
+            "删除图源",
+            [
+                _p_radio(
+                    label="选择要删除的自定义图源",
+                    name="index",
+                    options=[
+                        f"{i + 1}. {s.get('name', '未命名')} ({s.get('url', '')})"
+                        for i, s in enumerate(removable)
+                    ],
+                    required=True,
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "删除",
+                            "value": "ok",
+                            "type": "submit",
+                            "color": "danger",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if not resp:
+            return
+        index = resp["index"].split(".")[0].strip()
+        if not index.isdigit():
+            return
+        index = int(index) - 1
+        if 0 <= index < len(removable):
+            removed = removable.pop(index)
+            # 按元素身份从完整列表移除
+            new_sources = [
+                s
+                for s in sources
+                if s is not removed
+            ]
+            self._save_sources(new_sources)
+            toast(f"已删除图源: {removed.get('name', '未命名')}", color="success")
+            logger.info(f"[WebUI] 已删除自定义图源: {removed.get('name')}")
+            self._refresh_random_wallpaper()
+
+    def _reset_default_sources(self) -> None:
+        """恢复默认图源设置：内置默认源重置并重新启用，自定义源不受影响。"""
+        sources = self._load_sources()
+        defaults = self._default_sources()
+        for default_entry in defaults:
+            found = False
+            for entry in sources:
+                if entry.get("key") == default_entry["key"]:
+                    entry.update(
+                        {
+                            "type": default_entry["type"],
+                            "name": default_entry["name"],
+                            "url": default_entry["url"],
+                            "image_path": default_entry["image_path"],
+                            "enabled": True,
+                        }
+                    )
+                    found = True
+                    break
+            if not found:
+                sources.append(default_entry)
+        self._save_sources(sources)
+        toast("已恢复默认图源设置", color="success")
+        logger.info("[WebUI] 已恢复默认图源设置")
+        self._refresh_random_wallpaper()
+
+    # ---------- 自定义背景 ----------
+
+    def _wallpapers_dir(self) -> Path:
+        """壁纸保存目录。"""
+        return Path(__file__).resolve().parents[2] / "wallpapers"
+
+    def _background_mode_file(self) -> Path:
+        """自定义背景模式配置文件路径。"""
+        return self._wallpapers_dir() / "background_setting.json"
+
+    def _load_background_mode(self) -> str:
+        """读取当前背景模式，默认随机（"random"）。"""
+        try:
+            data = json.loads(
+                self._background_mode_file().read_text(encoding="utf-8")
+            )
+            return data.get("mode", "random")
+        except Exception:
+            return "random"
+
+    def _save_background_mode(self, mode: str) -> None:
+        """保存当前背景模式："random" 随机图源 / "custom" 自定义图片。"""
+        try:
+            self._background_mode_file().write_text(
+                json.dumps({"mode": mode}), encoding="utf-8"
+            )
+        except Exception as e:
+            logger.warning(f"[WebUI] 保存背景模式失败: {e}")
+
+    def _custom_background_data_uri(self) -> str:
+        """读取自定义背景文件并编码为 data URI。
+
+        之前采用 HTTP 相对路径 URL（images/custom-background），远控环境下
+        浏览器解析基准、P2P 代理转发或低带宽静默失败任一环节出问题都会导致
+        背景不显示且难以排查；而 data URI 随页面注入、不发起任何二次请求，
+        在本地/远控行为完全一致。图片已在保存时服务端压缩（最长边
+        _CUSTOM_BG_MAX_EDGE + JPEG 质量 _CUSTOM_BG_JPEG_QUALITY），
+        内联体积可控。无自定义图片时返回空字符串。
+        """
+        try:
+            files = sorted(self._wallpapers_dir().glob("custom_background.*"))
+            if not files:
+                return ""
+            content = files[0].read_bytes()
+            mime = _CUSTOM_BG_MIMES.get(files[0].suffix.lower(), "image/jpeg")
+            encoded = base64.b64encode(content).decode("ascii")
+            return f"data:{mime};base64,{encoded}"
+        except Exception as e:
+            logger.warning(f"[WebUI] 读取自定义背景失败: {e}")
+            return ""
+
+    def _inject_custom_background(self, image_url: str) -> None:
+        """注入自定义背景：以带 !important 的 body 规则覆盖所有主题背景。
+
+        image_url 通常为 data URI（见 _custom_background_data_uri），
+        仅注入短小的 CSS 规则，图片数据由浏览器直接解码显示。
+        """
+        run_js(
+            """
+            (function () {
+                var css = 'body{'
+                    + 'background-image:url("%s") !important;'
+                    + 'background-repeat:no-repeat !important;'
+                    + 'background-size:cover !important;'
+                    + 'background-attachment:fixed !important;'
+                    + 'background-position:center !important;'
+                    + '}';
+                var el = document.getElementById('alas-custom-bg-style');
+                if (el) { el.textContent = css; }
+                else {
+                    el = document.createElement('style');
+                    el.id = 'alas-custom-bg-style';
+                    el.textContent = css;
+                    document.head.appendChild(el);
+                }
+            })();
+            """
+            % image_url
+        )
+
+    def _clear_custom_background(self) -> None:
+        """移除自定义背景注入样式，恢复主题默认背景。"""
+        run_js(
+            "(function(){var el=document.getElementById('alas-custom-bg-style');"
+            "if(el){el.parentNode.removeChild(el);}})();"
+        )
+
+    def _upload_custom_background(self) -> None:
+        """上传自定义背景图片并立即应用，同时对所有主题生效。"""
+        resp = input_group(
+            label="上传自定义背景",
+            inputs=[
+                file_upload(
+                    label="选择图片（PNG/JPG/WebP 等）",
+                    name="file",
+                    placeholder="选择图片",
+                    accept="image/*",
+                    required=True,
+                ),
+                actions(
+                    name="action",
+                    buttons=[
+                        {
+                            "label": "上传",
+                            "value": "confirm",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                            "color": "light",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if resp is None:
+            return
+
+        upload = resp["file"]
+        content = upload["content"]
+        filename = upload["filename"]
+
+        ext = Path(filename).suffix.lower()
+        if ext not in _CUSTOM_BG_MIMES:
+            ext = ".png"
+
+        # 压缩图片体积，远控低带宽环境下加载更快
+        content, ext = self._compress_custom_background_bytes(content, ext)
+
+        wallpapers_dir = self._wallpapers_dir()
+        wallpapers_dir.mkdir(parents=True, exist_ok=True)
+        # 只保留一份自定义背景，避免多文件读取歧义
+        for old in wallpapers_dir.glob("custom_background.*"):
+            old.unlink(missing_ok=True)
+        target = wallpapers_dir / f"custom_background{ext}"
+        target.write_bytes(content)
+
+        self._save_background_mode("custom")
+        self._inject_custom_background(self._custom_background_data_uri())
+        toast(f"自定义背景已应用: {target.resolve()}", color="success")
+        logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
+
+    @staticmethod
+    def _compress_custom_background_bytes(content: bytes, ext: str):
+        """压缩自定义背景图片，返回 (压缩后字节, 保存扩展名)。
+
+        - GIF 动图不做重编码，原样保留动画；
+        - 其余格式解码后若最长边超过上限则等比缩放，再编码为 JPEG 控制体积；
+        - 带 alpha 通道的图合成到白底，避免变黑；
+        - 解码或编码失败时保留原始字节，避免上传中断。
+        """
+        if ext == ".gif":
+            return content, ".gif"
+        try:
+            import cv2
+            import numpy as np
+
+            image = cv2.imdecode(
+                np.frombuffer(content, dtype=np.uint8), cv2.IMREAD_UNCHANGED
+            )
+            if image is None:
+                return content, (ext or ".png")
+            if image.ndim == 3 and image.shape[2] == 4:
+                alpha = image[:, :, 3:4].astype(np.float32) / 255.0
+                rgb = image[:, :, :3].astype(np.float32)
+                image = (rgb * alpha + 255 * (1 - alpha)).astype(np.uint8)
+
+            height, width = image.shape[:2]
+            scale = max(width, height) / _CUSTOM_BG_MAX_EDGE
+            if scale > 1:
+                image = cv2.resize(
+                    image,
+                    (round(width / scale), round(height / scale)),
+                    interpolation=cv2.INTER_AREA,
+                )
+            ok, encoded = cv2.imencode(
+                ".jpg",
+                image,
+                [int(cv2.IMWRITE_JPEG_QUALITY), _CUSTOM_BG_JPEG_QUALITY],
+            )
+            if ok and len(encoded) < len(content):
+                return encoded.tobytes(), ".jpg"
+            return content, (ext or ".png")
+        except Exception as e:
+            logger.warning(f"[WebUI] 压缩自定义背景失败，保留原图: {e}")
+            return content, (ext or ".png")
+
+    def _switch_to_random_background(self) -> None:
+        """切换回随机背景：清理自定义背景注入并重新拉取随机壁纸。"""
+        self._save_background_mode("random")
+        self._clear_custom_background()
+        # 重置后重新触发随机图源加载
+        self.wallpaper_url = ""
+        self.init_wallpaper()
+        toast("已切换为随机背景", color="success")
+
     def download_wallpaper(self):
         """
-        下载当前背景图
+        保存当前背景图：随机背景下从远程 URL 下载；自定义背景下直接复制本地图片。
         """
+        # 自定义背景：当前展示的是本地文件，直接复制一份到壁纸目录
+        if self._load_background_mode() == "custom":
+            files = sorted(self._wallpapers_dir().glob("custom_background.*"))
+            if not files:
+                toast(
+                    "当前没有自定义背景图",
+                    color="error",
+                )
+                return
+            src = files[0]
+            filename = time.strftime(
+                f"wallpaper_%Y-%m-%d_%H-%M-%S{src.suffix.lower()}"
+            )
+            file_path = (self._wallpapers_dir() / filename).resolve()
+            file_path.write_bytes(src.read_bytes())
+            toast(
+                f"已保存当前背景: {file_path}",
+                color="success",
+            )
+            logger.info(f"[WebUI] 背景图已保存: {file_path}")
+            return
+
         if not getattr(self, "wallpaper_url", None):
             toast(
                 "当前没有背景图地址",
@@ -284,23 +1108,25 @@ class HomeMixin(WebUIMixinBase):
             )
             response.raise_for_status()
 
-            filename = time.strftime(
-                "wallpaper_%Y-%m-%d_%H-%M-%S.jpg"
-            )
+            # 按 URL 后缀推断图片格式，避免一律存成 .jpg 与实际格式不符
+            ext = Path(urlparse(self.wallpaper_url).path).suffix or ".jpg"
+            filename = time.strftime(f"wallpaper_%Y-%m-%d_%H-%M-%S{ext}")
 
-            if not filename:
-                filename = "wallpaper.jpg"
+            # 统一保存到项目根目录下的 wallpapers 文件夹，目录不存在时自动创建
+            wallpaper_dir = Path(__file__).resolve().parents[2] / "wallpapers"
+            wallpaper_dir.mkdir(parents=True, exist_ok=True)
+            file_path = (wallpaper_dir / filename).resolve()
 
-            with open(filename, "wb") as f:
+            with open(file_path, "wb") as f:
                 f.write(response.content)
 
             toast(
-                f"下载完成: {filename}",
+                f"下载完成，已保存到: {file_path}",
                 color="success",
             )
 
             logger.info(
-                f"[WebUI] 背景图已保存: {filename}"
+                f"[WebUI] 背景图已保存: {file_path}"
             )
 
         except Exception as e:
