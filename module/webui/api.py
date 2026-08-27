@@ -24,7 +24,6 @@ _ = get_distribution
 
 from adbutils import AdbError, Network
 from starlette.responses import (
-    FileResponse,
     HTMLResponse,
     JSONResponse,
     StreamingResponse,
@@ -1681,41 +1680,9 @@ async def api_import_legacy_upload(request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
-def custom_background_file():
-    """返回当前自定义背景文件路径；不存在时返回 None。"""
-    from pathlib import Path
-
-    wallpapers_dir = Path(__file__).resolve().parents[2] / "wallpapers"
-    files = sorted(wallpapers_dir.glob("custom_background.*"))
-    return files[0] if files else None
-
-
-def api_custom_background_image(request):
-    """GET /images/custom-background — 提供用户上传的自定义背景图文件。
-
-    通过静态文件响应（带 ETag/Last-Modified），配合 ?v=mtime 查询参数，
-    浏览器可长缓存，避免远控低带宽下每次页面加载重新传输大图。
-    """
-    try:
-        file = custom_background_file()
-        if file is None:
-            return JSONResponse(
-                {"success": False, "error": "custom background not found"},
-                status_code=404,
-            )
-        return FileResponse(
-            str(file),
-            headers={"Cache-Control": "public, max-age=31536000, immutable"},
-        )
-    except Exception as e:
-        logger.error(f"api_custom_background_image错误: {e}")
-        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
-
-
 api_routes = [
     Route("/api/cl1_stats", api_cl1_stats),
     Route("/api/ap_timeline", api_ap_timeline),
-    Route("/images/custom-background", api_custom_background_image),
     Route("/api/notify", api_notify, methods=["POST"]),
     Route("/api/notify_stream", api_notify_stream),
     Route("/api/launcher/status", api_launcher_status),

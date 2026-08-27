@@ -1,4 +1,5 @@
 """WebUI首页和会话运行"""
+import base64
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
@@ -96,9 +97,9 @@ _SOURCES_FILE_NAME = "wallpaper_sources.json"
 _DEFAULT_IMAGE_PATH = "data[0].url"
 
 # 自定义背景压缩参数：最长边与 JPEG 质量。大图会被缩放重编码，
-# 显著降低远控低带宽环境的首次加载耗时
-_CUSTOM_BG_MAX_EDGE = 2560
-_CUSTOM_BG_JPEG_QUALITY = 85
+# 控制内联进页面的 data URI 体积，适配远控低带宽环境
+_CUSTOM_BG_MAX_EDGE = 1920
+_CUSTOM_BG_JPEG_QUALITY = 82
 
 # 自定义背景图片扩展名 → MIME 映射
 _CUSTOM_BG_MIMES = {
@@ -325,7 +326,7 @@ class HomeMixin(WebUIMixinBase):
 
         # 用户启用了自定义背景且存在自定义图片时，直接应用并跳过随机图源
         if self._load_background_mode() == "custom":
-            image_url = self._custom_background_url()
+            image_url = self._custom_background_data_uri()
             if image_url:
                 self._inject_custom_background(image_url)
                 logger.info("[WebUI] 已应用自定义背景")
@@ -898,28 +899,33 @@ class HomeMixin(WebUIMixinBase):
         except Exception as e:
             logger.warning(f"[WebUI] 保存背景模式失败: {e}")
 
-    def _custom_background_url(self) -> str:
-        """构造自定义背景的 HTTP URL（经 images/custom-background 提供，
-        可被浏览器长缓存）；无自定义图片时返回空字符串。
+    def _custom_background_data_uri(self) -> str:
+        """读取自定义背景文件并编码为 data URI。
 
-        注意必须使用不带前导斜杠的文档相对路径：远控环境页面位于
-        /p2p/{peer_id}/ 前缀下，与 static/pywebio_static 资源同理，
-        根绝对路径会绕过前缀导致远端 404。
+        之前采用 HTTP 相对路径 URL（images/custom-background），远控环境下
+        浏览器解析基准、P2P 代理转发或低带宽静默失败任一环节出问题都会导致
+        背景不显示且难以排查；而 data URI 随页面注入、不发起任何二次请求，
+        在本地/远控行为完全一致。图片已在保存时服务端压缩（最长边
+        _CUSTOM_BG_MAX_EDGE + JPEG 质量 _CUSTOM_BG_JPEG_QUALITY），
+        内联体积可控。无自定义图片时返回空字符串。
         """
         try:
             files = sorted(self._wallpapers_dir().glob("custom_background.*"))
             if not files:
                 return ""
-            # 用文件 mtime 作为版本号，上传新图后 URL 随之变化，浏览器缓存自动失效
-            version = int(files[0].stat().st_mtime)
-            return f"images/custom-background?v={version}"
-        except Exception:
+            content = files[0].read_bytes()
+            mime = _CUSTOM_BG_MIMES.get(files[0].suffix.lower(), "image/jpeg")
+            encoded = base64.b64encode(content).decode("ascii")
+            return f"data:{mime};base64,{encoded}"
+        except Exception as e:
+            logger.warning(f"[WebUI] 读取自定义背景失败: {e}")
             return ""
 
     def _inject_custom_background(self, image_url: str) -> None:
         """注入自定义背景：以带 !important 的 body 规则覆盖所有主题背景。
 
-        只注入短小的 CSS 引用而非图片数据本体，图片由浏览器按 URL 加载并缓存。
+        image_url 通常为 data URI（见 _custom_background_data_uri），
+        仅注入短小的 CSS 规则，图片数据由浏览器直接解码显示。
         """
         run_js(
             """
@@ -1004,9 +1010,7 @@ class HomeMixin(WebUIMixinBase):
         target.write_bytes(content)
 
         self._save_background_mode("custom")
-        self._inject_custom_background(
-            f"images/custom-background?v={int(target.stat().st_mtime)}"
-        )
+        self._inject_custom_background(self._custom_background_data_uri())
         toast(f"自定义背景已应用: {target.resolve()}", color="success")
         logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
 
