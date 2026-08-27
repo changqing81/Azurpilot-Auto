@@ -4,7 +4,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 from module.webui.app_dependencies import (
     State,
@@ -563,20 +563,34 @@ class HomeMixin(WebUIMixinBase):
         return node
 
     def _fetch_custom_source(self, source: dict):
-        """通用 JSON 图源获取：请求配置的 API，按 image_path 从响应中提取图片地址。
-        要求提取结果必须是 http(s) 开头的字符串，否则视为无效。
+        """通用自定义图源获取：请求配置的 API 并提取图片地址。
+
+        兼容两类接口：
+        - JSON 型：按 image_path 从 JSON 响应中提取图片地址；
+        - 直链型：API 直接返回图片二进制（Content-Type 为 image/*，
+          如 api.yppp.net/api.php），此时将携带参数的 API 地址本身
+          作为图片地址交由浏览器加载。
+        提取结果必须是 http(s) 开头的字符串，否则视为无效。
         """
         url = (source.get("url") or "").strip()
         if not url.startswith(("http://", "https://")):
             logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] API 地址无效")
             return None
+        params = source.get("params") or {}
         try:
             response = requests.get(
                 url,
-                params=source.get("params") or {},
+                params=params,
                 timeout=10,
             )
             response.raise_for_status()
+
+            # 直链型图源：响应本体就是图片
+            content_type = (response.headers.get("Content-Type") or "").lower()
+            if content_type.startswith("image/"):
+                query = urlencode(params)
+                return f"{url}?{query}" if query else url
+
             image_url = self._get_by_path(
                 response.json(),
                 (source.get("image_path") or _DEFAULT_IMAGE_PATH).strip(),
@@ -656,7 +670,7 @@ class HomeMixin(WebUIMixinBase):
                     placeholder="图源名称",
                 ),
                 _p_input(
-                    label="API 地址（GET 请求，需返回 JSON）",
+                    label="API 地址（GET 请求，返回 JSON 或直接返回图片均可）",
                     name="url",
                     required=True,
                     placeholder="https://example.com/api/img",
