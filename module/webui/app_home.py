@@ -899,8 +899,12 @@ class HomeMixin(WebUIMixinBase):
             logger.warning(f"[WebUI] 保存背景模式失败: {e}")
 
     def _custom_background_url(self) -> str:
-        """构造自定义背景的 HTTP URL（经 /images/custom-background 提供，
+        """构造自定义背景的 HTTP URL（经 images/custom-background 提供，
         可被浏览器长缓存）；无自定义图片时返回空字符串。
+
+        注意必须使用不带前导斜杠的文档相对路径：远控环境页面位于
+        /p2p/{peer_id}/ 前缀下，与 static/pywebio_static 资源同理，
+        根绝对路径会绕过前缀导致远端 404。
         """
         try:
             files = sorted(self._wallpapers_dir().glob("custom_background.*"))
@@ -908,7 +912,7 @@ class HomeMixin(WebUIMixinBase):
                 return ""
             # 用文件 mtime 作为版本号，上传新图后 URL 随之变化，浏览器缓存自动失效
             version = int(files[0].stat().st_mtime)
-            return f"/images/custom-background?v={version}"
+            return f"images/custom-background?v={version}"
         except Exception:
             return ""
 
@@ -1001,7 +1005,7 @@ class HomeMixin(WebUIMixinBase):
 
         self._save_background_mode("custom")
         self._inject_custom_background(
-            f"/images/custom-background?v={int(target.stat().st_mtime)}"
+            f"images/custom-background?v={int(target.stat().st_mtime)}"
         )
         toast(f"自定义背景已应用: {target.resolve()}", color="success")
         logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
