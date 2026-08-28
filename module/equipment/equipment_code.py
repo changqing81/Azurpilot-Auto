@@ -243,47 +243,17 @@ class EquipmentCodeHandler(StorageHandler):
             logger.warning(f"通过 uiautomator2 输入装备码失败: {e}")
             return False
 
-    def _code_ime_hide(self):
-        """检测并收起输入法窗口，避免软键盘悬浮遮挡底部的导入按钮。
-
-        uiautomator2 不可用时回退 dumpsys 检测。
-        仅在输入法显示时才发送 BACK 键：输入法未显示时 BACK 会触发游戏返回上一页。
-
-        Returns:
-            bool: 输入法此前处于显示状态并已发送 BACK 收起时返回 True。
-        """
-        shown = None
-        try:
-            shown = self.device.ime_shown()
-        except Exception as e:
-            logger.warning(f"检测输入法状态失败，回退 dumpsys: {e}")
-
-        if shown is None:
-            try:
-                output = str(self.device.adb_shell(['dumpsys', 'input_method'], timeout=3))
-                shown = 'mInputShown=true' in output or 'mIsInputViewShowing=true' in output
-            except Exception as e:
-                logger.warning(f"通过 dumpsys 检测输入法失败: {e}")
-                return False
-
-        if shown:
-            self.device.adb_shell(['input', 'keyevent', '4'], timeout=1)
-            logger.info("输入法窗口显示中，已发送 BACK 键收起")
-            return True
-        return False
-
     def _code_wait_preview_loaded(self):
         """确认输入后等待装备预览加载完成。"""
         confirm_clicked = False
         for _ in self.loop(timeout=10, skip_first=False):
-            # 软键盘会悬浮遮挡导入按钮，此时点击会落在键盘上而非游戏内，必须先收起。
-            if self._code_ime_hide():
-                continue
-
             # 确认按钮仍可见时，预览可能仍被输入法遮挡，不能提前校验。
             if self.appear(EQUIPMENT_CODE_ENTER, offset=(5, 5), threshold=30):
                 if self.appear_then_click(EQUIPMENT_CODE_ENTER, offset=(5, 5), interval=3):
                     confirm_clicked = True
+                continue
+
+            if self.device.ime_shown():
                 continue
 
             # 预览槽使用空槽模板的负面判定，只能在确认后的无输入法截图中使用。
@@ -301,15 +271,11 @@ class EquipmentCodeHandler(StorageHandler):
                 if textbox_clicked and self._code_input_adb(code):
                     break
                 if click_timer.reached_and_reset():
-                    # 点击文本框前先收起输入法，避免重试时点击落在键盘上产生乱码
-                    self._code_ime_hide()
                     self.device.click(EQUIPMENT_CODE_TEXTBOX)
                     textbox_clicked = True
             else:
                 continue
 
-            # 输入完成后输入法仍悬浮，会遮挡底部的导入按钮，先收起再点击
-            self._code_ime_hide()
             if self._code_wait_preview_loaded():
                 return True
 
