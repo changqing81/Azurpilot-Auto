@@ -90,6 +90,22 @@ class TestEquipmentCodeInputConfirmation(unittest.TestCase):
         self.assertFalse(handler._code_wait_preview_loaded())
         handler.is_code_preview_loaded.assert_not_called()
 
+    def test_persistent_button_with_loaded_preview_succeeds(self):
+        """新版 UI 确认按钮常驻不消失，点击确认后即可校验预览并成功返回。"""
+        handler = self._handler()
+        handler.loop = Mock(return_value=iter([None, None]))
+        handler.appear = Mock(return_value=True)
+        handler.appear_then_click = Mock(return_value=True)
+        handler.device = Mock()
+        handler.device.ime_shown.return_value = False
+        handler.is_code_preview_loaded = Mock(return_value=True)
+
+        self.assertTrue(handler._code_wait_preview_loaded())
+        handler.appear_then_click.assert_called_once_with(
+            EQUIPMENT_CODE_ENTER, offset=(5, 5), interval=3
+        )
+        handler.is_code_preview_loaded.assert_called_once_with()
+
 
 if __name__ == '__main__':
     unittest.main()

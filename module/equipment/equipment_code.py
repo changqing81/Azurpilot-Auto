@@ -247,8 +247,11 @@ class EquipmentCodeHandler(StorageHandler):
         """确认输入后等待装备预览加载完成。"""
         confirm_clicked = False
         for _ in self.loop(timeout=10, skip_first=False):
-            # 确认按钮仍可见时，预览可能仍被输入法遮挡，不能提前校验。
             if self.appear(EQUIPMENT_CODE_ENTER, offset=(5, 5), threshold=30):
+                # 新版 UI 底部确认按钮常驻不消失，不能等按钮消失后再校验：
+                # 已点击过确认且输入法收起时，直接校验预览。
+                if confirm_clicked and not self.device.ime_shown() and self.is_code_preview_loaded():
+                    return True
                 if self.appear_then_click(EQUIPMENT_CODE_ENTER, offset=(5, 5), interval=3):
                     confirm_clicked = True
                 continue
