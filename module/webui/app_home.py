@@ -28,6 +28,7 @@ from module.webui.app_dependencies import (
     put_buttons,
     put_html,
     put_input,
+    put_link,
     put_markdown,
     put_text,
     radio as _p_radio,
@@ -41,6 +42,7 @@ from module.webui.app_dependencies import (
     toast,
     updater,
     use_scope,
+    popup,
 )
 
 
@@ -341,13 +343,18 @@ class HomeMixin(WebUIMixinBase):
                 source_type = source.get("type")
                 if source_type == "lolicon":
                     fetcher_items.append(
-                        (source.get("name", "LOLICON"), self._fetch_lolicon_wallpaper)
+                        (
+                            source.get("name", "LOLICON"),
+                            self._fetch_lolicon_wallpaper,
+                            None,
+                        )
                     )
                 elif source_type == "imgapi":
                     fetcher_items.append(
                         (
                             source.get("name", "imgapi.lie.moe"),
                             self._fetch_imgapi_wallpaper,
+                            None,
                         )
                     )
                 else:
@@ -355,6 +362,7 @@ class HomeMixin(WebUIMixinBase):
                         (
                             source.get("name", "自定义"),
                             partial(self._fetch_custom_source, source),
+                            source,
                         )
                     )
             if not fetcher_items:
@@ -363,17 +371,18 @@ class HomeMixin(WebUIMixinBase):
 
             with ThreadPoolExecutor(max_workers=len(fetcher_items)) as executor:
                 futures = {
-                    executor.submit(func): name
-                    for name, func in fetcher_items
+                    executor.submit(func): (name, source)
+                    for name, func, source in fetcher_items
                 }
                 for fut in as_completed(futures):
+                    name, source = futures[fut]
                     try:
                         image_url = fut.result()
                     except Exception as e:
-                        logger.info(f"[WebUI] 图源 [{futures[fut]}] 异常: {e}")
+                        logger.info(f"[WebUI] 图源 [{name}] 异常: {e}")
                         continue
                     if image_url:
-                        self._apply_wallpaper(image_url)
+                        self._apply_wallpaper(image_url, source)
                         return
             logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
 
@@ -469,9 +478,16 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] imgapi.lie.moe 获取图源失败: {e}")
             return None
 
-    def _apply_wallpaper(self, image_url):
-        """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。"""
+    def _apply_wallpaper(self, image_url, source=None):
+        """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。
+
+        source 为直链图源时额外记录其配置，供下载功能识别——直链源
+        服务端无法访问且每次请求返回新随机图，下载须交由浏览器处理。
+        """
         self.wallpaper_url = image_url
+        self._direct_wallpaper_source = (
+            source if (source and source.get("direct")) else None
+        )
         logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
 
         css_value = f'url("{image_url}")'
@@ -618,6 +634,7 @@ class HomeMixin(WebUIMixinBase):
     def _refresh_random_wallpaper(self) -> None:
         """清空当前背景地址并重新从随机图源拉取一张（自定义背景下不覆盖）。"""
         self.wallpaper_url = ""
+        self._direct_wallpaper_source = None
         if self._load_background_mode() == "custom":
             return
         self.init_wallpaper()
@@ -1096,6 +1113,7 @@ class HomeMixin(WebUIMixinBase):
         self._clear_custom_background()
         # 重置后重新触发随机图源加载
         self.wallpaper_url = ""
+        self._direct_wallpaper_source = None
         self.init_wallpaper()
         toast("已切换为随机背景", color="success")
 
@@ -1129,6 +1147,26 @@ class HomeMixin(WebUIMixinBase):
             toast(
                 "当前没有背景图地址",
                 color="error",
+            )
+            return
+
+        # 直链图源：服务端请求会被站点防爬拦截（超时），且每次请求返回
+        # 新的随机图，服务端下载既会失败、得到的图也与当前显示的不同。
+        # 改为弹窗提供链接，由浏览器直接打开图片后用户自行另存。
+        if getattr(self, "_direct_wallpaper_source", None):
+            source = self._direct_wallpaper_source
+            popup(
+                "保存直链图源图片",
+                [
+                    put_text(
+                        f"图源 [{source.get('name', '未命名')}] 为直链随机图源："
+                        "每次请求都会返回不同的图片，且该站点拦截服务端请求，"
+                        "无法由服务端代为下载当前显示的这张。"
+                    ),
+                    put_text("请点击下方链接在新标签页打开图片，然后在图片上右键另存："),
+                    put_link("打开图片", url=self.wallpaper_url),
+                ],
+                size="middle",
             )
             return
 
