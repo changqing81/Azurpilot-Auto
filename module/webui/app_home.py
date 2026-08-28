@@ -577,6 +577,16 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] API 地址无效")
             return None
         params = source.get("params") or {}
+
+        # 直链模式：跳过服务端探测，直接把 API 地址交给浏览器加载。
+        # 部分站点（如 i.mukyu.ru）对非浏览器请求拖延响应，服务端探测
+        # 必然超时，但浏览器可以正常访问，此时直链模式是唯一可行路径。
+        if source.get("direct"):
+            if params:
+                query = urlencode(params)
+                url += ("&" if "?" in url else "?") + query
+            return url
+
         try:
             response = requests.get(
                 url,
@@ -686,6 +696,12 @@ class HomeMixin(WebUIMixinBase):
                     value=_DEFAULT_IMAGE_PATH,
                 ),
                 _p_radio(
+                    label="直链模式（API 直接返回图片但服务端探测超时时选是，跳过探测由浏览器直接加载）",
+                    name="direct",
+                    options=["否（自动识别，默认）", "是"],
+                    value="否（自动识别，默认）",
+                ),
+                _p_radio(
                     label="是否启用",
                     name="enabled",
                     options=["是", "否"],
@@ -733,6 +749,7 @@ class HomeMixin(WebUIMixinBase):
                     (resp.get("image_path") or _DEFAULT_IMAGE_PATH).strip()
                     or _DEFAULT_IMAGE_PATH
                 ),
+                "direct": resp.get("direct") == "是",
                 "enabled": resp.get("enabled") == "是",
             }
         )
