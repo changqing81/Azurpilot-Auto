@@ -1724,23 +1724,25 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             while len(queue) > 0:
                 logger.hr(f"重新扫描 {queue[0]}")
                 queue = queue.sort_by_camera_distance(self.camera)
-                if not self.focus_to(queue[0], swipe_limit=(6, 5)):
-                    # 摄像机顶死边缘无法聚焦到该区域，跳过避免无效检测
-                    logger.warning(
-                        f"[大世界-扫描] 无法聚焦到 {queue[0]}，跳过该区域的重扫"
-                    )
-                    queue = queue[1:]
-                    continue
-
                 try:
+                    if not self.focus_to(queue[0], swipe_limit=(6, 5)):
+                        # 摄像机顶死边缘无法聚焦到该区域，跳过避免无效检测
+                        logger.warning(
+                            f"[大世界-扫描] 无法聚焦到 {queue[0]}，跳过该区域的重扫"
+                        )
+                        queue = queue[1:]
+                        continue
+
                     self.focus_to_grid_center(0.3)
                     if self.map_rescan_current(drop=drop):
                         result = True
                         break
                 except MapDetectionError:
                     # 单个区域检测失败不应炸掉整个重扫流程
+                    # focus_to 内部的 map_swipe -> update() 在画面持续无法识别
+                    # （如滑入地图边缘黑色虚空、模拟器黑帧）时也会抛出该异常
                     logger.warning(
-                        f"[大世界-扫描] 区域 {self.camera} 重扫时地图检测失败，跳过"
+                        f"[大世界-扫描] 区域 {queue[0]} 聚焦/重扫时地图检测失败，跳过"
                     )
                 queue = queue[1:]
         return result
