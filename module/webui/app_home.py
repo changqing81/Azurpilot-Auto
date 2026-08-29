@@ -448,7 +448,13 @@ class HomeMixin(WebUIMixinBase):
                         except Exception as e:
                             logger.warning(f"[WebUI] 注入视频背景失败: {e}")
 
-                    threading.Thread(target=_inject_video_later, daemon=True).start()
+                    # 线程内调用 run_js 必须注册到当前会话，否则报
+                    # "Can't find current session"
+                    inject_thread = threading.Thread(
+                        target=_inject_video_later, daemon=True
+                    )
+                    register_thread(inject_thread)
+                    inject_thread.start()
                 else:
                     self._inject_custom_background(url, is_video)
                     logger.info("[WebUI] 已应用自定义背景")
