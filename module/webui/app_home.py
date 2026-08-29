@@ -215,7 +215,11 @@ _WALLPAPER_RACE_JS = r"""
         if (winner && winner.video && el) {
             // 视频胜者：复用探测用的 video 元素铺满置底，静音循环播放。
             // body 必须 background 整体透明（含背景色），否则主题的不透明
-            // 背景色会画在 z-index 为负的视频层之上，视频完全不可见
+            // 背景色会画在 z-index 为负的视频层之上，视频完全不可见。
+            // 主题背景色同时挂到 html 上作为兜底：html 背景传播到画布、
+            // 画在最底层，视频正常播放时被盖住，视频加载失败或缓冲中时
+            // 自动露出原主题背景，避免出现"全透明"的怪相（远控弱网/编码
+            // 不支持时尤其明显）
             removeVideoBg();
             var st = document.getElementById('alas-custom-bg-style');
             if (!st) {
@@ -224,13 +228,22 @@ _WALLPAPER_RACE_JS = r"""
                 document.head.appendChild(st);
             }
             st.textContent = 'body{background:transparent !important;}'
+                + 'html{background:var(--alas-apple-bg,#f5f5f7) !important;}'
                 + '#alas-bg-video{position:fixed;inset:0;width:100%;'
                 + 'height:100%;object-fit:cover;z-index:-1;pointer-events:none;}';
             el.id = 'alas-bg-video';
             el.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;'
                 + 'object-fit:cover;z-index:-1;pointer-events:none;';
             el.loop = true;
+            el.setAttribute('playsinline', '');
+            el.setAttribute('webkit-playsinline', '');
             document.body.appendChild(el);
+            // 播放中途出错（如解码失败）时移除视频并还原主题背景
+            el.onerror = function () {
+                removeVideoBg();
+                var s = document.getElementById('alas-custom-bg-style');
+                if (s) { s.parentNode.removeChild(s); }
+            };
             var p = el.play();
             if (p && p.catch) { p.catch(function () {}); }
         } else if (winner && winner.url) {
@@ -250,6 +263,9 @@ _WALLPAPER_RACE_JS = r"""
             el = document.createElement('video');
             el.muted = true;
             el.preload = 'auto';
+            // iOS 必须内联播放声明，否则拒绝缓冲/播放（远控手机端黑屏主因）
+            el.setAttribute('playsinline', '');
+            el.setAttribute('webkit-playsinline', '');
             el.oncanplay = function () { finish(c, el); };
             el.onerror = function () {};
             el.src = c.url;
@@ -1262,11 +1278,15 @@ class HomeMixin(WebUIMixinBase):
             # 注意：模板含 CSS 百分号（width:100%），不能用 % 格式化，
             # 用占位符替换注入 URL，避免 %; 被误认为格式符。
             # body 必须 background 整体透明（含背景色）：z-index 为负的视频
-            # 画在 body 背景之后，主题的不透明背景色会完全盖住视频层
+            # 画在 body 背景之后，主题的不透明背景色会完全盖住视频层。
+            # 主题背景色挂到 html 上兜底：html 背景画在画布最底层，视频正常
+            # 播放时被盖住，视频解码失败/缓冲中时自动露出原主题背景，
+            # 避免"全透明"怪相（远控手机端编码不支持或弱网时尤其明显）
             run_js(
                 """
                 (function () {
                     var css = 'body{background:transparent !important;}'
+                        + 'html{background:var(--alas-apple-bg,#f5f5f7) !important;}'
                         + '#alas-bg-video{position:fixed;inset:0;width:100%;'
                         + 'height:100%;object-fit:cover;z-index:-1;'
                         + 'pointer-events:none;}';
@@ -1288,6 +1308,14 @@ class HomeMixin(WebUIMixinBase):
                     video.autoplay = true;
                     video.playsInline = true;
                     video.setAttribute('playsinline', '');
+                    video.setAttribute('webkit-playsinline', '');
+                    // 解码失败（编码不支持/文件损坏）时移除视频并还原主题背景
+                    video.onerror = function () {
+                        var v = document.getElementById('alas-bg-video');
+                        if (v) { v.parentNode.removeChild(v); }
+                        var s = document.getElementById('alas-custom-bg-style');
+                        if (s) { s.parentNode.removeChild(s); }
+                    };
                     document.body.appendChild(video);
                     var p = video.play();
                     if (p && p.catch) { p.catch(function () {}); }
