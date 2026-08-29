@@ -93,6 +93,8 @@ class CoinTaskMixin:
     # 买行动力功能状态键（持久化到 OpsiScheduling.Storage.Storage）
     STATE_KEY_BUY_AP_COUNT = 'BuyActionPointCount'       # 本周已购买行动力次数（int）
     STATE_KEY_BUY_AP_WEEK_ID = 'BuyActionPointWeekId'    # 上次购买时所在的 ISO 周标识（str，如 "2026-W32"）
+    STATE_KEY_BUY_AP_LIMIT_BACKUP = 'BuyActionPointLimitBackup'  # temporary 禁用购买上限前的原值备份（int）
+    STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED = 'BuyLimitZeroNotified'   # 「上限为0停用」推送已发送标记（bool）
     # 买行动力模式常量（与 argument.yaml 中 BuyActionPointMode.option 对应）
     BUY_AP_MODE_OFF = 'off'
     BUY_AP_MODE_HAZARD1 = 'hazard1_leveling'
@@ -970,6 +972,29 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
     # ==================== 买行动力模式：购买与优先级表 ====================
 
+    @contextmanager
+    def _suspended_buy_action_point_limit(self):
+        """
+        临时禁用 BuyActionPointLimit（防子任务内自动购买），并备份原值用于崩溃自愈。
+
+        背景：config.temporary 的临时值会经 __setattr__ 立即写盘，若块内进程被强杀，
+        __exit__ 的恢复不会执行，磁盘配置将残留 0。本方法在进块前把用户原值存入
+        持久化状态（STATE_KEY_BUY_AP_LIMIT_BACKUP），崩溃后入口凭备份区分
+        「残留」与「用户主动设 0」；正常退出时清除备份。
+        """
+        limit = self.config.OpsiGeneral_BuyActionPointLimit
+        if limit > 0:
+            self._set_smart_scheduling_state_value(
+                self.STATE_KEY_BUY_AP_LIMIT_BACKUP, int(limit)
+            )
+        try:
+            with self.config.temporary(OpsiGeneral_BuyActionPointLimit=0):
+                yield
+        finally:
+            self._clear_smart_scheduling_state_value(
+                self.STATE_KEY_BUY_AP_LIMIT_BACKUP
+            )
+
     def _buy_one_action_point(self):
         """
         买一次行动力（使用石油）。
@@ -1098,28 +1123,45 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         logger.hr('大世界-买行动力模式', level=1)
 
         # 同步购买计数器与游戏内剩余次数（重启后可能不一致）
-        sync_result = self._sync_buy_action_point_count_with_game()
+        self._sync_buy_action_point_count_with_game()
 
         buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
         if buy_limit <= 0:
-            # 检查是否是暂停恢复导致的临时覆盖残留
-            if sync_result > 0:
+            # 凭持久化备份区分「temporary 崩溃残留」与「用户主动设 0（不买）」：
+            # 有备份 → 残留，恢复备份值；无备份 → 尊重用户意图，停买并交回正常调度。
+            backup = self._get_smart_scheduling_state_value(
+                self.STATE_KEY_BUY_AP_LIMIT_BACKUP
+            )
+            if isinstance(backup, int) and backup > 0:
                 logger.info(
                     f'[大世界-买行动力] 检测到 BuyActionPointLimit 为 0（临时覆盖残留），'
-                    f'本周已购买 {sync_result} 次，按游戏上限 5 次恢复'
+                    f'按备份值 {backup} 次恢复'
                 )
-                buy_limit = 5
+                self.config.OpsiGeneral_BuyActionPointLimit = backup
+                buy_limit = backup
             else:
                 logger.warning(
-                    '[大世界-买行动力] OpsiGeneral.BuyActionPointLimit 为 0，'
-                    '未配置每周购买上限'
+                    '[大世界-买行动力] OpsiGeneral.BuyActionPointLimit 为 0（不买），'
+                    '跳过买行动力模式，剩余行动力交由正常调度'
                 )
-                self.notify_push(
-                    title='[AzurPilot] 大世界-买行动力未配置上限',
-                    content='请在「大世界通用设置 → 买行动力X次」中设置每周购买上限（大于 0）',
-                )
-                self._delay_smart_scheduling_to_server_update('未配置购买上限')
-                return True
+                # 推送防重：每次设 0 后只提醒一次，恢复正常配置时重置标记
+                if not self._get_smart_scheduling_state_value(
+                    self.STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED, default=False
+                ):
+                    self.notify_push(
+                        title='[AzurPilot] 大世界-买行动力已停用',
+                        content=(
+                            '买行动力模式已启用，但购买上限为 0（不买）。\n'
+                            '如需购买，请在「大世界通用设置 → 买行动力X次」中设置 1-5 次'
+                        ),
+                    )
+                    self._set_smart_scheduling_state_value(
+                        self.STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED, True
+                    )
+                return False
+
+        # 恢复正常配置后重置「上限为0停用」推送标记，允许下次设 0 时再次提醒
+        self._clear_smart_scheduling_state_value(self.STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED)
 
         current_count = self._get_buy_action_point_count()
         if current_count >= buy_limit:
@@ -1330,7 +1372,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             executed_any = False
             # 复用步骤1已查询的行动力，避免 for 循环首任务重复弹窗
             for_ap = current_ap
-            with self.config.temporary(OpsiGeneral_BuyActionPointLimit=0):
+            with self._suspended_buy_action_point_limit():
                 for task_name in filtered_table:
                     if for_ap < lower_threshold:
                         logger.info(

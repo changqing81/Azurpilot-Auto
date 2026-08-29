@@ -154,10 +154,8 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
 
     def _run_prevent_action_point_overflow_target_once(self, task_name, lowerbound):
         """按配置执行一轮防止行动力溢出目标任务。"""
-        with self.config.temporary(
-            OS_ACTION_POINT_BOX_USE=False,
-            OpsiGeneral_BuyActionPointLimit=0,
-        ):
+        with self.config.temporary(OS_ACTION_POINT_BOX_USE=False), \
+                self._suspended_buy_action_point_limit():
             if task_name == self.TASK_NAME_SCHEDULING:
                 self._run_with_prevent_action_point_overflow_context(
                     self.TASK_NAME_SCHEDULING,
