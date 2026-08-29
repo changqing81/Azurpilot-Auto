@@ -173,29 +173,37 @@ _WALLPAPER_TOGGLE_JS = r"""
 _WALLPAPER_RACE_JS = r"""
 (function () {
     if (window.alasWallpaperRace) return;
-    window.alasWallpaperRace = function (candidates) {
-        var done = false;
-        var timer = null;
-        function finish(winner) {
-            if (done) return;
-            done = true;
-            if (timer) clearTimeout(timer);
-            window.__alasWallpaperWinner = winner || null;
-            if (winner && winner.url) {
-                document.documentElement.style.setProperty(
-                    '--alas-apple-bg-image',
-                    'url("' + winner.url + '")'
-                );
-            }
+    var done = false;
+    var timer = null;
+    function finish(winner) {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        window.__alasWallpaperWinner = winner || null;
+        if (winner && winner.url) {
+            document.documentElement.style.setProperty(
+                '--alas-apple-bg-image',
+                'url("' + winner.url + '")'
+            );
         }
+    }
+    function startOne(c) {
+        var img = new Image();
+        img.onload = function () { finish(c); };
+        img.onerror = function () {};
+        img.src = c.url;
+    }
+    // 开赛：重置状态后并发加载全部候选
+    window.alasWallpaperRace = function (candidates) {
+        done = false;
+        if (timer) clearTimeout(timer);
         window.__alasWallpaperWinner = null;
-        candidates.forEach(function (c) {
-            var img = new Image();
-            img.onload = function () { finish(c); };
-            img.onerror = function () {};
-            img.src = c.url;
-        });
         timer = setTimeout(function () { finish(null); }, 30000);
+        candidates.forEach(startOne);
+    };
+    // 增量加入：后到的候选仅在竞赛尚未决出胜负时参与
+    window.alasWallpaperRaceAppend = function (c) {
+        if (!done) startOne(c);
     };
 })();
 """
@@ -373,8 +381,8 @@ class HomeMixin(WebUIMixinBase):
                 return
 
         def _fetch_wallpaper():
-            # 全部启用的图源并发请求，收集所有有效候选后交由前端
-            # 按图片本体下载速度竞赛，最快的图成为背景
+            # 全部启用的图源并发请求；首个有效候选到达立即开赛，
+            # 后到的候选增量加入竞赛，避免被最慢图源的超时卡住
             fetcher_items = []
             for source in self._load_sources():
                 if not source.get("enabled", True):
@@ -408,7 +416,7 @@ class HomeMixin(WebUIMixinBase):
                 logger.info("[WebUI] 没有启用的图源，已跳过")
                 return
 
-            candidates = []
+            raced = False
             with ThreadPoolExecutor(max_workers=len(fetcher_items)) as executor:
                 futures = {
                     executor.submit(func): (name, source)
@@ -421,13 +429,16 @@ class HomeMixin(WebUIMixinBase):
                     except Exception as e:
                         logger.info(f"[WebUI] 图源 [{name}] 异常: {e}")
                         continue
-                    if image_url:
-                        candidates.append((image_url, source))
+                    if not image_url:
+                        continue
+                    if not raced:
+                        self._race_wallpaper(image_url, source)
+                        raced = True
+                    else:
+                        self._append_race_candidate(image_url, source)
 
-            if not candidates:
+            if not raced:
                 logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
-                return
-            self._race_wallpaper(candidates)
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
@@ -521,43 +532,39 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] imgapi.lie.moe 获取图源失败: {e}")
             return None
 
-    def _race_wallpaper(self, candidates):
-        """把全部候选图片 URL 交给前端竞赛，实际下载最快的图成为背景。
+    def _race_wallpaper(self, image_url, source=None):
+        """用首个候选开启前端图片竞赛，实际下载最快的图成为背景。
 
-        candidates 为 (image_url, source) 列表。服务端先以第一个候选作为
-        兜底记录（前端竞赛结束前下载功能回退使用）；竞赛胜者由前端写入
-        window.__alasWallpaperWinner，下载功能读取该值以与实际显示保持
-        一致。source 为直链图源时额外记录其配置，供下载功能识别——直链
-        源服务端无法访问且每次请求返回新随机图，下载须交由浏览器处理。
+        服务端以该候选作为兜底记录（前端竞赛结束前下载功能回退使用）；
+        竞赛胜者由前端写入 window.__alasWallpaperWinner，下载功能读取该值
+        以与实际显示保持一致。source 为直链图源时额外记录其配置，供下载
+        功能识别——直链源服务端无法访问且每次请求返回新随机图，下载须交
+        由浏览器处理。后续到达的候选由 _append_race_candidate 增量加入。
         """
-        payload = []
-        seen = set()
-        for image_url, source in candidates:
-            if not image_url or image_url in seen:
-                continue
-            seen.add(image_url)
-            payload.append(
-                {
-                    "url": image_url,
-                    "name": (source or {}).get("name", "内置图源"),
-                    "direct": bool(source and source.get("direct")),
-                }
-            )
-        if not payload:
-            return
-
-        first = payload[0]
-        self.wallpaper_url = first["url"]
+        self.wallpaper_url = image_url
         self._direct_wallpaper_source = (
-            {"name": first["name"]} if first["direct"] else None
+            {"name": (source or {}).get("name", "内置图源")}
+            if source and source.get("direct")
+            else None
         )
-        logger.info(f"[WebUI] 候选背景图 {len(payload)} 张，等待前端竞赛胜出")
+        logger.info(f"[WebUI] 首个候选背景图就绪，开启前端竞赛: {image_url}")
 
         # 幂等注入竞赛脚本后触发竞赛（消息按序执行，脚本必然先于调用就绪）
         run_js(_WALLPAPER_RACE_JS)
+        self._append_race_candidate(image_url, source)
+
+    def _append_race_candidate(self, image_url, source=None):
+        """把单个候选加入尚未决出胜负的前端竞赛（已决出则忽略）。"""
+        if not image_url:
+            return
+        payload = {
+            "url": image_url,
+            "name": (source or {}).get("name", "内置图源"),
+            "direct": bool(source and source.get("direct")),
+        }
         run_js(
-            "window.alasWallpaperRace && window.alasWallpaperRace(%s);"
-            % json.dumps(payload)
+            "window.alasWallpaperRaceAppend && "
+            f"window.alasWallpaperRaceAppend({json.dumps(payload)});"
         )
 
     # ---------- 图源管理 ----------
