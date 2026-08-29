@@ -2142,6 +2142,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             2. 每轮循环：短猫相接 → 商店购买 → 隐秘海域 → 深渊坐标
             3. 循环直到总行动力 <= 保留值 或 所有任务无可执行内容
 
+        保护机制：
+            - 看门狗任务超时临时放宽至 360 分钟：清理数千行动力需 2~3 小时，
+              默认 120 分钟会把正常的分段清理误判为逻辑死循环而强杀模拟器
+            - 连续 3 轮行动力无变化（差值 < 10，容 OCR 波动）主动退出，
+              防止任务假成功导致的无限循环
+
         Args:
             month_end_preserve (int): 月末清理行动力保留值。
             yellow_coins (int): 当前黄币数量。
@@ -2154,6 +2160,45 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             f'总行动力={total_ap}, 当前行动力={current_ap}, 保留值={month_end_preserve}'
         )
 
+        backup = self.config.temporary(
+            TaskFailureProtection_WatchdogTaskTimeout=360
+        )
+        try:
+            self._run_month_end_cleanup_loop(month_end_preserve)
+        finally:
+            backup.recover()
+
+        # 月末清理结束，刷新行动力并通知
+        total_ap, current_ap = self._get_scheduling_action_point(force_refresh=True)
+        logger.info(
+            f'[大世界-月末清理] 清理结束: 总行动力={total_ap}, '
+            f'当前行动力={current_ap}, 保留值={month_end_preserve}'
+        )
+        self.notify_push(
+            title='[AzurPilot] 智能调度+ - 月末清理行动力完成',
+            content=(
+                f'月末清理行动力已完成\n'
+                f'总行动力: {total_ap} (保留值 {month_end_preserve})\n'
+                f'当前行动力: {current_ap}'
+            ),
+        )
+
+        # 月底最后一天（重置日当天）每隔 2 小时运行一次，其他情况延迟到服务器刷新
+        remain = get_os_reset_remain()
+        if remain <= 0:
+            logger.info('[大世界-月末清理] 今天是月底最后一天，2 小时后再次运行')
+            self._delay_smart_scheduling_with_minutes('月末清理行动力已完成（月底最后一天）', 120)
+        else:
+            self._delay_smart_scheduling_to_server_update('月末清理行动力已完成')
+        self.config.task_stop()
+
+    def _run_month_end_cleanup_loop(self, month_end_preserve):
+        """
+        月末清理主循环。
+
+        Args:
+            month_end_preserve (int): 月末清理行动力保留值。
+        """
         # 首次运行时先调出塞壬要塞
         is_first_run = self._is_month_end_cleanup_first_run()
         if is_first_run:
@@ -2166,6 +2211,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
         # 月末清理主循环（无限制，依靠退出条件终止）
         round_num = 0
+        prev_round_ap = None
+        stagnant_rounds = 0
         while True:
             round_num += 1
             logger.hr(f'大世界-月末清理 第{round_num}轮', level=3)
@@ -2178,6 +2225,23 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     f'月末清理完成'
                 )
                 break
+
+            # 停滞检测：连续 3 轮行动力几乎无变化，说明任务假成功无法继续消耗
+            if prev_round_ap is not None and abs(total_ap - prev_round_ap) < 10:
+                stagnant_rounds += 1
+                logger.warning(
+                    f'[大世界-月末清理] 行动力停滞: 上轮 {prev_round_ap} -> 本轮 {total_ap}'
+                    f'（{stagnant_rounds}/3）'
+                )
+                if stagnant_rounds >= 3:
+                    logger.warning(
+                        '[大世界-月末清理] 连续 3 轮行动力无变化，'
+                        '判定无法继续消耗，提前结束月末清理'
+                    )
+                    break
+            else:
+                stagnant_rounds = 0
+            prev_round_ap = total_ap
 
             logger.info(
                 f'[大世界-月末清理] 第{round_num}轮: 总行动力={total_ap}, '
@@ -2215,30 +2279,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             if not meow_success:
                 logger.info('[大世界-月末清理] 短猫相接无可执行内容，月末清理结束')
                 break
-
-        # 月末清理结束，刷新行动力并通知
-        total_ap, current_ap = self._get_scheduling_action_point(force_refresh=True)
-        logger.info(
-            f'[大世界-月末清理] 清理结束: 总行动力={total_ap}, '
-            f'当前行动力={current_ap}, 保留值={month_end_preserve}'
-        )
-        self.notify_push(
-            title='[AzurPilot] 智能调度+ - 月末清理行动力完成',
-            content=(
-                f'月末清理行动力已完成\n'
-                f'总行动力: {total_ap} (保留值 {month_end_preserve})\n'
-                f'当前行动力: {current_ap}'
-            ),
-        )
-
-        # 月底最后一天（重置日当天）每隔 2 小时运行一次，其他情况延迟到服务器刷新
-        remain = get_os_reset_remain()
-        if remain <= 0:
-            logger.info('[大世界-月末清理] 今天是月底最后一天，2 小时后再次运行')
-            self._delay_smart_scheduling_with_minutes('月末清理行动力已完成（月底最后一天）', 120)
-        else:
-            self._delay_smart_scheduling_to_server_update('月末清理行动力已完成')
-        self.config.task_stop()
     
     def notify_action_point_threshold(self, title, content):
         """
