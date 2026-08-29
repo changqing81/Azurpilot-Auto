@@ -12,10 +12,11 @@
 
 from datetime import timedelta
 
+from module.base.progress_tracker import ProgressTracker
 from module.base.timer import Timer
 from module.config.time_source import now as current_time
 from module.equipment.assets import EQUIPMENT_OPEN
-from module.exception import MapDetectionError, ScriptError
+from module.exception import GameStuckError, MapDetectionError, ScriptError
 from module.logger import logger
 from module.os.assets import FLEET_FLAGSHIP
 from module.os.map import OSMap
@@ -136,8 +137,24 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         """执行大世界侵蚀 1 练级任务。"""
         logger.hr("大世界-侵蚀1练级", level=1)
 
+        # 语义进度检测：每轮固定消耗约 120 行动力，行动力数值即任务进度的可靠信号。
+        # 行动力长时间不变说明任务逻辑原地打转（画面可能有动画，设备层截图指纹检测不到）。
+        # 注意：智能调度器直接调用单轮 run_hazard1_leveling_once，不经过本循环，不受影响。
+        tracker = ProgressTracker(timeout=900)  # 15 分钟，约 2~3 轮
         while True:
             self.run_hazard1_leveling_once()
+            ap = getattr(self, '_action_point_current', None)
+            if ap is None or ap <= 0:
+                # 行动力未获取到（OCR 失败等），按有进展处理，避免误判
+                tracker.clear()
+            else:
+                tracker.record(ap)
+                if tracker.is_stuck():
+                    logger.warning(
+                        f'[大世界-侵蚀1练级] 行动力 {ap} 已持续 {tracker.stuck_duration:.0f}s 无变化，'
+                        '任务逻辑疑似原地打转'
+                    )
+                    raise GameStuckError('[大世界-侵蚀1练级] 行动力长时间无变化，疑似逻辑卡死')
             self.config.check_task_switch()
 
     def run_hazard1_leveling_once(self, ap_preserve=None, ap_checked=False):

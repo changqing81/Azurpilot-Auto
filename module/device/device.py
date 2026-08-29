@@ -82,6 +82,12 @@ class Device(Screenshot, Control, AppControl, Input):
     _screen_size_checked = False
     detect_record = set()
     click_record = collections.deque(maxlen=15)
+    # 屏幕网格点击记录（4x3），用于检测"不同按钮在同一区域循环点击"的卡死。
+    # 与 click_record 同生命周期，阈值一致（12/15）。
+    click_grid_record = collections.deque(maxlen=15)
+    # 豁免名单：这些按钮名的点击不参与网格统计。
+    # 用于已知会在同一网格区域连续点击多个不同按钮的正常流程。
+    click_grid_whitelist = []
     stuck_timer = Timer(60, count=60).start()
     stuck_timer_long = Timer(195, count=195).start()
     stuck_long_wait_list = ['BATTLE_STATUS_S', 'PAUSE', 'LOGIN_CHECK', 'TEMPLATE_MANJUU']
@@ -456,16 +462,19 @@ class Device(Screenshot, Control, AppControl, Input):
         self.stuck_record_clear()
         self.click_record_add(button)
         self.click_record_check()
+        self.click_grid_add(button)
+        self.click_grid_check()
 
     def click_record_add(self, button):
         self.click_record.append(str(button))
 
     def click_record_clear(self):
         self.click_record.clear()
+        self.click_grid_record.clear()
 
     def click_record_remove(self, button):
         """
-        从点击记录中移除指定按钮的所有记录。
+        从点击记录和网格记录中移除指定按钮的所有记录。
 
         Args:
             button: 要移除的按钮对象。
@@ -473,14 +482,21 @@ class Device(Screenshot, Control, AppControl, Input):
         Returns:
             移除的记录数量。
         """
+        name = str(button)
         removed = 0
         for _ in range(self.click_record.maxlen):
             try:
-                self.click_record.remove(str(button))
-                removed += 1
+                self.click_record.remove(name)
             except ValueError:
                 # 队列中已无该值
                 break
+            removed += 1
+        # 网格记录条目携带按钮名，同步移除以保持两套统计一致，
+        # 避免合法的反复点击流程（如快速换装）被网格检测误判
+        if self.click_grid_record:
+            kept = [entry for entry in self.click_grid_record if entry[1] != name]
+            self.click_grid_record.clear()
+            self.click_grid_record.extend(kept)
 
         return removed
 
@@ -505,6 +521,43 @@ class Device(Screenshot, Control, AppControl, Input):
             self.click_record_clear()
             raise GameTooManyClickError(f'[设备-点击] 两个按钮交替点击次数过多: {count[0][0]}, {count[1][0]}')
 
+    def click_grid_add(self, button):
+        """
+        按 4x3 屏幕网格（1280x720，每格 320x240）记录点击位置。
+
+        按钮名统计（click_record）无法覆盖"不同按钮对象在同一区域循环点击"的场景，
+        网格坐标与按钮对象无关，可以聚合这类循环。
+        条目为 (格子坐标, 按钮名)，便于 click_record_remove 同步移除。
+        字符串操作（SWIPE/DRAG 等）无坐标，不参与网格统计。
+
+        Args:
+            button: 按钮实例或操作名字符串。
+        """
+        name = str(button)
+        if self.click_grid_whitelist and name in self.click_grid_whitelist:
+            return
+        area = getattr(button, 'button', None)
+        if not area:
+            return
+        x = (area[0] + area[2]) // 2
+        y = (area[1] + area[3]) // 2
+        self.click_grid_record.append(((x // 320, y // 240), name))
+
+    def click_grid_check(self):
+        """
+        检查是否在同一网格区域反复点击。
+
+        Raises:
+            GameTooManyClickError: 最近 15 次点击中 ≥12 次落在同一网格。
+        """
+        count = collections.Counter(entry[0] for entry in self.click_grid_record).most_common(1)
+        if count and count[0][1] >= 12:
+            show_function_call()
+            logger.warning(f'[设备-点击] 同一区域反复点击: 格子={count[0][0]}, {count[0][1]}/15 次')
+            logger.warning(f'[设备-点击] 点击历史: {[str(prev) for prev in self.click_record]}')
+            self.click_record_clear()
+            raise GameTooManyClickError(f'[设备-点击] 同一区域反复点击: 格子={count[0][0]}')
+
     def disable_stuck_detection(self):
         """
         禁用卡死检测，用于半自动模式和调试场景。
@@ -515,6 +568,7 @@ class Device(Screenshot, Control, AppControl, Input):
             return False
 
         self.click_record_check = empty_function
+        self.click_grid_check = empty_function
         self.stuck_record_check = empty_function
 
     def app_start(self):

@@ -32,6 +32,7 @@ from module.combat.hp_balancer import HPBalancer
 from module.combat.level import Level
 from module.combat.submarine import SubmarineCall
 from module.combat_ui.assets import *
+from module.exception import GameStuckError
 from module.handler.auto_search import AutoSearchHandler
 from module.logger import logger
 from module.map.assets import MAP_OFFENSIVE
@@ -669,9 +670,17 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
         self.device.screenshot_interval_set()
         self.device.stuck_record_clear()
         self.device.click_record_clear()
+        # 结算阶段整体超时，防止评价/经验/掉落画面动画循环导致的无进展卡死。
+        # 结算过程中的大量点击会反复重置设备层 stuck_timer，此超时提供兜底。
+        # 阈值取 300s：正常结算 30~90s，新舰船动画、大量掉落、委托弹窗叠加也不超过 5 分钟。
+        combat_status_timer = Timer(300, count=0)
         battle_status = False
         exp_info = False  # 用于处理游戏白屏 bug
         for _ in self.loop():
+            combat_status_timer.start()
+            if combat_status_timer.reached():
+                logger.warning(f'[战斗-结算] 结算阶段超过 {combat_status_timer.limit}s 未完成，判定卡死')
+                raise GameStuckError('[战斗-结算] 结算阶段超时')
 
             # 检测预期结束状态
             if isinstance(expected_end, str):
