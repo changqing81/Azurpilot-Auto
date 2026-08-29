@@ -213,8 +213,18 @@ _WALLPAPER_RACE_JS = r"""
             try { item.src = ''; } catch (e) {}
         });
         if (winner && winner.video && el) {
-            // 视频胜者：复用探测用的 video 元素铺满置底，静音循环播放
+            // 视频胜者：复用探测用的 video 元素铺满置底，静音循环播放。
+            // 必须同时清空 body 主题背景，否则主题背景会盖住 z-index 为负的视频层
             removeVideoBg();
+            var st = document.getElementById('alas-custom-bg-style');
+            if (!st) {
+                st = document.createElement('style');
+                st.id = 'alas-custom-bg-style';
+                document.head.appendChild(st);
+            }
+            st.textContent = 'body{background-image:none !important;}'
+                + '#alas-bg-video{position:fixed;inset:0;width:100%;'
+                + 'height:100%;object-fit:cover;z-index:-1;pointer-events:none;}';
             el.id = 'alas-bg-video';
             el.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;'
                 + 'object-fit:cover;z-index:-1;pointer-events:none;';
@@ -224,6 +234,9 @@ _WALLPAPER_RACE_JS = r"""
             if (p && p.catch) { p.catch(function () {}); }
         } else if (winner && winner.url) {
             removeVideoBg();
+            // 图片胜者：移除可能残留的自定义/视频背景 CSS，恢复主题背景变量生效
+            var st2 = document.getElementById('alas-custom-bg-style');
+            if (st2) { st2.parentNode.removeChild(st2); }
             document.documentElement.style.setProperty(
                 '--alas-apple-bg-image',
                 'url("' + winner.url + '")'
@@ -531,7 +544,13 @@ class HomeMixin(WebUIMixinBase):
                         self._append_race_candidate(image_url, source)
 
             if not raced:
-                logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
+                if media == "auto":
+                    logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
+                else:
+                    logger.info(
+                        f"[WebUI] 媒体类型偏好为 {'仅视频' if media == 'video' else '仅图片'}，"
+                        "但没有任何启用的图源返回该类型媒体，背景保持不变"
+                    )
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
