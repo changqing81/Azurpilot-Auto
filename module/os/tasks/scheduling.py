@@ -959,11 +959,15 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self._set_buy_action_point_count(actual_count)
 
         # 同步更新行动力缓存，后续 _get_scheduling_action_point 无需重复弹窗
-        self._ap_cache = (
-            int(getattr(self, '_action_point_total', 0) or 0),
-            int(getattr(self, '_action_point_current', 0) or 0),
-            current_time(),
-        )
+        # 防护：弹窗加载超时时 OCR 可能残留 0 值，写入缓存会导致功能2误判 AP=0 而误买
+        total_ap = int(getattr(self, '_action_point_total', 0) or 0)
+        current_ap = int(getattr(self, '_action_point_current', 0) or 0)
+        if total_ap > 0 or current_ap > 0:
+            self._ap_cache = (total_ap, current_ap, current_time())
+        else:
+            logger.warning(
+                '[大世界-买行动力] 行动力 OCR 未读到有效值，跳过行动力缓存更新'
+            )
         logger.info(
             f'[大世界-买行动力] 同步购买计数: 已购买 {actual_count} 次 '
             f'(游戏剩余 {remain})'
@@ -1289,6 +1293,13 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
         upper_threshold = self._get_buy_action_point_upper_threshold()
         lower_threshold = self._get_buy_action_point_lower_threshold()
+        if lower_threshold > upper_threshold:
+            # 上限<下限 会在 [upper, lower) 区间形成"不买也不跑"死区，自动收敛消除
+            logger.warning(
+                f'[大世界-买行动力] 下限阈值 {lower_threshold} 高于上限阈值 {upper_threshold}，'
+                f'配置矛盾，已将下限收敛为 {upper_threshold}（请检查 WebUI 阈值设置）'
+            )
+            lower_threshold = upper_threshold
         logger.info(
             f'[大世界-买行动力] 阈值配置: 上限={upper_threshold}（低于则触发购买），'
             f'下限={lower_threshold}（任务执行中AP低于此值则回购买）'
@@ -1343,7 +1354,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     content='请至少启用耄耋相接、隐秘海域、深渊坐标或塞壬要塞中的一项',
                 )
                 self._delay_smart_scheduling_to_server_update('未启用海域任务')
-                return
+                return True
 
             task_names = '、'.join(
                 self.TASK_NAMES.get(task, task) for task in filtered_table
@@ -1370,6 +1381,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
             # 临时禁用 BuyActionPointLimit，防止子任务自动购买
             executed_any = False
+            exit_reason = 'no_content'  # ap_low: AP低于下限 / ap_limit: 行动力耗尽 / no_content: 任务无内容
             # 复用步骤1已查询的行动力，避免 for 循环首任务重复弹窗
             for_ap = current_ap
             with self._suspended_buy_action_point_limit():
@@ -1379,6 +1391,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                             f'[大世界-买行动力] 行动力 {for_ap} < 下限阈值 {lower_threshold}，'
                             f'停止执行海域任务，回到购买步骤'
                         )
+                        exit_reason = 'ap_low'
                         break
 
                     task_display = self.TASK_NAMES.get(task_name, task_name)
@@ -1390,6 +1403,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                             f'[大世界-买行动力] {task_display} 行动力不足: {e}，'
                             f'回到购买步骤'
                         )
+                        exit_reason = 'ap_limit'
                         break
 
                     if success:
@@ -1408,9 +1422,25 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                         _, for_ap = self._get_scheduling_action_point(force_refresh=True)
 
             if not executed_any:
-                logger.warning(
-                    '[大世界-买行动力] 所有海域任务均无可执行内容，'
-                    f'退出功能2主循环'
+                # 零执行时此前已推送过"下一步任务"，补发更正推送避免通知与事实不符
+                if exit_reason == 'no_content':
+                    logger.warning(
+                        '[大世界-买行动力] 所有海域任务均无可执行内容，'
+                        f'退出功能2主循环'
+                    )
+                    correct_content = (
+                        '所有海域任务均无可执行内容（坐标已清空/黄币已满），'
+                        '本轮未执行任何任务，已购买的行动力将留待后续使用'
+                    )
+                else:
+                    logger.warning(
+                        f'[大世界-买行动力] 行动力不足（原因: {exit_reason}），'
+                        f'本轮未执行任何海域任务，退出功能2主循环'
+                    )
+                    correct_content = '行动力不足，本轮未执行任何海域任务'
+                self.notify_push(
+                    title='[AzurPilot] 大世界-买行动力',
+                    content=f'更正：{correct_content}',
                 )
                 return False
 
@@ -1503,7 +1533,13 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self.action_point_quit()
         total_ap = int(getattr(self, '_action_point_total', 0) or 0)
         current_ap = int(getattr(self, '_action_point_current', 0) or 0)
-        self._ap_cache = (total_ap, current_ap, current_time())
+        # 防护：弹窗加载超时时 OCR 可能残留 0 值，不写入缓存以免 60 秒内误判 AP=0
+        if total_ap > 0 or current_ap > 0:
+            self._ap_cache = (total_ap, current_ap, current_time())
+        else:
+            logger.warning(
+                '[大世界-智能调度+] 行动力 OCR 未读到有效值，跳过行动力缓存更新'
+            )
         self.check_and_notify_action_point_threshold()
         return total_ap, current_ap
 
@@ -1516,25 +1552,22 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             self.config.task_stop()
 
         logger.info('[大世界-智能调度+] 执行一轮耄耋相接')
-        with self.config.temporary(
-            OS_ACTION_POINT_PRESERVE=self.config.OS_ACTION_POINT_PRESERVE,
-        ):
-            try:
-                # 智能调度上下文外层已查询行动力，跳过子任务内的冗余弹窗
-                self._run_with_opsi_task_context(
-                    self.TASK_NAME_MEOWFFICER_FARMING,
-                    self.run_meowfficer_farming_once,
-                    ap_preserve=ap_preserve,
-                    ap_checked=True,
+        try:
+            # 智能调度上下文外层已查询行动力，跳过子任务内的冗余弹窗
+            self._run_with_opsi_task_context(
+                self.TASK_NAME_MEOWFFICER_FARMING,
+                self.run_meowfficer_farming_once,
+                ap_preserve=ap_preserve,
+                ap_checked=True,
+            )
+        except ActionPointLimit as e:
+            if ap_preserve > 0 and getattr(e, 'preserve', None) == ap_preserve:
+                logger.info(
+                    f'[大世界-智能调度+] 耄耋相接已达到行动力保留值 '
+                    f'({e.total} <= {ap_preserve})，返回智能调度+'
                 )
-            except ActionPointLimit as e:
-                if ap_preserve > 0 and getattr(e, 'preserve', None) == ap_preserve:
-                    logger.info(
-                        f'[大世界-智能调度+] 耄耋相接已达到行动力保留值 '
-                        f'({e.total} <= {ap_preserve})，返回智能调度+'
-                    )
-                    return
-                raise
+                return
+            raise
 
     def handle_first_auto_search(self, run):
         """由智能调度+决策是否执行 os_init 阶段跳过的首次自律寻敌。"""
