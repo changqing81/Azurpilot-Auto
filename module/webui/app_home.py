@@ -437,8 +437,21 @@ class HomeMixin(WebUIMixinBase):
         if self._load_background_mode() == "custom":
             url, is_video = self._custom_background_url()
             if url:
-                self._inject_custom_background(url, is_video)
-                logger.info("[WebUI] 已应用自定义背景")
+                if is_video:
+                    # 视频 data URI 体积大，延后注入让页面先渲染，
+                    # 避免大消息阻塞后续 UI 消息导致远控下白屏数秒
+                    def _inject_video_later():
+                        time.sleep(1.5)
+                        try:
+                            self._inject_custom_background(url, True)
+                            logger.info("[WebUI] 已应用自定义视频背景")
+                        except Exception as e:
+                            logger.warning(f"[WebUI] 注入视频背景失败: {e}")
+
+                    threading.Thread(target=_inject_video_later, daemon=True).start()
+                else:
+                    self._inject_custom_background(url, is_video)
+                    logger.info("[WebUI] 已应用自定义背景")
                 return
 
         def _fetch_wallpaper():
