@@ -214,7 +214,8 @@ _WALLPAPER_RACE_JS = r"""
         });
         if (winner && winner.video && el) {
             // 视频胜者：复用探测用的 video 元素铺满置底，静音循环播放。
-            // 必须同时清空 body 主题背景，否则主题背景会盖住 z-index 为负的视频层
+            // body 必须 background 整体透明（含背景色），否则主题的不透明
+            // 背景色会画在 z-index 为负的视频层之上，视频完全不可见
             removeVideoBg();
             var st = document.getElementById('alas-custom-bg-style');
             if (!st) {
@@ -222,7 +223,7 @@ _WALLPAPER_RACE_JS = r"""
                 st.id = 'alas-custom-bg-style';
                 document.head.appendChild(st);
             }
-            st.textContent = 'body{background-image:none !important;}'
+            st.textContent = 'body{background:transparent !important;}'
                 + '#alas-bg-video{position:fixed;inset:0;width:100%;'
                 + 'height:100%;object-fit:cover;z-index:-1;pointer-events:none;}';
             el.id = 'alas-bg-video';
@@ -1259,11 +1260,13 @@ class HomeMixin(WebUIMixinBase):
         """
         if is_video:
             # 注意：模板含 CSS 百分号（width:100%），不能用 % 格式化，
-            # 用占位符替换注入 URL，避免 %; 被误认为格式符
+            # 用占位符替换注入 URL，避免 %; 被误认为格式符。
+            # body 必须 background 整体透明（含背景色）：z-index 为负的视频
+            # 画在 body 背景之后，主题的不透明背景色会完全盖住视频层
             run_js(
                 """
                 (function () {
-                    var css = 'body{background-image:none !important;}'
+                    var css = 'body{background:transparent !important;}'
                         + '#alas-bg-video{position:fixed;inset:0;width:100%;'
                         + 'height:100%;object-fit:cover;z-index:-1;'
                         + 'pointer-events:none;}';
