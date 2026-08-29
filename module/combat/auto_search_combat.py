@@ -18,7 +18,7 @@ from module.base.timer import Timer
 from module.campaign.campaign_status import CampaignStatus
 from module.combat.assets import *
 from module.combat.combat import Combat
-from module.exception import CampaignEnd, ScriptEnd
+from module.exception import CampaignEnd, GameStuckError, ScriptEnd
 from module.handler.assets import AUTO_SEARCH_MAP_OPTION_ON, GET_MISSION
 from module.logger import logger
 from module.map.assets import WITHDRAW, SWITCH_OVER, FLEET_WITHDRAW, FLEET_SWITCH_CONFIRM, FLEET_WITHDRAW_BOSS
@@ -410,8 +410,16 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
         self.device.click_record_clear()
         exp_info = False  # This is for the white screen bug in game
         withdraw_stable_timer = Timer(2)
+        # 结算阶段整体超时：与 combat_status 的 300s 超时对称。
+        # 结算点击会反复重置设备层计时器，动画循环卡死需在此兜底。
+        # 单场战斗结算 15~30s，含战败撤退弹窗链也不会超过 5 分钟。
+        combat_status_timer = Timer(300, count=0)
 
         for _ in self.loop():
+            combat_status_timer.start()
+            if combat_status_timer.reached():
+                logger.warning(f'[自动搜索-结算] 结算阶段超过 {combat_status_timer.limit}s 未完成，判定卡死')
+                raise GameStuckError('[自动搜索-结算] 结算阶段超时')
 
             # End
             if self.is_auto_search_running():
