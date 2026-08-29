@@ -25,6 +25,7 @@ OpsiScheduling - 智能调度+模块
     - CoinTaskMixin: 黄币补充任务的通用 Mixin 类（供其他任务继承使用）
 """
 import re
+from contextlib import contextmanager
 from datetime import timedelta
 
 from module.config.config import Function, name_to_function
