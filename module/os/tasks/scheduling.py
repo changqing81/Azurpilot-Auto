@@ -1019,6 +1019,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             in: page_os
             out: page_os
         """
+        # 封锁周在打开弹窗前拦截：纯日期计算，省掉无意义的
+        # 弹窗交互（进入→切页签→OCR 超时→退出）
+        if self._is_in_month_end_purchase_block_week():
+            logger.info('[大世界-买行动力] 月末封锁周，跳过本次购买')
+            return False
+
         self.action_point_enter()
         self.action_point_safe_get()
         try:
