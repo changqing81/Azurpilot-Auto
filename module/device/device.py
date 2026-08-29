@@ -561,6 +561,9 @@ class Device(Screenshot, Control, AppControl, Input):
     def disable_stuck_detection(self):
         """
         禁用卡死检测，用于半自动模式和调试场景。
+
+        守护模式承诺不干扰手动操作：用户暂停游戏、切后台导致的画面静止
+        不应触发重启，因此 _check_image_stuck 也一并禁用。
         """
         logger.info('[设备-检测] 禁用卡死检测')
 
@@ -570,6 +573,7 @@ class Device(Screenshot, Control, AppControl, Input):
         self.click_record_check = empty_function
         self.click_grid_check = empty_function
         self.stuck_record_check = empty_function
+        self._check_image_stuck = empty_function
 
     def app_start(self):
         if not self.config.Error_HandleError:
