@@ -356,11 +356,17 @@ class HomeMixin(WebUIMixinBase):
                         "value": "sources",
                         "color": "light",
                     },
+                    {
+                        "label": "媒体类型",
+                        "value": "media",
+                        "color": "light",
+                    },
                 ],
                 onclick=[
                     self._upload_custom_background,
                     self._switch_to_random_background,
                     self._manage_wallpaper_sources,
+                    self._set_media_preference,
                 ],
             ).style("text-align: center")
             put_html('<div class="alas-home-marker" aria-hidden="true"></div>')
@@ -459,6 +465,8 @@ class HomeMixin(WebUIMixinBase):
                 return
 
             raced = False
+            # 媒体类型偏好：仅图片 / 仅视频 / 混合（auto），不符的候选直接丢弃
+            media = self._load_media_preference()
             # 线程数等于图源数，上限 4：图源过多时排队请求，降低触发风控的风险
             with ThreadPoolExecutor(
                 max_workers=min(4, len(fetcher_items))
@@ -475,6 +483,14 @@ class HomeMixin(WebUIMixinBase):
                         logger.info(f"[WebUI] 图源 [{name}] 异常: {e}")
                         continue
                     if not image_url:
+                        continue
+                    is_video = bool(_VIDEO_URL_RE.search(image_url))
+                    if (media == "image" and is_video) or (
+                        media == "video" and not is_video
+                    ):
+                        logger.info(
+                            f"[WebUI] 图源 [{name}] 返回的媒体类型与偏好不符，已跳过"
+                        )
                         continue
                     if not raced:
                         self._race_wallpaper(image_url, source)
@@ -745,6 +761,64 @@ class HomeMixin(WebUIMixinBase):
         except Exception as e:
             logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] 获取失败: {e}")
             return None
+
+    def _set_media_preference(self) -> None:
+        """设置随机背景的媒体类型偏好：仅图片 / 仅视频 / 混合。"""
+        current = self._load_media_preference()
+        resp = input_group(
+            "背景媒体类型",
+            [
+                _p_radio(
+                    label="随机背景使用的媒体类型",
+                    name="media",
+                    options=[
+                        {
+                            "label": "仅图片",
+                            "value": "image",
+                            "selected": current == "image",
+                        },
+                        {
+                            "label": "仅视频",
+                            "value": "video",
+                            "selected": current == "video",
+                        },
+                        {
+                            "label": "混合（图片和视频一起竞赛）",
+                            "value": "auto",
+                            "selected": current == "auto",
+                        },
+                    ],
+                    required=True,
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "确定",
+                            "value": "confirm",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if resp is None:
+            return
+        media = resp["media"]
+        self._save_media_preference(media)
+        label = {"image": "仅图片", "video": "仅视频", "auto": "混合"}.get(
+            media, media
+        )
+        toast(f"背景媒体类型已切换: {label}", color="success")
+        # 自定义背景下偏好暂不生效，切回随机背景后起作用
+        if self._load_background_mode() == "custom":
+            return
+        self._refresh_random_wallpaper()
 
     def _refresh_random_wallpaper(self) -> None:
         """清空当前背景地址并重新从随机图源拉取一张（自定义背景下不覆盖）。"""
@@ -1056,13 +1130,44 @@ class HomeMixin(WebUIMixinBase):
             return "random"
 
     def _save_background_mode(self, mode: str) -> None:
-        """保存当前背景模式："random" 随机图源 / "custom" 自定义图片。"""
+        """保存当前背景模式："random" 随机图源 / "custom" 自定义图片或视频。
+
+        同文件中还持久化媒体类型偏好，写入时保留该字段避免被覆盖。
+        """
+        self._write_background_setting({"mode": mode})
+
+    def _load_media_preference(self) -> str:
+        """读取随机背景的媒体类型偏好。
+
+        "auto" 混合（默认）/ "image" 仅图片 / "video" 仅视频。
+        """
         try:
-            self._background_mode_file().write_text(
-                json.dumps({"mode": mode}), encoding="utf-8"
+            data = json.loads(
+                self._background_mode_file().read_text(encoding="utf-8")
+            )
+            return data.get("media", "auto")
+        except Exception:
+            return "auto"
+
+    def _save_media_preference(self, media: str) -> None:
+        """保存随机背景的媒体类型偏好，不影响同文件中的背景模式。"""
+        self._write_background_setting({"media": media})
+
+    def _write_background_setting(self, update: dict) -> None:
+        """向背景设置文件合并写入字段，保留其余字段。"""
+        try:
+            data = {}
+            setting_file = self._background_mode_file()
+            if setting_file.exists():
+                data = json.loads(setting_file.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                data = {}
+            data.update(update)
+            setting_file.write_text(
+                json.dumps(data), encoding="utf-8"
             )
         except Exception as e:
-            logger.warning(f"[WebUI] 保存背景模式失败: {e}")
+            logger.warning(f"[WebUI] 保存背景设置失败: {e}")
 
     def _custom_background_url(self) -> tuple:
         """返回 (自定义背景地址, 是否视频)。
