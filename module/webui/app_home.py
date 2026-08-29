@@ -115,8 +115,21 @@ _CUSTOM_BG_MIMES = {
     ".bmp": "image/bmp",
 }
 
+# 视频背景扩展名 → MIME 映射（浏览器原生可播格式）
+_CUSTOM_VIDEO_MIMES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+}
+
 # 视频背景扩展名集合（浏览器原生可播格式），上传时跳过图片压缩
-_CUSTOM_VIDEO_EXTS = {".mp4", ".m4v", ".webm", ".mov"}
+_CUSTOM_VIDEO_EXTS = set(_CUSTOM_VIDEO_MIMES)
+
+# 视频内联 data URI 的体积上限：小视频随页面内联（远控 P2P 代理环境下
+# HTTP 二次请求会静默失败，项目早期图片背景已踩过此坑），大文件才走
+# HTTP 流式接口，避免把页面注入消息撑得过大
+_CUSTOM_VIDEO_INLINE_MAX_BYTES = 8 * 1024 * 1024
 
 # 图源 URL 的视频后缀识别（供前端竞赛用 video 元素加载）
 _VIDEO_URL_RE = re.compile(r"\.(mp4|m4v|webm|mov|ogv)(?:[?#]|$)", re.IGNORECASE)
@@ -1172,20 +1185,26 @@ class HomeMixin(WebUIMixinBase):
     def _custom_background_url(self) -> tuple:
         """返回 (自定义背景地址, 是否视频)。
 
-        图片沿用 data URI 方案：随页面注入、不发起任何二次请求，本地/远控
-        行为完全一致（图片已在保存时服务端压缩，内联体积可控）。视频体积
-        大且需要流式缓冲与拖动，不适合内联，改走 HTTP 接口
-        /api/custom_background_video（FileResponse 支持 Range 请求）。
-        无自定义背景文件时返回 ("", False)。
+        图片与 8MB 以内的小视频统一走 data URI：随页面注入、不发起任何
+        二次请求，本地/远控（P2P 代理）行为完全一致——项目早期图片背景
+        用 HTTP 相对路径时在远控环境静默失败过，视频复用此结论。超过
+        体积上限的大视频才走 HTTP 流式接口 /api/custom_background_video
+        （FileResponse 支持 Range 请求）。无自定义背景文件时返回 ("", False)。
         """
         try:
             files = sorted(self._wallpapers_dir().glob("custom_background.*"))
             if not files:
                 return "", False
-            suffix = files[0].suffix.lower()
+            f = files[0]
+            suffix = f.suffix.lower()
             if suffix in _CUSTOM_VIDEO_EXTS:
+                if f.stat().st_size <= _CUSTOM_VIDEO_INLINE_MAX_BYTES:
+                    content = f.read_bytes()
+                    mime = _CUSTOM_VIDEO_MIMES.get(suffix, "video/mp4")
+                    encoded = base64.b64encode(content).decode("ascii")
+                    return f"data:{mime};base64,{encoded}", True
                 return "/api/custom_background_video", True
-            content = files[0].read_bytes()
+            content = f.read_bytes()
             mime = _CUSTOM_BG_MIMES.get(suffix, "image/jpeg")
             encoded = base64.b64encode(content).decode("ascii")
             return f"data:{mime};base64,{encoded}", False
