@@ -169,17 +169,24 @@ _WALLPAPER_TOGGLE_JS = r"""
 # "图片本体下载速度"，慢速 CDN 的图源不再拖慢背景显示。
 # 胜者记录在 window.__alasWallpaperWinner，供"下载当前背景图"功能读取，
 # 确保下载的就是用户当前看到的那张。
-# 全部候选 30 秒内都未加载完成时保留原背景并清空胜者记录。
+# 全部候选 30 秒内都未加载完成时保留原背景并清空胜者记录；
+# 胜者决出后立即中止其余候选的下载，避免带宽浪费。
 _WALLPAPER_RACE_JS = r"""
 (function () {
     if (window.alasWallpaperRace) return;
     var done = false;
     var timer = null;
+    var images = [];
     function finish(winner) {
         if (done) return;
         done = true;
         if (timer) clearTimeout(timer);
         window.__alasWallpaperWinner = winner || null;
+        // 冠军已决出，中止其余候选的下载，避免带宽浪费
+        images.forEach(function (img) {
+            if (winner && img.src === winner.url) return;
+            img.src = '';
+        });
         if (winner && winner.url) {
             document.documentElement.style.setProperty(
                 '--alas-apple-bg-image',
@@ -192,10 +199,12 @@ _WALLPAPER_RACE_JS = r"""
         img.onload = function () { finish(c); };
         img.onerror = function () {};
         img.src = c.url;
+        images.push(img);
     }
     // 开赛：重置状态后并发加载全部候选
     window.alasWallpaperRace = function (candidates) {
         done = false;
+        images = [];
         if (timer) clearTimeout(timer);
         window.__alasWallpaperWinner = null;
         timer = setTimeout(function () { finish(null); }, 30000);
@@ -417,7 +426,10 @@ class HomeMixin(WebUIMixinBase):
                 return
 
             raced = False
-            with ThreadPoolExecutor(max_workers=len(fetcher_items)) as executor:
+            # 线程数等于图源数，上限 4：图源过多时排队请求，降低触发风控的风险
+            with ThreadPoolExecutor(
+                max_workers=min(4, len(fetcher_items))
+            ) as executor:
                 futures = {
                     executor.submit(func): (name, source)
                     for name, func, source in fetcher_items
