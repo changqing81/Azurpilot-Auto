@@ -1246,7 +1246,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     f'下一步任务：侵蚀1练级'
                 ),
             )
-            with self.config.temporary(OpsiGeneral_BuyActionPointLimit=0):
+            with self._suspended_buy_action_point_limit():
                 while True:
                     try:
                         self._run_scheduled_hazard1_leveling(cl1_ap_preserve)
