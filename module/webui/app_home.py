@@ -1201,6 +1201,8 @@ class HomeMixin(WebUIMixinBase):
         body 背景，避免主题背景遮住 z-index 为负的视频层。
         """
         if is_video:
+            # 注意：模板含 CSS 百分号（width:100%），不能用 % 格式化，
+            # 用占位符替换注入 URL，避免 %; 被误认为格式符
             run_js(
                 """
                 (function () {
@@ -1220,7 +1222,7 @@ class HomeMixin(WebUIMixinBase):
                     if (old) { old.parentNode.removeChild(old); }
                     var video = document.createElement('video');
                     video.id = 'alas-bg-video';
-                    video.src = %s;
+                    video.src = __BG_URL__;
                     video.muted = true;
                     video.loop = true;
                     video.autoplay = true;
@@ -1230,8 +1232,7 @@ class HomeMixin(WebUIMixinBase):
                     var p = video.play();
                     if (p && p.catch) { p.catch(function () {}); }
                 })();
-                """
-                % json.dumps(image_url)
+                """.replace("__BG_URL__", json.dumps(image_url))
             )
             return
         run_js(
