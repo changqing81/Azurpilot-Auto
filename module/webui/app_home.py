@@ -163,6 +163,43 @@ _WALLPAPER_TOGGLE_JS = r"""
 })();
 """
 
+# 背景图前端竞赛脚本（幂等注入，常驻全局）：
+# 服务端把全部图源候选 URL 一次性交给浏览器，浏览器并发发起图片下载，
+# 实际最先下载完成的图立即成为背景——竞赛标准从"API 响应速度"升级为
+# "图片本体下载速度"，慢速 CDN 的图源不再拖慢背景显示。
+# 胜者记录在 window.__alasWallpaperWinner，供"下载当前背景图"功能读取，
+# 确保下载的就是用户当前看到的那张。
+# 全部候选 30 秒内都未加载完成时保留原背景并清空胜者记录。
+_WALLPAPER_RACE_JS = r"""
+(function () {
+    if (window.alasWallpaperRace) return;
+    window.alasWallpaperRace = function (candidates) {
+        var done = false;
+        var timer = null;
+        function finish(winner) {
+            if (done) return;
+            done = true;
+            if (timer) clearTimeout(timer);
+            window.__alasWallpaperWinner = winner || null;
+            if (winner && winner.url) {
+                document.documentElement.style.setProperty(
+                    '--alas-apple-bg-image',
+                    'url("' + winner.url + '")'
+                );
+            }
+        }
+        window.__alasWallpaperWinner = null;
+        candidates.forEach(function (c) {
+            var img = new Image();
+            img.onload = function () { finish(c); };
+            img.onerror = function () {};
+            img.src = c.url;
+        });
+        timer = setTimeout(function () { finish(null); }, 30000);
+    };
+})();
+"""
+
 
 class HomeMixin(WebUIMixinBase):
     """WebUI首页和会话运行"""
@@ -317,8 +354,9 @@ class HomeMixin(WebUIMixinBase):
 
         若用户启用了自定义背景且图片存在，则直接应用自定义背景；否则在后台
         线程并发尝试全部启用的图源（内置 LOLICON 多反代测速、imgapi.lie.moe，
-        以及用户添加的自定义 JSON 图源），先返回有效图片地址者胜出并应用，
-        成功后通过 JS 动态注入，避免网络请求阻塞页面首次渲染。
+        以及用户添加的自定义 JSON 图源），收集全部有效候选后交给前端竞赛，
+        浏览器并发下载候选图片，实际最快的图成为背景，避免网络请求阻塞页面
+        首次渲染，也避免慢速 CDN 的图片拖慢背景显示。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -335,7 +373,8 @@ class HomeMixin(WebUIMixinBase):
                 return
 
         def _fetch_wallpaper():
-            # 全部启用的图源并发请求，先返回有效图片地址者胜出
+            # 全部启用的图源并发请求，收集所有有效候选后交由前端
+            # 按图片本体下载速度竞赛，最快的图成为背景
             fetcher_items = []
             for source in self._load_sources():
                 if not source.get("enabled", True):
@@ -369,6 +408,7 @@ class HomeMixin(WebUIMixinBase):
                 logger.info("[WebUI] 没有启用的图源，已跳过")
                 return
 
+            candidates = []
             with ThreadPoolExecutor(max_workers=len(fetcher_items)) as executor:
                 futures = {
                     executor.submit(func): (name, source)
@@ -382,9 +422,12 @@ class HomeMixin(WebUIMixinBase):
                         logger.info(f"[WebUI] 图源 [{name}] 异常: {e}")
                         continue
                     if image_url:
-                        self._apply_wallpaper(image_url, source)
-                        return
-            logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
+                        candidates.append((image_url, source))
+
+            if not candidates:
+                logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
+                return
+            self._race_wallpaper(candidates)
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
@@ -478,24 +521,43 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] imgapi.lie.moe 获取图源失败: {e}")
             return None
 
-    def _apply_wallpaper(self, image_url, source=None):
-        """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。
+    def _race_wallpaper(self, candidates):
+        """把全部候选图片 URL 交给前端竞赛，实际下载最快的图成为背景。
 
-        source 为直链图源时额外记录其配置，供下载功能识别——直链源
-        服务端无法访问且每次请求返回新随机图，下载须交由浏览器处理。
+        candidates 为 (image_url, source) 列表。服务端先以第一个候选作为
+        兜底记录（前端竞赛结束前下载功能回退使用）；竞赛胜者由前端写入
+        window.__alasWallpaperWinner，下载功能读取该值以与实际显示保持
+        一致。source 为直链图源时额外记录其配置，供下载功能识别——直链
+        源服务端无法访问且每次请求返回新随机图，下载须交由浏览器处理。
         """
-        self.wallpaper_url = image_url
-        self._direct_wallpaper_source = (
-            source if (source and source.get("direct")) else None
-        )
-        logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
+        payload = []
+        seen = set()
+        for image_url, source in candidates:
+            if not image_url or image_url in seen:
+                continue
+            seen.add(image_url)
+            payload.append(
+                {
+                    "url": image_url,
+                    "name": (source or {}).get("name", "内置图源"),
+                    "direct": bool(source and source.get("direct")),
+                }
+            )
+        if not payload:
+            return
 
-        css_value = f'url("{image_url}")'
+        first = payload[0]
+        self.wallpaper_url = first["url"]
+        self._direct_wallpaper_source = (
+            {"name": first["name"]} if first["direct"] else None
+        )
+        logger.info(f"[WebUI] 候选背景图 {len(payload)} 张，等待前端竞赛胜出")
+
+        # 幂等注入竞赛脚本后触发竞赛（消息按序执行，脚本必然先于调用就绪）
+        run_js(_WALLPAPER_RACE_JS)
         run_js(
-            'document.documentElement.style.setProperty('
-            '"--alas-apple-bg-image", '
-            f'{json.dumps(css_value)}'
-            ');'
+            "window.alasWallpaperRace && window.alasWallpaperRace(%s);"
+            % json.dumps(payload)
         )
 
     # ---------- 图源管理 ----------
@@ -635,6 +697,8 @@ class HomeMixin(WebUIMixinBase):
         """清空当前背景地址并重新从随机图源拉取一张（自定义背景下不覆盖）。"""
         self.wallpaper_url = ""
         self._direct_wallpaper_source = None
+        # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图
+        run_js("window.__alasWallpaperWinner = null;")
         if self._load_background_mode() == "custom":
             return
         self.init_wallpaper()
@@ -1114,6 +1178,8 @@ class HomeMixin(WebUIMixinBase):
         # 重置后重新触发随机图源加载
         self.wallpaper_url = ""
         self._direct_wallpaper_source = None
+        # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图
+        run_js("window.__alasWallpaperWinner = null;")
         self.init_wallpaper()
         toast("已切换为随机背景", color="success")
 
@@ -1149,6 +1215,21 @@ class HomeMixin(WebUIMixinBase):
                 color="error",
             )
             return
+
+        # 前端竞赛已决出胜者时，以浏览器实际加载成功的图为准，
+        # 保证下载的就是用户当前看到的这张背景
+        try:
+            winner = eval_js("window.__alasWallpaperWinner || null")
+        except Exception as e:
+            logger.info(f"[WebUI] 读取前端背景图竞赛结果失败: {e}")
+            winner = None
+        if isinstance(winner, dict) and winner.get("url"):
+            self.wallpaper_url = winner["url"]
+            self._direct_wallpaper_source = (
+                {"name": winner.get("name", "未命名")}
+                if winner.get("direct")
+                else None
+            )
 
         # 直链图源：服务端请求会被站点防爬拦截（超时），且每次请求返回
         # 新的随机图，服务端下载既会失败、得到的图也与当前显示的不同。
