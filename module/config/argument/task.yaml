@@ -119,7 +119,6 @@ Event:
       - Emotion
     RaidScuttle:
       - Scheduler
-      - RaidScuttle
       - Raid
       - Campaign
       - StopCondition

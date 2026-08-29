@@ -5604,17 +5604,6 @@
         ]
       }
     },
-    "RaidScuttle": {
-      "Sacrifice": {
-        "type": "select",
-        "value": "vanguard",
-        "option": [
-          "vanguard",
-          "flagship",
-          "vanguard_flagship"
-        ]
-      }
-    },
     "Raid": {
       "Mode": {
         "type": "select",
