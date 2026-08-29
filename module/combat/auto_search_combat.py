@@ -410,16 +410,19 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
         self.device.click_record_clear()
         exp_info = False  # This is for the white screen bug in game
         withdraw_stable_timer = Timer(2)
-        # 结算阶段整体超时：与 combat_status 的 300s 超时对称。
+        # 结算阶段整体超时：与 combat_status 的阶段超时对称。
         # 结算点击会反复重置设备层计时器，动画循环卡死需在此兜底。
-        # 单场战斗结算 15~30s，含战败撤退弹窗链也不会超过 5 分钟。
-        combat_status_timer = Timer(300, count=0)
+        # 守护模式（DaemonBase）下 _combat_status_timeout 为 None，禁用超时。
+        combat_status_timer = None
+        if self._combat_status_timeout is not None:
+            combat_status_timer = Timer(self._combat_status_timeout, count=0)
 
         for _ in self.loop():
-            combat_status_timer.start()
-            if combat_status_timer.reached():
-                logger.warning(f'[自动搜索-结算] 结算阶段超过 {combat_status_timer.limit}s 未完成，判定卡死')
-                raise GameStuckError('[自动搜索-结算] 结算阶段超时')
+            if combat_status_timer is not None:
+                combat_status_timer.start()
+                if combat_status_timer.reached():
+                    logger.warning(f'[自动搜索-结算] 结算阶段超过 {combat_status_timer.limit}s 未完成，判定卡死')
+                    raise GameStuckError('[自动搜索-结算] 结算阶段超时')
 
             # End
             if self.is_auto_search_running():
