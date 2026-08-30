@@ -1719,7 +1719,17 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
         if rescan_mode == "full":
             logger.hr("完全重新扫描地图", level=2)
-            self.map_init(map_=None)
+            try:
+                self.map_init(map_=None)
+            except MapDetectionError:
+                # 地图初始化中的边缘滑动（ensure_edge_insight）把视角滑入
+                # 地图边缘/黑色虚空导致单应性持续无法识别时抛出。
+                # 钳制逻辑位于 map_swipe 之后，异常发生时来不及生效，
+                # 此处交给 map_rescan 优雅降级，不应炸掉整个任务
+                logger.warning(
+                    "[大世界-扫描] 完全重扫的地图初始化失败（画面持续无法识别），放弃本轮重扫"
+                )
+                return False
             queue = self.map.camera_data
             while len(queue) > 0:
                 logger.hr(f"重新扫描 {queue[0]}")
