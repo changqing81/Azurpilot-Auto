@@ -1,5 +1,7 @@
 """WebUI首页和会话运行"""
 import base64
+import re
+
 import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import partial
@@ -28,6 +30,7 @@ from module.webui.app_dependencies import (
     put_buttons,
     put_html,
     put_input,
+    put_link,
     put_markdown,
     put_text,
     radio as _p_radio,
@@ -41,6 +44,7 @@ from module.webui.app_dependencies import (
     toast,
     updater,
     use_scope,
+    popup,
 )
 
 
@@ -111,6 +115,25 @@ _CUSTOM_BG_MIMES = {
     ".bmp": "image/bmp",
 }
 
+# 视频背景扩展名 → MIME 映射（浏览器原生可播格式）
+_CUSTOM_VIDEO_MIMES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+}
+
+# 视频背景扩展名集合（浏览器原生可播格式），上传时跳过图片压缩
+_CUSTOM_VIDEO_EXTS = set(_CUSTOM_VIDEO_MIMES)
+
+# 视频内联 data URI 的体积上限：小视频随页面内联（远控 P2P 代理环境下
+# HTTP 二次请求会静默失败，项目早期图片背景已踩过此坑），大文件才走
+# HTTP 流式接口，避免把页面注入消息撑得过大
+_CUSTOM_VIDEO_INLINE_MAX_BYTES = 8 * 1024 * 1024
+
+# 图源 URL 的视频后缀识别（供前端竞赛用 video 元素加载）
+_VIDEO_URL_RE = re.compile(r"\.(mp4|m4v|webm|mov|ogv)(?:[?#]|$)", re.IGNORECASE)
+
 
 # 主页右下角"纯背景模式"圆点的常驻注入脚本。
 # 通过 JS 挂到 document 顶层，保证幂等且样式常驻：
@@ -158,6 +181,115 @@ _WALLPAPER_TOGGLE_JS = r"""
     };
     // 主页渲染默认显示
     document.body.classList.add('alas-wallpaper-toggle-visible');
+})();
+"""
+
+# 背景图前端竞赛脚本（幂等注入，常驻全局）：
+# 服务端把全部图源候选 URL 一次性交给浏览器，浏览器并发发起图片下载，
+# 实际最先下载完成的图立即成为背景——竞赛标准从"API 响应速度"升级为
+# "图片本体下载速度"，慢速 CDN 的图源不再拖慢背景显示。
+# 胜者记录在 window.__alasWallpaperWinner，供"下载当前背景图"功能读取，
+# 确保下载的就是用户当前看到的那张。
+# 全部候选 30 秒内都未加载完成时保留原背景并清空胜者记录；
+# 胜者决出后立即中止其余候选的下载，避免带宽浪费。
+_WALLPAPER_RACE_JS = r"""
+(function () {
+    if (window.alasWallpaperRace) return;
+    var done = false;
+    var timer = null;
+    var images = [];
+    function removeVideoBg() {
+        var v = document.getElementById('alas-bg-video');
+        if (v) { v.parentNode.removeChild(v); }
+    }
+    function finish(winner, el) {
+        if (done) return;
+        done = true;
+        if (timer) clearTimeout(timer);
+        window.__alasWallpaperWinner = winner || null;
+        // 冠军已决出，中止其余候选的下载，避免带宽浪费（已加载完成的不受影响）
+        images.forEach(function (item) {
+            if (item === el) return;
+            try { item.src = ''; } catch (e) {}
+        });
+        if (winner && winner.video && el) {
+            // 视频胜者：复用探测用的 video 元素铺满置底，静音循环播放。
+            // body 必须 background 整体透明（含背景色），否则主题的不透明
+            // 背景色会画在 z-index 为负的视频层之上，视频完全不可见。
+            // 主题背景色同时挂到 html 上作为兜底：html 背景传播到画布、
+            // 画在最底层，视频正常播放时被盖住，视频加载失败或缓冲中时
+            // 自动露出原主题背景，避免出现"全透明"的怪相（远控弱网/编码
+            // 不支持时尤其明显）
+            removeVideoBg();
+            var st = document.getElementById('alas-custom-bg-style');
+            if (!st) {
+                st = document.createElement('style');
+                st.id = 'alas-custom-bg-style';
+                document.head.appendChild(st);
+            }
+            st.textContent = 'body{background:transparent !important;}'
+                + 'html{background:var(--alas-apple-bg,#f5f5f7) !important;}'
+                + '#alas-bg-video{position:fixed;inset:0;width:100%;'
+                + 'height:100%;object-fit:cover;z-index:-1;pointer-events:none;}';
+            el.id = 'alas-bg-video';
+            el.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;'
+                + 'object-fit:cover;z-index:-1;pointer-events:none;';
+            el.loop = true;
+            el.setAttribute('playsinline', '');
+            el.setAttribute('webkit-playsinline', '');
+            document.body.appendChild(el);
+            // 播放中途出错（如解码失败）时移除视频并还原主题背景
+            el.onerror = function () {
+                removeVideoBg();
+                var s = document.getElementById('alas-custom-bg-style');
+                if (s) { s.parentNode.removeChild(s); }
+            };
+            var p = el.play();
+            if (p && p.catch) { p.catch(function () {}); }
+        } else if (winner && winner.url) {
+            removeVideoBg();
+            // 图片胜者：移除可能残留的自定义/视频背景 CSS，恢复主题背景变量生效
+            var st2 = document.getElementById('alas-custom-bg-style');
+            if (st2) { st2.parentNode.removeChild(st2); }
+            document.documentElement.style.setProperty(
+                '--alas-apple-bg-image',
+                'url("' + winner.url + '")'
+            );
+        }
+    }
+    function startOne(c) {
+        var el;
+        if (c.video) {
+            el = document.createElement('video');
+            el.muted = true;
+            el.preload = 'auto';
+            // iOS 必须内联播放声明，否则拒绝缓冲/播放（远控手机端黑屏主因）
+            el.setAttribute('playsinline', '');
+            el.setAttribute('webkit-playsinline', '');
+            el.oncanplay = function () { finish(c, el); };
+            el.onerror = function () {};
+            el.src = c.url;
+        } else {
+            el = new Image();
+            el.onload = function () { finish(c, el); };
+            el.onerror = function () {};
+            el.src = c.url;
+        }
+        images.push(el);
+    }
+    // 开赛：重置状态后并发加载全部候选（图片与视频混合竞赛）
+    window.alasWallpaperRace = function (candidates) {
+        done = false;
+        images = [];
+        if (timer) clearTimeout(timer);
+        window.__alasWallpaperWinner = null;
+        timer = setTimeout(function () { finish(null); }, 30000);
+        candidates.forEach(startOne);
+    };
+    // 增量加入：后到的候选仅在竞赛尚未决出胜负时参与
+    window.alasWallpaperRaceAppend = function (c) {
+        if (!done) startOne(c);
+    };
 })();
 """
 
@@ -267,11 +399,17 @@ class HomeMixin(WebUIMixinBase):
                         "value": "sources",
                         "color": "light",
                     },
+                    {
+                        "label": "媒体类型",
+                        "value": "media",
+                        "color": "light",
+                    },
                 ],
                 onclick=[
                     self._upload_custom_background,
                     self._switch_to_random_background,
                     self._manage_wallpaper_sources,
+                    self._set_media_preference,
                 ],
             ).style("text-align: center")
             put_html('<div class="alas-home-marker" aria-hidden="true"></div>')
@@ -315,8 +453,9 @@ class HomeMixin(WebUIMixinBase):
 
         若用户启用了自定义背景且图片存在，则直接应用自定义背景；否则在后台
         线程并发尝试全部启用的图源（内置 LOLICON 多反代测速、imgapi.lie.moe，
-        以及用户添加的自定义 JSON 图源），先返回有效图片地址者胜出并应用，
-        成功后通过 JS 动态注入，避免网络请求阻塞页面首次渲染。
+        以及用户添加的自定义 JSON 图源），收集全部有效候选后交给前端竞赛，
+        浏览器并发下载候选图片，实际最快的图成为背景，避免网络请求阻塞页面
+        首次渲染，也避免慢速 CDN 的图片拖慢背景显示。
         """
         if getattr(self, "wallpaper_url", None):
             return
@@ -324,16 +463,36 @@ class HomeMixin(WebUIMixinBase):
         # 标记为空字符串，避免重复触发
         self.wallpaper_url = ""
 
-        # 用户启用了自定义背景且存在自定义图片时，直接应用并跳过随机图源
+        # 用户启用了自定义背景且存在自定义图片/视频时，直接应用并跳过随机图源
         if self._load_background_mode() == "custom":
-            image_url = self._custom_background_data_uri()
-            if image_url:
-                self._inject_custom_background(image_url)
-                logger.info("[WebUI] 已应用自定义背景")
+            url, is_video = self._custom_background_url()
+            if url:
+                if is_video:
+                    # 视频 data URI 体积大，延后注入让页面先渲染，
+                    # 避免大消息阻塞后续 UI 消息导致远控下白屏数秒
+                    def _inject_video_later():
+                        time.sleep(1.5)
+                        try:
+                            self._inject_custom_background(url, True)
+                            logger.info("[WebUI] 已应用自定义视频背景")
+                        except Exception as e:
+                            logger.warning(f"[WebUI] 注入视频背景失败: {e}")
+
+                    # 线程内调用 run_js 必须注册到当前会话，否则报
+                    # "Can't find current session"
+                    inject_thread = threading.Thread(
+                        target=_inject_video_later, daemon=True
+                    )
+                    register_thread(inject_thread)
+                    inject_thread.start()
+                else:
+                    self._inject_custom_background(url, is_video)
+                    logger.info("[WebUI] 已应用自定义背景")
                 return
 
         def _fetch_wallpaper():
-            # 全部启用的图源并发请求，先返回有效图片地址者胜出
+            # 全部启用的图源并发请求；首个有效候选到达立即开赛，
+            # 后到的候选增量加入竞赛，避免被最慢图源的超时卡住
             fetcher_items = []
             for source in self._load_sources():
                 if not source.get("enabled", True):
@@ -341,13 +500,18 @@ class HomeMixin(WebUIMixinBase):
                 source_type = source.get("type")
                 if source_type == "lolicon":
                     fetcher_items.append(
-                        (source.get("name", "LOLICON"), self._fetch_lolicon_wallpaper)
+                        (
+                            source.get("name", "LOLICON"),
+                            self._fetch_lolicon_wallpaper,
+                            None,
+                        )
                     )
                 elif source_type == "imgapi":
                     fetcher_items.append(
                         (
                             source.get("name", "imgapi.lie.moe"),
                             self._fetch_imgapi_wallpaper,
+                            None,
                         )
                     )
                 else:
@@ -355,27 +519,55 @@ class HomeMixin(WebUIMixinBase):
                         (
                             source.get("name", "自定义"),
                             partial(self._fetch_custom_source, source),
+                            source,
                         )
                     )
             if not fetcher_items:
                 logger.info("[WebUI] 没有启用的图源，已跳过")
                 return
 
-            with ThreadPoolExecutor(max_workers=len(fetcher_items)) as executor:
+            raced = False
+            # 媒体类型偏好：仅图片 / 仅视频 / 混合（auto），不符的候选直接丢弃
+            media = self._load_media_preference()
+            # 线程数等于图源数，上限 4：图源过多时排队请求，降低触发风控的风险
+            with ThreadPoolExecutor(
+                max_workers=min(4, len(fetcher_items))
+            ) as executor:
                 futures = {
-                    executor.submit(func): name
-                    for name, func in fetcher_items
+                    executor.submit(func): (name, source)
+                    for name, func, source in fetcher_items
                 }
                 for fut in as_completed(futures):
+                    name, source = futures[fut]
                     try:
                         image_url = fut.result()
                     except Exception as e:
-                        logger.info(f"[WebUI] 图源 [{futures[fut]}] 异常: {e}")
+                        logger.info(f"[WebUI] 图源 [{name}] 异常: {e}")
                         continue
-                    if image_url:
-                        self._apply_wallpaper(image_url)
-                        return
-            logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
+                    if not image_url:
+                        continue
+                    is_video = bool(_VIDEO_URL_RE.search(image_url))
+                    if (media == "image" and is_video) or (
+                        media == "video" and not is_video
+                    ):
+                        logger.info(
+                            f"[WebUI] 图源 [{name}] 返回的媒体类型与偏好不符，已跳过"
+                        )
+                        continue
+                    if not raced:
+                        self._race_wallpaper(image_url, source)
+                        raced = True
+                    else:
+                        self._append_race_candidate(image_url, source)
+
+            if not raced:
+                if media == "auto":
+                    logger.info("[WebUI] 所有图源获取壁纸失败，已跳过")
+                else:
+                    logger.info(
+                        f"[WebUI] 媒体类型偏好为 {'仅视频' if media == 'video' else '仅图片'}，"
+                        "但没有任何启用的图源返回该类型媒体，背景保持不变"
+                    )
 
         thread = threading.Thread(target=_fetch_wallpaper, daemon=True)
         register_thread(thread)
@@ -469,17 +661,40 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] imgapi.lie.moe 获取图源失败: {e}")
             return None
 
-    def _apply_wallpaper(self, image_url):
-        """应用壁纸：记录 URL 并通过 JS 注入 CSS 变量切换背景。"""
-        self.wallpaper_url = image_url
-        logger.info(f"[WebUI] 当前背景图: {self.wallpaper_url}")
+    def _race_wallpaper(self, image_url, source=None):
+        """用首个候选开启前端图片竞赛，实际下载最快的图成为背景。
 
-        css_value = f'url("{image_url}")'
+        服务端以该候选作为兜底记录（前端竞赛结束前下载功能回退使用）；
+        竞赛胜者由前端写入 window.__alasWallpaperWinner，下载功能读取该值
+        以与实际显示保持一致。source 为直链图源时额外记录其配置，供下载
+        功能识别——直链源服务端无法访问且每次请求返回新随机图，下载须交
+        由浏览器处理。后续到达的候选由 _append_race_candidate 增量加入。
+        """
+        self.wallpaper_url = image_url
+        self._direct_wallpaper_source = (
+            {"name": (source or {}).get("name", "内置图源")}
+            if source and source.get("direct")
+            else None
+        )
+        logger.info(f"[WebUI] 首个候选背景图就绪，开启前端竞赛: {image_url}")
+
+        # 幂等注入竞赛脚本后触发竞赛（消息按序执行，脚本必然先于调用就绪）
+        run_js(_WALLPAPER_RACE_JS)
+        self._append_race_candidate(image_url, source)
+
+    def _append_race_candidate(self, image_url, source=None):
+        """把单个候选加入尚未决出胜负的前端竞赛（已决出则忽略）。"""
+        if not image_url:
+            return
+        payload = {
+            "url": image_url,
+            "name": (source or {}).get("name", "内置图源"),
+            "direct": bool(source and source.get("direct")),
+            "video": bool(_VIDEO_URL_RE.search(image_url)),
+        }
         run_js(
-            'document.documentElement.style.setProperty('
-            '"--alas-apple-bg-image", '
-            f'{json.dumps(css_value)}'
-            ');'
+            "window.alasWallpaperRaceAppend && "
+            f"window.alasWallpaperRaceAppend({json.dumps(payload)});"
         )
 
     # ---------- 图源管理 ----------
@@ -577,6 +792,16 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] API 地址无效")
             return None
         params = source.get("params") or {}
+
+        # 直链模式：跳过服务端探测，直接把 API 地址交给浏览器加载。
+        # 部分站点（如 i.mukyu.ru）对非浏览器请求拖延响应，服务端探测
+        # 必然超时，但浏览器可以正常访问，此时直链模式是唯一可行路径。
+        if source.get("direct"):
+            if params:
+                query = urlencode(params)
+                url += ("&" if "?" in url else "?") + query
+            return url
+
         try:
             response = requests.get(
                 url,
@@ -605,9 +830,70 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] 自定义图源 [{source.get('name')}] 获取失败: {e}")
             return None
 
+    def _set_media_preference(self) -> None:
+        """设置随机背景的媒体类型偏好：仅图片 / 仅视频 / 混合。"""
+        current = self._load_media_preference()
+        resp = input_group(
+            "背景媒体类型",
+            [
+                _p_radio(
+                    label="随机背景使用的媒体类型",
+                    name="media",
+                    options=[
+                        {
+                            "label": "仅图片",
+                            "value": "image",
+                            "selected": current == "image",
+                        },
+                        {
+                            "label": "仅视频",
+                            "value": "video",
+                            "selected": current == "video",
+                        },
+                        {
+                            "label": "混合（图片和视频一起竞赛）",
+                            "value": "auto",
+                            "selected": current == "auto",
+                        },
+                    ],
+                    required=True,
+                ),
+                actions(
+                    name="cmd",
+                    buttons=[
+                        {
+                            "label": "确定",
+                            "value": "confirm",
+                            "type": "submit",
+                            "color": "primary",
+                        },
+                        {
+                            "label": "取消",
+                            "type": "cancel",
+                        },
+                    ],
+                ),
+            ],
+        )
+        if resp is None:
+            return
+        media = resp["media"]
+        self._save_media_preference(media)
+        label = {"image": "仅图片", "video": "仅视频", "auto": "混合"}.get(
+            media, media
+        )
+        toast(f"背景媒体类型已切换: {label}", color="success")
+        # 自定义背景下偏好暂不生效，切回随机背景后起作用
+        if self._load_background_mode() == "custom":
+            return
+        self._refresh_random_wallpaper()
+
     def _refresh_random_wallpaper(self) -> None:
         """清空当前背景地址并重新从随机图源拉取一张（自定义背景下不覆盖）。"""
         self.wallpaper_url = ""
+        self._direct_wallpaper_source = None
+        # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图
+        run_js("window.__alasWallpaperWinner = null;")
         if self._load_background_mode() == "custom":
             return
         self.init_wallpaper()
@@ -686,6 +972,12 @@ class HomeMixin(WebUIMixinBase):
                     value=_DEFAULT_IMAGE_PATH,
                 ),
                 _p_radio(
+                    label="直链模式（API 直接返回图片但服务端探测超时时选是，跳过探测由浏览器直接加载）",
+                    name="direct",
+                    options=["否（自动识别，默认）", "是"],
+                    value="否（自动识别，默认）",
+                ),
+                _p_radio(
                     label="是否启用",
                     name="enabled",
                     options=["是", "否"],
@@ -733,6 +1025,7 @@ class HomeMixin(WebUIMixinBase):
                     (resp.get("image_path") or _DEFAULT_IMAGE_PATH).strip()
                     or _DEFAULT_IMAGE_PATH
                 ),
+                "direct": resp.get("direct") == "是",
                 "enabled": resp.get("enabled") == "是",
             }
         )
@@ -905,42 +1198,131 @@ class HomeMixin(WebUIMixinBase):
             return "random"
 
     def _save_background_mode(self, mode: str) -> None:
-        """保存当前背景模式："random" 随机图源 / "custom" 自定义图片。"""
+        """保存当前背景模式："random" 随机图源 / "custom" 自定义图片或视频。
+
+        同文件中还持久化媒体类型偏好，写入时保留该字段避免被覆盖。
+        """
+        self._write_background_setting({"mode": mode})
+
+    def _load_media_preference(self) -> str:
+        """读取随机背景的媒体类型偏好。
+
+        "auto" 混合（默认）/ "image" 仅图片 / "video" 仅视频。
+        """
         try:
-            self._background_mode_file().write_text(
-                json.dumps({"mode": mode}), encoding="utf-8"
+            data = json.loads(
+                self._background_mode_file().read_text(encoding="utf-8")
+            )
+            return data.get("media", "auto")
+        except Exception:
+            return "auto"
+
+    def _save_media_preference(self, media: str) -> None:
+        """保存随机背景的媒体类型偏好，不影响同文件中的背景模式。"""
+        self._write_background_setting({"media": media})
+
+    def _write_background_setting(self, update: dict) -> None:
+        """向背景设置文件合并写入字段，保留其余字段。"""
+        try:
+            data = {}
+            setting_file = self._background_mode_file()
+            if setting_file.exists():
+                data = json.loads(setting_file.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                data = {}
+            data.update(update)
+            setting_file.write_text(
+                json.dumps(data), encoding="utf-8"
             )
         except Exception as e:
-            logger.warning(f"[WebUI] 保存背景模式失败: {e}")
+            logger.warning(f"[WebUI] 保存背景设置失败: {e}")
 
-    def _custom_background_data_uri(self) -> str:
-        """读取自定义背景文件并编码为 data URI。
+    def _custom_background_url(self) -> tuple:
+        """返回 (自定义背景地址, 是否视频)。
 
-        之前采用 HTTP 相对路径 URL（images/custom-background），远控环境下
-        浏览器解析基准、P2P 代理转发或低带宽静默失败任一环节出问题都会导致
-        背景不显示且难以排查；而 data URI 随页面注入、不发起任何二次请求，
-        在本地/远控行为完全一致。图片已在保存时服务端压缩（最长边
-        _CUSTOM_BG_MAX_EDGE + JPEG 质量 _CUSTOM_BG_JPEG_QUALITY），
-        内联体积可控。无自定义图片时返回空字符串。
+        图片与 8MB 以内的小视频统一走 data URI：随页面注入、不发起任何
+        二次请求，本地/远控（P2P 代理）行为完全一致——项目早期图片背景
+        用 HTTP 相对路径时在远控环境静默失败过，视频复用此结论。超过
+        体积上限的大视频才走 HTTP 流式接口 /api/custom_background_video
+        （FileResponse 支持 Range 请求）。无自定义背景文件时返回 ("", False)。
         """
         try:
             files = sorted(self._wallpapers_dir().glob("custom_background.*"))
             if not files:
-                return ""
-            content = files[0].read_bytes()
-            mime = _CUSTOM_BG_MIMES.get(files[0].suffix.lower(), "image/jpeg")
+                return "", False
+            f = files[0]
+            suffix = f.suffix.lower()
+            if suffix in _CUSTOM_VIDEO_EXTS:
+                if f.stat().st_size <= _CUSTOM_VIDEO_INLINE_MAX_BYTES:
+                    content = f.read_bytes()
+                    mime = _CUSTOM_VIDEO_MIMES.get(suffix, "video/mp4")
+                    encoded = base64.b64encode(content).decode("ascii")
+                    return f"data:{mime};base64,{encoded}", True
+                return "/api/custom_background_video", True
+            content = f.read_bytes()
+            mime = _CUSTOM_BG_MIMES.get(suffix, "image/jpeg")
             encoded = base64.b64encode(content).decode("ascii")
-            return f"data:{mime};base64,{encoded}"
+            return f"data:{mime};base64,{encoded}", False
         except Exception as e:
             logger.warning(f"[WebUI] 读取自定义背景失败: {e}")
-            return ""
+            return "", False
 
-    def _inject_custom_background(self, image_url: str) -> None:
-        """注入自定义背景：以带 !important 的 body 规则覆盖所有主题背景。
+    def _inject_custom_background(self, image_url: str, is_video: bool = False) -> None:
+        """注入自定义背景，对所有主题生效。
 
-        image_url 通常为 data URI（见 _custom_background_data_uri），
-        仅注入短小的 CSS 规则，图片数据由浏览器直接解码显示。
+        图片：以带 !important 的 body 规则覆盖所有主题背景，仅注入短小的
+        CSS 规则；视频：注入置底 <video> 元素（静音循环自动播放）并清空
+        body 背景，避免主题背景遮住 z-index 为负的视频层。
         """
+        if is_video:
+            # 注意：模板含 CSS 百分号（width:100%），不能用 % 格式化，
+            # 用占位符替换注入 URL，避免 %; 被误认为格式符。
+            # body 必须 background 整体透明（含背景色）：z-index 为负的视频
+            # 画在 body 背景之后，主题的不透明背景色会完全盖住视频层。
+            # 主题背景色挂到 html 上兜底：html 背景画在画布最底层，视频正常
+            # 播放时被盖住，视频解码失败/缓冲中时自动露出原主题背景，
+            # 避免"全透明"怪相（远控手机端编码不支持或弱网时尤其明显）
+            run_js(
+                """
+                (function () {
+                    var css = 'body{background:transparent !important;}'
+                        + 'html{background:var(--alas-apple-bg,#f5f5f7) !important;}'
+                        + '#alas-bg-video{position:fixed;inset:0;width:100%;'
+                        + 'height:100%;object-fit:cover;z-index:-1;'
+                        + 'pointer-events:none;}';
+                    var style = document.getElementById('alas-custom-bg-style');
+                    if (style) { style.textContent = css; }
+                    else {
+                        style = document.createElement('style');
+                        style.id = 'alas-custom-bg-style';
+                        style.textContent = css;
+                        document.head.appendChild(style);
+                    }
+                    var old = document.getElementById('alas-bg-video');
+                    if (old) { old.parentNode.removeChild(old); }
+                    var video = document.createElement('video');
+                    video.id = 'alas-bg-video';
+                    video.src = __BG_URL__;
+                    video.muted = true;
+                    video.loop = true;
+                    video.autoplay = true;
+                    video.playsInline = true;
+                    video.setAttribute('playsinline', '');
+                    video.setAttribute('webkit-playsinline', '');
+                    // 解码失败（编码不支持/文件损坏）时移除视频并还原主题背景
+                    video.onerror = function () {
+                        var v = document.getElementById('alas-bg-video');
+                        if (v) { v.parentNode.removeChild(v); }
+                        var s = document.getElementById('alas-custom-bg-style');
+                        if (s) { s.parentNode.removeChild(s); }
+                    };
+                    document.body.appendChild(video);
+                    var p = video.play();
+                    if (p && p.catch) { p.catch(function () {}); }
+                })();
+                """.replace("__BG_URL__", json.dumps(image_url))
+            )
+            return
         run_js(
             """
             (function () {
@@ -965,22 +1347,24 @@ class HomeMixin(WebUIMixinBase):
         )
 
     def _clear_custom_background(self) -> None:
-        """移除自定义背景注入样式，恢复主题默认背景。"""
+        """移除自定义背景注入样式与视频元素，恢复主题默认背景。"""
         run_js(
             "(function(){var el=document.getElementById('alas-custom-bg-style');"
-            "if(el){el.parentNode.removeChild(el);}})();"
+            "if(el){el.parentNode.removeChild(el);}"
+            "var v=document.getElementById('alas-bg-video');"
+            "if(v){v.parentNode.removeChild(v);}})();"
         )
 
     def _upload_custom_background(self) -> None:
-        """上传自定义背景图片并立即应用，同时对所有主题生效。"""
+        """上传自定义背景图片或视频并立即应用，同时对所有主题生效。"""
         resp = input_group(
             label="上传自定义背景",
             inputs=[
                 file_upload(
-                    label="选择图片（PNG/JPG/WebP 等）",
+                    label="选择图片或视频（PNG/JPG/WebP/MP4/WebM 等）",
                     name="file",
-                    placeholder="选择图片",
-                    accept="image/*",
+                    placeholder="选择图片或视频",
+                    accept="image/*,video/mp4,video/webm,video/quicktime",
                     required=True,
                 ),
                 actions(
@@ -1009,11 +1393,13 @@ class HomeMixin(WebUIMixinBase):
         filename = upload["filename"]
 
         ext = Path(filename).suffix.lower()
-        if ext not in _CUSTOM_BG_MIMES:
+        if ext not in _CUSTOM_BG_MIMES and ext not in _CUSTOM_VIDEO_EXTS:
             ext = ".png"
 
-        # 压缩图片体积，远控低带宽环境下加载更快
-        content, ext = self._compress_custom_background_bytes(content, ext)
+        # 视频不重编码（浏览器原生解码，服务端重编码得不偿失）；图片压缩体积
+        is_video = ext in _CUSTOM_VIDEO_EXTS
+        if not is_video:
+            content, ext = self._compress_custom_background_bytes(content, ext)
 
         wallpapers_dir = self._wallpapers_dir()
         wallpapers_dir.mkdir(parents=True, exist_ok=True)
@@ -1024,7 +1410,8 @@ class HomeMixin(WebUIMixinBase):
         target.write_bytes(content)
 
         self._save_background_mode("custom")
-        self._inject_custom_background(self._custom_background_data_uri())
+        url, is_video = self._custom_background_url()
+        self._inject_custom_background(url, is_video)
         toast(f"自定义背景已应用: {target.resolve()}", color="success")
         logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
 
@@ -1079,6 +1466,9 @@ class HomeMixin(WebUIMixinBase):
         self._clear_custom_background()
         # 重置后重新触发随机图源加载
         self.wallpaper_url = ""
+        self._direct_wallpaper_source = None
+        # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图
+        run_js("window.__alasWallpaperWinner = null;")
         self.init_wallpaper()
         toast("已切换为随机背景", color="success")
 
@@ -1115,15 +1505,54 @@ class HomeMixin(WebUIMixinBase):
             )
             return
 
+        # 前端竞赛已决出胜者时，以浏览器实际加载成功的图为准，
+        # 保证下载的就是用户当前看到的这张背景
+        try:
+            winner = eval_js("window.__alasWallpaperWinner || null")
+        except Exception as e:
+            logger.info(f"[WebUI] 读取前端背景图竞赛结果失败: {e}")
+            winner = None
+        if isinstance(winner, dict) and winner.get("url"):
+            self.wallpaper_url = winner["url"]
+            self._direct_wallpaper_source = (
+                {"name": winner.get("name", "未命名")}
+                if winner.get("direct")
+                else None
+            )
+
+        # 直链图源：服务端请求会被站点防爬拦截（超时），且每次请求返回
+        # 新的随机图，服务端下载既会失败、得到的图也与当前显示的不同。
+        # 改为弹窗提供链接，由浏览器直接打开图片后用户自行另存。
+        if getattr(self, "_direct_wallpaper_source", None):
+            source = self._direct_wallpaper_source
+            popup(
+                "保存直链图源图片",
+                [
+                    put_text(
+                        f"图源 [{source.get('name', '未命名')}] 为直链随机图源："
+                        "每次请求都会返回不同的图片，且该站点拦截服务端请求，"
+                        "无法由服务端代为下载当前显示的这张。"
+                    ),
+                    put_text("请点击下方链接在新标签页打开图片，然后在图片上右键另存："),
+                    put_link("打开图片", url=self.wallpaper_url),
+                ],
+                size="middle",
+            )
+            return
+
+        # 视频体积大，下载超时放宽；扩展名回退用 .mp4
+        is_video = bool(_VIDEO_URL_RE.search(self.wallpaper_url))
         try:
             response = requests.get(
                 self.wallpaper_url,
-                timeout=10,
+                timeout=60 if is_video else 10,
             )
             response.raise_for_status()
 
-            # 按 URL 后缀推断图片格式，避免一律存成 .jpg 与实际格式不符
-            ext = Path(urlparse(self.wallpaper_url).path).suffix or ".jpg"
+            # 按 URL 后缀推断格式，避免一律存成 .jpg 与实际格式不符
+            ext = Path(urlparse(self.wallpaper_url).path).suffix or (
+                ".mp4" if is_video else ".jpg"
+            )
             filename = time.strftime(f"wallpaper_%Y-%m-%d_%H-%M-%S{ext}")
 
             # 统一保存到项目根目录下的 wallpapers 文件夹，目录不存在时自动创建

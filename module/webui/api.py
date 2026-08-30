@@ -24,6 +24,7 @@ _ = get_distribution
 
 from adbutils import AdbError, Network
 from starlette.responses import (
+    FileResponse,
     HTMLResponse,
     JSONResponse,
     StreamingResponse,
@@ -48,6 +49,35 @@ from module.webui.lang import t
 
 def is_demo_mode():
     return os.environ.get("DEMO") == "1"
+
+
+# 自定义背景视频扩展名 → MIME 映射（浏览器原生可播格式）
+_CUSTOM_VIDEO_MIMES = {
+    ".mp4": "video/mp4",
+    ".m4v": "video/mp4",
+    ".webm": "video/webm",
+    ".mov": "video/quicktime",
+}
+
+
+def api_custom_background_video(request):
+    """提供自定义背景视频文件。
+
+    视频体积大且需要流式缓冲与拖动，不适合内联 data URI，改走 HTTP 接口；
+    FileResponse 自带 Range 请求支持，浏览器可边下边播、可拖进度。
+    """
+    from pathlib import Path
+
+    video_dir = Path(__file__).resolve().parents[2] / "wallpapers"
+    files = sorted(video_dir.glob("custom_background.*"))
+    if files and files[0].suffix.lower() in _CUSTOM_VIDEO_MIMES:
+        f = files[0]
+        return FileResponse(
+            f,
+            media_type=_CUSTOM_VIDEO_MIMES[f.suffix.lower()],
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse({"error": "no custom background video"}, status_code=404)
 
 
 def api_cl1_stats(request):
@@ -1682,6 +1712,7 @@ async def api_import_legacy_upload(request):
 
 api_routes = [
     Route("/api/cl1_stats", api_cl1_stats),
+    Route("/api/custom_background_video", api_custom_background_video),
     Route("/api/ap_timeline", api_ap_timeline),
     Route("/api/notify", api_notify, methods=["POST"]),
     Route("/api/notify_stream", api_notify_stream),

@@ -218,11 +218,15 @@ def func(
         logger.error("[GUI] 提供了SSL证书但未提供密钥。请同时提供SSL密钥和证书。")
 
     # 通配地址显式创建两个 socket，避免 Windows 将 IPv6 wildcard 作为仅 IPv6 监听。
+    # WebSocket 单条消息上限：pywebio file_upload 把整个文件 base64 后放单条
+    # WebSocket 消息传输，uvicorn 默认 16MB（文件实际上限约 12MB）会导致大视频
+    # 上传中途断连；调大到 256MB 以支持约 180MB 以内的背景视频
     try:
         uvicorn_options = {
             "host": host,
             "port": port,
             "factory": True,
+            "ws_max_size": 256 * 1024 * 1024,
         }
         if ssl:
             uvicorn_options.update(

@@ -152,13 +152,16 @@ class ActionPointHandler(UI, MapEventHandler):
     @staticmethod
     def _is_in_month_end_purchase_block_week():
         """
-        判断当前是否处于月末购买封锁周。
+        判断当前是否处于月末购买封锁期。
 
-        在包含下个服务器月第一天的自然周（周一至周日）内，封锁每周行动力购买。
-        进入下个服务器月后，购买将重新可用。
+        封锁区间：从包含下个服务器月第一天的自然周的周一 0 点开始，
+        至下月 1 号 0 点（新月开始）结束——进入新月后购买立即可用。
+
+        示例（31 号为周一、1 号为周二）：
+            8/31 封锁，9/1 起恢复，不拖到下一周。
 
         Returns:
-            bool: 是否处于月末封锁周。
+            bool: 是否处于月末封锁期。
         """
         diff = server_time_offset()
         server_now = current_time() - diff
@@ -166,9 +169,10 @@ class ActionPointHandler(UI, MapEventHandler):
             hour=0, minute=0, second=0, microsecond=0
         )
         next_month_start = next_month.replace(day=1)
-        current_week_start = server_now.date() - timedelta(days=server_now.weekday())
-        next_month_week_start = next_month_start.date() - timedelta(days=next_month_start.weekday())
-        return current_week_start == next_month_week_start
+        # 封锁起点：包含下月 1 号的自然周的周一
+        block_start = next_month_start.date() - timedelta(days=next_month_start.weekday())
+        # 终点：下月 1 号 0 点（新月开始即恢复购买）
+        return block_start <= server_now.date() < next_month_start.date()
 
     def _is_in_action_point(self):
         return self.appear(ACTION_POINT_USE, offset=(20, 20))
@@ -386,12 +390,8 @@ class ActionPointHandler(UI, MapEventHandler):
         buy_max = 5  # 当前版本中，玩家每周可购买 5 次行动力
         buy_count = buy_max - current
         buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
-        if buy_limit <= 0 and current < buy_max:
-            logger.info(
-                f'[大世界-行动点] BuyActionPointLimit 为 {buy_limit}（临时覆盖残留），'
-                f'OCR 显示剩余 {current} 次，按游戏上限 {buy_max} 恢复'
-            )
-            buy_limit = buy_max
+        # 注：BuyActionPointLimit <= 0 表示用户选择不购买（由调用方的 >0 条件拦截），
+        # 不再做「临时覆盖残留」恢复——残留自愈由智能调度入口凭状态备份完成。
         if self._is_in_month_end_purchase_block_week():
             logger.info('[大世界-行动点] 跳过本周购买行动点，因为是月末封锁周')
             return False

@@ -1719,28 +1719,40 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
         if rescan_mode == "full":
             logger.hr("完全重新扫描地图", level=2)
-            self.map_init(map_=None)
+            try:
+                self.map_init(map_=None)
+            except MapDetectionError:
+                # 地图初始化中的边缘滑动（ensure_edge_insight）把视角滑入
+                # 地图边缘/黑色虚空导致单应性持续无法识别时抛出。
+                # 钳制逻辑位于 map_swipe 之后，异常发生时来不及生效，
+                # 此处交给 map_rescan 优雅降级，不应炸掉整个任务
+                logger.warning(
+                    "[大世界-扫描] 完全重扫的地图初始化失败（画面持续无法识别），放弃本轮重扫"
+                )
+                return False
             queue = self.map.camera_data
             while len(queue) > 0:
                 logger.hr(f"重新扫描 {queue[0]}")
                 queue = queue.sort_by_camera_distance(self.camera)
-                if not self.focus_to(queue[0], swipe_limit=(6, 5)):
-                    # 摄像机顶死边缘无法聚焦到该区域，跳过避免无效检测
-                    logger.warning(
-                        f"[大世界-扫描] 无法聚焦到 {queue[0]}，跳过该区域的重扫"
-                    )
-                    queue = queue[1:]
-                    continue
-
                 try:
+                    if not self.focus_to(queue[0], swipe_limit=(6, 5)):
+                        # 摄像机顶死边缘无法聚焦到该区域，跳过避免无效检测
+                        logger.warning(
+                            f"[大世界-扫描] 无法聚焦到 {queue[0]}，跳过该区域的重扫"
+                        )
+                        queue = queue[1:]
+                        continue
+
                     self.focus_to_grid_center(0.3)
                     if self.map_rescan_current(drop=drop):
                         result = True
                         break
                 except MapDetectionError:
                     # 单个区域检测失败不应炸掉整个重扫流程
+                    # focus_to 内部的 map_swipe -> update() 在画面持续无法识别
+                    # （如滑入地图边缘黑色虚空、模拟器黑帧）时也会抛出该异常
                     logger.warning(
-                        f"[大世界-扫描] 区域 {self.camera} 重扫时地图检测失败，跳过"
+                        f"[大世界-扫描] 区域 {queue[0]} 聚焦/重扫时地图检测失败，跳过"
                     )
                 queue = queue[1:]
         return result
