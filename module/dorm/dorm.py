@@ -12,7 +12,6 @@
 """
 import time
 import typing as t
-from datetime import timedelta
 
 from module.base.button import ButtonGrid
 from module.base.decorator import Config, cached_property
@@ -20,8 +19,6 @@ from module.base.filter import Filter
 from module.base.mask import Mask
 from module.base.timer import Timer
 from module.base.utils import *
-from module.config.deep import deep_get
-from module.config.utils import get_server_next_update
 from module.dorm.assets import *
 from module.dorm.buy_furniture import BuyFurniture
 from module.handler.assets import POPUP_CONFIRM
@@ -683,26 +680,6 @@ class RewardDorm(UI):
         delay = dict_delay.get(ships, self.config.Scheduler_SuccessInterval)
         return delay
 
-    def _parse_random_delay(self):
-        """
-        解析 Restart.RandomDelay 配置，返回随机延迟分钟数。
-
-        使用 deep_get 直接从配置数据读取，避免 bind() 未绑定 Restart 任务组导致
-        getattr(self.config, 'Restart_RandomDelay') 返回默认值而非实际配置值的问题。
-
-        Returns:
-            int: 随机延迟分钟数，用于确保宿舍任务在重启后执行。
-        """
-        random_delay = deep_get(self.config.data, keys='Restart.Restart.RandomDelay', default=0)
-        if isinstance(random_delay, list) and len(random_delay) == 2:
-            random_delay = tuple(random_delay)
-        try:
-            delay = int(ensure_time(random_delay, n=1, precision=0))
-        except (TypeError, ValueError):
-            logger.warning(f'[宿舍] 无效的重启随机延后设置: {random_delay}, 使用 0 分钟')
-            delay = 0
-        return max(delay, 0)
-
     def run(self):
         """
         执行宿舍任务的主入口。
@@ -720,11 +697,8 @@ class RewardDorm(UI):
                       collect=self.config.Dorm_Collect,
                       buy_furniture=self.config.BuyFurniture_Enable)
 
-        # Scheduler — 基于重启时间计算宿舍下次执行时间
+        # Scheduler
         ships = self.get_dorm_ship_amount()
         delay = self.cal_dorm_delay(ships)
-        random_delay_minutes = self._parse_random_delay()
-        next_run = get_server_next_update(self.config.Scheduler_ServerUpdate) + timedelta(minutes=random_delay_minutes) + timedelta(minutes=delay)
-        logger.info(f'[宿舍-调度] 宿舍舰船数: {ships}, 任务延迟: {delay} 分钟, 重启随机延迟: {random_delay_minutes} 分钟')
-        logger.info(f'[宿舍-调度] 下次执行时间: {next_run}')
-        self.config.task_delay(target=next_run)
+        logger.info(f'[宿舍-调度] 宿舍舰船数: {ships}, 任务延迟: {delay}')
+        self.config.task_delay(minute=delay)
