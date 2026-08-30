@@ -35,7 +35,7 @@ from module.config.utils import get_os_reset_remain, server_time_offset
 
 from module.logger import logger
 from module.os.map import OSMap
-from module.os_handler.action_point import ActionPointLimit
+from module.os_handler.action_point import ACTION_POINTS_COST, ActionPointLimit
 
 
 class CoinTaskMixin:
@@ -113,6 +113,26 @@ class CoinTaskMixin:
     TASK_NAME_ABYSSAL = 'OpsiAbyssal'
     TASK_NAME_STRONGHOLD = 'OpsiStronghold'
     AP_NOTIFY_MIN_INTERVAL_MINUTES = 30
+
+    # ==================== 会话级行动力预算 ====================
+    # 分发黄币补充任务前，把「当前行动力」集中补足到会话预算，
+    # 覆盖进图消耗与会话内后续消耗（战略搜索、地图指令），
+    # 避免进图后行动力断粮、被迫频繁回港口或中途小口用药。
+    # 深渊坐标进图消耗：侵蚀5-6 为 100，低档 80，取高档保守值
+    COIN_TASK_BUDGET_ABYSSAL = 100
+    # 隐秘海域进图消耗：金色坐标 40、紫色 20，取保守值
+    COIN_TASK_BUDGET_OBSCURE = 40
+    # 塞壬要塞进图固定 200，加侦查指令最多 10
+    COIN_TASK_BUDGET_STRONGHOLD = 210
+    # 耄耋相接指定海域循环：进图 30 + 3 轮战略搜索（侵蚀5），沿用 cost=120 语义
+    COIN_TASK_BUDGET_MEOW_STAY_IN_ZONE = 120
+    # 侦查/潜艇指令余量（侦查最多 10 点、潜艇最多 39 点）
+    RECON_ORDER_MARGIN = 10
+    SUBMARINE_ORDER_MARGIN = 40
+    # 运行时标志：外层已为当前黄币补充任务集中补足会话预算
+    _coin_task_ap_budgeted = False
+    # 运行时标志：月末清理行动力循环正在运行（消耗型上下文，不做预算补充）
+    _month_end_cleanup_running = False
 
     def _config_enabled(self, keys, default=False):
         """
@@ -1404,7 +1424,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     task_display = self.TASK_NAMES.get(task_name, task_name)
                     logger.info(f'[大世界-买行动力] 执行海域任务: {task_display}')
                     try:
-                        success = self._run_scheduled_coin_task_once(task_name, 0)
+                        success = self._run_scheduled_coin_task_once(task_name, 0, ensure_budget=True)
                     except ActionPointLimit as e:
                         logger.warning(
                             f'[大世界-买行动力] {task_display} 行动力不足: {e}，'
@@ -1513,6 +1533,114 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             else:
                 self.config._bind_task_override = previous_bind
                 self.config.bind(previous_bind)
+
+    def _get_coin_task_session_budget(self, task_name):
+        """
+        计算黄币补充任务一轮完整会话所需的行动力预算。
+
+        会话预算 = 进图消耗 + 会话内后续消耗（战略搜索、地图指令）。
+        分发任务前确保当前行动力达到预算，避免进图后行动力断粮，
+        被迫频繁回港口或中途小口用药。
+
+        Args:
+            task_name (str): 黄币补充任务名。
+
+        Returns:
+            int: 会话预算，即任务启动前当前行动力应达到的最低值。
+        """
+        if task_name == self.TASK_NAME_MEOWFFICER_FARMING:
+            if self.config.OpsiMeowfficerFarming_StayInZone:
+                budget = self.COIN_TASK_BUDGET_MEOW_STAY_IN_ZONE
+            else:
+                # 普通/传统模式一轮 = 进图一次，消耗随侵蚀等级
+                # HazardLevel 配置允许 10，超出消耗表范围时按最高档 40 兜底
+                budget = ACTION_POINTS_COST.get(
+                    self.config.OpsiMeowfficerFarming_HazardLevel, 40)
+            # 进图后立即执行潜艇指令，最多消耗 39 点
+            if self.config.OpsiFleet_Submarine:
+                budget += self.SUBMARINE_ORDER_MARGIN
+        elif task_name == self.TASK_NAME_OBSCURE:
+            # 金色坐标进图 40（紫色 20，取保守）+ 侦查指令最多 10
+            budget = self.COIN_TASK_BUDGET_OBSCURE + self.RECON_ORDER_MARGIN
+            if self.config.OpsiFleet_Submarine:
+                budget += self.SUBMARINE_ORDER_MARGIN
+        elif task_name == self.TASK_NAME_ABYSSAL:
+            # 进图消耗，无地图指令
+            budget = self.COIN_TASK_BUDGET_ABYSSAL
+        elif task_name == self.TASK_NAME_STRONGHOLD:
+            # 进图 200 + 侦查指令最多 10；每战潜艇呼叫消耗不定，交给图内弹窗兜底
+            budget = self.COIN_TASK_BUDGET_STRONGHOLD
+        else:
+            logger.warning(f'[大世界-智能调度+] 未知的黄币补充任务 {task_name}，按 40 点兜底预算')
+            budget = 40
+
+        return budget
+
+    def _ensure_coin_task_action_point(self, task_name, ap_preserve):
+        """
+        分发黄币补充任务前，集中补足该任务一轮会话的行动力预算。
+
+        读数与补充合并为同一次行动力弹窗会话：缓存新鲜且当前行动力
+        已达预算时零弹窗直接通过；否则进入弹窗，复用 handle_action_point
+        的购油/用药规则一次补到预算。
+
+        Args:
+            task_name (str): 黄币补充任务名。
+            ap_preserve (int): 补充期间生效的行动力保留值。
+
+        Raises:
+            ActionPointLimit: 行动力不足（含保留值拦截）时抛出，由调用方决定延迟。
+
+        Pages:
+            in: page_os
+            out: page_os
+        """
+        budget = self._get_coin_task_session_budget(task_name)
+        task_display = self.TASK_NAMES.get(task_name, task_name)
+
+        # 缓存新鲜且当前行动力已达预算，零弹窗通过
+        cached = getattr(self, '_ap_cache', (None, None, None))
+        _, cached_current, cached_at = cached
+        if (
+            cached_at is not None
+            and cached_current is not None
+            and cached_current >= budget
+            and (current_time() - cached_at).total_seconds() < 60
+        ):
+            logger.info(
+                f'[大世界-智能调度+] 会话预算检查通过（缓存）: '
+                f'当前行动力 {cached_current} >= {task_display}预算 {budget}'
+            )
+            self._coin_task_ap_budgeted = True
+            return
+
+        logger.info(
+            f'[大世界-智能调度+] 集中补足会话行动力: {task_display}预算 {budget}, '
+            f'保留值 {ap_preserve}'
+        )
+        previous_preserve = self.config.OS_ACTION_POINT_PRESERVE
+        self.config.OS_ACTION_POINT_PRESERVE = int(ap_preserve or 0)
+        try:
+            # 与 _get_scheduling_action_point 相同的进弹窗方式，不依赖 IN_MAP 等待
+            self.action_point_enter()
+            if not self.handle_action_point(
+                    zone=None, pinned=None, cost=budget,
+                    keep_current_ap=True, check_rest_ap=True):
+                logger.warning('[大世界-智能调度+] 行动力弹窗未打开，会话预算未确认，交由任务内检查兜底')
+                return
+        finally:
+            self.config.OS_ACTION_POINT_PRESERVE = previous_preserve
+
+        # 弹窗内已读到最新行动力，写回缓存避免后续决策重复弹窗
+        total_ap = int(getattr(self, '_action_point_total', 0) or 0)
+        current_ap = int(getattr(self, '_action_point_current', 0) or 0)
+        if total_ap > 0 or current_ap > 0:
+            self._ap_cache = (total_ap, current_ap, current_time())
+        self._coin_task_ap_budgeted = True
+        logger.info(
+            f'[大世界-智能调度+] 会话行动力已就绪: 当前={current_ap}, '
+            f'总计={total_ap}, {task_display}预算={budget}'
+        )
 
     def _get_scheduling_action_point(self, force_refresh=False):
         """
@@ -1659,11 +1787,24 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             ap_checked=ap_checked,
         )
 
-    def _run_scheduled_coin_task_once(self, task_name, ap_preserve):
-        """由智能调度+代理执行一轮黄币补充任务。"""
+    def _run_scheduled_coin_task_once(self, task_name, ap_preserve, ensure_budget=False):
+        """
+        由智能调度+代理执行一轮黄币补充任务。
+
+        Args:
+            task_name (str): 黄币补充任务名。
+            ap_preserve (int): 行动力保留值（仅耄耋相接使用，也作为预算补充期的保留值）。
+            ensure_budget (bool): 是否在执行前集中补足该任务的会话行动力预算。
+                普通补黄币分发与买行动力模式传 True；月末清理、防止行动力溢出
+                等以消耗行动力为目标的路径必须保持 False，避免反向补充行动力。
+        """
         if not hasattr(self, '_smart_scheduling_no_content_task'):
             self._smart_scheduling_no_content_task = None
         self._smart_scheduling_no_content_task = None
+        self._coin_task_ap_budgeted = False
+
+        if ensure_budget:
+            self._ensure_coin_task_action_point(task_name, ap_preserve)
 
         task_display = self.TASK_NAMES.get(task_name, task_name)
         logger.info(f'[大世界-智能调度+] 代理执行一轮{task_display}')
@@ -1950,7 +2091,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         logger.info(f'[大世界-智能调度+] 启用的黄币补充任务: {task_names}')
 
         for task_name in all_coin_tasks:
-            if self._run_scheduled_coin_task_once(task_name, meow_ap_preserve):
+            if self._run_scheduled_coin_task_once(task_name, meow_ap_preserve, ensure_budget=True):
                 self._notify_coin_task_proxy(
                     yellow_coins,
                     total_ap,
@@ -2169,9 +2310,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         backup = self.config.temporary(
             TaskFailureProtection_WatchdogTaskTimeout=360
         )
+        # 标记消耗型上下文：清理期间子任务不得反向补充行动力
+        self._month_end_cleanup_running = True
         try:
             self._run_month_end_cleanup_loop(month_end_preserve)
         finally:
+            self._month_end_cleanup_running = False
             backup.recover()
 
         # 月末清理结束，刷新行动力并通知
