@@ -1153,6 +1153,16 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         """
         logger.hr('大世界-买行动力模式', level=1)
 
+        # 月末封锁周无法购买行动力，买行动力模式整体不生效：
+        # 「跳过购买直接执行海域任务」分支不感知封锁周（功能2 实测缺陷），
+        # 必须在入口统一拦截，交由正常调度（月末清理/侵蚀1/补黄币）处理存量行动力。
+        if self._is_in_month_end_purchase_block_week():
+            logger.info(
+                '[大世界-买行动力] 当前处于月末封锁周，无法购买行动力，'
+                '跳过买行动力模式，交由正常调度接管'
+            )
+            return False
+
         # 同步购买计数器与游戏内剩余次数（重启后可能不一致）
         self._sync_buy_action_point_count_with_game()
 
