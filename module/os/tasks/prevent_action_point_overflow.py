@@ -146,11 +146,13 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
             else:
                 self.config._prevent_action_point_overflow_context = previous_config_context
 
-    def _run_scheduled_coin_task_once(self, task_name, ap_preserve):
+    def _run_scheduled_coin_task_once(self, task_name, ap_preserve, ensure_budget=False):
         """由防止行动力溢出上下文直接执行一轮补黄币任务。"""
         if self.is_running_prevent_action_point_overflow_task():
+            # 防止行动力溢出以消耗行动力为目标，强制不做预算补充，避免反向回补行动力
+            ensure_budget = False
             logger.info(f'[大世界-防止行动力溢出] 直接执行一轮{self.TASK_NAMES.get(task_name, task_name)}')
-        return super()._run_scheduled_coin_task_once(task_name, ap_preserve)
+        return super()._run_scheduled_coin_task_once(task_name, ap_preserve, ensure_budget=ensure_budget)
 
     def _run_prevent_action_point_overflow_target_once(self, task_name, lowerbound):
         """按配置执行一轮防止行动力溢出目标任务。"""
