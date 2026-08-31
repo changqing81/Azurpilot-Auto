@@ -849,7 +849,9 @@ class DockScanner(ShipScanner):
         self.extend_log = []
         self.moving_distance_log = []
 
-    def limit_value(self, value) -> Any:
+    def limit_value(self, key, value) -> Any:
+        # 签名与 ShipScanner.limit_value(key, value) 保持一致，避免继承的 set_limitation 调用时 TypeError；
+        # DockScanner 不使用基类的筛选体系，保持无操作
         pass
 
     @property

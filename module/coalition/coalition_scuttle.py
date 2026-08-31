@@ -22,7 +22,7 @@ class CoalitionScuttleCombat(CoalitionCombat):
     _is_shipwreck = False  # 当前战斗是否为沉船D评价
     _is_s_rank = False  # 当前战斗是否为S评价
 
-    def auto_search_combat_execute(self, emotion_reduce=True, fleet_index=1, expected_end=None):
+    def auto_search_combat_execute(self, emotion_reduce=True, fleet_index=1, battle=None, expected_end=None):
         """
         重写自动搜索战斗执行，联盟沉船不额外扣减心情。
 
@@ -33,6 +33,8 @@ class CoalitionScuttleCombat(CoalitionCombat):
         Args:
             emotion_reduce (bool): 是否扣减心情（仅在第一场战斗时为True）。
             fleet_index (int): 舰队编号。
+            battle (tuple): 与基类签名保持兼容。基类用它决定最后一战的潜艇
+                强呼时机，联盟沉船全程不使用潜艇，此参数被忽略。
             expected_end (callable): 自定义结束条件。
         """
         from module.base.timer import Timer

@@ -101,18 +101,20 @@ class HospitalEvent(Hospital, RaidRun):
             if self.handle_get_clue():
                 continue
 
-    def raid_execute_once(self, mode, raid, stage):
+    def raid_execute_once(self, mode, raid, stage=''):
         """执行一次突袭战斗。
 
         Args:
             mode: 难度模式。
             raid: 突袭名称。
-            stage: 关卡编号。
+            stage: 关卡编号。留空时回退到配置 HospitalEvent_Stage，
+                与 run() 的解析方式一致，兼容 RaidRun.run 的无 stage 调用形态。
 
         Pages:
             in: page_raid
             out: page_raid
         """
+        stage = stage if stage else self.config.HospitalEvent_Stage
         logger.hr('突袭执行')
         self.config.override(
             Campaign_Event=raid,
