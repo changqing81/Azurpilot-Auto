@@ -193,9 +193,17 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         if self.zone.zone_id != zone.zone_id or not self.is_zone_name_hidden:
             self.globe_goto(zone, types='SAFE', refresh=True)
 
-        # 智能调度+上下文外层已查询行动力，跳过冗余弹窗
+        # 智能调度+上下文：外层分发前已集中补足会话预算（耄耋相接预算 120）时跳过冗余弹窗；
+        # 月末清理/防溢出等消耗型上下文以消耗行动力为目标，同样跳过；
+        # 其余情况保留会话预算检查，防止行动力不足时进图断粮
         if not self.is_running_smart_scheduling_task():
             self.action_point_set(cost=120, keep_current_ap=True, check_rest_ap=True)
+        else:
+            budgeted = bool(getattr(self, '_coin_task_ap_budgeted', False))
+            burn_context = bool(getattr(self, '_month_end_cleanup_running', False)) \
+                or self.is_running_prevent_action_point_overflow_task()
+            if not budgeted and not burn_context:
+                self.action_point_set(cost=120, keep_current_ap=True, check_rest_ap=True)
         self.fleet_set(self.config.OpsiFleet_Fleet)
         self.os_order_execute(recon_scan=False, submarine_call=self.config.OpsiFleet_Submarine)
 
