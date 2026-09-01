@@ -90,11 +90,20 @@ class Device(Screenshot, Control, AppControl, Input):
     # 结算页"点击继续"类按钮：翻经验页 + 领取新船时合法连点可达 12+ 次
     # 且全部落在右下角同一网格，网格检测必然误判；每次点击画面必然推进，
     # 真卡死由按钮名检测（click_record_check）和截图指纹卡死检测兜底
+    # 退役/装备确认类按钮：旧退役批量退役多轮时跨轮累积 12+ 次同格点击；
+    # 强化路径另有状态机成功清记录双保险，误判死循环由双按钮交替检测兜底
     click_grid_whitelist = [
+        # 战斗结算
         'BATTLE_STATUS_S', 'BATTLE_STATUS_A', 'BATTLE_STATUS_B',
         'BATTLE_STATUS_C', 'BATTLE_STATUS_D',
         'EXP_INFO_S', 'EXP_INFO_A', 'EXP_INFO_B', 'EXP_INFO_C', 'EXP_INFO_D',
         'GET_SHIP',
+        # 掉落/物品领取弹窗
+        'GET_ITEMS_1', 'GET_ITEMS_2', 'GET_ITEMS_3',
+        # 退役与装备确认弹窗
+        'SHIP_CONFIRM', 'SHIP_CONFIRM_2', 'SR_SSR_CONFIRM',
+        'EQUIP_CONFIRM', 'EQUIP_CONFIRM_2',
+        'GET_ITEMS_1_RETIREMENT_SAVE', 'ONE_CLICK_RETIREMENT',
     ]
     stuck_timer = Timer(60, count=60).start()
     stuck_timer_long = Timer(195, count=195).start()
