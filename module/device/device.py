@@ -87,7 +87,15 @@ class Device(Screenshot, Control, AppControl, Input):
     click_grid_record = collections.deque(maxlen=15)
     # 豁免名单：这些按钮名的点击不参与网格统计。
     # 用于已知会在同一网格区域连续点击多个不同按钮的正常流程。
-    click_grid_whitelist = []
+    # 结算页"点击继续"类按钮：翻经验页 + 领取新船时合法连点可达 12+ 次
+    # 且全部落在右下角同一网格，网格检测必然误判；每次点击画面必然推进，
+    # 真卡死由按钮名检测（click_record_check）和截图指纹卡死检测兜底
+    click_grid_whitelist = [
+        'BATTLE_STATUS_S', 'BATTLE_STATUS_A', 'BATTLE_STATUS_B',
+        'BATTLE_STATUS_C', 'BATTLE_STATUS_D',
+        'EXP_INFO_S', 'EXP_INFO_A', 'EXP_INFO_B', 'EXP_INFO_C', 'EXP_INFO_D',
+        'GET_SHIP',
+    ]
     stuck_timer = Timer(60, count=60).start()
     stuck_timer_long = Timer(195, count=195).start()
     stuck_long_wait_list = ['BATTLE_STATUS_S', 'PAUSE', 'LOGIN_CHECK', 'TEMPLATE_MANJUU']
