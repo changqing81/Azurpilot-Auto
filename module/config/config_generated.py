@@ -217,6 +217,7 @@ class GeneratedConfig:
     # 配置组 `StopCondition`
     StopCondition_OilLimit = 1000
     StopCondition_CoinLimit = 0
+    StopCondition_CoinLimit_Enable = False
     StopCondition_RunCount = 0
     StopCondition_MapAchievement = 'non_stop'  # non_stop, non_stop_clear_all, 100_percent_clear, map_3_stars, threat_safe, threat_safe_without_3_stars
     StopCondition_StageIncrease = False

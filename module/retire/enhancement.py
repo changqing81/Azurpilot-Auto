@@ -159,7 +159,9 @@ class Enhancement(Dock):
 
         def state_enhance_ready():
             # Wait until ENHANCE_RECOMMEND appears
-            if self.appear_then_click(ENHANCE_RECOMMEND, offset=(5, 5), interval=0.3):
+            # interval 需大于材料栏加载耗时，否则加载慢时会连点推荐，
+            # 累积的点击会触发网格防连击检测导致强化被误判失败
+            if self.appear_then_click(ENHANCE_RECOMMEND, offset=(5, 5), interval=2):
                 logger.info('按推荐设置强化材料')
                 return "state_enhance_recommend"
 
@@ -226,6 +228,9 @@ class Enhancement(Dock):
                     return "state_enhance_exit"
 
         def state_enhance_success():
+            # 成功强化一艘即清空点击记录，正常连强多艘时点击集中在右下角同一
+            # 网格，若跨轮累积会触发网格防连击检测，把正常流程误判为强化失败
+            self.device.click_record_clear()
             return True
 
         def state_enhance_exit():
