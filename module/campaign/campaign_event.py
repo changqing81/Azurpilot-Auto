@@ -113,14 +113,11 @@ class CampaignEvent(CampaignStatus):
         """
         检查金币数量是否达到 StopCondition.CoinLimit 限制。
 
-        需同时满足 CoinLimit_Enable 为 true 且 CoinLimit > 0 才执行检查。
+        物资达到上限时始终推迟任务，CoinLimit_Enable 控制是否发送推送通知。
 
         Returns:
             bool: 是否触发金币限制。
         """
-        if not self.config.StopCondition_CoinLimit_Enable:
-            return False
-
         limit = int(
             re.sub(r'[,.\'"，。]', '', str(self.config.StopCondition_CoinLimit))
         )
@@ -137,11 +134,12 @@ class CampaignEvent(CampaignStatus):
         if coin >= limit:
             logger.hr(f'达到物资上限: {limit}')
             self.config.task_delay(minute=(120, 240))
-            handle_notify(
-                self.config.Error_OnePushConfig,
-                title=f"AzurPilot <{self.config.config_name}> campaign delayed",
-                content=f"<{self.config.config_name}> {self.config.Campaign_Name} reached coin limit"
-            )
+            if self.config.StopCondition_CoinLimit_Enable:
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config.config_name}> campaign delayed",
+                    content=f"<{self.config.config_name}> {self.config.Campaign_Name} reached coin limit"
+                )
             return True
         else:
             return False
