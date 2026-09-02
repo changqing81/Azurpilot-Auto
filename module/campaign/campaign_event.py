@@ -113,9 +113,14 @@ class CampaignEvent(CampaignStatus):
         """
         检查金币数量是否达到 StopCondition.CoinLimit 限制。
 
+        需同时满足 CoinLimit_Enable 为 true 且 CoinLimit > 0 才执行检查。
+
         Returns:
             bool: 是否触发金币限制。
         """
+        if not self.config.StopCondition_CoinLimit_Enable:
+            return False
+
         limit = int(
             re.sub(r'[,.\'"，。]', '', str(self.config.StopCondition_CoinLimit))
         )

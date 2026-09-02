@@ -1172,6 +1172,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -1597,6 +1601,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -2021,6 +2029,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -2572,6 +2584,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -3090,6 +3106,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -3595,6 +3615,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -4037,6 +4061,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -4478,6 +4506,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -4917,6 +4949,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5380,6 +5416,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -5670,6 +5710,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6002,6 +6046,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -6296,6 +6344,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6596,6 +6648,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -7293,6 +7349,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -7768,6 +7828,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -8225,6 +8289,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8684,6 +8752,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -9142,6 +9214,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -9589,6 +9665,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10048,6 +10128,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -10339,6 +10423,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",

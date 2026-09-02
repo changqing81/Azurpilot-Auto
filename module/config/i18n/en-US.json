@@ -1352,6 +1352,10 @@
       "name": "Delay When Coins Reach X",
       "help": "Delay the current task when coins are found to be at or above this number. The task will resume after coins drop below the limit.\n0 means no coin limit"
     },
+    "CoinLimit_Enable": {
+      "name": "Enable Coin Limit Check",
+      "help": "When enabled, delays the task and sends a push notification when coins reach the CoinLimit value"
+    },
     "RunCount": {
       "name": "Stop After Sortie Count Exceeds X",
       "help": "Each run decreases the count by one, task stops when it reaches zero\n0 means no limit"
