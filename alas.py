@@ -110,18 +110,6 @@ class AzurLaneAutoScript:
         Returns:
             bool: 重启成功返回 True，无法重启返回 False。
         """
-        import sys
-
-        if not self.config.Error_AdbOfflineRestart:
-            logger.error_context(
-                title='模拟器自动重启已禁用',
-                reason='配置项 Error.AdbOfflineRestart 未启用。',
-                impact='模拟器离线后无法自动恢复，当前任务可能终止。',
-                action='确认模拟器稳定性后，按需启用 AdbOfflineRestart 和合理的重试阈值。',
-                level=30,
-            )
-            return False
-
         self.consecutive_adb_offline += 1
         limit = int(self.config.Error_AdbOfflineThreshold)
         logger.warning(f'[Alas] EmulatorNotRunningError: 连续次数 {self.consecutive_adb_offline}/{limit}')
@@ -144,13 +132,9 @@ class AzurLaneAutoScript:
                 # 优先使用已缓存的设备对象
                 device = self.__dict__.get('device', None)
                 if device is None:
-                    # device 缓存不存在时，按平台回退创建新实例
-                    if sys.platform == 'darwin':
-                        from module.device.platform.platform_mac import PlatformMac
-                        device = PlatformMac(self.config)
-                    else:
-                        from module.device.platform.platform_windows import PlatformWindows
-                        device = PlatformWindows(self.config)
+                    # connect=False 避免在模拟器离线时先建立 ADB 连接。
+                    from module.device.platform import Platform
+                    device = Platform(self.config, connect=False)
 
                 logger.info('[Alas] 正在停止模拟器...')
                 emulator_op_with_timeout(
@@ -479,7 +463,7 @@ class AzurLaneAutoScript:
                 action='确认模拟器没有被手动操作，检查截图方案、游戏分辨率和资源版本。',
                 exc=e,
             )
-            self.save_error_log()
+            self.save_error_scene()
             self._check_sensitive_exit(command, e)
 
             if self.config.Error_GameStuckRestart:
@@ -518,7 +502,7 @@ class AzurLaneAutoScript:
                 action='等待自动重启；若反复出现，请更新游戏和 AzurPilot，并保留错误现场。',
                 exc=e,
             )
-            self.save_error_log()
+            self.save_error_scene()
             self._check_sensitive_exit(command, e)
             logger.warning('[Alas] 碧蓝航线游戏客户端发生错误，AzurPilot 无法处理')
             logger.warning(f'[Alas] 正在重启 {self.device.package} 以修复问题')
@@ -548,7 +532,7 @@ class AzurLaneAutoScript:
                     exc=e,
                     level=50,
                 )
-                self.save_error_log()
+                self.save_error_scene()
                 handle_notify(
                     self.config.Error_OnePushConfig,
                     title=f"AzurPilot <{self.config_name}> 崩溃",
@@ -573,7 +557,7 @@ class AzurLaneAutoScript:
                 action='根据堆栈定位脚本错误；如果是新版本回归，请提交错误日志和截图。',
                 level=50,
             )
-            self.save_error_log()
+            self.save_error_scene()
             self._check_sensitive_exit(command, e)
 
             if self.script_error_count >= 3:
@@ -619,7 +603,7 @@ class AzurLaneAutoScript:
                 action='确认模拟器进程和 ADB 服务正常；连续失败时检查端口、代理和模拟器保活设置。',
                 exc=e,
             )
-            self.save_error_log()
+            self.save_error_scene()
             self._check_sensitive_exit(command, e)
             if self._try_restart_emulator():
                 # 重启成功，调度 Restart 任务恢复游戏
@@ -682,6 +666,7 @@ class AzurLaneAutoScript:
                 action='查看错误现场和堆栈，按日志中的具体建议处理后重新启动。',
                 level=50,
             )
+            self.save_error_scene()
             handle_notify(
                 self.config.Error_OnePushConfig,
                 title=f"AzurPilot <{self.config_name}> 崩溃",
@@ -703,6 +688,7 @@ class AzurLaneAutoScript:
                 exc=e,
                 level=50,
             )
+            self.save_error_scene()
             exit(1)
         except Exception as e:
             self._last_task_error = type(e).__name__
@@ -713,7 +699,26 @@ class AzurLaneAutoScript:
                 action='查看错误现场中的 log.txt、截图和完整堆栈，确认是否需要更新资源或提交问题。',
                 level=50,
             )
-            self.save_error_log()
+            self.save_error_scene()
+            self._check_sensitive_exit(command, e)
+
+            self.consecutive_unexpected_error += 1
+            limit = int(self.config.Error_GameStuckThreshold)
+            if self.consecutive_unexpected_error >= limit:
+                # 连续多次未预期异常，说明重启游戏无法解决，重启模拟器
+                logger.warning(
+                    f'[Alas] 未处理异常连续 {self.consecutive_unexpected_error}/{limit} 次，'
+                    f'重启模拟器恢复'
+                )
+                self._try_restart_emulator()
+                self.consecutive_unexpected_error = 0
+            else:
+                # 首次或前几次异常，先尝试重启游戏（较轻的恢复）
+                logger.warning(
+                    f'[Alas] 未处理异常 {self.consecutive_unexpected_error}/{limit} 次，'
+                    f'先尝试重启游戏恢复'
+                )
+            self.config.task_call('Restart')
             handle_notify(
                 self.config.Error_OnePushConfig,
                 title=f"AzurPilot <{self.config_name}> 崩溃",
@@ -751,11 +756,11 @@ class AzurLaneAutoScript:
         """
         if n <= 0:
             return
-        folders = [
+        folders = sorted(
             os.path.join(folder_path, f)
             for f in os.listdir(folder_path)
             if os.path.isdir(os.path.join(folder_path, f))
-        ]
+        )
         for folder in folders[:-n]:
             shutil.rmtree(folder)
 
@@ -819,6 +824,21 @@ class AzurLaneAutoScript:
                 logger.error(f"[Alas] 保存错误日志失败: {e}")
                 
             self.keep_last_errlog(config_folder, getattr(self.config, 'Error_SaveErrorCount', 0))
+
+    def save_error_scene(self):
+        """保存错误现场并标记本次任务已落盘。
+
+        与 save_error_log 的区别：额外设置 _error_scene_saved 标记，供
+        调度器循环判断同一异常是否已保存过，避免错误现场重复落盘、
+        完整堆栈在运行日志里重复倾倒。
+
+        调用方均位于异常处理分支中，本方法自身不再向外抛出异常。
+        """
+        try:
+            self.save_error_log()
+            self._error_scene_saved = True
+        except Exception as e:
+            logger.error(f'[Alas] 保存错误现场失败: {e}')
 
     def restart(self):
         from module.handler.login import LoginHandler
@@ -1683,6 +1703,9 @@ class AzurLaneAutoScript:
                 self.device.stuck_record_clear()
                 self.device.click_record_clear()
                 logger.hr(task, level=0)
+                # 每个任务开始前清除错误现场已保存标记；任务级异常保存后，
+                # 调度器循环据此去重，避免重复落盘和重复倾倒堆栈
+                self._error_scene_saved = False
                 # 激活看门狗：任务执行期间监控日志心跳和运行时间
                 self.watchdog.activate(task)
                 success = self.run(inflection.underscore(task))
@@ -1797,20 +1820,6 @@ class AzurLaneAutoScript:
                 # 暂停看门狗，避免恢复期间误触发
                 self.watchdog.deactivate()
                 import traceback
-                logger.exception_context(
-                    title='调度器循环发生未处理异常',
-                    exc=e,
-                    impact='本轮任务中断，调度器将尝试执行 Restart 后继续运行。',
-                    action='关注下方堆栈；若连续发生，请检查设备连接、配置和最近更新的资源。',
-                )
-                
-                # 即使没有达到重启或失败上限，也第一时间自动请求分析崩溃原因
-                try:
-                    if hasattr(self, 'config') and getattr(self.config, 'Error_LlmAnalysis', False):
-                        from module.llm import analyze_exception
-                        analyze_exception(self.config, e)
-                except Exception as ex:
-                    logger.error(f'[Alas] LLM错误分析失败: {ex}')
 
                 # 任务失败保护：全局异常也计入失败次数
                 try:
@@ -1829,6 +1838,31 @@ class AzurLaneAutoScript:
                 except Exception:
                     logger.warning('[Alas] 失败保护检查异常，已跳过')
 
+                already_saved = getattr(self, '_error_scene_saved', False)
+                if already_saved:
+                    # 任务级异常处理已保存错误现场并输出完整堆栈，这里只记
+                    # 摘要，避免同一异常重复落盘、重复倾倒运行日志
+                    logger.warning(
+                        f'[Alas] 调度器捕获异常（错误现场已保存，详见 log/error/{self.config_name}）: '
+                        f'{type(e).__name__}: {e}'
+                    )
+                else:
+                    logger.exception_context(
+                        title='调度器循环发生未处理异常',
+                        exc=e,
+                        impact='本轮任务中断，调度器将尝试执行 Restart 后继续运行。',
+                        action='关注下方堆栈；若连续发生，请检查设备连接、配置和最近更新的资源。',
+                    )
+                    # 调度器级异常同样保存错误现场，避免只留在运行日志里无法回溯
+                    self.save_error_scene()
+                    # 即使没有达到重启或失败上限，也第一时间自动请求分析崩溃原因
+                    try:
+                        if hasattr(self, 'config') and getattr(self.config, 'Error_LlmAnalysis', False):
+                            from module.llm import analyze_exception
+                            analyze_exception(self.config, e)
+                    except Exception as ex:
+                        logger.error(f'[Alas] LLM错误分析失败: {ex}')
+                self._error_scene_saved = False
                 logger.warning(
                     f">>> 这是第 {consecutive_global_failures} 次连续全局失败，共 {MAX_GLOBAL_FAILURES} 次。"
                 )
@@ -1843,7 +1877,7 @@ class AzurLaneAutoScript:
                         exc=e,
                         level=50,
                     )
-                    self.save_error_log()
+                    self.save_error_scene()
                     logger.warning("[Alas] 遇到无法恢复的致命错误，正在上报错误日志...")
                     ApiClient.submit_bug_log(f"AzurPilot <{self.config_name}> 调度器终止。\n已达到最大全局失败次数 ({MAX_GLOBAL_FAILURES})。\n{traceback.format_exc()}")
                     exit(1)

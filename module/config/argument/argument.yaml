@@ -412,6 +412,15 @@ StopCondition:
   ReachLevel: 0
 WarArchives:
   DailyRunCount: 0
+  AutoClear: false
+  AutoSelectEvent: false
+  AutoClearTarget:
+    value: three_star
+    option: [three_star, clear_100]
+  AutoClearProgress:
+    type: stored
+    value: null
+    display: hide
   DailyRunCountRemain:
     type: stored
     value: 0
@@ -595,10 +604,6 @@ Raid:
     value: hard
     option: [easy, normal, hard, ex]
   UseTicket: false
-RaidScuttle:
-  Sacrifice:
-    value: vanguard
-    option: [ vanguard, flagship, vanguard_flagship ]
 RaidDaily:
   StageFilter: |-
     hard > normal > easy
@@ -1042,6 +1047,7 @@ Hard:
   HardFleet:
     value: 1
     option: [1, 2]
+  UseRecommendFleet: false
 Exercise:
   DelayUntilHoursBeforeNextUpdate:
     value: 12

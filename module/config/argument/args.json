@@ -5341,6 +5341,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "raid_20260212",
           "raid_20260827"
         ],
         "option_cn": [
@@ -5353,9 +5354,10 @@
           "raid_20260827"
         ],
         "option_tw": [
-          "raid_20260827"
+          "raid_20260212"
         ],
         "option_bold": [
+          "raid_20260212",
           "raid_20260827"
         ]
       },
@@ -5604,17 +5606,6 @@
         ]
       }
     },
-    "RaidScuttle": {
-      "Sacrifice": {
-        "type": "select",
-        "value": "vanguard",
-        "option": [
-          "vanguard",
-          "flagship",
-          "vanguard_flagship"
-        ]
-      }
-    },
     "Raid": {
       "Mode": {
         "type": "select",
@@ -5641,6 +5632,7 @@
         "type": "state",
         "value": "campaign_main",
         "option": [
+          "raid_20260212",
           "raid_20260827"
         ],
         "option_cn": [
@@ -5653,9 +5645,10 @@
           "raid_20260827"
         ],
         "option_tw": [
-          "raid_20260827"
+          "raid_20260212"
         ],
         "option_bold": [
+          "raid_20260212",
           "raid_20260827"
         ]
       },
@@ -7386,6 +7379,27 @@
       "DailyRunCount": {
         "type": "input",
         "value": 0
+      },
+      "AutoClear": {
+        "type": "checkbox",
+        "value": false
+      },
+      "AutoSelectEvent": {
+        "type": "checkbox",
+        "value": false
+      },
+      "AutoClearTarget": {
+        "type": "select",
+        "value": "three_star",
+        "option": [
+          "three_star",
+          "clear_100"
+        ]
+      },
+      "AutoClearProgress": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
       },
       "DailyRunCountRemain": {
         "type": "stored",
@@ -10053,6 +10067,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "raid_20260212",
           "raid_20260827"
         ],
         "option_cn": [
@@ -10065,9 +10080,10 @@
           "raid_20260827"
         ],
         "option_tw": [
-          "raid_20260827"
+          "raid_20260212"
         ],
         "option_bold": [
+          "raid_20260212",
           "raid_20260827"
         ]
       },
@@ -11780,6 +11796,10 @@
           1,
           2
         ]
+      },
+      "UseRecommendFleet": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {

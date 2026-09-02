@@ -1066,9 +1066,6 @@
       "ServerUpdate": "00:00",
       "Sensitive": false
     },
-    "RaidScuttle": {
-      "Sacrifice": "vanguard"
-    },
     "Raid": {
       "Mode": "hard",
       "UseTicket": false
@@ -1364,6 +1361,10 @@
     },
     "WarArchives": {
       "DailyRunCount": 0,
+      "AutoClear": false,
+      "AutoSelectEvent": false,
+      "AutoClearTarget": "three_star",
+      "AutoClearProgress": null,
       "DailyRunCountRemain": 0,
       "DailyRunCountRecord": "2020-01-01 00:00:00",
       "DailyRunCountLimit": 0
@@ -2239,7 +2240,8 @@
     },
     "Hard": {
       "HardStage": "11-4",
-      "HardFleet": 1
+      "HardFleet": 1,
+      "UseRecommendFleet": false
     },
     "Storage": {
       "Storage": {}
