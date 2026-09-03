@@ -416,7 +416,7 @@ WarArchives:
   AutoSelectEvent: false
   AutoClearTarget:
     value: three_star
-    option: [three_star, clear_100]
+    option: [normal_3_star, three_star, clear_100]
   AutoClearProgress:
     type: stored
     value: null
