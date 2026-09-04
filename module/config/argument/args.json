@@ -14022,8 +14022,14 @@
         "value": 200
       },
       "ExecuteFixedPatrolScan": {
-        "type": "checkbox",
-        "value": true
+        "type": "select",
+        "value": 3,
+        "option": [
+          0,
+          1,
+          2,
+          3
+        ]
       },
       "SkipHpCheck": {
         "type": "checkbox",
