@@ -219,11 +219,7 @@ class DeployConfig(ConfigModel):
         """
         command = command.replace(r"\\", "/").replace("\\", "/").replace('"', '"')
         if not output:
-            # Windows 用 nul 设备，POSIX（如 Termux）用 /dev/null
-            if sys.platform == "win32":
-                command = command + ' >nul 2>nul'
-            else:
-                command = command + ' >/dev/null 2>&1'
+            command = command + ' >nul 2>nul'
         logger.info(command)
         error_code = os.system(command)
         if error_code:
