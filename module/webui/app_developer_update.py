@@ -75,6 +75,13 @@ class DeveloperUpdateMixin(WebUIMixinBase):
                 history = updater.get_commit(
                     f"origin/{updater.Branch}", n=20, short_sha1=True
                 )
+                if not history:
+                    # 上游分支不存在或 git 不可用时给出占位提示，而非空表或报错
+                    put_warning(
+                        f"无法读取上游分支 origin/{updater.Branch} 的提交历史，"
+                        f"请检查 deploy.yaml 中 Repository/Branch 配置、网络和 git 安装。"
+                    )
+                    history = []
                 put_table(
                     [commit for commit in history],
                     header=[
