@@ -81,7 +81,9 @@ class Updater(DeployConfig, GitManager):
         )
 
         if not log:
-            result = None, None, None, None
+            # revision 不存在（如分支未配置、仓库未 fetch）时 git log 无输出。
+            # 多行查询返回空列表，避免调用方逐行迭代 None 触发 TypeError
+            result = (None, None, None, None) if n == 1 else []
         else:
             logs = log.split("\n")
             logs = list(map(lambda log: tuple(log.split("---")), logs))
