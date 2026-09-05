@@ -1735,6 +1735,11 @@ class HomeMixin(WebUIMixinBase):
         )
 
     def run(self, initial_page="home", localstorage=None) -> None:
+        # 远控环境下浏览器/隧道会频繁断开重连，每条 WebSocket 都会重跑本
+        # 方法；记录会话建立便于统计会话生灭频率与区分移动端来源。
+        logger.info(
+            f"[WebUI-会话] 会话建立 mobile={self.is_mobile} page={initial_page}"
+        )
         # 初始化背景图
         self.init_wallpaper()
         # setup gui
@@ -1790,15 +1795,24 @@ class HomeMixin(WebUIMixinBase):
                             if (attempts < 20) window.setTimeout(install, 100);
                             return;
                         }
-                        var notify = function () {
+                        // force: 强制上报。远控手机端切后台/息屏期间事件可能丢失，
+                        // 若回前台时本地 value 恰与服务端缓存一致，短路会使服务端
+                        // visible 永久卡死在 False，总览页任务列表从此不再刷新。
+                        var notify = function (force) {
                             var visible = !document.hidden;
-                            if (input.value === String(visible)) return;
+                            if (!force && input.value === String(visible)) return;
                             input.value = String(visible);
                             input.dispatchEvent(new Event('input', {bubbles: true}));
                             input.dispatchEvent(new Event('change', {bubbles: true}));
                         };
-                        document.addEventListener('visibilitychange', notify);
-                        notify();
+                        document.addEventListener('visibilitychange', function () {
+                            notify();
+                        });
+                        // 回前台/载入完成强制校准一次；30 秒心跳兜底事件全丢的场景
+                        window.addEventListener('focus', function () { notify(true); });
+                        window.addEventListener('pageshow', function () { notify(true); });
+                        window.setInterval(function () { notify(true); }, 30000);
+                        notify(true);
                     }
                     install();
                 })();
