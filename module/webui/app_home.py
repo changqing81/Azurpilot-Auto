@@ -1766,6 +1766,14 @@ class HomeMixin(WebUIMixinBase):
             self._visibility_listener_installed = True
             from module.webui.utils import set_window_visibility_state
 
+            # 新会话建立时重置全局可见性缓存。该缓存是模块级全局变量，
+            # 被所有会话共享：上一会话（手机息屏/切后台）留下的 False
+            # 会在本会话 visibility_state_switch 首次 switch() 时直接把
+            # self.visible 置 False，总览页任务列表从此不再渲染——远控
+            # 重连场景下表现为"点进去运行中/队列中全空，切换页面才恢复"。
+            # 新会话建立即页面已打开，乐观置 True，等待前端上报修正。
+            set_window_visibility_state(True)
+
             def _on_visibility_change(visible):
                 # 前端上报的是字符串 "True"/"False"
                 set_window_visibility_state(str(visible).lower() == "true")
@@ -1792,7 +1800,10 @@ class HomeMixin(WebUIMixinBase):
                         );
                         if (!input) {
                             attempts += 1;
-                            if (attempts < 20) window.setTimeout(install, 100);
+                            // 远控 P2P 慢链路下 WebSocket 消息可能延迟数秒，
+                            // 20 次(2s) 会过早放弃导致可见性上报永久失效，
+                            // 放宽到 600 次(60s) 覆盖最慢的隧道建立场景。
+                            if (attempts < 600) window.setTimeout(install, 100);
                             return;
                         }
                         // force: 强制上报。远控手机端切后台/息屏期间事件可能丢失，
