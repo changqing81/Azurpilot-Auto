@@ -49,6 +49,7 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 # Pixiv 图片反代域名列表，用于壁纸加载时并发测速，选中其中可访问且时延最低的
@@ -301,6 +302,7 @@ class HomeMixin(WebUIMixinBase):
         self.mount_shell()
         self.show_home()
 
+    @render_locked
     def show_home(self) -> None:
         self.mount_shell()
         self._set_manage_mode(False)

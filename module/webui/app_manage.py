@@ -298,37 +298,38 @@ def app_manage(gui: "AlasGUI") -> None:
 
     @use_scope("content", clear=True)
     def _show_list():
-        expanded_summaries.clear()
-        gui.init_menu(name="ManageList")
-        gui.set_title(t("Gui.AppManage.PageTitle"))
-        put_scope("manage_config_list")
-        with use_scope("manage_config_list"):
-            for index, name in enumerate(alas_instance()):
-                mod_name = get_config_mod(name)
-                action_scope = f"manage_config_actions_{index}"
-                summary_scope = f"manage_config_summary_{index}"
-                put_scope(
-                    f"manage_config_card_{index}",
-                    [
-                        put_row(
-                            [
-                                put_column(
-                                    [
-                                        put_text(name).style("--manage-config-name--"),
-                                        put_text(
-                                            f"{t('Gui.AppManage.Mod')}: {mod_name}"
-                                        ).style("--manage-config-meta--"),
-                                    ],
-                                    size="auto auto",
-                                ).style("--manage-config-identity--"),
-                                put_scope(action_scope),
-                            ],
-                            size="minmax(0, 1fr) auto",
-                        ).style("--manage-config-row--"),
-                        put_scope(summary_scope),
-                    ],
-                ).style("--manage-config-card--")
-                _render_config_actions(name, index)
+        with gui.render_lock:
+            expanded_summaries.clear()
+            gui.init_menu(name="ManageList")
+            gui.set_title(t("Gui.AppManage.PageTitle"))
+            put_scope("manage_config_list")
+            with use_scope("manage_config_list"):
+                for index, name in enumerate(alas_instance()):
+                    mod_name = get_config_mod(name)
+                    action_scope = f"manage_config_actions_{index}"
+                    summary_scope = f"manage_config_summary_{index}"
+                    put_scope(
+                        f"manage_config_card_{index}",
+                        [
+                            put_row(
+                                [
+                                    put_column(
+                                        [
+                                            put_text(name).style("--manage-config-name--"),
+                                            put_text(
+                                                f"{t('Gui.AppManage.Mod')}: {mod_name}"
+                                            ).style("--manage-config-meta--"),
+                                        ],
+                                        size="auto auto",
+                                    ).style("--manage-config-identity--"),
+                                    put_scope(action_scope),
+                                ],
+                                size="minmax(0, 1fr) auto",
+                            ).style("--manage-config-row--"),
+                            put_scope(summary_scope),
+                        ],
+                    ).style("--manage-config-card--")
+                    _render_config_actions(name, index)
 
     def _create():
         name = cast(str, pin["ManageNew_name"])
@@ -350,37 +351,38 @@ def app_manage(gui: "AlasGUI") -> None:
 
     @use_scope("content", clear=True)
     def _show_new():
-        gui.init_menu(name="ManageNew", skip_clear=True)
-        gui.set_title(t("Gui.AppManage.TitleNew"))
-        put_scope("manage_add_form")
-        with use_scope("manage_add_form"):
-            put_input(
-                name="ManageNew_name",
-                label=t("Gui.AppManage.NewName"),
-                value=get_unused_name(),
-            )
-            put_select(
-                name="ManageNew_copyfrom",
-                label=t("Gui.AppManage.CopyFrom"),
-                options=alas_template() + alas_instance(),
-                value="template-alas",
-            )
-            put_scope("manage_add_feedback")
-            put_buttons(
-                buttons=[
-                    {
-                        "label": t("Gui.AddAlas.Confirm"),
-                        "value": "confirm",
-                        "color": "on",
-                    },
-                    {
-                        "label": t("Gui.AppManage.Back"),
-                        "value": "back",
-                        "color": "off",
-                    },
-                ],
-                onclick=[_create, _show_list],
-            )
+        with gui.render_lock:
+            gui.init_menu(name="ManageNew", skip_clear=True)
+            gui.set_title(t("Gui.AppManage.TitleNew"))
+            put_scope("manage_add_form")
+            with use_scope("manage_add_form"):
+                put_input(
+                    name="ManageNew_name",
+                    label=t("Gui.AppManage.NewName"),
+                    value=get_unused_name(),
+                )
+                put_select(
+                    name="ManageNew_copyfrom",
+                    label=t("Gui.AppManage.CopyFrom"),
+                    options=alas_template() + alas_instance(),
+                    value="template-alas",
+                )
+                put_scope("manage_add_feedback")
+                put_buttons(
+                    buttons=[
+                        {
+                            "label": t("Gui.AddAlas.Confirm"),
+                            "value": "confirm",
+                            "color": "on",
+                        },
+                        {
+                            "label": t("Gui.AppManage.Back"),
+                            "value": "back",
+                            "color": "off",
+                        },
+                    ],
+                    onclick=[_create, _show_list],
+                )
 
     def _import():
         resp = cast(
@@ -441,16 +443,17 @@ def app_manage(gui: "AlasGUI") -> None:
 
     @use_scope("content", clear=True)
     def _show_import():
-        gui.init_menu(name="ManageImport")
-        gui.set_title(t("Gui.AppManage.Import"))
-        put_scope("manage_import_panel")
-        with use_scope("manage_import_panel"):
-            put_warning(t("Gui.AppManage.OverrideWarning"), closable=False)
-            put_button(
-                t("Gui.Text.ChooseFile"),
-                onclick=_import,
-                color="on",
-            )
+        with gui.render_lock:
+            gui.init_menu(name="ManageImport")
+            gui.set_title(t("Gui.AppManage.Import"))
+            put_scope("manage_import_panel")
+            with use_scope("manage_import_panel"):
+                put_warning(t("Gui.AppManage.OverrideWarning"), closable=False)
+                put_button(
+                    t("Gui.Text.ChooseFile"),
+                    onclick=_import,
+                    color="on",
+                )
 
     with use_scope("menu", clear=True):
         put_button(

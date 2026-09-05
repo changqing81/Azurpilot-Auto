@@ -31,11 +31,13 @@ if TYPE_CHECKING:
     from module.webui.app import AlasGUI
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class InstanceMixin(WebUIMixinBase):
     """WebUI实例切换创建和导入"""
 
+    @render_locked
     def ui_alas(self, config_name: str) -> None:
         self._set_manage_mode(False)
         if config_name == self.alas_name:
@@ -126,6 +128,7 @@ class InstanceMixin(WebUIMixinBase):
 
             put()
 
+    @render_locked
     @use_scope("content", clear=True)
     def ui_import_legacy(self) -> None:
         """管理菜单：导入旧 AzurPilot 数据。"""
@@ -233,6 +236,7 @@ class InstanceMixin(WebUIMixinBase):
                 onclick=[import_legacy_upload],
             )
 
+    @render_locked
     @use_scope("content", clear=True)
     def ui_manage(self) -> None:
         self.mount_shell()
