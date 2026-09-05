@@ -65,6 +65,7 @@ from module.webui.config_search import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class TaskConfigMixin(WebUIMixinBase):
@@ -203,6 +204,7 @@ class TaskConfigMixin(WebUIMixinBase):
                 self._open_config_search_result(entry)
                 return
 
+    @render_locked
     @use_scope("task_config_search_results", clear=True)
     def _render_config_search_results(self, query: str) -> None:
         """显示匹配项，或在清空查询后恢复任务菜单。"""
@@ -391,6 +393,7 @@ class TaskConfigMixin(WebUIMixinBase):
             output_kwargs["help"] = arg_help or None
             yield arg_name, display, widget_type, output_kwargs
 
+    @render_locked
     @use_scope("content", clear=True)
     def alas_set_group(self, task: str) -> None:
         """

@@ -25,11 +25,13 @@ from module.webui.app_helpers import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class OverviewMixin(WebUIMixinBase):
     """WebUI实例概览和守护模式"""
 
+    @render_locked
     @use_scope("content", clear=True)
     def alas_overview(self) -> None:
         self.init_menu(name="Overview", skip_clear=True)
@@ -251,6 +253,7 @@ class OverviewMixin(WebUIMixinBase):
         self._log.set_dashboard_display(b)
         self.alas_update_dashboard(True)
 
+    @render_locked
     @use_scope("content", clear=True)
     def alas_daemon_overview(self, task: str) -> None:
         self.init_menu(name=task, skip_clear=True)

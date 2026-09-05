@@ -33,13 +33,20 @@ from module.webui.app_helpers import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class DashboardMixin(WebUIMixinBase):
     """WebUI仪表盘刷新逻辑"""
 
+    @render_locked
     def alas_update_overview_task(self) -> None:
         if not self.visible:
+            return
+        # 页面守卫：用户离开总览页后，此任务可能在被移除前仍执行一次。
+        # 此时 running_tasks 等 scope 已随 content 清空，use_scope 会在
+        # ROOT 下自动创建孤儿容器，任务列表将永久裸奔在页面顶层。
+        if self.page != "Overview":
             return
         self.alas_config.load()
         self.alas_config.get_next_task()
@@ -410,8 +417,12 @@ class DashboardMixin(WebUIMixinBase):
         if self._log.first_display:
             self._log.first_display = False
 
+    @render_locked
     def alas_update_dashboard(self, _clear=False):
         if not self.visible:
+            return
+        # 页面守卫：dashboard scope 仅存在于总览页，页外渲染会产生孤儿容器。
+        if self.page != "Overview":
             return
         with use_scope("dashboard", clear=_clear):
             if not self._log.display_dashboard:

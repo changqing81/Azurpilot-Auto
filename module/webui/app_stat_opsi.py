@@ -20,11 +20,13 @@ from module.webui.app_helpers import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class OpsiStatisticsMixin(WebUIMixinBase):
     """WebUI 大世界统计视图。"""
 
+    @render_locked
     def _render_opsi_stats(self):
         dependencies = self._load_opsi_stats_dependencies()
         if dependencies is None:

@@ -30,6 +30,7 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 VALID_WEBUI_THEMES = {
@@ -247,6 +248,7 @@ class AppShellMixin(WebUIMixinBase):
                 scope=scope,
             )
 
+    @render_locked
     @use_scope("aside", clear=True)
     def set_aside(self) -> None:
         # TODO: 更新 put_icon_buttons()
@@ -262,6 +264,7 @@ class AppShellMixin(WebUIMixinBase):
         self.refresh_aside_labels()
         self.refresh_aside_instances(force=True)
 
+    @render_locked
     def refresh_aside_labels(self) -> None:
         """语言变化时只更新主边栏中的静态按钮。"""
         with use_scope("aside_home", clear=True):
@@ -293,6 +296,7 @@ class AppShellMixin(WebUIMixinBase):
         aside_name = self._active_aside or self._stored_aside or "Home"
         self.active_button("aside", aside_name)
 
+    @render_locked
     @use_scope("aside_instance")
     def refresh_aside_instances(self, force=False) -> None:
         """仅在实例集合或运行状态变化时更新实例侧栏。"""
@@ -348,6 +352,7 @@ class AppShellMixin(WebUIMixinBase):
     def set_aside_status(self) -> None:
         self.refresh_aside_instances()
 
+    @render_locked
     @use_scope("header_status")
     def set_status(self, state: int) -> None:
         """

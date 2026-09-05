@@ -33,6 +33,7 @@ from module.webui.app_lifecycle import clearup
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 def prepare_webui_restart() -> bool:
@@ -101,6 +102,7 @@ def request_webui_restart() -> bool:
 class DeveloperToolsMixin(WebUIMixinBase):
     """WebUI调试工具和远程访问"""
 
+    @render_locked
     @use_scope("content", clear=True)
     def dev_utils(self) -> None:
         self.init_menu(name="Utils", skip_clear=True)
@@ -333,6 +335,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
             scope="develop_detail",
         )
 
+    @render_locked
     @use_scope("content", clear=True)
     def dev_remote(self) -> None:
         self.init_menu(name="Remote")

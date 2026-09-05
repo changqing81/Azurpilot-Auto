@@ -6,11 +6,13 @@ from pathlib import Path
 import module.webui.lang as lang
 from module.webui.app_dependencies import put_button, put_scope, run_js, t, use_scope
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class StatisticsPageMixin(WebUIMixinBase):
     """惰性装配并复用统计子视图。"""
 
+    @render_locked
     def alas_set_stat(self) -> None:
         """显示统计页，已装配的内容会直接复用。"""
         self.init_menu(name="Stat")
@@ -69,6 +71,7 @@ class StatisticsPageMixin(WebUIMixinBase):
             )
             self._statistics_refresh_pending = False
 
+    @render_locked
     def _refresh_statistics_page(self) -> None:
         """刷新已挂载的全部统计模块。"""
         with self._page_lock:

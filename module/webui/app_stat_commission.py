@@ -12,11 +12,13 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class CommissionIncomeStatisticsMixin(WebUIMixinBase):
     """WebUI 委托收益统计视图。"""
 
+    @render_locked
     def _render_commission_income(self):
         try:
             income_data = self._load_commission_income_data()

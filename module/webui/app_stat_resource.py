@@ -18,11 +18,13 @@ from module.webui.app_helpers import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class ResourceStatisticsMixin(WebUIMixinBase):
     """WebUI 全资源趋势图视图。"""
 
+    @render_locked
     def _render_resource_chart(self):
         self.cleanup_client_resources("__resourceChartCleanups")
         try:

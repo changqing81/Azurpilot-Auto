@@ -23,11 +23,13 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class DeveloperUpdateMixin(WebUIMixinBase):
     """WebUI更新和启动项设置"""
 
+    @render_locked
     @use_scope("content", clear=True)
     def dev_update(self) -> None:
         self.init_menu(name="Update", skip_clear=True)
