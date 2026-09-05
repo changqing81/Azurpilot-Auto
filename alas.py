@@ -25,6 +25,7 @@ from module.config.utils import (
 )
 from module.exception import *
 from module.handler.task_failure_protection import (
+    PROTECTION_EXEMPT_TASKS,
     RESTART_OPERATION_TIMEOUT,
     Watchdog,
     emulator_op_with_timeout,
@@ -331,6 +332,18 @@ class AzurLaneAutoScript:
 
         # 记录本次失败
         count = self.failure_tracker.record_failure(task, reason)
+
+        # 系统恢复关键任务豁免自动关闭（如 Restart）：Restart 是所有恢复路径
+        # 的基石（游戏未运行/卡死/异常均依赖 task_call('Restart')），且 GUI 中
+        # 该开关设计上不可关闭（override.yaml 仅有 true 选项），一旦被自动关闭，
+        # 游戏永远无法启动且用户无恢复手段。此类任务失败达到 3 次时由调度器
+        # 的连续失败退出逻辑终止程序，请求人工介入。
+        if task in PROTECTION_EXEMPT_TASKS:
+            logger.warning(
+                f'[Alas] 任务 `{task}` 是系统恢复关键任务，失败保护不会自动关闭它'
+                f'（当前累计 {count}/{max_failures} 次）'
+            )
+            return False
 
         # 检查是否达到阈值
         if self.failure_tracker.should_disable_task(task, reason, max_failures, time_window):
@@ -1453,8 +1466,11 @@ class AzurLaneAutoScript:
         如果任务尚未到执行时间，根据 Optimization_WhenTaskQueueEmpty 设置
         选择等待策略（关闭游戏 / 前往主页 / 停留原地），然后阻塞等待。
 
-        同时检查任务是否在运行时禁用列表中（因失败保护被自动关闭），
-        命中则强制延迟该任务并继续选取下一个，避免重复调度。
+        同时检查任务是否在运行时禁用列表中（因失败保护被自动关闭）。
+        由于 ``get_next()`` 只会返回配置中已启用的任务，能从调度中取到
+        禁用列表中的任务，说明用户已在 WebUI 重新启用它（或 task_call
+        强制启用），此时解除运行时禁用并恢复正常调度，避免任务被无限
+        跳过形成调度循环。
 
         Returns:
             str: 下一个任务的方法名（如 'Restart'、'Commission'）。
@@ -1464,14 +1480,26 @@ class AzurLaneAutoScript:
             self.config.task = task
             self.config.bind(task)
 
-            # 任务因失败保护被自动关闭，跳过并强制延迟该任务
+            # 任务因失败保护被自动关闭后的运行时双保险。
+            # get_next() 已过滤 Enable=False 的任务，此处命中说明配置中
+            # 该任务已重新启用，解除禁用即可；仅当配置仍未持久化启用状态
+            # 时（异常场景）才跳过并延迟。
             if task.command in self._disabled_tasks_by_protection:
-                logger.info(
-                    f'[Alas] 任务 `{task.command}` 因失败保护处于禁用状态，跳过调度'
+                enabled = self.config.cross_get(
+                    keys=f'{task.command}.Scheduler.Enable', default=False
                 )
-                self.config.task_delay(task.command, target=current_time() + timedelta(hours=24))
-                del_cached_property(self, 'config')
-                continue
+                if enabled:
+                    logger.info(
+                        f'[Alas] 任务 `{task.command}` 已重新启用，解除失败保护禁用'
+                    )
+                    self._disabled_tasks_by_protection.discard(task.command)
+                else:
+                    logger.info(
+                        f'[Alas] 任务 `{task.command}` 因失败保护处于禁用状态，跳过调度'
+                    )
+                    self.config.task_delay(task.command, target=current_time() + timedelta(hours=24))
+                    del_cached_property(self, 'config')
+                    continue
 
             from module.base.resource import release_resources
             if self.config.task.command != 'Alas':
@@ -1627,6 +1655,18 @@ class AzurLaneAutoScript:
         RESTART_DELAY = 20
         LONG_WAIT = 300
 
+        # 自愈：Restart 任务设计上不可关闭（GUI 中无开关）。历史版本的任务
+        # 失败保护曾可能误关闭它，导致游戏永远无法启动且用户无恢复手段。
+        # 启动时强制恢复启用状态，覆盖存量损坏配置。
+        try:
+            if not self.config.cross_get(keys='Restart.Scheduler.Enable', default=True):
+                logger.warning('[Alas] 检测到 Restart 任务被禁用（设计上不可关闭），自动恢复启用')
+                self.config.modified['Restart.Scheduler.Enable'] = True
+                self.config.save()
+                self._disabled_tasks_by_protection.discard('Restart')
+        except Exception as e:
+            logger.warning(f'[Alas] Restart 任务启用状态自愈失败: {e}')
+
         # 启动看门狗守护线程
         self.watchdog.start()
         # 启动独立的日报定时检查线程（与看门狗并行，互不影响）
@@ -1766,7 +1806,10 @@ class AzurLaneAutoScript:
                 strict_restart = self.config.Error_StrictRestart and failed >= 1 and self.config.cross_get(
                     keys=f'{task}.Scheduler.Sensitive', default=False
                 )
-                if (failed >= 3 and not tfp_enabled) or strict_restart:
+                # 豁免任务（如 Restart）不允许被 TFP 自动关闭，因此不能被 TFP
+                # 接管失败阈值——否则会无限失败无限重启，必须保留 3 次退出逻辑
+                tfp_exempt = task in PROTECTION_EXEMPT_TASKS
+                if (failed >= 3 and (not tfp_enabled or tfp_exempt)) or strict_restart:
                     reason = '任务配置或使用方式不符合要求，也可能是任务本身存在问题。'
                     action = '检查任务选项帮助和错误现场；确认配置正确后再重试。'
                     if strict_restart:

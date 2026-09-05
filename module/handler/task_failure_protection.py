@@ -69,6 +69,16 @@ WATCHDOG_TASK_TIMEOUT_DEFAULT = 120
 # 但若模拟器进程僵死或子进程管理卡住，调用可能长时间不返回。
 RESTART_OPERATION_TIMEOUT = 120
 
+# 不允许被任务失败保护自动关闭的任务。
+# Restart 是调度器自愈的基石：游戏未运行、卡死、异常等所有恢复路径都依赖
+# task_call('Restart') 重启游戏。若 Restart 被自动关闭：
+# 1. 游戏将永远无法启动，所有任务连锁失败形成调度死循环
+# 2. override.yaml 中 Restart.Scheduler.Enable 仅有 true 选项（GUI 设计上
+#    不可关闭），用户在 WebUI 中没有任何恢复手段
+# 此类任务失败达到 3 次时，由调度器的连续失败退出逻辑终止程序请求人工介入，
+# 而不是自动关闭。
+PROTECTION_EXEMPT_TASKS = {'Restart'}
+
 
 def _now_iso() -> str:
     """返回当前时间的 ISO 格式字符串。"""
@@ -472,6 +482,19 @@ class TaskFailureTracker:
         except Exception as e:
             logger.warning(f'[TaskFailureProtection] 保存失败记录文件失败: {e}')
 
+    def _reload(self) -> None:
+        """从磁盘重新加载数据，吸收其他进程（WebUI）的修改。
+
+        调度器与 WebUI 运行在不同进程，WebUI 在用户重新启用任务时会
+        通过 ``reset_task`` 清除失败记录与未读通知。若调度器进程仍持有
+        启动时加载的内存副本，后续 ``_save()`` 会把整份旧数据写回磁盘，
+        将 WebUI 的清除操作覆盖掉，导致失败计数与"任务已自动关闭"通知
+        复活（用户重新启用后弹窗再次出现）。写操作前先 reload 可避免
+        覆盖。本跟踪器的写操作均为任务失败/成功时的低频调用，reload
+        开销可忽略。
+        """
+        self._data = self._load()
+
     def record_failure(self, task: str, reason: str) -> int:
         """记录一次任务失败。
 
@@ -485,6 +508,7 @@ class TaskFailureTracker:
         Returns:
             当前时间窗口内同一错误原因的累计失败次数。
         """
+        self._reload()
         now = datetime.now()
         now_iso = _now_iso()
 
@@ -519,6 +543,7 @@ class TaskFailureTracker:
         Returns:
             时间窗口内的失败次数。
         """
+        self._reload()
         cutoff = datetime.now() - timedelta(hours=time_window_hours)
         timestamps = (
             self._data.get('failures', {})
@@ -566,6 +591,7 @@ class TaskFailureTracker:
             reason: 触发关闭的错误原因。
             count: 累计失败次数。
         """
+        self._reload()
         notifications = self._data.setdefault('notifications', [])
         notifications.append({
             'task': task,
@@ -593,6 +619,7 @@ class TaskFailureTracker:
         Args:
             task: 任务名称。
         """
+        self._reload()
         changed = False
         for n in self._data.get('notifications', []):
             if n.get('task') == task and not n.get('read', False):
@@ -609,6 +636,7 @@ class TaskFailureTracker:
         Args:
             task: 任务名称。
         """
+        self._reload()
         failures = self._data.get('failures', {})
         if task in failures:
             del failures[task]
@@ -616,6 +644,7 @@ class TaskFailureTracker:
 
     def clear_task_notifications(self, task: str) -> None:
         """删除指定任务的所有通知记录。"""
+        self._reload()
         notifications = self._data.get('notifications', [])
         self._data['notifications'] = [
             n for n in notifications if n.get('task') != task
@@ -641,6 +670,7 @@ class TaskFailureTracker:
         Args:
             time_window_hours: 时间窗口（小时），超过此时间的记录将被删除。
         """
+        self._reload()
         cutoff = datetime.now() - timedelta(hours=time_window_hours)
         failures = self._data.get('failures', {})
         changed = False
