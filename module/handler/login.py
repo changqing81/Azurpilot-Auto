@@ -77,6 +77,21 @@ CHANNEL_FLOAT_HIDE_BUTTON = Button(
     name='CHANNEL_FLOAT_HIDE_BUTTON',
 )
 
+# 4399 等渠道服客户端启动后，屏幕左上角（角色名右侧）会出现 SDK 悬浮球，
+# 需要将悬浮球拖拽到屏幕中下方，随后在弹出的「隐藏悬浮球」对话框中
+# 点击「隐藏」按钮才能消除；坐标为 1280x720 分辨率下的屏幕坐标。
+CHANNEL_FLOAT_SWIPE_START = (220, 45)
+CHANNEL_FLOAT_SWIPE_END = (640, 620)
+CHANNEL_FLOAT_SWIPE_DURATION = 0.6
+CHANNEL_FLOAT_MAX_ATTEMPTS = 4
+# 「隐藏悬浮球」对话框中的「隐藏」按钮
+CHANNEL_FLOAT_HIDE_BUTTON = Button(
+    area=(728, 604, 848, 664),
+    color=(),
+    button=(728, 604, 848, 664),
+    name='CHANNEL_FLOAT_HIDE_BUTTON',
+)
+
 
 class LoginHandler(UI):
     """登录和游戏重启处理器。
