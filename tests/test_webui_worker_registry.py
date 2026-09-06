@@ -216,6 +216,9 @@ class TestWorkerRegistry(unittest.TestCase):
             start_file = work_dir / "start"
             release_file = work_dir / "release"
             script = """
+import atexit
+import glob
+import logging
 import os
 import sys
 import time
@@ -243,6 +246,34 @@ else:
     (work_dir / f"{pid}.result").write_text("claimed", encoding="utf-8")
     while not (work_dir / "release").exists():
         time.sleep(0.01)
+
+# 导入 module.webui 会连带初始化 module.logger，在 log/ 下产生本进程专属日志。
+# atexit 后注册先执行，先关闭日志句柄再删除，避免 log/ 目录堆积垃圾文件。
+def _remove_own_log():
+    from module.logger import logger as azur_logger
+
+    for hdlr in list(azur_logger.handlers):
+        # RichTimedRotatingHandler 的真实文件句柄挂在 richd.console.file 上，
+        # Handler.close() 只关 self.stream（已置 None），必须单独关闭
+        rich_console = getattr(getattr(hdlr, "richd", None), "console", None)
+        if rich_console is not None:
+            try:
+                if rich_console.file is not None:
+                    rich_console.file.close()
+            except Exception:
+                pass
+        try:
+            hdlr.close()
+        except Exception:
+            pass
+    logging.shutdown()
+    for log in glob.glob(f"./log/*registryclaim{os.getpid()}.txt"):
+        try:
+            os.remove(log)
+        except OSError:
+            pass
+
+atexit.register(_remove_own_log)
 """
             environment = os.environ.copy()
             environment.update(
