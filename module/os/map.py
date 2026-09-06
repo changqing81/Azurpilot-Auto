@@ -1265,7 +1265,12 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             self.view.predict()
             self.view.show()
 
-            grid = self.convert_radar_to_local(grid)
+            try:
+                grid = self.convert_radar_to_local(grid)
+            except KeyError:
+                # 雷达问号越界到地图外（如舰队贴近边缘），该问号无法到达，丢弃并重新预测
+                logger.warning(f"[大世界-搜索] 雷达问号 {grid} 越界到地图外，跳过")
+                continue
 
             # ========== 移动前检查：是否为塞壬研究装置且功能未开启 ==========
             if self._should_skip_siren_research(grid):
@@ -1351,6 +1356,10 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                     logger.info("[大世界] [装置处理] 执行自律寻敌")
                     self.os_auto_search_run(drop=drop)
 
+                # 塞壬信息收集装置 / 探测装置产物柱子：点中间已主动点击完成，无需自律
+                elif siren_mode == "collected":
+                    logger.info("[大世界] [装置处理] 塞壬信息收集装置/柱子已主动点击完成")
+
                 # 未知模式或资源不足
                 else:
                     logger.info("[大世界] [装置处理] 未知模式或资源不足，执行标准处理")
@@ -1376,8 +1385,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         明石/记录塔/信息探测装置有概率刷新在远离出击舰队的特殊位置，且图标会被
         舰队模型遮挡，导致常规 `clear_question()`（只查出击舰队上方的固定雷达偏移）
         和地图重扫都漏检。本方法把 1~4 号舰队依次激活后各自截雷达找“?”，
-        一旦某支舰队清掉问号并命中了目标事件（明石/记录塔/信息探测装置）即停止；
-        若只是清掉普通问号，则继续切换下一支舰队，直到找到目标或扫完所有舰队。
+        每清完一个问号：若直接命中目标事件（明石/记录塔/信息探测装置）即停止；
+        若只是清掉普通问号，则先做一次全图扫描把清问号后才显现的事件捞出来，
+        仍无所获才切换下一支舰队，直到找到目标或扫完所有舰队。
 
         Args:
             drop: 掉落记录对象。
@@ -1404,8 +1414,26 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             logger.info(f"[大世界-搜索] 舰队 {fleet} 雷达上找到问号 {grid}，前往处理")
             # 保持当前舰队处于激活状态再走原有清除逻辑（雷达坐标系跟随舰队）
             self.clear_question(drop=drop)
-            # 已解决目标事件（明石/记录塔/信息探测装置）即视为补到漏检事件，停止遍历；
-            # 若只是清掉普通问号，则继续切换下一支舰队，直到找到目标或扫完所有舰队。
+            # 清问号直接命中目标事件（明石/记录塔/信息探测装置），立即停止遍历。
+            if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
+                logger.info("[大世界-搜索] 已解决目标事件，停止遍历舰队")
+                return True
+            # 清问号后未命中目标事件：做一次全图扫描，把整张地图上被遮挡、
+            # 清问号后才显现的事件捞出来；全图扫完仍没有，才继续切换下一支舰队。
+            try:
+                self.map_rescan_once(rescan_mode="full", drop=drop)
+            except (
+                TaskEnd,
+                GameStuckError,
+                GameTooManyClickError,
+                RequestHumanTakeover,
+            ):
+                raise
+            except Exception as e:
+                logger.debug(
+                    f"[大世界-搜索] 清问号后全图扫描异常，继续: {e}", exc_info=True
+                )
+            # 全图扫描可能捞到目标事件，命中则停止遍历。
             if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
                 logger.info("[大世界-搜索] 已解决目标事件，停止遍历舰队")
                 return True
@@ -1680,6 +1708,10 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                     # 执行一次自律寻敌
                     logger.info("[大世界] [装置处理] 执行自律寻敌")
                     self.os_auto_search_run(drop=drop)
+
+                # 塞壬信息收集装置 / 探测装置产物柱子：点中间已主动点击完成，无需自律
+                elif siren_mode == "collected":
+                    logger.info("[大世界] [装置处理] 塞壬信息收集装置/柱子已主动点击完成")
 
                 # 未知模式或资源不足
                 else:
@@ -2057,8 +2089,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         侵蚀1战后常规重扫一无所获（疑似明石被舰队遮挡/刷新在雷达范围外）时，
         按“强制移动等级”执行：
         等级 0：关闭，不做任何强制移动；
-        等级 1：仅换队重扫 —— 遍历 1~4 舰队雷达找“?”，命中目标事件（明石/记录塔/
-                 信息探测装置）即处理并止；扫完所有舰队仍未命中则止（不做强制移动）；
+        等级 1：仅换队重扫 —— 遍历 1~4 舰队雷达找“?”，每清完一个问号若未命中事件
+                 则先做一次全图扫描；命中目标事件（明石/记录塔/信息探测装置）即处理
+                 并止；扫完所有舰队仍未命中则止（不做强制移动）；
         等级 2：分级恢复 —— L1 先零移动遍历 1~4 舰队雷达找“?”，命中即返回；
                  L2 未命中则按“主队先行、其余按编号升序”逐队强制移动，每移一队
                  整图重扫一次，命中事件即停，不再移动剩余舰队；
@@ -2096,7 +2129,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         self._in_akashi_recovery = True
         try:
             if level == 1:
-                # 仅换队重扫：零移动，只切换舰队用雷达找问号（PR#5865 思路）。
+                # 仅换队重扫：零移动，只切换舰队用雷达找问号
                 # 命中即处理，未命中即止，不做任何强制移动。
                 logger.hr("[大世界] L1 仅换队重扫（遍历舰队雷达，不移动）")
                 self._solved_map_event = set()
@@ -2365,10 +2398,10 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             logger.warning(f"[大世界] 自律寻敌过程出现异常: {e}")
 
     def _execute_akashi_recovery(self):
-        """侵蚀1漏检明石的分级恢复主流程（L1 → L2 → L3）。
+        """侵蚀1漏检事件的分级恢复主流程（L1 → L2 → L3）。
 
-        L1: 遍历舰队雷达找问号，命中并解决事件（明石/记录塔/信息探测装置）
-            则直接结束（零移动）。
+        L1: 仅主队（CL 舰队）清问号后做一次全图扫描，命中事件（明石/记录塔/
+            信息探测装置）即结束（零移动），否则进入 L2。
         L2: 按“主队先行、其余按编号升序”逐队移动到各自编号对应的列
             （1→C1、2→D1、3→E1、4→F1），每移一队整图重扫一次，命中事件即停。
         L3: 移动过舰队时，补一次自律寻敌清理残留装置，顺路复查事件。
@@ -2376,14 +2409,28 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         primary = self.config.OpsiFleet_Fleet
         location = {1: (2, 0), 2: (3, 0), 3: (4, 0), 4: (5, 0)}  # C1, D1, E1, F1
 
-        # ---- L1：零移动，遍历舰队雷达找问号 ----
-        logger.hr("[大世界] L1 遍历舰队雷达查找问号")
+        # ---- L1：仅主队（CL 舰队）清问号后全图扫一遍，命中事件即停 ----
+        logger.hr("[大世界] L1 主队清问号后全图扫描")
         self._solved_map_event = set()
         self._solved_fleet_mechanism = False
-        if self.clear_question_any_fleet():
-            logger.info("[大世界] L1 已通过舰队雷达找到并处理事件，无需强制移动")
+        self.fleet_set(primary)
+        self.clear_question(drop=None)
+        # 清完问号后直接全图扫一遍
+        try:
+            self.map_rescan_once(rescan_mode="full", drop=None)
+        except (
+            TaskEnd,
+            GameStuckError,
+            GameTooManyClickError,
+            RequestHumanTakeover,
+        ):
+            raise
+        except Exception as e:
+            logger.debug(f"[大世界] L1 全图扫描异常，继续: {e}", exc_info=True)
+        if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
+            logger.info("[大世界] L1 已解决目标事件，无需强制移动")
             return
-        logger.info("[大世界] L1 未找到目标事件，继续分级强制移动排查")
+        logger.info("[大世界] L1 未命中目标事件，进入分级强制移动")
 
         # ---- L2：逐队强制移动，每移一队整图重扫，命中事件即停 ----
         order = [primary] + [f for f in [1, 2, 3, 4] if f != primary]

@@ -25,11 +25,13 @@ from module.webui.app_helpers import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class OverviewMixin(WebUIMixinBase):
     """WebUI实例概览和守护模式"""
 
+    @render_locked
     @use_scope("content", clear=True)
     def alas_overview(self) -> None:
         self.init_menu(name="Overview", skip_clear=True)
@@ -240,6 +242,10 @@ class OverviewMixin(WebUIMixinBase):
         self.task_handler.add(switch_log_scroll.g(), 1, True)
         if "Maa" not in self.ALAS_ARGS:
             self.task_handler.add(switch_dashboard.g(), 1, True)
+        # 首屏同步渲染一次任务列表：后台任务首跑要与页面渲染争抢
+        # render_lock，远控慢链路下可能滞后数秒甚至被可见性窗口拦截，
+        # 导致进入页面后运行中/队列中/等待中长期空白。
+        self.alas_update_overview_task()
         self.task_handler.add(self.alas_update_overview_task, 10, True)
         if "Maa" not in self.ALAS_ARGS:
             self.task_handler.add(self.alas_update_dashboard, 10, True)
@@ -251,6 +257,7 @@ class OverviewMixin(WebUIMixinBase):
         self._log.set_dashboard_display(b)
         self.alas_update_dashboard(True)
 
+    @render_locked
     @use_scope("content", clear=True)
     def alas_daemon_overview(self, task: str) -> None:
         self.init_menu(name=task, skip_clear=True)

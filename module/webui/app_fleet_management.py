@@ -13,6 +13,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class FleetManagementMixin(WebUIMixinBase):
@@ -202,6 +203,7 @@ class FleetManagementMixin(WebUIMixinBase):
     def _fleet_scan_running_click(self) -> None:
         toast(t("Gui.FleetManagement.ScanAlreadyRunning"), color="warn")
 
+    @render_locked
     @use_scope("content", clear=True)
     def fleet_scan_page(self, task: str = "FleetScan") -> None:
         """展示舰队扫描的一次性触发入口。"""
@@ -221,6 +223,7 @@ class FleetManagementMixin(WebUIMixinBase):
         )
         self.task_handler.add(button.g(), 1, True)
 
+    @render_locked
     @use_scope("content", clear=True)
     def fleet_info_page(self, task: str = "FleetInfo") -> None:
         """展示最近一次舰队扫描写入配置的数据。"""

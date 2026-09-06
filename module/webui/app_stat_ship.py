@@ -18,11 +18,13 @@ from module.webui.app_helpers import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class ShipExperienceStatisticsMixin(WebUIMixinBase):
     """WebUI 舰船经验统计视图。"""
 
+    @render_locked
     def _render_ship_exp(self):
         try:
             from module.statistics.ship_exp_stats import get_ship_exp_stats

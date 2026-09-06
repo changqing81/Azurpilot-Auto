@@ -403,14 +403,18 @@ def app():
             # 应用运行期间切换主题时，当前 HTML 仍是启动时主题，需要兼容热切换。
             AlasGUI.set_theme(theme=session_theme)
         else:
-            # 正常首屏已预载正确主题，避免通过 WebSocket 删除并重复发送 CSS。
+            # 主题未变化，仅同步缓存；样式注入统一下方 load_webui_styles 完成。
             AlasGUI.theme = session_theme
             State.theme = session_theme
         set_env(title="AzurPilot", output_animation=False)
+        # HTML <link> 预载仅用于首屏骨架着色，不作为最终保障：远控 P2P
+        # 隧道下主文档能成功而 CSS 子请求可能静默失败（暗色/亮色高级材质
+        # 均发生过整页裸奔）。此处总是经 WebSocket 全量注入主题样式——
+        # WebSocket 是会话内已建立的可靠通道；预载成功时重复注入的规则
+        # 级联结果相同，预载失败时由本次注入兜底，行为确定无竞态。
         load_webui_styles(
             theme=AlasGUI.theme,
             is_mobile=info.user_agent.is_mobile,
-            preloaded_styles=initial_style_names,
         )
         if _block_restricted_device() or _block_public_webui_password_error():
             return

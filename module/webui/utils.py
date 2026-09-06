@@ -482,25 +482,17 @@ def add_css(filepath):
     add_css_files((filepath,))
 
 
-def load_webui_styles(theme=None, is_mobile=None, preloaded_styles=()):
+def load_webui_styles(theme=None, is_mobile=None):
     """加载 WebUI 各入口共用的基础、响应式与主题样式。
 
     Args:
         theme: 当前主题名称。
         is_mobile: 当前会话是否为移动端。
-        preloaded_styles: 已由初始 HTML 加载的样式名称，避免重复经 WebSocket 注入。
     """
     if theme is None:
         theme = State.theme or "default"
     if is_mobile is None:
         is_mobile = session_info.user_agent.is_mobile
-
-    if preloaded_styles:
-        injected_styles = getattr(local, "webui_injected_styles", None)
-        if injected_styles is None:
-            injected_styles = set()
-            local.webui_injected_styles = injected_styles
-        injected_styles.update(filepath_css(name) for name in preloaded_styles)
 
     styles = [
         "alas",

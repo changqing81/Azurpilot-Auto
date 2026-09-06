@@ -49,6 +49,7 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 # Pixiv 图片反代域名列表，用于壁纸加载时并发测速，选中其中可访问且时延最低的
@@ -301,6 +302,7 @@ class HomeMixin(WebUIMixinBase):
         self.mount_shell()
         self.show_home()
 
+    @render_locked
     def show_home(self) -> None:
         self.mount_shell()
         self._set_manage_mode(False)
@@ -1733,6 +1735,11 @@ class HomeMixin(WebUIMixinBase):
         )
 
     def run(self, initial_page="home", localstorage=None) -> None:
+        # 远控环境下浏览器/隧道会频繁断开重连，每条 WebSocket 都会重跑本
+        # 方法；记录会话建立便于统计会话生灭频率与区分移动端来源。
+        logger.info(
+            f"[WebUI-会话] 会话建立 mobile={self.is_mobile} page={initial_page}"
+        )
         # 初始化背景图
         self.init_wallpaper()
         # setup gui
@@ -1758,6 +1765,14 @@ class HomeMixin(WebUIMixinBase):
         if not getattr(self, "_visibility_listener_installed", False):
             self._visibility_listener_installed = True
             from module.webui.utils import set_window_visibility_state
+
+            # 新会话建立时重置全局可见性缓存。该缓存是模块级全局变量，
+            # 被所有会话共享：上一会话（手机息屏/切后台）留下的 False
+            # 会在本会话 visibility_state_switch 首次 switch() 时直接把
+            # self.visible 置 False，总览页任务列表从此不再渲染——远控
+            # 重连场景下表现为"点进去运行中/队列中全空，切换页面才恢复"。
+            # 新会话建立即页面已打开，乐观置 True，等待前端上报修正。
+            set_window_visibility_state(True)
 
             def _on_visibility_change(visible):
                 # 前端上报的是字符串 "True"/"False"
@@ -1785,18 +1800,30 @@ class HomeMixin(WebUIMixinBase):
                         );
                         if (!input) {
                             attempts += 1;
-                            if (attempts < 20) window.setTimeout(install, 100);
+                            // 远控 P2P 慢链路下 WebSocket 消息可能延迟数秒，
+                            // 20 次(2s) 会过早放弃导致可见性上报永久失效，
+                            // 放宽到 600 次(60s) 覆盖最慢的隧道建立场景。
+                            if (attempts < 600) window.setTimeout(install, 100);
                             return;
                         }
-                        var notify = function () {
+                        // force: 强制上报。远控手机端切后台/息屏期间事件可能丢失，
+                        // 若回前台时本地 value 恰与服务端缓存一致，短路会使服务端
+                        // visible 永久卡死在 False，总览页任务列表从此不再刷新。
+                        var notify = function (force) {
                             var visible = !document.hidden;
-                            if (input.value === String(visible)) return;
+                            if (!force && input.value === String(visible)) return;
                             input.value = String(visible);
                             input.dispatchEvent(new Event('input', {bubbles: true}));
                             input.dispatchEvent(new Event('change', {bubbles: true}));
                         };
-                        document.addEventListener('visibilitychange', notify);
-                        notify();
+                        document.addEventListener('visibilitychange', function () {
+                            notify();
+                        });
+                        // 回前台/载入完成强制校准一次；30 秒心跳兜底事件全丢的场景
+                        window.addEventListener('focus', function () { notify(true); });
+                        window.addEventListener('pageshow', function () { notify(true); });
+                        window.setInterval(function () { notify(true); }, 30000);
+                        notify(true);
                     }
                     install();
                 })();
