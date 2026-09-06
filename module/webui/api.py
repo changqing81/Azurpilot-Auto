@@ -37,7 +37,7 @@ from module.device.method.scrcpy.control import ControlSender
 from module.device.method.scrcpy.options import ScrcpyOptions
 from module.device.method.utils import recv_all
 from module.logger import logger
-from module.config.utils import DEFAULT_CONFIG_NAME, filepath_config, is_oobe_needed
+from module.config.utils import DEFAULT_CONFIG_NAME, filepath_config
 from module.webui.deploy_settings import (
     deploy_settings_schema,
     get_startup_run,
@@ -1088,6 +1088,20 @@ def _init_live_screenshot_fallback(instance):
     return device, device.screenshot()
 
 
+def _live_instance_fallback() -> str:
+    """实时预览/控制接口的 instance 兜底。
+
+    P2P 远控代理转发 WebSocket 握手时只保留 pathname、剥掉 query string，
+    远端浏览器缓存的前端把 instance 放在 query 里会丢失，服务端解析不到。
+    此时回退到磁盘上已存在的用户配置（优先 alas），绝不创建新配置文件；
+    仅全新环境（无任何用户配置）才维持默认名，走原有的首次创建逻辑。
+    """
+    for name in ("alas", DEFAULT_CONFIG_NAME):
+        if os.path.exists(filepath_config(name)):
+            return name
+    return DEFAULT_CONFIG_NAME
+
+
 async def ws_live_screenshot(websocket):
     await websocket.accept()
     if is_demo_mode():
@@ -1098,12 +1112,7 @@ async def ws_live_screenshot(websocket):
         await websocket.close()
         return
 
-    try:
-        instance = _resolve_live_instance(websocket.query_params.get("instance"))
-    except ValueError as e:
-        await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
-        await websocket.close()
-        return
+    instance = websocket.query_params.get("instance") or _live_instance_fallback()
     mode = websocket.query_params.get("mode", "auto").lower()
     if mode not in ("auto", "scrcpy", "screenshot"):
         mode = "auto"
@@ -1410,12 +1419,7 @@ async def ws_live_control(websocket):
         }))
         await websocket.close()
         return
-    try:
-        instance = _resolve_live_instance(websocket.query_params.get("instance"))
-    except ValueError as e:
-        await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
-        await websocket.close()
-        return
+    instance = websocket.query_params.get("instance") or _live_instance_fallback()
     fallback = None
 
     def get_target():

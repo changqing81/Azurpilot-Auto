@@ -1144,6 +1144,15 @@ class Connection(ConnectionAttr):
                 remain = available.select(may_mumu12_family=True).first_or_none()
                 self.config.Emulator_Serial = self.serial = remain.serial
                 del_cached_property(self, 'adb')
+            elif available.count == 2 \
+                    and len(available.select(may_mumu12_family=True)) == 1:
+                # MuMu12 双注册：同一台模拟器同时以网络端口（127.0.0.1:16XXX）
+                # 和传统模拟器序列号（emulator-555X）出现在 ADB 设备列表，
+                # 选 MuMu12 网络端口，避免 auto 检测二选一失败
+                remain = available.select(may_mumu12_family=True).first_or_none()
+                logger.info(f'[设备-连接] 自动设备检测到 MuMu12 双注册设备，正在使用 {remain.serial}')
+                self.config.Emulator_Serial = self.serial = remain.serial
+                del_cached_property(self, 'adb')
             else:
                 logger.critical('[设备-连接] 找到多个设备，自动设备检测无法决定选择哪个，'
                                 '请将下面列出的可用设备之一复制到 Alas.Emulator.Serial 中')
