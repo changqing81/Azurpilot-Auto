@@ -9,7 +9,6 @@ import asyncio
 import json
 import os
 import queue
-import re
 import shutil
 import socket
 import struct
@@ -1037,43 +1036,6 @@ def _acquire_live_scrcpy_session(instance, fps, target_width, bitrate_scale):
         width=target_width,
         bitrate_scale=bitrate_scale,
     )
-
-
-# 配置名白名单：Unicode 字母数字、下划线、连字符（\w 兼容中文实例名），拒绝路径分隔符等危险字符
-_LIVE_INSTANCE_PATTERN = re.compile(r"^[\w\-]{1,64}$", re.UNICODE)
-
-
-def _resolve_live_instance(raw_instance) -> str:
-    """解析并校验实时预览/控制接口的 instance 参数。
-
-    规则：
-    - 参数必传，缺失或非法直接拒绝，不再回退到默认配置名；
-    - 对应配置文件已存在时直接使用，不做任何创建动作；
-    - 配置文件不存在时，仅当 config/ 目录下没有任何用户配置（全新环境）才允许
-      首次创建，避免远控浏览器误传 instance 时在磁盘上固化出垃圾配置文件。
-
-    Returns:
-        str: 校验通过的配置名。
-
-    Raises:
-        ValueError: 参数缺失、非法或禁止创建新配置。
-    """
-    instance = str(raw_instance or "").strip()
-    if not instance:
-        raise ValueError("缺少 instance 参数，请在连接 URL 中携带 ?instance=<配置名>")
-    if not _LIVE_INSTANCE_PATTERN.fullmatch(instance):
-        raise ValueError(f"非法的 instance 参数: {instance!r}")
-
-    if os.path.exists(filepath_config(instance)):
-        # 配置已存在：正常加载使用
-        return instance
-
-    if not is_oobe_needed():
-        # 已有其他用户配置：拒绝凭空创建新配置文件
-        raise ValueError(f"配置 {instance!r} 不存在，已拒绝自动创建，请先在 WebUI 中新建配置")
-
-    # 全新环境：允许创建，供远控等场景首次使用
-    return instance
 
 
 def _init_live_screenshot_fallback(instance):
