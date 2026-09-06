@@ -2102,8 +2102,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         等级 2（保守模式）：先只扫雷达不挪动，扫不到就逐个挪动舰队再整图重扫；
                  找到就停，更稳更全，但会挪动舰队、慢一些（分 L1/L2/L3 三段）：
                  L1 仅主队（CL 舰队）清问号后全图扫，命中即回；
-                 L2 未中则按“主队先行、其余按编号升序”逐队挪到对应列，每挪一队
-                 整图重扫一次、命中事件即停，不再挪剩余舰队；
+                 L2 未中则按“主队先行、其余按编号升序”逐队：换队后先雷达预检，
+                 附近有事件直接用当前舰队处理（命中即停），扫不到才挪到对应列，
+                 每挪一队整图重扫一次、命中事件即停，不再挪剩余舰队；
                  L3 只要挪过就补一次自律寻敌清理残留装置（顺路复查事件）。
 
         Args:
@@ -2271,8 +2272,10 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
         L1: 仅主队（CL 舰队）清问号后做一次全图扫描，命中事件（明石/记录塔/
             信息探测装置）即结束（零移动），否则进入 L2。
-        L2: 按“主队先行、其余按编号升序”逐队移动到各自编号对应的列
-            （1→C1、2→D1、3→E1、4→F1），每移一队整图重扫一次，命中事件即停。
+        L2: 按“主队先行、其余按编号升序”逐队：换队后先雷达预检，当前舰队
+            附近有事件（问号，含明石/装置）则直接处理、命中即停；未扫到才
+            移动到各自编号对应的列（1→C1、2→D1、3→E1、4→F1），每移一队
+            整图重扫一次，命中事件即停。
         L3: 移动过舰队时，补一次自律寻敌清理残留装置，顺路复查事件。
         """
         primary = self.config.OpsiFleet_Fleet
@@ -2309,6 +2312,17 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         )
         try:
             for fleet in order:
+                # ---- 移动前雷达预检：换队后先扫当前舰队的雷达，附近有事件
+                #（问号；明石/装置在雷达上同样显示为问号）则直接用当前舰队
+                # 处理，省去一次无意义的强制移动。未扫到则照常移动该队。----
+                self.fleet_set(fleet)
+                self._solved_map_event = set()
+                self._solved_fleet_mechanism = False
+                self.clear_question(drop=None)
+                if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
+                    logger.info("[大世界] 保守模式：移动前雷达预检解决事件，停止强制移动")
+                    break
+
                 if not self._move_fleet_to_patrol(fleet, location[fleet]):
                     continue
                 moved_any = True
