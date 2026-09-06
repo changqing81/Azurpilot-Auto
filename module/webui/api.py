@@ -9,7 +9,6 @@ import asyncio
 import json
 import os
 import queue
-import re
 import shutil
 import socket
 import struct
@@ -37,7 +36,7 @@ from module.device.method.scrcpy.control import ControlSender
 from module.device.method.scrcpy.options import ScrcpyOptions
 from module.device.method.utils import recv_all
 from module.logger import logger
-from module.config.utils import DEFAULT_CONFIG_NAME, filepath_config, is_oobe_needed
+from module.config.utils import DEFAULT_CONFIG_NAME, filepath_config
 from module.webui.deploy_settings import (
     deploy_settings_schema,
     get_startup_run,
@@ -1039,43 +1038,6 @@ def _acquire_live_scrcpy_session(instance, fps, target_width, bitrate_scale):
     )
 
 
-# 配置名白名单：Unicode 字母数字、下划线、连字符（\w 兼容中文实例名），拒绝路径分隔符等危险字符
-_LIVE_INSTANCE_PATTERN = re.compile(r"^[\w\-]{1,64}$", re.UNICODE)
-
-
-def _resolve_live_instance(raw_instance) -> str:
-    """解析并校验实时预览/控制接口的 instance 参数。
-
-    规则：
-    - 参数必传，缺失或非法直接拒绝，不再回退到默认配置名；
-    - 对应配置文件已存在时直接使用，不做任何创建动作；
-    - 配置文件不存在时，仅当 config/ 目录下没有任何用户配置（全新环境）才允许
-      首次创建，避免远控浏览器误传 instance 时在磁盘上固化出垃圾配置文件。
-
-    Returns:
-        str: 校验通过的配置名。
-
-    Raises:
-        ValueError: 参数缺失、非法或禁止创建新配置。
-    """
-    instance = str(raw_instance or "").strip()
-    if not instance:
-        raise ValueError("缺少 instance 参数，请在连接 URL 中携带 ?instance=<配置名>")
-    if not _LIVE_INSTANCE_PATTERN.fullmatch(instance):
-        raise ValueError(f"非法的 instance 参数: {instance!r}")
-
-    if os.path.exists(filepath_config(instance)):
-        # 配置已存在：正常加载使用
-        return instance
-
-    if not is_oobe_needed():
-        # 已有其他用户配置：拒绝凭空创建新配置文件
-        raise ValueError(f"配置 {instance!r} 不存在，已拒绝自动创建，请先在 WebUI 中新建配置")
-
-    # 全新环境：允许创建，供远控等场景首次使用
-    return instance
-
-
 def _init_live_screenshot_fallback(instance):
     from module.config.config import AzurLaneConfig
     from module.device.device import Device
@@ -1088,6 +1050,20 @@ def _init_live_screenshot_fallback(instance):
     return device, device.screenshot()
 
 
+def _live_instance_fallback() -> str:
+    """实时预览/控制接口的 instance 兜底。
+
+    P2P 远控代理转发 WebSocket 握手时只保留 pathname、剥掉 query string，
+    远端浏览器缓存的前端把 instance 放在 query 里会丢失，服务端解析不到。
+    此时回退到磁盘上已存在的用户配置（优先 alas），绝不创建新配置文件；
+    仅全新环境（无任何用户配置）才维持默认名，走原有的首次创建逻辑。
+    """
+    for name in ("alas", DEFAULT_CONFIG_NAME):
+        if os.path.exists(filepath_config(name)):
+            return name
+    return DEFAULT_CONFIG_NAME
+
+
 async def ws_live_screenshot(websocket):
     await websocket.accept()
     if is_demo_mode():
@@ -1098,12 +1074,7 @@ async def ws_live_screenshot(websocket):
         await websocket.close()
         return
 
-    try:
-        instance = _resolve_live_instance(websocket.query_params.get("instance"))
-    except ValueError as e:
-        await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
-        await websocket.close()
-        return
+    instance = websocket.query_params.get("instance") or _live_instance_fallback()
     mode = websocket.query_params.get("mode", "auto").lower()
     if mode not in ("auto", "scrcpy", "screenshot"):
         mode = "auto"
@@ -1410,12 +1381,7 @@ async def ws_live_control(websocket):
         }))
         await websocket.close()
         return
-    try:
-        instance = _resolve_live_instance(websocket.query_params.get("instance"))
-    except ValueError as e:
-        await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
-        await websocket.close()
-        return
+    instance = websocket.query_params.get("instance") or _live_instance_fallback()
     fallback = None
 
     def get_target():
