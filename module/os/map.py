@@ -2287,6 +2287,11 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         self._solved_fleet_mechanism = False
         self.fleet_set(primary)
         self.clear_question(drop=None)
+        # 侵蚀一地图每次只刷新一个事件：clear_question 已解决目标事件
+        # （明石/记录塔/装置）时无需再全图扫描找下一个
+        if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
+            logger.info("[大世界] 保守模式 L1：清问号已解决目标事件，无需全图扫描")
+            return
         # 清完问号后直接全图扫一遍
         try:
             self.map_rescan_once(rescan_mode="full", drop=None)
