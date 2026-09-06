@@ -2097,13 +2097,14 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         侵蚀1战后常规重扫一无所获（疑似明石被舰队遮挡/刷新在雷达范围外）时，
         按“强制移动等级”执行：
         等级 0：关闭，不做任何强制移动；
-        等级 1：仅换队重扫 —— 遍历 1~4 舰队雷达找“?”，每清完一个问号若未命中事件
-                 则先做一次全图扫描；命中目标事件（明石/记录塔/信息探测装置）即处理
-                 并止；扫完所有舰队仍未命中则止（不做强制移动）；
-        等级 2：分级恢复 —— L1 仅主队（CL 舰队）清问号后全图扫描，命中即返回；
-                 L2 未命中则按“主队先行、其余按编号升序”逐队强制移动，每移一队
-                 整图重扫一次，命中事件即停，不再移动剩余舰队；
-                 L3 只要移动过舰队，就补一次自律寻敌清理残留装置（顺路复查事件）；
+        等级 1（效率模式）：只切换舰队看雷达找问号，一支舰队都不挪动，速度最快；
+                 找到明石/记录塔/装置就处理，找不到就罢手（图快省事）。
+        等级 2（保守模式）：先只扫雷达不挪动，扫不到就逐个挪动舰队再整图重扫；
+                 找到就停，更稳更全，但会挪动舰队、慢一些（分 L1/L2/L3 三段）：
+                 L1 仅主队（CL 舰队）清问号后全图扫，命中即回；
+                 L2 未中则按“主队先行、其余按编号升序”逐队挪到对应列，每挪一队
+                 整图重扫一次、命中事件即停，不再挪剩余舰队；
+                 L3 只要挪过就补一次自律寻敌清理残留装置（顺路复查事件）。
 
         Args:
             ExecuteFixedPatrolScan (bool, optional): 是否启用强制移动。
@@ -2136,9 +2137,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         self._in_akashi_recovery = True
         try:
             if level == 1:
-                # 仅换队重扫：零移动，只切换舰队用雷达找问号
+                # 效率模式：只切换舰队看雷达找问号（零移动，一支都不挪动）
                 # 命中即处理，未命中即止，不做任何强制移动。
-                logger.hr("[大世界] L1 仅换队重扫（遍历舰队雷达，不移动）")
+                logger.hr("[大世界] 效率模式（仅切换舰队看雷达，不移动）")
                 self._solved_map_event = set()
                 self._solved_fleet_mechanism = False
                 self.clear_question_any_fleet()
@@ -2153,12 +2154,12 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         """读取强制移动等级并兼容旧布尔配置。
 
         Returns:
-            int: 0（关闭）/ 1（仅换队重扫，零移动遍历舰队雷达）/
-                2（分级恢复）。
+            int: 0（关闭）/ 1（效率模式，只换队看雷达、不挪动）/
+                2（保守模式，先扫雷达、扫不到再逐队挪动）。
         """
         value = self.config.OpsiHazard1Leveling_ExecuteFixedPatrolScan
         if isinstance(value, bool):
-            # 旧版布尔配置兼容：True 视为开启（沿用最高档“分级恢复”的等级 2），
+            # 旧版布尔配置兼容：True 视为开启（沿用最高档“保守模式”的等级 2），
             # False 视为关闭（等级 0）。不能按 Python 的 True==1 直接当作 1，
             # bool 需在此时先显式归一，否则 GUI 显示“1”而行为却被误判。
             value = 2 if value else 0
@@ -2266,7 +2267,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         return moved
 
     def _execute_akashi_recovery(self):
-        """侵蚀1漏检事件的分级恢复主流程（L1 → L2 → L3）。
+        """侵蚀1漏检事件的保守模式主流程（L1 → L2 → L3）。
 
         L1: 仅主队（CL 舰队）清问号后做一次全图扫描，命中事件（明石/记录塔/
             信息探测装置）即结束（零移动），否则进入 L2。
@@ -2278,7 +2279,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         location = {1: (2, 0), 2: (3, 0), 3: (4, 0), 4: (5, 0)}  # C1, D1, E1, F1
 
         # ---- L1：仅主队（CL 舰队）清问号后全图扫一遍，命中事件即停 ----
-        logger.hr("[大世界] L1 主队清问号后全图扫描")
+        logger.hr("[大世界] 保守模式 L1：主队清问号后全图扫描")
         self._solved_map_event = set()
         self._solved_fleet_mechanism = False
         self.fleet_set(primary)
@@ -2296,9 +2297,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         except Exception as e:
             logger.debug(f"[大世界] L1 全图扫描异常，继续: {e}", exc_info=True)
         if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
-            logger.info("[大世界] L1 已解决目标事件，无需强制移动")
+            logger.info("[大世界] 保守模式 L1：已解决目标事件，无需强制移动")
             return
-        logger.info("[大世界] L1 未命中目标事件，进入分级强制移动")
+        logger.info("[大世界] 保守模式 L1：未命中目标事件，进入逐队移动")
 
         # ---- L2：逐队强制移动，每移一队整图重扫，命中事件即停 ----
         order = [primary] + [f for f in [1, 2, 3, 4] if f != primary]
@@ -2328,7 +2329,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                     logger.debug(f"[大世界] 单队移动后的重扫异常，继续: {e}", exc_info=True)
 
                 if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
-                    logger.info("[大世界] 分级扫描命中事件，停止继续强制移动")
+                    logger.info("[大世界] 保守模式：扫描命中事件，停止继续强制移动")
                     break
         finally:
             backup.recover()
