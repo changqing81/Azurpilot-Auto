@@ -1061,6 +1061,14 @@
           1,
           3600
         ]
+      },
+      "MoveChannelFloat": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
       }
     },
     "Storage": {
