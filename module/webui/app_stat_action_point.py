@@ -56,9 +56,6 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         if not timeline:
             with use_scope("ap_chart", clear=True):
                 put_html(build_muted_notice(t("Gui.Stat.NoApData")))
-                put_button(
-                    t("Gui.Stat.Refresh"), onclick=self._render_ap_chart, color="off"
-                )
             return
 
         raw_points = self._normalize_ap_chart_points(timeline)

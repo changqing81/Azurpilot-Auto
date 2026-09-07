@@ -400,11 +400,6 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             put_row(
                 [
                     put_button(
-                        t("Gui.Stat.Refresh"),
-                        onclick=self._render_opsi_stats,
-                        color="off",
-                    ),
-                    put_button(
                         t("Gui.Stat.ExportAndSaveDesktop"),
                         onclick=lambda: self._export_opsi_csv(True),
                         color="off",

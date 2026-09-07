@@ -3,7 +3,6 @@
 from module.webui.app_dependencies import (
     datetime,
     json,
-    put_button,
     put_html,
     put_text,
     run_js,
@@ -192,11 +191,6 @@ class ResourceStatisticsMixin(WebUIMixinBase):
     def _show_resource_no_data(self):
         with use_scope("resource_chart", clear=True):
             put_html(build_muted_notice(t("Gui.Stat.NoResourceData")))
-            put_button(
-                t("Gui.Stat.Refresh"),
-                onclick=self._render_resource_chart,
-                color="off",
-            )
 
     def _show_resource_no_valid_data(self):
         with use_scope("resource_chart", clear=True):

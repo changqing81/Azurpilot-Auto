@@ -1,7 +1,6 @@
 """WebUI 体力趋势图的视图切换工具栏。"""
 
 from module.webui.app_dependencies import (
-    put_button,
     put_buttons,
     put_html,
     put_row,
@@ -34,7 +33,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
             "selected_bg": "#eaddff",
             "selected_text": "#21005d",
             "selected_outline": "rgba(103, 80, 164, .18)",
-            "refresh_text": "#6750a4",
         }
         if self.theme == "dark":
             md3_colors.update(
@@ -52,7 +50,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
                     "selected_bg": "#3e3b6a",
                     "selected_text": "#dfdcfb",
                     "selected_outline": "rgba(122, 119, 187, .46)",
-                    "refresh_text": "#dfdcfb",
                 }
             )
         elif self.theme == "advanced_material":
@@ -71,7 +68,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
                     "selected_bg": "rgba(0, 122, 255, .14)",
                     "selected_text": "#007aff",
                     "selected_outline": "rgba(0, 122, 255, .26)",
-                    "refresh_text": "#007aff",
                 }
             )
         elif self.theme == "dark_advanced_material":
@@ -90,7 +86,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
                     "selected_bg": "rgba(30, 64, 175, .52)",
                     "selected_text": "#dbeafe",
                     "selected_outline": "rgba(96, 165, 250, .42)",
-                    "refresh_text": "#93c5fd",
                 }
             )
         put_html(f"""
@@ -160,37 +155,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
             color: {md3_colors["text"]} !important;
             box-shadow: inset 0 0 0 1px {md3_colors["segment_outline"]} !important;
         }}
-        [style*="--ap-chart-md3-refresh-{chart_id}"] {{
-            margin: 0 !important;
-            padding: 0 !important;
-            border: 0 !important;
-            background: transparent !important;
-            box-shadow: none !important;
-        }}
-        [style*="--ap-chart-md3-refresh-{chart_id}"].btn,
-        [style*="--ap-chart-md3-refresh-{chart_id}"] .btn {{
-            margin: 0 !important;
-            padding: 7px 16px !important;
-            border: 1px solid {md3_colors["segment_border"]} !important;
-            border-radius: 12px !important;
-            background: {md3_colors["segment_bg"]} !important;
-            color: {md3_colors["refresh_text"]} !important;
-            box-shadow: none !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            line-height: 20px !important;
-            white-space: nowrap !important;
-            transform: none !important;
-        }}
-        [style*="--ap-chart-md3-refresh-{chart_id}"].btn:hover,
-        [style*="--ap-chart-md3-refresh-{chart_id}"] .btn:hover {{
-            background: {md3_colors["hover"]} !important;
-            transform: none !important;
-        }}
-        [style*="--ap-chart-md3-refresh-{chart_id}"].btn:active,
-        [style*="--ap-chart-md3-refresh-{chart_id}"] .btn:active {{
-            transform: none !important;
-        }}
         @media (max-width: 720px) {{
             [style*="--ap-chart-md3-toolbar-{chart_id}"] {{
                 grid-template-columns: 1fr auto !important;
@@ -224,11 +188,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
                 background: {md3_colors["segment_border"]} !important;
                 border-radius: 2px !important;
             }}
-            [style*="--ap-chart-md3-refresh-{chart_id}"] .btn {{
-                padding: 6px 12px !important;
-                font-size: 12px !important;
-                white-space: nowrap !important;
-            }}
         }}
         </style>
         """)
@@ -257,13 +216,6 @@ class ActionPointToolbarMixin(WebUIMixinBase):
                 put_buttons(
                     view_buttons, onclick=_switch_view, small=True, group=True
                 ).style(f"--ap-chart-md3-segment-{chart_id}:1;"),
-                put_button(
-                    t("Gui.Stat.Refresh"),
-                    onclick=self._render_ap_chart,
-                    color="secondary",
-                    small=True,
-                    outline=True,
-                ).style(f"--ap-chart-md3-refresh-{chart_id}:1; justify-self:end;"),
             ],
-            size="auto auto 1fr",
+            size="auto 1fr",
         ).style(f"--ap-chart-md3-toolbar-{chart_id}:1;")
