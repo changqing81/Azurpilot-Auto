@@ -105,6 +105,8 @@ def app_manage(gui: "AlasGUI") -> None:
         return ""
 
     def validate_name(name: str):
+        if not name or not name.strip():
+            return t("Gui.AppManage.InvalidChar")
         if name in alas_instance():
             return t("Gui.AppManage.NameExist")
         if set(name) & set(".\\/:*?\"'<>|"):
