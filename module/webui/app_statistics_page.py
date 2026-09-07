@@ -60,8 +60,8 @@ class StatisticsPageMixin(WebUIMixinBase):
                 )
                 put_scope("ap_chart", [])
                 put_scope("opsi_stats", [])
-                put_scope("ship_exp_table", [])
                 put_scope("commission_income", [])
+                put_scope("ship_exp_table", [])
                 put_scope("resource_chart", [])
 
             self._statistics_cache_key = cache_key
