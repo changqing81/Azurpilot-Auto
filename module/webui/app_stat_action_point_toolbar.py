@@ -52,7 +52,7 @@ class ActionPointToolbarMixin(WebUIMixinBase):
                     "selected_outline": "rgba(122, 119, 187, .46)",
                 }
             )
-        elif self.theme == "advanced_material":
+        elif self.theme in ("advanced_material", "transparent"):
             md3_colors.update(
                 {
                     "toolbar_border": "rgba(255, 255, 255, .46)",

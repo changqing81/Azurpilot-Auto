@@ -368,6 +368,11 @@ class HomeMixin(WebUIMixinBase):
                         "value": "dark_advanced_material",
                         "color": "dark",
                     },
+                    {
+                        "label": "透明",
+                        "value": "transparent",
+                        "color": "light",
+                    },
                 ],
                 onclick=lambda t: set_theme(t),
             ).style("text-align: center")

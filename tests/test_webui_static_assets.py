@@ -173,6 +173,15 @@ class TestWebUIStaticAssets(unittest.TestCase):
             ),
             _initial_style_names("dark_advanced_material"),
         )
+        self.assertEqual(
+            (
+                "alas",
+                "entry-alas",
+                "advanced-material-alas",
+                "transparent-alas",
+            ),
+            _initial_style_names("transparent"),
+        )
 
     def test_theme_is_normalized_before_initial_html_rendering(self):
         self.assertEqual("advanced_material", normalize_webui_theme("apple"))

@@ -1,0 +1,358 @@
+/* ==========================================
+   Alas 透明主题（Transparent）
+   ==========================================
+   基于高级材质主题（advanced-material-alas.css）的
+   纯视觉覆盖层，与其成对加载（先材质后透明）：
+
+   - 保留高级材质主题的全部间距/字号/对齐/布局规则，
+     文字位置与高级材质主题完全一致，不会错位；
+   - 卡片、侧边栏、菜单、顶栏、日志等全部面板背景
+     透明化，壁纸直接透出；
+   - 去除毛玻璃模糊与投影，仅保留必要的交互控件
+     （按钮/输入框）半透明底色保证可用性；
+   - 文字叠加极轻的白色光晕，保证任意壁纸上可读。
+   ========================================== */
+
+/* ==========================================
+   1. CSS 变量覆盖
+   ========================================== */
+
+:root {
+	/* 面板底色全部透明 */
+	--alas-apple-card-bg: transparent;
+	--alas-apple-card-bg-solid: transparent;
+	/* 玻璃边框弱化为极淡白线，仅用于交互控件 */
+	--alas-apple-glass-border: rgba(255, 255, 255, 0.35);
+	/* 阴影系统全部置空 */
+	--alas-apple-shadow-xs: none;
+	--alas-apple-shadow: none;
+	--alas-apple-shadow-md: none;
+	--alas-apple-shadow-lg: none;
+	/* 入口功能页（entry-alas.css 通过变量取色）同步透明化 */
+	--alas-entry-surface: transparent;
+	--alas-entry-surface-muted: rgba(255, 255, 255, 0.32);
+	--alas-entry-surface-subtle: rgba(255, 255, 255, 0.18);
+	--alas-entry-shadow: none;
+	--alas-entry-panel-shadow: none;
+}
+
+/* ==========================================
+   2. 文字可读性
+   ========================================== */
+
+/* 内容区文字加极轻白色光晕：浅色壁纸上几乎不可见，
+   复杂/深色壁纸上保证文字可读；text-shadow 不参与
+   布局，不会引起文字错位 */
+#pywebio-scope-content,
+#pywebio-scope-header,
+#pywebio-scope-menu,
+#pywebio-scope-groups {
+	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+/* 自带底色的交互控件不吃光晕，避免观感发糊 */
+#pywebio-scope-content .btn,
+#pywebio-scope-content .form-control,
+#pywebio-scope-content select,
+#pywebio-scope-content input:not([type="checkbox"]):not([type="radio"]),
+#pywebio-scope-menu .btn {
+	text-shadow: none;
+}
+
+/* 分隔线统一为半透明白，匹配透明主题观感 */
+#pywebio-scope-content hr.hr-group {
+	border-top: 1px solid rgba(255, 255, 255, 0.55) !important;
+	border-bottom: none !important;
+}
+
+/* ==========================================
+   3. 布局组件透明化
+   ========================================== */
+
+/* 侧边栏 / 菜单 / 顶部导航栏：背景与模糊全部去除 */
+#pywebio-scope-aside,
+#pywebio-scope-menu,
+#pywebio-scope-header {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-aside {
+	border-right: none !important;
+}
+
+#pywebio-scope-menu {
+	border-right: none !important;
+	padding: 12px 6px !important;
+}
+
+#pywebio-scope-header {
+	border-bottom: none !important;
+}
+
+/* 顶栏装饰渐变移除 */
+#pywebio-scope-header::before {
+	content: none !important;
+}
+
+/* 导航器（返回按钮）：保留淡白底保证可辨识 */
+#pywebio-scope-navigator .btn {
+	background-color: rgba(255, 255, 255, 0.32) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border: 1px solid rgba(255, 255, 255, 0.4) !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-navigator .btn:hover {
+	background-color: rgba(255, 255, 255, 0.5) !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-navigator .btn:active {
+	background-color: rgba(255, 255, 255, 0.65) !important;
+}
+
+/* ==========================================
+   4. 卡片透明化
+   ========================================== */
+
+/* 通用卡片：与高级材质同选择器，保留其 padding/margin
+   布局规则，仅去除背景/模糊/边框/阴影 */
+[id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(#pywebio-scope-aside):not(#pywebio-scope-navigator),
+#pywebio-scope-running,
+#pywebio-scope-pending,
+#pywebio-scope-waiting,
+#pywebio-scope-scheduler-bar,
+#pywebio-scope-stat-bar,
+#pywebio-scope-image-container,
+#pywebio-scope-log-bar,
+#pywebio-scope-log,
+.container-log,
+#pywebio-scope-groups>*:not(#pywebio-scope-navigator) {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+/* 卡片悬停不再抬升投影 */
+[id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(#pywebio-scope-aside):not(#pywebio-scope-navigator):hover,
+#pywebio-scope-running:hover,
+#pywebio-scope-pending:hover,
+#pywebio-scope-waiting:hover,
+#pywebio-scope-log-bar:hover,
+#pywebio-scope-log:hover,
+.container-log:hover,
+#pywebio-scope-groups>*:not(#pywebio-scope-navigator):hover {
+	box-shadow: none !important;
+}
+
+/* 卡片基类 */
+.apple-card {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+.apple-card:hover {
+	box-shadow: none !important;
+}
+
+/* ==========================================
+   5. 日志区域透明化
+   ========================================== */
+
+.container-log {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border: none !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-log {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border: none !important;
+	box-shadow: none !important;
+	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
+}
+
+/* ==========================================
+   6. 统计与表格透明化
+   ========================================== */
+
+/* 统计板块容器 */
+#pywebio-scope-opsi_stats,
+#pywebio-scope-ap_chart,
+#pywebio-scope-ship_exp_table,
+#pywebio-scope-commission_income {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-opsi_stats:hover,
+#pywebio-scope-ap_chart:hover,
+#pywebio-scope-ship_exp_table:hover,
+#pywebio-scope-commission_income:hover {
+	box-shadow: none !important;
+}
+
+/* 表头保留淡白底保证表格结构可辨识 */
+#pywebio-scope-opsi_stats th,
+#pywebio-scope-ship_exp_table th,
+#pywebio-scope-commission_income th {
+	background-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* 委托收益统计内部卡片 */
+#pywebio-scope-commission_income .commission-income-summary,
+#pywebio-scope-commission_income .commission-income-table-wrap,
+#pywebio-scope-commission_income .commission-income-recent {
+	background-color: rgba(255, 255, 255, 0.3) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border-color: rgba(255, 255, 255, 0.35) !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-commission_income .commission-income-metric-card {
+	background-color: rgba(255, 255, 255, 0.3) !important;
+	border-color: rgba(255, 255, 255, 0.35) !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-commission_income .commission-income-table {
+	background-color: rgba(255, 255, 255, 0.3) !important;
+	border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+#pywebio-scope-commission_income .commission-income-table th {
+	background-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+#pywebio-scope-commission_income .commission-income-table td {
+	background-color: transparent !important;
+}
+
+#pywebio-scope-commission_income .commission-income-recent-row {
+	background-color: rgba(255, 255, 255, 0.28) !important;
+	border-color: rgba(255, 255, 255, 0.32) !important;
+}
+
+/* ==========================================
+   7. 更新器 / 入口功能页 / 实例管理透明化
+   ========================================== */
+
+#pywebio-scope-updater_info,
+#pywebio-scope-updater_detail,
+#pywebio-scope-develop_detail,
+#pywebio-scope-manage_add_form,
+#pywebio-scope-manage_import_panel,
+*[style*="--manage-config-card--"] {
+	background-color: transparent !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	border-color: rgba(255, 255, 255, 0.35) !important;
+	box-shadow: none !important;
+}
+
+/* 高级材质用 ::before 铺白底，此处移除 */
+#pywebio-scope-updater_info::before,
+#pywebio-scope-updater_detail::before,
+#pywebio-scope-develop_detail::before,
+#pywebio-scope-manage_add_form::before,
+#pywebio-scope-manage_import_panel::before,
+*[style*="--manage-config-card--"]::before {
+	content: none !important;
+}
+
+/* alas.css 对 updater 子元素强制 var(--alas-content-bg)
+   白底（带 !important），此处必须以同等强度还原为透明 */
+#pywebio-scope-updater_info,
+#pywebio-scope-updater_state,
+#pywebio-scope-updater_loading,
+#pywebio-scope-updater_btn,
+#pywebio-scope-updater_detail,
+#pywebio-scope-updater_info *,
+#pywebio-scope-updater_state *,
+#pywebio-scope-updater_loading *,
+#pywebio-scope-updater_btn *,
+#pywebio-scope-updater_detail * {
+	background-color: transparent !important;
+}
+
+*[style*="--manage-config-card--"] *[style*="--manage-config-row--"] {
+	background-color: rgba(255, 255, 255, 0.14);
+}
+
+*[style*="--manage-config-card--"]:hover *[style*="--manage-config-row--"] {
+	background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ==========================================
+   8. 交互控件（保留淡底保证可用性）
+   ========================================== */
+
+/* 输入框：淡白底，保证任意壁纸上可读可写 */
+.form-control,
+input:not([type="checkbox"]):not([type="radio"]) {
+	background-color: rgba(255, 255, 255, 0.42) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	box-shadow: none !important;
+}
+
+select,
+select.form-control,
+.bootstrap-select>select {
+	background-color: rgba(255, 255, 255, 0.42) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	box-shadow: none !important;
+}
+
+/* 次要按钮：淡白底 */
+.btn-secondary,
+.btn-light,
+.btn-off {
+	background-color: rgba(255, 255, 255, 0.42) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	box-shadow: none !important;
+}
+
+.btn-secondary:hover,
+.btn-light:hover,
+.btn-off:hover {
+	background-color: rgba(255, 255, 255, 0.6) !important;
+	box-shadow: none !important;
+}
+
+/* 任务配置搜索框与搜索结果 */
+#pywebio-scope-menu #pywebio-scope-task_config_search .form-control {
+	background-color: rgba(255, 255, 255, 0.5) !important;
+	box-shadow: none !important;
+}
+
+#pywebio-scope-menu .config-search-result {
+	background-color: rgba(255, 255, 255, 0.5) !important;
+	box-shadow: none !important;
+}
+
+/* ==========================================
+   9. 悬浮元素（保留底色，不属于面板）
+   ========================================== */
+
+/* 更新通知、弹窗、toast 等悬浮组件依赖白底保证可读，
+   保持高级材质样式，不做透明化 */
