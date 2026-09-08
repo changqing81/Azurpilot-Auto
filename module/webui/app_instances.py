@@ -77,7 +77,9 @@ class InstanceMixin(WebUIMixinBase):
                 name = cast(str, pin["AddAlas_name"])
                 origin = cast(str, pin["AddAlas_copyfrom"])
 
-                if name in alas_instance():
+                if not name or not name.strip():
+                    err = "Gui.AddAlas.InvalidChar"
+                elif name in alas_instance():
                     err = "Gui.AddAlas.FileExist"
                 elif set(name) & set(".\\/:*?\"'<>|"):
                     err = "Gui.AddAlas.InvalidChar"

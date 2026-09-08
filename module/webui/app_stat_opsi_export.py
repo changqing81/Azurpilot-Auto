@@ -5,7 +5,6 @@ from module.webui.app_dependencies import (
     current_time,
     datetime,
     logger,
-    put_button,
     put_html,
     t,
     toast,
@@ -60,12 +59,6 @@ class OpsiExportMixin(WebUIMixinBase):
                 )
             else:
                 put_html(build_muted_notice(t("Gui.Stat.NoMeowDataNotice")))
-
-            put_button(
-                t("Gui.Stat.Refresh"),
-                onclick=self._refresh_meowofficer_farming,
-                color="off",
-            )
 
     def _export_opsi_csv(self, save_to_desktop: bool = True):
         import io

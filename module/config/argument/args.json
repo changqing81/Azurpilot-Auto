@@ -697,6 +697,22 @@
           "close_game",
           "close_emulator"
         ]
+      },
+      "WarmupEnable": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "WarmupMinutes": {
+        "type": "input",
+        "value": 15,
+        "validate": [
+          1,
+          1440
+        ]
       }
     },
     "DropRecord": {
@@ -1044,6 +1060,14 @@
         "validate": [
           1,
           3600
+        ]
+      },
+      "MoveChannelFloat": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
         ]
       }
     },
@@ -2510,22 +2534,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -3031,23 +3057,25 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "display": "hide",
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -3990,22 +4018,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -4435,22 +4465,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -4880,22 +4912,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -7771,22 +7805,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -8233,22 +8269,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -8695,22 +8733,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -9157,22 +9197,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -9609,22 +9651,24 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ],
         "option_cn": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_en": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_jp": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_tw": [
           "event_20260813_cn"
         ],
         "option_bold": [
-          "event_20260813_cn"
+          "event_20260813_cn",
+          "event_20260908_cn"
         ]
       },
       "Mode": {
@@ -12294,6 +12338,10 @@
         "type": "checkbox",
         "value": false
       },
+      "BuyUnobtainedShip": {
+        "type": "checkbox",
+        "value": false
+      },
       "Filter": {
         "type": "textarea",
         "value": "Cube"
@@ -14027,8 +14075,7 @@
         "option": [
           0,
           1,
-          2,
-          3
+          2
         ]
       },
       "SkipHpCheck": {

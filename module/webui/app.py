@@ -124,6 +124,11 @@ WEBUI_THEME_STYLE_NAMES = {
         "advanced-material-alas",
         "dark-advanced-material-overrides-alas",
     ),
+    # 透明主题：复用高级材质的布局规则，再叠加透明化覆盖层
+    "transparent": (
+        "advanced-material-alas",
+        "transparent-alas",
+    ),
 }
 INITIAL_LOADING_JS = """
 (function () {

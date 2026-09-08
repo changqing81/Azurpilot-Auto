@@ -239,6 +239,8 @@ async def _tool_get_config(arguments: Dict[str, Any]) -> ToolResponse:
 
 async def _tool_update_config(arguments: Dict[str, Any]) -> ToolResponse:
     inst = arguments["instance"]
+    if not inst or not inst.strip():
+        return [TextContent(type="text", text="Error: instance name must not be empty")]
     task = arguments["task"]
     group = arguments["group"]
     arg = arguments["arg"]

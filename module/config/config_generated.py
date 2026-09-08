@@ -88,6 +88,7 @@ class GeneratedConfig:
     Restart_RandomDelay = '5, 50'
     Restart_ClearCache = False  # True, False
     Restart_LoginWaitTimeout = 30
+    Restart_MoveChannelFloat = False  # True, False
 
     # 配置组 `Emulator`
     Emulator_Serial = 'auto'
@@ -151,6 +152,8 @@ class GeneratedConfig:
     Optimization_CloseEmulatorDuringLongWait = True  # True, False
     Optimization_WhenTaskQueueEmpty = 'goto_main'  # stay_there, goto_main, close_game
     Optimization_WhenSchedulerStopped = 'stay_there'  # stay_there, goto_main, close_game, close_emulator
+    Optimization_WarmupEnable = True  # True, False
+    Optimization_WarmupMinutes = 15
 
     # 配置组 `DropRecord`
     DropRecord_SaveFolder = './screenshots'
@@ -500,6 +503,7 @@ class GeneratedConfig:
     # 配置组 `MeritShop`
     MeritShop_Enable = True
     MeritShop_Refresh = False
+    MeritShop_BuyUnobtainedShip = False
     MeritShop_Filter = 'Cube'
 
     # 配置组 `CoreShop`
@@ -673,7 +677,7 @@ class GeneratedConfig:
     OpsiHazard1Leveling_TargetZone = 0  # 0, 44, 22
     OpsiHazard1Leveling_OperationCoinsPreserve = 40000
     OpsiHazard1Leveling_MinimumActionPointReserve = 200
-    OpsiHazard1Leveling_ExecuteFixedPatrolScan = 0  # 0, 1, 2, 3
+    OpsiHazard1Leveling_ExecuteFixedPatrolScan = 0  # 0, 1, 2
     OpsiHazard1Leveling_SkipHpCheck = False  # True, False
     OpsiHazard1Leveling_Cl1Filter = 'ActionPoint'
     OpsiHazard1Leveling_RecordNonCL1AP = True

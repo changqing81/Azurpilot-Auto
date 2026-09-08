@@ -506,6 +506,11 @@ def load_webui_styles(theme=None, is_mobile=None):
             "advanced-material-alas",
             "dark-advanced-material-overrides-alas",
         ),
+        # 透明主题：复用高级材质的布局规则，再叠加透明化覆盖层
+        "transparent": (
+            "advanced-material-alas",
+            "transparent-alas",
+        ),
     }
     styles.extend(theme_styles.get(theme, ("light-alas",)))
 

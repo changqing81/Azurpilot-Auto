@@ -467,6 +467,36 @@ def set_file_logger(name=pyw_name):
     except Exception:
         pass
 
+    _clean_orphan_logs()
+
+
+
+def _clean_orphan_logs(max_age_days=7):
+    """清理 log 目录中不受轮转机制管理的孤儿日志文件。
+
+    日志轮转只按已知后缀（_alas.txt / _gui.txt）分组保留，
+    文件名带随机后缀的孤儿文件（如单元测试子进程产生的日志）永远不会被轮转过期，
+    这里按文件修改时间超过 max_age_days 天兜底删除。
+    每个日志进程启动时调用一次，幂等无害。
+    """
+    log_dir = Path('./log')
+    if not log_dir.is_dir():
+        return
+    deadline = time.time() - max_age_days * 86400
+    for file in log_dir.iterdir():
+        name = file.name
+        if file.is_dir() or not name.endswith('.txt') or name.endswith('(copy)'):
+            continue
+        stem = name[:-len('.txt')]
+        # 跳过活跃日志（当前文件与带日期前缀的轮转历史）
+        if stem in ('alas', 'gui') or stem.endswith('_alas') or stem.endswith('_gui'):
+            continue
+        try:
+            if file.stat().st_mtime < deadline:
+                file.unlink()
+        except OSError:
+            # 文件可能被其他进程占用，留待下次启动再清理
+            pass
 
 
 def set_func_logger(func):

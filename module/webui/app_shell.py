@@ -39,6 +39,7 @@ VALID_WEBUI_THEMES = {
     "light",
     "advanced_material",
     "dark_advanced_material",
+    "transparent",
 }
 
 
@@ -71,7 +72,8 @@ def _reload_theme_css(theme: str) -> None:
         'link[href*="dark-alas"],' +
         'link[href*="light-alas"],' +
         'link[href*="advanced-material-alas"],' +
-        'link[href*="dark-advanced-material"]'
+        'link[href*="dark-advanced-material"],' +
+        'link[href*="transparent-alas"]'
     );
     for (var i = 0; i < links.length; i++) {
         links[i].parentNode.removeChild(links[i]);
@@ -90,6 +92,7 @@ def _reload_theme_css(theme: str) -> None:
         injected_styles.discard(filepath_css("dark-alas"))
         injected_styles.discard(filepath_css("advanced-material-alas"))
         injected_styles.discard(filepath_css("dark-advanced-material-overrides-alas"))
+        injected_styles.discard(filepath_css("transparent-alas"))
 
     if theme == "dark":
         add_css_files((filepath_css("dark-alas"),))
@@ -99,6 +102,12 @@ def _reload_theme_css(theme: str) -> None:
         add_css_files((
             filepath_css("advanced-material-alas"),
             filepath_css("dark-advanced-material-overrides-alas"),
+        ))
+    elif theme == "transparent":
+        # 透明主题：高级材质提供布局规则，透明覆盖层负责视觉
+        add_css_files((
+            filepath_css("advanced-material-alas"),
+            filepath_css("transparent-alas"),
         ))
     else:
         add_css_files((filepath_css("light-alas"),))
@@ -412,7 +421,8 @@ class AppShellMixin(WebUIMixinBase):
         run_js("""
         document.querySelectorAll(
             'link[href*="advanced-material-alas"],' +
-            'link[href*="dark-advanced-material-overrides-alas"]'
+            'link[href*="dark-advanced-material-overrides-alas"],' +
+            'link[href*="transparent-alas"]'
         ).forEach(function(e) {
             e.remove();
         });

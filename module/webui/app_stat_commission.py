@@ -300,13 +300,6 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                 scope="commission_income",
             )
             put_html(table_html, scope="commission_income")
-            put_button(
-                t("Gui.Stat.Refresh"),
-                onclick=self._render_commission_income,
-                color="secondary",
-                small=True,
-                scope="commission_income",
-            )
             put_html(recent_html, scope="commission_income")
 
     @staticmethod

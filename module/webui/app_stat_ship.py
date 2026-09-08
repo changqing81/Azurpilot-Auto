@@ -2,7 +2,6 @@
 
 from module.webui.app_dependencies import (
     alas_instance,
-    put_button,
     put_html,
     put_row,
     put_text,
@@ -163,10 +162,6 @@ class ShipExperienceStatisticsMixin(WebUIMixinBase):
 
                 put_html(
                     build_simple_table(labels, rows, extra_style=" margin-top:8px;")
-                )
-
-                put_button(
-                    t("Gui.Stat.Refresh"), onclick=self._render_ship_exp, color="off"
                 )
         except Exception as e:
             with use_scope("ship_exp_table", clear=True):

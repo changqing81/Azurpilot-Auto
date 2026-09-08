@@ -481,6 +481,12 @@
     "LoginWaitTimeout": {
       "name": "Login wait timeout",
       "help": "Maximum time (seconds) to wait for login/startup to complete after the game restarts.\nIncrease this if the game starts slowly when the emulator runs in the background, to avoid false stuck detection and restart loops.\nDefault 30 seconds; only affects the post-restart login wait phase."
+    },
+    "MoveChannelFloat": {
+      "name": "Remove channel float window on startup",
+      "help": "Note: only the 4399 channel server is supported. Please move the floating ball to between the level badge and the player name at the top-left of the main page by yourself; the current detection range is the left half of the top edge.\nWhen enabled, the login flow automatically performs the drag and hide a few seconds after the app starts.\nThis feature is still being improved; if the ball is not hidden successfully, please disable it for now.",
+      "True": "Enabled",
+      "False": "Disabled"
     }
   },
   "Emulator": {
@@ -900,6 +906,16 @@
       "goto_main": "Go to Main Menu",
       "close_game": "Close Game",
       "close_emulator": "Close Emulator"
+    },
+    "WarmupEnable": {
+      "name": "Start the emulator and game before the next task",
+      "help": "When the emulator/game was closed during a wait (emulator closed on a long wait, or game closed when the task queue is empty), start the emulator and game and log in before the next task begins, so the task runs on time instead of a cold start at task time. While enabled, waits shorter than the lead time no longer close the game.",
+      "True": "True",
+      "False": "False"
+    },
+    "WarmupMinutes": {
+      "name": "Start the emulator and game X minutes before the task",
+      "help": "How many minutes before the task the warm-up launch begins; used until a measured startup time exists. After each successful warm-up the actual startup time is recorded, and later warm-ups launch by 'last measured + 2 minutes', so the game is ready about 2 minutes before the task."
     }
   },
   "DropRecord": {
@@ -1240,6 +1256,7 @@
       "event_20260520_cn": "Alliance Before the Hagiobull",
       "event_20260625_cn": "Miracle by Midnight",
       "event_20260813_cn": "Depths of the Astrarium",
+      "event_20260908_cn": "Phantom Tales",
       "raid_20200624": "Air Raid Drills with Essex Rerun",
       "raid_20210708": "Cross Wave rerun",
       "raid_20220127": "Mystery Investigation",
@@ -2689,6 +2706,10 @@
       "name": "Refresh Shop",
       "help": "Refreshing costs 20 gems"
     },
+    "BuyUnobtainedShip": {
+      "name": "Buy Unobtained Ships",
+      "help": "Prioritizes ships marked as unobtained in the upper-right corner, regardless of the normal shop filter"
+    },
     "Filter": {
       "name": "Shop Filter",
       "help": ""
@@ -3496,11 +3517,10 @@
     },
     "ExecuteFixedPatrolScan": {
       "name": "Forced Movement Level",
-      "help": "When Akashi is hidden behind a fleet icon or spawned outside radar range, decide whether to move fleets to find her. 0 = off. 1 = fleet radar scan only (switch fleets and scan each radar with zero movement, stop if not found). 2 = staged recovery: scan every fleet's radar with zero movement, then move fleets one by one and rescan, stop as soon as found. 3 = legacy: reposition all fleets 1~4 then do a double full-map rescan. Default 0 (off); legacy bool true maps to 3, false maps to 0.",
+      "help": "When Akashi is blocked by a fleet icon or spawns outside radar range, decide whether to move fleets to deal with it. 0 = off: do nothing. 1 = Efficiency mode: only switch fleets and check each radar, move no fleet, fastest; give up if not found. 2 = Conservative mode: first scan radars only (no movement), then move fleets one by one and rescan if not found; more thorough but moves fleets and slower. Default 0 (off); legacy bool true maps to 2, false maps to 0.",
       "0": "Off",
-      "1": "Fleet radar scan only (no move)",
-      "2": "Staged recovery",
-      "3": "Legacy: move all fleets"
+      "1": "Efficiency mode",
+      "2": "Conservative mode"
     },
     "SkipHpCheck": {
       "name": "Sacrifice run: skip HP check",

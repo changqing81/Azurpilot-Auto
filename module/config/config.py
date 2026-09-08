@@ -373,6 +373,13 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         if not self.modified:
             return False
 
+        # 从磁盘重新读取最新配置，避免覆盖 WebUI 在任务运行期间修改的值
+        from module.config.utils import read_file as _raw_read
+        disk_path = filepath_config(self.config_name, mod_name)
+        disk_data = _raw_read(disk_path)
+        if disk_data:
+            self.data = disk_data
+
         for path, value in self.modified.items():
             deep_set(self.data, keys=path, value=value)
 
