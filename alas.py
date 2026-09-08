@@ -507,7 +507,14 @@ class AzurLaneAutoScript:
         调度器启动或游戏重启后的首个主界面回合中检测并处理悬浮球；
         处理后本会话不再重复检查，直至调度器重启或游戏再次重启。
         """
+        from module.config.deep import deep_get
         from module.handler.channel_float import ChannelFloatHandler
+
+        # 开关未开启时直接返回，不构造 handler、不触碰 device，
+        # 避免在无设备上下文（如单元测试）中触发设备连接
+        if not bool(deep_get(self.config.data, 'Restart.Restart.MoveChannelFloat', default=False)):
+            self._channel_float_done = True
+            return
 
         if ChannelFloatHandler(self.config, self.device).run():
             self._channel_float_done = True
@@ -539,7 +546,8 @@ class AzurLaneAutoScript:
                 logger.info('[Alas] 游戏重启，重置渠道服悬浮球处理状态')
                 self._channel_float_done = False
             # 渠道服悬浮球：调度器启动/游戏重启后仅处理一次（主界面时）
-            if not self._channel_float_done:
+            # getattr 兜底：测试等场景可能绕过 __init__ 创建实例
+            if not getattr(self, '_channel_float_done', False):
                 self.handle_channel_float()
             self.__getattribute__(command)()
             self._last_task_error = None
