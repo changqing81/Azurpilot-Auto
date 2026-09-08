@@ -40,22 +40,27 @@
    2. 文字可读性
    ========================================== */
 
-/* 内容区文字加极轻白色光晕：浅色壁纸上几乎不可见，
-   复杂/深色壁纸上保证文字可读；text-shadow 不参与
-   布局，不会引起文字错位 */
+/* 内容区文字加白色描边 + 柔和阴影：描边在任意壁纸上
+   勾勒字形轮廓保证可读，阴影提供层次感；paint-order
+   确保描边画在填充之下，不会糊住文字内部 */
 #pywebio-scope-content,
 #pywebio-scope-header,
 #pywebio-scope-menu,
 #pywebio-scope-groups {
-	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.4);
+	-webkit-text-stroke: 0.4px rgba(255, 255, 255, 0.7);
+	paint-order: stroke fill;
+	text-shadow:
+		0 0 1px rgba(255, 255, 255, 0.6),
+		0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* 自带底色的交互控件不吃光晕，避免观感发糊 */
+/* 自带底色的交互控件不吃描边，避免观感发糊 */
 #pywebio-scope-content .btn,
 #pywebio-scope-content .form-control,
 #pywebio-scope-content select,
 #pywebio-scope-content input:not([type="checkbox"]):not([type="radio"]),
 #pywebio-scope-menu .btn {
+	-webkit-text-stroke: 0;
 	text-shadow: none;
 }
 
@@ -182,7 +187,11 @@
 	-webkit-backdrop-filter: none !important;
 	border: none !important;
 	box-shadow: none !important;
-	text-shadow: 0 1px 2px rgba(255, 255, 255, 0.45);
+	-webkit-text-stroke: 0.4px rgba(255, 255, 255, 0.7);
+	paint-order: stroke fill;
+	text-shadow:
+		0 0 1px rgba(255, 255, 255, 0.6),
+		0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* ==========================================
