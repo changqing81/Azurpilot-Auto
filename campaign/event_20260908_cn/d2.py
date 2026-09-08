@@ -58,7 +58,7 @@ class Config(ConfigBase):
     MAP_HAS_FLEET_STEP = True
     MAP_HAS_AMBUSH = False
     MAP_HAS_MYSTERY = False
-    MAP_CHAPTER_SWITCH_20260326 = True
+    MAP_CHAPTER_SWITCH_20241219 = True
     STAGE_ENTRANCE = ['half', '20240725']
     MAP_HAS_MODE_SWITCH = True
     STAGE_INCREASE_AB = True
