@@ -40,18 +40,15 @@
    2. 文字可读性
    ========================================== */
 
-/* 内容区文字加白色描边 + 柔和阴影：描边在任意壁纸上
-   勾勒字形轮廓保证可读，阴影提供层次感；paint-order
-   确保描边画在填充之下，不会糊住文字内部 */
+/* 内容区文字加白色描边：描边在任意壁纸上勾勒字形轮廓
+   保证可读；paint-order 确保描边画在填充之下，不会糊住
+   文字内部 */
 #pywebio-scope-content,
 #pywebio-scope-header,
 #pywebio-scope-menu,
 #pywebio-scope-groups {
-	-webkit-text-stroke: 0.4px rgba(255, 255, 255, 0.7);
+	-webkit-text-stroke: 0.6px rgba(255, 255, 255, 0.8);
 	paint-order: stroke fill;
-	text-shadow:
-		0 0 1px rgba(255, 255, 255, 0.6),
-		0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* 自带底色的交互控件不吃描边，避免观感发糊 */
@@ -187,11 +184,8 @@
 	-webkit-backdrop-filter: none !important;
 	border: none !important;
 	box-shadow: none !important;
-	-webkit-text-stroke: 0.4px rgba(255, 255, 255, 0.7);
+	-webkit-text-stroke: 0.6px rgba(255, 255, 255, 0.8);
 	paint-order: stroke fill;
-	text-shadow:
-		0 0 1px rgba(255, 255, 255, 0.6),
-		0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 /* ==========================================
