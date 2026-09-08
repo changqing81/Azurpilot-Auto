@@ -39,6 +39,7 @@ VALID_WEBUI_THEMES = {
     "light",
     "advanced_material",
     "dark_advanced_material",
+    "transparent",
 }
 
 
