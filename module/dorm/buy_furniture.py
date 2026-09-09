@@ -7,7 +7,7 @@
 - 根据配置选择购买套装或全部购买
 - 支持按固定间隔（默认 6 天）自动检查并购买
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from module.combat.assets import GET_SHIP
 from module.config.time_source import now as current_time
@@ -242,7 +242,11 @@ class BuyFurniture(UI):
         logger.attr("上次运行时间", self.config.BuyFurniture_LastRun)
         logger.attr("检查间隔", CHECK_INTERVAL)
 
-        time_run = self.config.BuyFurniture_LastRun + timedelta(days=CHECK_INTERVAL)
+        last_run = self.config.BuyFurniture_LastRun
+        # save() 会用原始 JSON 数据替换 self.data，导致 datetime 字段变为字符串
+        if isinstance(last_run, str):
+            last_run = datetime.fromisoformat(last_run)
+        time_run = last_run + timedelta(days=CHECK_INTERVAL)
         logger.info(f"[宿舍-家具] 任务运行时间: {time_run}")
 
         if current_time().replace(microsecond=0) < time_run:
