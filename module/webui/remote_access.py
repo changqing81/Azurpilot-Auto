@@ -28,7 +28,9 @@ if TYPE_CHECKING:
     from module.webui.utils import TaskHandler
 
 
-HTTP_BODY_CHUNK = 12 * 1024
+# P2P datachannel 单条消息分块：32KB（base64 后约 43KB）。过小会导致
+# 大响应（CSS/JS/背景图）往返次数多，远控下页面加载明显变慢
+HTTP_BODY_CHUNK = 32 * 1024
 P2P_SETUP_TIMEOUT = 60
 SSH_RECONNECT_DELAY = 2
 SSH_RECONNECT_MAX_DELAY = 30
