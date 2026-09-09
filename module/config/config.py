@@ -420,16 +420,6 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         limit_next_run(["OpsiPreventActionPointOverflow"], limit=now + timedelta(hours=48, seconds=-1))
         # IslandPearlSell 按周调度，合法 NextRun 可能超过 24 小时。
         limit_next_run(["IslandPearlSell"], limit=now + timedelta(days=8, seconds=-1))
-        # 通用兜底保留 24 小时调度的少量误差空间，避免刚好延后一天的任务被重置。
-        limit_next_run(
-             [
-                task
-                for task in self.args.keys()
-                if task != "OpsiPreventActionPointOverflow"
-                and task != "Secretary"
-            ],
-            limit=now + timedelta(hours=25, seconds=-1),
-        )
 
         """
         强制覆盖任意配置项。
