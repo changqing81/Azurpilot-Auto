@@ -589,7 +589,7 @@ pre.rich-traceback-code {
     z-index: 100;
     display: grid;
     grid-auto-flow: column;
-    grid-template-columns: 4.4rem 4rem auto 1fr !important;
+    grid-template-columns: 4.4rem auto auto 1fr !important;
 }
 
 *[style*="--header-icon--"] {
