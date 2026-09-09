@@ -80,6 +80,10 @@ class CoinTaskMixin:
     STATE_KEY_AP_REPLENISH_ACTIVE = 'ApReplenishActive'
     STATE_KEY_SCHEDULING_MODE = 'SchedulingMode'
     STATE_KEY_MONTH_END_CLEANUP_FIRST_RUN = 'MonthEndCleanupFirstRun'
+    # 塞壬要塞当日扫描未找到标记（持久化到 OpsiScheduling.Storage.Storage）
+    # 值为服务器日期字符串（如 "2026-09-09"），与当前服务器日期比较，
+    # 不匹配时视为过期（次日服务器刷新后自动失效）。
+    STATE_KEY_STRONGHOLD_NOT_FOUND_DATE = 'StrongholdNotFoundDate'
     SCHEDULING_MODE_COIN_TARGET = 'coin_target'
     SCHEDULING_MODE_ACTION_POINT = 'action_point'
     SCHEDULING_MODE_MONTH_END_CLEANUP = 'month_end_cleanup'
@@ -584,6 +588,60 @@ class CoinTaskMixin:
         state.pop(key, None)
         self.config.modified[self.CONFIG_PATH_SMART_STATE] = state
         self.config.save()
+
+    # ==================== 塞壬要塞当日跳过标记 ====================
+
+    def _get_stronghold_not_found_date(self):
+        """
+        读取塞壬要塞扫描未找到的日期标记。
+
+        Returns:
+            str or None: 服务器日期字符串（如 "2026-09-09"），None 表示未标记。
+        """
+        return self._get_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE
+        )
+
+    def _set_stronghold_not_found_today(self):
+        """标记今日扫描塞壬要塞未找到，记录服务器日期。"""
+        server_now = current_time() - server_time_offset()
+        date_str = server_now.strftime('%Y-%m-%d')
+        self._set_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE,
+            date_str,
+        )
+        logger.info(f'[大世界-塞壬要塞] 标记今日({date_str})扫描未找到塞壬要塞')
+
+    def _is_stronghold_not_found_today(self):
+        """
+        判断今日是否已扫描且未找到塞壬要塞。
+
+        比较持久化标记中的日期与当前服务器日期，
+        不匹配（次日）时自动视为过期。
+
+        Returns:
+            bool: True 表示今日已标记未找到，应跳过扫描。
+        """
+        date_str = self._get_stronghold_not_found_date()
+        if date_str is None:
+            return False
+        server_now = current_time() - server_time_offset()
+        today_str = server_now.strftime('%Y-%m-%d')
+        if date_str == today_str:
+            logger.info(f'[大世界-塞壬要塞] 今日({today_str})已扫描未找到塞壬要塞，跳过扫描')
+            return True
+        else:
+            logger.info(f'[大世界-塞壬要塞] 标记日期({date_str})已过期(今日:{today_str})，清除标记')
+            self._clear_smart_scheduling_state_value(
+                self.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE
+            )
+            return False
+
+    def _clear_stronghold_not_found_date(self):
+        """清除塞壬要塞未找到标记（找到要塞或月末清理调出要塞时调用）。"""
+        self._clear_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE
+        )
 
     def _get_coin_replenish_target(self, yellow_coins, cl1_preserve):
         """
@@ -1691,12 +1749,16 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
     def _run_scheduled_meowfficer_farming(self, ap_preserve):
         """
         由智能调度+执行一轮耄耋相接。
+
+        run_meowfficer_farming_once 内部会将 OS_ACTION_POINT_PRESERVE 设为
+        ap_preserve，异常或正常返回后需恢复原值，避免污染后续调度决策。
         """
         if not hasattr(self, 'run_meowfficer_farming_once'):
             logger.error('[大世界-智能调度+] 当前实例不支持执行耄耋相接')
             self.config.task_stop()
 
         logger.info('[大世界-智能调度+] 执行一轮耄耋相接')
+        previous_preserve = self.config.OS_ACTION_POINT_PRESERVE
         try:
             # 智能调度上下文外层已查询行动力，跳过子任务内的冗余弹窗
             self._run_with_opsi_task_context(
@@ -1713,6 +1775,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 )
                 return
             raise
+        finally:
+            self.config.OS_ACTION_POINT_PRESERVE = previous_preserve
 
     def handle_first_auto_search(self, run):
         """由智能调度+决策是否执行 os_init 阶段跳过的首次自律寻敌。"""

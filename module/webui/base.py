@@ -217,7 +217,7 @@ class Frame(Base):
             "header",
             [
                 put_html(Icon.ALAS).style("--header-icon--"),
-                put_text("港区OA").style("--header-text--"),
+                put_text("待到山花烂漫时，").style("--header-text--"),
                 put_scope("header_status"),
                 put_scope("header_title"),
             ],

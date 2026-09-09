@@ -15,6 +15,7 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
 
         在地球仪地图上找到塞壬要塞，进入并清理，完成后在港口修理舰队。
         如果没有找到要塞，会标记本轮无可执行内容。
+        如果今日已扫描且未找到要塞，直接跳过扫描。
 
         Raises:
             ActionPointLimit: 行动力不足。
@@ -26,6 +27,13 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
             out: page_os, 大世界地图
         """
         logger.hr('大世界-塞壬要塞', level=1)
+
+        # 今日已扫描未找到塞壬要塞时，直接跳过扫描
+        if self._is_stronghold_not_found_today():
+            self.config.OpsiStronghold_HasStronghold = False
+            if self._handle_coin_task_no_content('塞壬要塞', '塞壬要塞今日已扫描未找到，跳过'):
+                return
+
         with self.config.multi_set():
             self.config.OpsiStronghold_HasStronghold = True
             self.cl1_ap_preserve()
@@ -35,11 +43,15 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
             zone = self.find_siren_stronghold()
             if zone is None:
                 self.config.OpsiStronghold_HasStronghold = False
+                # 标记今日扫描未找到，后续调度跳过扫描
+                self._set_stronghold_not_found_today()
                 self.os_globe_goto_map()
                 if self._handle_coin_task_no_content('塞壬要塞', '塞壬要塞没有可执行内容'):
                     return
 
         self.globe_enter(zone)
+        # 找到要塞时清除未找到标记
+        self._clear_stronghold_not_found_date()
         self.zone_init()
         self.os_order_execute(recon_scan=True, submarine_call=False)
         self.run_stronghold(submarine=self.config.OpsiStronghold_SubmarineEveryCombat)
@@ -58,6 +70,8 @@ class OpsiStronghold(CoinTaskMixin, OSMap):
         next_zone = self.find_siren_stronghold()
         if next_zone is None:
             self.config.OpsiStronghold_HasStronghold = False
+            # 标记今日扫描未找到更多要塞
+            self._set_stronghold_not_found_today()
             self.os_globe_goto_map()
             if self._handle_coin_task_no_content('塞壬要塞', '塞壬要塞没有更多可执行内容'):
                 return
