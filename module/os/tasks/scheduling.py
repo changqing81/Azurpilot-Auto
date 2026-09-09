@@ -1749,12 +1749,16 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
     def _run_scheduled_meowfficer_farming(self, ap_preserve):
         """
         由智能调度+执行一轮耄耋相接。
+
+        run_meowfficer_farming_once 内部会将 OS_ACTION_POINT_PRESERVE 设为
+        ap_preserve，异常或正常返回后需恢复原值，避免污染后续调度决策。
         """
         if not hasattr(self, 'run_meowfficer_farming_once'):
             logger.error('[大世界-智能调度+] 当前实例不支持执行耄耋相接')
             self.config.task_stop()
 
         logger.info('[大世界-智能调度+] 执行一轮耄耋相接')
+        previous_preserve = self.config.OS_ACTION_POINT_PRESERVE
         try:
             # 智能调度上下文外层已查询行动力，跳过子任务内的冗余弹窗
             self._run_with_opsi_task_context(
@@ -1771,6 +1775,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 )
                 return
             raise
+        finally:
+            self.config.OS_ACTION_POINT_PRESERVE = previous_preserve
 
     def handle_first_auto_search(self, run):
         """由智能调度+决策是否执行 os_init 阶段跳过的首次自律寻敌。"""

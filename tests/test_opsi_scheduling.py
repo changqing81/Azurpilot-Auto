@@ -17,6 +17,7 @@ class SmartSchedulingConfig:
     def __init__(self, task_command='OpsiScheduling'):
         self.task = SimpleNamespace(command=task_command)
         self.task_delay_calls = []
+        self.OpsiGeneral_BuyActionPointLimit = 0
 
     def cross_get(self, keys, default=None):
         if keys == 'OpsiScheduling.Scheduler.ServerUpdate':
