@@ -132,6 +132,30 @@ _CUSTOM_VIDEO_EXTS = set(_CUSTOM_VIDEO_MIMES)
 # HTTP 流式接口，避免把页面注入消息撑得过大
 _CUSTOM_VIDEO_INLINE_MAX_BYTES = 8 * 1024 * 1024
 
+# 自定义背景 data URI 进程级缓存：键 (mtime_ns, size)，避免每个新会话
+# （远控断线重连）重复读文件 + base64 编码
+_CUSTOM_BG_URI_CACHE: dict = {}
+
+
+def _encode_custom_background(path) -> tuple:
+    """返回 (data URI,)；带进程级缓存，文件变更自动失效。"""
+    path = Path(path)
+    stat = path.stat()
+    key = (stat.st_mtime_ns, stat.st_size)
+    cached = _CUSTOM_BG_URI_CACHE.get(str(path))
+    if cached and cached[0] == key:
+        return cached[1]
+    suffix = path.suffix.lower()
+    if suffix in _CUSTOM_VIDEO_EXTS:
+        mime = _CUSTOM_VIDEO_MIMES.get(suffix, "video/mp4")
+    else:
+        mime = _CUSTOM_BG_MIMES.get(suffix, "image/jpeg")
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    result = (f"data:{mime};base64,{encoded}",)
+    _CUSTOM_BG_URI_CACHE[str(path)] = (key, result)
+    return result
+
+
 # 图源 URL 的视频后缀识别（供前端竞赛用 video 元素加载）
 _VIDEO_URL_RE = re.compile(r"\.(mp4|m4v|webm|mov|ogv)(?:[?#]|$)", re.IGNORECASE)
 
@@ -1259,17 +1283,11 @@ class HomeMixin(WebUIMixinBase):
                 return "", False
             f = files[0]
             suffix = f.suffix.lower()
-            if suffix in _CUSTOM_VIDEO_EXTS:
-                if f.stat().st_size <= _CUSTOM_VIDEO_INLINE_MAX_BYTES:
-                    content = f.read_bytes()
-                    mime = _CUSTOM_VIDEO_MIMES.get(suffix, "video/mp4")
-                    encoded = base64.b64encode(content).decode("ascii")
-                    return f"data:{mime};base64,{encoded}", True
+            # 超上限的大视频先走 HTTP 流式接口，不参与 data URI 编码
+            if suffix in _CUSTOM_VIDEO_EXTS and f.stat().st_size > _CUSTOM_VIDEO_INLINE_MAX_BYTES:
                 return "/api/custom_background_video", True
-            content = f.read_bytes()
-            mime = _CUSTOM_BG_MIMES.get(suffix, "image/jpeg")
-            encoded = base64.b64encode(content).decode("ascii")
-            return f"data:{mime};base64,{encoded}", False
+            (uri,) = _encode_custom_background(f)
+            return uri, suffix in _CUSTOM_VIDEO_EXTS
         except Exception as e:
             logger.warning(f"[WebUI] 读取自定义背景失败: {e}")
             return "", False
