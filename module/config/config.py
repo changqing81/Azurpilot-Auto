@@ -373,12 +373,6 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         if not self.modified:
             return False
 
-        # 从磁盘重新读取最新配置，避免覆盖 WebUI 在任务运行期间修改的值
-        # 使用 read_file（经过 parse_value 解析），确保 datetime 字段为 datetime 对象而非字符串
-        disk_data = self.read_file(self.config_name)
-        if disk_data:
-            self.data = disk_data
-
         for path, value in self.modified.items():
             deep_set(self.data, keys=path, value=value)
 
@@ -419,6 +413,16 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         limit_next_run(["OpsiPreventActionPointOverflow"], limit=now + timedelta(hours=48, seconds=-1))
         # IslandPearlSell 按周调度，合法 NextRun 可能超过 24 小时。
         limit_next_run(["IslandPearlSell"], limit=now + timedelta(days=8, seconds=-1))
+        # 通用兜底保留 24 小时调度的少量误差空间，避免刚好延后一天的任务被重置。
+        limit_next_run(
+             [
+                task
+                for task in self.args.keys()
+                if task != "OpsiPreventActionPointOverflow"
+                and task != "Secretary"
+            ],
+            limit=now + timedelta(hours=25, seconds=-1),
+        )
 
         """
         强制覆盖任意配置项。
