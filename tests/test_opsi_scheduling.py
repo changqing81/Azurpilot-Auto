@@ -1,12 +1,13 @@
 import unittest
 from contextlib import contextmanager, nullcontext
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
 from module.campaign.os_run import OSCampaignRun
 from module.config.config import TaskEnd
 from module.os.tasks.prevent_action_point_overflow import OpsiPreventActionPointOverflow
-from module.os.tasks.scheduling import OpsiScheduling
+from module.os.tasks.scheduling import CoinTaskMixin, OpsiScheduling
 from module.os_handler.action_point import ActionPointLimit
 
 
@@ -16,6 +17,7 @@ class SmartSchedulingConfig:
     def __init__(self, task_command='OpsiScheduling'):
         self.task = SimpleNamespace(command=task_command)
         self.task_delay_calls = []
+        self.OpsiGeneral_BuyActionPointLimit = 0
 
     def cross_get(self, keys, default=None):
         if keys == 'OpsiScheduling.Scheduler.ServerUpdate':
@@ -229,3 +231,130 @@ class TestSmartSchedulingExploreDelay(unittest.TestCase):
                 )
             ],
         )
+
+
+class StrongholdNotFoundConfig:
+    """塞壬要塞跳过测试用的最小配置桩。"""
+
+    def __init__(self):
+        self.task = SimpleNamespace(command='OpsiStronghold')
+        self.task_delay_calls = []
+        self._state = {}
+        self.OpsiStronghold_HasStronghold = True
+
+    def cross_get(self, keys, default=None):
+        if keys == 'OpsiScheduling.Storage.Storage':
+            return self._state
+        if keys == 'OpsiScheduling.Scheduler.ServerUpdate':
+            return '00:00'
+        return default
+
+    @property
+    def modified(self):
+        return self._state
+
+    def save(self):
+        pass
+
+    @staticmethod
+    def temporary(**kwargs):
+        return nullcontext()
+
+    @staticmethod
+    def task_stop():
+        raise TaskEnd
+
+
+class StrongholdNotFoundHarness:
+    """最小调度桩，仅暴露塞壬要塞跳过逻辑所需的方法。"""
+
+    STATE_KEY_STRONGHOLD_NOT_FOUND_DATE = (
+        CoinTaskMixin.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE
+    )
+
+    def __init__(self):
+        self.config = StrongholdNotFoundConfig()
+        self._smart_scheduling_context = True
+
+    # --- CoinTaskMixin 状态读写 ---
+
+    def _get_smart_scheduling_state(self):
+        state = self.config.cross_get(
+            keys='OpsiScheduling.Storage.Storage', default={})
+        if not isinstance(state, dict):
+            return {}
+        return dict(state)
+
+    def _get_smart_scheduling_state_value(self, key, default=None):
+        return self._get_smart_scheduling_state().get(key, default)
+
+    def _set_smart_scheduling_state_value(self, key, value):
+        state = self._get_smart_scheduling_state()
+        if state.get(key) == value:
+            return
+        state[key] = value
+        self.config._state = state
+
+    def _clear_smart_scheduling_state_value(self, key):
+        state = self._get_smart_scheduling_state()
+        if key not in state:
+            return
+        state.pop(key, None)
+        self.config._state = state
+
+    # --- 被测方法直接引用 CoinTaskMixin ---
+
+    _get_stronghold_not_found_date = (
+        CoinTaskMixin._get_stronghold_not_found_date
+    )
+    _set_stronghold_not_found_today = (
+        CoinTaskMixin._set_stronghold_not_found_today
+    )
+    _is_stronghold_not_found_today = (
+        CoinTaskMixin._is_stronghold_not_found_today
+    )
+    _clear_stronghold_not_found_date = (
+        CoinTaskMixin._clear_stronghold_not_found_date
+    )
+
+    # --- _handle_coin_task_no_content 桩 ---
+
+    def _handle_coin_task_no_content(self, task_display_name, log_message):
+        return True  # 模拟智能调度上下文中返回 True
+
+
+class TestStrongholdNotFoundSkip(unittest.TestCase):
+    """测试塞壬要塞当日扫描未找到标记的读写和过期逻辑。"""
+
+    def test_set_and_check_not_found_today(self):
+        """标记今日未找到后，_is_stronghold_not_found_today 返回 True。"""
+        harness = StrongholdNotFoundHarness()
+        self.assertFalse(harness._is_stronghold_not_found_today())
+
+        harness._set_stronghold_not_found_today()
+        self.assertTrue(harness._is_stronghold_not_found_today())
+
+    def test_clear_not_found_date(self):
+        """清除标记后 _is_stronghold_not_found_today 返回 False。"""
+        harness = StrongholdNotFoundHarness()
+        harness._set_stronghold_not_found_today()
+        self.assertTrue(harness._is_stronghold_not_found_today())
+
+        harness._clear_stronghold_not_found_date()
+        self.assertFalse(harness._is_stronghold_not_found_today())
+
+    def test_expired_date_auto_clears(self):
+        """过期的日期标记在检查时自动清除。"""
+        harness = StrongholdNotFoundHarness()
+        # 写入昨天的日期
+        from module.config.utils import server_time_offset
+        from module.config.time_source import now as current_time
+        server_now = current_time() - server_time_offset()
+        yesterday = (server_now - timedelta(days=1)).strftime('%Y-%m-%d')
+        harness._set_smart_scheduling_state_value(
+            harness.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE, yesterday
+        )
+
+        # 检查时应返回 False 并自动清除
+        self.assertFalse(harness._is_stronghold_not_found_today())
+        self.assertIsNone(harness._get_stronghold_not_found_date())
