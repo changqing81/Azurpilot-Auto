@@ -363,11 +363,12 @@ class Enhancement(Dock):
                 logger.critical(f'[退役] 状态机循环次数过多: {state_list}')
                 raise GameStuckError('状态机循环次数过多')
 
-            try:
-                state = state_functions[state]()
-            except KeyError:
+            # 字典查找和函数调用分开，避免函数内部抛出的 KeyError
+            # 被误判为"未知状态函数"
+            if state not in state_functions:
                 logger.warning(f'未知的状态函数: {state}')
                 raise ScriptError(f'未知的状态函数: {state}')
+            state = state_functions[state]()
 
         return state, ship_count
 
