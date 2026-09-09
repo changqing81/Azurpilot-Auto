@@ -374,9 +374,8 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             return False
 
         # 从磁盘重新读取最新配置，避免覆盖 WebUI 在任务运行期间修改的值
-        from module.config.utils import read_file as _raw_read
-        disk_path = filepath_config(self.config_name, mod_name)
-        disk_data = _raw_read(disk_path)
+        # 使用 read_file（经过 parse_value 解析），确保 datetime 字段为 datetime 对象而非字符串
+        disk_data = self.read_file(self.config_name)
         if disk_data:
             self.data = disk_data
 
