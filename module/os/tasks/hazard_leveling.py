@@ -10,7 +10,7 @@
 是大世界中最常用的舰船经验 farming 方式。
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from module.base.progress_tracker import ProgressTracker
 from module.base.timer import Timer
@@ -265,7 +265,11 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             check_interval = 24
             logger.warning("[大世界-侵蚀1练级] 检测间隔无效，使用默认值 24 小时")
         
-        time_run = self.config.OpsiCheckLeveling_LastRun + timedelta(hours=check_interval)
+        last_run = self.config.OpsiCheckLeveling_LastRun
+        # save() 会用原始 JSON 数据替换 self.data，导致 datetime 字段变为字符串
+        if isinstance(last_run, str):
+            last_run = datetime.fromisoformat(last_run)
+        time_run = last_run + timedelta(hours=check_interval)
         logger.info(f"[大世界-侵蚀1练级] 练级检查下次运行时间: {time_run}")
         if current_time().replace(microsecond=0) < time_run:
             logger.info("[大世界-侵蚀1练级] 未到运行时间，跳过")
