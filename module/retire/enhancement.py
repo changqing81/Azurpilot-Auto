@@ -325,6 +325,20 @@ class Enhancement(Dock):
         def state_enhance_exit():
             return False
 
+        # 显式字典映射，替代 locals()[state]()。
+        # Python 3.14 PEP 667 改变了 locals() 行为，使用 nonlocal 的嵌套函数
+        # 可能不在 locals() 快照中，导致 KeyError。
+        state_functions = {
+            "state_enhance_check": state_enhance_check,
+            "state_enhance_ready": state_enhance_ready,
+            "state_enhance_recommend": state_enhance_recommend,
+            "state_enhance_attempt": state_enhance_attempt,
+            "state_enhance_confirm": state_enhance_confirm,
+            "state_enhance_fail": state_enhance_fail,
+            "state_enhance_success": state_enhance_success,
+            "state_enhance_exit": state_enhance_exit,
+        }
+
         state = "state_enhance_check"
         state_list = []
         while isinstance(state, str):
@@ -350,8 +364,8 @@ class Enhancement(Dock):
                 raise GameStuckError('状态机循环次数过多')
 
             try:
-                state = locals()[state]()
-            except KeyError as e:
+                state = state_functions[state]()
+            except KeyError:
                 logger.warning(f'未知的状态函数: {state}')
                 raise ScriptError(f'未知的状态函数: {state}')
 
