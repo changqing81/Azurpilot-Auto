@@ -383,13 +383,8 @@ class FleetPreparation(InfoHandler):
         if self.map_fleet_checked:
             return False
 
-        # 跳过编队检测：信任游戏内当前预选的舰队，不操作下拉菜单
-        # 适用于舰队槽位未完全解锁的账号，避免下拉菜单检测卡死
-        if self.config.Fleet_SkipPreparation:
-            logger.info('[地图-编队] 跳过舰队准备 (Fleet_SkipPreparation=True), '
-                        'use current pre-selected fleet in game')
-            return True
-
+        # 加载自动搜索设置按钮的偏移量，即使跳过编队检测也需要
+        # 供后续 handle_auto_search_setting 使用，否则按钮坐标不正确
         if self.appear(FLEET_1_CLEAR, offset=FleetOperator.OFFSET):
             AUTO_SEARCH_SET_MOB.load_offset(FLEET_1_CLEAR)
             AUTO_SEARCH_SET_BOSS.load_offset(FLEET_1_CLEAR)
@@ -398,6 +393,13 @@ class FleetPreparation(InfoHandler):
         if self.appear(SUBMARINE_CLEAR, offset=FleetOperator.OFFSET):
             AUTO_SEARCH_SET_SUB_AUTO.load_offset(SUBMARINE_CLEAR)
             AUTO_SEARCH_SET_SUB_STANDBY.load_offset(SUBMARINE_CLEAR)
+
+        # 跳过编队检测：信任游戏内当前预选的舰队，不操作下拉菜单
+        # 适用于舰队槽位未完全解锁的账号，避免下拉菜单检测卡死
+        if self.config.Fleet_SkipPreparation:
+            logger.info('[地图-编队] 跳过舰队准备 (Fleet_SkipPreparation=True), '
+                        'use current pre-selected fleet in game')
+            return True
 
         fleet_1 = FleetOperator(
             choose=FLEET_1_CHOOSE, advice=FLEET_1_ADVICE, bar=FLEET_1_BAR, clear=FLEET_1_CLEAR,
