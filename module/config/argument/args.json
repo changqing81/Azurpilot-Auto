@@ -14024,6 +14024,10 @@
       "StayInZone": {
         "type": "checkbox",
         "value": false
+      },
+      "ExecuteFixedPatrolScan": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "OpsiSirenBug": {

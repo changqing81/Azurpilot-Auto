@@ -668,6 +668,7 @@ class GeneratedConfig:
     OpsiMeowfficerFarming_HazardLevel = 5  # 2, 3, 4, 5, 6, 10
     OpsiMeowfficerFarming_TargetZone = 0
     OpsiMeowfficerFarming_StayInZone = False
+    OpsiMeowfficerFarming_ExecuteFixedPatrolScan = False
 
     # 配置组 `OpsiTarget`
     OpsiTarget_TargetFarming = False
