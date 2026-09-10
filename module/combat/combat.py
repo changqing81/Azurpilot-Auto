@@ -189,6 +189,8 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             return PAUSE_OldeRoyal
         if PAUSE_YoRHa.match_template_color(self.device.image, offset=(10, 10)):
             return PAUSE_YoRHa
+        if PAUSE_Ghost.match_template_color(self.device.image, offset=(10, 10)):
+            return PAUSE_Ghost
         return False
 
     def handle_combat_quit(self, offset=(20, 20), interval=3):
@@ -262,6 +264,10 @@ class Combat(Level, HPBalancer, Retirement, SubmarineCall, CombatAuto, CombatMan
             return True
         if QUIT_YoRHa.match_luma(self.device.image, offset=offset):
             self.device.click(QUIT_YoRHa)
+            timer.reset()
+            return True
+        if QUIT_Ghost.match_luma(self.device.image, offset=offset):
+            self.device.click(QUIT_Ghost)
             timer.reset()
             return True
         return False
