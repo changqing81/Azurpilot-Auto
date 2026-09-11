@@ -6,12 +6,17 @@
 
 流程：
 1. 进入主线关卡页，按 Fleet 组准备编队
-2. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
-3. 打开作战委托面板，把委托次数设置到指定值
-4. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
-5. 时间不足且启用了自动补充时，用作战全权委托书兑换可用时间（1 本 = 1 小时）
-6. 启用了使用委托书时，把委托书投入量拉到最大
-7. 点击「开始」
+2. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
+   其他关卡先弹阻止页，点它的「查看委托」进同一个弹窗
+3. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
+4. 已完成（HANDOVER_PASS_CLICK）则领取奖励，领完退回章节选择页，
+   重新点一次关卡把上面的流程再走一遍，继续开下一个委托
+5. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
+6. 打开作战委托面板，把委托次数设置到指定值
+7. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
+8. 时间不足且启用了自动补充时，用作战全权委托书兑换可用时间（1 本 = 1 小时）
+9. 启用了使用委托书时，把委托书投入量拉到最大
+10. 点击「开始」
 
 配置路径: Campaign.Name, OperationHandover.Count,
          OperationHandover.AutoSupplementTime, OperationHandover.UseHandoverBook
@@ -19,6 +24,7 @@
 
 import math
 
+from module.base.button import Button
 from module.base.timer import Timer
 from module.campaign.run import CampaignRun
 from module.handler.assets import POPUP_CONFIRM
@@ -26,9 +32,12 @@ from module.handler.fast_forward import to_map_file_name
 from module.logger import logger
 from module.map.assets import (FLEET_PREPARATION, HANDOVER_BOOK_AMOUNT_OCR,
                                HANDOVER_BOOK_COUNT_OCR, HANDOVER_BOOK_ITEM,
-                               HANDOVER_BOOK_MAX, HANDOVER_COUNT_MAX, HANDOVER_COUNT_MINUS,
+                               HANDOVER_BOOK_MAX, HANDOVER_CHECK, HANDOVER_COUNT_MAX,
+                               HANDOVER_COUNT_MINUS,
                                HANDOVER_COUNT_OCR, HANDOVER_COUNT_PLUS, HANDOVER_EXCHANGE_TIME,
-                               HANDOVER_START_CLICK, HANDOVER_TAB, HANDOVER_TAB_UNSUPPORTED,
+                               HANDOVER_PASS_CLICK, HANDOVER_REWARD, HANDOVER_REWARD_CHECK,
+                               HANDOVER_START_CLICK, HANDOVER_STOP_CHECK, HANDOVER_STOP_TIME_OCR,
+                               HANDOVER_TAB, HANDOVER_TAB_UNSUPPORTED,
                                HANDOVER_TIME_NEEDED_OCR, HANDOVER_TIME_REMAINING_OCR)
 from module.ocr.ocr import Digit, Duration
 
@@ -42,10 +51,16 @@ OCR_HANDOVER_TIME_NEEDED = Duration(HANDOVER_TIME_NEEDED_OCR, letter=(255, 255, 
 # 白色 letter 走「按最小通道取反」的快速分支，非白色走逐通道差值分支；绿字用白色会把
 # 文字和深色背景一起提成纯白，送模图成为空白图，OCR 恒返回 0:00:00。
 OCR_HANDOVER_TIME_REMAINING = Duration(HANDOVER_TIME_REMAINING_OCR, letter=(110, 184, 48), threshold=128)
+# 进行中委托的剩余时间同样是绿色字 (99,215,131)，理由同上
+OCR_HANDOVER_STOP_TIME = Duration(HANDOVER_STOP_TIME_OCR, letter=(99, 215, 131), threshold=128)
 
 # 一本作战全权委托书可兑换 1 小时可用时间
 HANDOVER_BOOK_HOURS = 1
 HANDOVER_BOOK_SECONDS = HANDOVER_BOOK_HOURS * 3600
+
+# 「作战委托 INFORM」弹窗右上角的关闭按钮，没有模板，直接按坐标点
+HANDOVER_DIALOG_CLOSE = Button(area=(925, 132, 997, 180), color=(),
+                               button=(925, 132, 997, 180), name='HANDOVER_DIALOG_CLOSE')
 
 
 class OperationHandover(CampaignRun):
@@ -76,6 +91,19 @@ class OperationHandover(CampaignRun):
 
         # 进入主线关卡页，并按 Fleet 组准备编队
         self.handover_enter()
+
+        # 上一次的委托仍在进行，不打断它，关掉弹窗等它做完再回来领取
+        self.device.screenshot()
+        if self.appear(HANDOVER_STOP_CHECK, offset=(20, 20)):
+            remaining = OCR_HANDOVER_STOP_TIME.ocr(self.device.image)
+            logger.attr('委托剩余时间', remaining)
+            self.device.click(HANDOVER_DIALOG_CLOSE)
+            self.handover_delay(remaining)
+            return
+
+        # 上一次的委托已完成，领取奖励。领完退回章节选择页，要重新点一次关卡
+        if self.handover_reward():
+            self.handover_enter()
 
         # 检测该关卡是否支持作战委托
         if not self.handover_check_support():
@@ -114,7 +142,11 @@ class OperationHandover(CampaignRun):
         只切换章节，不会点开关卡节点，必须再点击一次 ENTRANCE 才进得了关卡页。
         编队栏与舰队准备都在关卡页上，不在章节选择页上。
 
-        Pages: in: any, out: 关卡页
+        上一次的委托还在时，进关卡页会弹出「作战委托 INFORM」弹窗，或是先弹出
+        阻止页，点它的「查看委托」进弹窗，两种情况都在这里收住，交给 run() 判断
+        委托是完成了还是仍在进行。
+
+        Pages: in: any, out: 关卡页 / 作战委托弹窗
         """
         name = to_map_file_name(self.config.Campaign_Name)
         self.load_campaign(name, folder='campaign_main')
@@ -141,12 +173,34 @@ class OperationHandover(CampaignRun):
             if self.appear(HANDOVER_TAB) or self.appear(HANDOVER_TAB_UNSUPPORTED):
                 break
 
+            # 上一次的委托还在，弹出了作战委托弹窗
+            if self.handover_dialog_appear():
+                break
+
+            # 委托进行中的阻止页，点「查看委托」进弹窗
+            if self.appear_then_click(HANDOVER_CHECK, offset=(20, 20), interval=3):
+                continue
+
             # 进入关卡
             if campaign_timer.reached() and self.campaign.appear_then_click(self.campaign.ENTRANCE):
                 campaign_timer.reset()
                 continue
 
         logger.info('[作战委托] 已进入关卡页')
+
+    def handover_dialog_appear(self):
+        """「作战委托 INFORM」弹窗是否出现。
+
+        弹窗里显示委托的剩余时间与完成次数，底部按钮是「领取奖励」（已完成）或
+        「终止作战」（仍在进行），用它判断委托做完了没有。
+
+        Returns:
+            bool: 弹窗出现返回 True。
+        """
+        return (
+            self.appear(HANDOVER_PASS_CLICK, offset=(20, 20))
+            or self.appear(HANDOVER_STOP_CHECK, offset=(20, 20))
+        )
 
     def handover_check_support(self):
         """检测当前关卡是否支持作战委托。
@@ -168,7 +222,7 @@ class OperationHandover(CampaignRun):
         return False
 
     def handover_panel_appear(self):
-        """作战委托面板是否已打开。
+        """作战委托设置面板是否已打开。
 
         「最大」按钮只在面板内出现，用它作为面板标志物。该按钮与次数加号等
         按钮颜色相同，因此必须用模板匹配而不是颜色判定。
@@ -196,6 +250,50 @@ class OperationHandover(CampaignRun):
                 continue
 
         logger.info('[作战委托] 已打开作战委托面板')
+
+    def handover_reward(self):
+        """领取上一次已完成委托的奖励。
+
+        委托完成后弹窗底部的按钮是「领取奖励」。点击后可能先弹出大讲堂熟练度溢出
+        之类的通用信息弹窗，用通用确认按钮关掉，再点掉领取结算界面。全部收掉后
+        游戏退回章节选择页，关卡入口按钮重新出现，此时才算领完。
+
+        Pages: in: 作战委托弹窗, out: 章节选择页
+
+        Returns:
+            bool: 本次领取了奖励返回 True。
+        """
+        self.device.screenshot()
+        if not self.appear(HANDOVER_PASS_CLICK, offset=(20, 20)):
+            return False
+
+        logger.info('[作战委托] 上一次的委托已完成，领取奖励')
+        while 1:
+            self.device.screenshot()
+
+            # 领取结算界面，点「确定」收起
+            if self.appear(HANDOVER_REWARD_CHECK, offset=(20, 20)):
+                self.appear_then_click(HANDOVER_REWARD, offset=(20, 20), interval=3)
+                continue
+
+            # 大讲堂熟练度溢出等通用信息弹窗
+            if self.handle_popup_confirm('HANDOVER'):
+                continue
+
+            # 弹窗上的按钮先判，保证弹窗还在时不会误判成已经退回章节选择页
+            if self.appear_then_click(HANDOVER_PASS_CLICK, offset=(20, 20), interval=3):
+                continue
+
+            # 退回章节选择页，关卡入口重新出现，委托已经没有了
+            if self.campaign.appear(self.campaign.ENTRANCE):
+                break
+
+            # 关卡页
+            if self.appear(HANDOVER_TAB) or self.appear(HANDOVER_TAB_UNSUPPORTED):
+                break
+
+        logger.info('[作战委托] 已领取委托奖励')
+        return True
 
     def handover_set_count(self, count):
         """把委托次数设置到指定值。
@@ -318,8 +416,8 @@ class OperationHandover(CampaignRun):
             if self.handle_popup_confirm('HANDOVER_START'):
                 continue
 
-            # 面板关闭，说明委托已经开始
-            if not self.handover_panel_appear():
+            # 「开始」已消失，说明面板已关闭或换成了进行中的界面，委托已经开始
+            if not self.appear(HANDOVER_START_CLICK, offset=(20, 20)):
                 break
 
             if self.appear_then_click(HANDOVER_START_CLICK, offset=(20, 20), interval=3):
@@ -327,10 +425,17 @@ class OperationHandover(CampaignRun):
 
         logger.info('[作战委托] 委托已开始，委托期间无法出击主线与活动关卡')
 
-    def handover_delay(self):
-        """本次无法开始委托，推迟到下一个可用时间额度刷新。
+    def handover_delay(self, delay=None):
+        """本次无法开始委托，推迟下次运行。
 
-        作战委托的可用时间额度每天 0 点重置，因此失败路径统一延迟到次日。
+        作战委托的可用时间额度每天 0 点重置，因此没开始委托时统一推迟到次日。
+
+        Args:
+            delay (timedelta): 进行中委托的剩余时间。None 表示本次未开始委托。
         """
-        logger.warning('[作战委托] 本次未开始委托，推迟到下一个可用时间额度刷新')
-        self.config.task_delay(server_update=True)
+        if delay is None:
+            logger.warning('[作战委托] 本次未开始委托，推迟到下一个可用时间额度刷新')
+            self.config.task_delay(server_update=True)
+        else:
+            logger.info(f'[作战委托] 委托仍在进行，{delay} 后回来领取奖励')
+            self.config.task_delay(minute=delay.total_seconds() / 60)

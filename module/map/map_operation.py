@@ -23,6 +23,7 @@ from module.handler.mystery import MysteryHandler
 from module.logger import logger
 from module.map.assets import *
 from module.map.map_fleet_preparation import FleetPreparation
+from module.notify import handle_notify
 from module.retire.retirement import Retirement
 from module.ui.assets import BACK_ARROW, DAILY_CHECK
 
@@ -133,6 +134,45 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
 
         return count > 0
 
+    def handle_handover_conflict(self):
+        """处理作战委托进行中的阻止页。
+
+        作战委托进行时，主线、活动等出击任务点「出击」会先弹出这个页面阻止进入
+        关卡。此时读取作战委托任务的开关状态：任务开着说明委托是脚本自己开的，
+        推送一次「功能冲突」提示；然后用通用取消按钮关掉页面，并把当前任务推迟
+        到次日，委托期间不再反复尝试。
+
+        Pages:
+            in: 关卡页（阻止页）
+            out: 关卡页
+
+        Raises:
+            TaskEnd: 作战委托进行中无法出击，当前任务到此为止。
+        """
+        if not self.appear(HANDOVER_CHECK, offset=(20, 20)):
+            return
+        if not self.config.is_task_enabled('OperationHandover'):
+            return
+
+        logger.hr('功能冲突: 作战委托进行中', level=2)
+        handle_notify(
+            self.config.Error_OnePushConfig,
+            title=f'AzurPilot <{self.config.config_name}> 功能冲突',
+            content=f'<{self.config.config_name}> 作战委托进行中，'
+                    f'{self.config.task.command} 无法出击，已推迟到次日',
+        )
+
+        # 通用的取消按钮
+        while 1:
+            self.device.screenshot()
+            if not self.appear(HANDOVER_CHECK, offset=(20, 20)):
+                break
+            if self.handle_popup_cancel('HANDOVER'):
+                continue
+
+        self.config.task_delay(server_update=True)
+        self.config.task_stop('作战委托进行中，无法出击')
+
     def enter_map(self, button, mode='normal', skip_first_screenshot=True):
         """
         进入战役关卡。
@@ -189,6 +229,9 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                     logger.info(f'{DAILY_CHECK} -> {BACK_ARROW}')
                     self.device.click(BACK_ARROW)
                     continue
+
+                # 作战委托进行中，出击会被游戏阻止
+                self.handle_handover_conflict()
 
                 # 地图准备
                 if map_timer.reached() and self.handle_map_mode_switch(mode):
