@@ -66,10 +66,6 @@
       "name": "主線圖+",
       "help": ""
     },
-    "OperationHandover": {
-      "name": "作戰委託合約",
-      "help": "消耗作戰委託書，自動進行作戰委託。"
-    },
     "GemsFarming": {
       "name": "緊急委託+",
       "help": ""
@@ -193,6 +189,10 @@
     "Secretary": {
       "name": "秘書艦",
       "help": "自動檢測秘書艦好感度，達到 90 後自動更換秘書艦"
+    },
+    "OperationHandover": {
+      "name": "作戰委託合約",
+      "help": "消耗作戰委託書，自動進行作戰委託。"
     },
     "Daily": {
       "name": "每日任務",

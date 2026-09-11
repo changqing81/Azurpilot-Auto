@@ -11544,7 +11544,7 @@
         "type": "input",
         "value": 1,
         "validate": [
-          0,
+          1,
           999
         ]
       },
@@ -11555,45 +11555,6 @@
       "UseHandoverBook": {
         "type": "checkbox",
         "value": false
-      },
-      "OilLimit": {
-        "type": "input",
-        "value": 0,
-        "validate": [
-          0,
-          999999
-        ]
-      },
-      "ConsumeAllBook": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "ConsumeAllBookWeekday": {
-        "type": "select",
-        "value": "mon",
-        "option": [
-          "mon",
-          "tue",
-          "wed",
-          "thu",
-          "fri",
-          "sat",
-          "sun"
-        ]
-      },
-      "ConsumeAllBookTime": {
-        "type": "input",
-        "value": "12:00",
-        "valuetype": "str"
-      },
-      "ConsumeAllBookRecord": {
-        "type": "stored",
-        "value": "",
-        "display": "hide"
       }
     },
     "Fleet": {

@@ -66,10 +66,6 @@
       "name": "Main Campaign+",
       "help": ""
     },
-    "OperationHandover": {
-      "name": "Operation Handover Contract",
-      "help": "Consume Handover Books to run Operation Handover automatically."
-    },
     "GemsFarming": {
       "name": "Urgent Commission+",
       "help": ""
@@ -193,6 +189,10 @@
     "Secretary": {
       "name": "Secretary",
       "help": "Automatically monitor the secretary ship's affinity and replace it when it reaches 90 affinity"
+    },
+    "OperationHandover": {
+      "name": "Operation Handover Contract",
+      "help": "Consume Handover Books to run Operation Handover automatically."
     },
     "Daily": {
       "name": "Daily Missions",

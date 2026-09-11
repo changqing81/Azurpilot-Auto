@@ -2187,12 +2187,7 @@
     "OperationHandover": {
       "Count": 1,
       "AutoSupplementTime": false,
-      "UseHandoverBook": false,
-      "OilLimit": 0,
-      "ConsumeAllBook": false,
-      "ConsumeAllBookWeekday": "mon",
-      "ConsumeAllBookTime": "12:00",
-      "ConsumeAllBookRecord": null
+      "UseHandoverBook": false
     },
     "Fleet": {
       "Fleet1": 1,

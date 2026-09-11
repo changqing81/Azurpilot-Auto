@@ -66,10 +66,6 @@
       "name": "主线图-3+",
       "help": ""
     },
-    "OperationHandover": {
-      "name": "作战委托合约Beta",
-      "help": "消耗作战委托书，自动进行作战委托。"
-    },
     "GemsFarming": {
       "name": "紧急委托+",
       "help": ""
@@ -193,6 +189,10 @@
     "Secretary": {
       "name": "秘书舰",
       "help": "自动检测秘书舰好感度，达到设定值后自动更换秘书舰"
+    },
+    "OperationHandover": {
+      "name": "作战委托合约Beta",
+      "help": "消耗作战委托书，自动进行作战委托。"
     },
     "Daily": {
       "name": "每日任务",
