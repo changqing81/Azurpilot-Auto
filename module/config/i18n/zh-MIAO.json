@@ -1410,6 +1410,35 @@
     "UseHandoverBook": {
       "name": "使用作战全权委托书",
       "help": "开打之前把委托书塞满喵！"
+    },
+    "OilLimit": {
+      "name": "石油低于 X 就歇着喵",
+      "help": "油不够就先别跑，等油攒够了再来喵~ (￣ω￣)"
+    },
+    "ConsumeAllBook": {
+      "name": "一键把委托书全烧了喵",
+      "help": "每周挑一天，把仓库里的作战全权委托书一次性烧光喵！\n火力全开，委托次数自己看着办喵 (๑•̀ㅂ•́)و✧",
+      "True": "开烧喵",
+      "False": "不烧"
+    },
+    "ConsumeAllBookWeekday": {
+      "name": "哪天开烧喵",
+      "help": "一周就烧这一次喵",
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    },
+    "ConsumeAllBookTime": {
+      "name": "几点开烧喵",
+      "help": "到了这个点才开始烧，格式 HH:MM 喵"
+    },
+    "ConsumeAllBookRecord": {
+      "name": "开烧记录喵",
+      "help": "脚本自己记的，不用管喵~"
     }
   },
   "StopCondition": {
