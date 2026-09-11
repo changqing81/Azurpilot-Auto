@@ -1434,7 +1434,7 @@
     },
     "MaintainOverride": {
       "name": "Handover before maintenance",
-      "help": "Check the CN maintenance notice once a day. If the maintenance is today and has not started yet, this run is\npostponed to 10 minutes before it and then runs with max sorties (still respecting Use Handover Book and\nauto-supplement time). Past or non-today maintenance is ignored. Data from api-blhx-maintain, CN server only",
+      "help": "Check the maintenance notice once a day. If the maintenance is today and has not started yet, this run is\npostponed to 10 minutes before it and then runs with max sorties (still respecting Use Handover Book and\nauto-supplement time). Past or non-today maintenance is ignored.\nData from api-blhx-maintain, fetched for your game server and converted to local time",
       "True": "On",
       "False": "Off"
     },
