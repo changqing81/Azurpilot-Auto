@@ -69,6 +69,11 @@ HANDOVER_BOOK_SECONDS = HANDOVER_BOOK_HOURS * 3600
 
 # 一键消耗委托书的周几选项，下标与 datetime.weekday() 一致（周一 = 0）
 HANDOVER_WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+HANDOVER_WEEKDAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
+
+# 触发日当天还没开始时，隔多久再看一眼。直接用「推迟到次日」会跳到触发日之后，
+# 整周都错过一键消耗
+HANDOVER_CONSUME_RETRY_MINUTES = 30
 
 
 class OperationHandover(CampaignRun):
@@ -93,13 +98,13 @@ class OperationHandover(CampaignRun):
         auto_supplement = self.config.OperationHandover_AutoSupplementTime
         use_book = self.config.OperationHandover_UseHandoverBook
         oil_limit = self.config.OperationHandover_OilLimit
-        consume_all = self.handover_consume_all_book_due()
+        consume_all, reason = self.handover_consume_all_book_state()
         logger.attr('委托关卡', self.config.Campaign_Name)
         logger.attr('委托次数', count)
         logger.attr('自动补充时间', auto_supplement)
         logger.attr('使用作战全权委托书', use_book)
         logger.attr('石油低于 X 后推迟', oil_limit)
-        logger.attr('一键消耗作战全权委托书', consume_all)
+        logger.attr('一键消耗作战全权委托书', '是' if consume_all else f'否（{reason}）')
 
         # 进入主线关卡页，并按 Fleet 组准备编队
         self.handover_enter()
@@ -550,38 +555,81 @@ class OperationHandover(CampaignRun):
         year, week, _ = time.isocalendar()
         return f'{year}W{week:02d}'
 
-    def handover_consume_all_book_due(self):
-        """一键消耗作战全权委托书是不是到了本周的触发时间。
+    def handover_consume_all_book_trigger(self):
+        """解析一键消耗委托书的触发配置。
+
+        Returns:
+            tuple[int, int, int] | None: (周几, 时, 分)，配置不合法返回 None。
+        """
+        weekday = self.config.OperationHandover_ConsumeAllBookWeekday
+        if weekday not in HANDOVER_WEEKDAYS:
+            logger.warning(f'[作战委托] 无法识别的星期: {weekday}')
+            return None
+
+        trigger = str(self.config.OperationHandover_ConsumeAllBookTime)
+        try:
+            hour, minute = [int(part) for part in trigger.split(':')[:2]]
+            if not 0 <= hour < 24 or not 0 <= minute < 60:
+                raise ValueError
+        except ValueError:
+            logger.warning(f'[作战委托] 无法识别的触发时间: {trigger}')
+            return None
+
+        return HANDOVER_WEEKDAYS.index(weekday), hour, minute
+
+    def handover_consume_all_book_state(self):
+        """当前该不该执行一键消耗委托书，以及不执行的原因。
 
         周几和几点几分由用户配置，本周成功触发过一次就不再触发。委托没开起来
         （比如触发时正好有委托在进行）不算触发过，下一次运行会接着试。
 
         Returns:
-            bool: 本次要执行一键消耗委托书返回 True。
+            tuple[bool, str]: (是否执行, 不执行的原因)。
+        """
+        if not self.config.OperationHandover_ConsumeAllBook:
+            return False, '开关未开启'
+
+        now = current_time()
+        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(now):
+            return False, '本周已触发过'
+
+        trigger = self.handover_consume_all_book_trigger()
+        if trigger is None:
+            return False, '触发日或触发时间配置不合法'
+        weekday, hour, minute = trigger
+
+        if now.weekday() != weekday:
+            name = HANDOVER_WEEKDAY_NAMES[weekday]
+            if now.weekday() < weekday:
+                return False, f'还没到{name}'
+            else:
+                return False, f'{name}已经过了，等下周'
+
+        if (now.hour, now.minute) < (hour, minute):
+            return False, f'还没到触发时间 {hour:02d}:{minute:02d}'
+
+        return True, ''
+
+    def handover_consume_all_book_waiting(self):
+        """一键消耗委托书今天还有机会触发吗。
+
+        今天就是触发日、本周又还没触发过时，本次没开成委托也不能把任务推迟到
+        次日——次日已经过了触发日，这一周的一键消耗就整个没了。
+
+        Returns:
+            bool: 应该稍后重试而不是等次日返回 True。
         """
         if not self.config.OperationHandover_ConsumeAllBook:
             return False
-        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(current_time()):
-            return False
-
-        weekday = self.config.OperationHandover_ConsumeAllBookWeekday
-        if weekday not in HANDOVER_WEEKDAYS:
-            logger.warning(f'[作战委托] 无法识别的星期: {weekday}')
-            return False
-
-        trigger = str(self.config.OperationHandover_ConsumeAllBookTime)
-        try:
-            hour, minute = [int(part) for part in trigger.split(':')[:2]]
-        except ValueError:
-            logger.warning(f'[作战委托] 无法识别的触发时间: {trigger}')
-            return False
 
         now = current_time()
-        if now.weekday() != HANDOVER_WEEKDAYS.index(weekday):
+        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(now):
             return False
-        if (now.hour, now.minute) < (hour, minute):
+
+        trigger = self.handover_consume_all_book_trigger()
+        if trigger is None:
             return False
-        return True
+        return now.weekday() == trigger[0]
 
     def handover_consume_all_book_record(self):
         """记下本周已经触发过一键消耗委托书。"""
@@ -695,13 +743,20 @@ class OperationHandover(CampaignRun):
         """本次无法开始委托，推迟下次运行。
 
         作战委托的可用时间额度每天 0 点重置，因此没开始委托时统一推迟到次日。
+        但一键消耗委托书如果今天才轮到触发、本周又还没触发过，就不能跳到次日
+        （次日已经过了触发日），改成隔一段时间重试。
 
         Args:
             delay (timedelta): 进行中委托的剩余时间。None 表示本次未开始委托。
         """
         if delay is None:
-            logger.warning('[作战委托] 本次未开始委托，推迟到下一个可用时间额度刷新')
-            self.config.task_delay(server_update=True)
+            if self.handover_consume_all_book_waiting():
+                logger.warning(f'[作战委托] 本次未开始委托，一键消耗委托书今天还没触发，'
+                               f'{HANDOVER_CONSUME_RETRY_MINUTES} 分钟后再试')
+                self.config.task_delay(minute=HANDOVER_CONSUME_RETRY_MINUTES)
+            else:
+                logger.warning('[作战委托] 本次未开始委托，推迟到下一个可用时间额度刷新')
+                self.config.task_delay(server_update=True)
         else:
             logger.info(f'[作战委托] 委托仍在进行，{delay} 后回来领取奖励')
             self.config.task_delay(minute=delay.total_seconds() / 60)
