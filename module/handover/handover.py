@@ -6,8 +6,9 @@
 
 流程：
 1. 查一次停服维护时间（OperationHandover.MaintainOverride 开启时）：维护就在
-   今天且还没开始，就把本次运行排到维护前 10 分钟，到点后用「次数拉满」跑最后
-   一次；维护时间已经过去、或是别的日子，按下面的正常流程走
+   今天，当天 0 点起就整体切到维护模式——忽略「委托次数」和「一键消耗委托书」，
+   把下一次运行排到维护前 10 分钟，到点后用「次数拉满」跑最后一次；维护时间
+   已经过去、或是别的日子，按下面的正常流程走
 2. 委托次数为 0 时这个任务只在需要一键消耗委托书时才动：未开启一键消耗就
    直接关掉本任务，开启了就把下次运行排到触发时间
 3. 进入主线关卡页
@@ -113,24 +114,27 @@ class OperationHandover(CampaignRun):
         use_book = self.config.OperationHandover_UseHandoverBook
         oil_limit = self.config.OperationHandover_OilLimit
         consume_all, reason = self.handover_consume_all_book_state()
+        maintain, maintain_reason = self.handover_maintain_state()
+        # 维护当天从 0 点起就整体切到维护模式：忽略「委托次数」和「一键消耗委托书」，
+        # 下一次运行只排到维护前 HANDOVER_MAINTAIN_LEAD_MINUTES 分钟那一次
+        maintain_run = maintain is not None
         logger.attr('委托关卡', self.config.Campaign_Name)
         logger.attr('委托次数', count)
         logger.attr('自动补充时间', auto_supplement)
         logger.attr('使用作战全权委托书', use_book)
         logger.attr('石油低于 X 后推迟', oil_limit)
         logger.attr('一键消耗作战全权委托书', '是' if consume_all else f'否（{reason}）')
+        logger.attr('维护当天作战委托', f'是（{maintain_reason}）' if maintain_run
+                    else f'否（{maintain_reason}）')
 
-        # 维护当天优先级最高：维护前 HANDOVER_MAINTAIN_LEAD_MINUTES 分钟跑一次，
-        # 作战次数拉满，压过「委托次数」和「一键消耗委托书」
-        maintain_run = False
-        maintain = self.handover_maintain_time()
-        if maintain:
+        if maintain_run:
             run_at = maintain - timedelta(minutes=HANDOVER_MAINTAIN_LEAD_MINUTES)
             if current_time() < run_at:
                 logger.info(f'[作战委托] 还没到维护前的运行时间，推迟到 {run_at}')
                 self.config.task_delay(target=run_at)
                 return
-            maintain_run = True
+            logger.info(f'[作战委托] 到维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟了，'
+                        f'作战次数拉满跑最后一次')
 
         # 委托次数为 0：不开一键消耗委托书的话这个任务没事可做，直接关掉；
         # 开着就只在触发时间运行，中间不用进游戏
@@ -619,17 +623,17 @@ class OperationHandover(CampaignRun):
         year, week, _ = time.isocalendar()
         return f'{year}W{week:02d}'
 
-    def handover_maintain_time(self):
-        """查询今天有没有停服维护，有的话返回维护开始时间。
+    def handover_maintain_state(self):
+        """今天有没有停服维护，有的话返回维护开始时间。
 
         数据来自 api-blhx-maintain（国服公告）。时间不是今天的、或者已经过去的
-        都返回 None，当作没有维护。
+        都当作没有维护。
 
         Returns:
-            datetime.datetime | None: 今天的维护开始时间，没有则返回 None。
+            tuple[datetime.datetime | None, str]: (维护开始时间, 原因)。
         """
         if not self.config.OperationHandover_MaintainOverride:
-            return None
+            return None, '开关未开启'
 
         try:
             data = requests.get(HANDOVER_MAINTAIN_API, timeout=10).json().get('data') or {}
@@ -638,19 +642,15 @@ class OperationHandover(CampaignRun):
                 '%Y-%m-%d %H:%M')
         except Exception as e:
             logger.warning(f'[作战委托] 查询维护时间失败，按不维护处理: {e}')
-            return None
+            return None, '查询维护时间失败'
 
         now = current_time()
         if start <= now:
-            logger.info(f'[作战委托] 维护时间 {start} 已经过去，不处理')
-            return None
+            return None, f'{start} 已经过去'
         if start.date() != now.date():
-            logger.info(f'[作战委托] 下次维护 {start}，不是今天，不影响本次运行时间')
-            return None
+            return None, f'下次维护 {start}，不是今天'
 
-        logger.info(f'[作战委托] 今天 {start} 开始停服维护，'
-                    f'提前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟跑最后一次')
-        return start
+        return start, f'今天 {start} 停服维护，维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟运行'
 
     def handover_consume_all_book_trigger(self):
         """解析一键消耗委托书的触发配置。
