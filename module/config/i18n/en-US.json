@@ -1401,7 +1401,7 @@
     },
     "Count": {
       "name": "Handover Count",
-      "help": "Number of times the delegated stage is run"
+      "help": "How many sorties this Operation Handover runs\n0 means the minimum the game allows: in that case the task is disabled unless Consume all Handover Books is on"
     },
     "AutoSupplementTime": {
       "name": "Auto Supplement Time",
@@ -1417,7 +1417,7 @@
     },
     "ConsumeAllBook": {
       "name": "Consume all Handover Books",
-      "help": "Triggered once a week: max out Sorties → max out Handover Books → set Sorties to the number of books,\nso the whole stock of books is spent at once.\nOn the trigger day the Count option is ignored",
+      "help": "Triggered once a week: max out Sorties → max out Handover Books → set Sorties to the number of books,\nso the whole stock of books is spent at once.\nOn the trigger day the Count option is ignored; with Count set to 0 the task only runs at the trigger time",
       "True": "On",
       "False": "Off"
     },

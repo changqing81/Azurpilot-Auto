@@ -11544,7 +11544,7 @@
         "type": "input",
         "value": 1,
         "validate": [
-          1,
+          0,
           999
         ]
       },

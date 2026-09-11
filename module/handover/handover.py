@@ -5,21 +5,23 @@
 活动）都会失败，只有大世界照常可用，因此本任务排在调度优先级的末尾。
 
 流程：
-1. 进入主线关卡页，按 Fleet 组准备编队
-2. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
+1. 委托次数为 0 时这个任务只在需要一键消耗委托书时才动：未开启一键消耗就
+   直接关掉本任务，开启了就把下次运行排到触发时间（见 handover_count_zero）
+2. 进入主线关卡页，按 Fleet 组准备编队
+3. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
    其他关卡先弹阻止页，点它的「查看委托」进同一个弹窗
-3. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
-4. 已完成（HANDOVER_PASS_CLICK）则领取奖励，领完退回章节选择页，
+4. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
+5. 已完成（HANDOVER_PASS_CLICK）则领取奖励，领完退回章节选择页，
    重新点一次关卡把上面的流程再走一遍，继续开下一个委托
-5. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
-6. 记录当前石油数量，低于 OperationHandover.OilLimit 时直接推迟
-7. 打开作战委托面板，把委托次数设置到指定值；启用一键消耗委托书时改成按
+6. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
+7. 记录当前石油数量，低于 OperationHandover.OilLimit 时直接推迟
+8. 打开作战委托面板，把委托次数设置到指定值；启用一键消耗委托书时改成按
    投入的委托书数量设置（见 handover_consume_all_book）
-8. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
-9. 时间不足且启用了自动补充时，用作战全权委托书兑换可用时间（1 本 = 1 小时）
-10. 把面板上的「预计消耗」石油和当前石油比较，不够就关掉面板推迟，不点「开始」
-11. 启用了使用委托书时，把委托书投入量拉到最大
-12. 点击「开始」，确认面板真的关掉了才算成功
+9. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
+10. 时间不足且启用了自动补充时，用作战全权委托书兑换可用时间（1 本 = 1 小时）
+11. 把面板上的「预计消耗」石油和当前石油比较，不够就关掉面板推迟，不点「开始」
+12. 启用了使用委托书时，把委托书投入量拉到最大
+13. 点击「开始」，确认面板真的关掉了才算成功
 
 配置路径: Campaign.Name, OperationHandover.Count,
          OperationHandover.AutoSupplementTime, OperationHandover.UseHandoverBook,
@@ -28,6 +30,7 @@
 """
 
 import math
+from datetime import timedelta
 
 from module.base.timer import Timer
 from module.base.utils import crop
@@ -105,6 +108,27 @@ class OperationHandover(CampaignRun):
         logger.attr('使用作战全权委托书', use_book)
         logger.attr('石油低于 X 后推迟', oil_limit)
         logger.attr('一键消耗作战全权委托书', '是' if consume_all else f'否（{reason}）')
+
+        # 委托次数为 0：不开一键消耗委托书的话这个任务没事可做，直接关掉；
+        # 开着就只在触发时间运行，中间不用进游戏
+        if count <= 0:
+            if not self.config.OperationHandover_ConsumeAllBook:
+                logger.warning('[作战委托] 委托次数为 0 且未开启一键消耗委托书，'
+                               '这个任务没有事可做，直接关闭')
+                self.config.cross_set(keys='OperationHandover.Scheduler.Enable', value=False)
+                self.config.task_stop('委托次数为 0 且未开启一键消耗委托书')
+
+            if not consume_all:
+                target = self.handover_consume_all_book_next_time()
+                if target is None:
+                    logger.warning('[作战委托] 委托次数为 0，但读不到一键消耗的触发时间，'
+                                   '按普通间隔重试')
+                    self.handover_delay()
+                    return
+                logger.info(f'[作战委托] 委托次数为 0，只等一键消耗委托书，下次运行 {target}'
+                            f'（{reason}）')
+                self.config.task_delay(target=target)
+                return
 
         # 进入主线关卡页，并按 Fleet 组准备编队
         self.handover_enter()
@@ -350,9 +374,17 @@ class OperationHandover(CampaignRun):
 
         ui_ensure_index() 以游戏显示的次数为唯一依据点击加减号，点击丢失时能自行补齐。
 
+        count 为 0 时改成反复点减号降到游戏允许的最小值：游戏的最少次数不一定是
+        0，用 ui_ensure_index() 会一直点不到目标值而空转，最后只能靠卡死检测报错。
+
         Args:
-            count (int): 目标委托次数。
+            count (int): 目标委托次数，0 表示降到最小。
         """
+        if count == 0:
+            self.handover_click_until_stable(
+                HANDOVER_COUNT_MINUS, OCR_HANDOVER_COUNT, '作战次数(最小)')
+            return
+
         self.ui_ensure_index(
             count,
             letter=OCR_HANDOVER_COUNT,
@@ -425,22 +457,23 @@ class OperationHandover(CampaignRun):
         logger.info(f'[作战委托] 已补充 {need} 小时可用时间')
         return True
 
-    def handover_click_max(self, max_button, ocr, name):
-        """点「最大」按钮，直到数值不再变化。
+    def handover_click_until_stable(self, button, ocr, name):
+        """反复点同一个按钮，直到数值不再变化。
+
+        读两次数值相同就认为已经到头，多按几次也不会出错。
 
         Args:
-            max_button (Button): 「最大」按钮。
+            button (Button): 要点的按钮，比如「最大」或减号。
             ocr (Ocr): 读取当前数值的 OCR。
             name (str): 日志里显示的名字。
 
         Returns:
-            int: 最终数值，未找到「最大」按钮返回 -1。
+            int: 最终数值，未找到按钮返回 -1。
         """
-        if not self.appear(max_button, offset=(20, 20)):
-            logger.warning(f'[作战委托] 未找到{name}的最大按钮')
+        if not self.appear(button, offset=(20, 20)):
+            logger.warning(f'[作战委托] 未找到{name}的按钮')
             return -1
 
-        # 点击最大按钮，直到数值不再变化
         value = -1
         while 1:
             self.device.screenshot()
@@ -449,7 +482,7 @@ class OperationHandover(CampaignRun):
                 break
             value = current
 
-            if self.appear_then_click(max_button, offset=(20, 20), interval=2):
+            if self.appear_then_click(button, offset=(20, 20), interval=2):
                 continue
 
         logger.attr(name, value)
@@ -463,7 +496,7 @@ class OperationHandover(CampaignRun):
         Returns:
             bool: 找到并使用「最大」按钮返回 True。
         """
-        return self.handover_click_max(
+        return self.handover_click_until_stable(
             HANDOVER_BOOK_MAX, OCR_HANDOVER_BOOK_COUNT, '投入作战全权委托书') >= 0
 
     def handover_count_max(self):
@@ -474,7 +507,7 @@ class OperationHandover(CampaignRun):
         Returns:
             int: 拉满后的作战次数，失败返回 -1。
         """
-        return self.handover_click_max(HANDOVER_COUNT_MAX, OCR_HANDOVER_COUNT, '作战次数(最大)')
+        return self.handover_click_until_stable(HANDOVER_COUNT_MAX, OCR_HANDOVER_COUNT, '作战次数(最大)')
 
     def handover_input_count(self, count):
         """用输入法把作战次数改成指定值。
@@ -532,7 +565,7 @@ class OperationHandover(CampaignRun):
             return False
 
         # 委托书拉满后的数值，就是要设置的作战次数
-        book = self.handover_click_max(HANDOVER_BOOK_MAX, OCR_HANDOVER_BOOK_COUNT,
+        book = self.handover_click_until_stable(HANDOVER_BOOK_MAX, OCR_HANDOVER_BOOK_COUNT,
                                        '投入作战全权委托书')
         if book <= 0:
             logger.warning('[作战委托] 没有可投入的作战全权委托书')
@@ -630,6 +663,27 @@ class OperationHandover(CampaignRun):
         if trigger is None:
             return False
         return now.weekday() == trigger[0]
+
+    def handover_consume_all_book_next_time(self):
+        """下一次一键消耗委托书的触发时刻。
+
+        委托次数为 0 时用这个时间当下一次运行时间，中间不用进游戏。今天就是
+        触发日但时间已经过了（或者本周已经触发过）时顺延到下周。
+
+        Returns:
+            datetime.datetime | None: 下一次触发时刻，触发配置不合法返回 None。
+        """
+        trigger = self.handover_consume_all_book_trigger()
+        if trigger is None:
+            return None
+
+        weekday, hour, minute = trigger
+        now = current_time()
+        target = (now + timedelta(days=(weekday - now.weekday()) % 7)).replace(
+            hour=hour, minute=minute, second=0, microsecond=0)
+        if target <= now:
+            target += timedelta(days=7)
+        return target
 
     def handover_consume_all_book_record(self):
         """记下本周已经触发过一键消耗委托书。"""

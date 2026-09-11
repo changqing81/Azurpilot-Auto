@@ -433,7 +433,7 @@ Campaign:
 OperationHandover:
   Count:
     value: 1
-    validate: [1, 999]
+    validate: [0, 999]
   AutoSupplementTime: false
   UseHandoverBook: false
   OilLimit:
