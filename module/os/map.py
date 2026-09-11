@@ -1534,8 +1534,11 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 GameStuckError,
                 GameTooManyClickError,
                 RequestHumanTakeover,
+                FileNotFoundError,
+                OSError,
             ):
-                # 任务切换和恢复型异常必须交给上层调度器处理。
+                # 任务切换、恢复型异常和资源缺失等环境性错误必须交给上层调度器处理。
+                # 吞掉环境性错误会导致任务切换静默失败，脚本卡在当前画面空转。
                 raise
             except Exception as e:
                 logger.warning(f"[大世界-搜索] 策略搜索中断: {e}")
