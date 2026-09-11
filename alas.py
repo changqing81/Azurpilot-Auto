@@ -1192,6 +1192,10 @@ class AzurLaneAutoScript:
         from module.hard.hard import CampaignHard
         CampaignHard(config=self.config, device=self.device).run()
 
+    def operation_handover(self):
+        from module.handover.handover import OperationHandover
+        OperationHandover(config=self.config, device=self.device).run()
+
     def exercise(self):
         from module.exercise.exercise import Exercise
         Exercise(config=self.config, device=self.device).run()

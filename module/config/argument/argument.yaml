@@ -372,6 +372,7 @@ YukikazeTaskManager:
       > Ambush11
       > OpsiHazard1Leveling
       > ThreeOilLowCost
+      > OperationHandover
 OneClickRetire:
   KeepLimitBreak:
     value: keep_limit_break
@@ -410,6 +411,12 @@ Campaign:
   DefeatWithdraw:
     value: withdraw_stop
     option: [ withdraw_continue, switch_fleet, withdraw_stop ]
+OperationHandover:
+  Count:
+    value: 1
+    validate: [1, 999]
+  AutoSupplementTime: false
+  UseHandoverBook: false
 StopCondition:
   OilLimit: 1000
   CoinLimit: 0
