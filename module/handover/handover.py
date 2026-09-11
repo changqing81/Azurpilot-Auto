@@ -24,7 +24,6 @@
 
 import math
 
-from module.base.button import Button
 from module.base.timer import Timer
 from module.campaign.run import CampaignRun
 from module.handler.assets import POPUP_CONFIRM
@@ -34,7 +33,8 @@ from module.map.assets import (FLEET_PREPARATION, HANDOVER_BOOK_AMOUNT_OCR,
                                HANDOVER_BOOK_COUNT_OCR, HANDOVER_BOOK_ITEM,
                                HANDOVER_BOOK_MAX, HANDOVER_CHECK, HANDOVER_COUNT_MAX,
                                HANDOVER_COUNT_MINUS,
-                               HANDOVER_COUNT_OCR, HANDOVER_COUNT_PLUS, HANDOVER_EXCHANGE_TIME,
+                               HANDOVER_COUNT_OCR, HANDOVER_COUNT_PLUS,
+                               HANDOVER_DIALOG_CLOSE, HANDOVER_EXCHANGE_TIME,
                                HANDOVER_PASS_CLICK, HANDOVER_REWARD, HANDOVER_REWARD_CHECK,
                                HANDOVER_START_CLICK, HANDOVER_STOP_CHECK, HANDOVER_STOP_TIME_OCR,
                                HANDOVER_TAB, HANDOVER_TAB_UNSUPPORTED,
@@ -57,10 +57,6 @@ OCR_HANDOVER_STOP_TIME = Duration(HANDOVER_STOP_TIME_OCR, letter=(99, 215, 131),
 # 一本作战全权委托书可兑换 1 小时可用时间
 HANDOVER_BOOK_HOURS = 1
 HANDOVER_BOOK_SECONDS = HANDOVER_BOOK_HOURS * 3600
-
-# 「作战委托 INFORM」弹窗右上角的关闭按钮，没有模板，直接按坐标点
-HANDOVER_DIALOG_CLOSE = Button(area=(925, 132, 997, 180), color=(),
-                               button=(925, 132, 997, 180), name='HANDOVER_DIALOG_CLOSE')
 
 
 class OperationHandover(CampaignRun):

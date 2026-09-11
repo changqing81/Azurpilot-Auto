@@ -30,6 +30,9 @@ from module.notify import handle_notify
 from module.retire.retirement import Retirement
 from module.ui.assets import BACK_ARROW, DAILY_CHECK
 
+# 读不到作战委托结束时间时的兜底重试间隔（分钟）
+HANDOVER_CONFLICT_RETRY_MINUTES = 15
+
 
 class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
     """地图操作处理器。
@@ -137,15 +140,32 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
 
         return count > 0
 
+    def handover_conflict_appear(self):
+        """当前画面是不是作战委托的阻止弹窗。
+
+        两种弹窗都算：
+        - 委托的不是当前关卡：游戏通用的「信息 INFORMATION」弹窗，右侧是「查看委托」
+        - 委托的正是当前关卡：直接弹出「作战委托 INFORM」弹窗，底部是「终止作战」
+          或「领取奖励」
+
+        Returns:
+            bool: 屏幕上有作战委托阻止弹窗返回 True。
+        """
+        return (
+            self.appear(HANDOVER_CONFLICT_CHECK, offset=(20, 20))
+            or self.appear(HANDOVER_STOP_CHECK, offset=(20, 20))
+            or self.appear(HANDOVER_PASS_CLICK, offset=(20, 20))
+        )
+
     def handle_handover_conflict(self):
         """处理作战委托进行中的阻止弹窗。
 
-        作战委托进行时，主线、活动、档案、困难等出击任务点关卡节点会先弹出
-        游戏通用的「信息 INFORMATION」弹窗阻止进入关卡。这个弹窗不能用
-        handle_popup_cancel()：它的「取消」「查看委托」按钮尺寸与通用弹窗素材
-        不同，实测 POPUP_CANCEL / POPUP_CONFIRM 在该弹窗上的相似度只有
-        0.41 / 0.28，永远命中不了，只会让截图循环空转。必须用本弹窗专用的
-        素材点击。
+        作战委托进行时，出击类任务点关卡节点会被上面 handover_conflict_appear()
+        列的两种弹窗拦下。两个弹窗都不能用 handle_popup_cancel()：它要求画面上
+        同时有通用弹窗的「确定」和「取消」，而「信息」弹窗右侧是「查看委托」
+        （位置正好压在通用「确定」上），通用素材在这里一个都命中不了，只会让
+        截图循环空转；「作战委托 INFORM」弹窗的按钮更是完全另一套。必须用弹窗
+        各自的专用素材点击。
 
         关掉弹窗后把当前任务推迟到作战委托结束之后：委托期间出击类任务都无法
         进行，但委托是有明确结束时间的，不必整天不刷。委托是脚本自己开的
@@ -158,7 +178,7 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         Raises:
             TaskEnd: 作战委托进行中无法出击，当前任务到此为止。
         """
-        if not self.appear(HANDOVER_CONFLICT_CHECK, offset=(20, 20)):
+        if not self.handover_conflict_appear():
             return
 
         logger.hr('功能冲突: 作战委托进行中', level=2)
@@ -169,12 +189,11 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         target = self.handover_conflict_delay()
 
         if self.config.is_task_enabled('OperationHandover'):
-            delay = f'推迟到 {target}' if target else '推迟到次日'
             handle_notify(
                 self.config.Error_OnePushConfig,
                 title=f'AzurPilot <{self.config.config_name}> 功能冲突',
-                content=f'<{self.config.config_name}> 作战委托进行中，'
-                        f'{self.config.task.command} 无法出击，已{delay}',
+                content=f'<{self.config.config_name}> 作战委托未结束，'
+                        f'{self.config.task.command} 无法出击，已推迟到 {target}',
             )
         else:
             logger.warning('[功能冲突] 作战委托任务未启用，'
@@ -192,11 +211,13 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         出击任务推迟到同一个时间点再晚一分钟即可。委托结束时再撞上弹窗，会按当时
         新的委托结束时间重新推迟，所以这里的估计偏早也不会有问题。
 
-        读不到委托的结束时间、或者那个时间已经过期（委托任务被关掉、时间估计不准）
-        时，退回原来的「推迟到次日」，避免把任务排到过去导致反复重试。
+        读不到委托的结束时间、或者那个时间已经过期时，改为
+        HANDOVER_CONFLICT_RETRY_MINUTES 分钟后再试：这种情况下委托任务自己也是
+        过期的，会在下一次调度里先执行，等它把结束时间更新出来再按上面的规则推迟，
+        比整天不刷要好。
 
         Returns:
-            datetime.datetime | None: 实际推迟到的时间点；退回次日时返回 None。
+            datetime.datetime: 实际推迟到的时间点。
         """
         next_run = self.config.cross_get(
             keys=['OperationHandover', 'Scheduler', 'NextRun'], default=None)
@@ -205,18 +226,21 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         if isinstance(next_run, datetime) and next_run > now:
             target = (next_run + timedelta(minutes=1)).replace(microsecond=0)
             logger.info(f'[功能冲突] 作战委托预计 {next_run} 结束，推迟到 {target}')
-            self.config.task_delay(target=target)
-            return target
         else:
-            logger.warning(f'[功能冲突] 读不到作战委托的结束时间（{next_run}），推迟到次日')
-            self.config.task_delay(server_update=True)
-            return None
+            target = (now + timedelta(minutes=HANDOVER_CONFLICT_RETRY_MINUTES)).replace(microsecond=0)
+            logger.warning(f'[功能冲突] 读不到作战委托的结束时间（{next_run}），'
+                           f'{HANDOVER_CONFLICT_RETRY_MINUTES} 分钟后再试')
+
+        self.config.task_delay(target=target)
+        return target
 
     def handover_close_conflict(self):
         """关闭作战委托阻止弹窗。
 
-        点弹窗左下角的「取消」返回关卡页。「查看委托」会打开作战委托弹窗，
-        不是用来关闭页面的，这里不点。
+        两种弹窗都要关：
+        - 「信息 INFORMATION」弹窗：点左下角「取消」
+        - 「作战委托 INFORM」弹窗：点右上角红叉。底部那颗按钮不能点，
+          「终止作战」会把委托停掉，「领取奖励」会提前领奖。
 
         Pages:
             in: 关卡页（阻止弹窗）
@@ -231,7 +255,7 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         while 1:
             self.device.screenshot()
 
-            if not self.appear(HANDOVER_CONFLICT_CHECK, offset=(20, 20)):
+            if not self.handover_conflict_appear():
                 logger.info('[功能冲突] 已关闭作战委托提示弹窗')
                 return True
 
@@ -239,6 +263,8 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                 return False
 
             if self.appear_then_click(HANDOVER_CONFLICT_CANCEL, offset=(20, 20), interval=1):
+                continue
+            if self.appear_then_click(HANDOVER_DIALOG_CLOSE, offset=(20, 20), interval=1):
                 continue
 
     def enter_map(self, button, mode='normal', skip_first_screenshot=True):
