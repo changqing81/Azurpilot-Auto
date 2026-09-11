@@ -1445,6 +1445,10 @@
     "ConsumeAllBookRecord": {
       "name": "一鍵消耗觸發記錄",
       "help": "腳本記錄本週是否已經觸發過，不需要手動修改"
+    },
+    "CommissionEnd": {
+      "name": "委託預計結束時間",
+      "help": "指令碼開委託時記下的結束時間，用來判斷什麼時候回來領獎勵"
     }
   },
   "StopCondition": {

@@ -1445,6 +1445,10 @@
     "ConsumeAllBookRecord": {
       "name": "开烧记录喵",
       "help": "脚本自己记的，不用管喵~"
+    },
+    "CommissionEnd": {
+      "name": "委托啥时候结束喵",
+      "help": "脚本自己记的，用来知道啥时候回来收菜喵~"
     }
   },
   "StopCondition": {

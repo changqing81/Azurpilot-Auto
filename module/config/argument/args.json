@@ -11602,6 +11602,11 @@
         "type": "stored",
         "value": "",
         "display": "hide"
+      },
+      "CommissionEnd": {
+        "type": "stored",
+        "value": "2020-01-01 00:00:00",
+        "display": "hide"
       }
     },
     "Storage": {

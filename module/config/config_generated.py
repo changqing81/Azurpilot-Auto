@@ -230,6 +230,7 @@ class GeneratedConfig:
     OperationHandover_MaintainOverride = False  # True, False
     OperationHandover_OilLimit = 1000
     OperationHandover_ConsumeAllBookRecord = None
+    OperationHandover_CommissionEnd = datetime.datetime(2020, 1, 1, 0, 0)
 
     # 配置组 `StopCondition`
     StopCondition_OilLimit = 1000

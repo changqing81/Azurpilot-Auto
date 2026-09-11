@@ -1445,6 +1445,10 @@
     "ConsumeAllBookRecord": {
       "name": "Trigger record",
       "help": "Which week it was last triggered, managed by the script"
+    },
+    "CommissionEnd": {
+      "name": "Commission end time",
+      "help": "Recorded by the script when starting a commission, used to know when to collect the reward"
     }
   },
   "StopCondition": {

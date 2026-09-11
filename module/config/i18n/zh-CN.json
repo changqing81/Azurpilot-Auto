@@ -1445,6 +1445,10 @@
     "ConsumeAllBookRecord": {
       "name": "一键消耗触发记录",
       "help": "脚本记录本周是否已经触发过，不需要手动修改"
+    },
+    "CommissionEnd": {
+      "name": "委托预计结束时间",
+      "help": "脚本开委托时记下的结束时间，用来判断什么时候回来领奖励"
     }
   },
   "StopCondition": {

@@ -1445,6 +1445,10 @@
     "ConsumeAllBookRecord": {
       "name": "一括消費の記録",
       "help": "スクリプトが記録する実行済みの週です"
+    },
+    "CommissionEnd": {
+      "name": "委託の終了予定時刻",
+      "help": "委託開始時にスクリプトが記録し、報酬を受け取りに戻る時刻の判断に使います"
     }
   },
   "StopCondition": {

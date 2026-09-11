@@ -9,9 +9,9 @@
    今天，当天 0 点起就整体切到维护模式——忽略「委托次数」和「一键消耗委托书」，
    把下一次运行排到维护前 10 分钟，到点后用「次数拉满」跑最后一次；维护时间
    已经过去、或是别的日子，按下面的正常流程走
-2. 委托次数为 0 时这个任务只在开启的定时功能触发时才动：一键消耗委托书开着
-   就排到触发时间；只开维护当天作战委托就每天查一次接口，查到维护排到维护前
-   十分钟、没查到就推迟到次日再看；两个功能都没开就直接关掉本任务
+2. 委托次数为 0 时这个任务只在有必要时才进游戏：上一次开的委托还在做就等它结束，
+   做完了就进去领奖励；手上没有委托才按定时功能排下一次运行（一键消耗的触发
+   时刻、维护检查）；两个功能都没开就直接关掉本任务
 3. 进入主线关卡页
 4. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
    其他关卡先弹阻止页，点它的「查看委托」进同一个弹窗
@@ -32,7 +32,7 @@
          OperationHandover.AutoSupplementTime, OperationHandover.UseHandoverBook,
          OperationHandover.OilLimit, OperationHandover.ConsumeAllBook,
          OperationHandover.ConsumeAllBookWeekday, OperationHandover.ConsumeAllBookTime,
-         OperationHandover.MaintainOverride
+         OperationHandover.MaintainOverride, OperationHandover.CommissionEnd
 """
 
 import math
@@ -90,8 +90,10 @@ HANDOVER_CONSUME_RETRY_MINUTES = 30
 HANDOVER_MAINTAIN_API = 'https://api-blhx-maintain.nanoda.work/api/maintenance'
 # 维护开始前多久跑最后一次作战委托
 HANDOVER_MAINTAIN_LEAD_MINUTES = 10
-# 委托次数为 0、只等维护时，多久查一次接口（间隔太短没必要，公告不会秒变）
-HANDOVER_MAINTAIN_CHECK_MINUTES = 30
+# 委托次数为 0、只等维护时，多久查一次接口（公告不会秒变，隔久点查就够了）
+HANDOVER_MAINTAIN_CHECK_MINUTES = 120
+# 委托结束时间的初始值，表示脚本手上没有开过委托
+HANDOVER_COMMISSION_NONE = datetime(2020, 1, 1)
 
 
 class OperationHandover(CampaignRun):
@@ -142,6 +144,8 @@ class OperationHandover(CampaignRun):
 
         # 委托次数为 0：这个任务平时没事可做，只在开启的定时功能触发时才动。
         # 三个开关全关就直接关掉任务，避免每天空跑
+        now = current_time()
+        commission_end = self.handover_commission_end()
         if count <= 0:
             consume_enabled = self.config.OperationHandover_ConsumeAllBook
             maintain_enabled = self.config.OperationHandover_MaintainOverride
@@ -153,29 +157,19 @@ class OperationHandover(CampaignRun):
 
             # 维护当天优先级最高，当天 0 点起就整体切到维护模式，
             # 忽略「委托次数」和「一键消耗委托书」
-            if not maintain_run:
-                if not consume_enabled:
-                    # 只等维护：今天维护已经开始了就明天再看，否则过一会儿再查接口
-                    if maintain is not None:
-                        logger.info('[作战委托] 委托次数为 0，今天的维护已经过去，明天再查')
-                        self.config.task_delay(server_update=True)
-                    else:
-                        logger.info('[作战委托] 委托次数为 0，只等维护当天作战委托，'
-                                    f'{HANDOVER_MAINTAIN_CHECK_MINUTES} 分钟后再查')
-                        self.config.task_delay(minute=HANDOVER_MAINTAIN_CHECK_MINUTES)
+            if not maintain_run and not consume_all:
+                if commission_end > now:
+                    # 上一次开的委托还在做，等它结束回来领奖励，别一直晾着——
+                    # 领奖前它会一直挡着别的出击任务
+                    logger.info(f'[作战委托] 委托次数为 0，上一次委托 {commission_end} 才结束，'
+                                f'等它做完回来领取')
+                    self.config.task_delay(target=commission_end)
                     return
-
-                if not consume_all:
-                    target = self.handover_consume_all_book_next_time()
-                    if target is None:
-                        logger.warning('[作战委托] 委托次数为 0，但读不到一键消耗的触发时间，'
-                                       '按普通间隔重试')
-                        self.handover_delay()
-                        return
-                    logger.info(f'[作战委托] 委托次数为 0，只等一键消耗委托书，下次运行 {target}'
-                                f'（{reason}）')
-                    self.config.task_delay(target=target)
+                if commission_end <= HANDOVER_COMMISSION_NONE:
+                    # 手上根本没有委托，按定时功能排下一次运行
+                    self.handover_idle_delay(maintain)
                     return
+                logger.info('[作战委托] 委托次数为 0，上一次委托做完了，进去领取奖励')
 
         # 进入主线关卡页，并按 Fleet 组准备编队
         self.handover_enter()
@@ -186,11 +180,22 @@ class OperationHandover(CampaignRun):
             remaining = OCR_HANDOVER_STOP_TIME.ocr(self.device.image)
             logger.attr('委托剩余时间', remaining)
             self.device.click(HANDOVER_DIALOG_CLOSE)
+            # OCR 读成 0 时给个下限，免得下一秒又跑一遍
+            remaining = max(remaining, timedelta(minutes=1))
+            self.handover_commission_set(current_time() + remaining)
             self.handover_delay(remaining)
             return
 
         # 上一次的委托已完成，领取奖励。领完退回章节选择页，要重新点一次关卡
-        if self.handover_reward():
+        claimed = self.handover_reward()
+
+        # 委托次数为 0 又没有定时功能要跑：奖励领完就收工，不开新委托
+        if count <= 0 and not maintain_run and not consume_all:
+            self.handover_commission_clear()
+            self.handover_idle_delay(maintain)
+            return
+
+        if claimed:
             self.handover_enter()
 
         # 检测该关卡是否支持作战委托
@@ -259,6 +264,8 @@ class OperationHandover(CampaignRun):
 
         if consume_all and not maintain_run:
             self.handover_consume_all_book_record()
+        # 记下委托什么时候结束：次数为 0 时靠它回来领奖励，别的任务靠它算推迟多久
+        self.handover_commission_set(current_time() + needed)
         self.config.task_delay(minute=needed.total_seconds() / 60)
 
     def handover_enter(self):
@@ -673,6 +680,80 @@ class OperationHandover(CampaignRun):
             return start, f'今天 {start} 的维护已经过去'
 
         return start, f'今天 {start} 停服维护，维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟运行'
+
+    def handover_commission_end(self):
+        """脚本上一次开的委托预计什么时候结束。
+
+        这个时间是自己开委托时按「需要时间」记下来的，用于判断该不该回来领奖励，
+        以及委托期间该把别的任务推迟到什么时候。手动在游戏里开的委托脚本不知道，
+        会一直返回 HANDOVER_COMMISSION_NONE。
+
+        Returns:
+            datetime.datetime: 结束时间；手上没有委托时返回 HANDOVER_COMMISSION_NONE。
+        """
+        end = self.config.OperationHandover_CommissionEnd
+        if not isinstance(end, datetime):
+            return HANDOVER_COMMISSION_NONE
+        return end
+
+    def handover_commission_set(self, end):
+        """记下这次委托什么时候结束。
+
+        Args:
+            end (datetime.datetime): 委托预计结束时间。
+        """
+        self.config.OperationHandover_CommissionEnd = end
+        logger.attr('委托预计结束', end)
+
+    def handover_commission_clear(self):
+        """清掉委托结束时间，表示手上已经没有委托了。"""
+        self.config.OperationHandover_CommissionEnd = HANDOVER_COMMISSION_NONE
+
+    def handover_idle_time(self, maintain):
+        """委托次数为 0、手上没有委托时，下一次该在什么时候看一眼。
+
+        两头取早的：一键消耗的触发时刻，以及维护检查（今天已经维护过就等明天，
+        否则 HANDOVER_MAINTAIN_CHECK_MINUTES 分钟后再查一次）。
+
+        Args:
+            maintain (datetime.datetime | None): 今天的维护开始时间，没有则为 None。
+
+        Returns:
+            datetime.datetime | None: 下一次运行时间；两个开关都没开时返回 None。
+        """
+        now = current_time()
+        candidates = []
+
+        if self.config.OperationHandover_ConsumeAllBook:
+            target = self.handover_consume_all_book_next_time()
+            if target is not None:
+                candidates.append(target)
+
+        if self.config.OperationHandover_MaintainOverride:
+            if maintain is not None:
+                # 今天已经维护过了，今天没什么可看，明天再查
+                candidates.append(
+                    (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0))
+            else:
+                candidates.append(now + timedelta(minutes=HANDOVER_MAINTAIN_CHECK_MINUTES))
+
+        if not candidates:
+            return None
+        return min(candidates)
+
+    def handover_idle_delay(self, maintain):
+        """委托次数为 0、手上没有委托时，把下一次运行排到该看的时间点。
+
+        Args:
+            maintain (datetime.datetime | None): 今天的维护开始时间，没有则为 None。
+        """
+        target = self.handover_idle_time(maintain)
+        if target is None:
+            logger.warning('[作战委托] 委托次数为 0，但读不到下一次运行时间，按普通间隔重试')
+            self.handover_delay()
+            return
+        logger.info(f'[作战委托] 委托次数为 0，手上没有委托，下次运行 {target}')
+        self.config.task_delay(target=target)
 
     def handover_consume_all_book_trigger(self):
         """解析一键消耗委托书的触发配置。
