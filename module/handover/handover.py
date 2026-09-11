@@ -515,6 +515,9 @@ class OperationHandover(CampaignRun):
         点一下次数文本框聚焦，把原来的数字删掉再输入新值，最后回车收起输入法。
         输入法弹出来会挡住面板下半屏，所以输入完要等它收起来再截图。
 
+        这里用颜色判定而不是模板匹配：框里的数字是每次都会变的，模板里带着数字
+        就只会在数字刚好一样时才命中。
+
         Pages: in: 作战委托面板
 
         Args:
@@ -524,11 +527,11 @@ class OperationHandover(CampaignRun):
             bool: 输入后读回的次数正确返回 True。
         """
         self.device.screenshot()
-        if not self.appear(HANDOVER_COUNT_INPUT, offset=(20, 20)):
+        if not self.appear(HANDOVER_COUNT_INPUT):
             logger.warning('[作战委托] 未找到作战次数输入框')
             return False
 
-        self.appear_then_click(HANDOVER_COUNT_INPUT, offset=(20, 20))
+        self.appear_then_click(HANDOVER_COUNT_INPUT)
         self.device.sleep(0.5)
 
         text = str(count)

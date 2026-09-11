@@ -269,8 +269,6 @@ Reward:
       - Scheduler
       - Campaign
       - OperationHandover
-      - Fleet
-      - Submarine
 DailyMission:
   menu: collapse
   page: setting

@@ -436,9 +436,6 @@ OperationHandover:
     validate: [0, 999]
   AutoSupplementTime: false
   UseHandoverBook: false
-  OilLimit:
-    value: 0
-    validate: [0, 999999]
   ConsumeAllBook:
     type: checkbox
     value: false
@@ -449,6 +446,9 @@ OperationHandover:
   ConsumeAllBookTime:
     value: "12:00"
     valuetype: str
+  OilLimit:
+    value: 0
+    validate: [0, 999999]
   ConsumeAllBookRecord:
     type: stored
     value: ""

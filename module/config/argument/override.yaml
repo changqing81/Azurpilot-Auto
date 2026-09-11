@@ -543,26 +543,6 @@ OperationHandover:
       display: hide
     DefeatWithdraw:
       display: hide
-  # 作战委托由游戏离线代打，本任务不会进入地图战斗，
-  # 因此只保留舰队选择与阵型，战斗模式相关的选项一律收起。
-  Fleet:
-    Fleet1Mode:
-      display: hide
-    Fleet2Mode:
-      display: hide
-    Fleet2Step:
-      display: hide
-    SkipPreparation:
-      display: hide
-  Submarine:
-    Mode:
-      display: hide
-    AutoSearchMode:
-      display: hide
-    DistanceToBoss:
-      display: hide
-    AdvancedConfig:
-      display: hide
 
 # ==================== Opsi ====================
 
