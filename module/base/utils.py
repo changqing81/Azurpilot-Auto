@@ -4,12 +4,15 @@
 图像加载与服务器回退、字母提取等底层工具函数。
 """
 
+import os
 import random
 import re
 
 import cv2
 import numpy as np
 from PIL import Image
+
+from module.logger import logger
 
 REGEX_NODE = re.compile(r'(-?[A-Za-z]+)(-?\d+)')
 TEMPLATE_MATCH_NON_NATIVE_720P = False
@@ -532,9 +535,36 @@ def xyxy2xywh(area):
     return min(x1, x2), min(y1, y2), abs(x2 - x1), abs(y2 - y1)
 
 
+def _fallback_asset_file(file):
+    """
+    资源文件缺失时，跨服务器回退查找同名资源。
+
+    仅处理 assets/<server>/ 形式的路径，按 en -> jp -> tw -> cn 顺序尝试；
+    所有服务器均缺失时原样返回，让 Image.open 抛出原始的 FileNotFoundError。
+
+    Args:
+        file (str): 图像文件路径。
+
+    Returns:
+        str: 实际存在的文件路径。
+    """
+    if os.path.exists(file):
+        return file
+    match = re.search(r'[/\\]assets[/\\](cn|en|jp|tw)(?=[/\\])', file)
+    if match is None:
+        return file
+    for server in ('en', 'jp', 'tw', 'cn'):
+        candidate = file[:match.start(1)] + server + file[match.end(1):]
+        if os.path.exists(candidate):
+            logger.warning(f'资源文件缺失: {file}，已回退到其他服务器资源: {candidate}')
+            return candidate
+    return file
+
+
 def load_image(file, area=None):
     """
     加载图像并移除 alpha 通道，类似 pillow 的行为。
+    文件缺失时按 _fallback_asset_file 的规则跨服务器回退。
 
     Args:
         file (str): 图像文件路径。
@@ -544,7 +574,7 @@ def load_image(file, area=None):
         np.ndarray: 图像数组。
     """
     # 始终记得关闭 Image 对象
-    with Image.open(file) as f:
+    with Image.open(_fallback_asset_file(file)) as f:
         if area is not None:
             f = f.crop(area)
 
