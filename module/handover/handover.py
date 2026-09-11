@@ -1,11 +1,11 @@
 """作战委托模块。
 
-在主线关卡界面启动「作战委托」：消耗石油与作战全权委托书，让舰队离线自动
-执行指定主线关卡若干次，委托结束后再领取掉落。委托进行期间游戏会阻止正常
-出击，因此本任务默认排在调度优先级的末尾。
+在主线关卡页启动「作战委托」：消耗石油与作战全权委托书，让舰队离线自动
+执行指定主线关卡若干次，委托结束后再领取掉落。委托期间出击类任务（主线、
+活动）都会失败，只有大世界照常可用，因此本任务排在调度优先级的末尾。
 
 流程：
-1. 打开主线关卡界面，按 Fleet 组准备编队
+1. 进入主线关卡页，按 Fleet 组准备编队
 2. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
 3. 打开作战委托面板，把委托次数设置到指定值
 4. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
@@ -19,24 +19,29 @@
 
 import math
 
+from module.base.timer import Timer
 from module.campaign.run import CampaignRun
 from module.handler.assets import POPUP_CONFIRM
 from module.handler.fast_forward import to_map_file_name
 from module.logger import logger
-from module.map.assets import (HANDOVER_BOOK_AMOUNT_OCR, HANDOVER_BOOK_COUNT_OCR,
-                               HANDOVER_BOOK_ITEM, HANDOVER_BOOK_MAX, HANDOVER_COUNT_MAX,
-                               HANDOVER_COUNT_MINUS, HANDOVER_COUNT_OCR, HANDOVER_COUNT_PLUS,
-                               HANDOVER_EXCHANGE_TIME, HANDOVER_START_CLICK, HANDOVER_TAB,
-                               HANDOVER_TAB_UNSUPPORTED, HANDOVER_TIME_NEEDED_OCR,
-                               HANDOVER_TIME_REMAINING_OCR)
-from module.ocr.ocr import Digit, DigitCounter, Duration
+from module.map.assets import (FLEET_PREPARATION, HANDOVER_BOOK_AMOUNT_OCR,
+                               HANDOVER_BOOK_COUNT_OCR, HANDOVER_BOOK_ITEM,
+                               HANDOVER_BOOK_MAX, HANDOVER_COUNT_MAX, HANDOVER_COUNT_MINUS,
+                               HANDOVER_COUNT_OCR, HANDOVER_COUNT_PLUS, HANDOVER_EXCHANGE_TIME,
+                               HANDOVER_START_CLICK, HANDOVER_TAB, HANDOVER_TAB_UNSUPPORTED,
+                               HANDOVER_TIME_NEEDED_OCR, HANDOVER_TIME_REMAINING_OCR)
+from module.ocr.ocr import Digit, Duration
 
 OCR_HANDOVER_COUNT = Digit(HANDOVER_COUNT_OCR, letter=(255, 255, 255), threshold=128, alphabet='0123456789')
 OCR_HANDOVER_BOOK_COUNT = Digit(HANDOVER_BOOK_COUNT_OCR, letter=(255, 255, 255), threshold=128,
                                 alphabet='0123456789')
-OCR_HANDOVER_BOOK_AMOUNT = DigitCounter(HANDOVER_BOOK_AMOUNT_OCR, letter=(255, 255, 255), threshold=128)
+OCR_HANDOVER_BOOK_AMOUNT = Digit(HANDOVER_BOOK_AMOUNT_OCR, letter=(255, 255, 255), threshold=128,
+                                 alphabet='0123456789')
 OCR_HANDOVER_TIME_NEEDED = Duration(HANDOVER_TIME_NEEDED_OCR, letter=(255, 255, 255), threshold=128)
-OCR_HANDOVER_TIME_REMAINING = Duration(HANDOVER_TIME_REMAINING_OCR, letter=(255, 255, 255), threshold=128)
+# 剩余可用时间是绿色字 (110,184,48)，面板上其余文字都是白/浅灰。extract_letters() 对
+# 白色 letter 走「按最小通道取反」的快速分支，非白色走逐通道差值分支；绿字用白色会把
+# 文字和深色背景一起提成纯白，送模图成为空白图，OCR 恒返回 0:00:00。
+OCR_HANDOVER_TIME_REMAINING = Duration(HANDOVER_TIME_REMAINING_OCR, letter=(110, 184, 48), threshold=128)
 
 # 一本作战全权委托书可兑换 1 小时可用时间
 HANDOVER_BOOK_HOURS = 1
@@ -58,7 +63,7 @@ class OperationHandover(CampaignRun):
     def run(self):
         """执行一次作战委托。
 
-        Pages: in: any, out: 主线关卡界面
+        Pages: in: any, out: 关卡页
         """
         logger.hr('作战委托', level=1)
         count = self.config.OperationHandover_Count
@@ -69,7 +74,7 @@ class OperationHandover(CampaignRun):
         logger.attr('自动补充时间', auto_supplement)
         logger.attr('使用作战全权委托书', use_book)
 
-        # 打开主线关卡界面，并按 Fleet 组准备编队
+        # 进入主线关卡页，并按 Fleet 组准备编队
         self.handover_enter()
 
         # 检测该关卡是否支持作战委托
@@ -100,12 +105,16 @@ class OperationHandover(CampaignRun):
             self.handover_book_max()
 
         self.handover_start()
-        self.config.task_delay(server_update=True)
+        self.config.task_delay(minute=needed.total_seconds() / 60)
 
     def handover_enter(self):
-        """打开主线关卡界面，并按 Fleet 组准备编队。
+        """进入主线关卡页，并按 Fleet 组准备编队。
 
-        Pages: in: any, out: 主线关卡界面
+        进入方式与地图模块 MapOperation.enter_map() 一致：ensure_campaign_ui()
+        只切换章节，不会点开关卡节点，必须再点击一次 ENTRANCE 才进得了关卡页。
+        编队栏与舰队准备都在关卡页上，不在章节选择页上。
+
+        Pages: in: any, out: 关卡页
         """
         name = to_map_file_name(self.config.Campaign_Name)
         self.load_campaign(name, folder='campaign_main')
@@ -113,10 +122,31 @@ class OperationHandover(CampaignRun):
         self.device.screenshot()
         self.campaign.ensure_campaign_ui(name=self.stage, mode='normal', skip_first_screenshot=True)
 
-        # 编队栏就在关卡界面上，直接复用地图的编队准备逻辑应用 Fleet 组。
-        # fleet_preparation() 靠 map_fleet_checked 做幂等保护，先置 False 保证本次一定会应用。
-        self.campaign.map_fleet_checked = False
-        self.campaign.fleet_preparation()
+        campaign_timer = Timer(5)
+        fleet_timer = Timer(5)
+        while 1:
+            self.device.screenshot()
+
+            # 舰队准备。与 enter_map() 相同，只有编队准备界面出现时才调用
+            # fleet_preparation()，在章节选择页上调用会卡死在 FleetOperator.clear()。
+            if fleet_timer.reached() and self.campaign.appear(FLEET_PREPARATION, offset=(20, 50)):
+                if not self.campaign.map_fleet_checked:
+                    self.campaign.fleet_preparation()
+                    self.campaign.map_fleet_checked = True
+                fleet_timer.reset()
+                campaign_timer.reset()
+                continue
+
+            # 已到关卡页
+            if self.appear(HANDOVER_TAB) or self.appear(HANDOVER_TAB_UNSUPPORTED):
+                break
+
+            # 进入关卡
+            if campaign_timer.reached() and self.campaign.appear_then_click(self.campaign.ENTRANCE):
+                campaign_timer.reset()
+                continue
+
+        logger.info('[作战委托] 已进入关卡页')
 
     def handover_check_support(self):
         """检测当前关卡是否支持作战委托。
@@ -151,7 +181,7 @@ class OperationHandover(CampaignRun):
     def handover_panel_enter(self, skip_first_screenshot=True):
         """点击作战委托入口，打开作战委托面板。
 
-        Pages: in: 主线关卡界面, out: 作战委托面板
+        Pages: in: 关卡页, out: 作战委托面板
         """
         while 1:
             if skip_first_screenshot:
@@ -224,8 +254,8 @@ class OperationHandover(CampaignRun):
                 continue
 
         # 识别持有的委托书数量，判断是否足够
-        current, _, total = OCR_HANDOVER_BOOK_AMOUNT.ocr(self.device.image)
-        logger.attr('作战全权委托书', f'{current}/{total}')
+        current = OCR_HANDOVER_BOOK_AMOUNT.ocr(self.device.image)
+        logger.attr('作战全权委托书', f'持有 {current}')
         if current < need:
             logger.critical(f'[作战委托] 作战全权委托书不足，需要 {need} 本，持有 {current} 本')
             self.handle_popup_cancel('HANDOVER')
@@ -277,7 +307,7 @@ class OperationHandover(CampaignRun):
     def handover_start(self, skip_first_screenshot=True):
         """点击「开始」，处理二次确认弹窗。
 
-        Pages: in: 作战委托面板, out: 主线关卡界面
+        Pages: in: 作战委托面板, out: 关卡页
         """
         while 1:
             if skip_first_screenshot:
@@ -295,7 +325,7 @@ class OperationHandover(CampaignRun):
             if self.appear_then_click(HANDOVER_START_CLICK, offset=(20, 20), interval=3):
                 continue
 
-        logger.info('[作战委托] 委托已开始，委托期间游戏会阻止正常出击')
+        logger.info('[作战委托] 委托已开始，委托期间无法出击主线与活动关卡')
 
     def handover_delay(self):
         """本次无法开始委托，推迟到下一个可用时间额度刷新。

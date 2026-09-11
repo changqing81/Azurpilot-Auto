@@ -67,8 +67,8 @@
       "help": ""
     },
     "OperationHandover": {
-      "name": "Operation Handover",
-      "help": ""
+      "name": "Operation Handover Contract",
+      "help": "Consume Handover Books to run Operation Handover automatically."
     },
     "GemsFarming": {
       "name": "Urgent Commission+",

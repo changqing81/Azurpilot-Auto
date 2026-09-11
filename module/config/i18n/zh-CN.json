@@ -67,8 +67,8 @@
       "help": ""
     },
     "OperationHandover": {
-      "name": "作战委托",
-      "help": ""
+      "name": "作战委托合约",
+      "help": "消耗作战委托书，自动进行作战委托。"
     },
     "GemsFarming": {
       "name": "紧急委托+",

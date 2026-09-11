@@ -67,8 +67,8 @@
       "help": ""
     },
     "OperationHandover": {
-      "name": "作戰委託",
-      "help": ""
+      "name": "作戰委託合約",
+      "help": "消耗作戰委託書，自動進行作戰委託。"
     },
     "GemsFarming": {
       "name": "緊急委託+",
