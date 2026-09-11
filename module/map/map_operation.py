@@ -14,9 +14,12 @@
 和 ``FastForwardHandler``（快进处理），组合了进入地图所需的全部子流程。
 """
 
+from datetime import datetime, timedelta
+
 import cv2
 
 from module.base.timer import Timer
+from module.config.time_source import now as current_time
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
@@ -144,9 +147,9 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         0.41 / 0.28，永远命中不了，只会让截图循环空转。必须用本弹窗专用的
         素材点击。
 
-        关掉弹窗后把当前任务推迟到次日：委托期间出击类任务都无法进行，反复
-        尝试只会重复弹窗。委托是脚本自己开的（任务开关为开）时额外推送一次
-        「功能冲突」提示。
+        关掉弹窗后把当前任务推迟到作战委托结束之后：委托期间出击类任务都无法
+        进行，但委托是有明确结束时间的，不必整天不刷。委托是脚本自己开的
+        （任务开关为开）时额外推送一次「功能冲突」提示。
 
         Pages:
             in: 关卡页（阻止弹窗）
@@ -163,13 +166,15 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         # 无论委托是不是脚本自己开的都要先关掉弹窗，
         # 否则脚本会卡在这个页面上，之后所有页面识别都会失败。
         closed = self.handover_close_conflict()
+        target = self.handover_conflict_delay()
 
         if self.config.is_task_enabled('OperationHandover'):
+            delay = f'推迟到 {target}' if target else '推迟到次日'
             handle_notify(
                 self.config.Error_OnePushConfig,
                 title=f'AzurPilot <{self.config.config_name}> 功能冲突',
                 content=f'<{self.config.config_name}> 作战委托进行中，'
-                        f'{self.config.task.command} 无法出击，已推迟到次日',
+                        f'{self.config.task.command} 无法出击，已{delay}',
             )
         else:
             logger.warning('[功能冲突] 作战委托任务未启用，'
@@ -178,8 +183,34 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         if not closed:
             logger.warning('[功能冲突] 阻止弹窗关闭失败，当前页面可能无法正常操作')
 
-        self.config.task_delay(server_update=True)
         self.config.task_stop('作战委托进行中，无法出击')
+
+    def handover_conflict_delay(self):
+        """把当前任务推迟到作战委托结束之后。
+
+        作战委托任务已经把自己推迟到委托预计完成的时间点（面板上的「需要时间」），
+        出击任务推迟到同一个时间点再晚一分钟即可。委托结束时再撞上弹窗，会按当时
+        新的委托结束时间重新推迟，所以这里的估计偏早也不会有问题。
+
+        读不到委托的结束时间、或者那个时间已经过期（委托任务被关掉、时间估计不准）
+        时，退回原来的「推迟到次日」，避免把任务排到过去导致反复重试。
+
+        Returns:
+            datetime.datetime | None: 实际推迟到的时间点；退回次日时返回 None。
+        """
+        next_run = self.config.cross_get(
+            keys=['OperationHandover', 'Scheduler', 'NextRun'], default=None)
+        now = current_time()
+
+        if isinstance(next_run, datetime) and next_run > now:
+            target = (next_run + timedelta(minutes=1)).replace(microsecond=0)
+            logger.info(f'[功能冲突] 作战委托预计 {next_run} 结束，推迟到 {target}')
+            self.config.task_delay(target=target)
+            return target
+        else:
+            logger.warning(f'[功能冲突] 读不到作战委托的结束时间（{next_run}），推迟到次日')
+            self.config.task_delay(server_update=True)
+            return None
 
     def handover_close_conflict(self):
         """关闭作战委托阻止弹窗。
