@@ -212,6 +212,13 @@ class TestInitialRendering(unittest.TestCase):
             patch("module.webui.app_home.set_env"),
             patch("module.webui.app_home.load_webui_styles"),
             patch("module.webui.app_home.is_oobe_needed", return_value=False),
+            # 可见性监听在 mount_shell 之后、localStorage 读取之前执行，
+            # 其中的 pywebio 调用（put_input/pin_on_change/run_js）会触发
+            # Script Mode：pywebio 启动 tornado 服务器并阻塞等待浏览器
+            # WebSocket 连接，导致整个测试进程挂死，必须一并 patch 掉。
+            patch("module.webui.app_home.put_input"),
+            patch("module.webui.app_home.pin_on_change"),
+            patch("module.webui.app_home.run_js"),
             patch(
                 "module.webui.app_home.get_localstorage_values",
                 side_effect=read_localstorage,
