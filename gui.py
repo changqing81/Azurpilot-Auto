@@ -227,6 +227,12 @@ def func(
             "port": port,
             "factory": True,
             "ws_max_size": 256 * 1024 * 1024,
+            # 远控 P2P 链路抖动下 pong 可能迟到超过默认 20s，会被服务端
+            # 误杀导致频繁断线重连；保留 20s ping 保活穿透 NAT，放宽
+            # pong 超时到 60s 容忍抖动。keep-alive 同步放宽到 75s。
+            "ws_ping_interval": 20,
+            "ws_ping_timeout": 60,
+            "timeout_keep_alive": 75,
         }
         if ssl:
             uvicorn_options.update(

@@ -440,6 +440,23 @@ def filepath_icon(filename):
     return f"./assets/gui/icon/{filename}.svg"
 
 
+# CSS 内容进程级缓存：键 (mtime_ns, size)。每个新会话注入样式时
+# 不再重复读盘（远控断线重连是高频路径）
+_CSS_FILE_CACHE: dict = {}
+
+
+def _read_css_cached(filepath):
+    stat = os.stat(filepath)
+    key = (stat.st_mtime_ns, stat.st_size)
+    cached = _CSS_FILE_CACHE.get(filepath)
+    if cached and cached[0] == key:
+        return cached[1]
+    with open(filepath, "r", encoding="utf-8") as f:
+        css = f.read()
+    _CSS_FILE_CACHE[filepath] = (key, css)
+    return css
+
+
 def add_css_files(filepaths):
     """将多份 CSS 合并为一次会话命令，保持传入顺序注入。"""
     injected_styles = getattr(local, "webui_injected_styles", None)
@@ -453,8 +470,7 @@ def add_css_files(filepaths):
         if filepath in injected_styles:
             continue
 
-        with open(filepath, "r", encoding="utf-8") as f:
-            css = f.read()
+        css = _read_css_cached(filepath)
         style_id = f"alas-css-{os.path.basename(filepath).replace('.', '-') }"
         styles.append((style_id, css))
         loaded_paths.append(filepath)

@@ -315,5 +315,7 @@ class CampaignEvent(CampaignStatus):
         Args:
             name (str): 关卡名称，如 `7-2`、`D3`。
         """
-        regex_main = re.compile(r'\d{1,2}[-_]\d')
-        return bool(regex_main.search(name))
+        # 用 match 锚定开头并允许 campaign_ 前缀，避免 'D3-3' 中的 '3-3'
+        # 被误判为主线关卡，导致 GemsFarming/ThreeOilLowCost 选错 folder
+        regex_main = re.compile(r'^(?:campaign_)?\d{1,2}[-_]\d')
+        return bool(regex_main.match(str(name).strip().lower()))

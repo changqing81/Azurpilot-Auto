@@ -78,15 +78,17 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             logger.warning("[大世界-侵蚀1练级] 战略搜索返回 False，可能已被提前中断")
 
         # debug 录屏：只录“战后找事件 + 处理事件 + 强制移动”这一段
-        # 事件/强制移动处理完进入下一轮前结束；若无事件则不保留文件。
-        from module.base.debug_clip import clip_end, clip_start
+        # 事件/强制移动处理完进入下一轮前结束。每一轮都保留，不论有没有遇到事件。
+        from module.base.debug_clip import cleanup_clips_if_due, clip_recording
 
-        debug_clip = None
-        had_forced_move = False
-        debug_error = None
-        if self.config.OpsiHazard1Leveling_DebugClip:
-            debug_clip = clip_start(self.config)
-        try:
+        # 过期录像清理：与本次是否开启录制无关，避免关掉录制后旧录像一直堆着。
+        # 内部有节流，不会每轮战斗都真的扫目录。
+        cleanup_clips_if_due(self.config)
+
+        with clip_recording(
+            self.config,
+            self.config.OpsiHazard1Leveling_DebugClip,
+        ):
             # 第一次重扫：检查是否还有事件
             self._solved_map_event = set()
             self._solved_fleet_mechanism = False
@@ -99,17 +101,9 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             # 二次重扫，否则清完明石后会再次重复进明石商店（购买之外的多余进店）。
             if self._forced_move_level() >= 1:
                 if not self._solved_map_event:
-                    had_forced_move = True
                     self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
 
             self.handle_after_auto_search()
-        except BaseException as e:
-            debug_error = e
-            raise
-        finally:
-            if debug_clip is not None:
-                keep = bool(self._solved_map_event) or had_forced_move or debug_error is not None
-                clip_end(keep=keep)
 
         # 明石遭遇记录
         solved_events = getattr(self, "_solved_map_event", set())
@@ -284,29 +278,15 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
 
         logger.attr("[大世界-侵蚀1练级] 待检查舰队", self.config.OpsiFleet_Fleet)
         
-        enable_custom_check = self.config.OpsiCheckLeveling_EnableCustomCheck
-        custom_positions_value = self.config.OpsiCheckLeveling_CustomCheckPositions
-        custom_positions_str = str(custom_positions_value) if custom_positions_value is not None else ''
-        custom_positions = []
-        if enable_custom_check and custom_positions_str.strip():
-            try:
-                custom_positions = [int(p.strip()) for p in custom_positions_str.split(',') if p.strip()]
-                invalid_positions = [p for p in custom_positions if p < 1 or p > 6]
-                if invalid_positions:
-                    logger.warning(f"[大世界-侵蚀1练级] 自定义舰位包含无效值: {invalid_positions}，有效范围为1-6，将检测所有舰船")
-                    custom_positions = []
-                else:
-                    logger.info(f"[大世界-侵蚀1练级] 自定义检测舰位: {custom_positions}")
-            except (ValueError, AttributeError):
-                logger.warning(f"[大世界-侵蚀1练级] 自定义舰位格式错误: {custom_positions_str}，将检测所有舰船")
-                custom_positions = []
-        
+        enable_custom_check, custom_positions = self._parse_custom_check_positions()
+        use_custom_check = enable_custom_check and bool(custom_positions)
+
         if not self._check_auto_change_prerequisite(enable_custom_check, custom_positions):
             logger.info("[大世界-侵蚀1练级] 自动配队前置条件不满足，禁用自动配队")
             self.config.OpsiFleetAutoChange_Enable = False
-        
-        if enable_custom_check and custom_positions:
-            ship_data_result = self._collect_custom_positions_data(target_level, custom_positions)
+
+        if use_custom_check:
+            ship_data_result = self._collect_custom_positions_data(custom_positions)
         else:
             ship_data_result = self._collect_ship_data_with_retry(target_level)
         
@@ -351,17 +331,16 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             logger.warning(f"[大世界-侵蚀1练级] 保存舰船经验数据失败: {e}")
 
         report = self._format_check_report(
-            ships, target_level, self.config.OpsiFleet_Fleet, custom_positions=custom_positions if enable_custom_check else None
+            ships, target_level, self.config.OpsiFleet_Fleet,
+            custom_positions=custom_positions if use_custom_check else None
         )
         self.notify_push(
             title="舰船经验检测报告",
             content=f"<{self.config.config_name}>\n\n{report}",
         )
 
-        if enable_custom_check and custom_positions:
-            self._check_custom_positions_full_exp(
-                ships, target_level, custom_positions, any_ship_reached=self.config.OpsiFleetAutoChange_AnyShipReached
-            )
+        if use_custom_check:
+            self._check_custom_positions_full_exp(ships, target_level, custom_positions)
         else:
             all_full_exp = all(
                 ship['total_exp'] >= LIST_SHIP_EXP[target_level - 1]
@@ -371,27 +350,44 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
                 logger.info(
                     f"舰队 {self.config.OpsiFleet_Fleet} 的所有舰船均已满经验（等级 {target_level} 或更高）"
                 )
-                self.notify_push(
-                    title="练级检查通过",
-                    content=f"<{self.config.config_name}> {self.config.task} 已达到等级限制 {target_level}。",
+                self._handle_full_exp_triggered(
+                    notify_title="练级检查通过",
+                    notify_content=f"<{self.config.config_name}> {self.config.task} 已达到等级限制 {target_level}。",
+                    log_scope="所有舰船",
                 )
-                
-                if self.config.OpsiFleetAutoChange_Enable:
-                    logger.info("[大世界-侵蚀1练级] 检测到自动配队已启用，开始执行自动配队")
-                    try:
-                        from module.os.tasks.fleet_auto_change import OpsiFleetAutoChange
-                        auto_change = OpsiFleetAutoChange(config=self.config, device=self.device)
-                        auto_change.run()
-                        logger.info("[大世界-侵蚀1练级] 自动配队执行完成")
-                    except Exception as e:
-                        logger.error(f"[大世界-侵蚀1练级] 自动配队执行失败: {e}")
-                
-                if self.config.OpsiCheckLeveling_DelayAfterFull:
-                    logger.info("[大世界-侵蚀1练级] 所有舰船满经验后延迟任务")
-                    self.delay_opsi_active_task(server_update=True, task='OpsiHazard1Leveling')
-                    self.config.task_stop()
         
         self.config.OpsiCheckLeveling_LastRun = current_time().replace(microsecond=0)
+
+    def _parse_custom_check_positions(self):
+        """
+        解析自定义舰船检测配置
+
+        Returns:
+            tuple[bool, list[int]]: (是否启用自定义检测, 有效舰位列表)
+            未启用或配置无效时舰位列表为空
+        """
+        enable_custom_check = self.config.OpsiCheckLeveling_EnableCustomCheck
+        custom_positions_value = self.config.OpsiCheckLeveling_CustomCheckPositions
+        if not enable_custom_check or custom_positions_value is None:
+            return enable_custom_check, []
+
+        custom_positions_str = str(custom_positions_value).strip()
+        if not custom_positions_str:
+            return enable_custom_check, []
+
+        try:
+            custom_positions = [int(p.strip()) for p in custom_positions_str.split(',') if p.strip()]
+        except (ValueError, AttributeError):
+            logger.warning(f"[大世界-侵蚀1练级] 自定义舰位格式错误: {custom_positions_str}，将检测所有舰船")
+            return enable_custom_check, []
+
+        invalid_positions = [p for p in custom_positions if p < 1 or p > 6]
+        if invalid_positions:
+            logger.warning(f"[大世界-侵蚀1练级] 自定义舰位包含无效值: {invalid_positions}，有效范围为1-6，将检测所有舰船")
+            return enable_custom_check, []
+
+        logger.info(f"[大世界-侵蚀1练级] 自定义检测舰位: {custom_positions}")
+        return enable_custom_check, custom_positions
 
     def _check_auto_change_prerequisite(self, enable_custom_check, custom_positions):
         """
@@ -510,84 +506,73 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         
         return "\n".join(lines)
 
-    def _collect_custom_positions_data(self, target_level, custom_positions):
+    def _collect_custom_positions_data(self, custom_positions):
         """
         收集指定舰位的舰船数据
-        
+
         Args:
-            target_level: 目标等级
             custom_positions: 自定义舰位列表，如 [1, 3, 6]
-            
+
         Returns:
-            dict: {'ships': list, 'error': str} 
+            dict: {'ships': list, 'error': str}
                   ships为舰船数据列表，失败时为None
                   error为错误信息，成功时为None
         """
-        from module.os_handler.assets import (
-            OS_FLEET_SLOT_NAV_1_BUTTON,
-            OS_FLEET_SLOT_NAV_2_BUTTON,
-            OS_FLEET_SLOT_NAV_3_BUTTON,
-            OS_FLEET_SLOT_NAV_4_BUTTON,
-            OS_FLEET_SLOT_NAV_5_BUTTON,
-            OS_FLEET_SLOT_NAV_6_BUTTON,
-        )
-        
+        from module.os.tasks.fleet_auto_change import OS_FLEET_SLOT_NAV_BUTTONS
+
         logger.info(f"[大世界-侵蚀1练级] 开始收集指定舰位数据: {custom_positions}")
-        
-        slot_buttons = {
-            1: OS_FLEET_SLOT_NAV_1_BUTTON,
-            2: OS_FLEET_SLOT_NAV_2_BUTTON,
-            3: OS_FLEET_SLOT_NAV_3_BUTTON,
-            4: OS_FLEET_SLOT_NAV_4_BUTTON,
-            5: OS_FLEET_SLOT_NAV_5_BUTTON,
-            6: OS_FLEET_SLOT_NAV_6_BUTTON,
-        }
-        
+
         ship_data_list = []
-        
         self.fleet_set(self.config.OpsiFleet_Fleet)
-        
+
         for position in sorted(custom_positions):
-            button = slot_buttons.get(position)
+            button = OS_FLEET_SLOT_NAV_BUTTONS.get(position)
             if not button:
                 logger.warning(f"[大世界-侵蚀1练级] 无效的舰位: {position}")
                 continue
-            
+
             logger.info(f"[大世界-侵蚀1练级] 检测舰位 {position}")
-            
             self.equip_enter(button, check_button=EQUIPMENT_OPEN, long_click=True)
-            
-            self.device.screenshot()
-            level, exp = ship_info_get_level_exp(main=self)
-            
-            if level < 1 or level > len(LIST_SHIP_EXP):
-                logger.warning(f"[大世界-侵蚀1练级] 舰位 {position} 等级识别异常: {level}")
-                ship_data_list.append({
-                    "position": position,
-                    "level": level,
-                    "current_exp": exp,
-                    "total_exp": 0,
-                })
-            else:
-                total_exp = LIST_SHIP_EXP[level - 1] + exp
-                logger.info(
-                    f"舰位 {position}: 等级 {level}, 经验 {exp}, 总经验 {total_exp}"
-                )
-                ship_data_list.append({
-                    "position": position,
-                    "level": level,
-                    "current_exp": exp,
-                    "total_exp": total_exp,
-                })
-            
+            ship_data_list.append(self._read_ship_data(position))
             self.ui_back(check_button=self.is_in_map)
             self.device.sleep(0.5)
-        
+
         if not ship_data_list:
             return {'ships': None, 'error': '未收集到任何舰船数据'}
-        
+
         logger.info(f"[大世界-侵蚀1练级] 指定舰位数据收集完成，共 {len(ship_data_list)} 艘")
         return {'ships': ship_data_list, 'error': None}
+
+    def _read_ship_data(self, position):
+        """
+        读取当前舰船详情页的等级与经验，生成舰位数据
+
+        Args:
+            position: 舰位编号
+
+        Returns:
+            dict: 舰位数据，等级识别异常时 total_exp 记为 0
+        """
+        self.device.screenshot()
+        level, exp = ship_info_get_level_exp(main=self)
+
+        if level < 1 or level > len(LIST_SHIP_EXP):
+            logger.warning(f"[大世界-侵蚀1练级] 舰位 {position} 等级识别异常: {level}")
+            return {
+                "position": position,
+                "level": level,
+                "current_exp": exp,
+                "total_exp": 0,
+            }
+
+        total_exp = LIST_SHIP_EXP[level - 1] + exp
+        logger.info(f"舰位 {position}: 等级 {level}, 经验 {exp}, 总经验 {total_exp}")
+        return {
+            "position": position,
+            "level": level,
+            "current_exp": exp,
+            "total_exp": total_exp,
+        }
 
     def _collect_ship_data_with_retry(self, target_level):
         """
@@ -613,40 +598,11 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             position = 1
             
             while True:
-                self.device.screenshot()
-                level, exp = ship_info_get_level_exp(main=self)
-                if level < 1 or level > len(LIST_SHIP_EXP):
-                    logger.warning(f"[大世界-侵蚀1练级] 舰船等级识别异常: {level}")
-                    ship_data_list.append(
-                        {
-                            "position": position,
-                            "level": level,
-                            "current_exp": exp,
-                            "total_exp": 0,
-                        }
-                    )
-                    if not self.equip_view_next():
-                        break
-                    position += 1
-                    continue
-                total_exp = LIST_SHIP_EXP[level - 1] + exp
-                logger.info(
-                    f"位置: {position}, 等级: {level}, 经验: {exp}, 总经验: {total_exp}, 目标经验: {LIST_SHIP_EXP[target_level - 1]}"
-                )
-
-                ship_data_list.append(
-                    {
-                        "position": position,
-                        "level": level,
-                        "current_exp": exp,
-                        "total_exp": total_exp,
-                    }
-                )
-
+                ship_data_list.append(self._read_ship_data(position))
                 if not self.equip_view_next():
                     break
                 position += 1
-            
+
             self.ui_back(appear_button=EQUIPMENT_OPEN, check_button=self.is_in_map)
             
             validation_result = self._validate_ship_data(ship_data_list)
@@ -728,106 +684,128 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         
         return {'valid': True, 'reason': ''}
 
-    def _check_custom_positions_full_exp(self, ship_data_list, target_level, custom_positions, any_ship_reached=False):
+    def _check_custom_positions_full_exp(self, ship_data_list, target_level, custom_positions):
         """
-        检查自定义舰位是否满经验
-        
+        检查自定义舰位是否满经验，并按模式触发后续处理
+
+        支持两种判定模式（OpsiFleetAutoChange_AnyShipReached）：
+        - 单舰毕业模式：任意检测舰位满经验即触发，仅更换已满经验的舰位
+        - 全部毕业模式：所有检测舰位均满经验才触发，更换全部自定义舰位
+
         Args:
             ship_data_list: 舰船数据列表
             target_level: 目标等级
             custom_positions: 自定义舰位列表，如 [4, 5]
-            any_ship_reached: 是否任意舰船达到等级即可
         """
         target_exp = LIST_SHIP_EXP[target_level - 1]
-        
+        any_ship_reached = self.config.OpsiFleetAutoChange_AnyShipReached
+
         detected_positions = [ship['position'] for ship in ship_data_list]
         positions_full = []
         positions_not_full = []
         positions_not_exist = []
-        
+
         for position in custom_positions:
             if position not in detected_positions:
                 logger.warning(f"[大世界-侵蚀1练级] 舰位 {position} 不存在于当前舰队中，已检测到的舰位: {detected_positions}")
-                positions_not_exist.append(str(position))
+                positions_not_exist.append(position)
                 continue
-            
-            for ship in ship_data_list:
-                if ship['position'] == position:
-                    if ship['total_exp'] >= target_exp:
-                        positions_full.append(str(position))
-                        logger.info(f"[大世界-侵蚀1练级] 舰位 {position} 已满经验")
-                    else:
-                        positions_not_full.append(str(position))
-                        logger.info(f"[大世界-侵蚀1练级] 舰位 {position} 未满经验")
-                    break
-        
+
+            ship = next(s for s in ship_data_list if s['position'] == position)
+            if ship['total_exp'] >= target_exp:
+                positions_full.append(position)
+                logger.info(f"[大世界-侵蚀1练级] 舰位 {position} 已满经验")
+            else:
+                positions_not_full.append(position)
+                logger.info(f"[大世界-侵蚀1练级] 舰位 {position} 未满经验")
+
         if positions_not_exist:
-            logger.warning(f"[大世界-侵蚀1练级] 以下舰位不存在: {', '.join(positions_not_exist)}")
-        
-        # 任意舰船达到等级模式
+            logger.warning(f"[大世界-侵蚀1练级] 以下舰位不存在: {', '.join(map(str, positions_not_exist))}")
+
         if any_ship_reached:
+            # 单舰毕业模式：任意舰位满经验即触发，仅更换已满经验的舰位
             if positions_not_exist:
                 logger.warning(
                     "[大世界-侵蚀1练级] 存在未检测到的自定义舰位，本次不判定为满经验"
                 )
             elif positions_full:
                 logger.info(
-                    f"检测到自定义舰位已满经验: {', '.join(positions_full)}"
+                    f"检测到自定义舰位已满经验: {', '.join(map(str, positions_full))}"
                 )
-                self.notify_push(
-                    title="自定义舰位练级检查通过",
-                    content=f"<{self.config.config_name}> 自定义舰位 {', '.join(positions_full)} 已达到等级限制 {target_level}。",
+                self._handle_full_exp_triggered(
+                    notify_title="自定义舰位练级检查通过",
+                    notify_content=f"<{self.config.config_name}> 自定义舰位 {', '.join(map(str, positions_full))} 已达到等级限制 {target_level}。",
+                    log_scope="自定义舰位",
+                    replace_positions=positions_full,
                 )
-
-                if self.config.OpsiFleetAutoChange_Enable:
-                    logger.info("[大世界-侵蚀1练级] 检测到自动配队已启用，开始执行自动配队")
-                    try:
-                        from module.os.tasks.fleet_auto_change import OpsiFleetAutoChange
-                        auto_change = OpsiFleetAutoChange(config=self.config, device=self.device,replace_positions=[int(p) for p in positions_full])
-                        auto_change.run()
-                        logger.info("[大世界-侵蚀1练级] 自动配队执行完成")
-                    except Exception as e:
-                        logger.error(f"[大世界-侵蚀1练级] 自动配队执行失败: {e}")
-
-                if self.config.OpsiCheckLeveling_DelayAfterFull:
-                    logger.info("[大世界-侵蚀1练级] 自定义舰位满经验后延迟任务")
-                    self.delay_opsi_active_task(server_update=True, task='OpsiHazard1Leveling')
-                    self.config.task_stop()
             else:
                 logger.info(
-                    f"自定义舰位未满经验: {', '.join(positions_not_full)}"
+                    f"自定义舰位未满经验: {', '.join(map(str, positions_not_full))}"
                 )
             return
 
+        # 全部毕业模式：所有舰位满经验才触发
         if positions_not_full:
             logger.info(
-                f"自定义舰位未满经验: {', '.join(positions_not_full)}"
+                f"自定义舰位未满经验: {', '.join(map(str, positions_not_full))}"
             )
         elif positions_not_exist:
             logger.warning("[大世界-侵蚀1练级] 存在未检测到的自定义舰位，本次不判定为满经验")
         else:
             logger.info(
-                f"所有自定义舰位均已满经验: {', '.join(positions_full)}"
+                f"所有自定义舰位均已满经验: {', '.join(map(str, positions_full))}"
             )
-            self.notify_push(
-                title="自定义舰位练级检查通过",
-                content=f"<{self.config.config_name}> 自定义舰位 {', '.join(positions_full)} 已达到等级限制 {target_level}。",
+            self._handle_full_exp_triggered(
+                notify_title="自定义舰位练级检查通过",
+                notify_content=f"<{self.config.config_name}> 自定义舰位 {', '.join(map(str, positions_full))} 已达到等级限制 {target_level}。",
+                log_scope="自定义舰位",
             )
-            
-            if self.config.OpsiFleetAutoChange_Enable:
-                logger.info("[大世界-侵蚀1练级] 检测到自动配队已启用，开始执行自动配队")
-                try:
-                    from module.os.tasks.fleet_auto_change import OpsiFleetAutoChange
-                    auto_change = OpsiFleetAutoChange(config=self.config, device=self.device)
-                    auto_change.run()
-                    logger.info("[大世界-侵蚀1练级] 自动配队执行完成")
-                except Exception as e:
-                    logger.error(f"[大世界-侵蚀1练级] 自动配队执行失败: {e}")
-            
-            if self.config.OpsiCheckLeveling_DelayAfterFull:
-                logger.info("[大世界-侵蚀1练级] 自定义舰位满经验后延迟任务")
-                self.delay_opsi_active_task(server_update=True, task='OpsiHazard1Leveling')
-                self.config.task_stop()
+
+    def _run_fleet_auto_change(self, replace_positions=None):
+        """
+        执行大世界自动配队
+
+        Args:
+            replace_positions: 需要更换的舰位列表；None 时由 OpsiFleetAutoChange 按配置自行解析
+
+        Returns:
+            bool: 是否执行成功
+        """
+        try:
+            from module.os.tasks.fleet_auto_change import OpsiFleetAutoChange
+            auto_change = OpsiFleetAutoChange(
+                config=self.config, device=self.device, replace_positions=replace_positions
+            )
+            auto_change.run()
+            logger.info("[大世界-侵蚀1练级] 自动配队执行完成")
+            return True
+        except Exception as e:
+            logger.error(f"[大世界-侵蚀1练级] 自动配队执行失败: {e}")
+            return False
+
+    def _handle_full_exp_triggered(self, notify_title, notify_content, log_scope, replace_positions=None):
+        """
+        舰船满经验后的统一处理：推送通知 → 执行自动配队 → 可选延迟任务
+
+        单舰毕业模式（任意舰船达到等级触发）与全部舰船毕业模式共用此流程，
+        差异仅在于通知内容与需要更换的舰位范围。
+
+        Args:
+            notify_title: 推送通知标题
+            notify_content: 推送通知内容
+            log_scope: 日志中的舰船范围描述，如 "所有舰船" / "自定义舰位"
+            replace_positions: 需要更换的舰位列表；None 表示由自动配队按配置解析全部舰位
+        """
+        self.notify_push(title=notify_title, content=notify_content)
+
+        if self.config.OpsiFleetAutoChange_Enable:
+            logger.info("[大世界-侵蚀1练级] 检测到自动配队已启用，开始执行自动配队")
+            self._run_fleet_auto_change(replace_positions=replace_positions)
+
+        if self.config.OpsiCheckLeveling_DelayAfterFull:
+            logger.info(f"[大世界-侵蚀1练级] {log_scope}满经验后延迟任务")
+            self.delay_opsi_active_task(server_update=True, task='OpsiHazard1Leveling')
+            self.config.task_stop()
 
     def _record_ap_and_coins(self, sea_miles=None):
         """记录体力和货币到 Dashboard（始终执行）。

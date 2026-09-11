@@ -149,6 +149,53 @@ INITIAL_LOADING_JS = """
     observer.observe(document.body, {childList: true, subtree: true});
     markReady();
 })();
+(function () {
+    // —— 远控断线看门狗：WS 全断且无重连时自动按退避刷新页面 ——
+    // pywebio 1.7.1 重连失败无退避、部分关闭路径页面假死，这里兜底。
+    var NativeWebSocket = window.WebSocket;
+    var KEY = 'alas_watchdog_reload';
+    var sockets = [];
+    function backoffMs(tries) { return Math.min(30000, 1000 * Math.pow(2, tries)); }
+    function readTries() {
+        try {
+            var rec = JSON.parse(sessionStorage.getItem(KEY) || '{"t":0,"ts":0}');
+            if (Date.now() - rec.ts > 300000) rec.t = 0;   // 5 分钟稳定期后重置
+            return rec;
+        } catch (e) { return { t: 0, ts: Date.now() }; }
+    }
+    function scheduleReload() {
+        var rec = readTries();
+        if (rec.t >= 5) return;   // 连续 5 次自动刷新仍失败，停止等待人工介入
+        var delay = backoffMs(rec.t);
+        rec.t += 1; rec.ts = Date.now();
+        try { sessionStorage.setItem(KEY, JSON.stringify(rec)); } catch (e) {}
+        setTimeout(function () { location.reload(); }, delay);
+    }
+    function WrappedWebSocket(url, protocols) {
+        var ws = protocols === undefined
+            ? new NativeWebSocket(url)
+            : new NativeWebSocket(url, protocols);
+        sockets.push(ws);
+        ws.addEventListener('open', function () {
+            try { sessionStorage.removeItem(KEY); } catch (e) {}
+        });
+        ws.addEventListener('close', function () {
+            setTimeout(function () {
+                var anyOpen = sockets.some(function (s) {
+                    return s.readyState === 0 || s.readyState === 1;
+                });
+                if (!anyOpen) scheduleReload();
+            }, 4000);
+        });
+        return ws;
+    }
+    WrappedWebSocket.prototype = NativeWebSocket.prototype;
+    WrappedWebSocket.CONNECTING = NativeWebSocket.CONNECTING;
+    WrappedWebSocket.OPEN = NativeWebSocket.OPEN;
+    WrappedWebSocket.CLOSING = NativeWebSocket.CLOSING;
+    WrappedWebSocket.CLOSED = NativeWebSocket.CLOSED;
+    window.WebSocket = WrappedWebSocket;
+})();
 """
 
 

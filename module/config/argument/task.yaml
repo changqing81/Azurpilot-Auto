@@ -53,6 +53,12 @@ Farm:
       - Emotion
       - HpControl
       - EnemyPriority
+    OperationHandover:
+      - Scheduler
+      - Campaign
+      - OperationHandover
+      - Fleet
+      - Submarine
     GemsFarming:
       - Scheduler
       - GemsFarming
@@ -61,6 +67,7 @@ Farm:
       - Fleet
       - Submarine
       - Emotion
+      - EnemyPriority
     ThreeOilLowCost:
       - Scheduler
       - GemsFarming
@@ -69,6 +76,7 @@ Farm:
       - Fleet
       - Submarine
       - Emotion
+      - EnemyPriority
     Ambush11:
       - Scheduler
       - GemsFarming

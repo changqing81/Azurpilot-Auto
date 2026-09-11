@@ -900,6 +900,7 @@
             state.bitrateScale = 1;
             state.fps = 60;
             state.mode = 'auto';
+            state.liveReconnectTries = 0; // 全新开启，重置自动重连计数
             state.lastReconnectAt = Date.now();
         }
         state.reconnectingForQuality = qualityReconnect && keepBitrate;
@@ -932,6 +933,7 @@
                 try { msg = JSON.parse(event.data); } catch (e) { return; }
                 if (msg.type === 'ready') {
                     ready = true;
+                    state.liveReconnectTries = 0; // 连接成功，重置退避计数
                     state.fps = msg.fps || state.fps;
                     state.videoWidth = msg.width || state.videoWidth;
                     state.videoHeight = msg.height || state.videoHeight;
@@ -957,7 +959,17 @@
                 if (!ready && !state.socket) {
                     advance();
                 } else if (ready && state.socket === socket) {
-                    setStatus('实时截图已断开');
+                    // 异常断开：指数退避自动重连，保持当前质量档；
+                    // 连续失败 6 次后停止，避免风暴
+                    var tries = state.liveReconnectTries || 0;
+                    if (tries >= 6) { setStatus('实时截图已断开'); return; }
+                    var delay = Math.min(30000, 1000 * Math.pow(2, tries));
+                    state.liveReconnectTries = tries + 1;
+                    setStatus('实时截图已断开，' + Math.round(delay / 1000) + ' 秒后自动重连');
+                    setTimeout(function () {
+                        if (!state.open || transportId !== state.transportId) return;
+                        start(state.instance, state.codec, true);
+                    }, delay);
                 }
             };
         }

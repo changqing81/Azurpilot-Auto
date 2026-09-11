@@ -66,6 +66,10 @@
       "name": "主线图-3冲锋喵！",
       "help": "第三章挑战，雪风会保护大家的喵！( •̀ ω •́ )✧"
     },
+    "OperationHandover": {
+      "name": "作战委托喵！",
+      "help": "把舰队派出去挂机打工喵～委托期间不能出击哦 (๑•̀ㅂ•́)و✧"
+    },
     "GemsFarming": {
       "name": "紧急委托喵赚！",
       "help": "通过紧急委托攒点零花钱喵，钻石亮闪闪 ✧٩(ˊωˋ*)و✧"
@@ -1356,6 +1360,24 @@
       "withdraw_stop": "撤退后关闭任务喵"
     }
   },
+  "OperationHandover": {
+    "_info": {
+      "name": "作战委托设定喵",
+      "help": ""
+    },
+    "Count": {
+      "name": "委托次数",
+      "help": "要挂多少次关卡喵～"
+    },
+    "AutoSupplementTime": {
+      "name": "自动补充时间",
+      "help": "时间不够就用委托书换喵，一本换一小时喵 (=^･ω･^=)"
+    },
+    "UseHandoverBook": {
+      "name": "使用作战全权委托书",
+      "help": "开打之前把委托书塞满喵！"
+    }
+  },
   "StopCondition": {
     "_info": {
       "name": "停火条件",
@@ -1547,7 +1569,8 @@
       "hunt_only": "仅狩猎喵",
       "boss_only": "仅BOSS战喵",
       "hunt_and_boss": "狩猎及BOSS战喵",
-      "every_combat": "每战出击喵"
+      "every_combat": "每战出击喵",
+      "advanced": "advanced"
     },
     "AutoSearchMode": {
       "name": "潜艇自律方案",
@@ -1562,6 +1585,10 @@
       "1_grid_to_boss": "距BOSS 1格喵",
       "2_grid_to_boss": "距BOSS 2格喵",
       "use_open_ocean_support": "使用远洋支援喵"
+    },
+    "AdvancedConfig": {
+      "name": "Submarine.AdvancedConfig.name",
+      "help": "Submarine.AdvancedConfig.help"
     }
   },
   "Emotion": {
@@ -3216,6 +3243,10 @@
       "name": "商店过滤器",
       "help": "默认只买体力喵。买紫币设为 'ActionPoint > PurpleCoins'。"
     },
+    "DebugClipRetentionDays": {
+      "name": "录像保留天数",
+      "help": "侵蚀一和短猫相接的战后 debug 录像保留天数喵。log/clips/ 下的录像超过这个天数就会被自动清理喵，免得磁盘被塞满喵；填 0 就是不清理、一直留着喵。"
+    },
     "NotifyOpsiMail": {
       "name": "推送大世界相关信息",
       "help": "使用 OnePush 推送侵蚀1和短猫信息喵。启动器推送由“启动器推送”单独控制喵。信息较多可能较吵喵。"
@@ -3475,6 +3506,14 @@
     "StayInZone": {
       "name": "循环出击指定海域",
       "help": "开启后按“指定海域”配置运行。指定单个海域时一直留在该海域；指定多个海域时按填写顺序循环。仅在指定海域不为0时生效喵。"
+    },
+    "ExecuteFixedPatrolScan": {
+      "name": "固定巡回扫描",
+      "help": "开启后每10秒扫描一次固定巡回区域。"
+    },
+    "DebugClip": {
+      "name": "战后 debug 录屏",
+      "help": "开启后，在每轮短猫相接战后「找事件 / 处理事件 / 强制移动」期间，把 ALAS 自己看到的画面录成 mp4，放到 log/clips/ 喵（文件名以 meow_clip_ 开头）喵。每一轮都会保存喵，不管有没有遇到事件，方便一轮一轮回看喵。保留天数见「大世界通用设置」喵！"
     }
   },
   "OpsiTarget": {
@@ -3544,7 +3583,7 @@
     },
     "DebugClip": {
       "name": "战后 debug 录屏",
-      "help": "开启后，在每轮侵蚀1战后「找事件 / 处理事件 / 强制移动」期间，把 ALAS 自己看到的画面录成 mp4，放到 log/clips/ 喵；一轮没发生任何事件就不保存喵。用来人工核对有没有漏猫喵。视频默认全保留不自动清理，记得留意磁盘喵！"
+      "help": "开启后，在每轮侵蚀1战后「找事件 / 处理事件 / 强制移动」期间，把 ALAS 自己看到的画面录成 mp4，放到 log/clips/ 喵。每一轮都会保存喵，不管有没有遇到事件，方便一轮一轮回看喵。用来人工核对有没有漏猫喵。录像会按「大世界通用设置」里的保留天数自动清理，记得留意磁盘喵！"
     }
   },
   "OpsiSirenBug": {

@@ -620,7 +620,12 @@ class LiveWsScrcpySession:
         last_error = None
         for _index in range(20):
             try:
-                self.remote_ws = await connect(url, max_size=None, ping_interval=None, close_timeout=1)
+                # 本机 ADB forward 链路延迟低，启用心跳快速检测设备端
+                # 死链，触发上层回退（ws-scrcpy → scrcpy → 截图模式）
+                self.remote_ws = await connect(
+                    url, max_size=None,
+                    ping_interval=20, ping_timeout=20, close_timeout=1,
+                )
                 self.alive = True
                 return
             except Exception as e:

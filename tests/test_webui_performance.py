@@ -212,6 +212,13 @@ class TestInitialRendering(unittest.TestCase):
             patch("module.webui.app_home.set_env"),
             patch("module.webui.app_home.load_webui_styles"),
             patch("module.webui.app_home.is_oobe_needed", return_value=False),
+            # 可见性监听在 mount_shell 之后、localStorage 读取之前执行，
+            # 其中的 pywebio 调用（put_input/pin_on_change/run_js）会触发
+            # Script Mode：pywebio 启动 tornado 服务器并阻塞等待浏览器
+            # WebSocket 连接，导致整个测试进程挂死，必须一并 patch 掉。
+            patch("module.webui.app_home.put_input"),
+            patch("module.webui.app_home.pin_on_change"),
+            patch("module.webui.app_home.run_js"),
             patch(
                 "module.webui.app_home.get_localstorage_values",
                 side_effect=read_localstorage,
@@ -239,6 +246,43 @@ class TestInitialRendering(unittest.TestCase):
             ),
         ):
             AppShellMixin.set_aside.__wrapped__(gui)
+
+    def test_initial_loading_js_has_disconnect_watchdog(self):
+        """远控断线看门狗必须注入首屏 JS（断线免手动刷新兜底）。"""
+        from module.webui.app import INITIAL_LOADING_JS
+
+        self.assertIn('alas_watchdog_reload', INITIAL_LOADING_JS)
+
+    def test_custom_background_encoding_is_cached(self):
+        """背景 data URI 按 mtime+size 缓存，文件未变不重复编码。"""
+        import tempfile
+        from pathlib import Path
+        from module.webui import app_home
+
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "custom_background.jpg"
+            p.write_bytes(b"\xff\xd8fake")
+            first = app_home._encode_custom_background(p)
+            second = app_home._encode_custom_background(p)
+            self.assertIs(first, second)   # 命中缓存，同一对象
+            p.write_bytes(b"\xff\xd8changed")   # 内容变化 → 缓存失效
+            third = app_home._encode_custom_background(p)
+            self.assertIsNot(first, third)
+
+    def test_css_file_read_is_cached(self):
+        """CSS 内容按 mtime+size 缓存，文件未变不重复读盘。"""
+        import tempfile
+        from pathlib import Path
+        from module.webui import utils
+
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "demo.css"
+            p.write_text("body{}", encoding="utf-8")
+            first = utils._read_css_cached(str(p))
+            second = utils._read_css_cached(str(p))
+            self.assertIs(first, second)
+            p.write_text("html{}", encoding="utf-8")
+            self.assertEqual(utils._read_css_cached(str(p)), "html{}")
 
 
 class TestTaskConfigRendering(unittest.TestCase):
