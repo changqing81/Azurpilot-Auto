@@ -2189,9 +2189,10 @@
       "AutoSupplementTime": false,
       "UseHandoverBook": false,
       "ConsumeAllBook": false,
-      "ConsumeAllBookWeekday": "mon",
-      "ConsumeAllBookTime": "12:00",
-      "OilLimit": 0,
+      "ConsumeAllBookWeekday": "sun",
+      "ConsumeAllBookTime": "00:00",
+      "MaintainOverride": false,
+      "OilLimit": 1000,
       "ConsumeAllBookRecord": null
     },
     "Storage": {

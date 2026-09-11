@@ -441,13 +441,17 @@ OperationHandover:
     value: false
     option: [true, false]
   ConsumeAllBookWeekday:
-    value: mon
+    value: sun
     option: [mon, tue, wed, thu, fri, sat, sun]
   ConsumeAllBookTime:
-    value: "12:00"
+    value: "00:00"
     valuetype: str
+  MaintainOverride:
+    type: checkbox
+    value: false
+    option: [true, false]
   OilLimit:
-    value: 0
+    value: 1000
     validate: [0, 999999]
   ConsumeAllBookRecord:
     type: stored

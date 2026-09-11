@@ -11566,7 +11566,7 @@
       },
       "ConsumeAllBookWeekday": {
         "type": "select",
-        "value": "mon",
+        "value": "sun",
         "option": [
           "mon",
           "tue",
@@ -11579,12 +11579,20 @@
       },
       "ConsumeAllBookTime": {
         "type": "input",
-        "value": "12:00",
+        "value": "00:00",
         "valuetype": "str"
+      },
+      "MaintainOverride": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
       },
       "OilLimit": {
         "type": "input",
-        "value": 0,
+        "value": 1000,
         "validate": [
           0,
           999999

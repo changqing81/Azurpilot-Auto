@@ -5,32 +5,38 @@
 活动）都会失败，只有大世界照常可用，因此本任务排在调度优先级的末尾。
 
 流程：
-1. 委托次数为 0 时这个任务只在需要一键消耗委托书时才动：未开启一键消耗就
-   直接关掉本任务，开启了就把下次运行排到触发时间（见 handover_count_zero）
-2. 进入主线关卡页，按 Fleet 组准备编队
-3. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
+1. 查一次停服维护时间（OperationHandover.MaintainOverride 开启时）：维护就在
+   今天且还没开始，就把本次运行排到维护前 10 分钟，到点后用「次数拉满」跑最后
+   一次；维护时间已经过去、或是别的日子，按下面的正常流程走
+2. 委托次数为 0 时这个任务只在需要一键消耗委托书时才动：未开启一键消耗就
+   直接关掉本任务，开启了就把下次运行排到触发时间
+3. 进入主线关卡页
+4. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
    其他关卡先弹阻止页，点它的「查看委托」进同一个弹窗
-4. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
-5. 已完成（HANDOVER_PASS_CLICK）则领取奖励，领完退回章节选择页，
+5. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
+6. 已完成（HANDOVER_PASS_CLICK）则领取奖励，领完退回章节选择页，
    重新点一次关卡把上面的流程再走一遍，继续开下一个委托
-6. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
-7. 记录当前石油数量，低于 OperationHandover.OilLimit 时直接推迟
-8. 打开作战委托面板，把委托次数设置到指定值；启用一键消耗委托书时改成按
-   投入的委托书数量设置（见 handover_consume_all_book）
-9. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
-10. 时间不足且启用了自动补充时，用作战全权委托书兑换可用时间（1 本 = 1 小时）
-11. 把面板上的「预计消耗」石油和当前石油比较，不够就关掉面板推迟，不点「开始」
-12. 启用了使用委托书时，把委托书投入量拉到最大
-13. 点击「开始」，确认面板真的关掉了才算成功
+7. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
+8. 记录当前石油数量，低于 OperationHandover.OilLimit 时直接推迟
+9. 打开作战委托面板定次数：维护前拉满 > 一键消耗按委托书数量 >
+   配置里的次数（见 handover_consume_all_book）
+10. 比较「需要时间」与「剩余可用时间」，判断剩余时间能否完成委托
+11. 时间不足且启用了自动补充时，用作战全权委托书兑换可用时间（1 本 = 1 小时）
+12. 把面板上的「预计消耗」石油和当前石油比较，不够就关掉面板推迟，不点「开始」
+13. 启用了使用委托书时，把委托书投入量拉到最大
+14. 点击「开始」，确认面板真的关掉了才算成功
 
 配置路径: Campaign.Name, OperationHandover.Count,
          OperationHandover.AutoSupplementTime, OperationHandover.UseHandoverBook,
          OperationHandover.OilLimit, OperationHandover.ConsumeAllBook,
-         OperationHandover.ConsumeAllBookWeekday, OperationHandover.ConsumeAllBookTime
+         OperationHandover.ConsumeAllBookWeekday, OperationHandover.ConsumeAllBookTime,
+         OperationHandover.MaintainOverride
 """
 
 import math
-from datetime import timedelta
+from datetime import datetime, timedelta
+
+import requests
 
 from module.base.timer import Timer
 from module.base.utils import crop
@@ -78,6 +84,11 @@ HANDOVER_WEEKDAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周
 # 整周都错过一键消耗
 HANDOVER_CONSUME_RETRY_MINUTES = 30
 
+# 停服维护时间接口，返回 maintenance_date(YYYY-MM-DD) 与 start_time(HH:MM)
+HANDOVER_MAINTAIN_API = 'https://api-blhx-maintain.nanoda.work/api/maintenance'
+# 维护开始前多久跑最后一次作战委托
+HANDOVER_MAINTAIN_LEAD_MINUTES = 10
+
 
 class OperationHandover(CampaignRun):
     """作战委托执行器。
@@ -109,9 +120,21 @@ class OperationHandover(CampaignRun):
         logger.attr('石油低于 X 后推迟', oil_limit)
         logger.attr('一键消耗作战全权委托书', '是' if consume_all else f'否（{reason}）')
 
+        # 维护当天优先级最高：维护前 HANDOVER_MAINTAIN_LEAD_MINUTES 分钟跑一次，
+        # 作战次数拉满，压过「委托次数」和「一键消耗委托书」
+        maintain_run = False
+        maintain = self.handover_maintain_time()
+        if maintain:
+            run_at = maintain - timedelta(minutes=HANDOVER_MAINTAIN_LEAD_MINUTES)
+            if current_time() < run_at:
+                logger.info(f'[作战委托] 还没到维护前的运行时间，推迟到 {run_at}')
+                self.config.task_delay(target=run_at)
+                return
+            maintain_run = True
+
         # 委托次数为 0：不开一键消耗委托书的话这个任务没事可做，直接关掉；
         # 开着就只在触发时间运行，中间不用进游戏
-        if count <= 0:
+        if count <= 0 and not maintain_run:
             if not self.config.OperationHandover_ConsumeAllBook:
                 logger.warning('[作战委托] 委托次数为 0 且未开启一键消耗委托书，'
                                '这个任务没有事可做，直接关闭')
@@ -162,8 +185,13 @@ class OperationHandover(CampaignRun):
         # 打开作战委托面板
         self.handover_panel_enter()
 
-        # 一键消耗委托书时次数按委托书数量来，否则用配置里的次数
-        if consume_all:
+        # 次数怎么定：维护前拉满 > 一键消耗按委托书数量 > 配置里的次数
+        if maintain_run:
+            if self.handover_count_max() < 0:
+                self.handover_close_panel()
+                self.handover_delay()
+                return
+        elif consume_all:
             if not self.handover_consume_all_book():
                 self.handover_close_panel()
                 self.handover_delay()
@@ -187,8 +215,8 @@ class OperationHandover(CampaignRun):
             # 兑换弹窗关闭后画面已更新，重新截图供后续使用
             self.device.screenshot()
 
-        # 点击确定前按需把委托书投入量拉满。一键消耗委托书时上面已经拉满过了
-        if use_book and not consume_all:
+        # 点击确定前按需把委托书投入量拉满。一键消耗委托书那条路上面已经拉满过了
+        if use_book and not (consume_all and not maintain_run):
             self.handover_book_max()
 
         # 点「开始」之前用面板上的「预计消耗」核对油量：油不够时游戏不会关面板，
@@ -205,7 +233,7 @@ class OperationHandover(CampaignRun):
             self.handover_delay()
             return
 
-        if consume_all:
+        if consume_all and not maintain_run:
             self.handover_consume_all_book_record()
         self.config.task_delay(minute=needed.total_seconds() / 60)
 
@@ -590,6 +618,39 @@ class OperationHandover(CampaignRun):
         """
         year, week, _ = time.isocalendar()
         return f'{year}W{week:02d}'
+
+    def handover_maintain_time(self):
+        """查询今天有没有停服维护，有的话返回维护开始时间。
+
+        数据来自 api-blhx-maintain（国服公告）。时间不是今天的、或者已经过去的
+        都返回 None，当作没有维护。
+
+        Returns:
+            datetime.datetime | None: 今天的维护开始时间，没有则返回 None。
+        """
+        if not self.config.OperationHandover_MaintainOverride:
+            return None
+
+        try:
+            data = requests.get(HANDOVER_MAINTAIN_API, timeout=10).json().get('data') or {}
+            start = datetime.strptime(
+                f"{data.get('maintenance_date', '')} {data.get('start_time', '')}",
+                '%Y-%m-%d %H:%M')
+        except Exception as e:
+            logger.warning(f'[作战委托] 查询维护时间失败，按不维护处理: {e}')
+            return None
+
+        now = current_time()
+        if start <= now:
+            logger.info(f'[作战委托] 维护时间 {start} 已经过去，不处理')
+            return None
+        if start.date() != now.date():
+            logger.info(f'[作战委托] 下次维护 {start}，不是今天，不影响本次运行时间')
+            return None
+
+        logger.info(f'[作战委托] 今天 {start} 开始停服维护，'
+                    f'提前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟跑最后一次')
+        return start
 
     def handover_consume_all_book_trigger(self):
         """解析一键消耗委托书的触发配置。
