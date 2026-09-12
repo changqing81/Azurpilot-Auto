@@ -323,6 +323,18 @@ DeploySetting:
   WebuiSSLCert:
   WebuiSSLCertHelp:
 
+LogExport:
+  Title:
+  InstanceLabel:
+  RuntimeLog:
+  ErrorLogs:
+  Pending:
+  Packing:
+  Started:
+  Failed:
+  NoInstance:
+  Confirm:
+
 StartupRun:
   Title:
   Description:

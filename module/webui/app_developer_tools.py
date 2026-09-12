@@ -12,6 +12,7 @@ from module.webui.app_dependencies import (
     Switch,
     alas_instance,
     clear,
+    json,
     load_config,
     os,
     put_button,
@@ -333,6 +334,182 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 _test_notify_error,
             ],
             scope="develop_detail",
+        )
+
+        self._render_log_export_panel()
+
+    def _render_log_export_panel(self) -> None:
+        """渲染日志导出面板：实例下拉 + 导出今日运行日志 / 导出错误日志压缩包。
+
+        下载全程走 fetch → Blob → <a download>，不使用 PyWebIO 的 download()：
+        后者把文件字节塞进 pywebio 自己的 WebSocket，几十 MB 的错误日志会撑到
+        SafeWebSocketConnection 的积压上限而被主动断连；走 HTTP 路由则与主会话解耦，
+        且与远控（P2P/SSH 代理）链路上的其它 /api 请求同一条通路。
+
+        两个导出接口都刻意不做本机限制，远控下直接可用。
+        """
+        instances = alas_instance()
+        current = getattr(self, "alas_name", "") or (instances[0] if instances else "")
+        options = "".join(
+            f'<option value="{name}"{" selected" if name == current else ""}>'
+            f"{name}</option>"
+            for name in instances
+        )
+
+        put_html(
+            f"""
+            <div class="log-export-panel">
+              <h2 class="alas-develop-section-title">{t("Gui.LogExport.Title")}</h2>
+              <div class="log-export-row">
+                <label class="log-export-instance">{t("Gui.LogExport.InstanceLabel")}
+                  <select id="log-export-instance" class="deploy-setting-select">{options}</select>
+                </label>
+                <button id="log-export-runtime" class="deploy-setting-button" type="button">{t("Gui.LogExport.RuntimeLog")}</button>
+                <button id="log-export-error" class="deploy-setting-button primary" type="button">{t("Gui.LogExport.ErrorLogs")}</button>
+              </div>
+              <div id="log-export-status" class="deploy-setting-status"></div>
+            </div>
+            """,
+            scope="develop_detail",
+        )
+        run_js(
+            f"""
+            (function(){{
+              var sel = document.getElementById('log-export-instance');
+              var runtimeBtn = document.getElementById('log-export-runtime');
+              var errorBtn = document.getElementById('log-export-error');
+              var statusEl = document.getElementById('log-export-status');
+              if (!sel || !runtimeBtn || !errorBtn || !statusEl) return;
+              var text = {{
+                pending: {json.dumps(t("Gui.LogExport.Pending"))},
+                packing: {json.dumps(t("Gui.LogExport.Packing"))},
+                started: {json.dumps(t("Gui.LogExport.Started"))},
+                failed: {json.dumps(t("Gui.LogExport.Failed"))},
+                noInstance: {json.dumps(t("Gui.LogExport.NoInstance"))},
+                confirm: {json.dumps(t("Gui.LogExport.Confirm"))}
+              }};
+
+              // 远控入口路径形如 /<8位以上小写字母数字>/...，与服务端 WebSocket
+              // 采用同款前缀启发式（见 alas-utils.js 的 getSocketCandidates）：
+              // 带前缀优先，再退回根相对，两种部署都能命中
+              function apiCandidates(path) {{
+                var list = [path];
+                var parts = location.pathname.split('/').filter(Boolean);
+                var first = parts.length ? parts[0] : '';
+                if (/^[a-z0-9]{{8,}}$/.test(first)) list.unshift('/' + first + path);
+                return list;
+              }}
+
+              // 逐个候选尝试，取第一个 200；全失败时返回最后一个响应，
+              // 交给调用方展示服务端返回的错误文案
+              async function fetchFirst(variants) {{
+                var lastResponse = null;
+                var lastError = null;
+                for (var i = 0; i < variants.length; i++) {{
+                  var urls = apiCandidates(variants[i]);
+                  for (var j = 0; j < urls.length; j++) {{
+                    try {{
+                      var resp = await fetch(urls[j], {{cache: 'no-store'}});
+                      if (resp.ok) return resp;
+                      lastResponse = resp;
+                    }} catch (err) {{
+                      lastError = err;
+                    }}
+                  }}
+                }}
+                if (lastResponse) return lastResponse;
+                throw lastError || new Error('network error');
+              }}
+
+              // 运行日志接口的多种取法：query 形式优先，path 形式兜底。
+              // 本仓库既有事故：P2P 远控代理转发 WebSocket 握手时会剥掉 query string，
+              // 因此不能把实例名唯一的寄托在 query 上
+              function runtimeVariants(instance) {{
+                var enc = encodeURIComponent(instance);
+                return ['/api/log/runtime?instance=' + enc, '/api/log/runtime/' + enc];
+              }}
+
+              // Content-Disposition 两式都解析：Starlette 对非 ASCII 文件名
+              // （如 小号）用 RFC 5987 的 filename*=utf-8'' 形式
+              function parseFileName(header) {{
+                if (!header) return null;
+                var star = header.match(/filename\\*=(?:utf-8|UTF-8)''([^;]+)/);
+                if (star) {{
+                  try {{ return decodeURIComponent(star[1]); }}
+                  catch (e) {{ return star[1]; }}
+                }}
+                var plain = header.match(/filename="?([^";]+)"?/);
+                return plain ? plain[1] : null;
+              }}
+
+              async function readError(resp) {{
+                try {{
+                  var data = await resp.json();
+                  return data && data.error ? data.error : '';
+                }} catch (e) {{
+                  return '';
+                }}
+              }}
+
+              function saveBlob(resp, fallbackName) {{
+                return resp.blob().then(function(blob){{
+                  // P2P 代理会剥掉 Content-Length，远控下拿不到总长度，
+                  // 不做百分比进度，只做不确定态提示 + 落地
+                  var name = parseFileName(resp.headers.get('Content-Disposition')) || fallbackName;
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement('a');
+                  a.href = url;
+                  a.download = name;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  setTimeout(function(){{ URL.revokeObjectURL(url); }}, 60000);
+                }});
+              }}
+
+              async function exportLog(variants, fallbackName, withInstance) {{
+                var instance = sel.value;
+                if (withInstance && !instance) {{
+                  statusEl.textContent = text.noInstance;
+                  return;
+                }}
+                // 错误日志接口不带参数，直接使用传入的单一候选
+                var candidates = withInstance ? runtimeVariants(instance) : variants;
+                runtimeBtn.disabled = true;
+                errorBtn.disabled = true;
+                statusEl.textContent = withInstance ? text.pending : text.packing;
+                try {{
+                  var resp = await fetchFirst(candidates);
+                  if (!resp.ok) {{
+                    var detail = await readError(resp);
+                    statusEl.textContent = text.failed + (detail ? ': ' + detail : '');
+                    return;
+                  }}
+                  await saveBlob(resp, fallbackName);
+                  statusEl.textContent = text.started;
+                }} catch (err) {{
+                  // fetch 通路整体不可用时，退回浏览器直接导航下载（内容同样经隧道）
+                  try {{
+                    window.location.href = apiCandidates(candidates[0])[0];
+                    statusEl.textContent = text.started;
+                  }} catch (e2) {{
+                    statusEl.textContent = text.failed + (err && err.message ? ': ' + err.message : '');
+                  }}
+                }} finally {{
+                  runtimeBtn.disabled = false;
+                  errorBtn.disabled = false;
+                }}
+              }}
+
+              runtimeBtn.addEventListener('click', function(){{
+                exportLog(['/api/log/runtime'], 'alas_runtime_log.txt', true);
+              }});
+              errorBtn.addEventListener('click', function(){{
+                if (!confirm(text.confirm)) return;
+                exportLog(['/api/log/error'], 'AzurPilot-error-logs.zip', false);
+              }});
+            }})();
+            """
         )
 
     @render_locked

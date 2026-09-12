@@ -217,6 +217,46 @@
     margin-bottom: 12px;
 }
 
+/* 保存设置已移到工具栏，与「重新读取」同排；主操作加粗强化视觉层级 */
+.deploy-setting-toolbar-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.deploy-setting-toolbar-actions .deploy-setting-button.primary {
+    font-weight: 700;
+}
+
+/* 开发者工具页的日志导出面板 */
+.log-export-panel {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--alas-entry-divider);
+}
+
+.log-export-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.log-export-instance {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    color: var(--alas-entry-text);
+    font-size: .875rem;
+    font-weight: 600;
+}
+
+.log-export-instance .deploy-setting-select {
+    width: auto;
+    min-width: 140px;
+}
+
 .deploy-setting-toolbar .alas-develop-section-title {
     margin-bottom: 4px !important;
 }
@@ -674,6 +714,18 @@ body.alas-manage-active #input-container .ws-form-submit-btns .btn {
     .deploy-setting-toolbar,
     .deploy-setting-field {
         grid-template-columns: 1fr;
+    }
+
+    .deploy-setting-toolbar-actions,
+    .log-export-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .log-export-instance {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
     }
 
     .deploy-setting-actions {

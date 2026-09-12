@@ -23,6 +23,7 @@ from module.device.pkg_resources import get_distribution
 _ = get_distribution
 
 from adbutils import AdbError, Network
+from starlette.background import BackgroundTask
 from starlette.responses import (
     FileResponse,
     HTMLResponse,
@@ -45,6 +46,13 @@ from module.webui.deploy_settings import (
 )
 from module.webui.launcher import is_local_request, launcher_control
 from module.webui.lang import t
+from module.webui.log_export import (
+    build_error_log_zip,
+    find_today_runtime_log,
+    format_bytes,
+    today_str,
+    validate_instance,
+)
 
 
 def is_demo_mode():
@@ -1729,6 +1737,75 @@ async def api_import_legacy_upload(request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+# 错误日志打包较重（当前约 24MB，PNG 截图多），串行化避免远控并发重复打包
+_error_log_zip_lock = asyncio.Lock()
+
+
+async def api_log_runtime(request):
+    """GET /api/log/runtime?instance=<name> 或 /api/log/runtime/<name>
+    下载指定实例当天的运行日志。
+
+    实例名同时支持 query 与 path 两种形式：本仓库既有事故记录显示，P2P 远控代理
+    转发 WebSocket 握手时会剥掉 query string（见 _live_instance_fallback 的注释），
+    运行日志接口不该把实例名唯一的寄托在 query 上。
+
+    刻意不加 is_local_request 门禁：远控经 P2P/SSH 代理到 127.0.0.1，请求本就
+    "看似本地"，且导出日志是远控排障刚需；鉴权沿用 WebUI 登录与隧道口令。
+    """
+    raw_instance = request.path_params.get("instance") or request.query_params.get(
+        "instance"
+    )
+    try:
+        instance = validate_instance(raw_instance)
+    except ValueError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+
+    log_path = await asyncio.to_thread(find_today_runtime_log, instance)
+    if log_path is None:
+        return JSONResponse(
+            {"success": False, "error": f"未找到实例 {instance} 的运行日志"},
+            status_code=404,
+        )
+
+    # 文件名直接用磁盘上的真实文件名（形如 2026-09-12_alas.txt）：实例当天没跑时
+    # find_today_runtime_log 会回退到最近一份日志，此时若强行套上今天的日期，
+    # 会出现"文件名是今天、内容却是昨天"的误导，故以实际文件名为准。
+    return FileResponse(
+        log_path,
+        filename=log_path.name,
+        media_type="text/plain; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def api_log_error_archive(request):
+    """GET /api/log/error — 把 log/error 下全部文件打包成单个 zip 下载。
+
+    远控排障的最高优先级接口：不带任何参数（远端即使丢参数也不受影响），
+    一次请求只传一个文件，减少远控链路上的往返与失败点。同样不加 is_local_request 门禁。
+    """
+    async with _error_log_zip_lock:
+        try:
+            zip_path = await asyncio.to_thread(build_error_log_zip)
+        except FileNotFoundError as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=404)
+        except OSError as e:
+            logger.error(f"[WebUI] 打包错误日志失败: {e}")
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+        logger.info(
+            f"[WebUI] 错误日志已打包: {zip_path} ({format_bytes(zip_path.stat().st_size)})"
+        )
+        # 临时文件在响应发送完成后删除，不落在项目目录里
+        return FileResponse(
+            zip_path,
+            filename=f"AzurPilot-error-logs-{today_str()}.zip",
+            media_type="application/zip",
+            headers={"Cache-Control": "no-store"},
+            background=BackgroundTask(zip_path.unlink, missing_ok=True),
+        )
+
+
 api_routes = [
     Route("/api/cl1_stats", api_cl1_stats),
     Route("/api/custom_background_video", api_custom_background_video),
@@ -1744,6 +1821,10 @@ api_routes = [
     Route("/api/deploy/startup-run", api_deploy_startup_run),
     Route("/api/deploy/startup-run", api_deploy_startup_run_save, methods=["POST"]),
     Route("/api/import_legacy_upload", api_import_legacy_upload, methods=["POST"]),
+    # 日志导出（远控可下载，刻意不做本机限制）
+    Route("/api/log/runtime", api_log_runtime),
+    Route("/api/log/runtime/{instance}", api_log_runtime),
+    Route("/api/log/error", api_log_error_archive),
     Route("/obs", serve_obs_overlay),
     WebSocketRoute("/ws/live_screenshot", ws_live_screenshot),
     WebSocketRoute("/ws/live_control", ws_live_control),

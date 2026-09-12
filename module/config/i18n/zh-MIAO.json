@@ -6669,6 +6669,18 @@
       "WebuiSSLCert": "SSL 证书文件",
       "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。"
     },
+    "LogExport": {
+      "Title": "喵日誌匯出",
+      "InstanceLabel": "喵實例",
+      "RuntimeLog": "匯出今日喵運行日誌",
+      "ErrorLogs": "匯出喵錯誤日誌目錄",
+      "Pending": "正在匯出喵，請稍候…",
+      "Packing": "正在打包喵錯誤日誌，請稍候…",
+      "Started": "喵已開始下載",
+      "Failed": "喵匯出失敗",
+      "NoInstance": "未找到可用喵實例",
+      "Confirm": "錯誤日誌可能很大喵，確認匯出？"
+    },
     "StartupRun": {
       "Title": "启动时自动运行喵",
       "Description": "开启后，WebUI 或启动器启动 AzurPilot 时会自动运行当前实例；只影响下次启动喵。",

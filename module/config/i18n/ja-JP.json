@@ -6669,6 +6669,18 @@
       "WebuiSSLCert": "SSL 証明書ファイル",
       "WebuiSSLCertHelp": "WebUI HTTPS 用の SSL 証明書です。キーとセットで設定してください。"
     },
+    "LogExport": {
+      "Title": "ログ出力",
+      "InstanceLabel": "インスタンス",
+      "RuntimeLog": "本日の実行ログを出力",
+      "ErrorLogs": "エラーログを出力",
+      "Pending": "出力中です。しばらくお待ちください…",
+      "Packing": "エラーログを圧縮中です。しばらくお待ちください…",
+      "Started": "ダウンロードを開始しました",
+      "Failed": "出力に失敗しました",
+      "NoInstance": "利用可能なインスタンスがありません",
+      "Confirm": "エラーログは大きい可能性があります。出力しますか？"
+    },
     "StartupRun": {
       "Title": "起動時に自動実行",
       "Description": "有効にすると、WebUI またはランチャーが AzurPilot を起動したときにこのインスタンスを自動実行します。次回起動から有効です。",

@@ -6669,6 +6669,18 @@
       "WebuiSSLCert": "SSL Certificate File",
       "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key."
     },
+    "LogExport": {
+      "Title": "Log Export",
+      "InstanceLabel": "Instance",
+      "RuntimeLog": "Export Today's Log",
+      "ErrorLogs": "Export Error Logs",
+      "Pending": "Exporting, please wait…",
+      "Packing": "Packing error logs, please wait…",
+      "Started": "Download started",
+      "Failed": "Export failed",
+      "NoInstance": "No instance available",
+      "Confirm": "The error log archive may be large. Start exporting?"
+    },
     "StartupRun": {
       "Title": "Auto-run on Startup",
       "Description": "When enabled, this instance runs automatically when WebUI or the launcher starts AzurPilot. It only affects the next startup.",

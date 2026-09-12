@@ -6669,6 +6669,18 @@
       "WebuiSSLCert": "SSL 憑證檔案",
       "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 憑證路徑，需和密鑰同時設定。"
     },
+    "LogExport": {
+      "Title": "日誌匯出",
+      "InstanceLabel": "實例",
+      "RuntimeLog": "匯出今日運行日誌",
+      "ErrorLogs": "匯出錯誤日誌目錄",
+      "Pending": "正在匯出，請稍候…",
+      "Packing": "正在打包錯誤日誌，請稍候…",
+      "Started": "已開始下載",
+      "Failed": "匯出失敗",
+      "NoInstance": "未找到可用實例",
+      "Confirm": "錯誤日誌壓縮包可能較大，確認開始匯出？"
+    },
     "StartupRun": {
       "Title": "啟動時自動執行",
       "Description": "開啟後，WebUI 或啟動器啟動 AzurPilot 時會自動執行目前實例；只影響下次啟動。",

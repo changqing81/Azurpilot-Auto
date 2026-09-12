@@ -124,12 +124,12 @@ class DeveloperSettingsMixin(WebUIMixinBase):
                   <h2 class="alas-develop-section-title">{t("Gui.DeploySetting.Title")}</h2>
                   <div id="deploy-setting-notice" class="deploy-setting-notice">{t("Gui.DeploySetting.Loading")}</div>
                 </div>
-                <button id="deploy-setting-refresh" class="deploy-setting-button" type="button">{t("Gui.DeploySetting.Refresh")}</button>
+                <div class="deploy-setting-toolbar-actions">
+                  <button id="deploy-setting-save" class="deploy-setting-button primary" type="button" disabled>{t("Gui.DeploySetting.Save")}</button>
+                  <button id="deploy-setting-refresh" class="deploy-setting-button" type="button">{t("Gui.DeploySetting.Refresh")}</button>
+                </div>
               </div>
               <div id="deploy-setting-fields"></div>
-              <div class="deploy-setting-actions">
-                <button id="deploy-setting-save" class="deploy-setting-button primary" type="button" disabled>{t("Gui.DeploySetting.Save")}</button>
-              </div>
               <div id="deploy-setting-status" class="deploy-setting-status"></div>
             </div>
             """,
