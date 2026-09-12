@@ -31,6 +31,15 @@ if TYPE_CHECKING:
 # P2P datachannel 单条消息分块：32KB（base64 后约 43KB）。过小会导致
 # 大响应（CSS/JS/背景图）往返次数多，远控下页面加载明显变慢
 HTTP_BODY_CHUNK = 32 * 1024
+# P2P 发送背压水位。datachannel 是**所有流量的共用通道**（HTTP 响应、PyWebIO 的
+# UI WebSocket、SSE、实时预览），且 aiortc 的 channel.send() 只入队不阻塞。
+# 若不加节制地把大响应灌进去，SCTP 发送缓冲会被堆满，排在后面的 UI 消息要等
+# 前面几 MB 传完才轮到——表现就是"导出日志时整个界面卡死"。
+# 超过 HIGH 就暂停发送，等缓冲回落到 LOW 以下再继续（aiortc bufferedamountlow 事件）。
+P2P_SEND_HIGH_WATER = 512 * 1024
+P2P_SEND_LOW_WATER = 128 * 1024
+# 单次等待上限：链路异常/对端不再读取时不能让请求永久挂住，超时就继续发
+P2P_SEND_DRAIN_TIMEOUT = 15
 P2P_SETUP_TIMEOUT = 60
 SSH_RECONNECT_DELAY = 2
 SSH_RECONNECT_MAX_DELAY = 30
@@ -521,6 +530,43 @@ class WebRTCTunnel:
         self.ws_sessions = {}
         self.sse_tasks = {}
         self.ws_incoming_chunks = {}
+        # 一次性设定低水位线：bufferedAmount 回落到该值以下时 aiortc 会触发
+        # bufferedamountlow，供 _wait_send_capacity 恢复发送
+        try:
+            channel.bufferedAmountLowThreshold = P2P_SEND_LOW_WATER
+        except Exception as e:
+            logger.debug(f"P2P 通道不支持发送背压水位设置: {e}")
+
+    async def _wait_send_capacity(self) -> None:
+        """等 datachannel 发送缓冲回落，避免大响应独占共用通道。
+
+        背景：一条 datachannel 同时承载 HTTP 响应、UI 的 WebSocket、SSE 与实时预览，
+        且 send() 只入队不阻塞。不节流地灌入几十 MB（如日志压缩包）会把 SCTP 缓冲
+        堆满，导致 UI 消息排在几 MB 数据之后 → 用户看到的是"整个界面卡住"。
+        """
+        channel = self.channel
+        buffered = getattr(channel, "bufferedAmount", 0)
+        if buffered <= P2P_SEND_HIGH_WATER:
+            return
+        if getattr(channel, "readyState", "open") != "open":
+            return
+
+        loop = asyncio.get_running_loop()
+        drained = loop.create_future()
+
+        def _on_low():
+            if not drained.done():
+                drained.set_result(None)
+
+        channel.on("bufferedamountlow", _on_low)
+        try:
+            await asyncio.wait_for(drained, timeout=P2P_SEND_DRAIN_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"P2P 发送缓冲 {buffered} 字节长时间未排空，继续发送以避免阻塞"
+            )
+        finally:
+            channel.remove_listener("bufferedamountlow", _on_low)
 
     @property
     def base_http_url(self) -> str:
@@ -625,11 +671,14 @@ class WebRTCTunnel:
                         "headers": resp_headers,
                     })
                     async for chunk in resp.content.iter_chunked(HTTP_BODY_CHUNK):
+                        # 每块之前先确认通道有余量，避免把 UI 消息堵在几十 MB 后面
+                        await self._wait_send_capacity()
                         self.send_json({
                             "type": "http.response.chunk",
                             "id": req_id,
                             "data": base64.b64encode(chunk).decode("ascii"),
                         })
+                    await self._wait_send_capacity()
                     self.send_json({"type": "http.response.end", "id": req_id})
         except Exception as e:
             logger.warning(f"P2P HTTP代理失败: {e}")
