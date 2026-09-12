@@ -16,8 +16,9 @@
 4. 上一次的委托没结束时，目标关卡进关卡页直接弹出「作战委托 INFORM」弹窗，
    其他关卡先弹阻止页，点它的「查看委托」进同一个弹窗
 5. 弹窗里委托仍在进行（HANDOVER_STOP_CHECK）则关掉弹窗，按剩余时间推迟
-6. 已完成（HANDOVER_PASS_CLICK）则领取奖励，领完退回章节选择页，
-   重新点一次关卡把上面的流程再走一遍，继续开下一个委托
+6. 已完成（HANDOVER_PASS_CLICK）则领取奖励。领奖路上游戏会连着弹「合计获得奖励」
+   的结算、紧急委托提示、新船入手演出，全部收掉后退回章节选择页，重新点一次关卡
+   把上面的流程再走一遍，继续开下一个委托（见 handover_handle_popup）
 7. 检测该关卡是否支持作战委托（HANDOVER_TAB / HANDOVER_TAB_UNSUPPORTED）
 8. 记录当前石油数量，低于 OperationHandover.OilLimit 时直接推迟
 9. 打开作战委托面板定次数：维护前拉满 > 一键消耗按委托书数量 >
@@ -47,7 +48,7 @@ from module.base.timer import Timer
 from module.base.utils import crop
 from module.campaign.run import CampaignRun
 from module.config.time_source import now as current_time
-from module.handler.assets import POPUP_CONFIRM
+from module.handler.assets import NEW_SHIP_SKIP, POPUP_CONFIRM
 from module.handler.fast_forward import to_map_file_name
 from module.logger import logger
 from module.map.assets import (FLEET_PREPARATION, HANDOVER_BOOK_AMOUNT_OCR,
@@ -292,6 +293,9 @@ class OperationHandover(CampaignRun):
         阻止页，点它的「查看委托」进弹窗，两种情况都在这里收住，交给 run() 判断
         委托是完成了还是仍在进行。
 
+        上一轮领奖没来得及收干净的结算 / 紧急委托 / 新船入手画面也会挡在这里，
+        它们把关卡页整个盖住，下面的页面判断一个都命不中，所以循环里先收掉。
+
         Pages: in: any, out: 关卡页 / 作战委托弹窗
         """
         name = to_map_file_name(self.config.Campaign_Name)
@@ -304,6 +308,11 @@ class OperationHandover(CampaignRun):
         fleet_timer = Timer(5)
         while 1:
             self.device.screenshot()
+
+            # 上一轮领奖没来得及收干净的结算、紧急委托、新船入手画面会盖住关卡页，
+            # 下面的页面判断一个都命不中，先收掉再往下走
+            if self.handover_handle_popup():
+                continue
 
             # 舰队准备。与 enter_map() 相同，只有编队准备界面出现时才调用
             # fleet_preparation()，在章节选择页上调用会卡死在 FleetOperator.clear()。
@@ -347,6 +356,33 @@ class OperationHandover(CampaignRun):
             self.appear(HANDOVER_PASS_CLICK, offset=(20, 20))
             or self.appear(HANDOVER_STOP_CHECK, offset=(20, 20))
         )
+
+    def handover_handle_popup(self):
+        """处理委托结束后会连着冒出来的一串画面。
+
+        委托做完的那一下游戏按顺序弹好几屏：合计获得奖励的结算、紧急委托提示、
+        新船入手演出。它们都会盖住关卡页，而卡死检测只看画面有没有变化——认不出来
+        就一直空转到 GameStuckError，所以领奖和进关卡两条路都要先把它们收掉。
+
+        Returns:
+            bool: 处理了画面返回 True，调用方应重新截图。
+        """
+        # 委托结算「合计获得奖励」，点「确定」收起
+        if self.appear(HANDOVER_REWARD_CHECK, offset=(20, 20)):
+            self.appear_then_click(HANDOVER_REWARD, offset=(20, 20), interval=3)
+            return True
+
+        # 紧急委托提示「出现紧急委托《XXX》」，点「确定」收起
+        if self.handle_urgent_commission():
+            return True
+
+        # 新船入手演出的 SKIP。底条是半透明的，船的稀有度不同、底下的立绘不同，
+        # 底色就跟着变；归一化模板匹配本身会减掉整体底色偏移，这里再把阈值放宽一点
+        # 兜住立绘的渐变（其它画面实测都在 0.16 以下，放宽不会误判）
+        if self.appear_then_click(NEW_SHIP_SKIP, offset=(20, 20), interval=2, similarity=0.75):
+            return True
+
+        return False
 
     def handover_check_support(self):
         """检测当前关卡是否支持作战委托。
@@ -400,9 +436,10 @@ class OperationHandover(CampaignRun):
     def handover_reward(self):
         """领取上一次已完成委托的奖励。
 
-        委托完成后弹窗底部的按钮是「领取奖励」。点击后可能先弹出大讲堂熟练度溢出
-        之类的通用信息弹窗，用通用确认按钮关掉，再点掉领取结算界面。全部收掉后
-        游戏退回章节选择页，关卡入口按钮重新出现，此时才算领完。
+        委托完成后弹窗底部的按钮是「领取奖励」。点击后游戏会连着弹一串画面：
+        「合计获得奖励」的结算、紧急委托提示、新船入手演出，再加上大讲堂熟练度
+        溢出之类的通用信息弹窗。全部收掉后游戏退回章节选择页，关卡入口按钮重新
+        出现，此时才算领完。
 
         Pages: in: 作战委托弹窗, out: 章节选择页
 
@@ -414,29 +451,42 @@ class OperationHandover(CampaignRun):
             return False
 
         logger.info('[作战委托] 上一次的委托已完成，领取奖励')
+        # 结算弹窗是半透明的，点完「领取奖励」到它真正出现之间会有一帧露出底下的
+        # 章节选择页。看一眼关卡入口就收工会赶在弹窗出现之前退出，把弹窗留在屏幕上
+        # 把后面所有任务带崩，所以要求连续两帧以上、且持续 0.6 秒都只剩章节选择页
+        # 才算真的领完
+        settled = Timer(0.6, count=1).start()
         while 1:
             self.device.screenshot()
 
-            # 领取结算界面，点「确定」收起
-            if self.appear(HANDOVER_REWARD_CHECK, offset=(20, 20)):
-                self.appear_then_click(HANDOVER_REWARD, offset=(20, 20), interval=3)
+            # 领取结算界面、紧急委托提示、新船入手演出
+            if self.handover_handle_popup():
+                settled.reset()
                 continue
 
             # 大讲堂熟练度溢出等通用信息弹窗
             if self.handle_popup_confirm('HANDOVER'):
+                settled.reset()
                 continue
 
             # 弹窗上的按钮先判，保证弹窗还在时不会误判成已经退回章节选择页
             if self.appear_then_click(HANDOVER_PASS_CLICK, offset=(20, 20), interval=3):
+                settled.reset()
                 continue
 
             # 退回章节选择页，关卡入口重新出现，委托已经没有了
             if self.campaign.appear(self.campaign.ENTRANCE):
-                break
+                if settled.reached():
+                    break
+                continue
 
             # 关卡页
             if self.appear(HANDOVER_TAB) or self.appear(HANDOVER_TAB_UNSUPPORTED):
-                break
+                if settled.reached():
+                    break
+                continue
+
+            settled.reset()
 
         logger.info('[作战委托] 已领取委托奖励')
         return True
