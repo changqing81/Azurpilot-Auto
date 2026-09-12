@@ -224,6 +224,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
                 self.handle_after_auto_search()
         finally:
             self.meow_search_metrics_end()
+        self._meow_record_akashi_if_solved()
         self.config.check_task_switch()
 
     def _meow_handle_stay_in_zone(self, zone):
@@ -273,6 +274,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         finally:
             self.meow_search_metrics_end()
 
+        self._meow_record_akashi_if_solved()
         self.config.check_task_switch()
 
     def _meow_handle_target_zone_search(self, zone):
@@ -292,7 +294,25 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         finally:
             self.meow_search_metrics_end()
 
+        self._meow_record_akashi_if_solved()
         self.config.check_task_switch()
+
+    def _meow_record_akashi_if_solved(self):
+        """本轮耄耋相接搜索结束后，记录明石事件（按侵蚀等级）。
+
+        明石事件由共享的地图事件机制写入 _solved_map_event，
+        这里消费掉该标记防止跨轮次重复计数。
+        """
+        solved_events = getattr(self, '_solved_map_event', set())
+        if 'is_akashi' not in solved_events:
+            return
+        solved_events.discard('is_akashi')
+        try:
+            from module.statistics.opsi_runtime import record_meow_akashi_encounter
+
+            record_meow_akashi_encounter(self)
+        except Exception:
+            logger.exception('[大世界-耄耋相接] 记录明石事件失败')
 
     def _meow_handle_normal_search(self):
         hazard_level = self.config.OpsiMeowfficerFarming_HazardLevel
@@ -328,6 +348,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         finally:
             self.meow_search_metrics_end()
 
+        self._meow_record_akashi_if_solved()
         self.config.check_task_switch()
 
     def os_meowfficer_farming(self):
