@@ -27,6 +27,9 @@
 12. 把面板上的「预计消耗」石油和当前石油比较，不够就关掉面板推迟，不点「开始」
 13. 启用了使用委托书时，把委托书投入量拉到最大
 14. 点击「开始」，确认面板真的关掉了才算成功
+15. 一键消耗这一路开不成委托时，按原因分流：手上没有可投入的委托书、石油不够
+    这类当天等不来的原因直接放弃本周（记下记录，按定时功能排下一次运行，见
+    handover_consume_all_book_give_up）；界面操作失败才隔一段时间重试
 
 配置路径: Campaign.Name, OperationHandover.Count,
          OperationHandover.AutoSupplementTime, OperationHandover.UseHandoverBook,
@@ -221,9 +224,15 @@ class OperationHandover(CampaignRun):
                 self.handover_delay()
                 return
         elif consume_all:
-            if not self.handover_consume_all_book():
+            book = self.handover_consume_all_book()
+            if book < 0:
                 self.handover_close_panel()
                 self.handover_delay()
+                return
+            if book == 0:
+                # 手上没有可投入的委托书，本周的一键消耗再试也不会有结果
+                self.handover_close_panel()
+                self.handover_consume_all_book_give_up('没有可投入的作战全权委托书', maintain)
                 return
         else:
             self.handover_set_count(count)
@@ -254,7 +263,11 @@ class OperationHandover(CampaignRun):
         self.device.screenshot()
         if not self.handover_oil_enough(oil):
             self.handover_close_panel()
-            self.handover_delay()
+            if consume_all and not maintain_run:
+                # 面板上算出来的油耗摆在这，等几十分钟也凑不出这一次的消耗
+                self.handover_consume_all_book_give_up('石油不足', maintain)
+            else:
+                self.handover_delay()
             return
 
         if not self.handover_start():
@@ -620,26 +633,26 @@ class OperationHandover(CampaignRun):
         Pages: in: 作战委托面板, out: 作战委托面板
 
         Returns:
-            bool: 次数已设置好返回 True。
+            int: 设置好的作战次数；没有可投入的委托书返回 0；界面操作失败返回 -1。
         """
         # 作战次数先拉满：使用委托书的上限受作战次数限制，次数太小委托书拉不满
         if self.handover_count_max() < 0:
-            return False
+            return -1
 
         # 委托书拉满后的数值，就是要设置的作战次数
         book = self.handover_click_until_stable(HANDOVER_BOOK_MAX, OCR_HANDOVER_BOOK_COUNT,
                                        '投入作战全权委托书')
         if book <= 0:
             logger.warning('[作战委托] 没有可投入的作战全权委托书')
-            return False
+            return 0
 
-        return self.handover_input_count(book)
+        if not self.handover_input_count(book):
+            return -1
+        return book
 
     @staticmethod
     def handover_week_key(time):
         """把时间换算成「年+周数」字符串，用来判断本周是否已经触发过。
-
-        刻意不带连字符，避免被配置系统当成日期解析。
 
         Args:
             time (datetime.datetime): 时间。
@@ -649,6 +662,22 @@ class OperationHandover(CampaignRun):
         """
         year, week, _ = time.isocalendar()
         return f'{year}W{week:02d}'
+
+    def handover_consume_all_book_record_key(self):
+        """读回本周一键消耗的记录，统一成周 key 再比较。
+
+        配置系统写盘前会把字符串交给 datetime.fromisoformat()，而 `2026W37` 正好
+        是 ISO 周日期格式（Python 3.11+ 支持），于是它在磁盘上变成了那一周周一的
+        datetime。拿它和字符串比永远不会相等，同一周会被反复当成「还没触发过」，
+        所以这里先按类型还原成周 key。
+
+        Returns:
+            str: 记录的周 key，没有记录时返回原值的字符串形式。
+        """
+        record = self.config.OperationHandover_ConsumeAllBookRecord
+        if isinstance(record, datetime):
+            return self.handover_week_key(record)
+        return str(record)
 
     def handover_maintain_state(self):
         """今天有没有停服维护，有的话返回维护开始时间（可能已经开始）。
@@ -790,8 +819,8 @@ class OperationHandover(CampaignRun):
             return False, '开关未开启'
 
         now = current_time()
-        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(now):
-            return False, '本周已触发过'
+        if self.handover_consume_all_book_record_key() == self.handover_week_key(now):
+            return False, '本周已处理过'
 
         trigger = self.handover_consume_all_book_trigger()
         if trigger is None:
@@ -823,7 +852,7 @@ class OperationHandover(CampaignRun):
             return False
 
         now = current_time()
-        if self.config.OperationHandover_ConsumeAllBookRecord == self.handover_week_key(now):
+        if self.handover_consume_all_book_record_key() == self.handover_week_key(now):
             return False
 
         trigger = self.handover_consume_all_book_trigger()
@@ -852,11 +881,35 @@ class OperationHandover(CampaignRun):
             target += timedelta(days=7)
         return target
 
-    def handover_consume_all_book_record(self):
-        """记下本周已经触发过一键消耗委托书。"""
+    def handover_consume_all_book_record(self, reason='已完成'):
+        """记下本周的一键消耗不用再试了。
+
+        记录同时覆盖两种收场：真的把委托书消耗掉了，以及触发时手上没有可投入的
+        委托书——后者本周再试也不会有结果。
+
+        Args:
+            reason (str): 收场方式，写进日志。
+        """
         week = self.handover_week_key(current_time())
         self.config.OperationHandover_ConsumeAllBookRecord = week
-        logger.info(f'[作战委托] 本周已触发一键消耗委托书，记录 {week}')
+        logger.info(f'[作战委托] 本周一键消耗委托书{reason}，记录 {week}')
+
+    def handover_consume_all_book_give_up(self, reason, maintain=None):
+        """一键消耗开不成委托，而且当天再试也没有意义：本周不再尝试。
+
+        作战全权委托书不会当天补货，石油也不像能靠等几十分钟凑齐，所以不按
+        HANDOVER_CONSUME_RETRY_MINUTES 反复重试——每次重试都要重新进一次游戏，
+        白占别人的出击时间。记下本周的收场，按定时功能排下一次运行。
+
+        Args:
+            reason (str): 放弃本周的原因，写进日志。
+            maintain (datetime.datetime | None): 今天的维护开始时间，没有则为 None。
+        """
+        logger.warning(f'[作战委托] 一键消耗委托书{reason}，本周不再尝试')
+        self.handover_consume_all_book_record(reason)
+        # 走到这里说明上一次的委托已经不在了（还在做会从上面的 HANDOVER_STOP_CHECK 返回）
+        self.handover_commission_clear()
+        self.handover_idle_delay(maintain)
 
     def handover_oil_cost(self):
         """识别面板上的「预计消耗」石油数量。
