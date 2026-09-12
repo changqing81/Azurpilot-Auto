@@ -46,6 +46,7 @@ from module.logger import logger
 from module.notify.notify import handle_notify, notify_webui
 from module.map.map_grids import SelectedGrids
 from module.retire.assets import DOCK_CHECK
+from module.statistics.item import AmountOcr
 from module.ui.assets import BACK_ARROW, REWARD_GOTO_COMMISSION
 from module.tactical.assets import TACTICAL_CLASS_START, TACTICAL_CLASS_CANCEL
 from module.ui.page import page_commission, page_reward
@@ -58,6 +59,23 @@ COMMISSION_SWITCH = Switch('Commission_switch', is_selector=True)
 COMMISSION_SWITCH.add_state('daily', COMMISSION_DAILY)
 COMMISSION_SWITCH.add_state('urgent', COMMISSION_URGENT)
 COMMISSION_SCROLL = Scroll(COMMISSION_SCROLL_AREA, color=(247, 211, 66), name='COMMISSION_SCROLL')
+
+
+class CommissionAmount(AmountOcr):
+    """委托收益数量 OCR：碎片过滤 + 2 倍放大 + 裁剪。
+
+    委托页数字很小（高约 14px），直接识别时两处系统性误读：
+    - 不裁剪时右缘被截断的数字会被丢掉（71 → 7）；
+    - 裁剪后原尺寸下两个 7 会丢掉一个（77 → 7）。
+    实测「裁剪 + 放大 2 倍」后 71/77/97/13 等读数全部正确。
+    """
+    remove_fragments = True
+
+    def pre_process(self, image):
+        import cv2
+
+        image = cv2.resize(image, (0, 0), fx=2, fy=2, interpolation=2)
+        return super().pre_process(image)
 
 
 def lines_detect(image):
@@ -906,6 +924,10 @@ class RewardCommission(UI, InfoHandler):
             grid = ItemGrid(None, {}, template_area=(40, 21, 89, 70), amount_area=(50, 71, 91, 92))
             grid.item_class = Item
             grid.similarity = 0.92
+            # 过滤图标底部伸入数量区域的白色碎块，避免被 OCR 误读为数字
+            # （如 11 → 211）；数字放大 2 倍后裁剪，避免小数字丢位
+            # （不裁剪 71 → 7，原尺寸裁剪 77 → 7）
+            grid.amount_ocr = CommissionAmount([], threshold=96, name='Amount_ocr')
             grid.load_template_folder(template_folder)
 
             if not grid.templates:
@@ -948,7 +970,9 @@ class RewardCommission(UI, InfoHandler):
                     else:
                         logger.info(f'[委托-收入] 截图[{idx}] 不是获取物品页面，跳过')
                         continue
-                    grid.predict(image)
+                    # 数量 OCR 在 CommissionAmount 内先放大 2 倍再裁剪，
+                    # 碎片过滤后数字右对齐的问题由放大+裁剪共同规避
+                    grid.predict(image, amount_trim=True)
                     recognized = []
                     for item in grid.items:
                         if item.is_known_item() and item.name not in ('DefaultItem',):
