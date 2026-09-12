@@ -284,6 +284,25 @@ class CoinTaskMixin:
         if not self.is_smart_scheduling_enabled():
             return False
 
+        return self._send_opsi_notification(title, content)
+
+    def _send_opsi_notification(self, title, content, log_tag='[大世界-智能调度+]'):
+        """
+        实际发送大世界推送（启动器推送 + OnePush），不带任务级开关门控。
+
+        供智能调度+与跨月每日等大世界任务共用，推送通道由 OpsiGeneral
+        推送配置控制：
+        - 启动器推送: OpsiGeneral.LauncherPush
+        - OnePush: OpsiGeneral.NotifyOpsiMail，配置按 IndependentPush 二选一
+
+        Args:
+            title (str): 通知标题（会自动添加实例名称前缀）
+            content (str): 通知内容
+            log_tag (str): 日志前缀
+
+        Returns:
+            bool: True 表示推送成功发送，False 表示未发送或发送失败
+        """
         launcher_enabled = getattr(self.config, 'OpsiGeneral_LauncherPush', True)
         onepush_enabled = bool(getattr(self.config, 'OpsiGeneral_NotifyOpsiMail', False))
         if not launcher_enabled and not onepush_enabled:
@@ -317,9 +336,9 @@ class CoinTaskMixin:
                     content=launcher_content
                 )
                 if webui_success:
-                    logger.info(f"[大世界-智能调度+] 启动器推送通知成功: {launcher_title}")
+                    logger.info(f"{log_tag} 启动器推送通知成功: {launcher_title}")
             except Exception as e:
-                logger.error(f"[大世界-智能调度+] 启动器推送通知异常: {e}")
+                logger.error(f"{log_tag} 启动器推送通知异常: {e}")
 
         if not onepush_enabled:
             return webui_success
@@ -331,7 +350,7 @@ class CoinTaskMixin:
             else self.config.Error_OnePushConfig
         )
         if not self._is_push_config_valid(push_config):
-            logger.warning("[大世界-智能调度+] 推送配置未设置或 provider 为 null，跳过 OnePush 推送。请在 AzurPilot 设置 -> 错误处理 -> OnePush 配置中设置有效的推送渠道。")
+            logger.warning(f"{log_tag} 推送配置未设置或 provider 为 null，跳过 OnePush 推送。请在 AzurPilot 设置 -> 错误处理 -> OnePush 配置中设置有效的推送渠道。")
             return webui_success
 
         try:
@@ -342,12 +361,12 @@ class CoinTaskMixin:
                 content=content
             )
             if success:
-                logger.info(f"[大世界-智能调度+] 推送通知成功: {formatted_title}")
+                logger.info(f"{log_tag} 推送通知成功: {formatted_title}")
             else:
-                logger.warning(f"[大世界-智能调度+] 推送通知失败: {formatted_title}")
+                logger.warning(f"{log_tag} 推送通知失败: {formatted_title}")
             return bool(success or webui_success)
         except Exception as e:
-            logger.error(f"[大世界-智能调度+] 推送通知异常: {e}")
+            logger.error(f"{log_tag} 推送通知异常: {e}")
             return webui_success
 
     def _format_launcher_notification(self, instance_name, title, content):
@@ -372,6 +391,8 @@ class CoinTaskMixin:
             launcher_title = f"{instance_name} 大世界要换个活干喵~"
         elif '黄币充足' in plain_title or '凭证' in plain_title:
             launcher_title = f"{instance_name} 大世界补给有消息喵~"
+        elif '跨月' in plain_title:
+            launcher_title = f"{instance_name} 跨月任务来消息喵~"
         elif '检测' in plain_title or '报告' in plain_title or '检查' in plain_title:
             launcher_title = f"{instance_name} 大世界检查报告来啦喵~"
         else:
