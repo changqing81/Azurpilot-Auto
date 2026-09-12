@@ -2953,6 +2953,11 @@
       "ServerUpdate": "00:00",
       "Sensitive": true
     },
+    "OpsiCrossMonth": {
+      "ActionPointCleanupEnable": true,
+      "ActionPointPreserve": 50,
+      "PushNotify": true
+    },
     "Storage": {
       "Storage": {}
     }

@@ -14930,6 +14930,24 @@
         ]
       }
     },
+    "OpsiCrossMonth": {
+      "ActionPointCleanupEnable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "ActionPointPreserve": {
+        "type": "select",
+        "value": 50,
+        "option": [
+          30,
+          50
+        ]
+      },
+      "PushNotify": {
+        "type": "checkbox",
+        "value": true
+      }
+    },
     "Storage": {
       "Storage": {
         "type": "storage",

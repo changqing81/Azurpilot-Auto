@@ -735,6 +735,11 @@ class GeneratedConfig:
     OpsiPreventActionPointOverflow_ActionPointUpperbound = 200
     OpsiPreventActionPointOverflow_ActionPointLowerbound = 10
 
+    # 配置组 `OpsiCrossMonth`
+    OpsiCrossMonth_ActionPointCleanupEnable = True
+    OpsiCrossMonth_ActionPointPreserve = 50  # 30, 50
+    OpsiCrossMonth_PushNotify = True
+
     # 配置组 `IslandPlan`
     IslandPlan_Season = 'spring'  # spring, summer, autumn, winter
 

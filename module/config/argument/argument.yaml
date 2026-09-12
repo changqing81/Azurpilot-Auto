@@ -1371,6 +1371,16 @@ OpsiPreventActionPointOverflow:
       - OpsiMeowfficerFarming
   ActionPointUpperbound: 200
   ActionPointLowerbound: 10
+OpsiCrossMonth:
+  # 跨月每日完成后清理多余行动力：
+  # 检查塞壬要塞并循环 隐秘海域 → 深渊坐标 → 耄耋相接，直到总行动力低于保留值
+  ActionPointCleanupEnable: true
+  # 清理保留值：总行动力（当前行动力 + 行动力箱子折算）低于该值即停止清理
+  ActionPointPreserve:
+    value: 50
+    option: [ 30, 50 ]
+  # 跨月每日完成或失败时推送通知，推送渠道遵循大世界推送设置
+  PushNotify: true
 
 # ==================== Island ====================
 IslandPlan:

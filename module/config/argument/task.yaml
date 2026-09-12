@@ -377,6 +377,7 @@ Opsi:
       - OpsiPreventActionPointOverflow
     OpsiCrossMonth:
       - Scheduler
+      - OpsiCrossMonth
     OpsiSimulator:
       - OpsiSimulatorParameters
 

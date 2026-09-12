@@ -3781,6 +3781,26 @@
       "help": "Keep running until current AP drops below this value."
     }
   },
+  "OpsiCrossMonth": {
+    "_info": {
+      "name": "Cross-Month Daily",
+      "help": "Cross-month daily settings: clear excess action points after the daily and push task info."
+    },
+    "ActionPointCleanupEnable": {
+      "name": "Clear Excess Action Points",
+      "help": "After the cross-month daily, check siren stronghold and loop Obscured Zone, Abyssal Zone and Meowfficer Farming until total action points drop below the preserve value."
+    },
+    "ActionPointPreserve": {
+      "name": "Action Point Preserve",
+      "help": "Stop clearing and finish the task when total action points (current AP + action point boxes) fall below this value.",
+      "30": "30",
+      "50": "50"
+    },
+    "PushNotify": {
+      "name": "Push Cross-Month Daily Info",
+      "help": "Push notifications when the cross-month daily finishes or fails, channels follow Opsi push settings."
+    }
+  },
   "IslandPlan": {
     "_info": {
       "name": "Global Config",
