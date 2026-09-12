@@ -4,6 +4,7 @@
 - 重置时间检测和倒计时管理
 - 重置前 10 分钟内的紧急操作
 - 跨月后复用月末清理循环消耗多余行动力（含塞壬要塞检查）
+- 失败时推送并自动交接，不再卡死等待人工
 
 继承自 OpsiScheduling：
 - 复用月末清理行动力循环（_run_month_end_cleanup_loop）
@@ -13,10 +14,12 @@
 
 from datetime import timedelta
 
+from module.config.config import TaskEnd
 from module.config.time_source import now as current_time
 from module.config.utils import get_os_next_reset
-from module.exception import ScriptError
+from module.exception import RequestHumanTakeover, ScriptEnd, ScriptError
 from module.logger import logger
+from module.os_handler.action_point import ActionPointLimit
 from module.os.tasks.scheduling import OpsiScheduling
 
 
@@ -26,7 +29,36 @@ class OpsiCrossMonth(OpsiScheduling):
         self.config.task_stop()
 
     def os_cross_month(self):
-        self._os_cross_month()
+        try:
+            self._os_cross_month()
+        except TaskEnd:
+            # 正常结束（os_cross_month_end / task_stop），放行给调度器
+            raise
+        except ActionPointLimit:
+            # 行动力耗尽属正常结束路径，交给 os_run 包装层收尾
+            raise
+        except (RequestHumanTakeover, ScriptEnd):
+            # 需要人工接管 / 开发期中断，保持原有语义
+            raise
+        except Exception as e:
+            # 跨月失败：推送并自动交接，不让异常触发 Sensitive 退出整个调度器
+            logger.exception(e)
+            self._notify_cross_month_failed(e)
+            self._cross_month_fail_handover()
+
+    def _cross_month_fail_handover(self):
+        """跨月失败后的交接：规划下次运行时间并结束本任务，交给调度器继续。"""
+        next_reset = get_os_next_reset()
+        now = current_time()
+        if next_reset - now > timedelta(days=3):
+            # 重置已过，本次跨月已结束，直接规划到下月
+            logger.info('跨月每日失败交接：本次重置已过，规划到下月重置前 10 分钟')
+            self.os_cross_month_end()
+        else:
+            # 仍在重置前等待窗口：推迟到重置后，由既有的"超过 3 天"分支规划到下月
+            logger.info('跨月每日失败交接：仍在等待窗口，推迟到重置后再规划')
+            self.config.task_delay(target=next_reset + timedelta(minutes=10))
+            self.config.task_stop()
 
     def _os_cross_month(self):
         next_reset = get_os_next_reset()
@@ -185,6 +217,8 @@ class OpsiCrossMonth(OpsiScheduling):
         """跨月清理不做月末商店购买（商店已在 1 日刷新，购买交给 OpsiShop 任务）。"""
         logger.info('[跨月每日] 跳过月末商店购买')
 
+    # ==================== 推送 ====================
+
     def _notify_cross_month(self, title, content):
         """发送跨月任务推送，受 OpsiCrossMonth.PushNotify 开关控制。"""
         if not self._config_enabled(keys='OpsiCrossMonth.OpsiCrossMonth.PushNotify'):
@@ -194,3 +228,13 @@ class OpsiCrossMonth(OpsiScheduling):
         except Exception as e:
             logger.error(f'跨月每日推送发送异常: {e}')
             return False
+
+    def _notify_cross_month_failed(self, e):
+        """推送跨月每日失败通知。"""
+        self._notify_cross_month(
+            title='[AzurPilot] 跨月每日失败',
+            content=(
+                '跨月每日任务失败，已交给调度器继续后续任务\n'
+                f'原因: {type(e).__name__}: {e}'
+            ),
+        )
