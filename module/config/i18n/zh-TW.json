@@ -6670,9 +6670,9 @@
     "LogExport": {
       "Title": "日誌匯出",
       "InstanceLabel": "實例",
-      "RangeLabel": "範圍",
-      "RangeAll": "全部（含歷史，推薦）",
-      "RangeToday": "僅今天",
+      "RangeLabel": "日期",
+      "RangeAll": "全部（含歷史，合併）",
+      "RangeToday": "今天",
       "RuntimeLog": "匯出運行日誌",
       "ErrorLogs": "匯出錯誤日誌目錄（含截圖）",
       "ErrorLogsText": "僅匯出日誌文字（不含截圖）",

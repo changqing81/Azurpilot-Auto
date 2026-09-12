@@ -6670,9 +6670,9 @@
     "LogExport": {
       "Title": "Log Export",
       "InstanceLabel": "Instance",
-      "RangeLabel": "Range",
-      "RangeAll": "All (incl. history, recommended)",
-      "RangeToday": "Today only",
+      "RangeLabel": "Date",
+      "RangeAll": "All dates (merged)",
+      "RangeToday": "today",
       "RuntimeLog": "Export Runtime Log",
       "ErrorLogs": "Export Error Logs (with screenshots)",
       "ErrorLogsText": "Export Log Text Only (no screenshots)",

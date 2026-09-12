@@ -139,48 +139,65 @@ class TestLogExportLogic(unittest.TestCase):
             files = log_export.find_runtime_logs("alas", "all")
         self.assertEqual(files[-1].name, "alas.txt")
 
-    def test_find_runtime_logs_today_only(self):
+    def test_find_runtime_logs_by_single_date(self):
         self._make_history()
         with self._patch_root():
-            files = log_export.find_runtime_logs("alas", "today")
-        self.assertEqual([path.name for path in files], [f"{log_export.today_str()}_alas.txt"])
+            files = log_export.find_runtime_logs("alas", "2026-09-11")
+        self.assertEqual([path.name for path in files], ["2026-09-11_alas.txt"])
 
-    def test_find_runtime_logs_today_missing_returns_empty(self):
+    def test_find_runtime_logs_missing_date_returns_empty(self):
+        """指定日期没日志就返回空，绝不静默换成别的日期。"""
         log_dir = self.root / "log"
         log_dir.mkdir(parents=True)
         (log_dir / "2026-09-11_alas.txt").write_text("d11", encoding="utf-8")
         with self._patch_root():
-            self.assertEqual(log_export.find_runtime_logs("alas", "today"), [])
+            self.assertEqual(log_export.find_runtime_logs("alas", "2026-09-09"), [])
 
-    def test_normalize_runtime_scope_defaults_to_all(self):
-        self.assertEqual(log_export.normalize_runtime_scope("today"), "today")
-        self.assertEqual(log_export.normalize_runtime_scope(" TODAY "), "today")
-        for bad in (None, "", "bogus", "../all"):
+    def test_list_runtime_dates_is_descending_and_deduped(self):
+        self._make_history()
+        log_dir = self.root / "log"
+        (log_dir / "alas.txt").write_text("base", encoding="utf-8")  # 无日期，应被忽略
+        with self._patch_root():
+            dates = log_export.list_runtime_dates("alas")
+
+        self.assertEqual(dates, sorted(dates, reverse=True))
+        self.assertEqual(dates[0], log_export.today_str())
+        self.assertIn("2026-09-11", dates)
+        self.assertIn("2026-09-10", dates)
+        self.assertEqual(len(dates), len(set(dates)))
+        # 其他实例的日期不能混进来
+        self.assertEqual(log_export.list_runtime_dates("小号"), [])
+
+    def test_normalize_runtime_scope_accepts_all_or_date(self):
+        self.assertEqual(log_export.normalize_runtime_scope("all"), "all")
+        self.assertEqual(log_export.normalize_runtime_scope(" 2026-09-11 "), "2026-09-11")
+        for bad in (None, "", "today", "bogus", "2026-9-1", "../all", "2026-09-11/../x"):
             with self.subTest(bad=bad):
+                # 非法值一律回落 all；日期走严格正则，不存在穿越空间
                 self.assertEqual(log_export.normalize_runtime_scope(bad), "all")
 
     def test_describe_runtime_logs_counts_and_sizes(self):
         self._make_history()
         with self._patch_root():
             all_info = log_export.describe_runtime_logs("alas", "all")
-            today_info = log_export.describe_runtime_logs("alas", "today")
+            one_day = log_export.describe_runtime_logs("alas", "2026-09-11")
 
         self.assertEqual(all_info["files"], 3)
         self.assertEqual(all_info["scope"], "all")
         self.assertEqual(all_info["instance"], "alas")
         self.assertGreater(all_info["bytes"], 0)
-        self.assertEqual(today_info["files"], 1)
-        self.assertLess(today_info["bytes"], all_info["bytes"])
+        self.assertEqual(one_day["files"], 1)
+        self.assertLess(one_day["bytes"], all_info["bytes"])
 
-    def test_build_runtime_log_bundle_single_file_is_not_temp(self):
+    def test_build_runtime_log_bundle_single_date_is_not_temp(self):
         """只有一个文件时直接复用原文件，绝不能标记为临时文件（否则会被删掉）。"""
         self._make_history()
         with self._patch_root():
-            path, filename, is_temp = log_export.build_runtime_log_bundle("alas", "today")
+            path, filename, is_temp = log_export.build_runtime_log_bundle("alas", "2026-09-11")
 
         self.assertFalse(is_temp)
         self.assertTrue(path.is_file())
-        self.assertEqual(filename, f"{log_export.today_str()}_alas.txt")
+        self.assertEqual(filename, "2026-09-11_alas.txt")
 
     def test_build_runtime_log_bundle_merges_history(self):
         log_dir = self._make_history()
@@ -360,15 +377,15 @@ class TestLogExportApi(unittest.TestCase):
             "/api/log/runtime/{instance}",
             "/api/log/runtime/info",
             "/api/log/runtime/info/{instance}",
+            "/api/log/runtime/dates",
+            "/api/log/runtime/dates/{instance}",
             "/api/log/error",
             "/api/log/error/info",
         ):
             self.assertIn(expected, paths)
-        # /api/log/runtime/info 必须排在 {instance} 之前，否则 "info" 会被当成实例名
-        self.assertLess(
-            paths.index("/api/log/runtime/info"),
-            paths.index("/api/log/runtime/{instance}"),
-        )
+        # 静态子路径必须排在 {instance} 之前，否则 "info"/"dates" 会被当成实例名
+        for static in ("/api/log/runtime/info", "/api/log/runtime/dates"):
+            self.assertLess(paths.index(static), paths.index("/api/log/runtime/{instance}"))
 
     def test_log_handlers_are_not_local_only(self):
         """远控经 P2P 代理进来也必须可用，因此不得使用 is_local_request 门禁。"""
@@ -393,14 +410,14 @@ class TestLogExportApi(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertIn("alas", response.json()["error"])
 
-    def test_runtime_log_today_scope_has_specific_message(self):
+    def test_runtime_log_date_scope_has_specific_message(self):
         with patch.object(
             webui_api, "build_runtime_log_bundle", side_effect=FileNotFoundError("none")
         ):
-            response = self.client.get("/api/log/runtime?instance=alas&scope=today")
+            response = self.client.get("/api/log/runtime?instance=alas&scope=2026-09-09")
         self.assertEqual(response.status_code, 404)
-        # 当天没有日志时要说清楚，别让用户以为文件被截断
-        self.assertIn("今天", response.json()["error"])
+        # 指定日期没有日志时要说清是哪个日期，别让用户以为文件被截断
+        self.assertIn("2026-09-09", response.json()["error"])
 
     def _runtime_log_file(self, name=None):
         path = self.root / (name or f"{log_export.today_str()}_alas.txt")
@@ -512,6 +529,50 @@ class TestLogExportApi(unittest.TestCase):
         ) as probe:
             self.client.get("/api/log/runtime/info?instance=alas&scope=../etc")
         probe.assert_called_once_with("alas", "all")
+
+    def test_runtime_info_accepts_date_scope(self):
+        with patch.object(
+            webui_api, "describe_runtime_logs", return_value={"files": 1}
+        ) as probe:
+            self.client.get("/api/log/runtime/info?instance=alas&scope=2026-09-11")
+        probe.assert_called_once_with("alas", "2026-09-11")
+
+    # ---------- 日期列表（供日期下拉） ----------
+
+    def test_runtime_dates_returns_available_dates(self):
+        payload = {"instance": "alas", "today": "2026-09-12", "dates": ["2026-09-12", "2026-09-11"]}
+        with patch.object(
+            webui_api, "list_runtime_dates", return_value=payload["dates"]
+        ) as probe:
+            response = self.client.get("/api/log/runtime/dates?instance=alas")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["dates"], payload["dates"])
+        self.assertEqual(data["instance"], "alas")
+        self.assertTrue(data["today"])
+        probe.assert_called_once_with("alas")
+
+    def test_runtime_dates_route_wins_over_instance_param(self):
+        with patch.object(
+            webui_api, "list_runtime_dates", return_value=[]
+        ) as probe:
+            response = self.client.get("/api/log/runtime/dates?instance=alas")
+        self.assertEqual(response.status_code, 200)
+        probe.assert_called_once()
+
+    def test_runtime_dates_accepts_instance_in_path(self):
+        with patch.object(
+            webui_api, "list_runtime_dates", return_value=["2026-09-11"]
+        ) as probe:
+            response = self.client.get("/api/log/runtime/dates/alas")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["dates"], ["2026-09-11"])
+        probe.assert_called_once_with("alas")
+
+    def test_runtime_dates_rejects_invalid_instance(self):
+        response = self.client.get("/api/log/runtime/dates?instance=..%2Fetc")
+        self.assertEqual(response.status_code, 400)
 
     def test_error_archive_missing_dir_returns_404(self):
         with patch.object(
@@ -668,7 +729,28 @@ class TestLogExportPanel(unittest.TestCase):
         html, _ = self._render_panel("alas")
         self.assertIn('id="log-export-runtime-scope"', html)
         self.assertIn('<option value="all" selected>', html)
-        self.assertIn('<option value="today">', html)
+
+    def test_panel_offers_date_options_from_server_side(self):
+        """首屏就按当前实例渲染可选日期，不用等 JS 拉取。"""
+        from module.webui.log_export import list_runtime_dates, today_str
+
+        html, _ = self._render_panel("alas")
+        dates = list_runtime_dates("alas")
+        if not dates:
+            self.skipTest("本机 alas 无运行日志，跳过日期选项检查")
+        for date in dates:
+            self.assertIn(f'<option value="{date}">', html)
+        # 当天那项带"（今天）"标注
+        self.assertIn(f'{today_str()}（', html)
+
+    def test_panel_refreshes_dates_on_instance_change(self):
+        _, js = self._render_panel("alas")
+        self.assertIn("/api/log/runtime/dates?instance=", js)
+        self.assertIn("/api/log/runtime/dates/' + encodeURIComponent(instance)", js)
+        self.assertIn("refreshRuntimeDates", js)
+        self.assertIn("sel.addEventListener('change', refreshRuntimeDates)", js)
+        # 拉不到日期要有兜底，不能把导出卡住
+        self.assertIn("}).catch(function(){", js)
 
     def test_panel_queries_real_size_before_exporting(self):
         """点导出前必须先查真实体积，并把文件数/大小填进确认框。"""

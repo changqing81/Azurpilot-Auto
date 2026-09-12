@@ -6670,9 +6670,9 @@
     "LogExport": {
       "Title": "喵日誌匯出",
       "InstanceLabel": "喵實例",
-      "RangeLabel": "喵範圍",
-      "RangeAll": "全部喵（含歷史，推薦）",
-      "RangeToday": "只今天喵",
+      "RangeLabel": "喵日期",
+      "RangeAll": "全部喵日期（合併）",
+      "RangeToday": "今天喵",
       "RuntimeLog": "匯出喵運行日誌",
       "ErrorLogs": "匯出喵錯誤日誌目錄（含截圖）",
       "ErrorLogsText": "只匯出喵日誌文字（不含截圖）",

@@ -31,6 +31,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_lifecycle import clearup
+from module.webui.log_export import list_runtime_dates, today_str
 
 
 from module.webui.app_types import WebUIMixinBase
@@ -356,6 +357,17 @@ class DeveloperToolsMixin(WebUIMixinBase):
             for name in instances
         )
 
+        # 日期下拉：服务端先按当前实例渲染一份（首屏就能用），
+        # 切换实例时前端再调 /api/log/runtime/dates 刷新
+        today = today_str()
+        range_options = [
+            f'<option value="all" selected>{t("Gui.LogExport.RangeAll")}</option>'
+        ]
+        for date in list_runtime_dates(current) if current else []:
+            label = f'{date}（{t("Gui.LogExport.RangeToday")}）' if date == today else date
+            range_options.append(f'<option value="{date}">{label}</option>')
+        range_options = "".join(range_options)
+
         put_html(
             f"""
             <div class="log-export-panel">
@@ -365,10 +377,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                   <select id="log-export-instance" class="deploy-setting-select">{options}</select>
                 </label>
                 <label class="log-export-instance">{t("Gui.LogExport.RangeLabel")}
-                  <select id="log-export-runtime-scope" class="deploy-setting-select">
-                    <option value="all" selected>{t("Gui.LogExport.RangeAll")}</option>
-                    <option value="today">{t("Gui.LogExport.RangeToday")}</option>
-                  </select>
+                  <select id="log-export-runtime-scope" class="deploy-setting-select">{range_options}</select>
                 </label>
                 <button id="log-export-runtime" class="deploy-setting-button" type="button">{t("Gui.LogExport.RuntimeLog")}</button>
                 <button id="log-export-error" class="deploy-setting-button primary" type="button">{t("Gui.LogExport.ErrorLogs")}</button>
@@ -396,6 +405,8 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 failed: {json.dumps(t("Gui.LogExport.Failed"))},
                 noInstance: {json.dumps(t("Gui.LogExport.NoInstance"))},
                 noRuntimeLog: {json.dumps(t("Gui.LogExport.NoRuntimeLog"))},
+                rangeAll: {json.dumps(t("Gui.LogExport.RangeAll"))},
+                rangeToday: {json.dumps(t("Gui.LogExport.RangeToday"))},
                 confirm: {json.dumps(t("Gui.LogExport.Confirm"))},
                 confirmSize: {json.dumps(t("Gui.LogExport.ConfirmSize"))},
                 confirmSizePlain: {json.dumps(t("Gui.LogExport.ConfirmSizePlain"))},
@@ -576,6 +587,41 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 exportLog(['/api/log/error?scope=' + scope], fallback, text.packing);
               }}
 
+              // 日期下拉：按实例列出「有日志的那几天」，让用户直接挑几号，
+              // 不必在「全部 / 今天」之间猜；切换实例时刷新
+              function refreshRuntimeDates() {{
+                var instance = sel.value;
+                if (!instance) return;
+                fetchFirst([
+                  '/api/log/runtime/dates?instance=' + encodeURIComponent(instance),
+                  '/api/log/runtime/dates/' + encodeURIComponent(instance)
+                ]).then(function(resp){{
+                  if (!resp.ok) return null;
+                  return resp.json();
+                }}).then(function(payload){{
+                  if (!payload || !payload.success) return;
+                  var data = payload.data || {{}};
+                  var previous = runtimeScopeEl.value;
+                  runtimeScopeEl.innerHTML = '';
+                  var allOption = document.createElement('option');
+                  allOption.value = 'all';
+                  allOption.textContent = text.rangeAll;
+                  runtimeScopeEl.appendChild(allOption);
+                  (data.dates || []).forEach(function(date){{
+                    var option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = (date === data.today)
+                      ? date + '（' + text.rangeToday + '）' : date;
+                    runtimeScopeEl.appendChild(option);
+                  }});
+                  // 尽量保留用户原先选的日期；已不存在则回到「全部」
+                  var stillThere = runtimeScopeEl.querySelector('option[value="' + previous + '"]');
+                  runtimeScopeEl.value = stillThere ? previous : 'all';
+                }}).catch(function(){{
+                  // 拉不到日期就沿用服务端渲染的选项，不影响导出
+                }});
+              }}
+
               // 运行日志默认导出「全部（含历史）」：只给当天那份会漏掉前一天出问题的
               // 现场——实例当天可能只跑了 9 秒，导出来只有几 KB，看着像文件坏了
               async function exportRuntimeLog() {{
@@ -623,12 +669,15 @@ class DeveloperToolsMixin(WebUIMixinBase):
               }}
 
               runtimeBtn.addEventListener('click', exportRuntimeLog);
+              sel.addEventListener('change', refreshRuntimeDates);
               errorBtn.addEventListener('click', function(){{
                 exportErrorLogs('full');
               }});
               errorTextBtn.addEventListener('click', function(){{
                 exportErrorLogs('text');
               }});
+              // 首屏的日期选项由服务端渲染，这里再对齐一次（实例列表可能刚变过）
+              refreshRuntimeDates();
             }})();
             """
         )

@@ -13,6 +13,7 @@ logger.set_file_logger(self.config_name)）。因此某实例当天的运行日�
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 import zipfile
 from datetime import datetime
@@ -29,10 +30,10 @@ SCOPE_FULL = "full"
 SCOPE_TEXT = "text"
 _REAL_SCOPES = (SCOPE_FULL, SCOPE_TEXT)
 
-# 运行日志导出范围：today = 仅当天；all = 全部历史合并（默认，排查通常需要跨天上下文）
+# 运行日志导出范围：all = 全部历史合并（默认）；也可以直接给一个 YYYY-MM-DD 只导那天
 RUNTIME_SCOPE_ALL = "all"
-RUNTIME_SCOPE_TODAY = "today"
-_RUNTIME_SCOPES = (RUNTIME_SCOPE_ALL, RUNTIME_SCOPE_TODAY)
+_DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 
 _TEXT_EXTS = {
     ".txt",
@@ -91,21 +92,40 @@ def find_today_runtime_log(instance: str) -> Path | None:
 
 
 def normalize_runtime_scope(scope) -> str:
-    """运行日志导出范围，非法值一律按 all（最完整的那个）。"""
-    value = str(scope or "").strip().lower()
-    return value if value in _RUNTIME_SCOPES else RUNTIME_SCOPE_ALL
+    """运行日志导出范围：``all``（全部历史合并）或一个 ``YYYY-MM-DD`` 日期。
+
+    其余取值一律按 all 处理。日期用严格正则校验，因此不可能被构造成路径穿越。
+    """
+    value = str(scope or "").strip()
+    if _DATE_PATTERN.match(value):
+        return value
+    return RUNTIME_SCOPE_ALL
+
+
+def list_runtime_dates(instance: str) -> list:
+    """列出该实例有日志的日期，倒序（最新在前），供界面做日期下拉。"""
+    log_dir = get_project_root() / LOG_DIRNAME
+    dates = set()
+    for path in log_dir.glob(f"*_{instance}.txt"):
+        date = path.name.split("_", 1)[0]
+        if _DATE_PATTERN.match(date):
+            dates.add(date)
+    return sorted(dates, reverse=True)
 
 
 def find_runtime_logs(instance: str, scope: str = RUNTIME_SCOPE_ALL) -> list:
     """按时间升序返回待导出的运行日志文件。
 
-    scope=TODAY 只返回当天那份；scope=ALL 返回全部历史（含未轮转的 base 文件）。
+    - ``scope=YYYY-MM-DD``：只返回该日期那份，没有就返回空（**不静默换成别天**）；
+    - ``scope=all``：返回全部历史（含未轮转的 base 文件）。
     """
-    if normalize_runtime_scope(scope) == RUNTIME_SCOPE_TODAY:
-        today = find_today_runtime_log(instance)
-        return [today] if today else []
-
     log_dir = get_project_root() / LOG_DIRNAME
+    scope = normalize_runtime_scope(scope)
+
+    if scope != RUNTIME_SCOPE_ALL:
+        path = log_dir / f"{scope}_{instance}.txt"
+        return [path] if path.is_file() else []
+
     files = sorted(log_dir.glob(f"*_{instance}.txt"))
     base = log_dir / f"{instance}.txt"
     if base.is_file():

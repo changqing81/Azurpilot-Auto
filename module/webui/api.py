@@ -47,13 +47,14 @@ from module.webui.deploy_settings import (
 from module.webui.launcher import is_local_request, launcher_control
 from module.webui.lang import t
 from module.webui.log_export import (
-    RUNTIME_SCOPE_TODAY,
+    RUNTIME_SCOPE_ALL,
     SCOPE_TEXT,
     build_error_log_zip,
     build_runtime_log_bundle,
     describe_error_log_dir,
     describe_runtime_logs,
     format_bytes,
+    list_runtime_dates,
     normalize_runtime_scope,
     normalize_scope,
     today_str,
@@ -1775,10 +1776,10 @@ async def api_log_runtime(request):
             build_runtime_log_bundle, instance, scope
         )
     except FileNotFoundError:
-        if scope == RUNTIME_SCOPE_TODAY:
-            message = f"实例 {instance} 今天还没有运行日志"
-        else:
+        if scope == RUNTIME_SCOPE_ALL:
             message = f"实例 {instance} 没有任何运行日志"
+        else:
+            message = f"实例 {instance} 在 {scope} 没有运行日志"
         return JSONResponse({"success": False, "error": message}, status_code=404)
 
     # 文件名沿用磁盘真实文件名/日期区间，避免"文件名是一天、内容却是另一天"的误导。
@@ -1794,7 +1795,7 @@ async def api_log_runtime(request):
 
 
 async def api_log_runtime_info(request):
-    """GET /api/log/runtime/info?instance=<name>&scope=all|today — 导出前统计体积。"""
+    """GET /api/log/runtime/info?instance=<name>&scope=all|YYYY-MM-DD — 导出前统计体积。"""
     raw_instance = request.path_params.get("instance") or request.query_params.get(
         "instance"
     )
@@ -1806,6 +1807,29 @@ async def api_log_runtime_info(request):
     scope = normalize_runtime_scope(request.query_params.get("scope"))
     data = await asyncio.to_thread(describe_runtime_logs, instance, scope)
     return JSONResponse({"success": True, "data": data})
+
+
+async def api_log_runtime_dates(request):
+    """GET /api/log/runtime/dates?instance=<name> — 列出该实例有日志的日期（倒序）。
+
+    供界面做日期下拉：让用户直接挑「几号的日志」，而不是在「全部 / 今天」之间猜。
+    同时返回 today，前端据此给当天那项加"（今天）"标注。
+    """
+    raw_instance = request.path_params.get("instance") or request.query_params.get(
+        "instance"
+    )
+    try:
+        instance = validate_instance(raw_instance)
+    except ValueError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+
+    dates = await asyncio.to_thread(list_runtime_dates, instance)
+    return JSONResponse(
+        {
+            "success": True,
+            "data": {"instance": instance, "today": today_str(), "dates": dates},
+        }
+    )
 
 
 async def api_log_error_info(request):
@@ -1871,11 +1895,13 @@ api_routes = [
     Route("/api/deploy/startup-run", api_deploy_startup_run_save, methods=["POST"]),
     Route("/api/import_legacy_upload", api_import_legacy_upload, methods=["POST"]),
     # 日志导出（远控可下载，刻意不做本机限制）
-    # 注意顺序：/api/log/runtime/info 必须排在 /api/log/runtime/{instance} 之前，
-    # 否则 "info" 会被当成实例名吃掉
+    # 注意顺序：静态子路径必须排在 /api/log/runtime/{instance} 之前，
+    # 否则 "info" / "dates" 会被当成实例名吃掉
     Route("/api/log/runtime", api_log_runtime),
     Route("/api/log/runtime/info", api_log_runtime_info),
     Route("/api/log/runtime/info/{instance}", api_log_runtime_info),
+    Route("/api/log/runtime/dates", api_log_runtime_dates),
+    Route("/api/log/runtime/dates/{instance}", api_log_runtime_dates),
     Route("/api/log/runtime/{instance}", api_log_runtime),
     Route("/api/log/error", api_log_error_archive),
     Route("/api/log/error/info", api_log_error_info),
