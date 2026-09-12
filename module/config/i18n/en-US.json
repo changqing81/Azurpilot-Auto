@@ -3792,9 +3792,7 @@
     },
     "ActionPointPreserve": {
       "name": "Action Point Preserve",
-      "help": "Stop clearing and finish the task when total action points (current AP + action point boxes) fall below this value.",
-      "30": "30",
-      "50": "50"
+      "help": "Stop clearing and finish the task when total action points (current AP + action point boxes) fall below this value."
     },
     "PushNotify": {
       "name": "Push Cross-Month Daily Info",

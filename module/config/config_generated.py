@@ -737,7 +737,7 @@ class GeneratedConfig:
 
     # 配置组 `OpsiCrossMonth`
     OpsiCrossMonth_ActionPointCleanupEnable = True
-    OpsiCrossMonth_ActionPointPreserve = 50  # 30, 50
+    OpsiCrossMonth_ActionPointPreserve = 50
     OpsiCrossMonth_PushNotify = True
 
     # 配置组 `IslandPlan`

@@ -14936,12 +14936,8 @@
         "value": true
       },
       "ActionPointPreserve": {
-        "type": "select",
-        "value": 50,
-        "option": [
-          30,
-          50
-        ]
+        "type": "input",
+        "value": 50
       },
       "PushNotify": {
         "type": "checkbox",
