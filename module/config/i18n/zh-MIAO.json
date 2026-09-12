@@ -6670,7 +6670,10 @@
     "LogExport": {
       "Title": "喵日誌匯出",
       "InstanceLabel": "喵實例",
-      "RuntimeLog": "匯出今日喵運行日誌",
+      "RangeLabel": "喵範圍",
+      "RangeAll": "全部喵（含歷史，推薦）",
+      "RangeToday": "只今天喵",
+      "RuntimeLog": "匯出喵運行日誌",
       "ErrorLogs": "匯出喵錯誤日誌目錄（含截圖）",
       "ErrorLogsText": "只匯出喵日誌文字（不含截圖）",
       "Pending": "正在匯出喵，請稍候…",
@@ -6678,8 +6681,10 @@
       "Started": "喵已開始下載",
       "Failed": "喵匯出失敗",
       "NoInstance": "未找到可用喵實例",
-      "Confirm": "錯誤日誌可能很大喵，確認匯出？",
+      "NoRuntimeLog": "這隻喵實例沒有可匯出的運行日誌",
+      "Confirm": "確認匯出喵？",
       "ConfirmSize": "共 {{files}} 個喵檔案、約 {{size}}，壓縮後約 {{zip}}。遠控下傳輸較慢喵，確認匯出？",
+      "ConfirmSizePlain": "共 {{files}} 個喵檔案、約 {{size}}。遠控下傳輸較慢喵，確認匯出？",
       "InfoLoading": "正在統計喵體積…",
       "NoFiles": "喵錯誤日誌目錄是空的"
     },

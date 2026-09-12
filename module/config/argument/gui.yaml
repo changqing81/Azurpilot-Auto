@@ -326,6 +326,9 @@ DeploySetting:
 LogExport:
   Title:
   InstanceLabel:
+  RangeLabel:
+  RangeAll:
+  RangeToday:
   RuntimeLog:
   ErrorLogs:
   ErrorLogsText:
@@ -334,8 +337,10 @@ LogExport:
   Started:
   Failed:
   NoInstance:
+  NoRuntimeLog:
   Confirm:
   ConfirmSize:
+  ConfirmSizePlain:
   InfoLoading:
   NoFiles:
 

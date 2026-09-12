@@ -6670,7 +6670,10 @@
     "LogExport": {
       "Title": "Log Export",
       "InstanceLabel": "Instance",
-      "RuntimeLog": "Export Today's Log",
+      "RangeLabel": "Range",
+      "RangeAll": "All (incl. history, recommended)",
+      "RangeToday": "Today only",
+      "RuntimeLog": "Export Runtime Log",
       "ErrorLogs": "Export Error Logs (with screenshots)",
       "ErrorLogsText": "Export Log Text Only (no screenshots)",
       "Pending": "Exporting, please wait…",
@@ -6678,8 +6681,10 @@
       "Started": "Download started",
       "Failed": "Export failed",
       "NoInstance": "No instance available",
-      "Confirm": "The error log archive may be large. Start exporting?",
+      "NoRuntimeLog": "This instance has no runtime log to export",
+      "Confirm": "Start exporting?",
       "ConfirmSize": "{{files}} files, {{size}} total, about {{zip}} zipped. Remote transfers are slow. Start exporting?",
+      "ConfirmSizePlain": "{{files}} files, {{size}} total. Remote transfers are slow. Start exporting?",
       "InfoLoading": "Measuring size…",
       "NoFiles": "Error log directory is empty"
     },

@@ -28,6 +28,12 @@ _STORED_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".zip", ".mp4"}
 SCOPE_FULL = "full"
 SCOPE_TEXT = "text"
 _REAL_SCOPES = (SCOPE_FULL, SCOPE_TEXT)
+
+# 运行日志导出范围：today = 仅当天；all = 全部历史合并（默认，排查通常需要跨天上下文）
+RUNTIME_SCOPE_ALL = "all"
+RUNTIME_SCOPE_TODAY = "today"
+_RUNTIME_SCOPES = (RUNTIME_SCOPE_ALL, RUNTIME_SCOPE_TODAY)
+
 _TEXT_EXTS = {
     ".txt",
     ".log",
@@ -74,24 +80,90 @@ def validate_instance(name) -> str:
 
 
 def find_today_runtime_log(instance: str) -> Path | None:
-    """定位实例当天运行日志，找不到返回 None。
+    """严格返回实例「今天」的运行日志，今天没跑过就是 None。
 
-    兜底顺序：
-        1. log/{今天}_{instance}.txt —— 正常运行时的唯一产物
-        2. log/*_{instance}.txt 中日期最大者 —— 进程跨零点未轮转时
-        3. log/{instance}.txt —— base 文件，通常已被轮转逻辑删除，仅兜底
+    这里刻意**不再回退到历史日志**：早先的回退会让用户点「导出当天日志」却拿到
+    别天的内容（例如实例今天只跑了 9 秒、拿到 3.4KB，而昨天的有 4.7MB），
+    极易被误解成"文件不完整/被截断"。历史内容改由 scope=all 显式提供。
     """
+    path = get_project_root() / LOG_DIRNAME / f"{today_str()}_{instance}.txt"
+    return path if path.is_file() else None
+
+
+def normalize_runtime_scope(scope) -> str:
+    """运行日志导出范围，非法值一律按 all（最完整的那个）。"""
+    value = str(scope or "").strip().lower()
+    return value if value in _RUNTIME_SCOPES else RUNTIME_SCOPE_ALL
+
+
+def find_runtime_logs(instance: str, scope: str = RUNTIME_SCOPE_ALL) -> list:
+    """按时间升序返回待导出的运行日志文件。
+
+    scope=TODAY 只返回当天那份；scope=ALL 返回全部历史（含未轮转的 base 文件）。
+    """
+    if normalize_runtime_scope(scope) == RUNTIME_SCOPE_TODAY:
+        today = find_today_runtime_log(instance)
+        return [today] if today else []
+
     log_dir = get_project_root() / LOG_DIRNAME
-    today = log_dir / f"{today_str()}_{instance}.txt"
-    if today.is_file():
-        return today
-
-    history = sorted(log_dir.glob(f"*_{instance}.txt"))
-    if history:
-        return history[-1]
-
+    files = sorted(log_dir.glob(f"*_{instance}.txt"))
     base = log_dir / f"{instance}.txt"
-    return base if base.is_file() else None
+    if base.is_file():
+        files.append(base)
+    return files
+
+
+def describe_runtime_logs(instance: str, scope: str = RUNTIME_SCOPE_ALL) -> dict:
+    """统计待导出的运行日志，供界面在导出前展示真实体积。"""
+    scope = normalize_runtime_scope(scope)
+    files = find_runtime_logs(instance, scope)
+    total = sum(path.stat().st_size for path in files)
+    return {
+        "scope": scope,
+        "instance": instance,
+        "files": len(files),
+        "bytes": total,
+        "human_bytes": format_bytes(total),
+    }
+
+
+def build_runtime_log_bundle(instance: str, scope: str = RUNTIME_SCOPE_ALL) -> tuple:
+    """把实例的运行日志整理成一个可供下载的 txt。
+
+    返回 ``(路径, 建议文件名, 是否临时文件)``：
+    - 只命中一个文件时直接返回原文件（**不复制**，调用方切勿删除）；
+    - 命中多个文件时按日期升序拼接为临时文件，每份前面加一行分隔标题，
+      便于在同一个文件里定位是哪天的日志。临时文件由调用方负责删除。
+
+    没有任何日志时抛 FileNotFoundError（路由转 404）。
+    """
+    files = find_runtime_logs(instance, scope)
+    if not files:
+        raise FileNotFoundError(f"实例 {instance} 没有可导出的运行日志")
+
+    if len(files) == 1:
+        return files[0], files[0].name, False
+
+    dates = sorted(path.name.split("_", 1)[0] for path in files if "_" in path.name)
+    filename = f"{dates[0]}~{dates[-1]}_{instance}.txt" if dates else f"{instance}.txt"
+
+    handle, tmp_name = tempfile.mkstemp(
+        prefix=f"alas_runtime_log_{os.getpid()}_", suffix=".txt"
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(handle, "wb") as out:
+            for index, path in enumerate(files):
+                if index:
+                    out.write(b"\n")
+                banner = f"{'═' * 79}\n[ {path.name} ]\n{'═' * 79}\n"
+                out.write(banner.encode("utf-8"))
+                out.write(path.read_bytes())
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+    return tmp_path, filename, True
 
 
 def normalize_scope(scope) -> str:

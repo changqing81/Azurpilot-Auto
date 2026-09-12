@@ -92,32 +92,120 @@ class TestLogExportLogic(unittest.TestCase):
         with self._patch_root():
             self.assertEqual(log_export.find_today_runtime_log("alas"), today)
 
-    def test_find_today_runtime_log_falls_back_to_latest_history(self):
+    def test_find_today_runtime_log_is_strict(self):
+        """当天没跑过就返回 None —— 不再悄悄回退到历史日志。
+
+        早先会回退，导致用户点「导出当天日志」拿到别天的内容（实例当天只跑了 9 秒
+        就只有 3.4KB，而昨天有 4.7MB），极易被误解成文件被截断。
+        """
         log_dir = self.root / "log"
         log_dir.mkdir(parents=True)
-        old = log_dir / "2000-01-01_alas.txt"
-        old.write_text("old", encoding="utf-8")
-        newer = log_dir / "2000-01-02_alas.txt"
-        newer.write_text("newer", encoding="utf-8")
-        # 其他实例的文件不应被选中
-        (log_dir / "2000-06-06_小号.txt").write_text("other", encoding="utf-8")
+        (log_dir / "2000-01-02_alas.txt").write_text("old", encoding="utf-8")
+        (log_dir / "alas.txt").write_text("base", encoding="utf-8")
 
-        with self._patch_root():
-            self.assertEqual(log_export.find_today_runtime_log("alas"), newer)
-
-    def test_find_today_runtime_log_falls_back_to_base_file(self):
-        log_dir = self.root / "log"
-        log_dir.mkdir(parents=True)
-        base = log_dir / "alas.txt"
-        base.write_text("base", encoding="utf-8")
-
-        with self._patch_root():
-            self.assertEqual(log_export.find_today_runtime_log("alas"), base)
-
-    def test_find_today_runtime_log_returns_none_when_absent(self):
-        (self.root / "log").mkdir(parents=True)
         with self._patch_root():
             self.assertIsNone(log_export.find_today_runtime_log("alas"))
+
+    def _make_history(self):
+        log_dir = self.root / "log"
+        log_dir.mkdir(parents=True)
+        (log_dir / "2026-09-10_alas.txt").write_text("d10", encoding="utf-8")
+        (log_dir / "2026-09-11_alas.txt").write_text("d11", encoding="utf-8")
+        (log_dir / f"{log_export.today_str()}_alas.txt").write_text("today", encoding="utf-8")
+        # 其他实例的文件不应被选中
+        (log_dir / "2026-09-11_小号.txt").write_text("other", encoding="utf-8")
+        return log_dir
+
+    def test_find_runtime_logs_all_is_chronological(self):
+        log_dir = self._make_history()
+        with self._patch_root():
+            files = log_export.find_runtime_logs("alas", "all")
+
+        names = [path.name for path in files]
+        self.assertEqual(
+            names,
+            [
+                "2026-09-10_alas.txt",
+                "2026-09-11_alas.txt",
+                f"{log_export.today_str()}_alas.txt",
+            ],
+        )
+        self.assertNotIn("2026-09-11_小号.txt", names)
+
+    def test_find_runtime_logs_all_appends_unrotated_base_file(self):
+        log_dir = self._make_history()
+        (log_dir / "alas.txt").write_text("base", encoding="utf-8")
+        with self._patch_root():
+            files = log_export.find_runtime_logs("alas", "all")
+        self.assertEqual(files[-1].name, "alas.txt")
+
+    def test_find_runtime_logs_today_only(self):
+        self._make_history()
+        with self._patch_root():
+            files = log_export.find_runtime_logs("alas", "today")
+        self.assertEqual([path.name for path in files], [f"{log_export.today_str()}_alas.txt"])
+
+    def test_find_runtime_logs_today_missing_returns_empty(self):
+        log_dir = self.root / "log"
+        log_dir.mkdir(parents=True)
+        (log_dir / "2026-09-11_alas.txt").write_text("d11", encoding="utf-8")
+        with self._patch_root():
+            self.assertEqual(log_export.find_runtime_logs("alas", "today"), [])
+
+    def test_normalize_runtime_scope_defaults_to_all(self):
+        self.assertEqual(log_export.normalize_runtime_scope("today"), "today")
+        self.assertEqual(log_export.normalize_runtime_scope(" TODAY "), "today")
+        for bad in (None, "", "bogus", "../all"):
+            with self.subTest(bad=bad):
+                self.assertEqual(log_export.normalize_runtime_scope(bad), "all")
+
+    def test_describe_runtime_logs_counts_and_sizes(self):
+        self._make_history()
+        with self._patch_root():
+            all_info = log_export.describe_runtime_logs("alas", "all")
+            today_info = log_export.describe_runtime_logs("alas", "today")
+
+        self.assertEqual(all_info["files"], 3)
+        self.assertEqual(all_info["scope"], "all")
+        self.assertEqual(all_info["instance"], "alas")
+        self.assertGreater(all_info["bytes"], 0)
+        self.assertEqual(today_info["files"], 1)
+        self.assertLess(today_info["bytes"], all_info["bytes"])
+
+    def test_build_runtime_log_bundle_single_file_is_not_temp(self):
+        """只有一个文件时直接复用原文件，绝不能标记为临时文件（否则会被删掉）。"""
+        self._make_history()
+        with self._patch_root():
+            path, filename, is_temp = log_export.build_runtime_log_bundle("alas", "today")
+
+        self.assertFalse(is_temp)
+        self.assertTrue(path.is_file())
+        self.assertEqual(filename, f"{log_export.today_str()}_alas.txt")
+
+    def test_build_runtime_log_bundle_merges_history(self):
+        log_dir = self._make_history()
+        with self._patch_root():
+            path, filename, is_temp = log_export.build_runtime_log_bundle("alas", "all")
+        self.addCleanup(path.unlink, True)
+
+        self.assertTrue(is_temp)
+        self.assertEqual(filename, f"2026-09-10~{log_export.today_str()}_alas.txt")
+        content = path.read_text(encoding="utf-8")
+        # 按日期升序拼接，每份带分隔标题，方便在一个文件里定位是哪天的日志
+        self.assertLess(content.index("2026-09-10_alas.txt"), content.index("2026-09-11_alas.txt"))
+        for name in ("2026-09-10_alas.txt", "2026-09-11_alas.txt", f"{log_export.today_str()}_alas.txt"):
+            self.assertIn(f"[ {name} ]", content)
+        for text in ("d10", "d11", "today"):
+            self.assertIn(text, content)
+        # 原日志文件必须原封不动
+        for original in log_dir.glob("*_alas.txt"):
+            self.assertTrue(original.is_file())
+
+    def test_build_runtime_log_bundle_no_files_raises(self):
+        (self.root / "log").mkdir(parents=True)
+        with self._patch_root():
+            with self.assertRaises(FileNotFoundError):
+                log_export.build_runtime_log_bundle("alas", "all")
 
     # ---------- 错误日志打包 ----------
 
@@ -266,16 +354,31 @@ class TestLogExportApi(unittest.TestCase):
         self._tmp.cleanup()
 
     def test_log_routes_are_registered(self):
-        paths = {route.path for route in build_log_app().routes}
-        self.assertIn("/api/log/runtime", paths)
-        self.assertIn("/api/log/runtime/{instance}", paths)
-        self.assertIn("/api/log/error", paths)
+        paths = [route.path for route in build_log_app().routes]
+        for expected in (
+            "/api/log/runtime",
+            "/api/log/runtime/{instance}",
+            "/api/log/runtime/info",
+            "/api/log/runtime/info/{instance}",
+            "/api/log/error",
+            "/api/log/error/info",
+        ):
+            self.assertIn(expected, paths)
+        # /api/log/runtime/info 必须排在 {instance} 之前，否则 "info" 会被当成实例名
+        self.assertLess(
+            paths.index("/api/log/runtime/info"),
+            paths.index("/api/log/runtime/{instance}"),
+        )
 
     def test_log_handlers_are_not_local_only(self):
         """远控经 P2P 代理进来也必须可用，因此不得使用 is_local_request 门禁。"""
-        for handler in (webui_api.api_log_runtime, webui_api.api_log_error_archive):
-            source = handler.__code__.co_names
-            self.assertNotIn("is_local_request", source)
+        for handler in (
+            webui_api.api_log_runtime,
+            webui_api.api_log_runtime_info,
+            webui_api.api_log_error_archive,
+            webui_api.api_log_error_info,
+        ):
+            self.assertNotIn("is_local_request", handler.__code__.co_names)
 
     def test_runtime_log_rejects_invalid_instance(self):
         response = self.client.get("/api/log/runtime?instance=..%2Fetc")
@@ -283,10 +386,21 @@ class TestLogExportApi(unittest.TestCase):
         self.assertFalse(response.json()["success"])
 
     def test_runtime_log_missing_file_returns_404(self):
-        with patch.object(webui_api, "find_today_runtime_log", return_value=None):
+        with patch.object(
+            webui_api, "build_runtime_log_bundle", side_effect=FileNotFoundError("none")
+        ):
             response = self.client.get("/api/log/runtime?instance=alas")
         self.assertEqual(response.status_code, 404)
         self.assertIn("alas", response.json()["error"])
+
+    def test_runtime_log_today_scope_has_specific_message(self):
+        with patch.object(
+            webui_api, "build_runtime_log_bundle", side_effect=FileNotFoundError("none")
+        ):
+            response = self.client.get("/api/log/runtime?instance=alas&scope=today")
+        self.assertEqual(response.status_code, 404)
+        # 当天没有日志时要说清楚，别让用户以为文件被截断
+        self.assertIn("今天", response.json()["error"])
 
     def _runtime_log_file(self, name=None):
         path = self.root / (name or f"{log_export.today_str()}_alas.txt")
@@ -297,7 +411,11 @@ class TestLogExportApi(unittest.TestCase):
         log_file = self._runtime_log_file(f"{log_export.today_str()}_小号.txt")
         with (
             patch.object(webui_api, "validate_instance", return_value="小号"),
-            patch.object(webui_api, "find_today_runtime_log", return_value=log_file),
+            patch.object(
+                webui_api,
+                "build_runtime_log_bundle",
+                return_value=(log_file, log_file.name, False),
+            ),
         ):
             response = self.client.get("/api/log/runtime?instance=小号")
 
@@ -309,29 +427,91 @@ class TestLogExportApi(unittest.TestCase):
         self.assertIn(quote(log_file.name), disposition)
         # 原样透传文件字节（Windows 上文本模式写文件会带 CRLF，按字节比对）
         self.assertEqual(response.content, log_file.read_bytes())
+        # 直接复用原日志文件时绝不能删它
+        self.assertTrue(log_file.exists())
 
-    def test_runtime_log_keeps_actual_date_when_falling_back(self):
-        """回退到历史日志时，文件名必须沿用磁盘上的真实日期，不能冒充今天。"""
-        old = self._runtime_log_file("2026-09-11_alas.txt")
-        with patch.object(webui_api, "find_today_runtime_log", return_value=old):
-            response = self.client.get("/api/log/runtime?instance=alas")
+    def test_runtime_log_merged_bundle_is_cleaned_but_source_survives(self):
+        """合并出来的临时文件发完即删，但原始日志必须原封不动。"""
+        log_file = self._runtime_log_file(f"{log_export.today_str()}_alas.txt")
+        merged = self.root / "merged.txt"
+        merged.write_text("merged", encoding="utf-8")
 
+        with patch.object(
+            webui_api,
+            "build_runtime_log_bundle",
+            return_value=(merged, "2026-09-10~2026-09-12_alas.txt", True),
+        ) as builder:
+            response = self.client.get("/api/log/runtime?instance=alas&scope=all")
+
+        builder.assert_called_once_with("alas", "all")
         self.assertEqual(response.status_code, 200)
-        disposition = response.headers["content-disposition"]
-        self.assertIn("2026-09-11_alas.txt", disposition)
-        self.assertNotIn(log_export.today_str(), disposition)
+        self.assertIn("2026-09-10~2026-09-12_alas.txt", response.headers["content-disposition"])
+        self.assertFalse(merged.exists(), "临时合并文件应被后台任务删除")
+        self.assertTrue(log_file.exists(), "原始日志绝不能被删")
+
+    def test_runtime_log_defaults_to_all_scope(self):
+        log_file = self._runtime_log_file()
+        with patch.object(
+            webui_api,
+            "build_runtime_log_bundle",
+            return_value=(log_file, log_file.name, False),
+        ) as builder:
+            self.client.get("/api/log/runtime?instance=alas")
+
+        # 默认导出全部历史，避免只拿到当天那几 KB
+        builder.assert_called_once_with("alas", "all")
 
     def test_runtime_log_accepts_instance_in_path(self):
         log_file = self._runtime_log_file()
         with (
             patch.object(webui_api, "validate_instance", return_value="小号") as guard,
-            patch.object(webui_api, "find_today_runtime_log", return_value=log_file),
+            patch.object(
+                webui_api,
+                "build_runtime_log_bundle",
+                return_value=(log_file, log_file.name, False),
+            ),
         ):
             response = self.client.get(f"/api/log/runtime/{quote('小号')}")
 
         self.assertEqual(response.status_code, 200)
         # query 被远控链路剥掉时，实例名仍能从 path 里取到
         guard.assert_called_once_with("小号")
+
+    # ---------- 运行日志体积统计 ----------
+
+    def test_runtime_info_returns_size_data(self):
+        payload = {
+            "scope": "all",
+            "instance": "alas",
+            "files": 3,
+            "bytes": 5 * 1024 * 1024,
+            "human_bytes": "5.0 MB",
+        }
+        with patch.object(
+            webui_api, "describe_runtime_logs", return_value=payload
+        ) as probe:
+            response = self.client.get("/api/log/runtime/info?instance=alas&scope=all")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["human_bytes"], "5.0 MB")
+        probe.assert_called_once_with("alas", "all")
+
+    def test_runtime_info_route_wins_over_instance_param(self):
+        """真实路由表下 /api/log/runtime/info 不能被 {instance} 吃掉。"""
+        with patch.object(
+            webui_api, "describe_runtime_logs", return_value={"files": 0}
+        ) as probe:
+            response = self.client.get("/api/log/runtime/info?instance=alas")
+
+        self.assertEqual(response.status_code, 200)
+        probe.assert_called_once()
+
+    def test_runtime_info_normalizes_bad_scope(self):
+        with patch.object(
+            webui_api, "describe_runtime_logs", return_value={"files": 0}
+        ) as probe:
+            self.client.get("/api/log/runtime/info?instance=alas&scope=../etc")
+        probe.assert_called_once_with("alas", "all")
 
     def test_error_archive_missing_dir_returns_404(self):
         with patch.object(
@@ -463,6 +643,7 @@ class TestLogExportPanel(unittest.TestCase):
         html, js = self._render_panel("alas")
         for element_id in (
             "log-export-instance",
+            "log-export-runtime-scope",
             "log-export-runtime",
             "log-export-error",
             "log-export-error-text",
@@ -482,16 +663,32 @@ class TestLogExportPanel(unittest.TestCase):
         # 远控：query 与 path 两种取法都要在
         self.assertIn("/api/log/runtime/' + enc", js)
 
+    def test_panel_defaults_to_full_history(self):
+        """历史范围默认选中 all —— 只给当天那份会漏掉前一天出问题的现场。"""
+        html, _ = self._render_panel("alas")
+        self.assertIn('id="log-export-runtime-scope"', html)
+        self.assertIn('<option value="all" selected>', html)
+        self.assertIn('<option value="today">', html)
+
     def test_panel_queries_real_size_before_exporting(self):
         """点导出前必须先查真实体积，并把文件数/大小填进确认框。"""
         _, js = self._render_panel("alas")
         self.assertIn("/api/log/error/info?scope=", js)
+        self.assertIn("/api/log/runtime/info?instance=", js)
         self.assertIn("formatConfirm", js)
         self.assertIn("human_bytes", js)
         self.assertIn("human_estimate", js)
+        # 运行日志不压缩，用不带"压缩后"的文案
+        self.assertIn("confirmSizePlain", js)
         self.assertIn("scope === 'text'", js)
         # 统计失败也要能继续导出，不能把功能卡死
         self.assertIn("text.confirm", js)
+
+    def test_panel_runtime_export_honours_selected_scope(self):
+        _, js = self._render_panel("alas")
+        # 运行日志的 URL 必须带上所选范围
+        self.assertIn("runtimeVariants(instance, scope)", js)
+        self.assertIn("runtimeScopeEl.value", js)
 
     def test_panel_js_is_valid_javascript(self):
         _, js = self._render_panel("alas")
@@ -557,6 +754,9 @@ class TestLogExportI18n(unittest.TestCase):
     KEYS = (
         "Title",
         "InstanceLabel",
+        "RangeLabel",
+        "RangeAll",
+        "RangeToday",
         "RuntimeLog",
         "ErrorLogs",
         "ErrorLogsText",
@@ -565,8 +765,10 @@ class TestLogExportI18n(unittest.TestCase):
         "Started",
         "Failed",
         "NoInstance",
+        "NoRuntimeLog",
         "Confirm",
         "ConfirmSize",
+        "ConfirmSizePlain",
         "InfoLoading",
         "NoFiles",
     )
@@ -601,20 +803,24 @@ class TestLogExportI18n(unittest.TestCase):
         missing = [key for key in self.KEYS if key not in declared]
         self.assertEqual(missing, [], "gui.yaml 未声明这些键")
 
-    def test_confirm_size_uses_doubled_braces(self):
+    def test_size_templates_use_doubled_braces(self):
         """单花括号会让 t() 的 .format() 抛 KeyError。"""
         for lang in self.LANGUAGES:
-            with self.subTest(lang=lang):
-                raw = self._group(lang)["ConfirmSize"]
-                try:
-                    formatted = raw.format()
-                except (KeyError, IndexError) as e:
-                    self.fail(f"{lang} 的 ConfirmSize 含单花括号占位符，t() 会炸: {e}")
-                # 双花括号被 .format() 还原成单花括号，交给前端替换
-                for token in ("{files}", "{size}", "{zip}"):
-                    self.assertIn(token, formatted)
-                # 证明原文确实是双花括号（否则 formatted 会与 raw 相同）
-                self.assertNotEqual(raw, formatted)
+            for key, tokens in (
+                ("ConfirmSize", ("{files}", "{size}", "{zip}")),
+                ("ConfirmSizePlain", ("{files}", "{size}")),
+            ):
+                with self.subTest(lang=lang, key=key):
+                    raw = self._group(lang)[key]
+                    try:
+                        formatted = raw.format()
+                    except (KeyError, IndexError) as e:
+                        self.fail(f"{lang} 的 {key} 含单花括号占位符，t() 会炸: {e}")
+                    # 双花括号被 .format() 还原成单花括号，交给前端替换
+                    for token in tokens:
+                        self.assertIn(token, formatted)
+                    # 证明原文确实是双花括号（否则 formatted 会与 raw 相同）
+                    self.assertNotEqual(raw, formatted)
 
 
 if __name__ == "__main__":

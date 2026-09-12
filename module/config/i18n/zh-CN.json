@@ -6670,7 +6670,10 @@
     "LogExport": {
       "Title": "日志导出",
       "InstanceLabel": "实例",
-      "RuntimeLog": "导出今日运行日志",
+      "RangeLabel": "范围",
+      "RangeAll": "全部（含历史，推荐）",
+      "RangeToday": "仅今天",
+      "RuntimeLog": "导出运行日志",
       "ErrorLogs": "导出错误日志目录（含截图）",
       "ErrorLogsText": "仅导出日志文本（不含截图）",
       "Pending": "正在导出，请稍候…",
@@ -6678,8 +6681,10 @@
       "Started": "已开始下载",
       "Failed": "导出失败",
       "NoInstance": "未找到可用实例",
-      "Confirm": "错误日志可能较大，确认开始导出？",
+      "NoRuntimeLog": "该实例没有可导出的运行日志",
+      "Confirm": "确认开始导出？",
       "ConfirmSize": "共 {{files}} 个文件、约 {{size}}，压缩后约 {{zip}}。远控下传输较慢，确认开始导出？",
+      "ConfirmSizePlain": "共 {{files}} 个文件、约 {{size}}。远控下传输较慢，确认开始导出？",
       "InfoLoading": "正在统计体积…",
       "NoFiles": "错误日志目录为空"
     },

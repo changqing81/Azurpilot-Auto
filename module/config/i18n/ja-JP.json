@@ -6670,7 +6670,10 @@
     "LogExport": {
       "Title": "ログ出力",
       "InstanceLabel": "インスタンス",
-      "RuntimeLog": "本日の実行ログを出力",
+      "RangeLabel": "範囲",
+      "RangeAll": "すべて（履歴を含む・推奨）",
+      "RangeToday": "本日のみ",
+      "RuntimeLog": "実行ログを出力",
       "ErrorLogs": "エラーログを出力（スクリーンショット含む）",
       "ErrorLogsText": "ログテキストのみ出力（スクリーンショットなし）",
       "Pending": "出力中です。しばらくお待ちください…",
@@ -6678,8 +6681,10 @@
       "Started": "ダウンロードを開始しました",
       "Failed": "出力に失敗しました",
       "NoInstance": "利用可能なインスタンスがありません",
-      "Confirm": "エラーログは大きい可能性があります。出力しますか？",
+      "NoRuntimeLog": "このインスタンスには出力できる実行ログがありません",
+      "Confirm": "出力しますか？",
       "ConfirmSize": "{{files}} 個のファイル、合計 {{size}}、圧縮後 約 {{zip}}。リモートでは転送が遅くなります。出力しますか？",
+      "ConfirmSizePlain": "{{files}} 個のファイル、合計 {{size}}。リモートでは転送が遅くなります。出力しますか？",
       "InfoLoading": "サイズを集計中…",
       "NoFiles": "エラーログディレクトリは空です"
     },
