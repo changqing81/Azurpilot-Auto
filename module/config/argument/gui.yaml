@@ -328,12 +328,16 @@ LogExport:
   InstanceLabel:
   RuntimeLog:
   ErrorLogs:
+  ErrorLogsText:
   Pending:
   Packing:
   Started:
   Failed:
   NoInstance:
   Confirm:
+  ConfirmSize:
+  InfoLoading:
+  NoFiles:
 
 StartupRun:
   Title:

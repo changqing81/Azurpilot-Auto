@@ -366,6 +366,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 </label>
                 <button id="log-export-runtime" class="deploy-setting-button" type="button">{t("Gui.LogExport.RuntimeLog")}</button>
                 <button id="log-export-error" class="deploy-setting-button primary" type="button">{t("Gui.LogExport.ErrorLogs")}</button>
+                <button id="log-export-error-text" class="deploy-setting-button" type="button">{t("Gui.LogExport.ErrorLogsText")}</button>
               </div>
               <div id="log-export-status" class="deploy-setting-status"></div>
             </div>
@@ -378,15 +379,19 @@ class DeveloperToolsMixin(WebUIMixinBase):
               var sel = document.getElementById('log-export-instance');
               var runtimeBtn = document.getElementById('log-export-runtime');
               var errorBtn = document.getElementById('log-export-error');
+              var errorTextBtn = document.getElementById('log-export-error-text');
               var statusEl = document.getElementById('log-export-status');
-              if (!sel || !runtimeBtn || !errorBtn || !statusEl) return;
+              if (!sel || !runtimeBtn || !errorBtn || !errorTextBtn || !statusEl) return;
               var text = {{
                 pending: {json.dumps(t("Gui.LogExport.Pending"))},
                 packing: {json.dumps(t("Gui.LogExport.Packing"))},
                 started: {json.dumps(t("Gui.LogExport.Started"))},
                 failed: {json.dumps(t("Gui.LogExport.Failed"))},
                 noInstance: {json.dumps(t("Gui.LogExport.NoInstance"))},
-                confirm: {json.dumps(t("Gui.LogExport.Confirm"))}
+                confirm: {json.dumps(t("Gui.LogExport.Confirm"))},
+                confirmSize: {json.dumps(t("Gui.LogExport.ConfirmSize"))},
+                infoLoading: {json.dumps(t("Gui.LogExport.InfoLoading"))},
+                noFiles: {json.dumps(t("Gui.LogExport.NoFiles"))}
               }};
 
               // 远控入口路径形如 /<8位以上小写字母数字>/...，与服务端 WebSocket
@@ -504,9 +509,72 @@ class DeveloperToolsMixin(WebUIMixinBase):
               runtimeBtn.addEventListener('click', function(){{
                 exportLog(['/api/log/runtime'], 'alas_runtime_log.txt', true);
               }});
+
+              // 文案里的 {{files}}/{{size}}/{{zip}} 由 t() 的 .format() 还原成
+              // 单花括号后在此替换（i18n 里必须写双花括号，否则 t() 会抛 KeyError）。
+              // 用 split/join 而非正则：f-string 里写带反斜杠的正则转义会触发
+              // "invalid escape sequence" 警告，未来 Python 版本会直接报错
+              function formatConfirm(template, values) {{
+                var out = String(template);
+                Object.keys(values).forEach(function(key){{
+                  out = out.split('{{' + key + '}}').join(String(values[key]));
+                }});
+                return out;
+              }}
+
+              async function fetchInfo(scope) {{
+                var resp = await fetchFirst(['/api/log/error/info?scope=' + scope]);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                var data = await resp.json();
+                if (!data.success) throw new Error(data.error || 'unknown error');
+                return data.data;
+              }}
+
+              // 先统计真实体积再确认：远控下几十 MB 要传很久，
+              // 让用户在点下去之前就知道要等多久，而不是盯着没反应的界面猜
+              async function exportErrorLogs(scope) {{
+                errorBtn.disabled = true;
+                errorTextBtn.disabled = true;
+                statusEl.textContent = text.infoLoading;
+                var proceed = false;
+                var empty = false;
+                try {{
+                  var info = await fetchInfo(scope);
+                  if (info.files) {{
+                    proceed = confirm(formatConfirm(text.confirmSize, {{
+                      files: info.files,
+                      size: info.human_bytes,
+                      zip: info.human_estimate
+                    }}));
+                  }} else {{
+                    empty = true;
+                  }}
+                }} catch (err) {{
+                  // 统计失败不阻断导出，退回通用确认
+                  proceed = confirm(text.confirm);
+                }} finally {{
+                  errorBtn.disabled = false;
+                  errorTextBtn.disabled = false;
+                }}
+                if (empty) {{
+                  statusEl.textContent = text.noFiles;
+                  return;
+                }}
+                if (!proceed) {{
+                  statusEl.textContent = '';
+                  return;
+                }}
+                var fallback = scope === 'text'
+                  ? 'AzurPilot-error-logs-text.zip'
+                  : 'AzurPilot-error-logs.zip';
+                exportLog(['/api/log/error?scope=' + scope], fallback, false);
+              }}
+
               errorBtn.addEventListener('click', function(){{
-                if (!confirm(text.confirm)) return;
-                exportLog(['/api/log/error'], 'AzurPilot-error-logs.zip', false);
+                exportErrorLogs('full');
+              }});
+              errorTextBtn.addEventListener('click', function(){{
+                exportErrorLogs('text');
               }});
             }})();
             """

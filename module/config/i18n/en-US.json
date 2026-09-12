@@ -6671,13 +6671,17 @@
       "Title": "Log Export",
       "InstanceLabel": "Instance",
       "RuntimeLog": "Export Today's Log",
-      "ErrorLogs": "Export Error Logs",
+      "ErrorLogs": "Export Error Logs (with screenshots)",
+      "ErrorLogsText": "Export Log Text Only (no screenshots)",
       "Pending": "Exporting, please wait…",
       "Packing": "Packing error logs, please wait…",
       "Started": "Download started",
       "Failed": "Export failed",
       "NoInstance": "No instance available",
-      "Confirm": "The error log archive may be large. Start exporting?"
+      "Confirm": "The error log archive may be large. Start exporting?",
+      "ConfirmSize": "{{files}} files, {{size}} total, about {{zip}} zipped. Remote transfers are slow. Start exporting?",
+      "InfoLoading": "Measuring size…",
+      "NoFiles": "Error log directory is empty"
     },
     "StartupRun": {
       "Title": "Auto-run on Startup",

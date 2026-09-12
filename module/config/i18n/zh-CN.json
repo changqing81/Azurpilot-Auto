@@ -6671,13 +6671,17 @@
       "Title": "日志导出",
       "InstanceLabel": "实例",
       "RuntimeLog": "导出今日运行日志",
-      "ErrorLogs": "导出错误日志目录",
+      "ErrorLogs": "导出错误日志目录（含截图）",
+      "ErrorLogsText": "仅导出日志文本（不含截图）",
       "Pending": "正在导出，请稍候…",
       "Packing": "正在打包错误日志，请稍候…",
       "Started": "已开始下载",
       "Failed": "导出失败",
       "NoInstance": "未找到可用实例",
-      "Confirm": "错误日志压缩包可能较大，确认开始导出？"
+      "Confirm": "错误日志可能较大，确认开始导出？",
+      "ConfirmSize": "共 {{files}} 个文件、约 {{size}}，压缩后约 {{zip}}。远控下传输较慢，确认开始导出？",
+      "InfoLoading": "正在统计体积…",
+      "NoFiles": "错误日志目录为空"
     },
     "StartupRun": {
       "Title": "启动时自动运行",

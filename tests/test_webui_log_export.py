@@ -186,6 +186,73 @@ class TestLogExportLogic(unittest.TestCase):
         self.assertEqual(log_export.format_bytes(2048), "2.0 KB")
         self.assertEqual(log_export.format_bytes(5 * 1024 * 1024), "5.0 MB")
 
+    # ---------- 打包范围与体积统计 ----------
+
+    def test_normalize_scope_accepts_known_and_falls_back(self):
+        self.assertEqual(log_export.normalize_scope("full"), "full")
+        self.assertEqual(log_export.normalize_scope("TEXT"), "text")
+        self.assertEqual(log_export.normalize_scope(" text "), "text")
+        for bad in (None, "", "bogus", "../full", "text;rm -rf"):
+            with self.subTest(bad=bad):
+                self.assertEqual(log_export.normalize_scope(bad), "full")
+
+    def test_describe_error_log_dir_full_counts_everything(self):
+        self._make_error_tree()
+        with self._patch_root():
+            data = log_export.describe_error_log_dir()
+
+        self.assertEqual(data["scope"], "full")
+        # alas/.../log.txt、alas/.../shot.png、小号/log.txt、stray.jpg
+        self.assertEqual(data["files"], 4)
+        self.assertGreater(data["bytes"], 0)
+        # 压缩估计不会超过原始体积（图片是 STORED，文本才压）
+        self.assertLess(data["estimate_bytes"], data["bytes"])
+        self.assertTrue(data["human_bytes"])
+        self.assertTrue(data["human_estimate"])
+
+    def test_describe_error_log_dir_text_scope_skips_images(self):
+        self._make_error_tree()
+        with self._patch_root():
+            full = log_export.describe_error_log_dir("full")
+            text = log_export.describe_error_log_dir("text")
+
+        self.assertEqual(text["scope"], "text")
+        self.assertEqual(text["files"], 2)  # 只算两个 log.txt
+        self.assertLess(text["bytes"], full["bytes"])
+
+    def test_describe_error_log_dir_missing_dir_raises(self):
+        (self.root / "log").mkdir(parents=True)
+        with self._patch_root():
+            with self.assertRaises(FileNotFoundError):
+                log_export.describe_error_log_dir()
+
+    def test_describe_error_log_dir_real_data_is_usable(self):
+        """真实 log/error 上跑一遍，确认统计口径与打包口径一致（无数据则跳过）。"""
+        real_dir = log_export.get_project_root() / "log" / "error"
+        has_data = real_dir.is_dir() and any(p.is_file() for p in real_dir.rglob("*"))
+        if not has_data:
+            self.skipTest("本机 log/error 无数据，跳过真实数据检查")
+
+        data = log_export.describe_error_log_dir()
+        self.assertGreater(data["files"], 0)
+        self.assertGreater(data["bytes"], 0)
+        text = log_export.describe_error_log_dir("text")
+        # 截图占大头，仅文本应该小得多
+        self.assertLessEqual(text["bytes"], data["bytes"])
+
+    def test_build_error_log_zip_text_scope_excludes_images(self):
+        self._make_error_tree()
+        with self._patch_root():
+            zip_path = log_export.build_error_log_zip("text")
+        self.addCleanup(zip_path.unlink, True)
+
+        with zipfile.ZipFile(zip_path) as archive:
+            names = archive.namelist()
+        self.assertIn("alas/1788282433215/log.txt", names)
+        self.assertIn("小号/log.txt", names)
+        self.assertNotIn("alas/1788282433215/shot.png", names)
+        self.assertNotIn("stray.jpg", names)
+
 
 class TestLogExportApi(unittest.TestCase):
     """远控可达性相关的关键行为：两个接口都不得被本机限制拦下。"""
@@ -300,6 +367,81 @@ class TestLogExportApi(unittest.TestCase):
             response = self.client.get("/api/log/error")
         self.assertEqual(response.status_code, 500)
 
+    # ---------- 导出前体积统计 ----------
+
+    def _info_payload(self):
+        return {
+            "scope": "full",
+            "files": 67,
+            "bytes": 24 * 1024 * 1024,
+            "estimate_bytes": 20 * 1024 * 1024,
+            "human_bytes": "24.0 MB",
+            "human_estimate": "20.0 MB",
+        }
+
+    def test_error_info_route_is_registered(self):
+        paths = {route.path for route in build_log_app().routes}
+        self.assertIn("/api/log/error/info", paths)
+
+    def test_error_info_returns_size_data(self):
+        with patch.object(
+            webui_api, "describe_error_log_dir", return_value=self._info_payload()
+        ) as probe:
+            response = self.client.get("/api/log/error/info?scope=full")
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()["data"]
+        self.assertEqual(data["files"], 67)
+        self.assertEqual(data["human_estimate"], "20.0 MB")
+        probe.assert_called_once_with("full")
+
+    def test_error_info_normalizes_unknown_scope(self):
+        with patch.object(
+            webui_api, "describe_error_log_dir", return_value=self._info_payload()
+        ) as probe:
+            self.client.get("/api/log/error/info?scope=../etc")
+
+        probe.assert_called_once_with("full")
+
+    def test_error_info_missing_dir_returns_404(self):
+        with patch.object(
+            webui_api,
+            "describe_error_log_dir",
+            side_effect=FileNotFoundError("no dir"),
+        ):
+            response = self.client.get("/api/log/error/info")
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(response.json()["success"])
+
+    # ---------- 仅日志文本的轻量导出 ----------
+
+    def test_error_archive_text_scope_uses_scope_and_names_file(self):
+        zip_path = self.root / "text.zip"
+        with zipfile.ZipFile(zip_path, "w") as archive:
+            archive.writestr("alas/log.txt", "boom")
+
+        with patch.object(
+            webui_api, "build_error_log_zip", return_value=zip_path
+        ) as builder:
+            response = self.client.get("/api/log/error?scope=text")
+
+        builder.assert_called_once_with("text")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("AzurPilot-error-logs-text-", response.headers["content-disposition"])
+        self.assertFalse(zip_path.exists())
+
+    def test_error_archive_defaults_to_full_scope(self):
+        zip_path = self.root / "full.zip"
+        with zipfile.ZipFile(zip_path, "w") as archive:
+            archive.writestr("alas/log.txt", "boom")
+
+        with patch.object(
+            webui_api, "build_error_log_zip", return_value=zip_path
+        ) as builder:
+            self.client.get("/api/log/error")
+
+        builder.assert_called_once_with("full")
+
 
 class TestLogExportPanel(unittest.TestCase):
     """工具页面板与设置页按钮位置：锁住用户明确要求的界面形态。"""
@@ -323,6 +465,7 @@ class TestLogExportPanel(unittest.TestCase):
             "log-export-instance",
             "log-export-runtime",
             "log-export-error",
+            "log-export-error-text",
             "log-export-status",
         ):
             self.assertIn(element_id, html)
@@ -338,6 +481,17 @@ class TestLogExportPanel(unittest.TestCase):
         self.assertIn("/api/log/error", js)
         # 远控：query 与 path 两种取法都要在
         self.assertIn("/api/log/runtime/' + enc", js)
+
+    def test_panel_queries_real_size_before_exporting(self):
+        """点导出前必须先查真实体积，并把文件数/大小填进确认框。"""
+        _, js = self._render_panel("alas")
+        self.assertIn("/api/log/error/info?scope=", js)
+        self.assertIn("formatConfirm", js)
+        self.assertIn("human_bytes", js)
+        self.assertIn("human_estimate", js)
+        self.assertIn("scope === 'text'", js)
+        # 统计失败也要能继续导出，不能把功能卡死
+        self.assertIn("text.confirm", js)
 
     def test_panel_js_is_valid_javascript(self):
         _, js = self._render_panel("alas")
@@ -387,6 +541,80 @@ class TestDeploySettingLayout(unittest.TestCase):
             "deploy-setting-status",
         ):
             self.assertIn(f"getElementById('{element_id}')", self.source)
+
+
+class TestLogExportI18n(unittest.TestCase):
+    """锁住 Gui.LogExport 的 5 语言文案。
+
+    两条容易踩的坑：
+    1. 文案只在 i18n JSON 里改是不够的 —— 键必须声明在
+       module/config/argument/gui.yaml，否则下一次 config_updater 会把它整体抹掉。
+    2. t() 会对取到的字符串执行 .format()，运行时占位符必须写成 {{files}} 双花括号，
+       写成单花括号会在渲染界面时抛 KeyError。
+    """
+
+    LANGUAGES = ("zh-CN", "en-US", "ja-JP", "zh-TW", "zh-MIAO")
+    KEYS = (
+        "Title",
+        "InstanceLabel",
+        "RuntimeLog",
+        "ErrorLogs",
+        "ErrorLogsText",
+        "Pending",
+        "Packing",
+        "Started",
+        "Failed",
+        "NoInstance",
+        "Confirm",
+        "ConfirmSize",
+        "InfoLoading",
+        "NoFiles",
+    )
+    I18N_DIR = PROJECT_ROOT / "module" / "config" / "i18n"
+    GUI_YAML = PROJECT_ROOT / "module" / "config" / "argument" / "gui.yaml"
+
+    def _group(self, lang):
+        data = json.loads((self.I18N_DIR / f"{lang}.json").read_text(encoding="utf-8"))
+        return data["Gui"]["LogExport"]
+
+    def test_all_languages_have_full_key_set(self):
+        for lang in self.LANGUAGES:
+            with self.subTest(lang=lang):
+                group = self._group(lang)
+                missing = [key for key in self.KEYS if not group.get(key)]
+                self.assertEqual(missing, [], f"{lang} 缺少或为空的键")
+
+    def test_keys_are_declared_in_gui_yaml(self):
+        """gui.yaml 是 i18n 的唯一真源，缺声明就会被 config_updater 抹掉。"""
+        declared = set()
+        in_block = False
+        for line in self.GUI_YAML.read_text(encoding="utf-8").splitlines():
+            if line.startswith("LogExport:"):
+                in_block = True
+                continue
+            if in_block:
+                if line and not line.startswith("  "):
+                    break
+                stripped = line.strip().rstrip(":")
+                if stripped:
+                    declared.add(stripped)
+        missing = [key for key in self.KEYS if key not in declared]
+        self.assertEqual(missing, [], "gui.yaml 未声明这些键")
+
+    def test_confirm_size_uses_doubled_braces(self):
+        """单花括号会让 t() 的 .format() 抛 KeyError。"""
+        for lang in self.LANGUAGES:
+            with self.subTest(lang=lang):
+                raw = self._group(lang)["ConfirmSize"]
+                try:
+                    formatted = raw.format()
+                except (KeyError, IndexError) as e:
+                    self.fail(f"{lang} 的 ConfirmSize 含单花括号占位符，t() 会炸: {e}")
+                # 双花括号被 .format() 还原成单花括号，交给前端替换
+                for token in ("{files}", "{size}", "{zip}"):
+                    self.assertIn(token, formatted)
+                # 证明原文确实是双花括号（否则 formatted 会与 raw 相同）
+                self.assertNotEqual(raw, formatted)
 
 
 if __name__ == "__main__":
