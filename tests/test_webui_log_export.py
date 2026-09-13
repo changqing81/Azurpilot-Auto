@@ -740,8 +740,9 @@ class TestLogExportPanel(unittest.TestCase):
             self.skipTest("本机 alas 无运行日志，跳过日期选项检查")
         for date in dates:
             self.assertIn(f'<option value="{date}">', html)
-        # 当天那项带"（今天）"标注
-        self.assertIn(f'{today_str()}（', html)
+        # 当天那项带"（今天）"标注；本机当天尚未产生日志时下拉里自然没有今天
+        if today_str() in dates:
+            self.assertIn(f'{today_str()}（', html)
 
     def test_panel_refreshes_dates_on_instance_change(self):
         _, js = self._render_panel("alas")
