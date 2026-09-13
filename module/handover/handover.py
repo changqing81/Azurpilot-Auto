@@ -100,7 +100,8 @@ HANDOVER_MAINTAIN_API = 'https://api-blhx-maintain.nanoda.work/api/maintenance'
 HANDOVER_MAINTAIN_TIMEZONE = re.compile(r'^UTC([+-])(\d{1,2})(?::?(\d{2}))?$')
 # 维护开始前多久跑最后一次作战委托
 HANDOVER_MAINTAIN_LEAD_MINUTES = 10
-# 委托次数为 0、只等维护时，多久查一次接口（公告不会秒变，隔久点查就够了）
+# 委托次数为 0、只等维护时，这次没查到公告就隔这么久再查一次。
+# 查到了就不必重复查——今天有没有维护是确定的，下次运行直接排到第二天 0 点
 HANDOVER_MAINTAIN_CHECK_MINUTES = 120
 # 委托结束时间的初始值，表示脚本手上没有开过委托
 HANDOVER_COMMISSION_NONE = datetime(2020, 1, 1)
@@ -129,7 +130,7 @@ class OperationHandover(CampaignRun):
         use_book = self.config.OperationHandover_UseHandoverBook
         oil_limit = self.config.OperationHandover_OilLimit
         consume_all, reason = self.handover_consume_all_book_state()
-        maintain, maintain_reason = self.handover_maintain_state()
+        maintain, maintain_reason, maintain_queried = self.handover_maintain_state()
         # 维护当天从 0 点起就整体切到维护模式：忽略「委托次数」和「一键消耗委托书」，
         # 下一次运行只排到维护前 HANDOVER_MAINTAIN_LEAD_MINUTES 分钟那一次。
         # 维护已经开始的当天不再算维护模式，免得一直重启游戏
@@ -177,7 +178,7 @@ class OperationHandover(CampaignRun):
                     return
                 if commission_end <= HANDOVER_COMMISSION_NONE:
                     # 手上根本没有委托，按定时功能排下一次运行
-                    self.handover_idle_delay(maintain)
+                    self.handover_idle_delay(maintain, maintain_queried)
                     return
                 logger.info('[作战委托] 委托次数为 0，上一次委托做完了，进去领取奖励')
 
@@ -202,7 +203,7 @@ class OperationHandover(CampaignRun):
         # 委托次数为 0 又没有定时功能要跑：奖励领完就收工，不开新委托
         if count <= 0 and not maintain_run and not consume_all:
             self.handover_commission_clear()
-            self.handover_idle_delay(maintain)
+            self.handover_idle_delay(maintain, maintain_queried)
             return
 
         if claimed:
@@ -239,7 +240,8 @@ class OperationHandover(CampaignRun):
             if book == 0:
                 # 手上没有可投入的委托书，本周的一键消耗再试也不会有结果
                 self.handover_close_panel()
-                self.handover_consume_all_book_give_up('没有可投入的作战全权委托书', maintain)
+                self.handover_consume_all_book_give_up('没有可投入的作战全权委托书', maintain,
+                                                       maintain_queried)
                 return
         else:
             self.handover_set_count(count)
@@ -272,7 +274,7 @@ class OperationHandover(CampaignRun):
             self.handover_close_panel()
             if consume_all and not maintain_run:
                 # 面板上算出来的油耗摆在这，等几十分钟也凑不出这一次的消耗
-                self.handover_consume_all_book_give_up('石油不足', maintain)
+                self.handover_consume_all_book_give_up('石油不足', maintain, maintain_queried)
             else:
                 self.handover_delay()
             return
@@ -801,14 +803,17 @@ class OperationHandover(CampaignRun):
         返回时间，好让调用方区分「今天没事了」和「等维护」。
 
         Returns:
-            tuple[datetime.datetime | None, str]: (今天的维护开始时间, 原因)。
+            tuple[datetime.datetime | None, str, bool]:
+                (今天的维护开始时间, 原因, 这次有没有成功查到公告)。
+                没查到公告时第三个值为 False，调用方应过一会儿再查，而不是当成
+                「今天没有维护」直接等到明天。
         """
         if not self.config.OperationHandover_MaintainOverride:
-            return None, '开关未开启'
+            return None, '开关未开启', False
 
         payload, default, error = self.handover_maintain_query()
         if payload is None:
-            return None, error
+            return None, error, False
 
         try:
             start = datetime.strptime(
@@ -817,7 +822,7 @@ class OperationHandover(CampaignRun):
         except ValueError:
             logger.warning(f'[作战委托] 维护公告时间无法识别，按不维护处理: '
                            f"{payload.get('maintenance_date')} {payload.get('start_time')}")
-            return None, '维护公告时间无法识别'
+            return None, '维护公告时间无法识别', False
 
         # 服务器本地时间 → 本机时间，后续调度用的都是本机时间
         offset = self.handover_maintain_timezone(payload, default)
@@ -826,14 +831,14 @@ class OperationHandover(CampaignRun):
         now = current_time()
         if start.date() != now.date():
             if start < now:
-                return None, f'{start} 已经过去'
-            return None, f'下次维护 {start}，不是今天'
+                return None, f'{start} 已经过去', True
+            return None, f'下次维护 {start}，不是今天', True
         if start <= now:
-            return start, f'今天 {start} 的维护已经过去'
+            return start, f'今天 {start} 的维护已经过去', True
 
         name = payload.get('name') or self.config.SERVER
         return start, (f'今天 {start} 停服维护（{name}），'
-                       f'维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟运行')
+                       f'维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟运行'), True
 
     def handover_commission_end(self):
         """脚本上一次开的委托预计什么时候结束。
@@ -863,14 +868,17 @@ class OperationHandover(CampaignRun):
         """清掉委托结束时间，表示手上已经没有委托了。"""
         self.config.OperationHandover_CommissionEnd = HANDOVER_COMMISSION_NONE
 
-    def handover_idle_time(self, maintain):
+    def handover_idle_time(self, maintain, maintain_queried=True):
         """委托次数为 0、手上没有委托时，下一次该在什么时候看一眼。
 
-        两头取早的：一键消耗的触发时刻，以及维护检查（今天已经维护过就等明天，
-        否则 HANDOVER_MAINTAIN_CHECK_MINUTES 分钟后再查一次）。
+        两头取早的：一键消耗的触发时刻，以及维护检查。维护检查成功查到公告、
+        今天又没有还没开始的维护时，今天就不必再看，排到第二天 0 点；
+        没查到公告（网络失败、接口没有该服数据）才隔
+        HANDOVER_MAINTAIN_CHECK_MINUTES 分钟重试。
 
         Args:
             maintain (datetime.datetime | None): 今天的维护开始时间，没有则为 None。
+            maintain_queried (bool): 这次有没有成功查到维护公告。
 
         Returns:
             datetime.datetime | None: 下一次运行时间；两个开关都没开时返回 None。
@@ -884,8 +892,8 @@ class OperationHandover(CampaignRun):
                 candidates.append(target)
 
         if self.config.OperationHandover_MaintainOverride:
-            if maintain is not None:
-                # 今天已经维护过了，今天没什么可看，明天再查
+            if maintain_queried:
+                # 公告查到了，今天要么没有维护、要么维护已经开始，今天不用再看
                 candidates.append(
                     (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0))
             else:
@@ -895,13 +903,14 @@ class OperationHandover(CampaignRun):
             return None
         return min(candidates)
 
-    def handover_idle_delay(self, maintain):
+    def handover_idle_delay(self, maintain, maintain_queried=True):
         """委托次数为 0、手上没有委托时，把下一次运行排到该看的时间点。
 
         Args:
             maintain (datetime.datetime | None): 今天的维护开始时间，没有则为 None。
+            maintain_queried (bool): 这次有没有成功查到维护公告。
         """
-        target = self.handover_idle_time(maintain)
+        target = self.handover_idle_time(maintain, maintain_queried)
         if target is None:
             logger.warning('[作战委托] 委托次数为 0，但读不到下一次运行时间，按普通间隔重试')
             self.handover_delay()
@@ -1010,16 +1019,18 @@ class OperationHandover(CampaignRun):
         """记下本周的一键消耗不用再试了。
 
         记录同时覆盖两种收场：真的把委托书消耗掉了，以及触发时手上没有可投入的
-        委托书——后者本周再试也不会有结果。
+        委托书——后者本周再试也不会有结果。存的是执行时刻（配置项里可见、可改），
+        判断「是不是本周」时再还原成周 key。
 
         Args:
             reason (str): 收场方式，写进日志。
         """
-        week = self.handover_week_key(current_time())
-        self.config.OperationHandover_ConsumeAllBookRecord = week
-        logger.info(f'[作战委托] 本周一键消耗委托书{reason}，记录 {week}')
+        now = current_time().replace(microsecond=0)
+        self.config.OperationHandover_ConsumeAllBookRecord = now
+        logger.info(f'[作战委托] 本周一键消耗委托书{reason}，'
+                    f'记录 {now}（{self.handover_week_key(now)}）')
 
-    def handover_consume_all_book_give_up(self, reason, maintain=None):
+    def handover_consume_all_book_give_up(self, reason, maintain=None, maintain_queried=True):
         """一键消耗开不成委托，而且当天再试也没有意义：本周不再尝试。
 
         作战全权委托书不会当天补货，石油也不像能靠等几十分钟凑齐，所以不按
@@ -1029,12 +1040,13 @@ class OperationHandover(CampaignRun):
         Args:
             reason (str): 放弃本周的原因，写进日志。
             maintain (datetime.datetime | None): 今天的维护开始时间，没有则为 None。
+            maintain_queried (bool): 这次有没有成功查到维护公告。
         """
         logger.warning(f'[作战委托] 一键消耗委托书{reason}，本周不再尝试')
         self.handover_consume_all_book_record(reason)
         # 走到这里说明上一次的委托已经不在了（还在做会从上面的 HANDOVER_STOP_CHECK 返回）
         self.handover_commission_clear()
-        self.handover_idle_delay(maintain)
+        self.handover_idle_delay(maintain, maintain_queried)
 
     def handover_oil_cost(self):
         """识别面板上的「预计消耗」石油数量。

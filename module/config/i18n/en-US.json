@@ -1443,8 +1443,8 @@
       "help": "Postpone the task while oil is below this value, resume when oil is enough\n0 to disable"
     },
     "ConsumeAllBookRecord": {
-      "name": "Trigger record",
-      "help": "Which week it was last triggered, managed by the script"
+      "name": "Last consume time",
+      "help": "When the Handover Books were last consumed.\nIf it falls in the current week, the weekly consume will not trigger again.\nClear it or set it to last week or earlier to let it run again this week"
     },
     "CommissionEnd": {
       "name": "Commission end time",

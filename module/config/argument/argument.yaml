@@ -453,10 +453,10 @@ OperationHandover:
   OilLimit:
     value: 1000
     validate: [0, 999999]
-  ConsumeAllBookRecord:
-    type: stored
-    value: ""
-    display: hide
+  # 一键消耗上一次实际执行的时间。落在本周内就表示本周不用再触发，
+  # 清空或改成上周及更早会让本周的一键消耗重新生效。用可见的 datetime
+  # 而不是隐藏的 stored，就是为了能手动改这个状态
+  ConsumeAllBookRecord: 2020-01-01 00:00:00
   CommissionEnd:
     type: stored
     value: "2020-01-01 00:00:00"
