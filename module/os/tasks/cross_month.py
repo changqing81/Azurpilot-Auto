@@ -12,6 +12,7 @@
 - OSMap 大世界地图操作经由继承链获得
 """
 
+from contextlib import contextmanager
 from datetime import timedelta
 
 from module.config.config import TaskEnd
@@ -28,14 +29,34 @@ class OpsiCrossMonth(OpsiScheduling):
         self.config.task_delay(target=get_os_next_reset() - timedelta(minutes=10))
         self.config.task_stop()
 
-    def os_cross_month(self):
-        # 本任务及子任务链路（clear_obscure / handle_action_point 等）会写入大量
-        # config.override 强制覆盖：它按属性名全局生效、进程内不会自动恢复，
-        # 不清理会泄漏给同进程后续任务（如耄耋相接保留值被归零、
-        # 买行动力上限被清零、舰队设置被替换）。结束/失败时统一恢复快照。
+    @contextmanager
+    def _os_cross_month_guard(self):
+        """跨月流程的 override 快照保护。
+
+        本任务及子任务链路（clear_obscure / handle_action_point / os_init 等）
+        会写入大量 config.override 强制覆盖：它按属性名全局生效、进程内不会
+        自动恢复，不清理会泄漏给同进程后续任务（如耄耋相接保留值被归零、
+        买行动力上限被清零、舰队设置被替换）。退出时统一恢复快照。
+        """
         overridden_backup = dict(self.config.overridden)
         try:
-            self._os_cross_month()
+            yield
+        finally:
+            try:
+                if self.config.overridden != overridden_backup:
+                    self.config.overridden.clear()
+                    self.config.overridden.update(overridden_backup)
+                    # _disable_task_switch 不是配置路径，bind 不会恢复，需手动复位
+                    self.config._disable_task_switch = False
+                    self.config.bind(self.config.task)
+                    logger.info('[跨月每日] 已恢复 override 强制覆盖快照，避免泄漏到后续任务')
+            except Exception as restore_e:
+                logger.warning(f'[跨月每日] 恢复 override 快照失败: {restore_e}')
+
+    def os_cross_month(self):
+        try:
+            with self._os_cross_month_guard():
+                self._os_cross_month()
         except TaskEnd:
             # 正常结束（os_cross_month_end / task_stop），放行给调度器
             raise
@@ -50,17 +71,6 @@ class OpsiCrossMonth(OpsiScheduling):
             logger.exception(e)
             self._notify_cross_month_failed(e)
             self._cross_month_fail_handover()
-        finally:
-            try:
-                if self.config.overridden != overridden_backup:
-                    self.config.overridden.clear()
-                    self.config.overridden.update(overridden_backup)
-                    # _disable_task_switch 不是配置路径，bind 不会恢复，需手动复位
-                    self.config._disable_task_switch = False
-                    self.config.bind(self.config.task)
-                    logger.info('[跨月每日] 已恢复 override 强制覆盖快照，避免泄漏到后续任务')
-            except Exception as restore_e:
-                logger.warning(f'[跨月每日] 恢复 override 快照失败: {restore_e}')
 
     def _cross_month_fail_handover(self):
         """跨月失败后的交接：规划下次运行时间并结束本任务，交给调度器继续。"""
@@ -75,6 +85,31 @@ class OpsiCrossMonth(OpsiScheduling):
             logger.info('跨月每日失败交接：仍在等待窗口，推迟到重置后再规划')
             self.config.task_delay(target=next_reset + timedelta(minutes=10))
             self.config.task_stop()
+
+    def os_cross_month_debug(self, skip_daily=False):
+        """调试预演入口（由 module.debug.cross_month_debug 调用）。
+
+        把今天当成跨月时刻：跳过时间检查与等待重置，真机执行
+        大世界初始化 → 每日+（可选）→ 塞壬要塞 → 隐秘/深渊/耄耋清理 → 推送。
+        预演不修改任务调度：不写 NextRun、不调用 task_stop。
+
+        Args:
+            skip_daily (bool): True 跳过每日+阶段，只验证塞壬要塞及后续清理。
+        """
+        logger.hr('跨月每日调试预演', level=1)
+        logger.warning('预演将真实操作游戏：可能消耗行动力/仓库道具，并按推送开关发送真实通知')
+        try:
+            with self._os_cross_month_guard():
+                self.os_init()
+                self._os_cross_month_enter_context()
+                if skip_daily:
+                    logger.info('按参数跳过大世界每日+阶段')
+                else:
+                    self._os_cross_month_daily()
+                self._os_cross_month_clear_action_point(force=True)
+        except TaskEnd:
+            logger.info('[跨月每日] 预演结束（捕获 task_stop）')
+        logger.hr('跨月每日调试预演结束，任务调度未受影响', level=1)
 
     def _os_cross_month(self):
         next_reset = get_os_next_reset()
@@ -106,12 +141,23 @@ class OpsiCrossMonth(OpsiScheduling):
 
         logger.hr('跨月每日处理大世界重置', level=3)
 
+        self._os_cross_month_enter_context()
+        self._os_cross_month_daily()
+
+        # 跨月每日完成后，清理多余行动力
+        self._os_cross_month_clear_action_point()
+        self.os_cross_month_end()
+
+    def _os_cross_month_enter_context(self):
+        """进入跨月处理上下文：屏蔽每月开荒判断，禁用任务切换检查。"""
         def false_func(*args, **kwargs):
             return False
 
         self.is_in_opsi_explore = false_func
         self.config.override(_disable_task_switch=True)
 
+    def _os_cross_month_daily(self):
+        """阶段一：接取并完成大世界每日+。"""
         logger.hr('跨月每日清理大世界每日+', level=1)
         self.config.override(
             OpsiGeneral_DoRandomMapEvent=True,
@@ -145,13 +191,16 @@ class OpsiCrossMonth(OpsiScheduling):
         self._os_cross_month_clear_action_point()
         self.os_cross_month_end()
 
-    def _os_cross_month_clear_action_point(self):
+    def _os_cross_month_clear_action_point(self, force=False):
         """跨月每日完成后，检查并清理多余行动力。
 
         行动力口径为总行动力（当前行动力 + 行动力箱子折算），与月末清理一致。
+
+        Args:
+            force (bool): 调试预演用，忽略清理开关强制执行；生产流程保持 False。
         """
         logger.hr('跨月每日检查剩余行动力', level=1)
-        if not self._config_enabled(keys='OpsiCrossMonth.OpsiCrossMonth.ActionPointCleanupEnable'):
+        if not force and not self._config_enabled(keys='OpsiCrossMonth.OpsiCrossMonth.ActionPointCleanupEnable'):
             logger.info('跨月后清理行动力已关闭，跳过清理')
             return
 
