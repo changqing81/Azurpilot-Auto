@@ -14,6 +14,8 @@ import json
 import threading
 import time
 import traceback
+from hashlib import sha256
+from pathlib import Path
 from queue import Queue
 from typing import Callable, Generator, List
 
@@ -498,6 +500,74 @@ def add_css(filepath):
     add_css_files((filepath,))
 
 
+_CSS_DIR = Path(__file__).resolve().parents[2] / "assets" / "gui" / "css"
+_CSS_FINGERPRINT_CACHE = (0.0, {}, "")
+
+
+def gui_css_fingerprint(max_age=1.0):
+    """计算 assets/gui/css 下全部 CSS 的内容指纹（带 1 秒缓存）。
+
+    Returns:
+        tuple[str, dict]: (整体指纹, {文件名: 单文件哈希})。
+    """
+    global _CSS_FINGERPRINT_CACHE
+    now = time.time()
+    cached_at, files, fingerprint = _CSS_FINGERPRINT_CACHE
+    if now - cached_at <= max_age and files:
+        return fingerprint, files
+    files = {}
+    if _CSS_DIR.is_dir():
+        for path in sorted(_CSS_DIR.glob("*.css")):
+            digest = sha256(path.read_bytes()).hexdigest()[:12]
+            files[path.name] = digest
+    fingerprint = sha256(
+        json.dumps(files, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:12]
+    _CSS_FINGERPRINT_CACHE = (now, files, fingerprint)
+    return fingerprint, files
+
+
+def _inject_css_watcher(fingerprint):
+    """注入 CSS 热更新监视脚本。
+
+    每个会话轮询指纹端点，样式文件变化时原地替换 <link> 的版本参数与
+    <style> 的内容，无需手动刷新页面。仅替换会话里已存在的标签，
+    不新增文件。
+    """
+    initial = json.dumps(fingerprint)
+    js = (
+        "(function(){"
+        "if(window.__alasCssWatcher) return;"
+        "window.__alasCssWatcher=true;"
+        "var current=%s;"
+        "setInterval(function(){"
+        "fetch('api/css-fingerprint',{cache:'no-store'})"
+        ".then(function(r){return r.json();})"
+        ".then(function(d){"
+        "if(d.fingerprint===current) return;"
+        "current=d.fingerprint;"
+        "Object.keys(d.files).forEach(function(name){"
+        "var v=d.files[name];"
+        "document.querySelectorAll('link[rel=stylesheet]').forEach(function(link){"
+        "if(link.href.indexOf('gui/css/'+name)!==-1&&link.href.indexOf('v='+v)===-1){"
+        "link.href=link.href.split('?')[0]+'?v='+v;"
+        "}"
+        "});"
+        "var id='alas-css-'+name.replace(/\\./g,'-');"
+        "var el=document.getElementById(id);"
+        "if(el){"
+        "fetch('static/assets/gui/css/'+name+'?v='+v,{cache:'no-store'})"
+        ".then(function(r){return r.text();})"
+        ".then(function(css){el.textContent=css;});"
+        "}"
+        "});"
+        "}).catch(function(){});"
+        "},2000);"
+        "})();"
+    ) % initial
+    run_js(js)
+
+
 def load_webui_styles(theme=None, is_mobile=None):
     """加载 WebUI 各入口共用的基础、响应式与主题样式。
 
@@ -533,6 +603,9 @@ def load_webui_styles(theme=None, is_mobile=None):
     styles.extend(theme_styles.get(theme, ("light-alas",)))
 
     add_css_files(filepath_css(name) for name in styles)
+    # 样式文件改动后自动热更新，不再需要手动刷新页面
+    fingerprint, _ = gui_css_fingerprint()
+    _inject_css_watcher(fingerprint)
 
 
 def _read(path):

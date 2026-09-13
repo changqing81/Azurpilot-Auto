@@ -115,6 +115,22 @@ def api_ap_timeline(request):
         logger.error(f"api_ap_timeline错误: {e}")
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
+
+def api_css_fingerprint(request):
+    """返回 GUI CSS 文件指纹，供前端轮询检测样式文件变化并热更新。
+
+    前端脚本由 load_webui_styles 注入，样式文件改动后原地替换
+    <link>/<style> 内容，无需手动刷新页面。
+    """
+    try:
+        from module.webui.utils import gui_css_fingerprint
+        fingerprint, files = gui_css_fingerprint()
+        return JSONResponse({"fingerprint": fingerprint, "files": files})
+    except Exception as e:
+        logger.error(f"api_css_fingerprint错误: {e}")
+        return JSONResponse({"fingerprint": "", "files": {}}, status_code=500)
+
+
 def serve_obs_overlay(request):
     """
     提供OBS专用覆盖层页面
@@ -1926,6 +1942,8 @@ api_routes = [
     Route("/api/log/error/info", api_log_error_info),
     Route("/api/log/error/info/{scope}", api_log_error_info),
     Route("/api/log/error/{scope}", api_log_error_archive),
+    # CSS 热更新指纹：供前端轮询，样式文件改动后原地刷新，无需手动刷新页面
+    Route("/api/css-fingerprint", api_css_fingerprint),
     Route("/obs", serve_obs_overlay),
     WebSocketRoute("/ws/live_screenshot", ws_live_screenshot),
     WebSocketRoute("/ws/live_control", ws_live_control),
