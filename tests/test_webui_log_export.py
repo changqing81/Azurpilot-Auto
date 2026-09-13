@@ -366,6 +366,12 @@ class TestLogExportApi(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name)
         self.client = TestClient(build_log_app())
+        # 实例列表固定，不依赖本机 ./config/ 里恰好有哪些实例（CI 上只有 ap）
+        patcher = patch(
+            "module.config.utils.alas_instance", return_value=["alas", "alas2"]
+        )
+        self.instances = patcher.start()
+        self.addCleanup(patcher.stop)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -687,6 +693,15 @@ class TestLogExportApi(unittest.TestCase):
 class TestLogExportPanel(unittest.TestCase):
     """工具页面板与设置页按钮位置：锁住用户明确要求的界面形态。"""
 
+    def setUp(self):
+        # 实例列表固定，不依赖本机 ./config/ 里恰好有哪些实例（CI 上只有 ap）
+        patcher = patch(
+            "module.webui.app_developer_tools.alas_instance",
+            return_value=["alas", "alas2"],
+        )
+        self.instances = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def _render_panel(self, alas_name):
         import module.webui.app_developer_tools as tools
 
@@ -711,11 +726,8 @@ class TestLogExportPanel(unittest.TestCase):
             "log-export-status",
         ):
             self.assertIn(element_id, html)
-        # 下拉来自真实实例列表，当前实例默认选中
-        from module.config.utils import alas_instance
-
-        instances = alas_instance()
-        for name in instances:
+        # 下拉来自实例列表（setUp 中固定），当前实例默认选中
+        for name in self.instances.return_value:
             self.assertIn(f'value="{name}"', html)
         self.assertIn('value="alas" selected', html)
 
@@ -784,9 +796,7 @@ class TestLogExportPanel(unittest.TestCase):
 
     def test_panel_falls_back_to_first_instance_without_current(self):
         html, _ = self._render_panel("")
-        from module.config.utils import alas_instance
-
-        first = alas_instance()[0]
+        first = self.instances.return_value[0]
         self.assertIn(f'value="{first}" selected', html)
 
 
