@@ -29,6 +29,11 @@ class OpsiCrossMonth(OpsiScheduling):
         self.config.task_stop()
 
     def os_cross_month(self):
+        # 本任务及子任务链路（clear_obscure / handle_action_point 等）会写入大量
+        # config.override 强制覆盖：它按属性名全局生效、进程内不会自动恢复，
+        # 不清理会泄漏给同进程后续任务（如耄耋相接保留值被归零、
+        # 买行动力上限被清零、舰队设置被替换）。结束/失败时统一恢复快照。
+        overridden_backup = dict(self.config.overridden)
         try:
             self._os_cross_month()
         except TaskEnd:
@@ -45,6 +50,17 @@ class OpsiCrossMonth(OpsiScheduling):
             logger.exception(e)
             self._notify_cross_month_failed(e)
             self._cross_month_fail_handover()
+        finally:
+            try:
+                if self.config.overridden != overridden_backup:
+                    self.config.overridden.clear()
+                    self.config.overridden.update(overridden_backup)
+                    # _disable_task_switch 不是配置路径，bind 不会恢复，需手动复位
+                    self.config._disable_task_switch = False
+                    self.config.bind(self.config.task)
+                    logger.info('[跨月每日] 已恢复 override 强制覆盖快照，避免泄漏到后续任务')
+            except Exception as restore_e:
+                logger.warning(f'[跨月每日] 恢复 override 快照失败: {restore_e}')
 
     def _cross_month_fail_handover(self):
         """跨月失败后的交接：规划下次运行时间并结束本任务，交给调度器继续。"""
@@ -139,7 +155,11 @@ class OpsiCrossMonth(OpsiScheduling):
             logger.info('跨月后清理行动力已关闭，跳过清理')
             return
 
-        preserve = int(self.config.OpsiCrossMonth_ActionPointPreserve or 0)
+        try:
+            preserve = int(self.config.OpsiCrossMonth_ActionPointPreserve or 0)
+        except (TypeError, ValueError):
+            logger.warning('跨月清理行动力保留值配置无效，回退默认值 50')
+            preserve = 50
         self.zone_init()
         total_ap, current_ap = self._get_scheduling_action_point(force_refresh=True)
         logger.attr('跨月后总行动力', total_ap)
@@ -220,10 +240,13 @@ class OpsiCrossMonth(OpsiScheduling):
     # ==================== 推送 ====================
 
     def _notify_cross_month(self, title, content):
-        """发送跨月任务推送，受 OpsiCrossMonth.PushNotify 开关控制。"""
-        if not self._config_enabled(keys='OpsiCrossMonth.OpsiCrossMonth.PushNotify'):
-            return False
+        """发送跨月任务推送，受 OpsiCrossMonth.PushNotify 开关控制。
+
+        整体兜底异常：推送自身失败不允许打断失败交接流程。
+        """
         try:
+            if not self._config_enabled(keys='OpsiCrossMonth.OpsiCrossMonth.PushNotify'):
+                return False
             return self._send_opsi_notification(title, content, log_tag='[大世界-跨月每日]')
         except Exception as e:
             logger.error(f'跨月每日推送发送异常: {e}')
