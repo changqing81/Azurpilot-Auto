@@ -468,6 +468,20 @@ Stat:
   LoadResourceDataFailed:
   NoResourceData:
   NoValidResourceData:
+  DeltaPeriodDay:
+  DeltaPeriodWeek:
+  DeltaPeriodMonth:
+  DeltaPeriodTotal:
+  DeltaChartTitle:
+  DeltaSummaryTitle:
+  ConsumptionRankingTitle:
+  DeltaResource:
+  DeltaIncrease:
+  DeltaDecrease:
+  DeltaNet:
+  DeltaTotalConsumed:
+  NoDeltaData:
+  LoadDeltaDataFailed:
 
 Tactical:
   SkillAutoSwitch:

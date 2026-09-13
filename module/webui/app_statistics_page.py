@@ -43,6 +43,7 @@ class StatisticsPageMixin(WebUIMixinBase):
                 self.cleanup_client_resources(
                     "__apChartCleanups",
                     "__resourceChartCleanups",
+                    "__resourceDeltaChartCleanups",
                 )
 
             with use_scope("statistics-content", clear=True):
@@ -61,6 +62,7 @@ class StatisticsPageMixin(WebUIMixinBase):
                 put_scope("ap_chart", [])
                 put_scope("opsi_stats", [])
                 put_scope("commission_income", [])
+                put_scope("resource_delta", [])
                 put_scope("ship_exp_table", [])
                 put_scope("resource_chart", [])
 
@@ -132,6 +134,7 @@ class StatisticsPageMixin(WebUIMixinBase):
         self._render_ap_chart()
         self._render_resource_chart()
         self._render_opsi_stats()
+        self._render_resource_delta()
         self._render_ship_exp()
         self._render_commission_income()
 
@@ -148,6 +151,8 @@ class StatisticsPageMixin(WebUIMixinBase):
             project_root / "config" / "cl1_data.db-wal",
             project_root / "config" / "azurstats_local.db",
             project_root / "config" / "azurstats_local.db-wal",
+            project_root / "config" / "resource_delta.db",
+            project_root / "config" / "resource_delta.db-wal",
             project_root / "log" / "cl1" / instance_name / "ship_exp_data.json",
         )
         return date.today().isoformat(), tuple(

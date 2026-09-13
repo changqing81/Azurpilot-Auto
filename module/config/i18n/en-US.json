@@ -6818,7 +6818,21 @@
       "ResourceChartTitle": "All Resources Trend",
       "LoadResourceDataFailed": "Failed to load resource data: {e}",
       "NoResourceData": "No resource data yet. It will be recorded automatically when the script runs.",
-      "NoValidResourceData": "No valid resource data"
+      "NoValidResourceData": "No valid resource data",
+      "DeltaPeriodDay": "Day",
+      "DeltaPeriodWeek": "Week",
+      "DeltaPeriodMonth": "Month",
+      "DeltaPeriodTotal": "Total",
+      "DeltaChartTitle": "Resource Delta Trend",
+      "DeltaSummaryTitle": "Delta Summary",
+      "ConsumptionRankingTitle": "Consumption Ranking",
+      "DeltaResource": "Resource",
+      "DeltaIncrease": "Increase",
+      "DeltaDecrease": "Decrease",
+      "DeltaNet": "Net",
+      "DeltaTotalConsumed": "Total consumed {total}",
+      "NoDeltaData": "No resource delta data yet. It will be recorded automatically when the script runs.",
+      "LoadDeltaDataFailed": "Failed to load resource delta data: {e}"
     },
     "Tactical": {
       "SkillAutoSwitch": "Skill Auto Switch"

@@ -6818,7 +6818,21 @@
       "ResourceChartTitle": "全资源变化趋势喵",
       "LoadResourceDataFailed": "加载资源数据失败喵: {e}",
       "NoResourceData": "暂无资源变化数据喵，运行脚本后将自动记录喵",
-      "NoValidResourceData": "暂无有效资源数据喵"
+      "NoValidResourceData": "暂无有效资源数据喵",
+      "DeltaPeriodDay": "日喵",
+      "DeltaPeriodWeek": "周喵",
+      "DeltaPeriodMonth": "月喵",
+      "DeltaPeriodTotal": "总喵",
+      "DeltaChartTitle": "资源增减趋势喵",
+      "DeltaSummaryTitle": "增减汇总喵",
+      "ConsumptionRankingTitle": "消耗排行榜喵",
+      "DeltaResource": "资源",
+      "DeltaIncrease": "增加",
+      "DeltaDecrease": "消耗",
+      "DeltaNet": "净变化喵",
+      "DeltaTotalConsumed": "总消耗 {total} 喵",
+      "NoDeltaData": "暂无资源增减数据喵，运行脚本后将自动记录喵",
+      "LoadDeltaDataFailed": "加载资源增减数据失败喵: {e}"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自动切换喵"

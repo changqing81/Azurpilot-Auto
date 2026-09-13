@@ -6818,7 +6818,21 @@
       "ResourceChartTitle": "全資源變化趨勢",
       "LoadResourceDataFailed": "加載資源數據失敗: {e}",
       "NoResourceData": "暫無資源變化數據，運行腳本後將自動記錄",
-      "NoValidResourceData": "暫無有效資源數據"
+      "NoValidResourceData": "暫無有效資源數據",
+      "DeltaPeriodDay": "日",
+      "DeltaPeriodWeek": "週",
+      "DeltaPeriodMonth": "月",
+      "DeltaPeriodTotal": "總",
+      "DeltaChartTitle": "資源增減趨勢",
+      "DeltaSummaryTitle": "增減彙總",
+      "ConsumptionRankingTitle": "消耗排行榜",
+      "DeltaResource": "資源",
+      "DeltaIncrease": "增加",
+      "DeltaDecrease": "消耗",
+      "DeltaNet": "淨變化",
+      "DeltaTotalConsumed": "總消耗 {total}",
+      "NoDeltaData": "暫無資源增減數據，運行腳本後將自動記錄",
+      "LoadDeltaDataFailed": "載入資源增減數據失敗: {e}"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自動切換"
