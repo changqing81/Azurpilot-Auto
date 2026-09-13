@@ -2956,7 +2956,8 @@
     "OpsiCrossMonth": {
       "ActionPointCleanupEnable": true,
       "ActionPointPreserve": 50,
-      "PushNotify": true
+      "PushNotify": true,
+      "RehearsalDebug": "off"
     },
     "Storage": {
       "Storage": {}

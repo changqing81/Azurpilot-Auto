@@ -3797,6 +3797,13 @@
     "PushNotify": {
       "name": "Push Cross-Month Daily Info",
       "help": "Push notifications when the cross-month daily finishes or fails, channels follow Opsi push settings."
+    },
+    "RehearsalDebug": {
+      "name": "Rehearsal Request (Dev Tools)",
+      "help": "Written by the cross-month rehearsal button on the developer tools page, reset to off after one run. Do not edit manually.",
+      "off": "Off",
+      "cleanup": "Cleanup only",
+      "full": "Full flow"
     }
   },
   "IslandPlan": {

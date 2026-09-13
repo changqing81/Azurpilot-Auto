@@ -14942,6 +14942,16 @@
       "PushNotify": {
         "type": "checkbox",
         "value": true
+      },
+      "RehearsalDebug": {
+        "type": "select",
+        "value": "off",
+        "option": [
+          "off",
+          "cleanup",
+          "full"
+        ],
+        "display": "hide"
       }
     },
     "Storage": {

@@ -258,6 +258,47 @@ class DeveloperToolsMixin(WebUIMixinBase):
             scope="develop_detail",
         )
 
+        def _cross_month_rehearsal(mode: str, label: str) -> None:
+            """向目标实例写入跨月预演请求，由实例调度器在空闲/启动时执行。"""
+            from module.config.deep import deep_set
+            from module.config.time_source import now as current_time
+
+            instance = _get_debug_target_instance()
+            if not instance:
+                toast("未找到可用实例，无法发起跨月预演", color="warning")
+                return
+            data = State.config_updater.read_file(instance)
+            deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", mode)
+            deep_set(data, "OpsiCrossMonth.Scheduler.Enable", True)
+            deep_set(
+                data,
+                "OpsiCrossMonth.Scheduler.NextRun",
+                current_time().strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            try:
+                State.config_updater.write_file(instance, data)
+            except Exception as e:
+                toast(f"写入跨月预演请求失败：{e}", color="error")
+                return
+            toast(
+                f"已向 {instance} 下发跨月每日预演（{label}）。\n"
+                "调度器运行中将在当前任务结束后执行；已停止则下次启动时执行。\n"
+                "预演会真实消耗行动力/仓库道具，并按推送开关发送通知。",
+                duration=8,
+                color="success",
+            )
+
+        put_buttons(
+            buttons=[
+                {"label": "跨月预演(仅清理)", "value": "cleanup", "color": "primary"},
+                {"label": "跨月预演(全流程)", "value": "full", "color": "primary"},
+            ],
+            onclick=lambda mode: _cross_month_rehearsal(
+                mode, "仅清理" if mode == "cleanup" else "全流程"
+            ),
+            scope="develop_detail",
+        )
+
         def _force_restart():
             if State.restart_event is None:
                 toast(t("Gui.Toast.ReloadEnabled"), color="error")

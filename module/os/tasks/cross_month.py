@@ -53,7 +53,43 @@ class OpsiCrossMonth(OpsiScheduling):
             except Exception as restore_e:
                 logger.warning(f'[跨月每日] 恢复 override 快照失败: {restore_e}')
 
+    def _consume_rehearsal_request(self):
+        """读取并清除开发者工具写入的预演请求。
+
+        Returns:
+            str | None: 'cleanup' 仅清理 / 'full' 完整流程 / None 无请求。
+        """
+        mode = self.config.cross_get(
+            keys='OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug', default='off')
+        if mode not in ('cleanup', 'full'):
+            return None
+        self.config.cross_set(
+            keys='OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug', value='off')
+        logger.info(f'[跨月每日] 检测到开发者工具预演请求: {mode}')
+        return mode
+
+    def _os_cross_month_rehearsal(self, mode):
+        """开发者工具触发的预演：真机执行调试流程后按常规重新规划调度。
+
+        Args:
+            mode (str): 'cleanup' 跳过每日+ / 'full' 完整流程。
+        """
+        try:
+            with self._os_cross_month_guard():
+                self.os_cross_month_debug(skip_daily=(mode == 'cleanup'))
+        except TaskEnd:
+            logger.info('[跨月每日] 预演结束')
+        except Exception as e:
+            logger.exception(e)
+            self._notify_cross_month_failed(e)
+        # 无论成败都按常规重新规划到下次重置前 10 分钟，不影响真实跨月执行
+        self.os_cross_month_end()
+
     def os_cross_month(self):
+        mode = self._consume_rehearsal_request()
+        if mode is not None:
+            self._os_cross_month_rehearsal(mode)
+            return
         try:
             with self._os_cross_month_guard():
                 self._os_cross_month()

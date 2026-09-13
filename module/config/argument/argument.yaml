@@ -1380,6 +1380,11 @@ OpsiCrossMonth:
   ActionPointPreserve: 50
   # 跨月每日完成或失败时推送通知，推送渠道遵循大世界推送设置
   PushNotify: true
+  # 调试预演请求：由开发者工具的跨月预演按钮写入，任务读取一次后自动复位为 off
+  RehearsalDebug:
+    value: "off"
+    option: [ "off", cleanup, full ]
+    display: hide
 
 # ==================== Island ====================
 IslandPlan:
