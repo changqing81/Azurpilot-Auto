@@ -358,7 +358,9 @@ class Retirement(Enhancement, QuickRetireSettingHandler):
 
         logger.info(f'[退役-一键] 退役总轮数: {total // 10}')
         # 拆卸装备的"获得物资"弹窗可能在 _retirement_confirm 退出后才延迟弹出，
-        # 残留弹窗会卡死后续流程（#838 #418），出现时补一遍确认流程
+        # 残留弹窗会卡死后续流程（#838 #418）。先刷新一次截图再检测，
+        # 覆盖确认流程超时退出后才弹出的窗口
+        self.device.screenshot()
         if self.appear(GET_ITEMS_1, offset=(30, 30)):
             logger.info('[退役-一键] 检测到残留的获得物资弹窗，补充确认')
             self._retirement_confirm()
