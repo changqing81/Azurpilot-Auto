@@ -794,8 +794,8 @@ Arguments:
                      adapted for war_archives usage
 """
 FILE = '../AzurLaneLuaScripts'
-FOLDER = './campaign/event_20260723_cn'
-KEYWORD = '6001'
+FOLDER = './campaign/event_20260908_cn'
+KEYWORD = '2060001'
 SELECT = True
 OVERWRITE = True
 IS_WAR_ARCHIVES = False
