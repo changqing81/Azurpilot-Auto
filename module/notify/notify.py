@@ -25,15 +25,17 @@ onepush.core.log = logger
 # 覆盖其 Provider.request，为所有推送请求注入默认超时，(连接超时, 读取超时)，单位秒。
 PUSH_REQUEST_TIMEOUT = (10, 30)
 
-_original_provider_request = Provider.request
+# 仅在未 patch 过时包装：模块被重复加载时 Provider.request 已是包装函数，
+# 二次包装会因模块 dict 原地更新导致原函数引用丢失、无限递归
+if not getattr(Provider.request, '_timeout_patched', False):
+    _original_provider_request = Provider.request
 
+    def _provider_request_with_timeout(method, url, **kwargs):
+        kwargs.setdefault('timeout', PUSH_REQUEST_TIMEOUT)
+        return _original_provider_request(method, url, **kwargs)
 
-def _provider_request_with_timeout(method, url, **kwargs):
-    kwargs.setdefault('timeout', PUSH_REQUEST_TIMEOUT)
-    return _original_provider_request(method, url, **kwargs)
-
-
-Provider.request = staticmethod(_provider_request_with_timeout)
+    _provider_request_with_timeout._timeout_patched = True
+    Provider.request = staticmethod(_provider_request_with_timeout)
 
 
 def handle_notify(_config: str, **kwargs) -> bool:
