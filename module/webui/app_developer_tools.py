@@ -288,13 +288,61 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 color="success",
             )
 
+        def _cross_month_rehearsal_cancel() -> None:
+            """取消待执行的跨月预演请求；已在执行的预演需停止实例中断。"""
+            from datetime import timedelta
+
+            from module.config.deep import deep_get, deep_set
+            from module.config.time_source import now as current_time
+            from module.config.utils import get_os_next_reset
+
+            instance = _get_debug_target_instance()
+            if not instance:
+                toast("未找到可用实例", color="warning")
+                return
+            data = State.config_updater.read_file(instance)
+            mode = deep_get(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
+            if mode not in ("cleanup", "full"):
+                toast(
+                    "当前没有待执行的跨月预演请求。\n"
+                    "若预演已在执行中，停止实例即可中断：预演标记已消费，"
+                    "重启后会自动重新规划，不会重复预演。",
+                    duration=8,
+                    color="info",
+                )
+                return
+            deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
+            next_run = get_os_next_reset() - timedelta(minutes=10)
+            deep_set(
+                data,
+                "OpsiCrossMonth.Scheduler.NextRun",
+                next_run.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            try:
+                State.config_updater.write_file(instance, data)
+            except Exception as e:
+                toast(f"取消预演请求失败：{e}", color="error")
+                return
+            logger.info(f"[跨月预演] 已取消 {instance} 的预演请求")
+            toast(
+                f"已取消 {instance} 的跨月预演请求，"
+                f"跨月任务恢复原定时间 {next_run.strftime('%m-%d %H:%M')}",
+                duration=6,
+                color="success",
+            )
+
         put_buttons(
             buttons=[
                 {"label": "跨月预演(仅清理)", "value": "cleanup", "color": "primary"},
                 {"label": "跨月预演(全流程)", "value": "full", "color": "primary"},
+                {"label": "取消跨月预演", "value": "cancel", "color": "secondary"},
             ],
-            onclick=lambda mode: _cross_month_rehearsal(
-                mode, "仅清理" if mode == "cleanup" else "全流程"
+            onclick=lambda mode: (
+                _cross_month_rehearsal_cancel()
+                if mode == "cancel"
+                else _cross_month_rehearsal(
+                    mode, "仅清理" if mode == "cleanup" else "全流程"
+                )
             ),
             scope="develop_detail",
         )
