@@ -51,7 +51,8 @@ def startup() -> None:
     if State.deploy_config.EnableRemoteAccess and (
         State.deploy_config.Password is not None or os.environ.get("DEMO") == "1"
     ):
-        task_handler.add(RemoteAccess.keep_ssh_alive(), 60)
+        # 10 秒轮询：远程访问线程一旦退出，最多 10 秒内自动拉起（原 60 秒会造成远控盲区）
+        task_handler.add(RemoteAccess.keep_ssh_alive(), 10)
 
 
 def clearup() -> bool:

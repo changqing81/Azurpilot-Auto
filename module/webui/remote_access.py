@@ -910,7 +910,7 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
             if not self.info.peer_id:
                 raise ParseError("localshare 服务端未返回 peer_id，无法启用 P2P")
             self.info.connection_state = "signaling"
-            asyncio.run(self._run_signal_loop())
+            asyncio.run(self._run_signal_loop_with_reconnect())
         except RemoteDependencyError as e:
             self._missing_dependency = str(e)
             self.info.error = str(e)
@@ -925,6 +925,34 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
             self.info.connection_state = "failed"
             logger.exception(e)
         logger.info("退出WebRTC远程访问服务线程")
+
+    async def _run_signal_loop_with_reconnect(self) -> None:
+        """信令断开后在线程内自动重连（指数退避 2s→30s），线程不再退出。
+
+        旧实现中信令一断线程即退出，要等 keep_ssh_alive 轮询（原 60 秒）才会重启，
+        期间远控完全不可用；改为循环内重连后，浏览器重连只需一次信令往返。
+        RemoteDependencyError / ParseError 等配置类异常仍向上抛出，
+        由 _thread_main 按原语义退出线程。
+        """
+        delay = SSH_RECONNECT_DELAY
+        while not self.stop_event.is_set():
+            try:
+                await self._run_signal_loop()
+                if self.stop_event.is_set():
+                    return
+                logger.warning("[WebUI-远程] 信令连接已关闭，稍后自动重连")
+            except RemoteSignalError as e:
+                if self.stop_event.is_set():
+                    return
+                self.info.error = str(e)
+                logger.warning(f"[WebUI-远程] 信令连接断开，{delay} 秒后自动重连: {e}")
+            # 本轮成功连上过信令（状态推进到 waiting_peer 及以后，断开不改状态）
+            # 视为链路可达，重置退避；从未连上（状态停在 signaling）才逐步加长
+            if self.info.connection_state in ("waiting_peer", "direct_p2p"):
+                delay = SSH_RECONNECT_DELAY
+            self.info.connection_state = "signaling"
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, SSH_RECONNECT_MAX_DELAY)
 
     async def _run_signal_loop(self) -> None:
         try:
