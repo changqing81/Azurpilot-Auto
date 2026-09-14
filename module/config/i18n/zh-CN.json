@@ -6681,6 +6681,8 @@
       "RangeAll": "全部（含历史，合并）",
       "RangeToday": "今天",
       "RuntimeLog": "导出运行日志",
+      "ExportToday": "导出今日日志",
+      "Exporting": "导出中…",
       "ErrorLogs": "导出错误日志目录（含截图）",
       "ErrorLogsText": "仅导出日志文本（不含截图）",
       "Pending": "正在导出，请稍候…",

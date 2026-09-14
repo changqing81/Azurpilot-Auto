@@ -687,6 +687,14 @@ body.alas-manage-active #input-container .ws-form-submit-btns .btn {
 }
 
 @media (max-width: 640px) {
+    /* 日志工具栏在窄屏改为换行自动铺满，避免「自动滚动 / 截图预览 / 导出今日日志
+       / 仪表盘」几个按钮横向溢出 */
+    #pywebio-scope-log-bar-btns {
+        grid-auto-flow: row;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        width: 100%;
+    }
+
     #pywebio-scope-develop_detail {
         width: 100%;
         margin: 4px 0 20px;

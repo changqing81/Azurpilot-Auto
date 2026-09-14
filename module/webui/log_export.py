@@ -30,8 +30,10 @@ SCOPE_FULL = "full"
 SCOPE_TEXT = "text"
 _REAL_SCOPES = (SCOPE_FULL, SCOPE_TEXT)
 
-# 运行日志导出范围：all = 全部历史合并（默认）；也可以直接给一个 YYYY-MM-DD 只导那天
+# 运行日志导出范围：all = 全部历史合并（默认）；today = 服务端当天；
+# 也可以直接给一个 YYYY-MM-DD 只导那天
 RUNTIME_SCOPE_ALL = "all"
+RUNTIME_SCOPE_TODAY = "today"
 _DATE_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -92,11 +94,17 @@ def find_today_runtime_log(instance: str) -> Path | None:
 
 
 def normalize_runtime_scope(scope) -> str:
-    """运行日志导出范围：``all``（全部历史合并）或一个 ``YYYY-MM-DD`` 日期。
+    """运行日志导出范围：``all``、``today``，或一个 ``YYYY-MM-DD`` 日期。
+
+    ``today`` 由服务端解析为 today_str() 后返回真实日期串 —— 让客户端去算"今天"
+    在远控下不可靠：手机/异地客户端的时区或时钟与服务器不一致时会算成别的日期，
+    表现为 404 或导错那一天。
 
     其余取值一律按 all 处理。日期用严格正则校验，因此不可能被构造成路径穿越。
     """
     value = str(scope or "").strip()
+    if value.lower() == RUNTIME_SCOPE_TODAY:
+        return today_str()
     if _DATE_PATTERN.match(value):
         return value
     return RUNTIME_SCOPE_ALL

@@ -6681,6 +6681,8 @@
       "RangeAll": "すべての日付（結合）",
       "RangeToday": "今日",
       "RuntimeLog": "実行ログを出力",
+      "ExportToday": "本日ログ",
+      "Exporting": "出力中…",
       "ErrorLogs": "エラーログを出力（スクリーンショット含む）",
       "ErrorLogsText": "ログテキストのみ出力（スクリーンショットなし）",
       "Pending": "出力中です。しばらくお待ちください…",

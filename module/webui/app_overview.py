@@ -28,8 +28,132 @@ from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
 
 
+# 日志工具栏「导出今日日志」按钮的客户端脚本。
+#
+# 刻意用普通字符串模板 + 占位符替换，而不是 f-string：
+# 1) f-string 里 JS 的每个花括号都要写成双花括号，可读性差；
+# 2) 更要命的是正则转义（如 \{、\w）在 f-string 里会触发
+#    "SyntaxWarning: invalid escape sequence"，未来 Python 版本直接报错。
+_EXPORT_TODAY_JS_TEMPLATE = r"""
+(function(){
+  var scope = document.querySelector('#pywebio-scope-log_export_btn');
+  var btn = scope ? scope.querySelector('.btn') : null;
+  if (!btn || btn.disabled) return;
+  var label0 = btn.textContent;
+  var title0 = btn.title || '';
+  function restore(delay){
+    setTimeout(function(){ btn.textContent = label0; btn.title = title0; }, delay);
+  }
+  // 工具栏没有状态行，也没有可用的客户端 toast（pywebio 的 toast 是服务端指令），
+  // 所以反馈就落在按钮自身：文字给结论，title 放服务端返回的具体原因。
+  function fail(detail){
+    btn.textContent = __FAILED__;
+    btn.title = detail || '';
+    if (window.console && detail) console.warn('[log-export] ' + detail);
+    restore(5000);
+  }
+  // 远控 P2P 入口页面路径形如 /<8位以上小写字母数字>/...，带前缀优先、根相对兜底
+  function apiCandidates(path){
+    var list = [path];
+    var first = (location.pathname.split('/').filter(Boolean)[0] || '');
+    if (/^[a-z0-9]{8,}$/.test(first)) list.unshift('/' + first + path);
+    return list;
+  }
+  async function fetchFirst(variants){
+    var lastResp = null, lastErr = null;
+    for (var i = 0; i < variants.length; i++) {
+      var urls = apiCandidates(variants[i]);
+      for (var j = 0; j < urls.length; j++) {
+        try {
+          var r = await fetch(urls[j], {cache: 'no-store'});
+          if (r.ok) return r;
+          lastResp = r;
+        } catch (e) { lastErr = e; }
+      }
+    }
+    if (lastResp) return lastResp;
+    throw lastErr || new Error('network error');
+  }
+  // Starlette 对非 ASCII 文件名（如 小号）用 RFC 5987 的 filename*=utf-8'' 形式
+  function parseFileName(h){
+    if (!h) return null;
+    var star = h.match(/filename\*=(?:utf-8|UTF-8)''([^;]+)/);
+    if (star) { try { return decodeURIComponent(star[1]); } catch (e) { return star[1]; } }
+    var p = h.match(/filename="?([^";]+)"?/);
+    return p ? p[1] : null;
+  }
+  function saveBlob(resp, fallback){
+    return resp.blob().then(function(blob){
+      var name = parseFileName(resp.headers.get('Content-Disposition')) || fallback;
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 60000);
+    });
+  }
+  btn.textContent = __EXPORTING__;
+  btn.disabled = true;
+  (async function(){
+    try {
+      var enc = encodeURIComponent(__INSTANCE__);
+      // query 与 path 两式都发：P2P 远控代理转发 WS 握手时会剥掉 query string
+      var resp = await fetchFirst([
+        '/api/log/runtime?instance=' + enc + '&scope=today',
+        '/api/log/runtime/' + enc + '?scope=today'
+      ]);
+      if (!resp.ok) {
+        var detail = '';
+        try { var d = await resp.json(); detail = (d && d.error) ? d.error : ''; } catch (e) {}
+        fail(detail);
+        return;
+      }
+      // 远控下 Content-Length 被代理剥掉，做不了百分比进度，只做不确定态
+      await saveBlob(resp, __INSTANCE__ + '_runtime_log_today.txt');
+      btn.textContent = label0;
+    } catch (err) {
+      fail(err && err.message ? err.message : '');
+    } finally {
+      btn.disabled = false;
+    }
+  })();
+})();
+"""
+
+
+def _export_today_js(instance: str) -> str:
+    """拼出「导出今日日志」按钮的客户端脚本（占位符替换，不用 f-string）。"""
+    return (
+        _EXPORT_TODAY_JS_TEMPLATE
+        .replace("__INSTANCE__", json.dumps(instance))
+        .replace("__EXPORTING__", json.dumps(t("Gui.LogExport.Exporting")))
+        .replace("__FAILED__", json.dumps(t("Gui.LogExport.Failed")))
+    )
+
+
 class OverviewMixin(WebUIMixinBase):
     """WebUI实例概览和守护模式"""
+
+    def _log_export_toolbar_button(self):
+        """日志工具栏的「导出今日日志」按钮。
+
+        跟随当前页实例（与「截图预览」同款写法），一键下载当天运行日志：
+        不做实例下拉、不做日期下拉、不做确认框 —— 那些都在开发者工具的完整面板里。
+        scope=today 由服务端解析成日期，避免客户端时区/时钟与服务器不一致时取错天。
+        """
+        return put_scope(
+            "log_export_btn",
+            [
+                put_button(
+                    label=t("Gui.LogExport.ExportToday"),
+                    onclick=lambda: run_js(_export_today_js(self.alas_name)),
+                    color="off",
+                )
+            ],
+        )
 
     @render_locked
     @use_scope("content", clear=True)
@@ -176,6 +300,8 @@ class OverviewMixin(WebUIMixinBase):
                                 "log-bar-btns",
                                 [
                                     put_scope("log_scroll_btn"),
+                                    # Maa 分支没有「截图预览」，按钮紧接自动滚动
+                                    self._log_export_toolbar_button(),
                                 ],
                             ),
                         ],
@@ -200,6 +326,7 @@ class OverviewMixin(WebUIMixinBase):
                                         ),
                                         color="off",
                                     ),
+                                    self._log_export_toolbar_button(),
                                     put_scope("dashboard_btn"),
                                 ],
                             ),
@@ -340,6 +467,7 @@ class OverviewMixin(WebUIMixinBase):
                         ),
                         color="off",
                     ),
+                    self._log_export_toolbar_button(),
                 ],
             )
 
