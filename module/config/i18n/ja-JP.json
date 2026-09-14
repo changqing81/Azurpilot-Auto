@@ -3781,6 +3781,31 @@
       "help": "現在行動力がこの値を下回るまで実行を続けます"
     }
   },
+  "OpsiCrossMonth": {
+    "_info": {
+      "name": "月跨ぎデイリー",
+      "help": "月跨ぎデイリー関連の設定：完了後に余った行動力を消費し、タスク情報を通知します。"
+    },
+    "ActionPointCleanupEnable": {
+      "name": "余った行動力の消費",
+      "help": "月跨ぎデイリー完了後に残り行動力を確認し、セイレーン要塞の確認と 隠秘海域 → 深淵海域 → オフニャファーム のループで、合計行動力が保留値を下回るまで消費します。"
+    },
+    "ActionPointPreserve": {
+      "name": "行動力保留値",
+      "help": "合計行動力（現在行動力 + 行動力ボックスの換算）がこの値を下回ると消費を停止してタスクを終了します。"
+    },
+    "PushNotify": {
+      "name": "月跨ぎデイリー情報の通知",
+      "help": "月跨ぎデイリーの完了・失敗時に通知を送ります。通知チャンネルはセイレーン作戦の通知設定に従います。"
+    },
+    "RehearsalDebug": {
+      "name": "リハーサル要求（開発ツール）",
+      "help": "開発ツールページの月跨ぎリハーサルボタンから書き込まれ、タスクが一度読み取ると自動的に off に戻ります。手動で編集しないでください。",
+      "off": "オフ",
+      "cleanup": "クリアのみ",
+      "full": "フル"
+    }
+  },
   "IslandPlan": {
     "_info": {
       "name": "アイランド計画グローバル",
@@ -6649,6 +6674,27 @@
       "WebuiSSLCert": "SSL 証明書ファイル",
       "WebuiSSLCertHelp": "WebUI HTTPS 用の SSL 証明書です。キーとセットで設定してください。"
     },
+    "LogExport": {
+      "Title": "ログ出力",
+      "InstanceLabel": "インスタンス",
+      "RangeLabel": "日付",
+      "RangeAll": "すべての日付（結合）",
+      "RangeToday": "今日",
+      "RuntimeLog": "実行ログを出力",
+      "ErrorLogs": "エラーログを出力（スクリーンショット含む）",
+      "ErrorLogsText": "ログテキストのみ出力（スクリーンショットなし）",
+      "Pending": "出力中です。しばらくお待ちください…",
+      "Packing": "エラーログを圧縮中です。しばらくお待ちください…",
+      "Started": "ダウンロードを開始しました",
+      "Failed": "出力に失敗しました",
+      "NoInstance": "利用可能なインスタンスがありません",
+      "NoRuntimeLog": "このインスタンスには出力できる実行ログがありません",
+      "Confirm": "出力しますか？",
+      "ConfirmSize": "{{files}} 個のファイル、合計 {{size}}、圧縮後 約 {{zip}}。リモートでは転送が遅くなります。出力しますか？",
+      "ConfirmSizePlain": "{{files}} 個のファイル、合計 {{size}}。リモートでは転送が遅くなります。出力しますか？",
+      "InfoLoading": "サイズを集計中…",
+      "NoFiles": "エラーログディレクトリは空です"
+    },
     "StartupRun": {
       "Title": "起動時に自動実行",
       "Description": "有効にすると、WebUI またはランチャーが AzurPilot を起動したときにこのインスタンスを自動実行します。次回起動から有効です。",
@@ -6772,7 +6818,21 @@
       "ResourceChartTitle": "全リソース推移",
       "LoadResourceDataFailed": "リソースデータの読み込みに失敗しました: {e}",
       "NoResourceData": "リソース変動データがありません。スクリプト実行後に自動記録されます",
-      "NoValidResourceData": "有効なリソースデータがありません"
+      "NoValidResourceData": "有効なリソースデータがありません",
+      "DeltaPeriodDay": "日",
+      "DeltaPeriodWeek": "週",
+      "DeltaPeriodMonth": "月",
+      "DeltaPeriodTotal": "全期間",
+      "DeltaChartTitle": "資源増減トレンド",
+      "DeltaSummaryTitle": "増減サマリー",
+      "ConsumptionRankingTitle": "消費ランキング",
+      "DeltaResource": "資源",
+      "DeltaIncrease": "増加",
+      "DeltaDecrease": "消費",
+      "DeltaNet": "純変化",
+      "DeltaTotalConsumed": "総消費 {total}",
+      "NoDeltaData": "資源増減データがまだありません。スクリプト実行後に自動記録されます",
+      "LoadDeltaDataFailed": "資源増減データの読み込みに失敗しました: {e}"
     },
     "Tactical": {
       "SkillAutoSwitch": "スキル自動切替"

@@ -23,6 +23,7 @@ from module.device.pkg_resources import get_distribution
 _ = get_distribution
 
 from adbutils import AdbError, Network
+from starlette.background import BackgroundTask
 from starlette.responses import (
     FileResponse,
     HTMLResponse,
@@ -45,6 +46,20 @@ from module.webui.deploy_settings import (
 )
 from module.webui.launcher import is_local_request, launcher_control
 from module.webui.lang import t
+from module.webui.log_export import (
+    RUNTIME_SCOPE_ALL,
+    SCOPE_TEXT,
+    build_error_log_zip,
+    build_runtime_log_bundle,
+    describe_error_log_dir,
+    describe_runtime_logs,
+    format_bytes,
+    list_runtime_dates,
+    normalize_runtime_scope,
+    normalize_scope,
+    today_str,
+    validate_instance,
+)
 
 
 def is_demo_mode():
@@ -1729,6 +1744,141 @@ async def api_import_legacy_upload(request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+# 错误日志打包较重（当前约 24MB，PNG 截图多），串行化避免远控并发重复打包
+_error_log_zip_lock = asyncio.Lock()
+
+
+async def api_log_runtime(request):
+    """GET /api/log/runtime?instance=<name>&scope=all|today
+    下载实例的运行日志。
+
+    scope=all（默认）把所有历史日志按日期拼接成一个 txt —— 排查通常需要跨天上下文，
+    只给当天那份会漏掉前一天出问题的现场（实例当天只跑了 9 秒时就只有几 KB）。
+    scope=today 严格只给当天那份，当天没跑过则 404。
+
+    实例名同时支持 query 与 path 两种形式：本仓库既有事故记录显示，P2P 远控代理
+    转发 WebSocket 握手时会剥掉 query string（见 _live_instance_fallback 的注释）。
+
+    刻意不加 is_local_request 门禁：远控经 P2P/SSH 代理到 127.0.0.1，请求本就
+    "看似本地"，且导出日志是远控排障刚需；鉴权沿用 WebUI 登录与隧道口令。
+    """
+    raw_instance = request.path_params.get("instance") or request.query_params.get(
+        "instance"
+    )
+    try:
+        instance = validate_instance(raw_instance)
+    except ValueError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+
+    scope = normalize_runtime_scope(request.query_params.get("scope"))
+    try:
+        log_path, filename, is_temp = await asyncio.to_thread(
+            build_runtime_log_bundle, instance, scope
+        )
+    except FileNotFoundError:
+        if scope == RUNTIME_SCOPE_ALL:
+            message = f"实例 {instance} 没有任何运行日志"
+        else:
+            message = f"实例 {instance} 在 {scope} 没有运行日志"
+        return JSONResponse({"success": False, "error": message}, status_code=404)
+
+    # 文件名沿用磁盘真实文件名/日期区间，避免"文件名是一天、内容却是另一天"的误导。
+    # 只有合并出来的临时文件才需要发完即删，原日志文件绝不能删。
+    background = BackgroundTask(log_path.unlink, missing_ok=True) if is_temp else None
+    return FileResponse(
+        log_path,
+        filename=filename,
+        media_type="text/plain; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+        background=background,
+    )
+
+
+async def api_log_runtime_info(request):
+    """GET /api/log/runtime/info?instance=<name>&scope=all|YYYY-MM-DD — 导出前统计体积。"""
+    raw_instance = request.path_params.get("instance") or request.query_params.get(
+        "instance"
+    )
+    try:
+        instance = validate_instance(raw_instance)
+    except ValueError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+
+    scope = normalize_runtime_scope(request.query_params.get("scope"))
+    data = await asyncio.to_thread(describe_runtime_logs, instance, scope)
+    return JSONResponse({"success": True, "data": data})
+
+
+async def api_log_runtime_dates(request):
+    """GET /api/log/runtime/dates?instance=<name> — 列出该实例有日志的日期（倒序）。
+
+    供界面做日期下拉：让用户直接挑「几号的日志」，而不是在「全部 / 今天」之间猜。
+    同时返回 today，前端据此给当天那项加"（今天）"标注。
+    """
+    raw_instance = request.path_params.get("instance") or request.query_params.get(
+        "instance"
+    )
+    try:
+        instance = validate_instance(raw_instance)
+    except ValueError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+
+    dates = await asyncio.to_thread(list_runtime_dates, instance)
+    return JSONResponse(
+        {
+            "success": True,
+            "data": {"instance": instance, "today": today_str(), "dates": dates},
+        }
+    )
+
+
+async def api_log_error_info(request):
+    """GET /api/log/error/info?scope=full|text — 导出前统计体积，供界面展示真实大小。
+
+    远控下几十 MB 要传很久，先让用户看到"要传多少、压缩后多大"再决定，
+    比点下去干等更有意义。不带实例参数，远端即使丢参数也不受影响。
+    """
+    scope = normalize_scope(request.query_params.get("scope"))
+    try:
+        data = await asyncio.to_thread(describe_error_log_dir, scope)
+    except FileNotFoundError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=404)
+
+    return JSONResponse({"success": True, "data": data})
+
+
+async def api_log_error_archive(request):
+    """GET /api/log/error?scope=full|text — 把 log/error 下的文件打包成单个 zip 下载。
+
+    远控排障的最高优先级接口：一次请求只传一个文件，减少远控链路上的往返与失败点。
+    `scope=full` 打包全部文件；`scope=text` 只打包日志文本（跳过几十 MB 的截图，秒传）。
+    同样不加 is_local_request 门禁（远控经 P2P 代理到 127.0.0.1，加了也没意义）。
+    """
+    scope = normalize_scope(request.query_params.get("scope"))
+    async with _error_log_zip_lock:
+        try:
+            zip_path = await asyncio.to_thread(build_error_log_zip, scope)
+        except FileNotFoundError as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=404)
+        except OSError as e:
+            logger.error(f"[WebUI] 打包错误日志失败: {e}")
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+        logger.info(
+            f"[WebUI] 错误日志已打包 ({scope}): {zip_path} "
+            f"({format_bytes(zip_path.stat().st_size)})"
+        )
+        suffix = "-text" if scope == SCOPE_TEXT else ""
+        # 临时文件在响应发送完成后删除，不落在项目目录里
+        return FileResponse(
+            zip_path,
+            filename=f"AzurPilot-error-logs{suffix}-{today_str()}.zip",
+            media_type="application/zip",
+            headers={"Cache-Control": "no-store"},
+            background=BackgroundTask(zip_path.unlink, missing_ok=True),
+        )
+
+
 api_routes = [
     Route("/api/cl1_stats", api_cl1_stats),
     Route("/api/custom_background_video", api_custom_background_video),
@@ -1744,6 +1894,17 @@ api_routes = [
     Route("/api/deploy/startup-run", api_deploy_startup_run),
     Route("/api/deploy/startup-run", api_deploy_startup_run_save, methods=["POST"]),
     Route("/api/import_legacy_upload", api_import_legacy_upload, methods=["POST"]),
+    # 日志导出（远控可下载，刻意不做本机限制）
+    # 注意顺序：静态子路径必须排在 /api/log/runtime/{instance} 之前，
+    # 否则 "info" / "dates" 会被当成实例名吃掉
+    Route("/api/log/runtime", api_log_runtime),
+    Route("/api/log/runtime/info", api_log_runtime_info),
+    Route("/api/log/runtime/info/{instance}", api_log_runtime_info),
+    Route("/api/log/runtime/dates", api_log_runtime_dates),
+    Route("/api/log/runtime/dates/{instance}", api_log_runtime_dates),
+    Route("/api/log/runtime/{instance}", api_log_runtime),
+    Route("/api/log/error", api_log_error_archive),
+    Route("/api/log/error/info", api_log_error_info),
     Route("/obs", serve_obs_overlay),
     WebSocketRoute("/ws/live_screenshot", ws_live_screenshot),
     WebSocketRoute("/ws/live_control", ws_live_control),

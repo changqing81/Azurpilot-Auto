@@ -24,6 +24,10 @@ from module.config.deep import deep_get
 from datetime import datetime
 
 
+# config 模板中 Dashboard.<资源>.Record 的初始值，表示该资源从未被记录过
+_RECORD_INIT = '2020-01-01 00:00:00'
+
+
 class LogRes:
     """
     set attr--->
@@ -56,6 +60,9 @@ class LogRes:
                             logger.exception('[日志资源] 保存金币快照失败')
                     # 记录全量资源快照
                     self._record_all_resource_snapshot({key: value})
+                    # 记录资源增减事件（首次 OCR 仅作基线，不记事件）
+                    if str(original.get('Record')) != _RECORD_INIT:
+                        self._record_resource_delta(key, value - original['Value'], value)
             elif isinstance(value, dict):
                 _mod = False
                 for value_name, _value in value.items():
@@ -83,6 +90,15 @@ class LogRes:
                             )
                         except Exception:
                             logger.exception('保存行动力快照失败')
+                        # 记录行动力增减事件（首次 OCR 仅作基线，不记事件）
+                        current = value.get('Value')
+                        prev = original.get('Value')
+                        if (
+                            current is not None
+                            and prev is not None
+                            and str(original.get('Record')) != _RECORD_INIT
+                        ):
+                            self._record_resource_delta(key, current - prev, current)
                     # 记录全量资源快照
                     value_to_record = value.get('Value') if isinstance(value, dict) else None
                     if value_to_record is not None:
@@ -92,6 +108,23 @@ class LogRes:
         else:
             logger.info('[日志资源] 仪表盘中无此资源')
             super().__setattr__(name=key, value=value)
+
+    def _record_resource_delta(self, key, delta, balance):
+        """记录一次资源增减事件到 resource_delta.db
+
+        委托任务（Commission）的收益已有专门的委托统计模块，跳过避免重复。
+        """
+        try:
+            if not delta:
+                return
+            source = getattr(getattr(self.config, 'task', None), 'command', None) or 'dashboard'
+            if source == 'Commission':
+                return
+            from module.statistics.resource_delta_stats import record_resource_delta
+            instance_name = getattr(self.config, 'config_name', 'default')
+            record_resource_delta(instance_name, key, int(delta), source, balance)
+        except Exception:
+            logger.exception('[日志资源] 记录资源增减事件失败')
 
     def _record_all_resource_snapshot(self, overrides=None):
         """读取当前所有 Dashboard 资源值并记录快照"""

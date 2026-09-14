@@ -1,6 +1,7 @@
 ### AzurLaneAutoScript
 log
 cache/
+.codex
 config/backup/*
 config/*.ini
 !config/template.ini
@@ -33,6 +34,7 @@ PaddleOCR
 .trae
 docs/
 .claude
+.workbuddy
 # Created by .ignore support plugin (hsz.mobi)
 
 ### JetBrains template

@@ -3781,6 +3781,31 @@
       "help": "防溢出任務會持續執行，直到當前行動力低於此值"
     }
   },
+  "OpsiCrossMonth": {
+    "_info": {
+      "name": "跨月每日",
+      "help": "跨月每日相關配置：完成後清理多餘行動力並推送任務資訊"
+    },
+    "ActionPointCleanupEnable": {
+      "name": "清理多餘行動力",
+      "help": "跨月每日完成後檢查剩餘行動力，自動檢查塞壬要塞並循環 隱秘海域 → 深淵海域 → 短貓相接，直到總行動力低於保留值"
+    },
+    "ActionPointPreserve": {
+      "name": "清理行動力保留值",
+      "help": "總行動力（當前行動力 + 行動力箱子折算）低於該值時停止清理並結束任務"
+    },
+    "PushNotify": {
+      "name": "推送跨月任務資訊",
+      "help": "跨月每日完成或失敗時推送通知，推送渠道遵循大世界推送設定"
+    },
+    "RehearsalDebug": {
+      "name": "預演請求（開發者工具）",
+      "help": "由開發者工具頁的跨月預演按鈕寫入，任務讀取一次後自動復位為 off，請勿手動修改",
+      "off": "關閉",
+      "cleanup": "僅清理",
+      "full": "完整流程"
+    }
+  },
   "IslandPlan": {
     "_info": {
       "name": "島嶼計劃全域",
@@ -6649,6 +6674,27 @@
       "WebuiSSLCert": "SSL 憑證檔案",
       "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 憑證路徑，需和密鑰同時設定。"
     },
+    "LogExport": {
+      "Title": "日誌匯出",
+      "InstanceLabel": "實例",
+      "RangeLabel": "日期",
+      "RangeAll": "全部（含歷史，合併）",
+      "RangeToday": "今天",
+      "RuntimeLog": "匯出運行日誌",
+      "ErrorLogs": "匯出錯誤日誌目錄（含截圖）",
+      "ErrorLogsText": "僅匯出日誌文字（不含截圖）",
+      "Pending": "正在匯出，請稍候…",
+      "Packing": "正在打包錯誤日誌，請稍候…",
+      "Started": "已開始下載",
+      "Failed": "匯出失敗",
+      "NoInstance": "未找到可用實例",
+      "NoRuntimeLog": "該實例沒有可匯出的運行日誌",
+      "Confirm": "確認開始匯出？",
+      "ConfirmSize": "共 {{files}} 個檔案、約 {{size}}，壓縮後約 {{zip}}。遠控下傳輸較慢，確認開始匯出？",
+      "ConfirmSizePlain": "共 {{files}} 個檔案、約 {{size}}。遠控下傳輸較慢，確認開始匯出？",
+      "InfoLoading": "正在統計體積…",
+      "NoFiles": "錯誤日誌目錄為空"
+    },
     "StartupRun": {
       "Title": "啟動時自動執行",
       "Description": "開啟後，WebUI 或啟動器啟動 AzurPilot 時會自動執行目前實例；只影響下次啟動。",
@@ -6772,7 +6818,21 @@
       "ResourceChartTitle": "全資源變化趨勢",
       "LoadResourceDataFailed": "加載資源數據失敗: {e}",
       "NoResourceData": "暫無資源變化數據，運行腳本後將自動記錄",
-      "NoValidResourceData": "暫無有效資源數據"
+      "NoValidResourceData": "暫無有效資源數據",
+      "DeltaPeriodDay": "日",
+      "DeltaPeriodWeek": "週",
+      "DeltaPeriodMonth": "月",
+      "DeltaPeriodTotal": "總",
+      "DeltaChartTitle": "資源增減趨勢",
+      "DeltaSummaryTitle": "增減彙總",
+      "ConsumptionRankingTitle": "消耗排行榜",
+      "DeltaResource": "資源",
+      "DeltaIncrease": "增加",
+      "DeltaDecrease": "消耗",
+      "DeltaNet": "淨變化",
+      "DeltaTotalConsumed": "總消耗 {total}",
+      "NoDeltaData": "暫無資源增減數據，運行腳本後將自動記錄",
+      "LoadDeltaDataFailed": "載入資源增減數據失敗: {e}"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自動切換"

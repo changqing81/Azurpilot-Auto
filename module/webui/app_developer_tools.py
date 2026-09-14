@@ -12,6 +12,7 @@ from module.webui.app_dependencies import (
     Switch,
     alas_instance,
     clear,
+    json,
     load_config,
     os,
     put_button,
@@ -30,6 +31,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_lifecycle import clearup
+from module.webui.log_export import list_runtime_dates, today_str
 
 
 from module.webui.app_types import WebUIMixinBase
@@ -256,6 +258,95 @@ class DeveloperToolsMixin(WebUIMixinBase):
             scope="develop_detail",
         )
 
+        def _cross_month_rehearsal(mode: str, label: str) -> None:
+            """向目标实例写入跨月预演请求，由实例调度器在空闲/启动时执行。"""
+            from module.config.deep import deep_set
+            from module.config.time_source import now as current_time
+
+            instance = _get_debug_target_instance()
+            if not instance:
+                toast("未找到可用实例，无法发起跨月预演", color="warning")
+                return
+            data = State.config_updater.read_file(instance)
+            deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", mode)
+            deep_set(data, "OpsiCrossMonth.Scheduler.Enable", True)
+            deep_set(
+                data,
+                "OpsiCrossMonth.Scheduler.NextRun",
+                current_time().strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            try:
+                State.config_updater.write_file(instance, data)
+            except Exception as e:
+                toast(f"写入跨月预演请求失败：{e}", color="error")
+                return
+            toast(
+                f"已向 {instance} 下发跨月每日预演（{label}）。\n"
+                "调度器运行中将在当前任务结束后执行；已停止则下次启动时执行。\n"
+                "预演会真实消耗行动力/仓库道具，并按推送开关发送通知。",
+                duration=8,
+                color="success",
+            )
+
+        def _cross_month_rehearsal_cancel() -> None:
+            """取消待执行的跨月预演请求；已在执行的预演需停止实例中断。"""
+            from datetime import timedelta
+
+            from module.config.deep import deep_get, deep_set
+            from module.config.time_source import now as current_time
+            from module.config.utils import get_os_next_reset
+
+            instance = _get_debug_target_instance()
+            if not instance:
+                toast("未找到可用实例", color="warning")
+                return
+            data = State.config_updater.read_file(instance)
+            mode = deep_get(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
+            if mode not in ("cleanup", "full"):
+                toast(
+                    "当前没有待执行的跨月预演请求。\n"
+                    "若预演已在执行中，停止实例即可中断：预演标记已消费，"
+                    "重启后会自动重新规划，不会重复预演。",
+                    duration=8,
+                    color="info",
+                )
+                return
+            deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
+            next_run = get_os_next_reset() - timedelta(minutes=10)
+            deep_set(
+                data,
+                "OpsiCrossMonth.Scheduler.NextRun",
+                next_run.strftime("%Y-%m-%d %H:%M:%S"),
+            )
+            try:
+                State.config_updater.write_file(instance, data)
+            except Exception as e:
+                toast(f"取消预演请求失败：{e}", color="error")
+                return
+            logger.info(f"[跨月预演] 已取消 {instance} 的预演请求")
+            toast(
+                f"已取消 {instance} 的跨月预演请求，"
+                f"跨月任务恢复原定时间 {next_run.strftime('%m-%d %H:%M')}",
+                duration=6,
+                color="success",
+            )
+
+        put_buttons(
+            buttons=[
+                {"label": "跨月预演(仅清理)", "value": "cleanup", "color": "primary"},
+                {"label": "跨月预演(全流程)", "value": "full", "color": "primary"},
+                {"label": "取消跨月预演", "value": "cancel", "color": "secondary"},
+            ],
+            onclick=lambda mode: (
+                _cross_month_rehearsal_cancel()
+                if mode == "cancel"
+                else _cross_month_rehearsal(
+                    mode, "仅清理" if mode == "cleanup" else "全流程"
+                )
+            ),
+            scope="develop_detail",
+        )
+
         def _force_restart():
             if State.restart_event is None:
                 toast(t("Gui.Toast.ReloadEnabled"), color="error")
@@ -333,6 +424,351 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 _test_notify_error,
             ],
             scope="develop_detail",
+        )
+
+        self._render_log_export_panel()
+
+    def _render_log_export_panel(self) -> None:
+        """渲染日志导出面板：实例下拉 + 导出今日运行日志 / 导出错误日志压缩包。
+
+        下载全程走 fetch → Blob → <a download>，不使用 PyWebIO 的 download()：
+        后者把文件字节塞进 pywebio 自己的 WebSocket，几十 MB 的错误日志会撑到
+        SafeWebSocketConnection 的积压上限而被主动断连；走 HTTP 路由则与主会话解耦，
+        且与远控（P2P/SSH 代理）链路上的其它 /api 请求同一条通路。
+
+        两个导出接口都刻意不做本机限制，远控下直接可用。
+        """
+        instances = alas_instance()
+        current = getattr(self, "alas_name", "") or (instances[0] if instances else "")
+        options = "".join(
+            f'<option value="{name}"{" selected" if name == current else ""}>'
+            f"{name}</option>"
+            for name in instances
+        )
+
+        # 日期下拉：服务端先按当前实例渲染一份（首屏就能用），
+        # 切换实例时前端再调 /api/log/runtime/dates 刷新
+        today = today_str()
+        range_options = [
+            f'<option value="all" selected>{t("Gui.LogExport.RangeAll")}</option>'
+        ]
+        for date in list_runtime_dates(current) if current else []:
+            label = f'{date}（{t("Gui.LogExport.RangeToday")}）' if date == today else date
+            range_options.append(f'<option value="{date}">{label}</option>')
+        range_options = "".join(range_options)
+
+        put_html(
+            f"""
+            <div class="log-export-panel">
+              <h2 class="alas-develop-section-title">{t("Gui.LogExport.Title")}</h2>
+              <div class="log-export-row">
+                <label class="log-export-instance">{t("Gui.LogExport.InstanceLabel")}
+                  <select id="log-export-instance" class="deploy-setting-select">{options}</select>
+                </label>
+                <label class="log-export-instance">{t("Gui.LogExport.RangeLabel")}
+                  <select id="log-export-runtime-scope" class="deploy-setting-select">{range_options}</select>
+                </label>
+                <button id="log-export-runtime" class="deploy-setting-button" type="button">{t("Gui.LogExport.RuntimeLog")}</button>
+                <button id="log-export-error" class="deploy-setting-button primary" type="button">{t("Gui.LogExport.ErrorLogs")}</button>
+                <button id="log-export-error-text" class="deploy-setting-button" type="button">{t("Gui.LogExport.ErrorLogsText")}</button>
+              </div>
+              <div id="log-export-status" class="deploy-setting-status"></div>
+            </div>
+            """,
+            scope="develop_detail",
+        )
+        run_js(
+            f"""
+            (function(){{
+              var sel = document.getElementById('log-export-instance');
+              var runtimeScopeEl = document.getElementById('log-export-runtime-scope');
+              var runtimeBtn = document.getElementById('log-export-runtime');
+              var errorBtn = document.getElementById('log-export-error');
+              var errorTextBtn = document.getElementById('log-export-error-text');
+              var statusEl = document.getElementById('log-export-status');
+              if (!sel || !runtimeScopeEl || !runtimeBtn || !errorBtn || !errorTextBtn || !statusEl) return;
+              var text = {{
+                pending: {json.dumps(t("Gui.LogExport.Pending"))},
+                packing: {json.dumps(t("Gui.LogExport.Packing"))},
+                started: {json.dumps(t("Gui.LogExport.Started"))},
+                failed: {json.dumps(t("Gui.LogExport.Failed"))},
+                noInstance: {json.dumps(t("Gui.LogExport.NoInstance"))},
+                noRuntimeLog: {json.dumps(t("Gui.LogExport.NoRuntimeLog"))},
+                rangeAll: {json.dumps(t("Gui.LogExport.RangeAll"))},
+                rangeToday: {json.dumps(t("Gui.LogExport.RangeToday"))},
+                confirm: {json.dumps(t("Gui.LogExport.Confirm"))},
+                confirmSize: {json.dumps(t("Gui.LogExport.ConfirmSize"))},
+                confirmSizePlain: {json.dumps(t("Gui.LogExport.ConfirmSizePlain"))},
+                infoLoading: {json.dumps(t("Gui.LogExport.InfoLoading"))},
+                noFiles: {json.dumps(t("Gui.LogExport.NoFiles"))}
+              }};
+
+              // 远控入口路径形如 /<8位以上小写字母数字>/...，与服务端 WebSocket
+              // 采用同款前缀启发式（见 alas-utils.js 的 getSocketCandidates）：
+              // 带前缀优先，再退回根相对，两种部署都能命中
+              function apiCandidates(path) {{
+                var list = [path];
+                var parts = location.pathname.split('/').filter(Boolean);
+                var first = parts.length ? parts[0] : '';
+                if (/^[a-z0-9]{{8,}}$/.test(first)) list.unshift('/' + first + path);
+                return list;
+              }}
+
+              // 逐个候选尝试，取第一个 200；全失败时返回最后一个响应，
+              // 交给调用方展示服务端返回的错误文案
+              async function fetchFirst(variants) {{
+                var lastResponse = null;
+                var lastError = null;
+                for (var i = 0; i < variants.length; i++) {{
+                  var urls = apiCandidates(variants[i]);
+                  for (var j = 0; j < urls.length; j++) {{
+                    try {{
+                      var resp = await fetch(urls[j], {{cache: 'no-store'}});
+                      if (resp.ok) return resp;
+                      lastResponse = resp;
+                    }} catch (err) {{
+                      lastError = err;
+                    }}
+                  }}
+                }}
+                if (lastResponse) return lastResponse;
+                throw lastError || new Error('network error');
+              }}
+
+              // 运行日志接口的多种取法：query 形式优先，path 形式兜底。
+              // 本仓库既有事故：P2P 远控代理转发 WebSocket 握手时会剥掉 query string，
+              // 因此不能把实例名唯一的寄托在 query 上。
+              // scope=all（默认）会把历史日志合并成一个文件——只给当天那份会漏掉
+              // 前一天出问题的现场（实例当天可能只跑了 9 秒，就几 KB）
+              function runtimeVariants(instance, scope) {{
+                var enc = encodeURIComponent(instance);
+                var query = '?scope=' + encodeURIComponent(scope);
+                return [
+                  '/api/log/runtime?instance=' + enc + '&scope=' + encodeURIComponent(scope),
+                  '/api/log/runtime/' + enc + query
+                ];
+              }}
+
+              // Content-Disposition 两式都解析：Starlette 对非 ASCII 文件名
+              // （如 小号）用 RFC 5987 的 filename*=utf-8'' 形式
+              function parseFileName(header) {{
+                if (!header) return null;
+                var star = header.match(/filename\\*=(?:utf-8|UTF-8)''([^;]+)/);
+                if (star) {{
+                  try {{ return decodeURIComponent(star[1]); }}
+                  catch (e) {{ return star[1]; }}
+                }}
+                var plain = header.match(/filename="?([^";]+)"?/);
+                return plain ? plain[1] : null;
+              }}
+
+              async function readError(resp) {{
+                try {{
+                  var data = await resp.json();
+                  return data && data.error ? data.error : '';
+                }} catch (e) {{
+                  return '';
+                }}
+              }}
+
+              function saveBlob(resp, fallbackName) {{
+                return resp.blob().then(function(blob){{
+                  // P2P 代理会剥掉 Content-Length，远控下拿不到总长度，
+                  // 不做百分比进度，只做不确定态提示 + 落地
+                  var name = parseFileName(resp.headers.get('Content-Disposition')) || fallbackName;
+                  var url = URL.createObjectURL(blob);
+                  var a = document.createElement('a');
+                  a.href = url;
+                  a.download = name;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  setTimeout(function(){{ URL.revokeObjectURL(url); }}, 60000);
+                }});
+              }}
+
+              function setBusy(flag) {{
+                runtimeBtn.disabled = flag;
+                errorBtn.disabled = flag;
+                errorTextBtn.disabled = flag;
+              }}
+
+              async function exportLog(variants, fallbackName, busyMessage) {{
+                setBusy(true);
+                statusEl.textContent = busyMessage;
+                try {{
+                  var resp = await fetchFirst(variants);
+                  if (!resp.ok) {{
+                    var detail = await readError(resp);
+                    statusEl.textContent = text.failed + (detail ? ': ' + detail : '');
+                    return;
+                  }}
+                  await saveBlob(resp, fallbackName);
+                  statusEl.textContent = text.started;
+                }} catch (err) {{
+                  // fetch 通路整体不可用时，退回浏览器直接导航下载（内容同样经隧道）
+                  try {{
+                    window.location.href = apiCandidates(variants[0])[0];
+                    statusEl.textContent = text.started;
+                  }} catch (e2) {{
+                    statusEl.textContent = text.failed + (err && err.message ? ': ' + err.message : '');
+                  }}
+                }} finally {{
+                  setBusy(false);
+                }}
+              }}
+
+              // 文案里的 {{files}}/{{size}}/{{zip}} 由 t() 的 .format() 还原成
+              // 单花括号后在此替换（i18n 里必须写双花括号，否则 t() 会抛 KeyError）。
+              // 用 split/join 而非正则：f-string 里写带反斜杠的正则转义会触发
+              // "invalid escape sequence" 警告，未来 Python 版本会直接报错
+              function formatConfirm(template, values) {{
+                var out = String(template);
+                Object.keys(values).forEach(function(key){{
+                  out = out.split('{{' + key + '}}').join(String(values[key]));
+                }});
+                return out;
+              }}
+
+              async function fetchInfo(path) {{
+                var resp = await fetchFirst([path]);
+                if (!resp.ok) throw new Error('HTTP ' + resp.status);
+                var data = await resp.json();
+                if (!data.success) throw new Error(data.error || 'unknown error');
+                return data.data;
+              }}
+
+              // 先统计真实体积再确认：远控下几十 MB 要传很久，
+              // 让用户在点下去之前就知道要等多久，而不是盯着没反应的界面猜
+              async function exportErrorLogs(scope) {{
+                setBusy(true);
+                statusEl.textContent = text.infoLoading;
+                var proceed = false;
+                var empty = false;
+                try {{
+                  var info = await fetchInfo('/api/log/error/info?scope=' + scope);
+                  if (info.files) {{
+                    proceed = confirm(formatConfirm(text.confirmSize, {{
+                      files: info.files,
+                      size: info.human_bytes,
+                      zip: info.human_estimate
+                    }}));
+                  }} else {{
+                    empty = true;
+                  }}
+                }} catch (err) {{
+                  // 统计失败不阻断导出，退回通用确认
+                  proceed = confirm(text.confirm);
+                }} finally {{
+                  setBusy(false);
+                }}
+                if (empty) {{
+                  statusEl.textContent = text.noFiles;
+                  return;
+                }}
+                if (!proceed) {{
+                  statusEl.textContent = '';
+                  return;
+                }}
+                var fallback = scope === 'text'
+                  ? 'AzurPilot-error-logs-text.zip'
+                  : 'AzurPilot-error-logs.zip';
+                exportLog(['/api/log/error?scope=' + scope], fallback, text.packing);
+              }}
+
+              // 日期下拉：按实例列出「有日志的那几天」，让用户直接挑几号，
+              // 不必在「全部 / 今天」之间猜；切换实例时刷新
+              function refreshRuntimeDates() {{
+                var instance = sel.value;
+                if (!instance) return;
+                fetchFirst([
+                  '/api/log/runtime/dates?instance=' + encodeURIComponent(instance),
+                  '/api/log/runtime/dates/' + encodeURIComponent(instance)
+                ]).then(function(resp){{
+                  if (!resp.ok) return null;
+                  return resp.json();
+                }}).then(function(payload){{
+                  if (!payload || !payload.success) return;
+                  var data = payload.data || {{}};
+                  var previous = runtimeScopeEl.value;
+                  runtimeScopeEl.innerHTML = '';
+                  var allOption = document.createElement('option');
+                  allOption.value = 'all';
+                  allOption.textContent = text.rangeAll;
+                  runtimeScopeEl.appendChild(allOption);
+                  (data.dates || []).forEach(function(date){{
+                    var option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = (date === data.today)
+                      ? date + '（' + text.rangeToday + '）' : date;
+                    runtimeScopeEl.appendChild(option);
+                  }});
+                  // 尽量保留用户原先选的日期；已不存在则回到「全部」
+                  var stillThere = runtimeScopeEl.querySelector('option[value="' + previous + '"]');
+                  runtimeScopeEl.value = stillThere ? previous : 'all';
+                }}).catch(function(){{
+                  // 拉不到日期就沿用服务端渲染的选项，不影响导出
+                }});
+              }}
+
+              // 运行日志默认导出「全部（含历史）」：只给当天那份会漏掉前一天出问题的
+              // 现场——实例当天可能只跑了 9 秒，导出来只有几 KB，看着像文件坏了
+              async function exportRuntimeLog() {{
+                var instance = sel.value;
+                if (!instance) {{
+                  statusEl.textContent = text.noInstance;
+                  return;
+                }}
+                var scope = runtimeScopeEl.value || 'all';
+                setBusy(true);
+                statusEl.textContent = text.infoLoading;
+                var proceed = false;
+                var empty = false;
+                try {{
+                  var info = await fetchInfo(
+                    '/api/log/runtime/info?instance=' + encodeURIComponent(instance) +
+                    '&scope=' + encodeURIComponent(scope)
+                  );
+                  if (info.files) {{
+                    proceed = confirm(formatConfirm(text.confirmSizePlain, {{
+                      files: info.files,
+                      size: info.human_bytes
+                    }}));
+                  }} else {{
+                    empty = true;
+                  }}
+                }} catch (err) {{
+                  proceed = confirm(text.confirm);
+                }} finally {{
+                  setBusy(false);
+                }}
+                if (empty) {{
+                  statusEl.textContent = text.noRuntimeLog;
+                  return;
+                }}
+                if (!proceed) {{
+                  statusEl.textContent = '';
+                  return;
+                }}
+                exportLog(
+                  runtimeVariants(instance, scope),
+                  instance + '_runtime_log.txt',
+                  text.pending
+                );
+              }}
+
+              runtimeBtn.addEventListener('click', exportRuntimeLog);
+              sel.addEventListener('change', refreshRuntimeDates);
+              errorBtn.addEventListener('click', function(){{
+                exportErrorLogs('full');
+              }});
+              errorTextBtn.addEventListener('click', function(){{
+                exportErrorLogs('text');
+              }});
+              // 首屏的日期选项由服务端渲染，这里再对齐一次（实例列表可能刚变过）
+              refreshRuntimeDates();
+            }})();
+            """
         )
 
     @render_locked

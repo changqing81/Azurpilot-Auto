@@ -17,6 +17,7 @@ BACKUP_KEEP_DAYS = 7
 DATABASE_FILES = (
     'azurstats_local.db',
     'cl1_data.db',
+    'resource_delta.db',
 )
 
 
