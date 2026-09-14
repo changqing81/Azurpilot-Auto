@@ -178,11 +178,8 @@ class OpsiCrossMonth(OpsiScheduling):
         logger.hr('跨月每日处理大世界重置', level=3)
 
         self._os_cross_month_enter_context()
+        # 每日+阶段内部会接续完成行动力清理，并以 task_stop 结束本任务
         self._os_cross_month_daily()
-
-        # 跨月每日完成后，清理多余行动力
-        self._os_cross_month_clear_action_point()
-        self.os_cross_month_end()
 
     def _os_cross_month_enter_context(self):
         """进入跨月处理上下文：屏蔽每月开荒判断，禁用任务切换检查。"""

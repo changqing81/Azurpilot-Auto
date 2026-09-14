@@ -171,10 +171,17 @@ class TestLogExportLogic(unittest.TestCase):
     def test_normalize_runtime_scope_accepts_all_or_date(self):
         self.assertEqual(log_export.normalize_runtime_scope("all"), "all")
         self.assertEqual(log_export.normalize_runtime_scope(" 2026-09-11 "), "2026-09-11")
-        for bad in (None, "", "today", "bogus", "2026-9-1", "../all", "2026-09-11/../x"):
+        for bad in (None, "", "bogus", "2026-9-1", "../all", "2026-09-11/../x"):
             with self.subTest(bad=bad):
                 # 非法值一律回落 all；日期走严格正则，不存在穿越空间
                 self.assertEqual(log_export.normalize_runtime_scope(bad), "all")
+
+    def test_normalize_runtime_scope_accepts_today(self):
+        """today 由服务端解析成当天日期 —— 客户端时区/时钟不可信。"""
+        today = log_export.today_str()
+        self.assertEqual(log_export.normalize_runtime_scope("today"), today)
+        self.assertEqual(log_export.normalize_runtime_scope(" TODAY "), today)
+        self.assertRegex(log_export.normalize_runtime_scope("today"), r"^\d{4}-\d{2}-\d{2}$")
 
     def test_describe_runtime_logs_counts_and_sizes(self):
         self._make_history()
@@ -800,6 +807,126 @@ class TestLogExportPanel(unittest.TestCase):
         self.assertIn(f'value="{first}" selected', html)
 
 
+class TestToolbarLogExportButton(unittest.TestCase):
+    """主页/守护页日志工具栏的「导出今日日志」按钮。
+
+    按钮把导出入口从开发者工具页搬到日志旁边，一键导出**当天**运行日志；
+    完整选项（实例/日期下拉、错误日志）仍留在开发者工具页。
+    """
+
+    @staticmethod
+    def _js(instance="alas"):
+        import module.webui.app_overview as overview
+
+        with patch.object(overview, "t", lambda key, *a, **k: key):
+            return overview._export_today_js(instance)
+
+    def test_js_hits_remote_safe_urls(self):
+        js = self._js("alas")
+        self.assertIn("/api/log/runtime", js)
+        self.assertIn("scope=today", js)
+        # query 与 path 两式都要有：远控链路可能剥掉 query string
+        self.assertIn("/api/log/runtime?instance=", js)
+        self.assertIn("/api/log/runtime/' + enc + '?scope=today", js)
+        # 远控入口带路径前缀时优先试前缀，再退回根相对
+        self.assertIn("apiCandidates", js)
+        self.assertIn("/^[a-z0-9]{8,}$/", js)
+
+    def test_js_regex_escapes_reach_the_client(self):
+        js = self._js("alas")
+        # 模板是普通字符串（非 f-string），正则转义应原样到达前端
+        self.assertIn("filename\\*=", js)
+        self.assertIn("{8,}", js)
+
+    def test_js_has_no_leftover_placeholders(self):
+        js = self._js("alas")
+        for placeholder in ("__INSTANCE__", "__EXPORTING__", "__FAILED__"):
+            self.assertNotIn(placeholder, js)
+        # 实例名以 JSON 字面量注入（ASCII 名字保持字面量）
+        self.assertIn('"alas"', js)
+        # 渲染后的脚本不该残留双花括号（那是 f-string 才需要的写法）
+        self.assertNotIn("{{", js)
+        self.assertNotIn("}}", js)
+
+    def test_js_escapes_non_ascii_instance_safely(self):
+        """非 ASCII 实例名（如 小号）走 json.dumps，得到 JS 等价的安全字面量。"""
+        js = self._js("小号")
+        self.assertNotIn("__INSTANCE__", js)
+        self.assertTrue(
+            '"小号"' in js or r'"\u5c0f\u53f7"' in js,
+            "实例名既未字面量注入也未安全转义",
+        )
+
+    def test_js_feedback_does_not_rely_on_client_toast(self):
+        """pywebio 的 toast 是服务端指令，浏览器里没有这个全局。"""
+        js = self._js("alas")
+        self.assertNotIn("toast(", js)
+        # 反馈落在按钮自身：文字 + 原生 title 放具体原因
+        self.assertIn("btn.title", js)
+        self.assertIn("btn.textContent", js)
+        self.assertIn("console.warn", js)
+        # 需要恢复原标签，否则按钮会一直显示"导出中…"
+        self.assertIn("restore(", js)
+
+    def test_button_uses_current_instance_and_today_scope(self):
+        import module.webui.app_overview as overview
+
+        captured = {"scope": [], "buttons": [], "js": []}
+
+        class _Stub:
+            alas_name = "alas"
+
+        with (
+            patch.object(overview, "put_scope", lambda name, content=None: captured["scope"].append(name)),
+            patch.object(
+                overview,
+                "put_button",
+                lambda **kwargs: captured["buttons"].append(kwargs),
+            ),
+            patch.object(overview, "run_js", lambda js: captured["js"].append(js)),
+            patch.object(overview, "t", lambda key, *a, **k: key),
+        ):
+            overview.OverviewMixin._log_export_toolbar_button(_Stub())
+            self.assertEqual(captured["scope"], ["log_export_btn"])
+            self.assertEqual(len(captured["buttons"]), 1)
+            self.assertEqual(captured["buttons"][0]["label"], "Gui.LogExport.ExportToday")
+            # 触发 onclick，确认脚本用的是当前页实例 + today
+            # （必须在 patch 生效期内调用，否则会跑到真的 run_js 上）
+            captured["buttons"][0]["onclick"]()
+
+        self.assertEqual(len(captured["js"]), 1)
+        self.assertIn('"alas"', captured["js"][0])
+        self.assertIn("scope=today", captured["js"][0])
+
+    def test_button_is_placed_in_all_three_log_toolbars(self):
+        """源码级顺序断言：非 Maa / Maa / 守护页 三处都要有，且排在截图预览之后。
+
+        这是廉价但有效的落位锁 —— 单元测试跑不起整页渲染，用文本顺序兜住回归。
+        """
+        source = (PROJECT_ROOT / "module" / "webui" / "app_overview.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertEqual(source.count("self._log_export_toolbar_button()"), 3)
+
+        preview_clicks = [
+            index
+            for index in range(len(source))
+            if source.startswith("window.alasToggleLivePreview", index)
+        ]
+        button_calls = [
+            index
+            for index in range(len(source))
+            if source.startswith("self._log_export_toolbar_button()", index)
+        ]
+        self.assertEqual(len(preview_clicks), 2)  # 主页非 Maa + 守护页
+        self.assertEqual(len(button_calls), 3)
+        # Maa 分支没有「截图预览」，按钮紧接自动滚动 → 排在第一个预览之前
+        self.assertLess(button_calls[0], preview_clicks[0])
+        # 主页非 Maa 与守护页两处都排在各自的「截图预览」之后
+        self.assertGreater(button_calls[1], preview_clicks[0])
+        self.assertGreater(button_calls[2], preview_clicks[1])
+
+
 class TestDeploySettingLayout(unittest.TestCase):
     """设置页「保存设置」按钮必须在字段之前（顶部），不能退回底部。"""
 
@@ -851,6 +978,8 @@ class TestLogExportI18n(unittest.TestCase):
         "RangeAll",
         "RangeToday",
         "RuntimeLog",
+        "ExportToday",
+        "Exporting",
         "ErrorLogs",
         "ErrorLogsText",
         "Pending",

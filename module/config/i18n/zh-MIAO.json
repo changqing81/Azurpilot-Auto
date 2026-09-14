@@ -6681,6 +6681,8 @@
       "RangeAll": "全部喵日期（合併）",
       "RangeToday": "今天喵",
       "RuntimeLog": "匯出喵運行日誌",
+      "ExportToday": "匯出今日喵日誌",
+      "Exporting": "喵匯出中…",
       "ErrorLogs": "匯出喵錯誤日誌目錄（含截圖）",
       "ErrorLogsText": "只匯出喵日誌文字（不含截圖）",
       "Pending": "正在匯出喵，請稍候…",

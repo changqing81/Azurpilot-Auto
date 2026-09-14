@@ -6681,6 +6681,8 @@
       "RangeAll": "All dates (merged)",
       "RangeToday": "today",
       "RuntimeLog": "Export Runtime Log",
+      "ExportToday": "Today's Log",
+      "Exporting": "Exporting…",
       "ErrorLogs": "Export Error Logs (with screenshots)",
       "ErrorLogsText": "Export Log Text Only (no screenshots)",
       "Pending": "Exporting, please wait…",

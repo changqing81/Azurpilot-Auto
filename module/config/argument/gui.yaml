@@ -330,6 +330,8 @@ LogExport:
   RangeAll:
   RangeToday:
   RuntimeLog:
+  ExportToday:
+  Exporting:
   ErrorLogs:
   ErrorLogsText:
   Pending:
