@@ -420,6 +420,10 @@ class StrongholdNotFoundHarness:
     _clear_stronghold_not_found_date = (
         CoinTaskMixin._clear_stronghold_not_found_date
     )
+    _coin_task_precheck_skipped = (
+        CoinTaskMixin._coin_task_precheck_skipped
+    )
+    TASK_NAME_STRONGHOLD = CoinTaskMixin.TASK_NAME_STRONGHOLD
 
     # --- _handle_coin_task_no_content 桩 ---
 
@@ -461,4 +465,28 @@ class TestStrongholdNotFoundSkip(unittest.TestCase):
 
         # 检查时应返回 False 并自动清除
         self.assertFalse(harness._is_stronghold_not_found_today())
+        self.assertIsNone(harness._get_stronghold_not_found_date())
+
+    def test_precheck_skips_stronghold_with_mark(self):
+        """有当日未找到标记时，precheck 拦截塞壬要塞且不影响其他任务。"""
+        harness = StrongholdNotFoundHarness()
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
+
+        harness._set_stronghold_not_found_today()
+        self.assertTrue(harness._coin_task_precheck_skipped('OpsiStronghold'))
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiMeowfficerFarming'))
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiObscure'))
+
+    def test_precheck_expired_mark_does_not_skip(self):
+        """标记过期时 precheck 不拦截，次日恢复正常并自动清除过期标记。"""
+        harness = StrongholdNotFoundHarness()
+        from module.config.utils import server_time_offset
+        from module.config.time_source import now as current_time
+        server_now = current_time() - server_time_offset()
+        yesterday = (server_now - timedelta(days=1)).strftime('%Y-%m-%d')
+        harness._set_smart_scheduling_state_value(
+            harness.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE, yesterday
+        )
+
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
         self.assertIsNone(harness._get_stronghold_not_found_date())
