@@ -280,6 +280,8 @@ DeploySetting:
   CheckUpdateIntervalHelp:
   AutoRestartTime:
   AutoRestartTimeHelp:
+  HideAnnouncement:
+  HideAnnouncementHelp:
   DiscordRichPresence:
   DiscordRichPresenceHelp:
   EnableRemoteAccess:

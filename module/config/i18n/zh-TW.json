@@ -6631,6 +6631,8 @@
       "CheckUpdateIntervalHelp": "每隔多少分鐘檢查一次更新，0 表示停用。",
       "AutoRestartTime": "定時重啟時間",
       "AutoRestartTimeHelp": "有更新時每天自動重啟的時間，留空表示停用。",
+      "HideAnnouncement": "隱藏公告彈窗",
+      "HideAnnouncementHelp": "開啟後WebUI不再自動彈出公告，仍可在開發工具菜單中手動查看。",
       "DiscordRichPresence": "Discord 富狀態",
       "DiscordRichPresenceHelp": "在 Discord 中展示 AzurPilot 執行狀態。",
       "EnableRemoteAccess": "啟用遠端訪問",
