@@ -6834,7 +6834,10 @@
       "DeltaNet": "净变化喵",
       "DeltaTotalConsumed": "总消耗 {total} 喵",
       "NoDeltaData": "暂无资源增减数据喵，运行脚本后将自动记录喵",
-      "LoadDeltaDataFailed": "加载资源增减数据失败喵: {e}"
+      "LoadDeltaDataFailed": "加载资源增减数据失败喵: {e}",
+      "DeltaTimelineHint": "任务按时间排列喵，节点上方为增加、下方为消耗喵",
+      "DeltaTaskTimes": "运行 {n} 次喵",
+      "DeltaMore": "+{n} 项喵"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自动切换喵"

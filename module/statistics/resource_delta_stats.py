@@ -2,7 +2,7 @@
 
 通过 SQLite 数据库按事件粒度存储每次资源变化（delta 正=增加，负=消耗），
 并携带任务归因（source，即事件发生时正在运行的任务命令名），
-用于统计页的资源增减趋势折线图、增减汇总表与消耗排行榜。
+用于统计页的任务资源时间轴、增减汇总表与消耗排行榜。
 
 数据由 module/log_res/log_res.py 的 LogRes.__setattr__ 钩子在资源值变化时写入，
 覆盖 Dashboard 全部 12 种资源；委托任务（Commission）的收益由专门的委托统计
@@ -13,7 +13,7 @@ import os
 import sqlite3
 import threading
 from contextlib import closing
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from module.logger import logger
@@ -143,60 +143,76 @@ def get_delta_summary(
         return []
 
 
-def get_delta_timeline(
+def get_task_delta_timeline(
     instance: str,
-    bucket: str = 'day',
-    days: int = 30,
+    start_ts: Optional[str] = None,
+    end_ts: Optional[str] = None,
 ) -> List[Dict]:
-    """获取最近 days 天的资源净变化时间序列，按日/周/月分桶。
+    """按任务聚合增减事件，用于任务资源时间轴。
+
+    每个任务（source）一个节点：节点上方展示增加、下方展示消耗。
 
     Args:
         instance: 配置实例名
-        bucket: 分桶粒度，'day' / 'week' / 'month'；
-            week 取周一日期作标签，month 取 'YYYY-MM'
-        days: 统计最近多少天的事件
+        start_ts: 起始时间（含），ISO 格式字符串，None 表示不限
+        end_ts: 结束时间（不含），ISO 格式字符串，None 表示不限
 
     Returns:
-        list[dict]: 按 bucket 升序，每项为 {'bucket': 标签, '<资源名>': 净变化}，
-            只包含有事件的资源键，空桶由调用方按需补零
+        list[dict]: 按任务最近活动时间升序，每项包含:
+            - source: 任务命令名
+            - first_ts: 窗口内首次事件时间（ISO 字符串）
+            - last_ts: 窗口内最近事件时间（ISO 字符串）
+            - events: 事件总条数
+            - resources: {资源名: {'increased': 增加合计, 'consumed': 消耗合计(正数),
+              'events': 事件条数}}，只包含有事件的资源
     """
     try:
         _ensure_table()
-        start = (datetime.now() - timedelta(days=days)).isoformat()
+        actual_start = start_ts if start_ts is not None else _TS_MIN
+        actual_end = end_ts if end_ts is not None else _TS_MAX
         with closing(sqlite3.connect(_LOCAL_DB)) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
                 '''
-                SELECT ts, resource, delta FROM resource_delta_events
-                WHERE instance = ? AND ts >= ?
+                SELECT source, resource,
+                       SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END) AS increased,
+                       SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END) AS consumed,
+                       COUNT(*) AS events,
+                       MIN(ts) AS first_ts,
+                       MAX(ts) AS last_ts
+                FROM resource_delta_events
+                WHERE instance = ? AND ts >= ? AND ts < ?
+                GROUP BY source, resource
                 ''',
-                (instance, start),
+                (instance, actual_start, actual_end),
             ).fetchall()
-        buckets: Dict[str, Dict[str, int]] = {}
+        # ts 列为 ISO 格式字符串，字典序即时间序
+        tasks: Dict[str, Dict] = {}
         for row in rows:
-            try:
-                dt = datetime.fromisoformat(row['ts'])
-            except (TypeError, ValueError):
-                continue
-            key = _bucket_key(dt, bucket)
-            if key is None:
-                continue
-            slot = buckets.setdefault(key, {})
-            slot[row['resource']] = slot.get(row['resource'], 0) + int(row['delta'] or 0)
-        return [{'bucket': k, **buckets[k]} for k in sorted(buckets)]
+            task = tasks.get(row['source'])
+            if task is None:
+                task = {
+                    'source': row['source'],
+                    'first_ts': row['first_ts'],
+                    'last_ts': row['last_ts'],
+                    'events': 0,
+                    'resources': {},
+                }
+                tasks[row['source']] = task
+            if row['first_ts'] < task['first_ts']:
+                task['first_ts'] = row['first_ts']
+            if row['last_ts'] > task['last_ts']:
+                task['last_ts'] = row['last_ts']
+            task['events'] += int(row['events'] or 0)
+            task['resources'][row['resource']] = {
+                'increased': int(row['increased'] or 0),
+                'consumed': int(row['consumed'] or 0),
+                'events': int(row['events'] or 0),
+            }
+        return sorted(tasks.values(), key=lambda item: (item['last_ts'], item['source']))
     except Exception as e:
-        logger.warning(f'[统计-增减] 获取资源增减趋势失败: {e}')
+        logger.warning(f'[统计-增减] 获取任务资源时间轴失败: {e}')
         return []
-
-
-def _bucket_key(dt: datetime, bucket: str) -> Optional[str]:
-    """把时间戳映射到分桶标签"""
-    if bucket == 'week':
-        monday = dt - timedelta(days=dt.weekday())
-        return monday.strftime('%Y-%m-%d')
-    if bucket == 'month':
-        return dt.strftime('%Y-%m')
-    return dt.strftime('%Y-%m-%d')
 
 
 def get_consumption_ranking(
@@ -247,6 +263,6 @@ def get_consumption_ranking(
 __all__ = [
     'record_resource_delta',
     'get_delta_summary',
-    'get_delta_timeline',
+    'get_task_delta_timeline',
     'get_consumption_ranking',
 ]
