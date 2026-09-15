@@ -1748,8 +1748,21 @@ async def api_import_legacy_upload(request):
 _error_log_zip_lock = asyncio.Lock()
 
 
+def _log_scope_param(request) -> str:
+    """读取日志接口的 scope 参数：**优先 path，其次 query**。
+
+    P2P 远控代理转发时只保留 pathname、剥掉 query string（见 _live_instance_fallback
+    的注释与仓库里的既有事故记录）。把 scope 只放在 query 里，远控下会**静默**退化成
+    默认值：运行日志从"当天/指定日"变成"全部历史合并"，错误日志从"仅文本"变成
+    "含截图的完整包"——用户拿到的是错的内容，却因为 HTTP 200 而毫无提示。
+
+    所以每个 scope 都必须同时提供 path 形式，前端也一律优先用 path。
+    """
+    return request.path_params.get("scope") or request.query_params.get("scope")
+
+
 async def api_log_runtime(request):
-    """GET /api/log/runtime?instance=<name>&scope=all|today
+    """GET /api/log/runtime[?instance=&scope=] 或 /api/log/runtime/<instance>[/<scope>]
     下载实例的运行日志。
 
     scope=all（默认）把所有历史日志按日期拼接成一个 txt —— 排查通常需要跨天上下文，
@@ -1770,7 +1783,7 @@ async def api_log_runtime(request):
     except ValueError as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=400)
 
-    scope = normalize_runtime_scope(request.query_params.get("scope"))
+    scope = normalize_runtime_scope(_log_scope_param(request))
     try:
         log_path, filename, is_temp = await asyncio.to_thread(
             build_runtime_log_bundle, instance, scope
@@ -1804,7 +1817,7 @@ async def api_log_runtime_info(request):
     except ValueError as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=400)
 
-    scope = normalize_runtime_scope(request.query_params.get("scope"))
+    scope = normalize_runtime_scope(_log_scope_param(request))
     data = await asyncio.to_thread(describe_runtime_logs, instance, scope)
     return JSONResponse({"success": True, "data": data})
 
@@ -1838,7 +1851,7 @@ async def api_log_error_info(request):
     远控下几十 MB 要传很久，先让用户看到"要传多少、压缩后多大"再决定，
     比点下去干等更有意义。不带实例参数，远端即使丢参数也不受影响。
     """
-    scope = normalize_scope(request.query_params.get("scope"))
+    scope = normalize_scope(_log_scope_param(request))
     try:
         data = await asyncio.to_thread(describe_error_log_dir, scope)
     except FileNotFoundError as e:
@@ -1854,7 +1867,7 @@ async def api_log_error_archive(request):
     `scope=full` 打包全部文件；`scope=text` 只打包日志文本（跳过几十 MB 的截图，秒传）。
     同样不加 is_local_request 门禁（远控经 P2P 代理到 127.0.0.1，加了也没意义）。
     """
-    scope = normalize_scope(request.query_params.get("scope"))
+    scope = normalize_scope(_log_scope_param(request))
     async with _error_log_zip_lock:
         try:
             zip_path = await asyncio.to_thread(build_error_log_zip, scope)
@@ -1895,16 +1908,24 @@ api_routes = [
     Route("/api/deploy/startup-run", api_deploy_startup_run_save, methods=["POST"]),
     Route("/api/import_legacy_upload", api_import_legacy_upload, methods=["POST"]),
     # 日志导出（远控可下载，刻意不做本机限制）
-    # 注意顺序：静态子路径必须排在 /api/log/runtime/{instance} 之前，
-    # 否则 "info" / "dates" 会被当成实例名吃掉
+    # 注意两点：
+    # 1) 顺序：静态子路径必须排在 {instance} / {scope} 之前，否则 "info"/"dates"
+    #    会被当成实例名或 scope 吃掉；
+    # 2) 每个 scope 都要有 path 形式（.../{scope}）：P2P 远控代理会剥掉 query string，
+    #    只放 query 会让导出**静默退化成默认值**（当天日志变成全部历史合并、
+    #    "仅文本"变成含截图的完整包），用户拿到错内容却看不到任何报错。
     Route("/api/log/runtime", api_log_runtime),
     Route("/api/log/runtime/info", api_log_runtime_info),
     Route("/api/log/runtime/info/{instance}", api_log_runtime_info),
+    Route("/api/log/runtime/info/{instance}/{scope}", api_log_runtime_info),
     Route("/api/log/runtime/dates", api_log_runtime_dates),
     Route("/api/log/runtime/dates/{instance}", api_log_runtime_dates),
     Route("/api/log/runtime/{instance}", api_log_runtime),
+    Route("/api/log/runtime/{instance}/{scope}", api_log_runtime),
     Route("/api/log/error", api_log_error_archive),
     Route("/api/log/error/info", api_log_error_info),
+    Route("/api/log/error/info/{scope}", api_log_error_info),
+    Route("/api/log/error/{scope}", api_log_error_archive),
     Route("/obs", serve_obs_overlay),
     WebSocketRoute("/ws/live_screenshot", ws_live_screenshot),
     WebSocketRoute("/ws/live_control", ws_live_control),

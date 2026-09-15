@@ -535,17 +535,45 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 throw lastError || new Error('network error');
               }}
 
-              // 运行日志接口的多种取法：query 形式优先，path 形式兜底。
-              // 本仓库既有事故：P2P 远控代理转发 WebSocket 握手时会剥掉 query string，
-              // 因此不能把实例名唯一的寄托在 query 上。
-              // scope=all（默认）会把历史日志合并成一个文件——只给当天那份会漏掉
-              // 前一天出问题的现场（实例当天可能只跑了 9 秒，就几 KB）
+              // 运行日志接口的多种取法：**scope 走 path 的排在最前**。
+              // P2P 远控代理转发时会剥掉 query string，若先试 query 形式，它会以
+              // HTTP 200 返回默认的"全部历史合并"，fetchFirst 拿到第一个 200 就收工
+              // → 用户选了某天，实际拿到的却是别的内容，且界面上毫无报错。
               function runtimeVariants(instance, scope) {{
                 var enc = encodeURIComponent(instance);
-                var query = '?scope=' + encodeURIComponent(scope);
+                var encScope = encodeURIComponent(scope);
                 return [
-                  '/api/log/runtime?instance=' + enc + '&scope=' + encodeURIComponent(scope),
-                  '/api/log/runtime/' + enc + query
+                  '/api/log/runtime/' + enc + '/' + encScope,
+                  '/api/log/runtime?instance=' + enc + '&scope=' + encScope,
+                  '/api/log/runtime/' + enc + '?scope=' + encScope
+                ];
+              }}
+
+              // 体积统计同理：path 形式优先
+              function runtimeInfoVariants(instance, scope) {{
+                var enc = encodeURIComponent(instance);
+                var encScope = encodeURIComponent(scope);
+                return [
+                  '/api/log/runtime/info/' + enc + '/' + encScope,
+                  '/api/log/runtime/info?instance=' + enc + '&scope=' + encScope,
+                  '/api/log/runtime/info/' + enc + '?scope=' + encScope
+                ];
+              }}
+
+              // 错误日志的 scope（full / text）同样优先走 path
+              function errorLogVariants(scope) {{
+                var encScope = encodeURIComponent(scope);
+                return [
+                  '/api/log/error/' + encScope,
+                  '/api/log/error?scope=' + encScope
+                ];
+              }}
+
+              function errorLogInfoVariants(scope) {{
+                var encScope = encodeURIComponent(scope);
+                return [
+                  '/api/log/error/info/' + encScope,
+                  '/api/log/error/info?scope=' + encScope
                 ];
               }}
 
@@ -630,8 +658,8 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 return out;
               }}
 
-              async function fetchInfo(path) {{
-                var resp = await fetchFirst([path]);
+              async function fetchInfo(variants) {{
+                var resp = await fetchFirst(variants);
                 if (!resp.ok) throw new Error('HTTP ' + resp.status);
                 var data = await resp.json();
                 if (!data.success) throw new Error(data.error || 'unknown error');
@@ -646,7 +674,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 var proceed = false;
                 var empty = false;
                 try {{
-                  var info = await fetchInfo('/api/log/error/info?scope=' + scope);
+                  var info = await fetchInfo(errorLogInfoVariants(scope));
                   if (info.files) {{
                     proceed = confirm(formatConfirm(text.confirmSize, {{
                       files: info.files,
@@ -673,7 +701,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 var fallback = scope === 'text'
                   ? 'AzurPilot-error-logs-text.zip'
                   : 'AzurPilot-error-logs.zip';
-                exportLog(['/api/log/error?scope=' + scope], fallback, text.packing);
+                exportLog(errorLogVariants(scope), fallback, text.packing);
               }}
 
               // 日期下拉：按实例列出「有日志的那几天」，让用户直接挑几号，
@@ -682,8 +710,8 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 var instance = sel.value;
                 if (!instance) return;
                 fetchFirst([
-                  '/api/log/runtime/dates?instance=' + encodeURIComponent(instance),
-                  '/api/log/runtime/dates/' + encodeURIComponent(instance)
+                  '/api/log/runtime/dates/' + encodeURIComponent(instance),
+                  '/api/log/runtime/dates?instance=' + encodeURIComponent(instance)
                 ]).then(function(resp){{
                   if (!resp.ok) return null;
                   return resp.json();
@@ -725,10 +753,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 var proceed = false;
                 var empty = false;
                 try {{
-                  var info = await fetchInfo(
-                    '/api/log/runtime/info?instance=' + encodeURIComponent(instance) +
-                    '&scope=' + encodeURIComponent(scope)
-                  );
+                  var info = await fetchInfo(runtimeInfoVariants(instance, scope));
                   if (info.files) {{
                     proceed = confirm(formatConfirm(text.confirmSizePlain, {{
                       files: info.files,
