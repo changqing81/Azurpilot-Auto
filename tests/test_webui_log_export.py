@@ -160,13 +160,18 @@ class TestLogExportLogic(unittest.TestCase):
         with self._patch_root():
             dates = log_export.list_runtime_dates("alas")
 
-        self.assertEqual(dates, sorted(dates, reverse=True))
-        self.assertEqual(dates[0], log_export.today_str())
-        self.assertIn("2026-09-11", dates)
-        self.assertIn("2026-09-10", dates)
-        self.assertEqual(len(dates), len(set(dates)))
-        # 其他实例的日期不能混进来
-        self.assertEqual(log_export.list_runtime_dates("小号"), [])
+            self.assertEqual(dates, sorted(dates, reverse=True))
+            self.assertEqual(dates[0], log_export.today_str())
+            self.assertIn("2026-09-11", dates)
+            self.assertIn("2026-09-10", dates)
+            self.assertEqual(len(dates), len(set(dates)))
+            # 实例隔离：小号只能看到自己的日期（fixture 中仅 2026-09-11_小号.txt）。
+            # 若 glob 泄漏跨实例，这里会多出 alas 独有的 09-10 与今天。
+            # 注意：必须在 patch 生效范围内断言——否则会读到真实 log 目录，
+            # 真实实例（如小号）当天有日志时该测试就会误报失败。
+            self.assertEqual(
+                log_export.list_runtime_dates("小号"), ["2026-09-11"]
+            )
 
     def test_normalize_runtime_scope_accepts_all_or_date(self):
         self.assertEqual(log_export.normalize_runtime_scope("all"), "all")
