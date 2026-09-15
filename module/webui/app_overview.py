@@ -100,8 +100,11 @@ _EXPORT_TODAY_JS_TEMPLATE = r"""
   (async function(){
     try {
       var enc = encodeURIComponent(__INSTANCE__);
-      // query 与 path 两式都发：P2P 远控代理转发 WS 握手时会剥掉 query string
+      // scope 必须走 path，且**排在最前**：P2P 远控代理转发时会剥掉 query string，
+      // 若先试 query 形式，它会以 HTTP 200 返回默认的"全部历史合并"，而 fetchFirst
+      // 拿到第一个 200 就收工 —— 用户要今天的日志却得到合并文件，且界面上毫无报错。
       var resp = await fetchFirst([
+        '/api/log/runtime/' + enc + '/today',
         '/api/log/runtime?instance=' + enc + '&scope=today',
         '/api/log/runtime/' + enc + '?scope=today'
       ]);

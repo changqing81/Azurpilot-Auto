@@ -6834,7 +6834,10 @@
       "DeltaNet": "純変化",
       "DeltaTotalConsumed": "総消費 {total}",
       "NoDeltaData": "資源増減データがまだありません。スクリプト実行後に自動記録されます",
-      "LoadDeltaDataFailed": "資源増減データの読み込みに失敗しました: {e}"
+      "LoadDeltaDataFailed": "資源増減データの読み込みに失敗しました: {e}",
+      "DeltaTimelineHint": "タスクを時系列で配置、上は増加・下は消費",
+      "DeltaTaskTimes": "実行 {n} 回",
+      "DeltaMore": "+{n}件"
     },
     "Tactical": {
       "SkillAutoSwitch": "スキル自動切替"

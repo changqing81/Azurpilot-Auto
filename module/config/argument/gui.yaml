@@ -484,6 +484,9 @@ Stat:
   DeltaTotalConsumed:
   NoDeltaData:
   LoadDeltaDataFailed:
+  DeltaTimelineHint:
+  DeltaTaskTimes:
+  DeltaMore:
 
 Tactical:
   SkillAutoSwitch:

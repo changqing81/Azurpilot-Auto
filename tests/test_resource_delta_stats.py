@@ -86,49 +86,51 @@ class TestResourceDeltaStats(unittest.TestCase):
         summary = {row['resource']: row for row in stats.get_delta_summary('alas')}
         self.assertEqual(1000, summary['Oil']['decrease'])
 
-    def test_timeline_day_buckets_merge_and_sort(self):
-        now = datetime.now()
-        yesterday = now - timedelta(days=1)
-        self._insert_event(now.isoformat(), 'Oil', -500, 'Main')
-        self._insert_event(now.isoformat(), 'Oil', -300, 'Main')
-        self._insert_event(yesterday.isoformat(), 'Oil', -700, 'Main')
-        self._insert_event(yesterday.isoformat(), 'Coin', -600, 'Gacha')
+    def test_task_timeline_aggregates_by_source(self):
+        base = datetime(2026, 9, 10, 12, 0, 0)
+        # Main：两笔消耗 + 一笔增加，同一任务合并累计
+        self._insert_event(base.isoformat(), 'Oil', -500, 'Main')
+        self._insert_event((base + timedelta(minutes=1)).isoformat(), 'Oil', -300, 'Main')
+        self._insert_event((base + timedelta(minutes=2)).isoformat(), 'Oil', 5000, 'Main')
+        # Gacha：另一任务，时间更晚，排序应在其后
+        self._insert_event((base + timedelta(hours=1)).isoformat(), 'Coin', -600, 'Gacha')
 
-        timeline = stats.get_delta_timeline('alas', bucket='day', days=30)
+        timeline = stats.get_task_delta_timeline('alas')
         self.assertEqual(2, len(timeline))
-        # 桶按时间升序
-        self.assertLess(timeline[0]['bucket'], timeline[1]['bucket'])
-        today_row = timeline[-1]
-        self.assertEqual(-800, today_row['Oil'])
-        self.assertEqual('bucket' in today_row, True)
-        yesterday_row = timeline[0]
-        self.assertEqual(-700, yesterday_row['Oil'])
-        self.assertEqual(-600, yesterday_row['Coin'])
+        # 按任务最近活动时间升序
+        self.assertEqual('Main', timeline[0]['source'])
+        self.assertEqual('Gacha', timeline[1]['source'])
 
-    def test_timeline_week_and_month_buckets(self):
-        self._insert_event('2026-09-02T10:00:00', 'Oil', -100, 'Main')
-        # 同一周（周一为 2026-08-31）的另一条
-        self._insert_event('2026-09-04T10:00:00', 'Oil', -50, 'Main')
-        self._insert_event('2026-08-05T10:00:00', 'Oil', -200, 'Main')
+        main = timeline[0]
+        self.assertEqual(5000, main['resources']['Oil']['increased'])
+        self.assertEqual(800, main['resources']['Oil']['consumed'])
+        self.assertEqual(3, main['resources']['Oil']['events'])
+        self.assertEqual(3, main['events'])
+        self.assertEqual(base.isoformat(), main['first_ts'])
+        self.assertNotIn('Coin', main['resources'])
 
-        weekly = stats.get_delta_timeline('alas', bucket='week', days=365)
-        by_bucket = {row['bucket']: row for row in weekly}
-        # 2026-09-02 与 2026-09-04 同属周一为 2026-08-31 的一周，合并累计
-        self.assertEqual(-150, by_bucket['2026-08-31']['Oil'])
-        self.assertEqual(-200, by_bucket['2026-08-03']['Oil'])
+        gacha = timeline[1]
+        self.assertEqual(0, gacha['resources']['Coin']['increased'])
+        self.assertEqual(600, gacha['resources']['Coin']['consumed'])
 
-        monthly = stats.get_delta_timeline('alas', bucket='month', days=365)
-        by_month = {row['bucket']: row for row in monthly}
-        self.assertEqual(-150, by_month['2026-09']['Oil'])
-        self.assertEqual(-200, by_month['2026-08']['Oil'])
-
-    def test_timeline_isolated_by_instance(self):
+    def test_task_timeline_time_filter_and_instance(self):
         now = datetime.now()
-        self._insert_event(now.isoformat(), 'Oil', -100, 'Main')
+        past = now - timedelta(hours=3)
+        self._insert_event(past.isoformat(), 'Oil', -1000, 'Main')
+        self._insert_event(now.isoformat(), 'Oil', -2000, 'Gacha')
         self._insert_event(now.isoformat(), 'Oil', -900, 'Main', instance='alas2')
-        timeline = stats.get_delta_timeline('alas', bucket='day', days=1)
-        self.assertEqual(1, len(timeline))
-        self.assertEqual(-100, timeline[0]['Oil'])
+
+        recent = stats.get_task_delta_timeline(
+            'alas', start_ts=(now - timedelta(hours=1)).isoformat()
+        )
+        self.assertEqual(1, len(recent))
+        self.assertEqual('Gacha', recent[0]['source'])
+        self.assertEqual(2000, recent[0]['resources']['Oil']['consumed'])
+
+        # 实例隔离：alas2 只有自己的事件
+        all_alas2 = stats.get_task_delta_timeline('alas2')
+        self.assertEqual(['Main'], [item['source'] for item in all_alas2])
+        self.assertEqual(900, all_alas2[0]['resources']['Oil']['consumed'])
 
     def test_ranking_only_consumption_desc(self):
         self._insert_event(datetime.now().isoformat(), 'Oil', -3000, 'Main')

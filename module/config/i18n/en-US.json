@@ -6834,7 +6834,10 @@
       "DeltaNet": "Net",
       "DeltaTotalConsumed": "Total consumed {total}",
       "NoDeltaData": "No resource delta data yet. It will be recorded automatically when the script runs.",
-      "LoadDeltaDataFailed": "Failed to load resource delta data: {e}"
+      "LoadDeltaDataFailed": "Failed to load resource delta data: {e}",
+      "DeltaTimelineHint": "Tasks in time order — gains above the line, consumption below",
+      "DeltaTaskTimes": "Ran {n} times",
+      "DeltaMore": "+{n} more"
     },
     "Tactical": {
       "SkillAutoSwitch": "Skill Auto Switch"

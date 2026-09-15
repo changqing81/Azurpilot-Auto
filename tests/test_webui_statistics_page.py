@@ -158,5 +158,73 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.assertEqual([], self.gui.rendered)
 
 
+class TestDeltaTimelineTranslationPlaceholders(unittest.TestCase):
+    """回归：t() 会无条件对翻译执行 .format()，含 {n} 占位符的翻译若直接取用会
+    KeyError('n')（2026-09-15 时间轴上线当日事故：加载真实 i18n 后点粒度按钮即崩）。
+    本测试加载真实语言包，锁定占位符必须以字面形式回传 JS 的行为。"""
+
+    def test_render_delta_timeline_with_loaded_i18n(self):
+        from module.webui import lang as webui_lang
+        from module.webui.app_stat_delta import ResourceDeltaStatisticsMixin
+
+        saved_dic, saved_lang = webui_lang.dic_lang, webui_lang.LANG
+        webui_lang.dic_lang = {}
+        webui_lang.LANG = "zh-CN"
+        try:
+            webui_lang.reload()
+            # 事故现场复现：不带占位符取用必须仍然失败（t() 强制 format 的既定行为）
+            with self.assertRaises(KeyError):
+                webui_lang.t("Gui.Stat.DeltaTaskTimes")
+            # 修复方式：把 n 传回字面 "{n}"，由 JS 端按节点替换
+            self.assertIn(
+                "{n}", webui_lang.t("Gui.Stat.DeltaTaskTimes", n="{n}")
+            )
+            self.assertIn("{n}", webui_lang.t("Gui.Stat.DeltaMore", n="{n}"))
+
+            gui = type(
+                "Gui", (ResourceDeltaStatisticsMixin,), {"alas_name": "alas"}
+            )()
+            timeline = [
+                {
+                    "source": "Event2",
+                    "first_ts": "2026-09-15T21:15:52",
+                    "last_ts": "2026-09-15T21:15:52",
+                    "events": 1,
+                    "resources": {
+                        "Pt": {"increased": 90, "consumed": 0, "events": 1}
+                    },
+                }
+            ]
+            summary = [
+                {
+                    "resource": "Pt",
+                    "increase": 90,
+                    "decrease": 0,
+                    "net": 90,
+                    "events": 1,
+                }
+            ]
+
+            with patch(
+                "module.webui.app_stat_delta.put_html"
+            ) as mock_html, patch(
+                "module.webui.app_stat_delta.run_js"
+            ) as mock_js:
+                gui._render_delta_timeline(timeline, summary)
+
+            mock_html.assert_called_once()
+            mock_js.assert_called_once()
+            js_code = mock_js.call_args[0][0]
+            self.assertIn("运行 {n} 次", js_code)
+            self.assertIn("+{n} 项", js_code)
+            for placeholder in (
+                "__TASKS__", "__CHART_ID__", "__TXT_GAIN__", "__TXT_LOSS__",
+                "__TXT_TIMES__", "__TXT_MORE__",
+            ):
+                self.assertNotIn(placeholder, js_code)
+        finally:
+            webui_lang.dic_lang, webui_lang.LANG = saved_dic, saved_lang
+
+
 if __name__ == "__main__":
     unittest.main()

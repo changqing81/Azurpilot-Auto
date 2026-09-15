@@ -160,13 +160,18 @@ class TestLogExportLogic(unittest.TestCase):
         with self._patch_root():
             dates = log_export.list_runtime_dates("alas")
 
-        self.assertEqual(dates, sorted(dates, reverse=True))
-        self.assertEqual(dates[0], log_export.today_str())
-        self.assertIn("2026-09-11", dates)
-        self.assertIn("2026-09-10", dates)
-        self.assertEqual(len(dates), len(set(dates)))
-        # 其他实例的日期不能混进来
-        self.assertEqual(log_export.list_runtime_dates("小号"), [])
+            self.assertEqual(dates, sorted(dates, reverse=True))
+            self.assertEqual(dates[0], log_export.today_str())
+            self.assertIn("2026-09-11", dates)
+            self.assertIn("2026-09-10", dates)
+            self.assertEqual(len(dates), len(set(dates)))
+            # 实例隔离：小号只能看到自己的日期（fixture 中仅 2026-09-11_小号.txt）。
+            # 若 glob 泄漏跨实例，这里会多出 alas 独有的 09-10 与今天。
+            # 注意：必须在 patch 生效范围内断言——否则会读到真实 log 目录，
+            # 真实实例（如小号）当天有日志时该测试就会误报失败。
+            self.assertEqual(
+                log_export.list_runtime_dates("小号"), ["2026-09-11"]
+            )
 
     def test_normalize_runtime_scope_accepts_all_or_date(self):
         self.assertEqual(log_export.normalize_runtime_scope("all"), "all")
@@ -388,17 +393,33 @@ class TestLogExportApi(unittest.TestCase):
         for expected in (
             "/api/log/runtime",
             "/api/log/runtime/{instance}",
+            "/api/log/runtime/{instance}/{scope}",
             "/api/log/runtime/info",
             "/api/log/runtime/info/{instance}",
+            "/api/log/runtime/info/{instance}/{scope}",
             "/api/log/runtime/dates",
             "/api/log/runtime/dates/{instance}",
             "/api/log/error",
+            "/api/log/error/{scope}",
             "/api/log/error/info",
+            "/api/log/error/info/{scope}",
         ):
             self.assertIn(expected, paths)
-        # 静态子路径必须排在 {instance} 之前，否则 "info"/"dates" 会被当成实例名
+        # 静态段必须排在带参段之前，否则 "info"/"dates" 会被当成实例名或 scope 吃掉
         for static in ("/api/log/runtime/info", "/api/log/runtime/dates"):
             self.assertLess(paths.index(static), paths.index("/api/log/runtime/{instance}"))
+        self.assertLess(
+            paths.index("/api/log/runtime/info/{instance}/{scope}"),
+            paths.index("/api/log/runtime/{instance}/{scope}"),
+        )
+        self.assertLess(
+            paths.index("/api/log/error/info"),
+            paths.index("/api/log/error/{scope}"),
+        )
+        self.assertLess(
+            paths.index("/api/log/error/info"),
+            paths.index("/api/log/error/info/{scope}"),
+        )
 
     def test_log_handlers_are_not_local_only(self):
         """远控经 P2P 代理进来也必须可用，因此不得使用 is_local_request 门禁。"""
@@ -665,7 +686,80 @@ class TestLogExportApi(unittest.TestCase):
         ):
             response = self.client.get("/api/log/error/info")
         self.assertEqual(response.status_code, 404)
-        self.assertFalse(response.json()["success"])
+
+    # ---------- scope 走 path（P2P 远控会剥掉 query string） ----------
+    #
+    # 这是真实事故的回归锁：scope 只在 query 里时，远控链路上会丢失，
+    # 后端回落默认值并以 HTTP 200 返回**错的内容**（当天日志→全部合并、
+    # 仅文本→含截图的完整包），界面上毫无报错。
+
+    def test_runtime_date_scope_in_path_is_honoured(self):
+        log_file = self._runtime_log_file("2026-09-14_alas.txt")
+        with patch.object(
+            webui_api,
+            "build_runtime_log_bundle",
+            return_value=(log_file, log_file.name, False),
+        ) as builder:
+            response = self.client.get("/api/log/runtime/alas/2026-09-14")
+
+        self.assertEqual(response.status_code, 200)
+        builder.assert_called_once_with("alas", "2026-09-14")
+
+    def test_runtime_today_scope_in_path_resolves_on_server(self):
+        """today 由服务端解析成当天；当天没日志要 404，绝不回落成 all。"""
+        with patch.object(
+            webui_api, "build_runtime_log_bundle", side_effect=FileNotFoundError("none")
+        ) as builder:
+            response = self.client.get("/api/log/runtime/alas/today")
+
+        self.assertEqual(response.status_code, 404)
+        builder.assert_called_once_with("alas", log_export.today_str())
+        self.assertIn(log_export.today_str(), response.json()["error"])
+
+    def test_runtime_info_scope_in_path_is_honoured(self):
+        with patch.object(
+            webui_api, "describe_runtime_logs", return_value={"files": 1}
+        ) as probe:
+            response = self.client.get("/api/log/runtime/info/alas/2026-09-14")
+
+        self.assertEqual(response.status_code, 200)
+        probe.assert_called_once_with("alas", "2026-09-14")
+
+    def test_error_scope_in_path_is_honoured(self):
+        zip_path = self.root / "text-scope.zip"
+        with zipfile.ZipFile(zip_path, "w") as archive:
+            archive.writestr("alas/log.txt", "x")
+
+        with patch.object(
+            webui_api, "build_error_log_zip", return_value=zip_path
+        ) as builder:
+            response = self.client.get("/api/log/error/text")
+
+        builder.assert_called_once_with("text")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("-text-", response.headers["content-disposition"])
+
+    def test_error_info_scope_in_path_not_swallowed_by_archive_route(self):
+        """/api/log/error/info/text 必须命中 info 处理器，别被 {scope} 当成 scope="info"。"""
+        with patch.object(
+            webui_api, "describe_error_log_dir", return_value=self._info_payload()
+        ) as probe:
+            response = self.client.get("/api/log/error/info/text")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["success"])
+        probe.assert_called_once_with("text")
+
+    def test_runtime_dates_path_not_swallowed_by_scope_route(self):
+        """/api/log/runtime/dates/alas 必须命中 dates 处理器，而不是 {instance}/{scope}。"""
+        with patch.object(
+            webui_api, "list_runtime_dates", return_value=["2026-09-14"]
+        ) as probe:
+            response = self.client.get("/api/log/runtime/dates/alas")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["data"]["dates"], ["2026-09-14"])
+        probe.assert_called_once_with("alas")
 
     # ---------- 仅日志文本的轻量导出 ----------
 
@@ -772,6 +866,35 @@ class TestLogExportPanel(unittest.TestCase):
         # 拉不到日期要有兜底，不能把导出卡住
         self.assertIn("}).catch(function(){", js)
 
+    def test_panel_scope_variants_prefer_path_over_query(self):
+        """scope 走 path 的候选必须排在 query 形式之前。
+
+        远控代理剥掉 query string 后，query 形式会以 HTTP 200 返回默认范围
+        （运行日志=全部合并 / 错误日志=含截图完整包），而 fetchFirst 拿到第一个
+        200 就收工 —— 顺序反了等于没修。
+        """
+        _, js = self._render_panel("alas")
+
+        # 运行日志：/runtime/<instance>/<scope> 先于 ?instance=&scope=
+        self.assertIn("/api/log/runtime/' + enc + '/' + encScope", js)
+        self.assertLess(
+            js.index("/api/log/runtime/' + enc + '/' + encScope"),
+            js.index("/api/log/runtime?instance=' + enc + '&scope=' + encScope"),
+        )
+        # 体积统计同理
+        self.assertIn("/api/log/runtime/info/' + enc + '/' + encScope", js)
+        self.assertLess(
+            js.index("/api/log/runtime/info/' + enc + '/' + encScope"),
+            js.index("/api/log/runtime/info?instance="),
+        )
+        # 错误日志的 full/text 同理
+        self.assertIn("/api/log/error/' + encScope", js)
+        self.assertLess(
+            js.index("/api/log/error/' + encScope"),
+            js.index("/api/log/error?scope=' + encScope"),
+        )
+        self.assertIn("/api/log/error/info/' + encScope", js)
+
     def test_panel_queries_real_size_before_exporting(self):
         """点导出前必须先查真实体积，并把文件数/大小填进确认框。"""
         _, js = self._render_panel("alas")
@@ -856,6 +979,19 @@ class TestToolbarLogExportButton(unittest.TestCase):
             '"小号"' in js or r'"\u5c0f\u53f7"' in js,
             "实例名既未字面量注入也未安全转义",
         )
+
+    def test_js_prefers_path_form_for_today(self):
+        """today 必须走 path 形式且排在最前。
+
+        真实事故：远控代理剥掉 query string 后，`?scope=today` 丢失 → 后端回落
+        all → 以 HTTP 200 返回"全部历史合并"，fetchFirst 拿到第一个 200 就收工，
+        用户点「导出今日日志」拿到合并文件且毫无报错。
+        """
+        js = self._js("alas")
+
+        self.assertIn("/api/log/runtime/' + enc + '/today", js)
+        # path 形式（/today）必须出现在任何 query 形式（scope=today）之前
+        self.assertLess(js.index("'/today'"), js.index("scope=today"))
 
     def test_js_feedback_does_not_rely_on_client_toast(self):
         """pywebio 的 toast 是服务端指令，浏览器里没有这个全局。"""

@@ -1,8 +1,11 @@
-"""WebUI 资源增减统计视图：净变化折线图、增减汇总表与消耗排行榜。
+"""WebUI 资源增减统计视图：任务资源时间轴、增减汇总表与消耗排行榜。
 
 数据来自 module/statistics/resource_delta_stats.py 的资源增减事件库
 （./config/resource_delta.db），事件由 LogRes 钩子在资源值变化时写入，
 委托任务（Commission）不参与统计。
+
+时间轴按用户手绘稿设计：任务沿水平主线按时间排列，节点上方标注增加（涨了）、
+下方标注消耗（消耗了）；消耗排行榜采用发光横条样式，资源按总消耗降序分节。
 """
 
 from module.webui.app_dependencies import (
@@ -47,51 +50,32 @@ RESOURCE_COLORS = {
     "PurpleCoin": "#ce93d8",
 }
 
-# 粒度 -> (分桶方式, 追溯天数)；total 用月度分桶 + 折线累计
-PERIOD_BUCKETS = {
-    "day": ("day", 30),
-    "week": ("week", 84),
-    "month": ("month", 366),
-    "total": ("month", 3650),
+# 粒度 -> 追溯天数：日=最近1天、周=最近7天、月=最近30天、总=全部
+PERIOD_DAYS = {
+    "day": 1,
+    "week": 7,
+    "month": 30,
+    "total": 3650,
 }
 PERIOD_KEYS = ["day", "week", "month", "total"]
+
+# 时间轴节点上方/下方最多直接标注的条目数，其余进悬浮详情
+_TIMELINE_TOP_N = 3
 
 # 任务名翻译缓存（缺翻译键时 t() 会向 stdout 打印提示，缓存避免重复刷屏）
 _MENU_LABEL_CACHE = {}
 
 
-def _iter_bucket_labels(start, end, bucket):
-    """枚举 [start, end] 内的全部桶标签（升序），用于补齐无事件的空桶"""
-    if bucket == "month":
-        year, month = start.year, start.month
-        labels = []
-        while (year, month) <= (end.year, end.month):
-            labels.append(f"{year:04d}-{month:02d}")
-            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-        return labels
-    if bucket == "week":
-        cur = (start - timedelta(days=start.weekday())).date()
-        end_monday = (end - timedelta(days=end.weekday())).date()
-        labels = []
-        while cur <= end_monday:
-            labels.append(cur.strftime("%Y-%m-%d"))
-            cur += timedelta(days=7)
-        return labels
-    cur = start.date()
-    labels = []
-    while cur <= end.date():
-        labels.append(cur.strftime("%Y-%m-%d"))
-        cur += timedelta(days=1)
-    return labels
-
-
-def _bucket_display(label, bucket):
-    """桶标签的图表显示形式"""
-    if bucket == "day":
-        return label[5:]
-    if bucket == "week":
-        return label[5:]
-    return label
+def _hex_to_rgba(color, alpha):
+    """'#rrggbb' -> 'rgba(r,g,b,a)'；非法输入回退灰蓝色，保证横条辉光不失效"""
+    try:
+        value = str(color).lstrip("#")
+        if len(value) != 6:
+            raise ValueError(color)
+        r, g, b = int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+        return f"rgba({r},{g},{b},{alpha})"
+    except (ValueError, AttributeError):
+        return f"rgba(144,164,174,{alpha})"
 
 
 class ResourceDeltaStatisticsMixin(WebUIMixinBase):
@@ -112,7 +96,7 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
             if not timeline and not summary and not ranking:
                 put_html(build_muted_notice(t("Gui.Stat.NoDeltaData")))
                 return
-            self._render_delta_chart(timeline)
+            self._render_delta_timeline(timeline, summary)
             self._render_delta_tables(summary, ranking)
 
     # ---- 数据加载 ----
@@ -130,17 +114,17 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         return getattr(self, "_delta_period", "day")
 
     def _load_delta_data(self):
-        """按当前粒度加载增减趋势、汇总与消耗排行数据。"""
+        """按当前粒度的时间窗加载任务时间轴、增减汇总与消耗排行数据。"""
         from module.statistics.resource_delta_stats import (
             get_consumption_ranking,
             get_delta_summary,
-            get_delta_timeline,
+            get_task_delta_timeline,
         )
 
         instance_name = self._get_delta_instance()
-        bucket, days = PERIOD_BUCKETS[self._get_delta_period()]
+        days = PERIOD_DAYS[self._get_delta_period()]
         start = (datetime.now() - timedelta(days=days)).isoformat()
-        timeline = get_delta_timeline(instance_name, bucket=bucket, days=days)
+        timeline = get_task_delta_timeline(instance_name, start_ts=start)
         summary = get_delta_summary(instance_name, start_ts=start)
         ranking = get_consumption_ranking(instance_name, start_ts=start)
         return timeline, summary, ranking
@@ -171,120 +155,102 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         self._delta_period = value
         self._render_resource_delta()
 
-    # ---- 折线图 ----
+    # ---- 任务资源时间轴 ----
 
-    def _render_delta_chart(self, timeline):
-        labels, series_map = self._build_delta_series(timeline)
-        if not labels:
+    def _render_delta_timeline(self, timeline, summary):
+        """任务沿主线按时间排列：节点上方标注增加、下方标注消耗。"""
+        if not timeline:
             put_html(build_muted_notice(t("Gui.Stat.NoDeltaData")))
             return
 
-        chart_id = f"rdc_{id(self)}"
-        stats_html, legend_html = self._build_delta_chart_headers(series_map)
-        html = read_webapp_template("resource_delta_chart.html").format(
+        chart_id = f"rdt_{id(self)}"
+        html = read_webapp_template("resource_delta_timeline.html").format(
             chart_id=chart_id,
             title=t("Gui.Stat.DeltaChartTitle"),
-            stats_html=stats_html,
-            legend_html=legend_html,
+            stats_html=self._build_delta_stats_html(summary),
+            legend_html=self._build_delta_legend_html(),
         )
 
-        series_data = [
-            {
-                "key": key,
-                "name": self._resource_label(key),
-                "color": RESOURCE_COLORS.get(key, "#90a4ae"),
-                "data": meta["data"],
-            }
-            for key, meta in series_map.items()
-        ]
+        tasks = [self._build_timeline_task(item) for item in timeline]
+        # t() 会无条件 .format()，含 {n} 占位符的翻译必须把 n 传回字面 "{n}"，
+        # 由 JS 端按节点自行替换次数（直接 t() 会 KeyError）
         js_code = (
-            read_webapp_template("resource_delta_chart.js")
-            .replace("__LABELS__", json.dumps(labels, ensure_ascii=False))
-            .replace("__SERIES_DATA__", json.dumps(series_data, ensure_ascii=False))
+            read_webapp_template("resource_delta_timeline.js")
+            .replace("__TASKS__", json.dumps(tasks, ensure_ascii=False))
             .replace("__CHART_ID__", chart_id)
-            .replace("__CHART_TITLE__", t("Gui.Stat.DeltaChartTitle"))
+            .replace("__TXT_GAIN__", t("Gui.Stat.DeltaIncrease"))
+            .replace("__TXT_LOSS__", t("Gui.Stat.DeltaDecrease"))
+            .replace("__TXT_TIMES__", t("Gui.Stat.DeltaTaskTimes", n="{n}"))
+            .replace("__TXT_MORE__", t("Gui.Stat.DeltaMore", n="{n}"))
         )
         put_html(html)
         run_js(js_code)
 
-    def _build_delta_series(self, timeline):
-        """把分桶净变化整理成折线序列，补齐无事件的空桶（记 0）。
+    def _build_timeline_task(self, item):
+        """把按任务聚合的增减数据整理成前端节点结构。
 
-        Returns:
-            (labels, {resource: {"data": [..]}})，labels 为空表示无数据
+        gains/losses 按数额降序，超出 _TIMELINE_TOP_N 的部分由前端折叠进悬浮详情。
         """
-        if not timeline:
-            return [], {}
-
-        period = self._get_delta_period()
-        bucket, days = PERIOD_BUCKETS[period]
-        accumulate = period == "total"
-
-        buckets = {item["bucket"]: item for item in timeline}
-        now = datetime.now()
-        # 时间窗从追溯起点开始，而不是最早事件，保证各粒度窗口长度稳定
-        window_labels = _iter_bucket_labels(now - timedelta(days=days), now, bucket)
-        first_existing = min(buckets)
-        labels = [
-            label for label in window_labels
-            if label >= first_existing
-        ] or [first_existing]
-        display_labels = [_bucket_display(label, bucket) for label in labels]
-
-        # 只保留出现过的资源，避免整条零值线
-        resources = set()
-        for item in buckets.values():
-            for key in item:
-                if key != "bucket":
-                    resources.add(key)
-
-        series_map = {}
-        for key in sorted(resources, key=self._resource_sort_key):
-            data = []
-            for label in labels:
-                value = buckets.get(label, {}).get(key, 0)
-                data.append(int(value or 0))
-            if accumulate:
-                running = 0
-                cumulative = []
-                for value in data:
-                    running += value
-                    cumulative.append(running)
-                data = cumulative
-            series_map[key] = {"data": data}
-        return display_labels, series_map
+        gains, losses = [], []
+        for key, meta in item["resources"].items():
+            color = RESOURCE_COLORS.get(key, "#90a4ae")
+            increased = int(meta.get("increased") or 0)
+            consumed = int(meta.get("consumed") or 0)
+            if increased > 0:
+                gains.append(
+                    {"name": self._resource_label(key), "color": color, "value": increased}
+                )
+            if consumed > 0:
+                losses.append(
+                    {"name": self._resource_label(key), "color": color, "value": consumed}
+                )
+        gains.sort(key=lambda e: e["value"], reverse=True)
+        losses.sort(key=lambda e: e["value"], reverse=True)
+        return {
+            "name": self._source_label(item["source"]),
+            "fullname": item["source"],
+            "time": self._format_ts(item.get("last_ts")),
+            "events": int(item.get("events") or 0),
+            "gains": gains,
+            "losses": losses,
+        }
 
     @staticmethod
-    def _resource_sort_key(key):
-        # 无配色的新资源排在已定义顺序之后
-        try:
-            return RESOURCE_KEYS.index(key)
-        except ValueError:
-            return len(RESOURCE_KEYS)
+    def _format_ts(iso_ts):
+        """ISO 时间 -> 'MM-DD HH:MM' 展示"""
+        text = str(iso_ts or "").replace("T", " ")
+        return text[5:16] if len(text) >= 16 else text
 
-    def _build_delta_chart_headers(self, series_map):
-        """构造图表上方的区间合计统计与图例开关"""
-        stats_html = ""
-        legend_html = ""
-        for idx, (key, meta) in enumerate(series_map.items()):
-            data = meta["data"]
-            name = self._resource_label(key)
+    def _build_delta_stats_html(self, summary):
+        """时间轴上方的时间窗净变化汇总：资源: ±净变化"""
+        rows = {r["resource"]: r for r in summary}
+        parts = []
+        for key in RESOURCE_KEYS:
+            row = rows.get(key)
+            if not row or not row["events"]:
+                continue
+            net = int(row["net"] or 0)
             color = RESOURCE_COLORS.get(key, "#90a4ae")
-            net = sum(v for v in data if v is not None)
-            net_color = "#ef5350" if net >= 0 else "#26a69a"
-            net_sign = "+" if net >= 0 else ""
-            stats_html += (
-                f'<span style="white-space:nowrap;">{name}: '
-                f'<b style="color:{color}">{net_sign}{net:,}</b>'
-                f'</span>'
+            sign = "+" if net >= 0 else ""
+            parts.append(
+                f'<span style="white-space:nowrap;">{self._resource_label(key)}: '
+                f'<b style="color:{color}">{sign}{net:,}</b></span>'
             )
-            legend_html += (
-                f'<span class="rc-legend-item" data-series="{idx}" '
-                f'style="display:flex;align-items:center;gap:4px;cursor:pointer;opacity:1;">'
-                f'<span style="width:12px;height:3px;background:{color};border-radius:1px;"></span>'
-                f"{name}</span>"
-            )
-        return stats_html, legend_html
+        return "".join(parts)
+
+    @staticmethod
+    def _build_delta_legend_html():
+        """时间轴语义说明：上方为增加、下方为消耗"""
+        gain = t("Gui.Stat.DeltaIncrease")
+        loss = t("Gui.Stat.DeltaDecrease")
+        hint = t("Gui.Stat.DeltaTimelineHint")
+        return (
+            '<span style="display:flex;align-items:center;gap:4px;">'
+            f'<span style="color:#26a69a;">▲</span>{gain}</span>'
+            '<span style="display:flex;align-items:center;gap:4px;">'
+            f'<span style="color:#ef5350;">▼</span>{loss}</span>'
+            f'<span style="opacity:0.7;">{hint}</span>'
+        )
 
     # ---- 汇总表与排行榜 ----
 
@@ -332,27 +298,35 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         return "".join(parts)
 
     def _build_ranking_html(self, ranking):
-        """右侧消耗排行榜：按资源分节，节内按任务消耗降序，CSS 横条显示占比"""
+        """右侧消耗排行榜：资源按总消耗降序分节，节内按任务消耗降序，发光横条显示占比"""
         if not ranking:
             return f'<div style="color:#666;font-size:12px;">{t("Gui.Stat.NoDeltaData")}</div>'
 
         groups = {}
         for row in ranking:
             groups.setdefault(row["resource"], []).append(row)
-        ordered = [
-            key for key in RESOURCE_KEYS if key in groups
-        ] + sorted(key for key in groups if key not in RESOURCE_KEYS)
+        # 资源按总消耗降序排列，体现"榜"的语义
+        totals = {
+            res: sum(int(r["consumed"] or 0) for r in rows)
+            for res, rows in groups.items()
+        }
+        ordered = sorted(groups, key=lambda res: totals[res], reverse=True)
 
+        track_bg = "rgba(255,255,255,0.06)"
         parts = []
         for res in ordered:
             rows = sorted(
                 groups[res], key=lambda r: int(r["consumed"] or 0), reverse=True
             )
-            total = sum(int(r["consumed"] or 0) for r in rows)
+            total = totals[res]
             color = RESOURCE_COLORS.get(res, "#90a4ae")
+            # 横条样式：左浅右实的渐变 + 资源色辉光，与参考样式对齐
+            fill = f"linear-gradient(90deg, {_hex_to_rgba(color, 0.45)}, {color})"
+            glow = f"0 0 10px {_hex_to_rgba(color, 0.35)}"
+            max_value = max(int(r["consumed"] or 0) for r in rows) or 1
             parts.append(
-                '<div style="margin-bottom:14px;">'
-                f'<div style="font-size:13px;font-weight:600;color:{color};margin-bottom:6px;">'
+                '<div style="margin-bottom:18px;">'
+                f'<div style="font-size:14px;font-weight:600;color:{color};margin-bottom:8px;">'
                 f'{self._resource_label(res)}'
                 f'<span style="color:#888;font-weight:400;font-size:12px;margin-left:8px;">'
                 f'{t("Gui.Stat.DeltaTotalConsumed", total=f"{total:,}")}'
@@ -361,19 +335,22 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
             for row in rows[:10]:
                 consumed = int(row["consumed"] or 0)
                 times = int(row["times"] or 0)
-                pct = consumed / total * 100 if total else 0
+                # 节内归一化到最大值，首条横条占满整行
+                pct = consumed / max_value * 100
                 source = row["source"]
                 parts.append(
-                    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">'
-                    f'<div style="width:150px;font-size:12px;color:#bbb;text-align:right;'
+                    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">'
+                    f'<div style="width:150px;font-size:12px;color:#b8c2cc;text-align:right;'
                     f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" '
                     f'title="{source}">{self._source_label(source)}</div>'
-                    '<div style="flex:1;background:#252540;border-radius:6px;height:14px;min-width:60px;">'
-                    f'<div style="width:{pct:.1f}%;height:100%;background:{color};'
-                    f'border-radius:6px;opacity:0.85;"></div>'
+                    f'<div style="flex:1;background:{track_bg};border-radius:8px;height:16px;'
+                    f'min-width:60px;overflow:hidden;">'
+                    f'<div style="width:{pct:.1f}%;height:100%;background:{fill};'
+                    f'border-radius:8px;box-shadow:{glow};"></div>'
                     '</div>'
-                    f'<div style="width:130px;font-size:12px;color:#ddd;">{consumed:,}'
-                    f'<span style="color:#666;"> ×{times}</span></div>'
+                    f'<div style="width:130px;font-size:12px;color:#fff;white-space:nowrap;">'
+                    f'<b>{consumed:,}</b>'
+                    f'<span style="color:#666;margin-left:6px;">×{times}</span></div>'
                     '</div>'
                 )
             parts.append('</div>')

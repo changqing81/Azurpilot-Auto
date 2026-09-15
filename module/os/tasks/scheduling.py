@@ -664,6 +664,24 @@ class CoinTaskMixin:
             self.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE
         )
 
+    def _coin_task_precheck_skipped(self, task_name):
+        """
+        黄币补充任务“当日必跳过”的前置条件检查。
+
+        在代理执行与预算补充之前调用，命中时完全不启动任务本体，
+        避免给必然跳过的任务白灌会话行动力（如塞壬要塞预算 210）。
+        任务内部的自检（如 clear_stronghold 的当日标记判定）保留作双保险。
+
+        Args:
+            task_name (str): 黄币补充任务名。
+
+        Returns:
+            bool: True 表示任务今日必跳过，调用方应直接跳过该任务。
+        """
+        if task_name == self.TASK_NAME_STRONGHOLD and self._is_stronghold_not_found_today():
+            return True
+        return False
+
     def _get_coin_replenish_target(self, yellow_coins, cl1_preserve):
         """
         获取本轮补黄币目标值。
@@ -1897,6 +1915,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             self._smart_scheduling_no_content_task = None
         self._smart_scheduling_no_content_task = None
         self._coin_task_ap_budgeted = False
+
+        # 前置检查：任务当日必跳过时不补预算、不启动任务本体，直接交由下一个任务
+        if self._coin_task_precheck_skipped(task_name):
+            task_display = self.TASK_NAMES.get(task_name, task_name)
+            logger.info(f'[大世界-智能调度+] {task_display}今日前置检查未通过，直接跳过')
+            return False
 
         if ensure_budget:
             self._ensure_coin_task_action_point(task_name, ap_preserve)
