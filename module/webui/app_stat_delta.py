@@ -172,14 +172,16 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         )
 
         tasks = [self._build_timeline_task(item) for item in timeline]
+        # t() 会无条件 .format()，含 {n} 占位符的翻译必须把 n 传回字面 "{n}"，
+        # 由 JS 端按节点自行替换次数（直接 t() 会 KeyError）
         js_code = (
             read_webapp_template("resource_delta_timeline.js")
             .replace("__TASKS__", json.dumps(tasks, ensure_ascii=False))
             .replace("__CHART_ID__", chart_id)
             .replace("__TXT_GAIN__", t("Gui.Stat.DeltaIncrease"))
             .replace("__TXT_LOSS__", t("Gui.Stat.DeltaDecrease"))
-            .replace("__TXT_TIMES__", t("Gui.Stat.DeltaTaskTimes"))
-            .replace("__TXT_MORE__", t("Gui.Stat.DeltaMore"))
+            .replace("__TXT_TIMES__", t("Gui.Stat.DeltaTaskTimes", n="{n}"))
+            .replace("__TXT_MORE__", t("Gui.Stat.DeltaMore", n="{n}"))
         )
         put_html(html)
         run_js(js_code)
