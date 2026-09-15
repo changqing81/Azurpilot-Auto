@@ -445,6 +445,48 @@ class InfoHandler(ModuleBase):
         buttons = sorted(buttons, key=lambda button: button.button[1])
         return buttons
 
+    def _story_option_buttons_3(self):
+        """
+        检测剧情选项按钮（右侧白色选项样式）。
+
+        例如大世界主线的适应性选择界面（[适应性·攻击]提升 /
+        [适应性·耐久]提升 / [适应性·效能]提升 / 不做选择），
+        选项纵向排列在画面右侧，点击右上角跳过无效，必须选择一项。
+
+        Returns:
+            从上到下排列的剧情选项按钮列表，未找到则返回空列表。
+        """
+        # 选项检测区域，至少需要包含 2 个选项
+        # 右侧雷达在 x=1080 以后，检测区域避开雷达
+        story_option_area = (760, 150, 1010, 470)
+        story_option_color = (247, 247, 247)
+        image = color_similarity_2d(self.image_crop(story_option_area, copy=False), color=story_option_color) > 225
+
+        # 选项约为 150px x 47px，白色底上文字使行白色计数降到约一半
+        # 沿 y 平滑填平文字凹陷，窗口小于选项间距(约28px)不会误合并相邻选项
+        parameters = {
+            'height': 60,
+            'width': 25,
+            'distance': 60,
+        }
+        y_count = np.convolve(np.sum(image, axis=1), np.ones(15), mode='same')
+        peaks, properties = signal.find_peaks(y_count, **parameters)
+        buttons = []
+        total = len(peaks)
+        if not total:
+            return []
+        for n, bases in enumerate(zip(properties['left_bases'], properties['right_bases'])):
+            y0, y1 = int(bases[0]), int(bases[1])
+            x_count = np.where(np.sum(image[y0:y1, :], axis=0) > 5)[0]
+            if not len(x_count):
+                continue
+            x_min, x_max = np.min(x_count), np.max(x_count)
+            area = (x_min, y0, x_max, y1)
+            area = area_pad(area_offset(area, offset=story_option_area[:2]), pad=5)
+            buttons.append(
+                Button(area=area, color=story_option_color, button=area, name=f'STORY_OPTION_{n + 1}_OF_{total}'))
+        return buttons
+
     def _is_story_black(self):
         color = get_color(self.device.image, area=STORY_LETTER_BLACK.area)
         if color_similar(color, STORY_LETTER_BLACK.color, threshold=10):
@@ -524,6 +566,10 @@ class InfoHandler(ModuleBase):
                 return True
         if self._story_option_timer.reached() and self.appear(STORY_SKIP_3, offset=(20, 20), interval=0):
             options = self._story_option_buttons_2()
+            if not options:
+                # 大世界主线适应性选择界面：选项在右侧纵向排列，
+                # 点击右上角跳过无效，必须选择一项
+                options = self._story_option_buttons_3()
             options_count = len(options)
             logger.attr('剧情选项数量', options_count)
             if options_count:
