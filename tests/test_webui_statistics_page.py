@@ -47,9 +47,6 @@ class _StatisticsHarness(StatisticsPageMixin):
     def _render_ap_chart(self):
         self.rendered.append("ap")
 
-    def _render_resource_chart(self):
-        self.rendered.append("resource")
-
     def _render_opsi_stats(self):
         self.rendered.append("opsi")
 
@@ -92,7 +89,7 @@ class TestStatisticsPageCache(unittest.TestCase):
     def test_reopening_unchanged_page_reuses_existing_render(self):
         self.gui.alas_set_stat()
         self.assertEqual(
-            ["ap", "resource", "opsi", "delta", "ship", "commission"],
+            ["ap", "opsi", "delta", "ship", "commission"],
             self.gui.rendered,
         )
 
@@ -119,7 +116,7 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui._refresh_statistics_page()
 
         self.assertEqual(
-            ["ap", "resource", "opsi", "delta", "ship", "commission"],
+            ["ap", "opsi", "delta", "ship", "commission"],
             self.gui.rendered,
         )
         self.assertEqual("v2", self.gui._statistics_source_signature)
@@ -133,14 +130,13 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.alas_set_stat()
 
         self.assertEqual(
-            ["ap", "resource", "opsi", "delta", "ship", "commission"],
+            ["ap", "opsi", "delta", "ship", "commission"],
             self.gui.rendered,
         )
         self.assertEqual(
             [
                 (
                     "__apChartCleanups",
-                    "__resourceChartCleanups",
                     "__resourceDeltaChartCleanups",
                 )
             ],

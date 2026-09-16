@@ -151,7 +151,7 @@ class Frame(Base):
 
             js_parts.append(
                 "(function () {\n"
-                "  var keys = " + json.dumps(["__apChartCleanups", "__resourceChartCleanups", "__resourceDeltaChartCleanups"]) + ";\n"
+                "  var keys = " + json.dumps(["__apChartCleanups", "__resourceDeltaChartCleanups"]) + ";\n"
                 "  keys.forEach(function (key) {\n"
                 "    var cleanups = window[key];\n"
                 "    if (!cleanups) return;\n"

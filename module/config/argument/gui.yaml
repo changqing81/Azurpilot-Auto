@@ -466,10 +466,6 @@ Stat:
   CommissionIncomeHeaderAvg:
   CommissionIncomeTotalCommissions:
   CommissionIncomeRecentTitle:
-  ResourceChartTitle:
-  LoadResourceDataFailed:
-  NoResourceData:
-  NoValidResourceData:
   DeltaPeriodDay:
   DeltaPeriodWeek:
   DeltaPeriodMonth:

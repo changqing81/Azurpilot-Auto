@@ -42,7 +42,6 @@ class StatisticsPageMixin(WebUIMixinBase):
             if getattr(self, "_statistics_cache_key", None) is not None:
                 self.cleanup_client_resources(
                     "__apChartCleanups",
-                    "__resourceChartCleanups",
                     "__resourceDeltaChartCleanups",
                 )
 
@@ -64,7 +63,6 @@ class StatisticsPageMixin(WebUIMixinBase):
                 put_scope("commission_income", [])
                 put_scope("resource_delta", [])
                 put_scope("ship_exp_table", [])
-                put_scope("resource_chart", [])
 
             self._statistics_cache_key = cache_key
             self._render_statistics_sections()
@@ -132,7 +130,6 @@ class StatisticsPageMixin(WebUIMixinBase):
     def _render_statistics_sections(self) -> None:
         """统一刷新各统计子视图。"""
         self._render_ap_chart()
-        self._render_resource_chart()
         self._render_opsi_stats()
         self._render_resource_delta()
         self._render_ship_exp()

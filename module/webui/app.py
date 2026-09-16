@@ -83,7 +83,6 @@ from module.webui.app_stat_commission import CommissionIncomeStatisticsMixin
 from module.webui.app_stat_delta import ResourceDeltaStatisticsMixin
 from module.webui.app_stat_opsi import OpsiStatisticsMixin
 from module.webui.app_stat_opsi_export import OpsiExportMixin
-from module.webui.app_stat_resource import ResourceStatisticsMixin
 from module.webui.app_stat_ship import ShipExperienceStatisticsMixin
 from module.webui.app_statistics_page import StatisticsPageMixin
 from module.webui.app_task_config import TaskConfigMixin
@@ -280,7 +279,6 @@ def _build_alas_gui_class():
     from module.webui.app_stat_delta import ResourceDeltaStatisticsMixin
     from module.webui.app_stat_opsi import OpsiStatisticsMixin
     from module.webui.app_stat_opsi_export import OpsiExportMixin
-    from module.webui.app_stat_resource import ResourceStatisticsMixin
     from module.webui.app_stat_ship import ShipExperienceStatisticsMixin
     from module.webui.app_statistics_page import StatisticsPageMixin
     from module.webui.app_task_config import TaskConfigMixin
@@ -290,7 +288,6 @@ def _build_alas_gui_class():
         StatisticsPageMixin,
         ActionPointStatisticsMixin,
         ActionPointToolbarMixin,
-        ResourceStatisticsMixin,
         OpsiStatisticsMixin,
         OpsiExportMixin,
         ShipExperienceStatisticsMixin,
