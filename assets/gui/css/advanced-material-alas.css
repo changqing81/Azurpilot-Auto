@@ -1598,3 +1598,32 @@ button[style*="--menu-Overview--"] {
 		transition-duration: 0.01ms !important;
 	}
 }
+
+/* --- 统计页资源增减视图（--rd-*）：跟随高级材质卡片，暗色由覆盖层变量自动生效 --- */
+:root {
+	--rd-panel-bg: var(--alas-apple-card-bg, rgba(255, 255, 255, 0.72));
+	--rd-panel-border: var(--alas-apple-glass-border, rgba(0, 0, 0, 0.08));
+	--rd-panel-shadow: var(--alas-apple-shadow-xs, none);
+	--rd-title: var(--alas-apple-text, #1d1d1f);
+	--rd-muted: var(--alas-apple-text-secondary, #6e6e73);
+	--rd-entry-name: #4b5563;
+	--rd-gain: #0e9384;
+	--rd-loss: #e04848;
+	--rd-line: rgba(60, 64, 80, 0.22);
+	--rd-node-bg: rgba(255, 255, 255, 0.75);
+	--rd-node-border: rgba(60, 64, 80, 0.18);
+	--rd-node-bg-hover: rgba(91, 107, 214, 0.12);
+	--rd-node-border-hover: #5b6bd6;
+	--rd-node-text: var(--alas-apple-text, #1d1d1f);
+	--rd-guide: rgba(91, 107, 214, 0.14);
+	--rd-more: rgba(60, 64, 80, 0.45);
+	--rd-track: rgba(60, 64, 80, 0.10);
+	--rd-table-border: rgba(60, 64, 80, 0.12);
+	--rd-tip-bg: var(--alas-apple-card-bg-solid, rgba(255, 255, 255, 0.97));
+	--rd-tip-border: var(--alas-apple-glass-border, rgba(0, 0, 0, 0.10));
+	--rd-tip-text: var(--alas-apple-text, #1d1d1f);
+	--rd-tip-shadow: var(--alas-apple-shadow-md, 0 6px 18px rgba(16, 24, 40, 0.14));
+	--rd-btn-bg: rgba(255, 255, 255, 0.55);
+	--rd-btn-border: rgba(60, 64, 80, 0.22);
+	--rd-btn-text: var(--alas-apple-text-secondary, #6e6e73);
+}

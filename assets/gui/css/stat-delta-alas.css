@@ -1,0 +1,244 @@
+/* ==========================================
+   统计页资源增减视图（--rd-*）
+   任务时间轴 / 增减汇总表 / 消耗排行榜 的主题化样式。
+   颜色全部走 --rd-* 变量：本文件提供暗色回退值，
+   各主题 CSS（light/dark/advanced-material/transparent）
+   在 :root 中覆盖变量即可换肤，无需改动组件本身。
+   ========================================== */
+
+:root {
+    --rd-panel-bg: #1a1a2e;
+    --rd-panel-border: #2c2c46;
+    --rd-panel-shadow: none;
+    --rd-title: #e2e6f0;
+    --rd-muted: #8a93a3;
+    --rd-entry-name: #b8c2cc;
+    --rd-gain: #26a69a;
+    --rd-loss: #ef5350;
+    --rd-line: #3a3a58;
+    --rd-node-bg: #24243c;
+    --rd-node-border: #3d3d5c;
+    --rd-node-bg-hover: #2e2e50;
+    --rd-node-border-hover: #64b5f6;
+    --rd-node-text: #dfe6ee;
+    --rd-guide: rgba(100, 181, 246, 0.18);
+    --rd-more: #5c6470;
+    --rd-track: rgba(255, 255, 255, 0.06);
+    --rd-table-border: #2a2a3e;
+    --rd-tip-bg: rgba(57, 57, 78, 0.95);
+    --rd-tip-border: #555570;
+    --rd-tip-text: #dddddd;
+    --rd-tip-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --rd-btn-bg: #33334d;
+    --rd-btn-border: #555570;
+    --rd-btn-text: #b6bdd0;
+}
+
+/* ---------- 区块骨架 ---------- */
+
+.rd-block {
+    margin-top: 16px;
+    margin-bottom: 8px;
+}
+
+.rd-section-title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 8px;
+    color: var(--rd-title);
+}
+
+.rd-panel {
+    background: var(--rd-panel-bg);
+    border: 1px solid var(--rd-panel-border);
+    border-radius: 16px;
+    box-shadow: var(--rd-panel-shadow);
+}
+
+.rd-tables-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+    margin-top: 16px;
+}
+
+.rd-card {
+    padding: 14px 16px;
+}
+
+/* ---------- 汇总行与图例 ---------- */
+
+.rd-stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--rd-muted);
+}
+
+.rd-stats-item {
+    white-space: nowrap;
+}
+
+.rd-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--rd-muted);
+}
+
+.rd-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.rd-dot-gain { color: var(--rd-gain); }
+.rd-dot-loss { color: var(--rd-loss); }
+
+.rd-legend-hint { opacity: 0.75; }
+
+/* ---------- 时间轴画布 ---------- */
+
+.rd-canvas-wrap {
+    position: relative;
+    padding: 6px;
+}
+
+.rd-canvas {
+    display: block;
+    width: 100%;
+    height: 380px;
+    cursor: grab;
+    touch-action: pan-y;
+}
+
+.rd-controls {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    display: flex;
+    gap: 4px;
+}
+
+.rd-btn {
+    background: var(--rd-btn-bg);
+    border: 1px solid var(--rd-btn-border);
+    border-radius: 10px;
+    padding: 2px 9px;
+    font-size: 11px;
+    color: var(--rd-btn-text);
+    cursor: pointer;
+}
+
+.rd-btn:hover {
+    filter: brightness(1.15);
+}
+
+.rd-tip {
+    display: none;
+    position: absolute;
+    pointer-events: none;
+    background: var(--rd-tip-bg);
+    border: 1px solid var(--rd-tip-border);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--rd-tip-text);
+    z-index: 10;
+    white-space: nowrap;
+    max-width: 340px;
+    box-shadow: var(--rd-tip-shadow);
+}
+
+/* ---------- 增减汇总表 ---------- */
+
+.rd-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.rd-table th {
+    font-weight: 400;
+    color: var(--rd-table-head, var(--rd-muted));
+    padding: 4px 6px;
+}
+
+.rd-table tbody tr {
+    border-top: 1px solid var(--rd-table-border);
+}
+
+.rd-table td {
+    padding: 4px 6px;
+}
+
+.rd-col-num { text-align: right; }
+
+.rd-gain { color: var(--rd-gain); }
+.rd-loss { color: var(--rd-loss); }
+
+/* ---------- 消耗排行榜 ---------- */
+
+.rd-rank-section { margin-bottom: 18px; }
+
+.rd-rank-head {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.rd-rank-total {
+    color: var(--rd-muted);
+    font-weight: 400;
+    font-size: 12px;
+    margin-left: 8px;
+}
+
+.rd-rank-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 7px;
+}
+
+.rd-rank-name {
+    width: 150px;
+    font-size: 12px;
+    color: var(--rd-entry-name);
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rd-rank-track {
+    flex: 1;
+    background: var(--rd-track);
+    border-radius: 8px;
+    height: 16px;
+    min-width: 60px;
+    overflow: hidden;
+}
+
+.rd-rank-fill {
+    height: 100%;
+    border-radius: 8px;
+    transition: width 0.4s ease;
+}
+
+.rd-rank-val {
+    width: 130px;
+    font-size: 12px;
+    color: var(--rd-title);
+    white-space: nowrap;
+}
+
+.rd-rank-times {
+    color: var(--rd-muted);
+    margin-left: 6px;
+}

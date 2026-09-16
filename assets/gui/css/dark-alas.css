@@ -293,3 +293,32 @@ pre.rich-traceback-code {
     border-color: #938f99;
     box-shadow: 0 2px 8px rgba(0, 0, 0, .32);
 }
+
+/* --- 统计页资源增减视图（--rd-*）：跟随暗色面板 --- */
+:root {
+    --rd-panel-bg: #22242c;
+    --rd-panel-border: #34363f;
+    --rd-panel-shadow: none;
+    --rd-title: var(--alas-entry-text, #eeeeee);
+    --rd-muted: var(--alas-entry-muted, #adb5bd);
+    --rd-entry-name: #b9c2cf;
+    --rd-gain: #2bbbad;
+    --rd-loss: #f2635f;
+    --rd-line: #3d4049;
+    --rd-node-bg: #2b2d36;
+    --rd-node-border: #454853;
+    --rd-node-bg-hover: #32353f;
+    --rd-node-border-hover: #7aa2f7;
+    --rd-node-text: #e6e9f0;
+    --rd-guide: rgba(122, 162, 247, 0.16);
+    --rd-more: #6b7280;
+    --rd-track: rgba(255, 255, 255, 0.07);
+    --rd-table-border: #363a43;
+    --rd-tip-bg: rgba(43, 45, 54, 0.97);
+    --rd-tip-border: #4a4d59;
+    --rd-tip-text: #e2e6f0;
+    --rd-tip-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+    --rd-btn-bg: #33363f;
+    --rd-btn-border: #4a4d59;
+    --rd-btn-text: #c3c9d6;
+}

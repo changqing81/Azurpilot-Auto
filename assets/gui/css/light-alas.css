@@ -225,3 +225,33 @@ pre.rich-traceback-code {
 *[style*="--dashboard-limit--"] {
     color: #777777;
 }
+
+/* --- 统计页资源增减视图（--rd-*）：浅色面板 --- */
+:root {
+    --rd-panel-bg: #ffffff;
+    --rd-panel-border: #e3e5ec;
+    --rd-panel-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+    --rd-title: #2c3144;
+    --rd-muted: #6b7280;
+    --rd-entry-name: #4b5563;
+    --rd-gain: #0e9384;
+    --rd-loss: #e04848;
+    --rd-line: #c9cede;
+    --rd-node-bg: #f4f5fa;
+    --rd-node-border: #d7dbe6;
+    --rd-node-bg-hover: #e9edfb;
+    --rd-node-border-hover: #5b6bd6;
+    --rd-node-text: #2c3144;
+    --rd-guide: rgba(91, 107, 214, 0.14);
+    --rd-more: #9aa1ae;
+    --rd-track: rgba(15, 23, 42, 0.07);
+    --rd-table-border: #eceef3;
+    --rd-table-head: #8a919e;
+    --rd-tip-bg: rgba(255, 255, 255, 0.98);
+    --rd-tip-border: #d9dde8;
+    --rd-tip-text: #333a47;
+    --rd-tip-shadow: 0 6px 18px rgba(16, 24, 40, 0.14);
+    --rd-btn-bg: #f2f3f7;
+    --rd-btn-border: #d7dbe6;
+    --rd-btn-text: #5a6272;
+}

@@ -1,20 +1,14 @@
-<div style="margin-top:16px; margin-bottom:8px;">
-  <div style="font-weight:600; font-size:14px; margin-bottom:8px;">{title}</div>
-  <div id="{chart_id}_stats_row" style="display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:6px; font-size:12px; color:#aaa;">
-    {stats_html}
-  </div>
-  <div id="{chart_id}_legend" style="display:flex; flex-wrap:wrap; gap:14px; margin-bottom:8px; font-size:12px; color:#888;">
-    {legend_html}
-  </div>
-  <div id="{chart_id}_container" style="position:relative;background:#1a1a2e;border-radius:16px;border:1px solid #333;padding:6px;">
-    <canvas id="{chart_id}" style="width:100%;height:420px;display:block;cursor:grab;touch-action:pan-y;"></canvas>
-    <div id="{chart_id}_tip"
-      style="display:none;position:absolute;pointer-events:none;background:#39394ef2;border:1px solid #555;border-radius:12px;padding:8px 12px;font-size:12px;color:#ddd;z-index:10;white-space:nowrap;max-width:340px;">
-    </div>
-    <div class="{chart_id}_controls" style="position:absolute;top:8px;right:12px;display:flex;gap:4px;">
-      <button id="{chart_id}_zoom_in" style="background:#333;border:1px solid #555;border-radius:10px;padding:2px 8px;font-size:11px;color:#aaa;cursor:pointer;">+</button>
-      <button id="{chart_id}_zoom_out" style="background:#333;border:1px solid #555;border-radius:10px;padding:2px 8px;font-size:11px;color:#aaa;cursor:pointer;">-</button>
-      <button id="{chart_id}_reset" style="background:#333;border:1px solid #555;border-radius:10px;padding:2px 8px;font-size:11px;color:#aaa;cursor:pointer;">重置</button>
+<div class="rd-block">
+  <div class="rd-section-title">{title}</div>
+  <div class="rd-stats-row" id="{chart_id}_stats_row">{stats_html}</div>
+  <div class="rd-legend" id="{chart_id}_legend">{legend_html}</div>
+  <div class="rd-canvas-wrap rd-panel" id="{chart_id}_container">
+    <canvas id="{chart_id}" class="rd-canvas"></canvas>
+    <div id="{chart_id}_tip" class="rd-tip"></div>
+    <div class="rd-controls">
+      <button id="{chart_id}_zoom_in" class="rd-btn">+</button>
+      <button id="{chart_id}_zoom_out" class="rd-btn">-</button>
+      <button id="{chart_id}_reset" class="rd-btn">重置</button>
     </div>
   </div>
 </div>

@@ -1,6 +1,8 @@
 (function () {
     // 任务资源时间轴：任务节点沿水平主线按时间排列，
     // 节点上方标注增加（涨了）、下方标注消耗（消耗了），与手绘稿一致。
+    // 画布不做底色（clearRect 透出面板背景），配色全部读 --rd-* CSS 变量，
+    // 随主题（含运行期切换）自动换肤。
     var tasks = __TASKS__;
     var chartId = "__CHART_ID__";
     var TXT_GAIN = "__TXT_GAIN__";
@@ -10,6 +12,8 @@
 
     var TOP_N = 3;               // 节点上下最多直接标注的条目数
     var MIN_COL = 104;           // 单个节点列最小宽度（像素）
+    var ENTRY_GAP = 18;          // 条目行距
+    var MORE_GAP = 16;           // "+N 项" 折叠行高
 
     var cv = document.getElementById(chartId);
     if (!cv) return;
@@ -24,6 +28,7 @@
     var visibleCount = 0;        // 可见节点数
     var defaultVisible = 0;
     var hoverIdx = null;
+    var PAL = {};                // 主题调色板（CSS 变量缓存）
 
     var cleanupHandlers = [];
     var initialRenderTimer = null;
@@ -51,18 +56,79 @@
         cleanupHandlers.push({ target: target, type: type, handler: handler, options: options });
     }
 
+    // ---- 主题调色板 ----
+
+    function cssVar(name, fallback) {
+        var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+        v = (v || "").trim();
+        return v || fallback;
+    }
+
+    function readPalette() {
+        PAL = {
+            line: cssVar("--rd-line", "#3a3a58"),
+            nodeBg: cssVar("--rd-node-bg", "#24243c"),
+            nodeBorder: cssVar("--rd-node-border", "#3d3d5c"),
+            nodeBgHover: cssVar("--rd-node-bg-hover", "#2e2e50"),
+            nodeBorderHover: cssVar("--rd-node-border-hover", "#64b5f6"),
+            nodeText: cssVar("--rd-node-text", "#dfe6ee"),
+            entryName: cssVar("--rd-entry-name", "#b8c2cc"),
+            gain: cssVar("--rd-gain", "#26a69a"),
+            loss: cssVar("--rd-loss", "#ef5350"),
+            guide: cssVar("--rd-guide", "rgba(100,181,246,0.18)"),
+            more: cssVar("--rd-more", "#5c6470"),
+            muted: cssVar("--rd-muted", "#8a93a3")
+        };
+    }
+
+    // 运行期主题切换：set_theme 会派发 alas-theme-change 事件，
+    // 此时主题 CSS 已重注入，直接重读变量并重绘。
+    addListener(window, "alas-theme-change", function () {
+        readPalette();
+        draw();
+    });
+
+    // ---- 布局 ----
+
+    // 内容半区高度（增加在上 / 消耗在下），用于自适应画布高度与主线定位
+    function contentHalf() {
+        var up = 0, down = 0;
+        for (var i = 0; i < n; i++) {
+            var t = tasks[i];
+            var u = t.gains.length
+                ? Math.min(TOP_N, t.gains.length) * ENTRY_GAP
+                  + (t.gains.length > TOP_N ? MORE_GAP : 0)
+                : 0;
+            var d = t.losses.length
+                ? Math.min(TOP_N, t.losses.length) * ENTRY_GAP
+                  + (t.losses.length > TOP_N ? MORE_GAP : 0)
+                : 0;
+            if (u > up) up = u;
+            if (d > down) down = d;
+        }
+        return { up: up, down: down };
+    }
+
     function computeLayout() {
+        // 自适应高度：按全部任务的标注体量决定，平移/缩放时高度不跳变
+        var half = contentHalf();
+        var need = half.up + 26 + half.down + 64;
+        var h = Math.max(240, Math.min(430, need));
+        cv.style.height = h + "px";
+
         W = cv.clientWidth;
         H = cv.clientHeight;
-        if (!W || !H) { W = cv.parentElement.clientWidth || 900; H = 420; }
+        if (!W || !H) { W = cv.parentElement.clientWidth || 900; H = h; }
         cv.width = W * dpr; cv.height = H * dpr;
         cv.style.width = W + "px"; cv.style.height = H + "px";
         pad = { t: 14, r: 18, b: 14, l: 18 };
         gW = W - pad.l - pad.r;
-        cy = Math.round(H * 0.54);
         defaultVisible = Math.max(1, Math.min(n, Math.floor(gW / MIN_COL)));
         if (visibleCount <= 0 || visibleCount > n) visibleCount = defaultVisible;
         colW = gW / visibleCount;
+        // 主线位置：内容块在面板内垂直居中
+        var free = H - pad.t - pad.b - (half.up + 26 + half.down);
+        cy = Math.round(pad.t + half.up + 13 + Math.max(0, free) / 2);
     }
 
     function clampPan() {
@@ -103,40 +169,58 @@
         ctx.closePath();
     }
 
+    // 单条标注：资源色圆点 + 资源名 + 红绿数额，整行在节点列内居中
     function drawEntry(ctx, entry, x, y, isGain, maxW) {
         var amount = (isGain ? "+" : "-") + fmtVal(entry.value);
-        var gainColor = "#26a69a";
-        var lossColor = "#ef5350";
         ctx.textBaseline = "middle";
         ctx.font = "bold 11px -apple-system, sans-serif";
         var amtW = ctx.measureText(amount).width;
         ctx.font = "11px -apple-system, sans-serif";
-        var name = truncate(ctx, entry.name, Math.max(12, maxW - amtW - 6));
-        var nameW = ctx.measureText(name + " ").width;
-        var sx = x - (nameW + amtW) / 2;
-        ctx.textAlign = "left";
+        var name = truncate(ctx, entry.name, Math.max(12, maxW - amtW - 18));
+        var nameW = ctx.measureText(name).width;
+
+        var dotR = 3;
+        var dotSpace = dotR * 2 + 4;
+        var contentW = dotSpace + nameW + 4 + amtW;
+        var sx = x - contentW / 2;
+
+        ctx.beginPath();
+        ctx.arc(sx + dotR, y, dotR, 0, Math.PI * 2);
         ctx.fillStyle = entry.color;
-        ctx.fillText(name, sx, y);
+        ctx.fill();
+
+        var tx = sx + dotSpace;
+        ctx.textAlign = "left";
+        ctx.fillStyle = PAL.entryName;
+        ctx.fillText(name, tx, y);
+        tx += nameW + 4;
         ctx.font = "bold 11px -apple-system, sans-serif";
-        ctx.fillStyle = isGain ? gainColor : lossColor;
-        ctx.fillText(amount, sx + nameW, y);
+        ctx.fillStyle = isGain ? PAL.gain : PAL.loss;
+        ctx.fillText(amount, tx, y);
+    }
+
+    function drawMoreLine(ctx, count, x, y) {
+        ctx.fillStyle = PAL.more;
+        ctx.font = "10px -apple-system, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(TXT_MORE.replace("{n}", count), x, y);
     }
 
     function draw() {
         var ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // 不绘制底色：透出 .rd-panel 的主题背景（透明主题下透出壁纸）
         ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = "#1a1a2e";
-        ctx.fillRect(0, 0, W, H);
 
         // 主时间轴线 + 右侧箭头
-        ctx.strokeStyle = "#3a3a58";
+        ctx.strokeStyle = PAL.line;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(pad.l, cy);
         ctx.lineTo(W - pad.r, cy);
         ctx.stroke();
-        ctx.fillStyle = "#3a3a58";
+        ctx.fillStyle = PAL.line;
         ctx.beginPath();
         ctx.moveTo(W - pad.r + 6, cy);
         ctx.lineTo(W - pad.r - 4, cy - 5);
@@ -156,7 +240,7 @@
 
             if (hovered) {
                 // 悬浮：淡色纵向导引
-                ctx.strokeStyle = "rgba(100,181,246,0.18)";
+                ctx.strokeStyle = PAL.guide;
                 ctx.lineWidth = 1;
                 ctx.beginPath();
                 ctx.moveTo(x, pad.t);
@@ -166,14 +250,14 @@
 
             // 节点盒（悬浮时高亮）
             var bx = x - boxW / 2, by = cy - boxH / 2;
-            roundRect(ctx, bx, by, boxW, boxH, 7);
-            ctx.fillStyle = hovered ? "#2e2e50" : "#24243c";
+            roundRect(ctx, bx, by, boxW, boxH, 8);
+            ctx.fillStyle = hovered ? PAL.nodeBgHover : PAL.nodeBg;
             ctx.fill();
-            ctx.strokeStyle = hovered ? "#64b5f6" : "#3d3d5c";
-            ctx.lineWidth = 1;
+            ctx.strokeStyle = hovered ? PAL.nodeBorderHover : PAL.nodeBorder;
+            ctx.lineWidth = 1.5;
             ctx.stroke();
 
-            ctx.fillStyle = "#dfe6ee";
+            ctx.fillStyle = PAL.nodeText;
             ctx.font = "11px -apple-system, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -184,31 +268,19 @@
             // 上方：增加（自下而上堆叠）
             var gainN = Math.min(TOP_N, task.gains.length);
             for (var gi = 0; gi < gainN; gi++) {
-                drawEntry(ctx, task.gains[gi], x, by - 12 - gi * 18, true, entryMaxW);
+                drawEntry(ctx, task.gains[gi], x, by - 12 - gi * ENTRY_GAP, true, entryMaxW);
             }
             if (task.gains.length > TOP_N) {
-                ctx.fillStyle = "#5c6470";
-                ctx.font = "10px -apple-system, sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText(
-                    TXT_MORE.replace("{n}", task.gains.length - TOP_N),
-                    x, by - 12 - TOP_N * 18
-                );
+                drawMoreLine(ctx, task.gains.length - TOP_N, x, by - 12 - TOP_N * ENTRY_GAP - 6);
             }
 
             // 下方：消耗（自上而下堆叠）
             var lossN = Math.min(TOP_N, task.losses.length);
             for (var li = 0; li < lossN; li++) {
-                drawEntry(ctx, task.losses[li], x, by + boxH + 14 + li * 18, false, entryMaxW);
+                drawEntry(ctx, task.losses[li], x, by + boxH + 14 + li * ENTRY_GAP, false, entryMaxW);
             }
             if (task.losses.length > TOP_N) {
-                ctx.fillStyle = "#5c6470";
-                ctx.font = "10px -apple-system, sans-serif";
-                ctx.textAlign = "center";
-                ctx.fillText(
-                    TXT_MORE.replace("{n}", task.losses.length - TOP_N),
-                    x, by + boxH + 14 + TOP_N * 18
-                );
+                drawMoreLine(ctx, task.losses.length - TOP_N, x, by + boxH + 14 + TOP_N * ENTRY_GAP + 6);
             }
         }
     }
@@ -253,26 +325,25 @@
         var title = document.createElement("div");
         title.textContent = task.fullname;
         title.style.fontWeight = "600";
-        title.style.color = "#fff";
         title.style.marginBottom = "2px";
         tipEl.appendChild(title);
 
         var sub = document.createElement("div");
         sub.textContent = task.time + (task.events ? " · " + TXT_TIMES.replace("{n}", task.events) : "");
-        sub.style.color = "#8a93a3";
+        sub.style.opacity = "0.7";
         sub.style.marginBottom = "4px";
         tipEl.appendChild(sub);
 
         if (task.gains.length) {
-            tipEl.appendChild(sectionHeader("▲ " + TXT_GAIN, "#26a69a"));
+            tipEl.appendChild(sectionHeader("▲ " + TXT_GAIN, PAL.gain));
             task.gains.forEach(function (g) {
-                tipEl.appendChild(tooltipRow(g.name, g.color, "+" + fmtVal(g.value), "#26a69a"));
+                tipEl.appendChild(tooltipRow(g.name, g.color, "+" + fmtVal(g.value), PAL.gain));
             });
         }
         if (task.losses.length) {
-            tipEl.appendChild(sectionHeader("▼ " + TXT_LOSS, "#ef5350"));
+            tipEl.appendChild(sectionHeader("▼ " + TXT_LOSS, PAL.loss));
             task.losses.forEach(function (l) {
-                tipEl.appendChild(tooltipRow(l.name, l.color, "-" + fmtVal(l.value), "#ef5350"));
+                tipEl.appendChild(tooltipRow(l.name, l.color, "-" + fmtVal(l.value), PAL.loss));
             });
         }
 
@@ -405,6 +476,7 @@
     // 延迟渲染，等待布局稳定（与既有图表行为一致）
     initialRenderTimer = setTimeout(function () {
         initialRenderTimer = null;
+        readPalette();
         computeLayout();
         clampPan();
         draw();

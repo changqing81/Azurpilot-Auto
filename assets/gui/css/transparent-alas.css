@@ -359,3 +359,37 @@ select.form-control,
 
 /* 更新通知、弹窗、toast 等悬浮组件依赖白底保证可读，
    保持高级材质样式，不做透明化 */
+
+/* ==========================================
+   10. 统计页资源增减视图（--rd-*）：面板全透明，
+   画布内容用深色半透明节点 + 白字保证壁纸上可读
+   ========================================== */
+
+:root {
+	--rd-panel-bg: transparent;
+	--rd-panel-border: rgba(255, 255, 255, 0.30);
+	--rd-panel-shadow: none;
+	--rd-title: #ffffff;
+	--rd-muted: rgba(255, 255, 255, 0.78);
+	--rd-entry-name: rgba(255, 255, 255, 0.88);
+	--rd-gain: #5eead4;
+	--rd-loss: #fda4af;
+	--rd-line: rgba(255, 255, 255, 0.55);
+	--rd-node-bg: rgba(0, 0, 0, 0.38);
+	--rd-node-border: rgba(255, 255, 255, 0.40);
+	--rd-node-bg-hover: rgba(0, 0, 0, 0.52);
+	--rd-node-border-hover: #93c5fd;
+	--rd-node-text: #ffffff;
+	--rd-guide: rgba(255, 255, 255, 0.22);
+	--rd-more: rgba(255, 255, 255, 0.60);
+	--rd-track: rgba(255, 255, 255, 0.22);
+	--rd-table-border: rgba(255, 255, 255, 0.30);
+	--rd-table-head: rgba(255, 255, 255, 0.75);
+	--rd-tip-bg: rgba(0, 0, 0, 0.62);
+	--rd-tip-border: rgba(255, 255, 255, 0.40);
+	--rd-tip-text: #ffffff;
+	--rd-tip-shadow: none;
+	--rd-btn-bg: rgba(0, 0, 0, 0.42);
+	--rd-btn-border: rgba(255, 255, 255, 0.40);
+	--rd-btn-text: #ffffff;
+}

@@ -222,7 +222,7 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         return text[5:16] if len(text) >= 16 else text
 
     def _build_delta_stats_html(self, summary):
-        """时间轴上方的时间窗净变化汇总：资源: ±净变化"""
+        """时间轴上方的时间窗净变化汇总：资源: ±净变化（资源色为数据驱动，保持内联）"""
         rows = {r["resource"]: r for r in summary}
         parts = []
         for key in RESOURCE_KEYS:
@@ -233,7 +233,7 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
             color = RESOURCE_COLORS.get(key, "#90a4ae")
             sign = "+" if net >= 0 else ""
             parts.append(
-                f'<span style="white-space:nowrap;">{self._resource_label(key)}: '
+                f'<span class="rd-stats-item">{self._resource_label(key)}: '
                 f'<b style="color:{color}">{sign}{net:,}</b></span>'
             )
         return "".join(parts)
@@ -245,11 +245,11 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         loss = t("Gui.Stat.DeltaDecrease")
         hint = t("Gui.Stat.DeltaTimelineHint")
         return (
-            '<span style="display:flex;align-items:center;gap:4px;">'
-            f'<span style="color:#26a69a;">▲</span>{gain}</span>'
-            '<span style="display:flex;align-items:center;gap:4px;">'
-            f'<span style="color:#ef5350;">▼</span>{loss}</span>'
-            f'<span style="opacity:0.7;">{hint}</span>'
+            '<span class="rd-legend-item"><span class="rd-dot-gain">▲</span>'
+            f'{gain}</span>'
+            '<span class="rd-legend-item"><span class="rd-dot-loss">▼</span>'
+            f'{loss}</span>'
+            f'<span class="rd-legend-hint">{hint}</span>'
         )
 
     # ---- 汇总表与排行榜 ----
@@ -264,18 +264,17 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         put_html(html)
 
     def _build_summary_html(self, summary):
-        """左侧增减汇总表：资源 | 增加 | 消耗 | 净变化"""
+        """左侧增减汇总表：资源 | 增加 | 消耗 | 净变化（配色走 --rd-* 主题变量）"""
         rows = {r["resource"]: r for r in summary}
-        parts = ['<table style="width:100%;border-collapse:collapse;font-size:12px;">']
-        header_style = 'style="font-weight:400;color:#888;padding:4px 6px;"'
-        parts.append(
-            '<tr>'
-            f'<th {header_style} style="text-align:left;">{t("Gui.Stat.DeltaResource")}</th>'
-            f'<th {header_style} style="text-align:right;">{t("Gui.Stat.DeltaIncrease")}</th>'
-            f'<th {header_style} style="text-align:right;">{t("Gui.Stat.DeltaDecrease")}</th>'
-            f'<th {header_style} style="text-align:right;">{t("Gui.Stat.DeltaNet")}</th>'
-            '</tr>'
+        header = (
+            '<thead><tr>'
+            f'<th>{t("Gui.Stat.DeltaResource")}</th>'
+            f'<th class="rd-col-num">{t("Gui.Stat.DeltaIncrease")}</th>'
+            f'<th class="rd-col-num">{t("Gui.Stat.DeltaDecrease")}</th>'
+            f'<th class="rd-col-num">{t("Gui.Stat.DeltaNet")}</th>'
+            '</tr></thead>'
         )
+        body = []
         for key in RESOURCE_KEYS:
             row = rows.get(key)
             if not row or not row["events"]:
@@ -284,18 +283,17 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
             increase = int(row["increase"] or 0)
             decrease = int(row["decrease"] or 0)
             net = int(row["net"] or 0)
-            net_color = "#ef5350" if net >= 0 else "#26a69a"
+            net_cls = "rd-gain" if net >= 0 else "rd-loss"
             net_sign = "+" if net >= 0 else ""
-            parts.append(
-                '<tr style="border-top:1px solid #2a2a3e;">'
-                f'<td style="padding:4px 6px;color:{color};">{self._resource_label(key)}</td>'
-                f'<td style="padding:4px 6px;text-align:right;color:#26a69a;">+{increase:,}</td>'
-                f'<td style="padding:4px 6px;text-align:right;color:#ef5350;">-{decrease:,}</td>'
-                f'<td style="padding:4px 6px;text-align:right;color:{net_color};">{net_sign}{net:,}</td>'
+            body.append(
+                '<tr>'
+                f'<td><span style="color:{color};">{self._resource_label(key)}</span></td>'
+                f'<td class="rd-col-num rd-gain">+{increase:,}</td>'
+                f'<td class="rd-col-num rd-loss">-{decrease:,}</td>'
+                f'<td class="rd-col-num {net_cls}">{net_sign}{net:,}</td>'
                 '</tr>'
             )
-        parts.append('</table>')
-        return "".join(parts)
+        return f'<table class="rd-table">{header}<tbody>{"".join(body)}</tbody></table>'
 
     def _build_ranking_html(self, ranking):
         """右侧消耗排行榜：资源按总消耗降序分节，节内按任务消耗降序，发光横条显示占比"""
@@ -312,7 +310,6 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
         }
         ordered = sorted(groups, key=lambda res: totals[res], reverse=True)
 
-        track_bg = "rgba(255,255,255,0.06)"
         parts = []
         for res in ordered:
             rows = sorted(
@@ -325,10 +322,10 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
             glow = f"0 0 10px {_hex_to_rgba(color, 0.35)}"
             max_value = max(int(r["consumed"] or 0) for r in rows) or 1
             parts.append(
-                '<div style="margin-bottom:18px;">'
-                f'<div style="font-size:14px;font-weight:600;color:{color};margin-bottom:8px;">'
+                '<div class="rd-rank-section">'
+                f'<div class="rd-rank-head" style="color:{color};">'
                 f'{self._resource_label(res)}'
-                f'<span style="color:#888;font-weight:400;font-size:12px;margin-left:8px;">'
+                f'<span class="rd-rank-total">'
                 f'{t("Gui.Stat.DeltaTotalConsumed", total=f"{total:,}")}'
                 f'</span></div>'
             )
@@ -339,18 +336,15 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
                 pct = consumed / max_value * 100
                 source = row["source"]
                 parts.append(
-                    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">'
-                    f'<div style="width:150px;font-size:12px;color:#b8c2cc;text-align:right;'
-                    f'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" '
-                    f'title="{source}">{self._source_label(source)}</div>'
-                    f'<div style="flex:1;background:{track_bg};border-radius:8px;height:16px;'
-                    f'min-width:60px;overflow:hidden;">'
-                    f'<div style="width:{pct:.1f}%;height:100%;background:{fill};'
-                    f'border-radius:8px;box-shadow:{glow};"></div>'
+                    '<div class="rd-rank-row">'
+                    f'<div class="rd-rank-name" title="{source}">'
+                    f'{self._source_label(source)}</div>'
+                    '<div class="rd-rank-track">'
+                    f'<div class="rd-rank-fill" style="width:{pct:.1f}%;'
+                    f'background:{fill};box-shadow:{glow};"></div>'
                     '</div>'
-                    f'<div style="width:130px;font-size:12px;color:#fff;white-space:nowrap;">'
-                    f'<b>{consumed:,}</b>'
-                    f'<span style="color:#666;margin-left:6px;">×{times}</span></div>'
+                    f'<div class="rd-rank-val"><b>{consumed:,}</b>'
+                    f'<span class="rd-rank-times">×{times}</span></div>'
                     '</div>'
                 )
             parts.append('</div>')

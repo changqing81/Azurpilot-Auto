@@ -514,6 +514,8 @@ def load_webui_styles(theme=None, is_mobile=None):
         "alas",
         "alas-mobile" if is_mobile else "alas-pc",
         "entry-alas",
+        # 统计页资源增减视图组件样式（--rd-* 变量回退值，主题 CSS 稍后加载可覆盖）
+        "stat-delta-alas",
     ]
     theme_styles = {
         "dark": ("dark-alas",),

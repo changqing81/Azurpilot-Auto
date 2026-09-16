@@ -88,12 +88,16 @@ def _reload_theme_css(theme: str) -> None:
 
     injected_styles = getattr(local, "webui_injected_styles", None)
     if injected_styles is not None:
+        injected_styles.discard(filepath_css("stat-delta-alas"))
         injected_styles.discard(filepath_css("light-alas"))
         injected_styles.discard(filepath_css("dark-alas"))
         injected_styles.discard(filepath_css("advanced-material-alas"))
         injected_styles.discard(filepath_css("dark-advanced-material-overrides-alas"))
         injected_styles.discard(filepath_css("transparent-alas"))
 
+    # 统计页资源增减视图的基础组件样式被上方清理移除，随主题一起重注入
+    # （主题 CSS 在其后加载，--rd-* 变量覆盖才能生效）
+    add_css_files((filepath_css("stat-delta-alas"),))
     if theme == "dark":
         add_css_files((filepath_css("dark-alas"),))
     elif theme == "advanced_material":
