@@ -161,6 +161,13 @@ class AzurLaneAutoScript:
                 if 'device' in self.__dict__:
                     del_cached_property(self, 'device')
                 return True
+            except EmulatorOpBusy as e:
+                # 上一轮的重启操作还在后台跑（很可能正在冷启动模拟器）。
+                # 此时既不能停也不能再启——那会把正在进行的启动打断，正是
+                # "模拟器窗口一直卡在加载、永远起不来"的成因。放弃本轮即可，
+                # 后台那次操作结束后，下一轮调度自然会接手。
+                logger.warning(f'[Alas] 上一轮模拟器重启仍在进行，放弃本轮重启：{e}')
+                return False
             except Exception as e:
                 logger.exception_context(
                     title='重启模拟器失败',
@@ -188,13 +195,22 @@ class AzurLaneAutoScript:
                 logger.warning('[Alas] 未找到模拟器实例，无法在长时间等待后启动模拟器')
                 return False
 
-            if platform.emulator_start():
+            if emulator_op_with_timeout(
+                platform.emulator_start,
+                timeout=RESTART_OPERATION_TIMEOUT,
+                operation_name='长时间等待后启动模拟器',
+            ):
                 logger.info('[Alas] 长时间等待后模拟器启动完成')
                 if 'device' in self.__dict__:
                     del_cached_property(self, 'device')
                 return True
 
             logger.warning('[Alas] 长时间等待后启动模拟器失败，继续调度恢复流程')
+            return False
+        except EmulatorOpBusy as e:
+            # 与 _try_restart_emulator 同理：已有启停操作在跑时不要插队，
+            # 否则会打断对方正在进行的冷启动
+            logger.warning(f'[Alas] 已有模拟器启停操作在进行，跳过本次启动：{e}')
             return False
         except Exception as e:
             logger.warning(f'[Alas] 长时间等待后启动模拟器失败，继续调度恢复流程: {e}')

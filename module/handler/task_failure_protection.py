@@ -57,6 +57,7 @@ from typing import Any, Dict, List, Optional
 
 import inflection
 
+from module.exception import EmulatorOpBusy
 from module.logger import logger
 
 # 看门狗配置常量（默认值，实际运行时从配置 TaskFailureProtection 组读取）
@@ -67,7 +68,16 @@ WATCHDOG_TASK_TIMEOUT_DEFAULT = 120
 # 模拟器启停操作的硬超时秒数。emulator_stop/emulator_start 底层调用
 # subprocess（taskkill / ldconsole / MuMuManager 等），正常情况下秒级完成，
 # 但若模拟器进程僵死或子进程管理卡住，调用可能长时间不返回。
-RESTART_OPERATION_TIMEOUT = 120
+#
+# 必须覆盖 PlatformWindows.emulator_start() 的完整预算，每次尝试最多：
+#   关闭 30 + 等待实例真正关闭 60 + 启动监视 T + 关闭 30 = 120 + T
+# 监视超时按 180/300/480 递增（platform_windows.EMULATOR_START_WATCH_TIMEOUTS），
+# 3 次尝试合计 ≈ 3×120 + 960 = 1320 秒。取 1500 秒：宁可慢，也不能在
+# 模拟器正在启动时放弃——超时被放弃的 worker 线程仍会继续对模拟器执行
+# 关/开操作，是历史上"模拟器永远起不来"的根因（原值 120 秒 < 内层 180 秒
+# 监视超时，必然超时、必然残留）。残留线程由 PlatformWindows 的启停互斥锁
+# 兜底：它结束之前，任何新的启停操作都会抛 EmulatorOpBusy 被跳过。
+RESTART_OPERATION_TIMEOUT = 1500
 
 # 不允许被任务失败保护自动关闭的任务。
 # Restart 是调度器自愈的基石：游戏未运行、卡死、异常等所有恢复路径都依赖
@@ -123,12 +133,18 @@ def emulator_op_with_timeout(func, *, timeout, operation_name):
     不会阻塞进程退出，且后续 func() 调用通常会在 ADB 连接断开后快速
     失败，不会无限堆积。
 
+    并发保护由 PlatformWindows 的启停互斥锁负责（emulator_op_exclusive）：
+    超时被放弃的 worker 线程仍在真实地关闭/启动模拟器，锁由它一直持有
+    到操作真正结束，因此后续任何启停请求都会抛 EmulatorOpBusy 被跳过，
+    不会出现"一个线程刚发出启动命令、另一个线程随即 shutdown"的踩踏。
+
     Args:
         func: 无参数的可调用对象。
         timeout (int | float): 超时秒数。
         operation_name (str): 操作名称，用于日志。
 
     Raises:
+        EmulatorOpBusy: 已有启停操作在进行（由平台层抛出），本次被跳过。
         TimeoutError: 操作超时。
         Exception: 操作本身抛出的异常会被原样向上抛出。
     """
@@ -148,7 +164,8 @@ def emulator_op_with_timeout(func, *, timeout, operation_name):
     if thread.is_alive():
         logger.critical(
             f'[Watchdog] {operation_name} 超过 {timeout}s 未完成，'
-            f'跳过此操作（后台线程仍在运行，将随进程退出自动清理）'
+            f'放弃等待（操作线程仍在后台运行并持有模拟器启停锁，'
+            f'下一轮恢复会主动跳过，直到它结束）'
         )
         raise TimeoutError(
             f'{operation_name} 超过 {timeout}s 未完成'
@@ -416,6 +433,10 @@ class Watchdog:
                 )
             logger.info(
                 '[Watchdog] 已强制停止模拟器，主线程的下次 I/O 调用将失败并触发恢复'
+            )
+        except EmulatorOpBusy as e:
+            logger.warning(
+                f'[Watchdog] 上一轮模拟器重启仍在进行，本次不再插手：{e}'
             )
         except TimeoutError:
             logger.warning('[Watchdog] 强制停止模拟器超时，等待下个周期重试')
