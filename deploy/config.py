@@ -15,14 +15,9 @@ GITHUB_REPOSITORY = 'https://github.com/changqing81/Azurpilot-Auto'
 CN_REPOSITORY = 'https://gitcode.com/gcw_BYvq9jGu/AzurPilot'
 
 # 哨兵值：Repository 填这个值时按网络所在地区自动选择更新源。
-# 填任何其它具体地址（包括 GITHUB_REPOSITORY）都表示"我就要用这个地址"，不会被改写。
+# 填任何其它具体地址都表示"我就要用这个地址"，一律不会被改写 —— 包括上游的
+# wess09/AzurPilot、Maratrain/AzurPilot，方便随时切回上游做对比测试。
 AUTO_REPOSITORY = 'auto'
-
-# 旧版本 / 上游仓库地址，读到这些值时自动迁移为 AUTO_REPOSITORY。
-LEGACY_REPOSITORIES = (
-    'https://github.com/wess09/AzurPilot',
-    'https://github.com/Maratrain/AzurPilot',
-)
 
 # 云端更新开关。指向一个内容为纯文本 true / false 的地址：
 #   true  -> 允许更新
@@ -195,14 +190,14 @@ class DeployConfig(ConfigModel):
             super().__setattr__('Repository', CN_REPOSITORY)
 
     def _redirect_github_repository(self):
-        """处理更新源的选择与迁移。
+        """处理更新源的选择。
 
         规则（Repository 的取值一律不区分大小写）：
         1. 哨兵值 'auto' / 'Auto' / 'AUTO' -> 按网络所在地区选择：中国大陆用 GitCode，其余用 GitHub。
            解析结果不会写回配置文件，所以换网络后下次启动会自动重新判断。
-        2. 具体地址（含 GITHUB_REPOSITORY）-> 完全尊重，绝不改写。
-        3. 旧版本 / 上游地址 -> 迁移为 'auto'。
-        4. 地区检测失败 -> 使用 GitHub，不误判到国内源。
+        2. 其它任何具体地址 -> 完全照用，绝不改写。这包括上游的 wess09/AzurPilot、
+           Maratrain/AzurPilot —— 想切回上游做对比测试时直接填即可。
+        3. 地区检测失败 -> 使用 GitHub，不误判到国内源。
         """
         if self._github_location_checked:
             return
@@ -217,15 +212,8 @@ class DeployConfig(ConfigModel):
             self.config['Repository'] = AUTO_REPOSITORY
             repository = AUTO_REPOSITORY
 
-        # 旧地址同样按大小写不敏感比较（GitHub 的 owner/repo 本来就大小写不敏感）
-        if normalized in {url.lower() for url in LEGACY_REPOSITORIES}:
-            logger.info(f'检测到旧更新源 {repository}，迁移为 {AUTO_REPOSITORY}')
-            self.Repository = AUTO_REPOSITORY
-            self.config['Repository'] = AUTO_REPOSITORY
-            repository = AUTO_REPOSITORY
-
         if repository != AUTO_REPOSITORY:
-            # 用户自己填了地址，保持原样
+            # 用户自己填了地址，原样照用
             return
 
         self._github_location_checked = True
