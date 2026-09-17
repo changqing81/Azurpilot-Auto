@@ -710,3 +710,63 @@ git commit -m "refactor(runtime): 拆分 workspace 调度与 agent 生命周期�
 ## 是否需要继续修改
 ...
 ```
+
+---
+
+## 分支协作约定（master / dev）
+
+### 现状与维护方式
+`master` 与 `dev` **指向同一个提交**，两边内容始终一致。
+改完 `dev` 之后，直接快进 `master` 即可：
+
+```bash
+git push origin dev:master
+```
+
+这是纯快进，不需要 `--force`，也不会被任何规则拦截。
+
+### ⚠️ 历史上的坑（已解决，别再踩）
+`master` 上曾挂着一条 GitHub ruleset（id `22067290`），同时启用：
+
+| 规则 | 效果 |
+|---|---|
+| `non_fast_forward` | **禁止强制推送** |
+| `required_linear_history` | **禁止 merge 提交** |
+| `deletion` | 禁止删除分支 |
+
+前两条与「让 master 跟 dev 保持一致」**从设计上就是矛盾的**：强推被拒、合并提交也被拒。
+当时唯一可行的办法是往 master 上堆「同步 dev 分支全部内容」的线性快照提交，
+每同步一次就分叉一次历史。**不要再用这种写法。**
+
+**如果 `git push origin dev:master` 报 `push declined due to repository rule violations`**，
+说明这条 ruleset 又被加回来了：
+
+- 查看规则：<https://api.github.com/repos/changqing81/Azurpilot-Auto/rules/branches/master>
+- 处置：仓库 Settings → Rules → 编辑该规则，**删掉 `Require linear history` 与
+  `Block force pushes`**（`Deletion` 可以留着）
+- 然后执行一次 `git push --force origin dev:master`，之后恢复纯快进
+
+### 本机特有陷阱（务必先读）
+1. **这台机器的 `git fetch` 不会更新远端跟踪引用**（实测 `refs/remotes/origin/*`
+   在 fetch 后仍是旧值甚至消失）。
+2. 启动器每次启动都会执行 `git reset --hard origin/<branch>`。
+   上面两条叠加 = **工作树被静默回退**（2026-09-17 真实发生过，一整天的工作看起来"消失"）。
+
+对策：每次 fetch / push 之后，用 `ls-remote` 取真实 SHA 并**手写引用文件**：
+
+```bash
+GH=https://github.com/changqing81/Azurpilot-Auto.git
+SHA=$(git ls-remote $GH refs/heads/dev 2>/dev/null | cut -f1)
+printf '%s\n' "$SHA" > .git/refs/remotes/origin/dev
+printf '%s\n' "$SHA" > .git/refs/remotes/origin/master
+```
+
+`2>/dev/null` **不能省** —— `ls-remote` 的 stderr 警告（如
+`warning: redirecting to ...`）会混进 `$(...)`，把警告文本当 SHA 传给
+`reset --hard` 会报 `invalid object name`。
+
+3. 启动器会按 `config/deploy.yaml` 的 `Repository` 重写 `origin`。
+   若该值是 `auto` 或 GitCode 地址，`origin` 会指向**可能滞后的 GitCode 镜像**，
+   推送到它会被拒（403 `image repository`）。
+   **开发机建议把 `Repository` 填成具体的 GitHub 地址**（具体地址会被锁定、不被改写）。
+
