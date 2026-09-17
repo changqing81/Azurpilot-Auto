@@ -8,9 +8,6 @@ from deploy.logger import logger
 from deploy.utils import *
 
 
-CLOUD_UPDATE_CONTROL_URL = 'https://alas-apiv2.nanoda.work/api/updata'
-
-
 class GitManager(DeployConfig):
     @cached_property
     def git(self):
@@ -88,8 +85,33 @@ class GitManager(DeployConfig):
         client.logger = logger
         return client
 
-    @staticmethod
-    def cloud_auto_update_enabled():
+    def cloud_update_control_url(self):
+        """当前生效的云端更新开关地址。
+
+        来自 config/deploy.yaml 的 CloudUpdateControl。
+        返回 None 表示不启用远程开关（始终允许更新）。
+        """
+        url = getattr(self, 'CloudUpdateControl', None)
+        if isinstance(url, str):
+            url = url.strip()
+        if not url or url.lower() == 'null':
+            return None
+        return url
+
+    def cloud_auto_update_enabled(self):
+        """检查云端更新开关。
+
+        返回 True 表示允许更新，False 表示明确禁止更新（永不再返回 None）。
+
+        设计原则是 fail-open：只有明确读到 false 才阻止更新；
+        开关地址未配置、请求失败、被限流、响应无法识别时一律按「允许更新」处理，
+        避免因为一个遥不可及的开关把用户挡在启动流程之外。
+        """
+        url = self.cloud_update_control_url()
+        if url is None:
+            logger.info('Cloud update control is not configured, allow update')
+            return True
+
         # 结果缓存，避免多次调用同一接口导致 429
         now = time.time()
         last = getattr(GitManager, '_cloud_control_last_check', 0.0)
@@ -97,26 +119,21 @@ class GitManager(DeployConfig):
         if cached is not None and now - last < 300:
             return cached
 
-        logger.info(f'Check cloud update control: {CLOUD_UPDATE_CONTROL_URL}')
+        logger.info(f'Check cloud update control: {url}')
         try:
-            resp = requests.get(CLOUD_UPDATE_CONTROL_URL, timeout=5, headers={'User-Agent': 'alas AzurPilot'})
+            resp = requests.get(url, timeout=5, headers={'User-Agent': 'alas AzurPilot'})
             if resp.status_code == 429:
-                # 请求过快被限流，跳过本次检查并延长冷却，避免继续触发 429
-                logger.warning('Cloud update control returned 429, skipped this check')
-                GitManager._cloud_control_cached = None
+                # 被限流时视为允许更新，不阻塞用户
+                logger.warning('Cloud update control returned 429, allow update (fail-open)')
+                GitManager._cloud_control_cached = True
                 GitManager._cloud_control_last_check = now
-                return None
+                return True
             resp.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            logger.warning(f'Cloud update control HTTP error: {e}')
-            GitManager._cloud_control_cached = None
-            GitManager._cloud_control_last_check = now
-            return None
         except Exception as e:
-            logger.warning(f'Failed to check cloud update control: {e}')
-            GitManager._cloud_control_cached = None
+            logger.warning(f'Cloud update control unreachable, allow update (fail-open): {e}')
+            GitManager._cloud_control_cached = True
             GitManager._cloud_control_last_check = now
-            return None
+            return True
 
         text = resp.text.strip()
         try:
@@ -126,19 +143,18 @@ class GitManager(DeployConfig):
 
         if data is True or (isinstance(data, str) and data.lower() in ('true', 'ture')):
             logger.info('Cloud update control is enabled')
-            GitManager._cloud_control_cached = True
-            GitManager._cloud_control_last_check = now
-            return True
-        if data is False or (isinstance(data, str) and data.lower() in ('false', 'fales')):
+            result = True
+        elif data is False or (isinstance(data, str) and data.lower() in ('false', 'fales')):
             logger.info('Cloud update control is disabled')
-            GitManager._cloud_control_cached = False
-            GitManager._cloud_control_last_check = now
-            return False
+            result = False
+        else:
+            # 返回内容无法识别时按允许更新处理，避免误伤
+            logger.warning(f'Cloud update control response is unrecognized ({text!r}), allow update (fail-open)')
+            result = True
 
-        logger.info(f'Cloud update control is inaccessible: {text}')
-        GitManager._cloud_control_cached = None
+        GitManager._cloud_control_cached = result
         GitManager._cloud_control_last_check = now
-        return None
+        return result
 
     def cloud_update_access_failed(self, fatal=True):
         logger.hr('Cloud Update Control Failed', 0)
@@ -151,10 +167,7 @@ class GitManager(DeployConfig):
     def git_install(self):
         logger.hr('Update AzurPilot', 0)
 
-        cloud_update = self.cloud_auto_update_enabled()
-        if cloud_update is None:
-            self.cloud_update_access_failed()
-        if not cloud_update:
+        if not self.cloud_auto_update_enabled():
             logger.info('Cloud update control disabled, skip')
             return
 

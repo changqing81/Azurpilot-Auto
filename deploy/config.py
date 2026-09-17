@@ -9,7 +9,28 @@ from deploy.utils import *
 
 GIT_OVER_CDN_REPOSITORY = 'git://git.pull/AzurPilot'
 GIT_OVER_CDN_FALLBACK_REPOSITORY = 'https://gitcode.com/ddl2/AzurLaneAutoScript'
-GITHUB_REPOSITORY = 'https://github.com/wess09/AzurPilot'
+
+# AzurPilot 自有仓库：国外走 GitHub，国内走 GitCode 镜像。
+GITHUB_REPOSITORY = 'https://github.com/changqing81/Azurpilot-Auto'
+CN_REPOSITORY = 'https://gitcode.com/gcw_BYvq9jGu/AzurPilot'
+
+# 哨兵值：Repository 填这个值时按网络所在地区自动选择更新源。
+# 填任何其它具体地址（包括 GITHUB_REPOSITORY）都表示"我就要用这个地址"，不会被改写。
+AUTO_REPOSITORY = 'auto'
+
+# 旧版本 / 上游仓库地址，读到这些值时自动迁移为 AUTO_REPOSITORY。
+LEGACY_REPOSITORIES = (
+    'https://github.com/wess09/AzurPilot',
+    'https://github.com/Maratrain/AzurPilot',
+)
+
+# 云端更新开关。指向一个内容为纯文本 true / false 的地址：
+#   true  -> 允许更新
+#   false -> 跳过更新
+#   取不到 / 解析失败 / 限流 -> 允许更新（fail-open，不会阻塞启动）
+# 置为 None 或空字符串表示本机不启用远程开关（始终允许更新）。
+# 修改开关：编辑仓库里的 switch/updata 文件（jsDelivr 有 CDN 缓存延迟，不会立刻生效）。
+CLOUD_UPDATE_CONTROL_URL = 'https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata'
 
 
 class ExecutionError(Exception):
@@ -18,11 +39,16 @@ class ExecutionError(Exception):
 
 class ConfigModel:
     # Git 配置
-    Repository: str = GITHUB_REPOSITORY
+    # Repository 填 'auto' 表示按网络所在地区自动选择更新源（国内 GitCode / 其他 GitHub）；
+    # 填任何具体地址则表示锁定该地址，不会被自动改写。
+    Repository: str = AUTO_REPOSITORY
     Branch: str = "master"
     GitExecutable: str = "./.venv/Scripts/git/cmd/git.exe" if sys.platform == "win32" else "./.venv/bin/git"
     GitProxy: Optional[str] = None
     SSLVerify: bool = False
+    # 云端更新开关地址；None / 空字符串 = 不启用远程开关（始终允许更新）。
+    # 可在 config/deploy.yaml 里覆盖。
+    CloudUpdateControl: Optional[str] = CLOUD_UPDATE_CONTROL_URL
 
     # Python 配置
     PythonExecutable: str = "./.venv/Scripts/python.exe" if sys.platform == "win32" else "./.venv/bin/python"
@@ -162,25 +188,48 @@ class DeployConfig(ConfigModel):
         if self.Repository == GIT_OVER_CDN_REPOSITORY:
             super().__setattr__('Repository', GIT_OVER_CDN_FALLBACK_REPOSITORY)
         if self.Repository in ['global']:
-            super().__setattr__('Repository', 'https://github.com/wess09/AzurPilot')
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
         if self.Repository in ['cn']:
-            super().__setattr__('Repository', GIT_OVER_CDN_REPOSITORY)
+            super().__setattr__('Repository', CN_REPOSITORY)
 
     def _redirect_github_repository(self):
-        """为官方 GitHub 源一次性选择适合当前网络的更新镜像。"""
-        if self._github_location_checked or self.Repository != GITHUB_REPOSITORY:
+        """处理更新源的选择与迁移。
+
+        规则：
+        1. Repository 为哨兵值 'auto' -> 按网络所在地区选择：中国大陆用 GitCode，其余用 GitHub。
+           此时不会把结果写回配置文件，因此换个网络环境下次启动会自动重新判断。
+        2. Repository 是具体地址（含 GITHUB_REPOSITORY）-> 完全尊重，绝不改写。
+        3. Repository 是旧版本 / 上游地址 -> 迁移为 'auto'（用户从未主动选过它，交给地区判断）。
+        4. 地区检测失败 -> 使用 GitHub，不误判到国内源。
+        """
+        if self._github_location_checked:
+            return
+
+        repository = self.Repository
+        if isinstance(repository, str):
+            repository = repository.strip()
+
+        if repository in LEGACY_REPOSITORIES:
+            logger.info(f'检测到旧更新源 {repository}，迁移为 {AUTO_REPOSITORY}')
+            self.Repository = AUTO_REPOSITORY
+            self.config['Repository'] = AUTO_REPOSITORY
+            repository = AUTO_REPOSITORY
+
+        if repository != AUTO_REPOSITORY:
+            # 用户自己填了地址，保持原样
             return
 
         self._github_location_checked = True
         country_code = get_country_code()
         if country_code == 'cn':
-            logger.info('检测到中国大陆网络，切换至国内 Git 更新源')
-            self.Repository = GIT_OVER_CDN_REPOSITORY
-            self.config['Repository'] = GIT_OVER_CDN_REPOSITORY
+            logger.info('检测到中国大陆网络，使用 GitCode 国内更新源')
+            super().__setattr__('Repository', CN_REPOSITORY)
         elif country_code is None:
-            logger.warning('无法检测网络所在国家，保留 GitHub 更新源')
+            logger.warning('无法检测网络所在国家，使用 GitHub 更新源')
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
         else:
-            logger.info('当前网络不在中国大陆，保留 GitHub 更新源')
+            logger.info('当前网络不在中国大陆，使用 GitHub 更新源')
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
 
     def filepath(self, key):
         """根据配置键获取绝对文件路径。
