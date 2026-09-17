@@ -187,29 +187,38 @@ class DeployConfig(ConfigModel):
         )
         if self.Repository == GIT_OVER_CDN_REPOSITORY:
             super().__setattr__('Repository', GIT_OVER_CDN_FALLBACK_REPOSITORY)
-        if self.Repository in ['global']:
+        # 'global' / 'cn' 简写同样不区分大小写
+        shorthand = self.Repository.strip().lower() if isinstance(self.Repository, str) else ''
+        if shorthand == 'global':
             super().__setattr__('Repository', GITHUB_REPOSITORY)
-        if self.Repository in ['cn']:
+        elif shorthand == 'cn':
             super().__setattr__('Repository', CN_REPOSITORY)
 
     def _redirect_github_repository(self):
         """处理更新源的选择与迁移。
 
-        规则：
-        1. Repository 为哨兵值 'auto' -> 按网络所在地区选择：中国大陆用 GitCode，其余用 GitHub。
-           此时不会把结果写回配置文件，因此换个网络环境下次启动会自动重新判断。
-        2. Repository 是具体地址（含 GITHUB_REPOSITORY）-> 完全尊重，绝不改写。
-        3. Repository 是旧版本 / 上游地址 -> 迁移为 'auto'（用户从未主动选过它，交给地区判断）。
+        规则（Repository 的取值一律不区分大小写）：
+        1. 哨兵值 'auto' / 'Auto' / 'AUTO' -> 按网络所在地区选择：中国大陆用 GitCode，其余用 GitHub。
+           解析结果不会写回配置文件，所以换网络后下次启动会自动重新判断。
+        2. 具体地址（含 GITHUB_REPOSITORY）-> 完全尊重，绝不改写。
+        3. 旧版本 / 上游地址 -> 迁移为 'auto'。
         4. 地区检测失败 -> 使用 GitHub，不误判到国内源。
         """
         if self._github_location_checked:
             return
 
         repository = self.Repository
-        if isinstance(repository, str):
-            repository = repository.strip()
+        normalized = repository.strip().lower() if isinstance(repository, str) else repository
 
-        if repository in LEGACY_REPOSITORIES:
+        # 大小写归一：'Auto' / 'AUTO' 都按 'auto' 处理，并把配置里的写法规范成小写
+        if normalized == AUTO_REPOSITORY and repository != AUTO_REPOSITORY:
+            logger.info(f'更新源 "{repository}" 规范为 "{AUTO_REPOSITORY}"')
+            self.Repository = AUTO_REPOSITORY
+            self.config['Repository'] = AUTO_REPOSITORY
+            repository = AUTO_REPOSITORY
+
+        # 旧地址同样按大小写不敏感比较（GitHub 的 owner/repo 本来就大小写不敏感）
+        if normalized in {url.lower() for url in LEGACY_REPOSITORIES}:
             logger.info(f'检测到旧更新源 {repository}，迁移为 {AUTO_REPOSITORY}')
             self.Repository = AUTO_REPOSITORY
             self.config['Repository'] = AUTO_REPOSITORY
