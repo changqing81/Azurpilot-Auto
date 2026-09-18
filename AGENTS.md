@@ -646,9 +646,6 @@ GitHub Actions：workflow 只有 `lint.yml`（`on: [push, pull_request]`），�
 
 ## Git 提交规范
 
-> **操作细则（远端拓扑、推送授权、本机陷阱、提交红线）见
-> [.agent/COMMIT-PROTOCOL.md](.agent/COMMIT-PROTOCOL.md)** ——所有 Agent（ZCode / WorkBuddy / Trae）共用的单一事实来源，与本章配套执行。
-
 ### 提交前分析
 
 提交代码前，必须分析当前 git 工作区中所有未提交的修改（staged、unstaged、untracked），按以下原则组织提交：
