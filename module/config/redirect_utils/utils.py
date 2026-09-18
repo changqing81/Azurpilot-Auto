@@ -162,3 +162,39 @@ def execute_fixed_patrol_scan_redirect(value):
     if isinstance(value, bool):
         return 2 if value else 0
     return value
+
+
+# 岛屿计划子模块的短名（`IslandPlan` 组里的开关名 = `Enable` + 短名，
+# 对应的原子任务名 = `Island` + 短名）。
+# 顺序必须与 module/island/island_scheduling.py 的 SUB_TASKS 保持一致，
+# tests/test_island_scheduling.py 有断言守住这一点。
+ISLAND_PLAN_SUB_TASKS = [
+    'AirDrop',
+    'DailyGather',
+    'CargoPreparation',
+    'DailyOrder',
+    'DailyInteract',
+    'Farm',
+    'Rancher',
+    'MineForest',
+    'PearlSell',
+    'Manufacture',
+    'Business',
+    'Restaurant',
+    'Teahouse',
+    'Grill',
+    'JuuEatery',
+    'JuuCoffee',
+]
+
+
+def island_plan_task_priority_redirect(value):
+    """
+    IslandPlan.TaskPriority 文本框 → 16 个 EnableXxx 开关。
+
+    旧版本用一个 `>` 分隔的文本框同时表达「启用清单 + 执行顺序」。为了让普通用户
+    看得懂，改成 16 个独立开关后，这里把旧清单里出现过的模块翻译成「开」，其余关，
+    用户原先的自定义（比如特意删掉某个模块）不会丢失。顺序不再由旧文本决定。
+    """
+    text = value if isinstance(value, str) else ''
+    return tuple(f'Island{name}' in text for name in ISLAND_PLAN_SUB_TASKS)

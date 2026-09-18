@@ -701,6 +701,17 @@ class ConfigUpdater:
          'OpsiHazard1Leveling.ExecuteFixedPatrolScan',
          execute_fixed_patrol_scan_redirect),
     ]
+    # 2026.09.18 岛屿计划：TaskPriority 文本框（面向开发者的 Filter 语法）改成
+    # 16 个面向普通用户的独立开关，旧清单里出现过的模块翻译成「开」。
+    redirection += [
+        (
+            'IslandPlan.IslandPlan.TaskPriority',
+            tuple(
+                f'IslandPlan.IslandPlan.Enable{name}' for name in ISLAND_PLAN_SUB_TASKS
+            ),
+            island_plan_task_priority_redirect,
+        )
+    ]
 
     # redirection += [
     #     (

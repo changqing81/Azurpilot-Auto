@@ -3,10 +3,11 @@
 把岛屿下的 16 个原子任务收敛为「调度器 → IslandPlan → 岛屿子模块」三层结构：
 
 1. 一轮开始时先把原子任务的独立调度关掉，避免与父任务重复进岛；
-2. 按 `IslandPlan.TaskPriority` 清单顺序，挑出 `Scheduler.NextRun` 已到期的子模块；
+2. 按 `IslandPlan` 组里的 16 个 `EnableXxx` 开关挑出要跑的模块（可选 `TaskOrder` 只调整顺序），
+   再从中筛出 `Scheduler.NextRun` 已到期的子模块；
 3. 以子任务身份代跑（配置绑定与 NextRun 都归子任务自己所有），
    子模块既有的「每日一次 / 每周一次 / 固定刷新」时间语义因此原样生效；
-4. 一轮结束后延迟 `IslandPlan.IntervalHours` 小时才再次进岛。
+4. 一轮结束后延迟 `IslandPlan.IntervalHours` 小时（收敛到 1~24 小时）才再次进岛。
 
 Pages:
     in: 任意页面
@@ -34,8 +35,8 @@ from module.ui.page import page_island
 class IslandScheduling(Island):
     """岛屿计划（赤石计划）统一调度器。
 
-    岛屿原子任务名 → (模块路径, 类名)。键集合即 `IslandPlan.TaskPriority` 的合法取值，
-    顺序与 argument.yaml 中的默认清单保持一致。
+    岛屿原子任务名 → (模块路径, 类名)。键集合即 `IslandPlan` 组里 `EnableXxx` 开关的
+    取值范围，声明顺序同时是执行顺序（快 / 时间敏感在前，耗时的餐饮家族在后）。
     """
 
     SUB_TASKS = {
@@ -56,6 +57,11 @@ class IslandScheduling(Island):
         'IslandJuuEatery': ('module.island.island_juu_eatery', 'IslandJuuEatery'),
         'IslandJuuCoffee': ('module.island.island_juu_coffee', 'IslandJuuCoffee'),
     }
+
+    # 运行间隔（小时）的合法范围，用户可自由填写，越界时收敛到边界
+    MIN_INTERVAL_HOURS = 1
+    MAX_INTERVAL_HOURS = 24
+    DEFAULT_INTERVAL_HOURS = 12
 
     # 游戏状态已损坏，继续代跑只会连环失败，需要交给调度器的重启流程处理
     FATAL_EXCEPTIONS = (
@@ -96,26 +102,73 @@ class IslandScheduling(Island):
     # ==================== 调度决策 ====================
 
     def _build_task_list(self):
-        """解析 `IslandPlan.TaskPriority`，返回本轮清单（顺序即执行顺序）。
+        """返回本轮清单（顺序即执行顺序）。
 
-        未在清单中出现的模块本轮不执行；重复或非法名称由 Filter 自动处理。
+        启用与否由 `IslandPlan` 组的 16 个 `EnableXxx` 开关决定，顺序默认取
+        `SUB_TASKS` 的声明顺序；`IslandPlan.TaskOrder` 可选，只用来调整顺序
+        （未列出的已启用模块排在后面），留空即完全按内置顺序。
 
         Returns:
             list[str]: 岛屿原子任务名列表。
         """
+        enabled = [name for name in self.SUB_TASKS if self._is_sub_task_enabled(name)]
+        if not enabled:
+            logger.warning('[岛屿计划] 全部子模块开关均已关闭，本轮不执行任何子模块')
+            return []
+
+        order = self._parse_task_order()
+        if not order:
+            return enabled
+        listed = [name for name in order if name in enabled]
+        return listed + [name for name in enabled if name not in listed]
+
+    @staticmethod
+    def _enable_arg(task_name):
+        """岛屿原子任务名 → `IslandPlan` 组里的开关名。
+
+        Args:
+            task_name (str): 如 `IslandFarm`。
+
+        Returns:
+            str: 如 `EnableFarm`。
+        """
+        return 'Enable' + task_name[len('Island'):]
+
+    def _is_sub_task_enabled(self, task_name):
+        """读取子模块开关。
+
+        配置里读不到时按「开启」处理，避免旧配置缺字段导致整轮不跑。
+
+        Args:
+            task_name (str): 岛屿原子任务名。
+
+        Returns:
+            bool: 是否启用。
+        """
+        return bool(getattr(self.config, f'IslandPlan_{self._enable_arg(task_name)}', True))
+
+    def _parse_task_order(self):
+        """解析可选的 `IslandPlan.TaskOrder`，返回自定义顺序。
+
+        复用 `Filter` 天然获得「按文本顺序、去重、丢弃非法名」的行为；
+        留空或全部非法时返回空列表，由调用方回退到内置顺序。
+
+        Returns:
+            list[str]: 岛屿原子任务名列表，可能为空。
+        """
+        text = getattr(self.config, 'IslandPlan_TaskOrder', '')
+        if not isinstance(text, str) or not text.strip():
+            return []
         objs = [name_to_function(name) for name in self.SUB_TASKS]
         f = Filter(regex=r'(.*)', attr=['command'])
-        f.load(self.config.IslandPlan_TaskPriority)
-        task_list = [obj.command for obj in f.apply(objs) if isinstance(obj, Function)]
-        if not task_list:
-            logger.warning('[岛屿计划] TaskPriority 为空或全部非法，本轮不执行任何子模块')
-        return task_list
+        f.load(text)
+        return [obj.command for obj in f.apply(objs) if isinstance(obj, Function)]
 
     def _is_sub_task_due(self, task_name):
         """判断子模块的 `Scheduler.NextRun` 是否已到期。
 
         只看到期时间、不看 `Scheduler.Enable`——原子任务的 Enable 在本轮开始时
-        已被收敛为 False，是否执行完全由 TaskPriority 清单与到期时间决定。
+        已被收敛为 False，是否执行完全由 `EnableXxx` 开关与到期时间决定。
 
         Args:
             task_name (str): 岛屿原子任务名。
@@ -144,11 +197,42 @@ class IslandScheduling(Island):
             self.config.save()
             logger.info(f'[岛屿计划] 已关闭原子任务的独立调度: {changed}')
 
+    def _get_interval_hours(self):
+        """读取运行间隔并收敛到 `[MIN, MAX]` 小时。
+
+        `IslandPlan.IntervalHours` 是自由填写的输入框，用户可能填非数字或越界值，
+        这里统一收敛到合法范围，避免把非法值写进 `Scheduler.NextRun`。
+
+        Returns:
+            float: 合法的小时数。
+        """
+        raw = getattr(self.config, 'IslandPlan_IntervalHours', self.DEFAULT_INTERVAL_HOURS)
+        try:
+            hours = float(raw)
+        except (TypeError, ValueError):
+            logger.warning(
+                f'[岛屿计划] 运行间隔「{raw}」不是数字，回退为 {self.DEFAULT_INTERVAL_HOURS} 小时'
+            )
+            hours = float(self.DEFAULT_INTERVAL_HOURS)
+
+        if hours != hours:  # NaN
+            logger.warning(
+                f'[岛屿计划] 运行间隔「{raw}」无效，回退为 {self.DEFAULT_INTERVAL_HOURS} 小时'
+            )
+            return float(self.DEFAULT_INTERVAL_HOURS)
+        if hours < self.MIN_INTERVAL_HOURS:
+            logger.warning(f'[岛屿计划] 运行间隔 {hours} 小时过短，已收敛为 {self.MIN_INTERVAL_HOURS} 小时')
+            return float(self.MIN_INTERVAL_HOURS)
+        if hours > self.MAX_INTERVAL_HOURS:
+            logger.warning(f'[岛屿计划] 运行间隔 {hours} 小时超过上限，已收敛为 {self.MAX_INTERVAL_HOURS} 小时')
+            return float(self.MAX_INTERVAL_HOURS)
+        return hours
+
     def _delay_next_run(self):
         """把岛屿计划自身延迟到 IntervalHours 小时之后。"""
-        interval = self.config.IslandPlan_IntervalHours
-        self.config.task_delay(minute=interval * 60)
-        logger.info(f'[岛屿计划] 下次进岛时间: {self.config.Scheduler_NextRun}（间隔 {interval} 小时）')
+        interval = self._get_interval_hours()
+        self.config.task_delay(minute=int(round(interval * 60)))
+        logger.info(f'[岛屿计划] 下次进岛时间: {self.config.Scheduler_NextRun}（间隔 {interval:g} 小时）')
 
     # ==================== 子模块代跑 ====================
 
@@ -177,7 +261,7 @@ class IslandScheduling(Island):
                 title=f'[岛屿计划] 子任务 {task_name} 执行失败',
                 reason=f'程序抛出了 {type(e).__name__}: {e}',
                 impact='本轮跳过该子模块，继续执行后续子模块。',
-                action='请结合下方堆栈与截图定位；若反复失败可先把该模块从 TaskPriority 移除。',
+                action='请结合下方堆栈与截图定位；若反复失败可在岛屿计划设置里关闭该模块的开关。',
                 exc=e,
             )
             return False
