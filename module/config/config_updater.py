@@ -826,6 +826,14 @@ class ConfigUpdater:
                     'General.YukikazeTaskManager.TaskPriorityAdjustment',
                     merge_task_priority(new_priority, template_priority, get_scheduler_tasks(self.args)),
                 )
+        if not is_template:
+            # 岛屿计划的运行间隔是自由填写的输入框（配置系统没有声明式的上下限校验），
+            # 落盘前统一收敛，避免 99 / 0 / 非数字被存下来，只等运行时才发现不对。
+            key = 'IslandPlan.IslandPlan.IntervalHours'
+            interval = deep_get(new, keys=key, default=None)
+            if interval is not None:
+                deep_set(new, keys=key, value=clamp_island_plan_interval(interval))
+
         new = self._override(new)
 
         return new
@@ -928,6 +936,13 @@ class ConfigUpdater:
         #     yield 'Alas.Emulator.ControlMethod', 'nemu_ipc'
         # elif key == 'Alas.Emulator.ControlMethod' and value == 'nemu_ipc':
         #     yield 'Alas.Emulator.ScreenshotMethod', 'nemu_ipc'
+
+        # 岛屿计划运行间隔是自由填写的输入框：越界时立刻回写收敛后的值，
+        # 让输入框当场显示 24，而不是等下次加载配置才变。
+        if key == 'IslandPlan.IslandPlan.IntervalHours':
+            clamped = clamp_island_plan_interval(value)
+            if clamped != value:
+                yield key, clamped
 
     def read_file(self, config_name, is_template=False):
         """

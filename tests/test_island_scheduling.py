@@ -11,7 +11,11 @@ from unittest.mock import Mock, patch
 from module.config.config import Function
 from module.config.deep import deep_get, deep_set
 from module.config.redirect_utils.utils import (
+    ISLAND_PLAN_INTERVAL_DEFAULT,
+    ISLAND_PLAN_INTERVAL_MAX,
+    ISLAND_PLAN_INTERVAL_MIN,
     ISLAND_PLAN_SUB_TASKS,
+    clamp_island_plan_interval,
     island_plan_task_priority_redirect,
 )
 from module.exception import GameStuckError
@@ -195,6 +199,34 @@ class TestIslandInterval(unittest.TestCase):
                 config = make_config(enabled=['IslandFarm'], interval=raw)
                 make_runner(config)._delay_next_run()
                 self.assertEqual(config.delays, [{'minute': minute, 'task': None}])
+
+
+class TestIslandIntervalClamp(unittest.TestCase):
+    """配置层的 clamp_island_plan_interval（落盘与保存时用）。"""
+
+    def test_valid_values_pass_through(self):
+        self.assertEqual(clamp_island_plan_interval(12), 12)
+        self.assertEqual(clamp_island_plan_interval('8'), 8)
+        self.assertEqual(clamp_island_plan_interval(6.5), 6.5)
+
+    def test_out_of_range_is_clamped_to_bound(self):
+        self.assertEqual(clamp_island_plan_interval(99), ISLAND_PLAN_INTERVAL_MAX)
+        self.assertEqual(clamp_island_plan_interval(25), ISLAND_PLAN_INTERVAL_MAX)
+        self.assertEqual(clamp_island_plan_interval(0), ISLAND_PLAN_INTERVAL_MIN)
+        self.assertEqual(clamp_island_plan_interval(-3), ISLAND_PLAN_INTERVAL_MIN)
+
+    def test_dirty_values_fall_back_to_default(self):
+        for raw in ('', None, 'abc', 'nan', [], {}):
+            with self.subTest(raw=raw):
+                self.assertEqual(
+                    clamp_island_plan_interval(raw), ISLAND_PLAN_INTERVAL_DEFAULT
+                )
+
+    def test_scheduler_constants_share_config_layer_bounds(self):
+        # config 层不许 import module.island（循环依赖），两边只能靠这个断言绑住
+        self.assertEqual(IslandScheduling.MIN_INTERVAL_HOURS, ISLAND_PLAN_INTERVAL_MIN)
+        self.assertEqual(IslandScheduling.MAX_INTERVAL_HOURS, ISLAND_PLAN_INTERVAL_MAX)
+        self.assertEqual(IslandScheduling.DEFAULT_INTERVAL_HOURS, ISLAND_PLAN_INTERVAL_DEFAULT)
 
 
 class TestIslandDueCheck(unittest.TestCase):
@@ -485,6 +517,31 @@ class TestIslandSwitchesConfigUpdate(unittest.TestCase):
         self.assertTrue(all(enables.values()))
         self.assertEqual(new['TaskOrder'], '')
         self.assertEqual(new['IntervalHours'], 12)
+
+    def test_out_of_range_interval_is_clamped_on_load(self):
+        # 手改 JSON / 导入配置留下的越界值要在加载时就改掉，而不是拖到运行时
+        self.assertEqual(self._update({'IntervalHours': 99})['IntervalHours'], 24)
+        self.assertEqual(self._update({'IntervalHours': 0})['IntervalHours'], 1)
+        self.assertEqual(self._update({'IntervalHours': 'abc'})['IntervalHours'], 12)
+
+    def test_valid_interval_is_kept(self):
+        for raw, expected in ((6, 6), (24, 24), ('8', 8)):
+            with self.subTest(raw=raw):
+                self.assertEqual(self._update({'IntervalHours': raw})['IntervalHours'], expected)
+
+    def test_save_callback_rewrites_out_of_range_interval(self):
+        # 界面保存时立刻回写收敛值，输入框才会当场显示 24
+        for raw, expected in ((99, 24), ('99', 24), (0, 1), (240, 24)):
+            with self.subTest(raw=raw):
+                self.assertEqual(
+                    list(self.updater.save_callback('IslandPlan.IslandPlan.IntervalHours', raw)),
+                    [('IslandPlan.IslandPlan.IntervalHours', expected)],
+                )
+
+    def test_save_callback_keeps_valid_interval(self):
+        self.assertEqual(
+            list(self.updater.save_callback('IslandPlan.IslandPlan.IntervalHours', 8)), []
+        )
 
 
 if __name__ == '__main__':

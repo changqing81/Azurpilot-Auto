@@ -198,3 +198,35 @@ def island_plan_task_priority_redirect(value):
     """
     text = value if isinstance(value, str) else ''
     return tuple(f'Island{name}' in text for name in ISLAND_PLAN_SUB_TASKS)
+
+
+# 岛屿计划运行间隔（小时）的合法范围与默认值。
+# island_scheduling 里的 MIN/MAX/DEFAULT_INTERVAL_HOURS 指向这三个常量，
+# 单测断言两边一致（config 层不能 import module.island，会循环依赖）。
+ISLAND_PLAN_INTERVAL_MIN = 1
+ISLAND_PLAN_INTERVAL_MAX = 24
+ISLAND_PLAN_INTERVAL_DEFAULT = 12
+
+
+def clamp_island_plan_interval(value, default=ISLAND_PLAN_INTERVAL_DEFAULT):
+    """
+    把 IslandPlan.IntervalHours 收敛到 1~24 小时。
+
+    界面上的运行间隔是自由填写的输入框，配置系统没有声明式的上下限校验
+    （`validate` 只支持 datetime），用户可能填 99、0、-3 或非数字。这里统一收敛，
+    保证落盘和运行时用的都是合法值：非数字 / NaN 回退默认值，越界取边界。
+
+    Returns:
+        int | float: 整数小时返回 int，小数小时原样返回（如 6.5）。
+    """
+    try:
+        hours = float(value)
+    except (TypeError, ValueError):
+        return default
+    if hours != hours:  # NaN
+        return default
+    if hours < ISLAND_PLAN_INTERVAL_MIN:
+        return ISLAND_PLAN_INTERVAL_MIN
+    if hours > ISLAND_PLAN_INTERVAL_MAX:
+        return ISLAND_PLAN_INTERVAL_MAX
+    return int(hours) if hours.is_integer() else hours

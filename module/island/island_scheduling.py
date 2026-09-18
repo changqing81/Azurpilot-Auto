@@ -19,6 +19,12 @@ from datetime import datetime
 from module.base.filter import Filter
 from module.config.config import Function, TaskEnd, name_to_function
 from module.config.deep import deep_get
+from module.config.redirect_utils.utils import (
+    ISLAND_PLAN_INTERVAL_DEFAULT,
+    ISLAND_PLAN_INTERVAL_MAX,
+    ISLAND_PLAN_INTERVAL_MIN,
+    clamp_island_plan_interval,
+)
 from module.config.time_source import now as current_time
 from module.config.utils import DEFAULT_TIME
 from module.exception import (
@@ -58,10 +64,11 @@ class IslandScheduling(Island):
         'IslandJuuCoffee': ('module.island.island_juu_coffee', 'IslandJuuCoffee'),
     }
 
-    # 运行间隔（小时）的合法范围，用户可自由填写，越界时收敛到边界
-    MIN_INTERVAL_HOURS = 1
-    MAX_INTERVAL_HOURS = 24
-    DEFAULT_INTERVAL_HOURS = 12
+    # 运行间隔（小时）：指向配置层的同一套边界（config 层不许 import module.island，
+    # 所以只能由配置层持有常量、这里引用）
+    MIN_INTERVAL_HOURS = ISLAND_PLAN_INTERVAL_MIN
+    MAX_INTERVAL_HOURS = ISLAND_PLAN_INTERVAL_MAX
+    DEFAULT_INTERVAL_HOURS = ISLAND_PLAN_INTERVAL_DEFAULT
 
     # 游戏状态已损坏，继续代跑只会连环失败，需要交给调度器的重启流程处理
     FATAL_EXCEPTIONS = (
@@ -200,32 +207,23 @@ class IslandScheduling(Island):
     def _get_interval_hours(self):
         """读取运行间隔并收敛到 `[MIN, MAX]` 小时。
 
-        `IslandPlan.IntervalHours` 是自由填写的输入框，用户可能填非数字或越界值，
-        这里统一收敛到合法范围，避免把非法值写进 `Scheduler.NextRun`。
+        `IslandPlan.IntervalHours` 是自由填写的输入框，配置层在落盘与保存时已会收敛
+        （`clamp_island_plan_interval`），这里再兜一次，防止运行期被临时改写。
 
         Returns:
-            float: 合法的小时数。
+            int | float: 合法的小时数。
         """
-        raw = getattr(self.config, 'IslandPlan_IntervalHours', self.DEFAULT_INTERVAL_HOURS)
+        raw = getattr(self.config, 'IslandPlan_IntervalHours', ISLAND_PLAN_INTERVAL_DEFAULT)
+        hours = clamp_island_plan_interval(raw)
         try:
-            hours = float(raw)
+            same = float(raw) == hours
         except (TypeError, ValueError):
+            same = False
+        if not same:
             logger.warning(
-                f'[岛屿计划] 运行间隔「{raw}」不是数字，回退为 {self.DEFAULT_INTERVAL_HOURS} 小时'
+                f'[岛屿计划] 运行间隔「{raw}」不合法，本次按 {hours} 小时执行'
+                f'（有效范围 {ISLAND_PLAN_INTERVAL_MIN}~{ISLAND_PLAN_INTERVAL_MAX} 小时）'
             )
-            hours = float(self.DEFAULT_INTERVAL_HOURS)
-
-        if hours != hours:  # NaN
-            logger.warning(
-                f'[岛屿计划] 运行间隔「{raw}」无效，回退为 {self.DEFAULT_INTERVAL_HOURS} 小时'
-            )
-            return float(self.DEFAULT_INTERVAL_HOURS)
-        if hours < self.MIN_INTERVAL_HOURS:
-            logger.warning(f'[岛屿计划] 运行间隔 {hours} 小时过短，已收敛为 {self.MIN_INTERVAL_HOURS} 小时')
-            return float(self.MIN_INTERVAL_HOURS)
-        if hours > self.MAX_INTERVAL_HOURS:
-            logger.warning(f'[岛屿计划] 运行间隔 {hours} 小时超过上限，已收敛为 {self.MAX_INTERVAL_HOURS} 小时')
-            return float(self.MAX_INTERVAL_HOURS)
         return hours
 
     def _delay_next_run(self):
