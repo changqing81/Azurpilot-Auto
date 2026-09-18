@@ -1116,6 +1116,10 @@ class AzurLaneAutoScript:
         from module.island.island import Island
         Island(config=self.config, device=self.device).run()
 
+    def island_plan(self):
+        from module.island.island_scheduling import IslandScheduling
+        IslandScheduling(config=self.config, device=self.device).run()
+
     def island_mine_forest(self):
         from module.island.island_mine_forest import IslandMineForest
         IslandMineForest(config=self.config, device=self.device).run()
