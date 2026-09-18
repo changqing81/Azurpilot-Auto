@@ -581,6 +581,35 @@ uv run python -m unittest discover -s tests
 - 只改 `.github/workflows/`、Markdown 文档时可跳过，但推送后要确认 CI 通过
 - 无法运行测试时（如环境损坏），必须在提交说明或交付说明中注明原因，**不得假装验证通过**
 
+### 真机前必做：调用签名自检（2026-09-18 事故反思）
+
+**事故**：岛屿计划统一调度器上线后第一次真机运行直接 CRITICAL ——
+`TypeError: UI.ui_ensure() got an unexpected keyword argument 'get_ship'`
+（`get_ship` 是 `ui_goto()` / `ui_additional()` 的参数，`ui_ensure()` 签名里没有）。
+两轮任务全部失败，而单测全绿、CI 三个 job 全绿。
+
+**根因**：单元测试里 `runner.ui_goto = Mock()` **接受任何参数**，
+`importlib.import_module` 也被打桩 —— **Mock 边界就是单测盲区**：
+参数名写错、模块路径/类名写错，都只会在真机第一次执行时才炸。
+
+**从此必须遵守**：
+
+1. 用 Mock 顶替设备 / UI 依赖时，凡是需要校验签名的地方**必须 `autospec=True`**
+   （如 `patch.object(UI, 'ui_goto', autospec=True)`）；裸 `Mock()` 等于放弃参数检查。
+2. 通过 `importlib` + `getattr` 动态调用的映射表（任务名 → 模块/类），必须有用例
+   核对**源码里确实存在**该模块与类。查文件 + `class` 定义即可，**不要真导入**重依赖
+   （实测把 16 个岛屿模块导入一遍会让整套单测从 24 秒涨到 73 秒）。
+3. 新增或修改对框架方法的调用后，跑一次全仓调用签名自检：
+
+   ```bash
+   uv run python dev_tools/audit_call_kwargs.py
+   ```
+
+   它按 MRO 解析 `self.method(...)` / `super().method(...)`，检查关键字名与位置参数个数，
+   纯 `ast` 静态扫描、不导入业务模块（秒级）。**发现可疑时退出码 1**。
+4. 新增的调度/聚合类功能，真机第一次运行**只开 1~2 个子模块**，看日志确认跑通再逐步放开，
+   不要一次全开——真机是这类「Mock 盲区」bug 的唯一暴露点。
+
 ---
 
 ## CI
@@ -597,7 +626,7 @@ GitHub Actions：workflow 只有 `lint.yml`（`on: [push, pull_request]`），�
 
 - 仓库不提交 `uv.lock`，workflow 使用 `uv sync`（**无** `--frozen`）
 - actions 版本：`actions/checkout@v7`、`actions/setup-python@v7`、`astral-sh/setup-uv@v10.0.1`——新版 setup-uv **没有 `v10` 这类浮动 tag**，升级时必须钉完整版本号
-- 失败先看 `gh run view <run-id> --log-failed`（gh CLI 需用完整路径调用）
+- 失败先看 `gh run view <run-id> --log-failed`
 
 ---
 
@@ -745,28 +774,3 @@ git push origin dev:master
 - 处置：仓库 Settings → Rules → 编辑该规则，**删掉 `Require linear history` 与
   `Block force pushes`**（`Deletion` 可以留着）
 - 然后执行一次 `git push --force origin dev:master`，之后恢复纯快进
-
-### 本机特有陷阱（务必先读）
-1. **这台机器的 `git fetch` 不会更新远端跟踪引用**（实测 `refs/remotes/origin/*`
-   在 fetch 后仍是旧值甚至消失）。
-2. 启动器每次启动都会执行 `git reset --hard origin/<branch>`。
-   上面两条叠加 = **工作树被静默回退**（2026-09-17 真实发生过，一整天的工作看起来"消失"）。
-
-对策：每次 fetch / push 之后，用 `ls-remote` 取真实 SHA 并**手写引用文件**：
-
-```bash
-GH=https://github.com/changqing81/Azurpilot-Auto.git
-SHA=$(git ls-remote $GH refs/heads/dev 2>/dev/null | cut -f1)
-printf '%s\n' "$SHA" > .git/refs/remotes/origin/dev
-printf '%s\n' "$SHA" > .git/refs/remotes/origin/master
-```
-
-`2>/dev/null` **不能省** —— `ls-remote` 的 stderr 警告（如
-`warning: redirecting to ...`）会混进 `$(...)`，把警告文本当 SHA 传给
-`reset --hard` 会报 `invalid object name`。
-
-3. 启动器会按 `config/deploy.yaml` 的 `Repository` 重写 `origin`。
-   若该值是 `auto` 或 GitCode 地址，`origin` 会指向**可能滞后的 GitCode 镜像**，
-   推送到它会被拒（403 `image repository`）。
-   **开发机建议把 `Repository` 填成具体的 GitHub 地址**（具体地址会被锁定、不被改写）。
-
