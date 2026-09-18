@@ -307,8 +307,8 @@
       "help": "Uses the Monte Carlo algorithm to estimate the outcome of continuing corrosion cycles for a period of time in the current state. This feature does not affect AzurPilot's normal operation.\nModel parameters are taken from AzurPilot configuration and statistics. Please ensure that OpSi settings such as Smart Scheduling are correctly configured.\nCurrently in beta; results may not have much reference value.\nThe model for the shady dealer selling Action Points lacks sufficient evidence. Specifically, it assumes that the dealer's 6 types of AP boxes follow a hypergeometric distribution X~H(6,6,24).\nRegarding \"crashes\": here, a crash means that during the entire simulation, AP drops below the AP reserve threshold set in Smart Scheduling at least once. If it falls below that threshold, the simulator will stop corrosion cycles and wait for AP to recover naturally."
     },
     "IslandPlan": {
-      "name": "Global Config",
-      "help": "Global configuration for Island Plan, including season settings."
+      "name": "Island Plan (Unified Scheduling)",
+      "help": "Runs all island sub-modules in a single visit: every due sub-module is executed in the order of the task list, then no island visit happens until the configured interval elapses.\nAfter enabling this task, disable the individual scheduling of the other island tasks to avoid duplicate visits."
     },
     "IslandBusiness": {
       "name": "Business Module",
@@ -3819,6 +3819,18 @@
       "summer": "Summer",
       "autumn": "Autumn",
       "winter": "Winter"
+    },
+    "IntervalHours": {
+      "name": "Island Run Interval (hours)",
+      "help": "After one island plan round finishes, wait this many hours before visiting the island again. No island sub-module runs during the interval.",
+      "6": "6",
+      "8": "8",
+      "12": "12",
+      "24": "24"
+    },
+    "TaskPriority": {
+      "name": "Sub-module List (also sets the order)",
+      "help": "List the island sub-modules to run, in order, separated by >. Modules that are not listed are skipped.\nAvailable names: IslandAirDrop, IslandDailyGather, IslandCargoPreparation, IslandDailyOrder, IslandDailyInteract, IslandFarm, IslandRancher, IslandMineForest, IslandPearlSell, IslandManufacture, IslandBusiness, IslandRestaurant, IslandTeahouse, IslandGrill, IslandJuuEatery, IslandJuuCoffee.\nOnly sub-modules whose own next run time has arrived are actually executed, so the daily supply box runs once a day and the weekly pearl trade runs once a week."
     }
   },
   "IslandFarm": {

@@ -307,8 +307,8 @@
       "help": "使用蒙特卡洛算法估算在当前状态下持续进行侵蚀循环一段时间后的结果，该功能不会影响AzurPilot正常运行\n模型所用参数均取自AzurPilot配置和统计，请确保正确配置了智能调度+等大世界设置\n目前为测试版本，结果不具备太多参考价值\n关于奸商售卖行动力的模型无足够充分的证据支撑。具体来讲，这里认为奸商卖6种行动力箱子满足超几何分布X~H(6,6,24)\n关于坠机：这里坠机是指整个模拟流程中行动力低于智能调度+中设置的行动力保留阈值至少一次。若低于该阈值，模拟器将停止侵蚀循环等待行动力自然回复"
     },
     "IslandPlan": {
-      "name": "全局配置",
-      "help": "岛屿计划的全局配置，包括季节设定"
+      "name": "岛屿计划（统一调度）",
+      "help": "统一运行岛屿下的子模块：一次进岛按清单跑完所有到期任务，结束后在设定的间隔时间内不再进入岛屿。\n启用本任务后请关闭其它岛屿子任务的独立调度，避免重复进岛。"
     },
     "IslandBusiness": {
       "name": "经营模块",
@@ -3819,6 +3819,18 @@
       "summer": "夏季",
       "autumn": "秋季",
       "winter": "冬季"
+    },
+    "IntervalHours": {
+      "name": "岛屿运行间隔（小时）",
+      "help": "一轮岛屿计划结束后，延迟该小时数才再次进入岛屿。间隔期内不会运行任何岛屿子模块。",
+      "6": "6",
+      "8": "8",
+      "12": "12",
+      "24": "24"
+    },
+    "TaskPriority": {
+      "name": "子模块清单（同时决定执行顺序）",
+      "help": "按顺序列出要执行的岛屿子模块，用 > 分隔，未列出的模块不会执行。\n可用名称：IslandAirDrop、IslandDailyGather、IslandCargoPreparation、IslandDailyOrder、IslandDailyInteract、IslandFarm、IslandRancher、IslandMineForest、IslandPearlSell、IslandManufacture、IslandBusiness、IslandRestaurant、IslandTeahouse、IslandGrill、IslandJuuEatery、IslandJuuCoffee。\n只有各自「下次运行时间」已到的模块才会真正执行，因此每日补给一天只跑一次、珍珠倒卖一周只跑一次。"
     }
   },
   "IslandFarm": {

@@ -307,8 +307,8 @@
       "help": "用蒙特卡洛算法模拟侵蚀循环结果，不影响运行。请确保正确配置调度等参数。测试版，结果仅供参考。关于奸商行动力模型缺乏证据。坠机指行动力低于保留阈值。"
     },
     "IslandPlan": {
-      "name": "岛屿计划全局喵",
-      "help": "岛屿计划的全局配置喵，包括季节设定~"
+      "name": "岛屿计划统一调度喵",
+      "help": "一次进岛按清单把到期的岛屿子模块全部跑完喵，跑完就在设定的间隔时间内不再进岛啦～\n开了这个任务记得把其它岛屿子任务的独立调度关掉喵，不然会重复进岛 (｡•́︿•̀｡)"
     },
     "IslandBusiness": {
       "name": "经营模块喵",
@@ -3819,6 +3819,18 @@
       "summer": "夏季",
       "autumn": "秋季",
       "winter": "冬季"
+    },
+    "IntervalHours": {
+      "name": "岛屿运行间隔喵（小时）",
+      "help": "一轮岛屿计划跑完后，要等这么久才会再进岛喵。等待期间不会运行任何岛屿子模块～",
+      "6": "6",
+      "8": "8",
+      "12": "12",
+      "24": "24"
+    },
+    "TaskPriority": {
+      "name": "子模块清单喵（顺便决定顺序）",
+      "help": "按顺序写下要跑的岛屿子模块喵，用 > 隔开，没写上的就不跑啦。\n可以写：IslandAirDrop、IslandDailyGather、IslandCargoPreparation、IslandDailyOrder、IslandDailyInteract、IslandFarm、IslandRancher、IslandMineForest、IslandPearlSell、IslandManufacture、IslandBusiness、IslandRestaurant、IslandTeahouse、IslandGrill、IslandJuuEatery、IslandJuuCoffee 喵。\n只有「下次运行时间」到了的模块才会真的跑喵，所以每日补给一天只有一次、珍珠倒卖一周只有一次～"
     }
   },
   "IslandFarm": {

@@ -362,6 +362,7 @@ YukikazeTaskManager:
       > Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss
       > Sos > EventSp > EventA > EventB > EventC > EventD
       > RaidDaily > CoalitionSp > WarArchives > MaritimeEscort
+      > IslandPlan
       > IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant
       > IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture
       > IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation
@@ -1392,6 +1393,21 @@ IslandPlan:
   Season:
     value: spring
     option: [ spring, summer, autumn, winter ]
+  # 岛屿计划的运行间隔（小时）。一轮结束后延迟该时长才再次进入岛屿，
+  # 期间所有岛屿原子任务都不会被单独调度。
+  IntervalHours:
+    value: 12
+    option: [ 6, 8, 12, 24 ]
+  # 岛屿子模块的执行清单，同时决定执行顺序。未列出的模块本轮不执行。
+  TaskPriority:
+    type: textarea
+    value: |-
+      IslandAirDrop > IslandDailyGather > IslandCargoPreparation
+      > IslandDailyOrder > IslandDailyInteract
+      > IslandFarm > IslandRancher > IslandMineForest
+      > IslandPearlSell > IslandManufacture > IslandBusiness
+      > IslandRestaurant > IslandTeahouse > IslandGrill
+      > IslandJuuEatery > IslandJuuCoffee
 IslandFarm:
   Positions:
     value: 3
