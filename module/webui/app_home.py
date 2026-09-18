@@ -913,7 +913,7 @@ class HomeMixin(WebUIMixinBase):
         label = {"image": "仅图片", "video": "仅视频", "auto": "混合"}.get(
             media, media
         )
-        toast(f"背景媒体类型已切换: {label}", color="success")
+        toast(t("Gui.Toast.MediaTypeSwitched", label=label), color="success")
         # 自定义背景下偏好暂不生效，切回随机背景后起作用
         if self._load_background_mode() == "custom":
             return
@@ -1037,7 +1037,7 @@ class HomeMixin(WebUIMixinBase):
         name = (resp["name"] or "").strip()
         url = (resp["url"] or "").strip()
         if not name or not url:
-            toast("名称和 API 地址不能为空", color="error")
+            toast(t("Gui.Toast.WallpaperNameRequired"), color="error")
             return
         params = {}
         for pair in (resp.get("params") or "").split(","):
@@ -1061,7 +1061,7 @@ class HomeMixin(WebUIMixinBase):
             }
         )
         self._save_sources(sources)
-        toast(f"已添加图源: {name}", color="success")
+        toast(t("Gui.Toast.WallpaperSourceAdded", name=name), color="success")
         logger.info(f"[WebUI] 已添加自定义图源: {name} -> {url}")
         self._refresh_random_wallpaper()
 
@@ -1069,7 +1069,7 @@ class HomeMixin(WebUIMixinBase):
         """弹窗列出全部图源并选择切换启用/禁用状态。"""
         sources = self._load_sources()
         if not sources:
-            toast("暂无图源", color="warning")
+            toast(t("Gui.Toast.NoWallpaperSource"), color="warning")
             return
         resp = input_group(
             "启用/禁用图源",
@@ -1131,7 +1131,7 @@ class HomeMixin(WebUIMixinBase):
             s for s in sources if s.get("type") not in _BUILTIN_TYPES
         ]
         if not removable:
-            toast("没有可删除的自定义图源（内置源不可删除，可禁用）", color="warning")
+            toast(t("Gui.Toast.NoRemovableWallpaperSource"), color="warning")
             return
         resp = input_group(
             "删除图源",
@@ -1178,7 +1178,8 @@ class HomeMixin(WebUIMixinBase):
                 if s is not removed
             ]
             self._save_sources(new_sources)
-            toast(f"已删除图源: {removed.get('name', '未命名')}", color="success")
+            toast(t("Gui.Toast.WallpaperSourceRemoved",
+                    name=removed.get("name") or t("Gui.Toast.Unnamed")), color="success")
             logger.info(f"[WebUI] 已删除自定义图源: {removed.get('name')}")
             self._refresh_random_wallpaper()
 
@@ -1204,7 +1205,7 @@ class HomeMixin(WebUIMixinBase):
             if not found:
                 sources.append(default_entry)
         self._save_sources(sources)
-        toast("已恢复默认图源设置", color="success")
+        toast(t("Gui.Toast.WallpaperSourceReset"), color="success")
         logger.info("[WebUI] 已恢复默认图源设置")
         self._refresh_random_wallpaper()
 
@@ -1437,7 +1438,7 @@ class HomeMixin(WebUIMixinBase):
         self._save_background_mode("custom")
         url, is_video = self._custom_background_url()
         self._inject_custom_background(url, is_video)
-        toast(f"自定义背景已应用: {target.resolve()}", color="success")
+        toast(t("Gui.Toast.CustomWallpaperApplied", path=target.resolve()), color="success")
         logger.info(f"[WebUI] 自定义背景已保存: {target.resolve()}")
 
     @staticmethod
@@ -1495,7 +1496,7 @@ class HomeMixin(WebUIMixinBase):
         # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图
         run_js("window.__alasWallpaperWinner = null;")
         self.init_wallpaper()
-        toast("已切换为随机背景", color="success")
+        toast(t("Gui.Toast.RandomWallpaperApplied"), color="success")
 
     def download_wallpaper(self):
         """
@@ -1703,7 +1704,7 @@ class HomeMixin(WebUIMixinBase):
             self._last_announcement_id = announcement_id
 
         elif force:
-            toast("暂无公告 / No announcement", color="info")
+            toast(t("Gui.Toast.NoAnnouncement"), color="info")
 
         return True
 
@@ -1724,7 +1725,7 @@ class HomeMixin(WebUIMixinBase):
                 self._announcement_force = False
         self._start_announcement_fetch(force=force)
         if force:
-            toast("正在获取公告... / Fetching announcement...", color="info")
+            toast(t("Gui.Toast.FetchingAnnouncement"), color="info")
 
     def _load_deferred_client_assets(self) -> None:
         """在首次绘制后再加载非关键的分析和交互脚本。"""

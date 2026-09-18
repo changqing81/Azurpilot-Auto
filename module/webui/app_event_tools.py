@@ -76,7 +76,7 @@ class EventToolsMixin(WebUIMixinBase):
     ) -> None:
         state = self._event_calculator_state()
         if not state:
-            toast("活动计算器还没有加载完成", color="warning")
+            toast(t("Gui.Toast.CalculatorNotReady"), color="warning")
             return
 
         modified: Dict[str, Any] = {}
@@ -86,13 +86,13 @@ class EventToolsMixin(WebUIMixinBase):
         if save_time:
             end_time = self._format_event_end_time(state.get("endDate") or "")
             if end_time is None:
-                toast("活动结束日期无效", color="warning")
+                toast(t("Gui.Toast.InvalidEventEndDate"), color="warning")
                 return
             modified["EventGeneral.EventGeneral.TimeLimit"] = end_time
         if save_shop_filter:
             filters = state.get("shopFilter") or []
             if not filters:
-                toast("没有可写入的商店过滤器项目", color="warning")
+                toast(t("Gui.Toast.NoShopFilterItems"), color="warning")
                 return
             missing = state.get("shopFilterMissing") or []
             modified["EventShop.EventShop.PresetFilter"] = "custom"

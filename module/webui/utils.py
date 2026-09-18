@@ -793,7 +793,7 @@ def _input_webui_password():
 
 def login(password, stored_password=_LOCALSTORAGE_UNSET):
     if is_login_forbidden():
-        toast("密码错误次数过多，请重启后再试。", color="error")
+        toast(t("Gui.Toast.TooManyPasswordAttempts"), color="error")
         return False
     if stored_password is _LOCALSTORAGE_UNSET:
         stored_password = get_localstorage("password")
@@ -801,7 +801,7 @@ def login(password, stored_password=_LOCALSTORAGE_UNSET):
         return True
     pwd = _input_webui_password()
     if is_login_forbidden():
-        toast("密码错误次数过多，请重启后再试。", color="error")
+        toast(t("Gui.Toast.TooManyPasswordAttempts"), color="error")
         return False
     if str(pwd) == str(password):
         set_localstorage("password", str(pwd))
@@ -810,9 +810,9 @@ def login(password, stored_password=_LOCALSTORAGE_UNSET):
         count = _record_login_failure()
         remaining = WEBUI_LOGIN_MAX_FAILURES - count
         if remaining > 0:
-            toast(f"密码错误，还剩 {remaining} 次机会。", color="error")
+            toast(t("Gui.Toast.PasswordWrongRemaining", remaining=remaining), color="error")
         else:
-            toast("密码错误次数过多，请重启后再试。", color="error")
+            toast(t("Gui.Toast.TooManyPasswordAttempts"), color="error")
         return False
 
 

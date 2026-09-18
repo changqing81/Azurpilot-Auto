@@ -140,22 +140,22 @@ class DeveloperToolsMixin(WebUIMixinBase):
         def _mock_icon_state(state: int, seconds: int = 10):
             target = _get_debug_target_instance()
             if not target:
-                toast("未找到可用实例，无法模拟图标状态", color="warning")
+                toast(t("Gui.Toast.NoInstanceSimulateIcon"), color="warning")
                 return
             ProcessManager.get_manager(target).set_state_override(
                 state, duration=seconds
             )
             _refresh_debug_status()
-            toast(f"已为 {target} 模拟状态 {state}（{seconds}s）", color="info")
+            toast(t("Gui.Toast.IconSimulated", target=target, state=state, seconds=seconds), color="info")
 
         def _clear_mock_icon_state():
             target = _get_debug_target_instance()
             if not target:
-                toast("未找到可用实例，无法清除模拟状态", color="warning")
+                toast(t("Gui.Toast.NoInstanceClearIcon"), color="warning")
                 return
             ProcessManager.get_manager(target).clear_state_override()
             _refresh_debug_status()
-            toast(f"已清除 {target} 的图标状态模拟", color="success")
+            toast(t("Gui.Toast.IconSimulationCleared", target=target), color="success")
 
         put_buttons(
             buttons=[
@@ -180,7 +180,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
 
             instance = _get_debug_target_instance()
             if not instance:
-                toast("未找到可用实例，无法模拟错误弹窗", color="warning")
+                toast(t("Gui.Toast.NoInstanceSimulateError"), color="warning")
                 return
 
             try:
@@ -195,7 +195,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 })
                 tracker._save()
             except Exception as e:
-                toast(f"写入记录失败：{e}", color="warning")
+                toast(t("Gui.Toast.WriteRecordFailed", e=e), color="warning")
 
             notice_id = f"task_failure_sim_{int(time.time() * 1000)}"
             actions_id = f"task_failure_sim_actions_{int(time.time() * 1000)}"
@@ -249,7 +249,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                     scope=actions_id,
                 )
 
-            toast("模拟错误弹窗已弹出", color="success")
+            toast(t("Gui.Toast.ErrorPopupShown"), color="success")
 
         put_button(
             label="模拟错误弹窗",
@@ -265,7 +265,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
 
             instance = _get_debug_target_instance()
             if not instance:
-                toast("未找到可用实例，无法发起跨月预演", color="warning")
+                toast(t("Gui.Toast.NoInstanceCrossMonth"), color="warning")
                 return
             data = State.config_updater.read_file(instance)
             deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", mode)
@@ -278,7 +278,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
             try:
                 State.config_updater.write_file(instance, data)
             except Exception as e:
-                toast(f"写入跨月预演请求失败：{e}", color="error")
+                toast(t("Gui.Toast.CrossMonthRequestFailed", e=e), color="error")
                 return
             toast(
                 f"已向 {instance} 下发跨月每日预演（{label}）。\n"
@@ -298,7 +298,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
 
             instance = _get_debug_target_instance()
             if not instance:
-                toast("未找到可用实例", color="warning")
+                toast(t("Gui.Toast.NoInstance"), color="warning")
                 return
             data = State.config_updater.read_file(instance)
             mode = deep_get(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
@@ -321,7 +321,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
             try:
                 State.config_updater.write_file(instance, data)
             except Exception as e:
-                toast(f"取消预演请求失败：{e}", color="error")
+                toast(t("Gui.Toast.CancelRehearsalFailed", e=e), color="error")
                 return
             logger.info(f"[跨月预演] 已取消 {instance} 的预演请求")
             toast(
@@ -368,7 +368,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 content="测试更新推送逻辑，启动器应显示专用标题。",
                 update=True,
             )
-            toast("已发送更新测试通知", color="success")
+            toast(t("Gui.Toast.NotifyUpdateTestSent"), color="success")
 
         def _test_notify_announcement():
             from module.notify.notify import notify_webui
@@ -380,14 +380,14 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 content="测试公告推送逻辑，启动器应显示专用标题。",
                 updata=False,
             )
-            toast("已发送公告测试通知", color="info")
+            toast(t("Gui.Toast.NotifyAnnouncementTestSent"), color="info")
 
         def _test_notify_error():
             from module.notify import handle_notify
 
             instance = _get_debug_target_instance()
             if not instance:
-                toast("未找到可用实例，无法发送错误推送测试", color="warning")
+                toast(t("Gui.Toast.NoInstanceNotifyTest"), color="warning")
                 return
             config = load_config(instance)
             success = handle_notify(
@@ -396,9 +396,9 @@ class DeveloperToolsMixin(WebUIMixinBase):
                 content=f"<{instance}> 开发者错误推送测试",
             )
             if success:
-                toast("已发送错误推送测试", color="success")
+                toast(t("Gui.Toast.NotifyErrorTestSent"), color="success")
             else:
-                toast("错误推送测试发送失败，请检查错误推送设置", color="error")
+                toast(t("Gui.Toast.NotifyErrorTestFailed"), color="error")
 
         put_buttons(
             buttons=[

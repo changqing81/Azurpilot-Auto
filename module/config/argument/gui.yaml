@@ -32,6 +32,39 @@ Toast:
   ReloadEnabled:
   AlasRestart:
   RestartCancelled:
+  NoInstance:
+  NoInstanceSimulateIcon:
+  NoInstanceClearIcon:
+  NoInstanceSimulateError:
+  NoInstanceCrossMonth:
+  NoInstanceNotifyTest:
+  ErrorPopupShown:
+  NotifyUpdateTestSent:
+  NotifyAnnouncementTestSent:
+  NotifyErrorTestSent:
+  NotifyErrorTestFailed:
+  CalculatorNotReady:
+  InvalidEventEndDate:
+  NoShopFilterItems:
+  WallpaperNameRequired:
+  NoWallpaperSource:
+  NoRemovableWallpaperSource:
+  WallpaperSourceReset:
+  RandomWallpaperApplied:
+  NoAnnouncement:
+  FetchingAnnouncement:
+  TooManyPasswordAttempts:
+  PasswordWrongRemaining:
+  IconSimulated:
+  IconSimulationCleared:
+  WriteRecordFailed:
+  CrossMonthRequestFailed:
+  CancelRehearsalFailed:
+  MediaTypeSwitched:
+  WallpaperSourceAdded:
+  WallpaperSourceRemoved:
+  CustomWallpaperApplied:
+  Unnamed:
 
 Status:
   Running:
