@@ -2,11 +2,13 @@ Deploy:
   Git:
     # AzurPilot 仓库地址
     # URL of AzurPilot repository
-    # [国内用户] 使用 'git://git.pull/AzurPilot' 获得更快更稳定的下载
-    # [CN user] Use 'git://git.pull/AzurPilot' for faster and more stable download
-    # [其他用户] 使用 'https://github.com/wess09/AzurPilot'
-    # [Other] Use 'https://github.com/wess09/AzurPilot'
-    Repository: https://github.com/wess09/AzurPilot
+    # 填 'auto' = 按网络所在地区自动选择更新源：
+    #   中国大陆 -> https://gitcode.com/gcw_BYvq9jGu/AzurPilot
+    #   其他地区 -> https://github.com/changqing81/Azurpilot-Auto
+    # 填任何具体地址（例如 'https://github.com/changqing81/Azurpilot-Auto'）
+    # 则表示锁定该地址，不会被自动改写 —— 开发机建议这样填。
+    # 'auto' = pick the source by region. A concrete URL locks the source and is never rewritten.
+    Repository: auto
     # AzurPilot 分支
     # Branch of AzurPilot
     # [开发者] 使用 'dev'、'app' 等分支体验新功能
@@ -31,6 +33,13 @@ Deploy:
     # [其他情况] 连接到不受信任的网络时使用 false
     # [Other] Use false to when connected to an untrusted network
     SSLVerify: true
+    # 云端更新开关地址（可选）
+    # Cloud update switch URL (optional)
+    # 指向一个内容为纯文本 true / false 的地址：
+    #   true  -> 允许更新；false -> 跳过更新；取不到 -> 允许更新（不会阻塞启动）
+    # 填 null 表示不启用远程开关，始终允许更新
+    # Point it to a plain-text true/false endpoint. Use null to disable the switch.
+    CloudUpdateControl: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
   Python:
     # Python 可执行文件路径
     # Filepath of python executable.
