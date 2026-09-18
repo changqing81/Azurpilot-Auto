@@ -11,7 +11,15 @@ from deploy.Windows.utils import DEPLOY_CONFIG, DEPLOY_TEMPLATE, cached_property
 
 GIT_OVER_CDN_REPOSITORY = 'git://git.pull/AzurPilot'
 GIT_OVER_CDN_FALLBACK_REPOSITORY = 'https://gitcode.com/ddl2/AzurLaneAutoScript'
-GITHUB_REPOSITORY = 'https://github.com/wess09/AzurPilot'
+
+# AzurPilot 自有仓库：国外走 GitHub，国内走 GitCode 镜像。
+GITHUB_REPOSITORY = 'https://github.com/changqing81/Azurpilot-Auto'
+CN_REPOSITORY = 'https://gitcode.com/gcw_BYvq9jGu/AzurPilot'
+
+# 哨兵值：Repository 填这个值时按网络所在地区自动选择更新源。
+# 填任何其它具体地址都表示"我就要用这个地址"，一律不会被改写 —— 包括上游的
+# wess09/AzurPilot、Maratrain/AzurPilot，方便随时切回上游做对比测试。
+AUTO_REPOSITORY = 'auto'
 
 
 class ExecutionError(Exception):
@@ -20,7 +28,7 @@ class ExecutionError(Exception):
 
 class ConfigModel:
     # Git 配置
-    Repository: str = GITHUB_REPOSITORY
+    Repository: str = AUTO_REPOSITORY
     Branch: str = "master"
     GitExecutable: str = "./.venv/Scripts/git/cmd/git.exe"
     GitProxy: Optional[str] = None
@@ -129,28 +137,76 @@ class DeployConfig(ConfigModel):
         """
         self.config.pop('AutoUpdate', None)
         self._redirect_github_repository()
+        if self.Repository in [
+            'https://gitee.com/LmeSzinc/AzurLaneAutoScript',
+            'https://gitee.com/lmeszinc/azur-lane-auto-script-mirror',
+            'https://e.coding.net/llop18870/alas/AzurLaneAutoScript.git',
+            'https://e.coding.net/saarcenter/alas/AzurLaneAutoScript.git',
+            'https://git.saarcenter.com/LmeSzinc/AzurLaneAutoScript.git',
+            'git://git.lyoko.io/AzurLaneAutoScript',
+            'https://gitcode.com/ddl2/AzurLaneAutoScript',
+            'https://gitcode.com/ZhangMusan/AzurLaneAutoScript',
+            'https://gitcode.com/nerom/AzurLaneAutoScript',
+            'https://gitee.com/wqeaxc/AzurLaneAutoScript1',
+            'https://git.nanoda.work/git/AzurLaneAutoScript',
+            'https://git.nanoda.work/git/AzurPilot',
+            'https://git.nanoda.work',
+        ]:
+            self.Repository = GIT_OVER_CDN_REPOSITORY
+            self.config['Repository'] = GIT_OVER_CDN_REPOSITORY
+
         # 绕过 webui.config.DeployConfig.__setattr__()，不写入 deploy.yaml
-        super().__setattr__('GitOverCdn', self.Repository in ['cn', GIT_OVER_CDN_REPOSITORY])
-        if self.Repository in ['global']:
-            super().__setattr__('Repository', 'https://github.com/wess09/AzurPilot')
-        if self.Repository in ['cn', GIT_OVER_CDN_REPOSITORY]:
+        super().__setattr__(
+            'GitOverCdn',
+            self.Repository == GIT_OVER_CDN_REPOSITORY and self.Branch == 'master'
+        )
+        if self.Repository == GIT_OVER_CDN_REPOSITORY:
             super().__setattr__('Repository', GIT_OVER_CDN_FALLBACK_REPOSITORY)
+        # 'global' / 'cn' 简写同样不区分大小写
+        shorthand = self.Repository.strip().lower() if isinstance(self.Repository, str) else ''
+        if shorthand == 'global':
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
+        elif shorthand == 'cn':
+            super().__setattr__('Repository', CN_REPOSITORY)
 
     def _redirect_github_repository(self):
-        """为官方 GitHub 源一次性选择适合当前网络的更新镜像。"""
-        if self._github_location_checked or self.Repository != GITHUB_REPOSITORY:
+        """处理更新源的选择。
+
+        规则（Repository 的取值一律不区分大小写）：
+        1. 哨兵值 'auto' / 'Auto' / 'AUTO' -> 按网络所在地区选择：中国大陆用 GitCode，其余用 GitHub。
+           解析结果不会写回配置文件，所以换网络后下次启动会自动重新判断。
+        2. 其它任何具体地址 -> 完全照用，绝不改写。这包括上游的 wess09/AzurPilot、
+           Maratrain/AzurPilot —— 想切回上游做对比测试时直接填即可。
+        3. 地区检测失败 -> 使用 GitHub，不误判到国内源。
+        """
+        if self._github_location_checked:
+            return
+
+        repository = self.Repository
+        normalized = repository.strip().lower() if isinstance(repository, str) else repository
+
+        # 大小写归一：'Auto' / 'AUTO' 都按 'auto' 处理，并把配置里的写法规范成小写
+        if normalized == AUTO_REPOSITORY and repository != AUTO_REPOSITORY:
+            logger.info(f'更新源 "{repository}" 规范为 "{AUTO_REPOSITORY}"')
+            self.Repository = AUTO_REPOSITORY
+            self.config['Repository'] = AUTO_REPOSITORY
+            repository = AUTO_REPOSITORY
+
+        if repository != AUTO_REPOSITORY:
+            # 用户自己填了地址，原样照用
             return
 
         self._github_location_checked = True
         country_code = get_country_code()
         if country_code == 'cn':
-            logger.info('检测到中国大陆网络，切换至国内 Git 更新源')
-            self.Repository = GIT_OVER_CDN_REPOSITORY
-            self.config['Repository'] = GIT_OVER_CDN_REPOSITORY
+            logger.info('检测到中国大陆网络，使用 GitCode 国内更新源')
+            super().__setattr__('Repository', CN_REPOSITORY)
         elif country_code is None:
-            logger.warning('无法检测网络所在国家，保留 GitHub 更新源')
+            logger.warning('无法检测网络所在国家，使用 GitHub 更新源')
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
         else:
-            logger.info('当前网络不在中国大陆，保留 GitHub 更新源')
+            logger.info('当前网络不在中国大陆，使用 GitHub 更新源')
+            super().__setattr__('Repository', GITHUB_REPOSITORY)
 
     def filepath(self, path):
         """获取绝对文件路径。
