@@ -6,6 +6,7 @@
 import json
 import os
 import re
+import time
 from datetime import datetime
 from html import escape
 from typing import Any, Dict, List
@@ -19,8 +20,40 @@ WIKI_RAW_URL = (
     "https://wiki.biligame.com/blhx/"
     "%E6%B4%BB%E5%8A%A8%E8%AE%A1%E7%AE%97%E5%99%A8?action=raw"
 )
+# 备用源：MediaWiki 标准 API。`action=raw` 走 CDN 裸取原文，偶发被站点风控拦成
+# 非标准状态码（实测见过 567 Server Error），api.php 通常不在拦截名单里。
+# 2026-09-18 实测两个源返回的 wikitext 解析结果逐字段一致（商品 29 / 总价 199575 / 关卡 12）。
+WIKI_API_URL = (
+    "https://wiki.biligame.com/blhx/api.php"
+    "?action=parse&page=%E6%B4%BB%E5%8A%A8%E8%AE%A1%E7%AE%97%E5%99%A8"
+    "&prop=wikitext&format=json&formatversion=2"
+)
+# 站点 CDN 会对脚本型 UA 更严格，统一带常规浏览器 UA
+WIKI_REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-CN,zh;q=0.9",
+}
 CACHE_FILE = "./cache/wiki_event_calculator.json"
 CACHE_VERSION = 2
+
+# 站点风控是按来源 IP 记的：连续点「重新拉取」会把 IP 拉进黑名单（两个源一起返回
+# 非标准错误码）。失败后进入冷却期，期间不再打网络，直接复用缓存或提示稍后再试。
+FETCH_FAILURE_COOLDOWN_SECONDS = 60
+_failure_state: Dict[str, Any] = {"at": 0.0, "message": ""}
+
+
+def _record_fetch_failure(message: str) -> None:
+    _failure_state["at"] = time.time()
+    _failure_state["message"] = message
+
+
+def _fetch_cooldown_remaining() -> int:
+    elapsed = time.time() - float(_failure_state.get("at") or 0.0)
+    remain = FETCH_FAILURE_COOLDOWN_SECONDS - elapsed
+    return int(remain) if remain > 0 else 0
 
 EVENT_SHOP_FILTER_MAP = [
     ("深潜许可", "URpt"),
@@ -254,6 +287,37 @@ def _write_cache(data: Dict[str, Any]) -> None:
         logger.warning(f"[WebUI-计算器] 写入Wiki活动计算器缓存失败: {e}")
 
 
+def _fetch_wiki_text() -> Tuple[str, str]:
+    """拉取活动计算器页面原文，返回 (wikitext, 实际生效的地址)。
+
+    依次尝试 `action=raw` 与 `api.php`：前者走 CDN 裸取、偶发被风控拦成非标准状态码
+    （实测 567），后者是标准 API，通常可用。两个源都失败才抛错。
+
+    Raises:
+        RuntimeError: 附上每个源的失败原因，便于用户判断是网络还是站点风控。
+    """
+    errors = []
+    for url, from_api in ((WIKI_RAW_URL, False), (WIKI_API_URL, True)):
+        try:
+            response = requests.get(url, timeout=10, headers=WIKI_REQUEST_HEADERS)
+            response.raise_for_status()
+            if from_api:
+                payload = response.json()
+                text = (payload.get("parse") or {}).get("wikitext") or ""
+            else:
+                text = response.text
+            if text.strip():
+                return text, url
+            errors.append(f"{'api.php' if from_api else 'action=raw'} 返回内容为空")
+        except requests.HTTPError as e:
+            code = e.response.status_code if e.response is not None else "?"
+            errors.append(f"{'api.php' if from_api else 'action=raw'} 返回 HTTP {code}")
+        except Exception as e:
+            errors.append(f"{'api.php' if from_api else 'action=raw'} {type(e).__name__}")
+
+    raise RuntimeError("Wiki 请求失败（" + "；".join(errors) + "），稍后重试即可")
+
+
 def load_event_calculator(force_refresh: bool = False) -> Dict[str, Any]:
     """读取 Wiki 活动计算器数据，失败时回退到缓存。"""
     cache = _read_cache()
@@ -261,18 +325,31 @@ def load_event_calculator(force_refresh: bool = False) -> Dict[str, Any]:
     if cache and cache_valid and not force_refresh:
         return {**cache, "from_cache": True}
 
+    # 冷却期内不再打网络：连点「重新拉取」只会让风控把 IP 关得更久
+    cooldown = _fetch_cooldown_remaining()
+    if cooldown:
+        message = _failure_state.get("message") or "Wiki 请求失败"
+        if cache:
+            return {**cache, "from_cache": True, "error": message}
+        return {
+            "error": f"{message}；请 {cooldown} 秒后再试（短时间内重复请求会被站点风控）",
+            "from_cache": False,
+        }
+
     try:
-        response = requests.get(WIKI_RAW_URL, timeout=10)
-        response.raise_for_status()
-        data = parse_event_calculator(response.text)
+        wikitext, source_url = _fetch_wiki_text()
+        data = parse_event_calculator(wikitext)
         if not data["shop_items"] or not data["stages"]:
             # 两种版式都解析不出来，基本是 Wiki 又改版了 —— 提示直接说明原因，
             # 免得用户以为是自己网络或配置的问题
             raise ValueError("Wiki 页面未解析出商品/关卡数据，页面版式可能已更新")
+        data["source_url"] = source_url
         _write_cache(data)
+        _failure_state["at"] = 0.0
         return {**data, "from_cache": False}
     except Exception as e:
         logger.warning(f"[WebUI-计算器] 获取Wiki活动计算器失败: {e}")
+        _record_fetch_failure(str(e))
         if cache:
             return {**cache, "from_cache": True, "error": str(e)}
         return {"error": str(e), "from_cache": False}
