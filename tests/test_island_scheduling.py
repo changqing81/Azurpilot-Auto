@@ -19,6 +19,7 @@ from module.config.redirect_utils.utils import (
     island_plan_task_priority_redirect,
 )
 from module.exception import GameStuckError
+from module.config.utils import filepath_args, read_file
 from module.island.island_scheduling import IslandScheduling
 
 NOW = datetime(2026, 9, 18, 12, 0, 0)
@@ -227,6 +228,23 @@ class TestIslandIntervalClamp(unittest.TestCase):
         self.assertEqual(IslandScheduling.MIN_INTERVAL_HOURS, ISLAND_PLAN_INTERVAL_MIN)
         self.assertEqual(IslandScheduling.MAX_INTERVAL_HOURS, ISLAND_PLAN_INTERVAL_MAX)
         self.assertEqual(IslandScheduling.DEFAULT_INTERVAL_HOURS, ISLAND_PLAN_INTERVAL_DEFAULT)
+
+
+class TestIslandBuiltinOrder(unittest.TestCase):
+    """内置执行顺序：经营模块排最后，GUI 预填的顺序必须与 SUB_TASKS 一致。"""
+
+    def test_business_runs_last(self):
+        # 经营模块最耗时（分批逛商店），整轮被打断时放在最后损失最小
+        self.assertEqual(list(IslandScheduling.SUB_TASKS)[-1], 'IslandBusiness')
+        self.assertEqual(ISLAND_PLAN_SUB_TASKS[-1], 'Business')
+
+    def test_gui_default_order_matches_sub_tasks(self):
+        default = deep_get(
+            read_file(filepath_args()), keys='IslandPlan.IslandPlan.TaskOrder.value'
+        )
+        self.assertTrue(default, 'TaskOrder 应当预填内置顺序而不是留空')
+        task_list = make_runner(make_config(task_order=default))._build_task_list()
+        self.assertEqual(task_list, list(IslandScheduling.SUB_TASKS))
 
 
 class TestIslandDueCheck(unittest.TestCase):
@@ -510,12 +528,14 @@ class TestIslandSwitchesConfigUpdate(unittest.TestCase):
         self.assertTrue(new['EnableAirDrop'])
         self.assertFalse(new['EnablePearlSell'])
 
-    def test_fresh_config_gets_all_switches_on_and_empty_order(self):
+    def test_fresh_config_gets_all_switches_on_and_builtin_order(self):
         new = self._update({})
         enables = {k: v for k, v in new.items() if k.startswith('Enable')}
         self.assertEqual(len(enables), 16)
         self.assertTrue(all(enables.values()))
-        self.assertEqual(new['TaskOrder'], '')
+        # TaskOrder 预填内置顺序（不是留空），且经营模块在最后
+        self.assertTrue(new['TaskOrder'].startswith('IslandAirDrop'))
+        self.assertTrue(new['TaskOrder'].endswith('IslandBusiness'))
         self.assertEqual(new['IntervalHours'], 12)
 
     def test_out_of_range_interval_is_clamped_on_load(self):
@@ -542,6 +562,12 @@ class TestIslandSwitchesConfigUpdate(unittest.TestCase):
         self.assertEqual(
             list(self.updater.save_callback('IslandPlan.IslandPlan.IntervalHours', 8)), []
         )
+
+    def test_cleared_task_order_falls_back_to_default(self):
+        # 不再保留空值：清空后按默认值恢复成预填的内置顺序
+        new = self._update({'TaskOrder': ''})
+        self.assertTrue(new['TaskOrder'].startswith('IslandAirDrop'))
+        self.assertTrue(new['TaskOrder'].endswith('IslandBusiness'))
 
 
 if __name__ == '__main__':

@@ -42,7 +42,8 @@ class IslandScheduling(Island):
     """岛屿计划（赤石计划）统一调度器。
 
     岛屿原子任务名 → (模块路径, 类名)。键集合即 `IslandPlan` 组里 `EnableXxx` 开关的
-    取值范围，声明顺序同时是执行顺序（快 / 时间敏感在前，耗时的餐饮家族在后）。
+    取值范围，声明顺序同时是执行顺序（快 / 时间敏感在前，耗时的餐饮家族随后，
+    最耗时的经营模块放最后）。与 `argument.yaml` 里 `EnableXxx` 的排列保持一致。
     """
 
     SUB_TASKS = {
@@ -56,12 +57,13 @@ class IslandScheduling(Island):
         'IslandMineForest': ('module.island.island_mine_forest', 'IslandMineForest'),
         'IslandPearlSell': ('module.island.island_pearl_sell', 'IslandPearlSell'),
         'IslandManufacture': ('module.island.island_manufacture', 'IslandManufacture'),
-        'IslandBusiness': ('module.island.island_business', 'IslandBusiness'),
         'IslandRestaurant': ('module.island.island_restaurant', 'IslandRestaurant'),
         'IslandTeahouse': ('module.island.island_teahouse', 'IslandTeahouse'),
         'IslandGrill': ('module.island.island_grill', 'IslandGrill'),
         'IslandJuuEatery': ('module.island.island_juu_eatery', 'IslandJuuEatery'),
         'IslandJuuCoffee': ('module.island.island_juu_coffee', 'IslandJuuCoffee'),
+        # 经营模块最耗时（分批逛商店，整轮超时的主要来源），排最后
+        'IslandBusiness': ('module.island.island_business', 'IslandBusiness'),
     }
 
     # 运行间隔（小时）：指向配置层的同一套边界（config 层不许 import module.island，

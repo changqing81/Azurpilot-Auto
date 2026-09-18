@@ -3884,12 +3884,6 @@
       "True": "有効",
       "False": "無効"
     },
-    "EnableBusiness": {
-      "name": "経営モジュールを有効化",
-      "help": "",
-      "True": "有効",
-      "False": "無効"
-    },
     "EnableRestaurant": {
       "name": "有魚レストランを有効化",
       "help": "",
@@ -3920,9 +3914,15 @@
       "True": "有効",
       "False": "無効"
     },
+    "EnableBusiness": {
+      "name": "経営モジュールを有効化",
+      "help": "",
+      "True": "有効",
+      "False": "無効"
+    },
     "TaskOrder": {
       "name": "実行順序のカスタマイズ（任意）",
-      "help": "空欄（推奨）なら内蔵の順序で実行します。入力しても順序だけが変わり、上のスイッチには影響しません。書かれていない有効なモジュールはその後ろで実行されます。> で区切ってください。使用可能な名前：IslandAirDrop (デイリー補給)、IslandDailyGather (デイリー採集)、IslandCargoPreparation (貨物準備)、IslandDailyOrder (デイリーオーダー)、IslandDailyInteract (デイリー/週間任務)、IslandFarm (農地)、IslandRancher (牧場)、IslandMineForest (鉱山＆林場)、IslandPearlSell (週間パール取引)、IslandManufacture (製造業)、IslandBusiness (経営モジュール)、IslandRestaurant (有魚レストラン)、IslandTeahouse (白熊ドリンク)、IslandGrill (イカ焼き)、IslandJuuEatery (ジュウ簡餐)、IslandJuuCoffee (ジュウコーヒー)"
+      "help": "内蔵の実行順序です。あらかじめ入力済みで、そのまま編集できます。実行するかどうかはスイッチが決め、ここは順番だけを決めます。> で区切ってください。書かれていない有効なモジュールはその後ろで実行され、空にすると既定の順序に戻ります。\n使用可能な名前：IslandAirDrop (デイリー補給)、IslandDailyGather (デイリー採集)、IslandCargoPreparation (貨物準備)、IslandDailyOrder (デイリーオーダー)、IslandDailyInteract (デイリー/週間任務)、IslandFarm (農地)、IslandRancher (牧場)、IslandMineForest (鉱山＆林場)、IslandPearlSell (週間パール取引)、IslandManufacture (製造業)、IslandRestaurant (有魚レストラン)、IslandTeahouse (白熊ドリンク)、IslandGrill (イカ焼き)、IslandJuuEatery (ジュウ簡餐)、IslandJuuCoffee (ジュウコーヒー)、IslandBusiness (経営モジュール)"
     }
   },
   "IslandFarm": {

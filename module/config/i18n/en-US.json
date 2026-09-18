@@ -3884,12 +3884,6 @@
       "True": "Enabled",
       "False": "Disabled"
     },
-    "EnableBusiness": {
-      "name": "Enable Business Module",
-      "help": "",
-      "True": "Enabled",
-      "False": "Disabled"
-    },
     "EnableRestaurant": {
       "name": "Enable Fish Restaurant",
       "help": "",
@@ -3920,9 +3914,15 @@
       "True": "Enabled",
       "False": "Disabled"
     },
+    "EnableBusiness": {
+      "name": "Enable Business Module",
+      "help": "",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
     "TaskOrder": {
       "name": "Custom Execution Order (Optional)",
-      "help": "Leave it empty (recommended) to use the built-in order. Filling it only changes the order, not the switches above; enabled modules not listed here run afterwards. Separate names with >. Available: IslandAirDrop (Daily Supply), IslandDailyGather (Daily Gathering), IslandCargoPreparation (Cargo Preparation), IslandDailyOrder (Daily Order), IslandDailyInteract (Daily/Weekly Tasks), IslandFarm (Farmland), IslandRancher (Ranch), IslandMineForest (Mine & Forest), IslandPearlSell (Weekly Pearl Trade), IslandManufacture (Manufacturing), IslandBusiness (Business Module), IslandRestaurant (Fish Restaurant), IslandTeahouse (Polar Bear Drinks), IslandGrill (Squid Grill), IslandJuuEatery (Juu Eatery), IslandJuuCoffee (Juu Coffee)"
+      "help": "Built-in execution order, prefilled and editable. The switches decide what runs; this only decides what runs first. Separate names with >; enabled modules not listed here run afterwards. Clearing it restores the default order.\nAvailable: IslandAirDrop (Daily Supply), IslandDailyGather (Daily Gathering), IslandCargoPreparation (Cargo Preparation), IslandDailyOrder (Daily Order), IslandDailyInteract (Daily/Weekly Tasks), IslandFarm (Farmland), IslandRancher (Ranch), IslandMineForest (Mine & Forest), IslandPearlSell (Weekly Pearl Trade), IslandManufacture (Manufacturing), IslandRestaurant (Fish Restaurant), IslandTeahouse (Polar Bear Drinks), IslandGrill (Squid Grill), IslandJuuEatery (Juu Eatery), IslandJuuCoffee (Juu Coffee), IslandBusiness (Business Module)"
     }
   },
   "IslandFarm": {

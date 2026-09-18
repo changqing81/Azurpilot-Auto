@@ -179,12 +179,12 @@ ISLAND_PLAN_SUB_TASKS = [
     'MineForest',
     'PearlSell',
     'Manufacture',
-    'Business',
     'Restaurant',
     'Teahouse',
     'Grill',
     'JuuEatery',
     'JuuCoffee',
+    'Business',
 ]
 
 

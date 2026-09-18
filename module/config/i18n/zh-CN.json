@@ -3884,12 +3884,6 @@
       "True": "已启用",
       "False": "未启用"
     },
-    "EnableBusiness": {
-      "name": "启用经营模块",
-      "help": "",
-      "True": "已启用",
-      "False": "未启用"
-    },
     "EnableRestaurant": {
       "name": "启用有鱼餐馆",
       "help": "",
@@ -3920,9 +3914,15 @@
       "True": "已启用",
       "False": "未启用"
     },
+    "EnableBusiness": {
+      "name": "启用经营模块",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
+    },
     "TaskOrder": {
       "name": "自定义执行顺序（可选）",
-      "help": "留空（推荐）即按内置顺序执行。填写时只调整顺序，不影响上面的开关；未列出的已启用模块会排在它们之后。用 > 分隔，可用名称：IslandAirDrop（每日补给）、IslandDailyGather（每日采集）、IslandCargoPreparation（货物筹备）、IslandDailyOrder（每日订单）、IslandDailyInteract（每日/周任务）、IslandFarm（农田）、IslandRancher（牧场）、IslandMineForest（矿山林场）、IslandPearlSell（每周珍珠采购与售卖）、IslandManufacture（制造业）、IslandBusiness（经营模块）、IslandRestaurant（有鱼餐馆）、IslandTeahouse（白熊饮品）、IslandGrill（乌鱼烤肉）、IslandJuuEatery（啾啾简餐）、IslandJuuCoffee（啾咖啡）"
+      "help": "内置执行顺序，默认已填好，可直接调整。开关决定「跑不跑」，这里只决定「先跑谁」：用 > 分隔，未列出的已启用模块会排在它们之后；清空会恢复成这份默认顺序。\n可用名称：IslandAirDrop（每日补给）、IslandDailyGather（每日采集）、IslandCargoPreparation（货物筹备）、IslandDailyOrder（每日订单）、IslandDailyInteract（每日/周任务）、IslandFarm（农田）、IslandRancher（牧场）、IslandMineForest（矿山林场）、IslandPearlSell（每周珍珠采购与售卖）、IslandManufacture（制造业）、IslandRestaurant（有鱼餐馆）、IslandTeahouse（白熊饮品）、IslandGrill（乌鱼烤肉）、IslandJuuEatery（啾啾简餐）、IslandJuuCoffee（啾咖啡）、IslandBusiness（经营模块）"
     }
   },
   "IslandFarm": {

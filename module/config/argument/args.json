@@ -15204,14 +15204,6 @@
           false
         ]
       },
-      "EnableBusiness": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
       "EnableRestaurant": {
         "type": "checkbox",
         "value": true,
@@ -15252,10 +15244,17 @@
           false
         ]
       },
+      "EnableBusiness": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
       "TaskOrder": {
         "type": "textarea",
-        "value": "",
-        "preserve_empty": true
+        "value": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness"
       }
     },
     "Storage": {

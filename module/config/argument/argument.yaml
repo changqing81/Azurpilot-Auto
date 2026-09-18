@@ -1442,10 +1442,6 @@ IslandPlan:
     type: checkbox
     value: true
     option: [true, false]
-  EnableBusiness:
-    type: checkbox
-    value: true
-    option: [true, false]
   EnableRestaurant:
     type: checkbox
     value: true
@@ -1466,13 +1462,24 @@ IslandPlan:
     type: checkbox
     value: true
     option: [true, false]
-  # 可选：自定义子模块执行顺序。留空（默认）= 完全按内置顺序执行；
-  # 填写时只有顺序生效，开关仍然决定「跑不跑」，未列出的已启用模块排在最后。
-  # 仅给需要精细排期的进阶用户使用，普通用户无需填写。
+  # 经营模块最耗时（分批逛商店，整轮超时的主要来源），排在最后：
+  # 万一整轮被中途打断，损失最小。
+  EnableBusiness:
+    type: checkbox
+    value: true
+    option: [true, false]
+  # 内置执行顺序，默认已填好，可直接改。开关决定「跑不跑」，这里只决定「先跑谁」。
+  # 未列出的已启用模块会排在它们之后；清空会恢复成这份默认顺序。
   TaskOrder:
     type: textarea
-    value: ""
-    preserve_empty: true
+    value: |-
+      IslandAirDrop > IslandDailyGather > IslandCargoPreparation
+      > IslandDailyOrder > IslandDailyInteract
+      > IslandFarm > IslandRancher > IslandMineForest
+      > IslandPearlSell > IslandManufacture
+      > IslandRestaurant > IslandTeahouse > IslandGrill
+      > IslandJuuEatery > IslandJuuCoffee
+      > IslandBusiness
 IslandFarm:
   Positions:
     value: 3

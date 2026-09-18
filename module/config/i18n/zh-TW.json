@@ -3884,12 +3884,6 @@
       "True": "已啟用",
       "False": "未啟用"
     },
-    "EnableBusiness": {
-      "name": "啟用經營模組",
-      "help": "",
-      "True": "已啟用",
-      "False": "未啟用"
-    },
     "EnableRestaurant": {
       "name": "啟用有魚餐館",
       "help": "",
@@ -3920,9 +3914,15 @@
       "True": "已啟用",
       "False": "未啟用"
     },
+    "EnableBusiness": {
+      "name": "啟用經營模組",
+      "help": "",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
     "TaskOrder": {
       "name": "自訂執行順序（可選）",
-      "help": "留空（推薦）即按內建順序執行。填寫時只調整順序，不影響上面的開關；未列出的已啟用模組會排在它們之後。用 > 分隔，可用名稱：IslandAirDrop（每日補給）、IslandDailyGather（每日採集）、IslandCargoPreparation（貨物籌備）、IslandDailyOrder（每日訂單）、IslandDailyInteract（每日/週任務）、IslandFarm（農田）、IslandRancher（牧場）、IslandMineForest（礦山林場）、IslandPearlSell（每週珍珠採購與售賣）、IslandManufacture（製造業）、IslandBusiness（經營模組）、IslandRestaurant（有魚餐館）、IslandTeahouse（白熊飲品）、IslandGrill（烏魚烤肉）、IslandJuuEatery（啾啾簡餐）、IslandJuuCoffee（啾咖啡）"
+      "help": "內建執行順序，預設已填好，可直接調整。開關決定「跑不跑」，這裡只決定「先跑誰」：用 > 分隔，未列出的已啟用模組會排在它們之後；清空會恢復成這份預設順序。\n可用名稱：IslandAirDrop（每日補給）、IslandDailyGather（每日採集）、IslandCargoPreparation（貨物籌備）、IslandDailyOrder（每日訂單）、IslandDailyInteract（每日/週任務）、IslandFarm（農田）、IslandRancher（牧場）、IslandMineForest（礦山林場）、IslandPearlSell（每週珍珠採購與售賣）、IslandManufacture（製造業）、IslandRestaurant（有魚餐館）、IslandTeahouse（白熊飲品）、IslandGrill（烏魚烤肉）、IslandJuuEatery（啾啾簡餐）、IslandJuuCoffee（啾咖啡）、IslandBusiness（經營模組）"
     }
   },
   "IslandFarm": {

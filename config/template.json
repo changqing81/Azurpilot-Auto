@@ -3011,13 +3011,13 @@
       "EnableMineForest": true,
       "EnablePearlSell": true,
       "EnableManufacture": true,
-      "EnableBusiness": true,
       "EnableRestaurant": true,
       "EnableTeahouse": true,
       "EnableGrill": true,
       "EnableJuuEatery": true,
       "EnableJuuCoffee": true,
-      "TaskOrder": ""
+      "EnableBusiness": true,
+      "TaskOrder": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness"
     },
     "Storage": {
       "Storage": {}

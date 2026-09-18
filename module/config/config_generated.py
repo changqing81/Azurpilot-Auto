@@ -754,13 +754,13 @@ class GeneratedConfig:
     IslandPlan_EnableMineForest = True  # True, False
     IslandPlan_EnablePearlSell = True  # True, False
     IslandPlan_EnableManufacture = True  # True, False
-    IslandPlan_EnableBusiness = True  # True, False
     IslandPlan_EnableRestaurant = True  # True, False
     IslandPlan_EnableTeahouse = True  # True, False
     IslandPlan_EnableGrill = True  # True, False
     IslandPlan_EnableJuuEatery = True  # True, False
     IslandPlan_EnableJuuCoffee = True  # True, False
-    IslandPlan_TaskOrder = ''
+    IslandPlan_EnableBusiness = True  # True, False
+    IslandPlan_TaskOrder = 'IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness'
 
     # 配置组 `IslandFarm`
     IslandFarm_Positions = 3  # 1, 2, 3, 4
