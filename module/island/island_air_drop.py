@@ -43,8 +43,8 @@ class IslandAirDrop(Island):
                 if self.appear(ISLAND_SEASON_CHECK, offset=1):
                     self.device.click(ISLAND_SEASON_GOTO_ISLAND)
                 self.device.sleep(1)
-                self.island_down(1000)
-                self.island_air_drop()
+                # 补给箱落在人物身后，需要往后走去领取
+                self.pick_air_drop_on_ground()
         # 是否前往其他玩家岛屿拿补给
         if self.config.IslandAirDrop_VisitOtherIsland:
             has_drops = True
@@ -228,6 +228,12 @@ class IslandAirDrop(Island):
         self.device.click_record_clear()
 
     def island_air_drop(self):
+        """点击岛屿空投浮窗（"分享剩余补给" / 掉落的补给箱）。
+
+        空投浮窗固定在平台上方同一屏幕位置，文字随状态变化，因此这里刻意
+        在同一位置连点多次。该连点是已知的合法重复点击流程，结束后清除
+        点击记录，避免被网格点击检测（同一格 12/15 次）误判为卡死。
+        """
         self.device.click(ISLAND_AIR_DROP_A)
         sleep(0.1)
         self.device.click(ISLAND_AIR_DROP_B)
@@ -240,6 +246,29 @@ class IslandAirDrop(Island):
         sleep(0.1)
         self.device.click(ISLAND_AIR_DROP_C)
         sleep(0.5)
+        self.device.click_record_clear()
+
+    def pick_air_drop_on_ground(self, attempts=4):
+        """领取掉到地上的空投补给箱。
+
+        空投动画结束后补给箱落在人物身后，需要往后走接近箱子后才能领取。
+        每往后走一步尝试一次，识别到补给箱标记即认为领取完成；避免像原来那样
+        只往后走一步就原地无脑连点（够不到箱子，且空点会被点击检测误判为卡死）。
+
+        Pages:
+            in: page_island
+            out: page_island
+        """
+        for _ in range(attempts):
+            logger.info("[岛屿-每日补给] 往后走寻找掉落的补给箱")
+            self.island_down(1000)
+            self.island_air_drop()
+            self.device.screenshot()
+            if self.appear(ISLAND_AIR_DROP_ALREADY_GETTED, offset=200):
+                logger.info("[岛屿-每日补给] 补给箱已领取")
+                return True
+        logger.info("[岛屿-每日补给] 未检测到可领取的补给箱")
+        return False
 
     def run_and_get(self):
         self.island_up(3000)
