@@ -6632,6 +6632,8 @@
       "CheckUpdateIntervalHelp": "每隔多少分钟检查一次更新，0 表示禁用喵。",
       "AutoRestartTime": "定时重启时间",
       "AutoRestartTimeHelp": "有更新时每天自动重启的时间，留空表示禁用喵。",
+      "HideUpdateNotice": "隐藏更新提示喵",
+      "HideUpdateNoticeHelp": "开启后看到新版本喵，也不会弹更新提示喵～想更新的话去开发工具里手动点喵。",
       "HideAnnouncement": "藏掉公告小窗喵",
       "HideAnnouncementHelp": "开启后WebUI不会再自动弹公告喵，但还是可以在开发工具菜单里手动查看喵~",
       "DiscordRichPresence": "Discord 富状态",

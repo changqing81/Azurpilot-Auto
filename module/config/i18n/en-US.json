@@ -6632,6 +6632,8 @@
       "CheckUpdateIntervalHelp": "Minutes between update checks. Use 0 to disable.",
       "AutoRestartTime": "Scheduled Restart Time",
       "AutoRestartTimeHelp": "Daily restart time when an update is available. Leave empty to disable.",
+      "HideUpdateNotice": "Hide update notice",
+      "HideUpdateNoticeHelp": "Do not show the update prompt when a new version is detected. You can still check for updates manually in Developer Tools.",
       "HideAnnouncement": "Hide announcement popup",
       "HideAnnouncementHelp": "When enabled, WebUI will no longer pop up announcements automatically. You can still view them manually in the developer tools menu.",
       "DiscordRichPresence": "Discord Rich Presence",

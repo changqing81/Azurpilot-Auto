@@ -323,7 +323,15 @@
         while (tipEl.firstChild) tipEl.removeChild(tipEl.firstChild);
 
         var title = document.createElement("div");
-        title.textContent = task.fullname;
+        // 主标题用当前语言的任务名（如 活动图-2+），原始命令名灰字附在后面便于排查
+        title.textContent = task.name;
+        if (task.fullname && task.fullname !== task.name) {
+            var raw = document.createElement("span");
+            raw.textContent = " (" + task.fullname + ")";
+            raw.style.opacity = "0.55";
+            raw.style.fontWeight = "400";
+            title.appendChild(raw);
+        }
         title.style.fontWeight = "600";
         title.style.marginBottom = "2px";
         tipEl.appendChild(title);

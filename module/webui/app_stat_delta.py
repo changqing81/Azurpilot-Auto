@@ -62,8 +62,9 @@ PERIOD_KEYS = ["day", "week", "month", "total"]
 # 时间轴节点上方/下方最多直接标注的条目数，其余进悬浮详情
 _TIMELINE_TOP_N = 3
 
-# 任务名翻译缓存（缺翻译键时 t() 会向 stdout 打印提示，缓存避免重复刷屏）
-_MENU_LABEL_CACHE = {}
+# 任务命令名 -> 任务名翻译的缓存，按 (语言, 命令名) 分桶：
+# 切语言后不会命中旧语言的缓存；缺翻译键时 t() 会向 stdout 打印提示，缓存避免重复刷屏。
+_SOURCE_LABEL_CACHE = {}
 
 
 def _hex_to_rgba(color, alpha):
@@ -360,9 +361,17 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
 
     @staticmethod
     def _source_label(source):
-        """任务命令名 -> 菜单翻译；无翻译时回退原命令名"""
-        if source not in _MENU_LABEL_CACHE:
-            label_key = f"Gui.Menu.{source}"
+        """任务命令名 -> 任务名翻译（Task.<name>.name）；无翻译时回退原命令名。
+
+        任务名文案住在 i18n 的 Task 组（形如 ``Task.Event2.name = 活动图-2+``），
+        按 ``Gui.Menu.*`` 取值必然落空，界面就只能显示英文命令名（Gacha、Event2）。
+        缓存按语言分桶，切换语言后立即取到对应语言的文案。
+        """
+        from module.webui import lang as lang_module
+
+        cache_key = (lang_module.LANG, source)
+        if cache_key not in _SOURCE_LABEL_CACHE:
+            label_key = f"Task.{source}.name"
             text = t(label_key)
-            _MENU_LABEL_CACHE[source] = source if text == label_key else text
-        return _MENU_LABEL_CACHE[source]
+            _SOURCE_LABEL_CACHE[cache_key] = source if text == label_key else text
+        return _SOURCE_LABEL_CACHE[cache_key]

@@ -6632,6 +6632,8 @@
       "CheckUpdateIntervalHelp": "更新を確認する間隔（分）です。0 で無効になります。",
       "AutoRestartTime": "定時再起動時刻",
       "AutoRestartTimeHelp": "更新がある場合に毎日自動再起動する時刻です。空欄で無効になります。",
+      "HideUpdateNotice": "更新通知を隠す",
+      "HideUpdateNoticeHelp": "新しいバージョンを検出しても更新通知を表示しません。開発ツールから手動で更新を確認できます。",
       "HideAnnouncement": "公告ポップアップを隠す",
       "HideAnnouncementHelp": "有効にすると、WebUIで公告が自動表示されなくなります。開発者ツールメニューから手動で表示できます。",
       "DiscordRichPresence": "Discord リッチプレゼンス",
