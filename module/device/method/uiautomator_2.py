@@ -188,6 +188,16 @@ class Uiautomator2(Connection):
         self.u2.swipe(*p1, *p2, duration=duration)
 
     @retry
+    def island_swipe_hold_uiautomator2(self, p1, p2, hold_time):
+        points = insert_swipe(p0=p1, p3=p2)
+        path = [(x, y, 0.01) for x, y in points]
+        # 在终点保持 hold_time 毫秒再抬起，对应岛屿摇杆的持续偏移；
+        # _drag_along 的最后一个点触发抬起，所以补一个零间隔终点
+        path.append((*p2, hold_time / 1000))
+        path.append((*p2, 0))
+        self._drag_along(path)
+
+    @retry
     def _drag_along(self, path):
         """沿路径滑动。
 

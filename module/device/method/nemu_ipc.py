@@ -659,3 +659,16 @@ class NemuIpc(Platform):
 
         self.nemu_ipc.up()
         self.sleep(0.050)
+
+    def island_swipe_hold_nemu_ipc(self, p1, p2, hold_time):
+        points = insert_swipe(p0=p1, p3=p2)
+
+        for point in points:
+            self.nemu_ipc.down(*point)
+            self.sleep(0.010)
+
+        # 在终点原地按住 hold_time 毫秒（连续 down 保持同一位置），对应岛屿摇杆的持续偏移
+        self.nemu_ipc.down(*p2)
+        self.sleep(hold_time / 1000)
+        self.nemu_ipc.up()
+        self.sleep(0.050)

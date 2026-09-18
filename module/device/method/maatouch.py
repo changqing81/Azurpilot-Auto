@@ -409,6 +409,25 @@ class MaaTouch(Connection):
         builder.send_sync()
 
     @retry
+    def island_swipe_hold_maatouch(self, p1, p2, hold_time):
+        points = insert_swipe(p0=p1, p3=p2)
+        builder = self.maatouch_builder
+
+        builder.down(*points[0]).commit().wait(10)
+        builder.send_sync()
+
+        for point in points[1:]:
+            builder.move(*point).commit().wait(10)
+        builder.send_sync()
+
+        # 在终点原地按住 hold_time 毫秒，对应岛屿摇杆的持续偏移
+        builder.move(*p2).commit().wait(hold_time)
+        builder.send_sync()
+
+        builder.up().commit()
+        builder.send_sync()
+
+    @retry
     def reset_maatouch(self):
         builder = self.maatouch_builder
         builder.reset().commit()

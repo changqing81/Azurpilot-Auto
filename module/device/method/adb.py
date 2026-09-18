@@ -222,6 +222,22 @@ class Adb(Connection):
         self.adb_shell(['input', 'swipe', *p1, *p2, duration])
 
     @retry
+    def island_swipe_hold_adb(self, p1, p2, hold_time):
+        """岛屿摇杆的 ADB 近似实现（Hermit 同样走这里）。
+
+        `input swipe` 无法在终点保持按住，拆成「快速滑动到终点 + 原地长按」
+        两段近似；两条命令之间摇杆会短暂回中，实际移动距离略短于流式触控后端。
+
+        Args:
+            p1 (tuple): 起始坐标 (x, y)。
+            p2 (tuple): 终点坐标 (x, y)。
+            hold_time (int, float): 在终点保持的时间（毫秒）。
+        """
+        self.swipe_adb(p1, p2, duration=0.1)
+        # 起点终点相同的 input swipe = 原地长按
+        self.swipe_adb(p2, p2, duration=hold_time / 1000)
+
+    @retry
     def app_current_adb(self):
         """
         获取当前前台应用的包名，复制自 uiautomator2。

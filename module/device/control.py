@@ -231,15 +231,33 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
     def island_swipe_hold(self, p1, p2, hold_time):
         """岛屿系统专用的滑动并保持操作。
 
-        在两点之间滑动并在终点保持一段时间，用于岛屿内的交互操作。
+        在两点之间滑动并在终点保持一段时间，用于岛屿地图的摇杆移动。
+        所有触控方案都有对应实现；ADB / Hermit 没有流式触控原语，
+        用「快速滑动 + 原地长按」近似。
 
         Args:
             p1 (tuple): 起始坐标 (x, y)。
             p2 (tuple): 终点坐标 (x, y)。
-            hold_time (int, float, tuple): 在终点保持的时间（秒）。
+            hold_time (int, float): 在终点保持的时间（毫秒）。
+                呼应 minitouch 的既有行为（CommandBuilder.wait 以毫秒计），
+                岛屿模块传入 800 即按住摇杆约 0.8 秒。
         """
         p1, p2 = ensure_int(p1, p2)
-        hold_time = ensure_time(hold_time)
+        hold_time = int(hold_time)
         method = self.config.Emulator_ControlMethod
+        logger.info(
+            '[设备-控制] 岛屿摇杆 %s -> %s, 保持 %sms @ %s'
+            % (point2str(*p1), point2str(*p2), hold_time, method)
+        )
         if method == 'minitouch':
             self.island_swipe_hold_minitouch(p1, p2, hold_time)
+        elif method == 'uiautomator2':
+            self.island_swipe_hold_uiautomator2(p1, p2, hold_time)
+        elif method == 'MaaTouch':
+            self.island_swipe_hold_maatouch(p1, p2, hold_time)
+        elif method == 'scrcpy':
+            self.island_swipe_hold_scrcpy(p1, p2, hold_time)
+        elif method == 'nemu_ipc':
+            self.island_swipe_hold_nemu_ipc(p1, p2, hold_time)
+        else:
+            self.island_swipe_hold_adb(p1, p2, hold_time)

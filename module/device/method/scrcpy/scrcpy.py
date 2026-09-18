@@ -185,3 +185,31 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
 
             self._scrcpy_control.touch(*p2, const.ACTION_UP)
             self.sleep(0.05)
+
+    @retry
+    def island_swipe_hold_scrcpy(self, p1, p2, hold_time):
+        self.scrcpy_ensure_running()
+
+        with self._scrcpy_control_socket_lock:
+            points = insert_swipe(p0=p1, p3=p2, speed=4, min_distance=2)
+
+            self._scrcpy_control.touch(*p1, const.ACTION_DOWN)
+
+            for point in points[1:-1]:
+                self._scrcpy_control.touch(*point, const.ACTION_MOVE)
+                self.sleep(0.002)
+
+            # 在终点持续发送 MOVE 并保持 hold_time 毫秒，对应岛屿摇杆的持续偏移
+            step = 0.002
+            hold = hold_time / 1000
+            repeats = int(hold // step)
+            for _ in range(repeats):
+                self._scrcpy_control.touch(*p2, const.ACTION_MOVE)
+                self.sleep(step)
+            remainder = hold - (repeats * step)
+            if remainder > 0:
+                self._scrcpy_control.touch(*p2, const.ACTION_MOVE)
+                self.sleep(remainder)
+
+            self._scrcpy_control.touch(*p2, const.ACTION_UP)
+            self.sleep(0.05)
