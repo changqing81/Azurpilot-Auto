@@ -104,7 +104,9 @@ def _clean_name(text: str) -> str:
     text = re.sub(r"\[\[文件:[^\]]+\]\]", "", text)
     text = re.sub(r"\[\[[^\]|]+\|([^\]]+)\]\]", r"\1", text)
     text = re.sub(r"\[\[([^\]]+)\]\]", r"\1", text)
-    text = re.sub(r"\{\{[^{}|]+\|([^{}]+?)\}\}", r"\1", text)
+    # 只取模板的第一个参数：`{{道具2|结晶：胜利·META|ext=png}}` -> `结晶：胜利·META`。
+    # 旧写法 `([^{}]+?)` 会把后续参数一并吞进名称里（页面显示成「结晶：胜利·META|ext=png」）。
+    text = re.sub(r"\{\{[^{}|]+\|([^|{}]+)(?:\|[^{}]*)?\}\}", r"\1", text)
     text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("'''", "").replace("''", "")
     return text.strip()
@@ -150,6 +152,34 @@ def _parse_shop(rows: List[List[str]]) -> List[Dict[str, Any]]:
     return out
 
 
+def _parse_shop_vardefine(raw: str) -> List[Dict[str, Any]]:
+    """解析新版 Wiki 的商品清单（`{{#vardefine:_shop_items|...}}`）。
+
+    2026-09-18 起 Wiki 把商品数据从 `ECALCPt` 表格挪进 `#vardefine` 变量：
+    表格只剩模板循环（`{{#arraymap:{{#var:_shop_items}}...}}`），按表格解析会得到
+    0 项，于是 `load_event_calculator` 判定「table is incomplete」直接失败。
+    变量块里每行是 `项目,单价,个数`，项目本身是完整 wikitext、可能自带逗号
+    （如 `{{道具2|外观装备箱（幽影奇谈）|ext=png}}`），因此从右侧拆两段。
+
+    Returns:
+        list[dict]: 与 `_parse_shop` 同构的商品列表；旧版页面返回空列表。
+    """
+    match = re.search(r"\{\{#vardefine:_shop_items\|(.*?)\n\}\}", raw, flags=re.S)
+    if match is None:
+        return []
+
+    rows = []
+    for line in match.group(1).splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.rsplit(",", 2)
+        if len(parts) != 3:
+            continue
+        rows.append([parts[0], parts[1], parts[2]])
+    return _parse_shop(rows)
+
+
 def _parse_points(rows: List[List[str]], key_name: str) -> List[Dict[str, Any]]:
     out = []
     for row in rows:
@@ -175,10 +205,16 @@ def parse_event_calculator(raw: str) -> Dict[str, Any]:
     time_rows = _parse_table_rows(_extract_table(cleaned, "ECALCTime"))
     end_date = time_rows[0][0] if time_rows and time_rows[0] else ""
 
+    # 商品清单优先读 `#vardefine:_shop_items`（新版 Wiki），读不到再按旧版的
+    # `ECALCPt` 表格解析 —— 两种版式都要能跑，Wiki 改版不应让功能整体失效。
+    shop_items = _parse_shop_vardefine(cleaned)
+    if not shop_items:
+        shop_items = _parse_shop(_parse_table_rows(_extract_table(cleaned, "ECALCPt")))
+
     data = {
         "event_name": _parse_event_name(cleaned),
         "end_date": end_date.replace("/", "-"),
-        "shop_items": _parse_shop(_parse_table_rows(_extract_table(cleaned, "ECALCPt"))),
+        "shop_items": shop_items,
         "daily": _parse_points(
             _parse_table_rows(_extract_table(cleaned, "ECALCDaily")), "points"
         ),
@@ -230,7 +266,9 @@ def load_event_calculator(force_refresh: bool = False) -> Dict[str, Any]:
         response.raise_for_status()
         data = parse_event_calculator(response.text)
         if not data["shop_items"] or not data["stages"]:
-            raise ValueError("Wiki event calculator table is incomplete")
+            # 两种版式都解析不出来，基本是 Wiki 又改版了 —— 提示直接说明原因，
+            # 免得用户以为是自己网络或配置的问题
+            raise ValueError("Wiki 页面未解析出商品/关卡数据，页面版式可能已更新")
         _write_cache(data)
         return {**data, "from_cache": False}
     except Exception as e:
