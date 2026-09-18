@@ -6380,7 +6380,10 @@
       "DisableTranslateMode": "点这里关翻译模式喵",
       "ConfigSaved": "设定已保存喵~",
       "AlasIsRunning": "雪风已经在跑啦，别急喵~",
-      "ClickToUpdate": "有新鱼干可以更新啦喵！"
+      "ClickToUpdate": "有新鱼干可以更新啦喵！",
+      "ReloadEnabled": "自动重载开着喵，进程不用重启啦喵",
+      "AlasRestart": "正在重启 Alas 喵，稍等一下喵～",
+      "RestartCancelled": "自动更新在跑喵，或者实例存不下来喵，重启取消啦喵"
     },
     "Status": {
       "Running": "雪风值班中喵",

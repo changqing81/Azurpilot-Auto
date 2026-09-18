@@ -6380,7 +6380,10 @@
       "DisableTranslateMode": "Click here to turn off translation mode",
       "ConfigSaved": "Settings saved",
       "AlasIsRunning": "Scheduler is already running",
-      "ClickToUpdate": "Updates available nanoda!"
+      "ClickToUpdate": "Updates available nanoda!",
+      "ReloadEnabled": "Auto reload is enabled, no restart needed",
+      "AlasRestart": "Restarting Alas, please wait…",
+      "RestartCancelled": "Auto update in progress or the running instance cannot be saved; restart cancelled"
     },
     "Status": {
       "Running": "Secretary ship is processing",

@@ -6380,7 +6380,10 @@
       "DisableTranslateMode": "點選這裡關閉翻譯模式",
       "ConfigSaved": "設定已儲存",
       "AlasIsRunning": "排程器已在執行中",
-      "ClickToUpdate": "有可用更新nanoda!"
+      "ClickToUpdate": "有可用更新nanoda!",
+      "ReloadEnabled": "已啟用自動重載，行程無需重啟",
+      "AlasRestart": "正在重啟 Alas，請稍候…",
+      "RestartCancelled": "自動更新正在進行或無法保存執行實例，已取消重啟"
     },
     "Status": {
       "Running": "秘書艦正在處理",

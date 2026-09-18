@@ -354,7 +354,7 @@ class DeveloperToolsMixin(WebUIMixinBase):
             if request_webui_restart():
                 toast(t("Gui.Toast.AlasRestart"), duration=0, color="error")
             else:
-                toast("自动更新正在进行或无法保存运行实例，已取消重启", color="error")
+                toast(t("Gui.Toast.RestartCancelled"), color="error")
 
         put_button(label=t("重启Alas"), onclick=_force_restart, scope="develop_detail")
 

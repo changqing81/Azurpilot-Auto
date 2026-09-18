@@ -6380,7 +6380,10 @@
       "DisableTranslateMode": "点击这里关闭翻译模式",
       "ConfigSaved": "设置已保存",
       "AlasIsRunning": "调度器已在运行中",
-      "ClickToUpdate": "有可用更新nanoda!"
+      "ClickToUpdate": "有可用更新nanoda!",
+      "ReloadEnabled": "已启用自动重载，进程无需重启",
+      "AlasRestart": "正在重启 Alas，请稍候…",
+      "RestartCancelled": "自动更新正在进行或无法保存运行实例，已取消重启"
     },
     "Status": {
       "Running": "她在丛中笑",

@@ -6380,7 +6380,10 @@
       "DisableTranslateMode": "翻訳モードをオフにするにはここをクリックしてください",
       "ConfigSaved": "設定が保存されました",
       "AlasIsRunning": "スケジューラはすでに実行されています",
-      "ClickToUpdate": "nanoda に利用可能なアップデートがあります!"
+      "ClickToUpdate": "nanoda に利用可能なアップデートがあります!",
+      "ReloadEnabled": "自動リロードが有効なため、再起動は不要です",
+      "AlasRestart": "Alas を再起動しています。しばらくお待ちください…",
+      "RestartCancelled": "自動更新中、または実行中のインスタンスを保存できないため、再起動を中止しました"
     },
     "Status": {
       "Running": "秘書艦が処理中です",

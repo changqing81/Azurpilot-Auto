@@ -29,6 +29,9 @@ Toast:
   ConfigSaved:
   AlasIsRunning:
   ClickToUpdate:
+  ReloadEnabled:
+  AlasRestart:
+  RestartCancelled:
 
 Status:
   Running:
