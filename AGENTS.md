@@ -620,6 +620,7 @@ GitHub Actions：workflow 只有 `lint.yml`（`on: [push, pull_request]`），�
 |---|---|
 | `ruff` | `uv sync` + `uv run ruff check . --select E9,F63,F7,F82 --ignore F821,F722` |
 | `button-config-check` | `uv sync --no-dev` + 运行 button_extract / config_updater，`git diff --exit-code` 检查未提交 diff |
+| `call-signature-audit` | `python dev_tools/audit_call_kwargs.py`（纯标准库，不需要 `uv sync`，约 10 秒） |
 | `unittest` | `uv sync` + `uv run python -m unittest discover -s tests` |
 
 注意事项：
@@ -644,6 +645,9 @@ GitHub Actions：workflow 只有 `lint.yml`（`on: [push, pull_request]`），�
 ---
 
 ## Git 提交规范
+
+> **操作细则（远端拓扑、推送授权、本机陷阱、提交红线）见
+> [.agent/COMMIT-PROTOCOL.md](.agent/COMMIT-PROTOCOL.md)** ——所有 Agent（ZCode / WorkBuddy / Trae）共用的单一事实来源，与本章配套执行。
 
 ### 提交前分析
 

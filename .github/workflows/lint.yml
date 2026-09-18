@@ -44,6 +44,18 @@ jobs:
         run: |
           git diff --exit-code
 
+  call-signature-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # 纯标准库实现，不需要 uv sync，跑一次约 10 秒
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: 全仓调用签名自检
+        run: python dev_tools/audit_call_kwargs.py
+
   unittest:
     runs-on: ubuntu-latest
     steps:
