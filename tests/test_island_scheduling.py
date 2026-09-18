@@ -1,6 +1,6 @@
 """岛屿计划统一调度的单元测试。
 
-覆盖清单解析、到期判定、原子任务收敛、异常隔离与父任务延迟，
+覆盖开关筛选、可选顺序、到期判定、原子任务收敛、异常隔离、父任务延迟与旧配置迁移，
 全部不依赖真实设备与 OCR。
 """
 import unittest
@@ -9,26 +9,44 @@ from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 from module.config.config import Function
-from module.config.deep import deep_set
+from module.config.deep import deep_get, deep_set
+from module.config.redirect_utils.utils import (
+    ISLAND_PLAN_SUB_TASKS,
+    island_plan_task_priority_redirect,
+)
 from module.exception import GameStuckError
 from module.island.island_scheduling import IslandScheduling
 
 NOW = datetime(2026, 9, 18, 12, 0, 0)
 
+# 旧版 TaskPriority 文本框的默认值，用于迁移用例
+OLD_DEFAULT_PRIORITY = ' > '.join(IslandScheduling.SUB_TASKS)
+
 
 class FakeConfig:
     """仅提供岛屿计划调度所需的配置接口。"""
 
-    def __init__(self, data, priority, interval=12):
+    def __init__(self, data, interval=12, task_order=''):
         self.data = data
-        self.IslandPlan_TaskPriority = priority
         self.IslandPlan_IntervalHours = interval
+        self.IslandPlan_TaskOrder = task_order
         self.modified = {}
         self.task = Function(data['IslandPlan'])
         self.Scheduler_NextRun = NOW
         self.delays = []
         self.bound = []
         self._disable_task_switch = False
+
+    def __getattr__(self, item):
+        # 真实配置里 `IslandPlan_EnableFarm` 这类属性由 bind() 从 data 取出；
+        # 配置里确实没有该字段时属性不存在，与真实行为一致（读方按开启兜底）。
+        if item.startswith('IslandPlan_'):
+            field = item[len('IslandPlan_'):]
+            value = deep_get(self.data, keys=f'IslandPlan.IslandPlan.{field}')
+            if value is None:
+                raise AttributeError(item)
+            return value
+        raise AttributeError(item)
 
     def save(self):
         for path, value in self.modified.items():
@@ -45,8 +63,16 @@ class FakeConfig:
         self.delays.append({'minute': minute, 'task': task})
 
 
-def make_config(priority='IslandFarm > IslandAirDrop', interval=12, next_runs=None):
-    """构造只含岛屿任务的配置数据。"""
+def make_config(enabled=None, interval=12, task_order='', next_runs=None):
+    """构造只含岛屿任务的配置数据。
+
+    Args:
+        enabled: 打开的开关对应的原子任务名；`None` 表示全部打开。
+        interval: `IslandPlan.IntervalHours` 的原始值。
+        task_order: `IslandPlan.TaskOrder` 的原始文本。
+        next_runs: 各子任务的 `Scheduler.NextRun`。
+    """
+    enabled = set(IslandScheduling.SUB_TASKS) if enabled is None else set(enabled)
     next_runs = next_runs or {}
     data = {}
     for name in IslandScheduling.SUB_TASKS:
@@ -62,9 +88,13 @@ def make_config(priority='IslandFarm > IslandAirDrop', interval=12, next_runs=No
             'Command': 'IslandPlan',
             'Enable': True,
             'NextRun': NOW - timedelta(hours=1),
-        }
+        },
+        'IslandPlan': {
+            IslandScheduling._enable_arg(name): name in enabled
+            for name in IslandScheduling.SUB_TASKS
+        },
     }
-    return FakeConfig(data=data, priority=priority, interval=interval)
+    return FakeConfig(data=data, interval=interval, task_order=task_order)
 
 
 def make_runner(config):
@@ -77,25 +107,94 @@ def make_runner(config):
 
 
 class TestIslandTaskList(unittest.TestCase):
-    """IslandPlan.TaskPriority 清单解析。"""
+    """开关筛选与可选顺序。"""
 
-    def test_order_follows_priority_text(self):
-        config = make_config(priority='IslandPearlSell > IslandFarm > IslandAirDrop')
+    def test_all_switches_on_uses_builtin_order(self):
+        runner = make_runner(make_config())
+        self.assertEqual(runner._build_task_list(), list(IslandScheduling.SUB_TASKS))
+
+    def test_disabled_switches_are_skipped(self):
+        config = make_config(enabled=['IslandFarm', 'IslandAirDrop'])
         self.assertEqual(
             make_runner(config)._build_task_list(),
-            ['IslandPearlSell', 'IslandFarm', 'IslandAirDrop'],
+            ['IslandAirDrop', 'IslandFarm'],
         )
 
-    def test_unknown_and_duplicated_names_are_dropped(self):
-        config = make_config(priority='IslandFarm > NotATask > IslandFarm > IslandAirDrop')
+    def test_all_switches_off_yields_empty_list(self):
+        self.assertEqual(make_runner(make_config(enabled=[]))._build_task_list(), [])
+
+    def test_missing_switches_fall_back_to_enabled(self):
+        # 旧配置缺字段时不能整轮不跑
+        config = make_config()
+        del config.data['IslandPlan']['IslandPlan']
         self.assertEqual(
             make_runner(config)._build_task_list(),
-            ['IslandFarm', 'IslandAirDrop'],
+            list(IslandScheduling.SUB_TASKS),
         )
 
-    def test_empty_priority_yields_empty_list(self):
-        config = make_config(priority='   ')
-        self.assertEqual(make_runner(config)._build_task_list(), [])
+    def test_task_order_reorders_enabled_modules(self):
+        config = make_config(task_order='IslandPearlSell > IslandFarm')
+        task_list = make_runner(config)._build_task_list()
+        self.assertEqual(task_list[:2], ['IslandPearlSell', 'IslandFarm'])
+        # 未列出的已启用模块排在后面，且顺序仍是内置顺序
+        rest = [name for name in IslandScheduling.SUB_TASKS
+                if name not in ('IslandPearlSell', 'IslandFarm')]
+        self.assertEqual(task_list[2:], rest)
+
+    def test_task_order_cannot_enable_disabled_module(self):
+        config = make_config(enabled=['IslandFarm'], task_order='IslandPearlSell > IslandFarm')
+        self.assertEqual(make_runner(config)._build_task_list(), ['IslandFarm'])
+
+    def test_task_order_drops_unknown_and_duplicated_names(self):
+        config = make_config(task_order='IslandFarm > NotATask > IslandFarm > IslandAirDrop')
+        task_list = make_runner(config)._build_task_list()
+        self.assertEqual(task_list[:2], ['IslandFarm', 'IslandAirDrop'])
+        self.assertEqual(len(task_list), len(IslandScheduling.SUB_TASKS))
+
+    def test_blank_task_order_uses_builtin_order(self):
+        self.assertEqual(
+            make_runner(make_config(task_order='   '))._build_task_list(),
+            list(IslandScheduling.SUB_TASKS),
+        )
+        self.assertEqual(
+            make_runner(make_config(task_order=None))._build_task_list(),
+            list(IslandScheduling.SUB_TASKS),
+        )
+
+
+class TestIslandInterval(unittest.TestCase):
+    """运行间隔自由填写，越界收敛到 [1, 24] 小时。"""
+
+    def _interval(self, raw):
+        return make_runner(make_config(interval=raw))._get_interval_hours()
+
+    def test_valid_values_pass_through(self):
+        self.assertEqual(self._interval(12), 12.0)
+        self.assertEqual(self._interval(1), 1.0)
+        self.assertEqual(self._interval(24), 24.0)
+        self.assertEqual(self._interval(6.5), 6.5)
+        self.assertEqual(self._interval('8'), 8.0)
+
+    def test_above_max_is_clamped(self):
+        self.assertEqual(self._interval(25), 24.0)
+        self.assertEqual(self._interval(240), 24.0)
+
+    def test_below_min_is_clamped(self):
+        self.assertEqual(self._interval(0), 1.0)
+        self.assertEqual(self._interval(-3), 1.0)
+
+    def test_invalid_values_fall_back_to_default(self):
+        default = float(IslandScheduling.DEFAULT_INTERVAL_HOURS)
+        for raw in ('abc', '', None, 'nan'):
+            with self.subTest(raw=raw):
+                self.assertEqual(self._interval(raw), default)
+
+    def test_delay_uses_clamped_interval(self):
+        for raw, minute in ((30, 24 * 60), (0, 1 * 60), (6, 6 * 60)):
+            with self.subTest(raw=raw):
+                config = make_config(enabled=['IslandFarm'], interval=raw)
+                make_runner(config)._delay_next_run()
+                self.assertEqual(config.delays, [{'minute': minute, 'task': None}])
 
 
 class TestIslandDueCheck(unittest.TestCase):
@@ -150,7 +249,8 @@ class TestIslandAggregation(unittest.TestCase):
 
     def test_run_executes_due_tasks_in_order_and_skips_future(self):
         config = make_config(
-            priority='IslandFarm > IslandAirDrop > IslandPearlSell',
+            enabled=['IslandFarm', 'IslandAirDrop', 'IslandPearlSell'],
+            task_order='IslandFarm > IslandAirDrop > IslandPearlSell',
             next_runs={'IslandPearlSell': NOW + timedelta(days=3)},
         )
         runner = make_runner(config)
@@ -164,7 +264,7 @@ class TestIslandAggregation(unittest.TestCase):
 
     def test_run_skips_island_visit_when_nothing_is_due(self):
         config = make_config(
-            priority='IslandFarm',
+            enabled=['IslandFarm'],
             next_runs={'IslandFarm': NOW + timedelta(hours=1)},
         )
         runner = make_runner(config)
@@ -175,8 +275,18 @@ class TestIslandAggregation(unittest.TestCase):
         runner._run_sub_task.assert_not_called()
         runner.ui_ensure.assert_not_called()
 
+    def test_run_skips_island_visit_when_all_switches_off(self):
+        config = make_config(enabled=[])
+        runner = make_runner(config)
+        runner._run_sub_task = Mock()
+
+        runner.run()
+
+        runner._run_sub_task.assert_not_called()
+        runner.ui_ensure.assert_not_called()
+
     def test_delay_uses_interval_hours(self):
-        config = make_config(priority='IslandFarm', interval=12)
+        config = make_config(enabled=['IslandFarm'], interval=12)
         runner = make_runner(config)
         runner._run_sub_task = Mock(return_value=True)
 
@@ -195,7 +305,10 @@ class TestIslandExceptionIsolation(unittest.TestCase):
 
     @contextmanager
     def _runner_with_failures(self, failing):
-        config = make_config(priority='IslandFarm > IslandAirDrop > IslandPearlSell')
+        config = make_config(
+            enabled=['IslandFarm', 'IslandAirDrop', 'IslandPearlSell'],
+            task_order='IslandFarm > IslandAirDrop > IslandPearlSell',
+        )
         runner = make_runner(config)
         executed = []
 
@@ -291,6 +404,87 @@ class TestIslandTaskContext(unittest.TestCase):
 
         self._run_context(runner, 'IslandFarm', func)
         self.assertEqual(config.delays, [{'minute': 360, 'task': None}])
+
+
+class TestIslandSwitchArgNaming(unittest.TestCase):
+    """开关名与原子任务名的对应关系。"""
+
+    def test_enable_arg_is_derived_from_task_name(self):
+        self.assertEqual(IslandScheduling._enable_arg('IslandFarm'), 'EnableFarm')
+        self.assertEqual(IslandScheduling._enable_arg('IslandJuuCoffee'), 'EnableJuuCoffee')
+        self.assertEqual(IslandScheduling._enable_arg('IslandMineForest'), 'EnableMineForest')
+
+    def test_migration_list_matches_sub_tasks(self):
+        # 迁移表定义在 config 层，必须与调度器的 SUB_TASKS 完全一致，
+        # 否则旧清单会漏迁移或多迁移开关。
+        self.assertEqual(
+            ISLAND_PLAN_SUB_TASKS,
+            [name[len('Island'):] for name in IslandScheduling.SUB_TASKS],
+        )
+
+
+class TestIslandPriorityMigration(unittest.TestCase):
+    """旧 TaskPriority 文本框 → 16 个开关。"""
+
+    def _mapping(self, text):
+        values = island_plan_task_priority_redirect(text)
+        return dict(zip(ISLAND_PLAN_SUB_TASKS, values))
+
+    def test_full_old_default_enables_everything(self):
+        mapping = self._mapping(OLD_DEFAULT_PRIORITY)
+        self.assertTrue(all(mapping.values()))
+        self.assertEqual(len(mapping), 16)
+
+    def test_removed_module_stays_off(self):
+        mapping = self._mapping('IslandFarm > IslandAirDrop')
+        self.assertTrue(mapping['Farm'])
+        self.assertTrue(mapping['AirDrop'])
+        self.assertFalse(mapping['PearlSell'])
+        self.assertEqual(sum(mapping.values()), 2)
+
+    def test_empty_and_non_string_are_all_off(self):
+        for value in ('', '   ', None, 123):
+            with self.subTest(value=value):
+                self.assertFalse(any(island_plan_task_priority_redirect(value)))
+
+    def test_no_false_positive_between_similar_names(self):
+        # IslandFarm 不能被 IslandFishery 之类名字误命中
+        mapping = self._mapping('IslandFishery')
+        self.assertFalse(any(mapping.values()))
+
+
+class TestIslandSwitchesConfigUpdate(unittest.TestCase):
+    """迁移在真实 ConfigUpdater 链路里生效。"""
+
+    @classmethod
+    def setUpClass(cls):
+        from module.config.config_updater import ConfigUpdater
+        cls.updater = ConfigUpdater()
+
+    def _update(self, plan_args):
+        old = {'IslandPlan': {'IslandPlan': plan_args}}
+        return self.updater.config_update(old)['IslandPlan']['IslandPlan']
+
+    def test_old_priority_is_migrated_and_removed(self):
+        new = self._update({
+            'Season': 'autumn',
+            'IntervalHours': 6,
+            'TaskPriority': 'IslandFarm > IslandAirDrop',
+        })
+        self.assertNotIn('TaskPriority', new)
+        self.assertEqual(new['IntervalHours'], 6)
+        self.assertEqual(new['Season'], 'autumn')
+        self.assertTrue(new['EnableFarm'])
+        self.assertTrue(new['EnableAirDrop'])
+        self.assertFalse(new['EnablePearlSell'])
+
+    def test_fresh_config_gets_all_switches_on_and_empty_order(self):
+        new = self._update({})
+        enables = {k: v for k, v in new.items() if k.startswith('Enable')}
+        self.assertEqual(len(enables), 16)
+        self.assertTrue(all(enables.values()))
+        self.assertEqual(new['TaskOrder'], '')
+        self.assertEqual(new['IntervalHours'], 12)
 
 
 if __name__ == '__main__':
