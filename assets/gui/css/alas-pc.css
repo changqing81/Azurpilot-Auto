@@ -3,6 +3,29 @@
     grid-template-columns: 1fr 13rem;
 }
 
+/* 岛屿计划：16 个子模块开关排两列，避免每个开关独佔一整行把卡片拉得过长。
+   外层 `config_search_field_*` 才是分组格子的直接子元素（见 alas.css 里那条
+   `[id*="Enable"] { grid-column: 1 / -1 }`），所以这里按同一层级覆盖。
+   其余参数（季节 / 运行间隔 / 自定义顺序）仍占整行。
+   只写在 alas-pc.css 里：移动端沿用 alas.css 的单列布局。 */
+#pywebio-scope-group_IslandPlan {
+    grid-template-columns: 1fr 1fr;
+    column-gap: 2rem;
+}
+
+#pywebio-scope-group_IslandPlan>[id*="Enable"] {
+    grid-column: auto;
+}
+
+#pywebio-scope-group_IslandPlan>[id^="pywebio-scope-config_search_field_"]:not([id*="Enable"]) {
+    grid-column: 1 / -1;
+}
+
+/* 开关格子里的控件列不需要 13rem，收窄后标题才有足够宽度 */
+#pywebio-scope-group_IslandPlan>[id*="Enable"]>[id^="pywebio-scope-arg_container-checkbox-"] {
+    grid-template-columns: minmax(0, 1fr) 4rem;
+}
+
 [id^="pywebio-scope-arg_container-task-priority-"],
 [id^="pywebio-scope-task_priority_container_"] {
     grid-auto-flow: row !important;

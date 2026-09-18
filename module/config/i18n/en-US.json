@@ -3810,7 +3810,7 @@
   "IslandPlan": {
     "_info": {
       "name": "Global Config",
-      "help": "Global settings for the Island Plan: current season, run interval and sub-module switches."
+      "help": "Global settings for the Island Plan: current season, run interval and sub-module switches.\nThe switches below decide which modules take part. Even when on, a module runs only after its own \"next run\" time is due, so Daily Supply runs at most once a day and the Weekly Pearl Trade at most once a week."
     },
     "Season": {
       "name": "Current Season",
@@ -3822,101 +3822,101 @@
     },
     "IntervalHours": {
       "name": "Island Run Interval (hours)",
-      "help": "How many hours to wait before entering the island again after a round of the Island Plan. No island sub-module runs during the interval.\nFree input, valid range 1-24 hours; out-of-range values are clamped at runtime."
+      "help": "How many hours to wait before entering the island again after a round of the Island Plan. No island sub-module runs during the interval.\nFree input, valid range 1-24 hours; out-of-range values are changed to the nearest bound."
     },
     "EnableAirDrop": {
       "name": "Enable Daily Supply",
-      "help": "Whether to run Daily Supply during the Island Plan. Turn it off to skip this module; even when on, it runs at most once a day.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableDailyGather": {
       "name": "Enable Daily Gathering",
-      "help": "Whether to run Daily Gathering during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableCargoPreparation": {
       "name": "Enable Cargo Preparation",
-      "help": "Whether to run Cargo Preparation during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableDailyOrder": {
       "name": "Enable Daily Order",
-      "help": "Whether to run Daily Order during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableDailyInteract": {
       "name": "Enable Daily/Weekly Tasks",
-      "help": "Whether to run Daily/Weekly Tasks during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableFarm": {
       "name": "Enable Farmland",
-      "help": "Whether to run Farmland during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableRancher": {
       "name": "Enable Ranch",
-      "help": "Whether to run Ranch during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableMineForest": {
       "name": "Enable Mine & Forest",
-      "help": "Whether to run Mine & Forest during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnablePearlSell": {
       "name": "Enable Weekly Pearl Trade",
-      "help": "Whether to run Weekly Pearl Trade during the Island Plan. Turn it off to skip this module; even when on, it runs at most once a week.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableManufacture": {
       "name": "Enable Manufacturing",
-      "help": "Whether to run Manufacturing during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableBusiness": {
       "name": "Enable Business Module",
-      "help": "Whether to run Business Module during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableRestaurant": {
       "name": "Enable Fish Restaurant",
-      "help": "Whether to run Fish Restaurant during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableTeahouse": {
       "name": "Enable Polar Bear Drinks",
-      "help": "Whether to run Polar Bear Drinks during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableGrill": {
       "name": "Enable Squid Grill",
-      "help": "Whether to run Squid Grill during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableJuuEatery": {
       "name": "Enable Juu Eatery",
-      "help": "Whether to run Juu Eatery during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
     "EnableJuuCoffee": {
       "name": "Enable Juu Coffee",
-      "help": "Whether to run Juu Coffee during the Island Plan. Turn it off to skip this module.",
+      "help": "",
       "True": "Enabled",
       "False": "Disabled"
     },
