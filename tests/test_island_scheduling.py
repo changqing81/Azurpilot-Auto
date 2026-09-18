@@ -3,9 +3,11 @@
 覆盖开关筛选、可选顺序、到期判定、原子任务收敛、异常隔离、父任务延迟与旧配置迁移，
 全部不依赖真实设备与 OCR。
 """
+import re
 import unittest
 from contextlib import contextmanager
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from module.config.config import Function
@@ -21,6 +23,8 @@ from module.config.redirect_utils.utils import (
 from module.exception import GameStuckError
 from module.config.utils import filepath_args, read_file
 from module.island.island_scheduling import IslandScheduling
+from module.ui.page import page_island
+from module.ui.ui import UI
 
 NOW = datetime(2026, 9, 18, 12, 0, 0)
 
@@ -107,7 +111,7 @@ def make_runner(config):
     runner = IslandScheduling.__new__(IslandScheduling)
     runner.config = config
     runner.device = Mock()
-    runner.ui_ensure = Mock()
+    runner.ui_goto = Mock()
     return runner
 
 
@@ -310,7 +314,7 @@ class TestIslandAggregation(unittest.TestCase):
         runner.run()
 
         self.assertEqual(executed, ['IslandFarm', 'IslandAirDrop'])
-        runner.ui_ensure.assert_called_once()
+        runner.ui_goto.assert_called_once()
 
     def test_run_skips_island_visit_when_nothing_is_due(self):
         config = make_config(
@@ -323,7 +327,7 @@ class TestIslandAggregation(unittest.TestCase):
         runner.run()
 
         runner._run_sub_task.assert_not_called()
-        runner.ui_ensure.assert_not_called()
+        runner.ui_goto.assert_not_called()
 
     def test_run_skips_island_visit_when_all_switches_off(self):
         config = make_config(enabled=[])
@@ -333,7 +337,7 @@ class TestIslandAggregation(unittest.TestCase):
         runner.run()
 
         runner._run_sub_task.assert_not_called()
-        runner.ui_ensure.assert_not_called()
+        runner.ui_goto.assert_not_called()
 
     def test_delay_uses_interval_hours(self):
         config = make_config(enabled=['IslandFarm'], interval=12)
@@ -343,6 +347,58 @@ class TestIslandAggregation(unittest.TestCase):
         runner.run()
 
         self.assertEqual(config.delays, [{'minute': 720, 'task': None}])
+
+
+class TestIslandNavigationSignature(unittest.TestCase):
+    """进岛导航必须用真实存在的方法与参数。
+
+    普通 Mock 会把签名错误一起吞掉（`runner.ui_goto = Mock()` 接受任何参数），
+    真机上就是这么炸的：`ui_ensure(page_island, get_ship=False)` —— `get_ship`
+    是 `ui_goto` 的参数，`ui_ensure` 的签名里没有。这里用 autospec 让 Mock
+    校验真实签名，同类错误以后会在单测阶段就暴露。
+    """
+
+    def setUp(self):
+        patcher = patch('module.island.island_scheduling.current_time', return_value=NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_run_navigates_with_ui_goto_and_get_ship_false(self):
+        config = make_config(enabled=['IslandFarm'])
+        runner = make_runner(config)
+        runner._run_sub_task = Mock(return_value=True)
+        del runner.ui_goto  # 换成 autospec 的 Mock，按真实签名校验
+
+        with patch.object(UI, 'ui_goto', autospec=True, return_value=False) as goto:
+            runner.run()
+
+        goto.assert_called_once()
+        args, kwargs = goto.call_args
+        self.assertIs(args[1], page_island)
+        self.assertFalse(kwargs.get('get_ship', True), '岛屿内导航必须 get_ship=False')
+
+
+class TestIslandSubTaskMapping(unittest.TestCase):
+    """SUB_TASKS 里的 (模块路径, 类名) 必须真实存在。
+
+    代跑走的是 `importlib.import_module()` + `getattr()`；映射写错会被「把
+    import_module 打桩」的那些用例掩盖过去，只能在真机上炸出 ImportError /
+    AttributeError。这里不真导入（全部导入会拖慢整套用例近一分钟），改为查文件
+    是否存在 + 源码里有没有对应的 class 定义。
+    """
+
+    ROOT = Path(__file__).resolve().parents[1]
+
+    def test_sub_task_modules_and_classes_exist(self):
+        for name, (module_path, class_name) in IslandScheduling.SUB_TASKS.items():
+            with self.subTest(task=name):
+                file = self.ROOT / (module_path.replace('.', '/') + '.py')
+                self.assertTrue(file.is_file(), f'{module_path} 不存在')
+                source = file.read_text(encoding='utf-8')
+                self.assertIsNotNone(
+                    re.search(rf'^class {class_name}\b', source, re.M),
+                    f'{module_path} 里没有 class {class_name}',
+                )
 
 
 class TestIslandExceptionIsolation(unittest.TestCase):

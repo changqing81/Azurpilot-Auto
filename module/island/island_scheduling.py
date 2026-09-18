@@ -95,7 +95,10 @@ class IslandScheduling(Island):
             logger.attr('未到期跳过', skipped)
 
         if due_tasks:
-            self.ui_ensure(page_island, get_ship=False)
+            # 岛屿内导航一律 get_ship=False：岛屿/管理页与「获得舰船」弹窗的特征容易
+            # 互认，交给 UI 去处理会点错东西。注意 get_ship 是 ui_goto 的参数，
+            # ui_ensure 的签名里没有（曾因此抛 TypeError 让整轮任务直接失败）。
+            self.ui_goto(page_island, get_ship=False)
             failed = []
             for task_name in due_tasks:
                 if not self._run_sub_task(task_name):
