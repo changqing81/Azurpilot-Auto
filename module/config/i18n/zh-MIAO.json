@@ -3810,7 +3810,7 @@
   "IslandPlan": {
     "_info": {
       "name": "岛屿计划全局喵",
-      "help": "岛屿计划的全局配置喵，包括季节设定~"
+      "help": "岛屿计划的全局配置喵：当前季节、运行间隔与子模块开关喵~"
     },
     "Season": {
       "name": "四季轮转喵",
@@ -3822,15 +3822,107 @@
     },
     "IntervalHours": {
       "name": "岛屿运行间隔喵（小时）",
-      "help": "一轮岛屿计划跑完后，要等这么久才会再进岛喵。等待期间不会运行任何岛屿子模块～",
-      "6": "6",
-      "8": "8",
-      "12": "12",
-      "24": "24"
+      "help": "一轮岛屿计划结束后，延迟该小时数才再次进入岛屿喵。间隔期内不会运行任何岛屿子模块喵~\n自由填写 1~24 小时，超出范围会在运行时收敛到边界喵。"
     },
-    "TaskPriority": {
-      "name": "子模块清单喵（顺便决定顺序）",
-      "help": "按顺序写下要跑的岛屿子模块喵，用 > 隔开，没写上的就不跑啦。\n可以写：IslandAirDrop、IslandDailyGather、IslandCargoPreparation、IslandDailyOrder、IslandDailyInteract、IslandFarm、IslandRancher、IslandMineForest、IslandPearlSell、IslandManufacture、IslandBusiness、IslandRestaurant、IslandTeahouse、IslandGrill、IslandJuuEatery、IslandJuuCoffee 喵。\n只有「下次运行时间」到了的模块才会真的跑喵，所以每日补给一天只有一次、珍珠倒卖一周只有一次～"
+    "EnableAirDrop": {
+      "name": "启用每日补给",
+      "help": "岛屿计划运行时是否执行「每日补给」喵。关闭后该模块不再进岛喵；开启时一天也只会跑一次喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableDailyGather": {
+      "name": "启用每日采集",
+      "help": "岛屿计划运行时是否执行「每日采集」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableCargoPreparation": {
+      "name": "启用货物筹备",
+      "help": "岛屿计划运行时是否执行「货物筹备」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableDailyOrder": {
+      "name": "启用每日订单",
+      "help": "岛屿计划运行时是否执行「每日订单」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableDailyInteract": {
+      "name": "启用每日/周任务",
+      "help": "岛屿计划运行时是否执行「每日/周任务」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableFarm": {
+      "name": "启用农田耕作",
+      "help": "岛屿计划运行时是否执行「农田耕作」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableRancher": {
+      "name": "启用牧场养殖",
+      "help": "岛屿计划运行时是否执行「牧场养殖」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableMineForest": {
+      "name": "启用矿山林场",
+      "help": "岛屿计划运行时是否执行「矿山林场」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnablePearlSell": {
+      "name": "启用每周珍珠采购与售卖",
+      "help": "岛屿计划运行时是否执行「每周珍珠采购与售卖」喵。关闭后该模块不再进岛喵；开启时一周也只会跑一次喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableManufacture": {
+      "name": "启用制造业",
+      "help": "岛屿计划运行时是否执行「制造业」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableBusiness": {
+      "name": "启用经营模块",
+      "help": "岛屿计划运行时是否执行「经营模块」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableRestaurant": {
+      "name": "启用有鱼餐馆",
+      "help": "岛屿计划运行时是否执行「有鱼餐馆」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableTeahouse": {
+      "name": "启用白熊饮品",
+      "help": "岛屿计划运行时是否执行「白熊饮品」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableGrill": {
+      "name": "启用乌鱼烤肉",
+      "help": "岛屿计划运行时是否执行「乌鱼烤肉」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableJuuEatery": {
+      "name": "启用啾啾简餐",
+      "help": "岛屿计划运行时是否执行「啾啾简餐」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "EnableJuuCoffee": {
+      "name": "启用啾咖啡",
+      "help": "岛屿计划运行时是否执行「啾咖啡」喵。关闭后该模块不再进岛喵~",
+      "True": "已启用喵",
+      "False": "未启用喵"
+    },
+    "TaskOrder": {
+      "name": "自定义执行顺序（可选）喵",
+      "help": "留空（推荐）即按内置顺序执行喵。填写时只调整顺序，不影响上面的开关喵；未列出的已启用模块会排在它们之后喵~ 用 > 分隔，可用名称：IslandAirDrop（每日补给）、IslandDailyGather（每日采集）、IslandCargoPreparation（货物筹备）、IslandDailyOrder（每日订单）、IslandDailyInteract（每日/周任务）、IslandFarm（农田耕作）、IslandRancher（牧场养殖）、IslandMineForest（矿山林场）、IslandPearlSell（每周珍珠采购与售卖）、IslandManufacture（制造业）、IslandBusiness（经营模块）、IslandRestaurant（有鱼餐馆）、IslandTeahouse（白熊饮品）、IslandGrill（乌鱼烤肉）、IslandJuuEatery（啾啾简餐）、IslandJuuCoffee（啾咖啡）"
     }
   },
   "IslandFarm": {

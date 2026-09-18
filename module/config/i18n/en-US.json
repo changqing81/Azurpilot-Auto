@@ -3810,7 +3810,7 @@
   "IslandPlan": {
     "_info": {
       "name": "Global Config",
-      "help": "Global configuration for Island Plan, including season settings."
+      "help": "Global settings for the Island Plan: current season, run interval and sub-module switches."
     },
     "Season": {
       "name": "Current Season",
@@ -3822,15 +3822,107 @@
     },
     "IntervalHours": {
       "name": "Island Run Interval (hours)",
-      "help": "After one island plan round finishes, wait this many hours before visiting the island again. No island sub-module runs during the interval.",
-      "6": "6",
-      "8": "8",
-      "12": "12",
-      "24": "24"
+      "help": "How many hours to wait before entering the island again after a round of the Island Plan. No island sub-module runs during the interval.\nFree input, valid range 1-24 hours; out-of-range values are clamped at runtime."
     },
-    "TaskPriority": {
-      "name": "Sub-module List (also sets the order)",
-      "help": "List the island sub-modules to run, in order, separated by >. Modules that are not listed are skipped.\nAvailable names: IslandAirDrop, IslandDailyGather, IslandCargoPreparation, IslandDailyOrder, IslandDailyInteract, IslandFarm, IslandRancher, IslandMineForest, IslandPearlSell, IslandManufacture, IslandBusiness, IslandRestaurant, IslandTeahouse, IslandGrill, IslandJuuEatery, IslandJuuCoffee.\nOnly sub-modules whose own next run time has arrived are actually executed, so the daily supply box runs once a day and the weekly pearl trade runs once a week."
+    "EnableAirDrop": {
+      "name": "Enable Daily Supply",
+      "help": "Whether to run Daily Supply during the Island Plan. Turn it off to skip this module; even when on, it runs at most once a day.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableDailyGather": {
+      "name": "Enable Daily Gathering",
+      "help": "Whether to run Daily Gathering during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableCargoPreparation": {
+      "name": "Enable Cargo Preparation",
+      "help": "Whether to run Cargo Preparation during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableDailyOrder": {
+      "name": "Enable Daily Order",
+      "help": "Whether to run Daily Order during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableDailyInteract": {
+      "name": "Enable Daily/Weekly Tasks",
+      "help": "Whether to run Daily/Weekly Tasks during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableFarm": {
+      "name": "Enable Farmland",
+      "help": "Whether to run Farmland during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableRancher": {
+      "name": "Enable Ranch",
+      "help": "Whether to run Ranch during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableMineForest": {
+      "name": "Enable Mine & Forest",
+      "help": "Whether to run Mine & Forest during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnablePearlSell": {
+      "name": "Enable Weekly Pearl Trade",
+      "help": "Whether to run Weekly Pearl Trade during the Island Plan. Turn it off to skip this module; even when on, it runs at most once a week.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableManufacture": {
+      "name": "Enable Manufacturing",
+      "help": "Whether to run Manufacturing during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableBusiness": {
+      "name": "Enable Business Module",
+      "help": "Whether to run Business Module during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableRestaurant": {
+      "name": "Enable Fish Restaurant",
+      "help": "Whether to run Fish Restaurant during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableTeahouse": {
+      "name": "Enable Polar Bear Drinks",
+      "help": "Whether to run Polar Bear Drinks during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableGrill": {
+      "name": "Enable Squid Grill",
+      "help": "Whether to run Squid Grill during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableJuuEatery": {
+      "name": "Enable Juu Eatery",
+      "help": "Whether to run Juu Eatery during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "EnableJuuCoffee": {
+      "name": "Enable Juu Coffee",
+      "help": "Whether to run Juu Coffee during the Island Plan. Turn it off to skip this module.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "TaskOrder": {
+      "name": "Custom Execution Order (Optional)",
+      "help": "Leave it empty (recommended) to use the built-in order. Filling it only changes the order, not the switches above; enabled modules not listed here run afterwards. Separate names with >. Available: IslandAirDrop (Daily Supply), IslandDailyGather (Daily Gathering), IslandCargoPreparation (Cargo Preparation), IslandDailyOrder (Daily Order), IslandDailyInteract (Daily/Weekly Tasks), IslandFarm (Farmland), IslandRancher (Ranch), IslandMineForest (Mine & Forest), IslandPearlSell (Weekly Pearl Trade), IslandManufacture (Manufacturing), IslandBusiness (Business Module), IslandRestaurant (Fish Restaurant), IslandTeahouse (Polar Bear Drinks), IslandGrill (Squid Grill), IslandJuuEatery (Juu Eatery), IslandJuuCoffee (Juu Coffee)"
     }
   },
   "IslandFarm": {

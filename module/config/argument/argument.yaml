@@ -1395,19 +1395,84 @@ IslandPlan:
     option: [ spring, summer, autumn, winter ]
   # 岛屿计划的运行间隔（小时）。一轮结束后延迟该时长才再次进入岛屿，
   # 期间所有岛屿原子任务都不会被单独调度。
+  # 自由填写，有效范围 1~24 小时，超出范围时运行期会收敛到边界并记录日志。
   IntervalHours:
+    type: input
     value: 12
-    option: [ 6, 8, 12, 24 ]
-  # 岛屿子模块的执行清单，同时决定执行顺序。未列出的模块本轮不执行。
-  TaskPriority:
+  # 岛屿子模块开关：勾选即表示本轮会调度该模块。
+  # 是否真正执行仍由各模块自己的「下次运行时间」决定，因此每日补给一天只跑一次、
+  # 珍珠倒卖一周只跑一次。开关的排列顺序 = 内置执行顺序（IslandScheduling.SUB_TASKS）。
+  EnableAirDrop:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableDailyGather:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableCargoPreparation:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableDailyOrder:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableDailyInteract:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableFarm:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableRancher:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableMineForest:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnablePearlSell:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableManufacture:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableBusiness:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableRestaurant:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableTeahouse:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableGrill:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableJuuEatery:
+    type: checkbox
+    value: true
+    option: [true, false]
+  EnableJuuCoffee:
+    type: checkbox
+    value: true
+    option: [true, false]
+  # 可选：自定义子模块执行顺序。留空（默认）= 完全按内置顺序执行；
+  # 填写时只有顺序生效，开关仍然决定「跑不跑」，未列出的已启用模块排在最后。
+  # 仅给需要精细排期的进阶用户使用，普通用户无需填写。
+  TaskOrder:
     type: textarea
-    value: |-
-      IslandAirDrop > IslandDailyGather > IslandCargoPreparation
-      > IslandDailyOrder > IslandDailyInteract
-      > IslandFarm > IslandRancher > IslandMineForest
-      > IslandPearlSell > IslandManufacture > IslandBusiness
-      > IslandRestaurant > IslandTeahouse > IslandGrill
-      > IslandJuuEatery > IslandJuuCoffee
+    value: ""
+    preserve_empty: true
 IslandFarm:
   Positions:
     value: 3

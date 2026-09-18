@@ -743,8 +743,24 @@ class GeneratedConfig:
 
     # 配置组 `IslandPlan`
     IslandPlan_Season = 'spring'  # spring, summer, autumn, winter
-    IslandPlan_IntervalHours = 12  # 6, 8, 12, 24
-    IslandPlan_TaskPriority = 'IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture > IslandBusiness\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee'
+    IslandPlan_IntervalHours = 12
+    IslandPlan_EnableAirDrop = True  # True, False
+    IslandPlan_EnableDailyGather = True  # True, False
+    IslandPlan_EnableCargoPreparation = True  # True, False
+    IslandPlan_EnableDailyOrder = True  # True, False
+    IslandPlan_EnableDailyInteract = True  # True, False
+    IslandPlan_EnableFarm = True  # True, False
+    IslandPlan_EnableRancher = True  # True, False
+    IslandPlan_EnableMineForest = True  # True, False
+    IslandPlan_EnablePearlSell = True  # True, False
+    IslandPlan_EnableManufacture = True  # True, False
+    IslandPlan_EnableBusiness = True  # True, False
+    IslandPlan_EnableRestaurant = True  # True, False
+    IslandPlan_EnableTeahouse = True  # True, False
+    IslandPlan_EnableGrill = True  # True, False
+    IslandPlan_EnableJuuEatery = True  # True, False
+    IslandPlan_EnableJuuCoffee = True  # True, False
+    IslandPlan_TaskOrder = ''
 
     # 配置组 `IslandFarm`
     IslandFarm_Positions = 3  # 1, 2, 3, 4

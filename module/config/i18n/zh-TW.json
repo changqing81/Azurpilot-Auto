@@ -3810,7 +3810,7 @@
   "IslandPlan": {
     "_info": {
       "name": "島嶼計劃全域",
-      "help": "島嶼計劃的全域配置，包括季節設定"
+      "help": "島嶼計劃的全域配置：當前季節、運行間隔與子模組開關。"
     },
     "Season": {
       "name": "當前季節",
@@ -3822,15 +3822,107 @@
     },
     "IntervalHours": {
       "name": "島嶼運行間隔（小時）",
-      "help": "一輪島嶼計劃結束後，延遲該小時數才再次進入島嶼。間隔期內不會運行任何島嶼子模組。",
-      "6": "6",
-      "8": "8",
-      "12": "12",
-      "24": "24"
+      "help": "一輪島嶼計劃結束後，延遲該小時數才再次進入島嶼。間隔期內不會運行任何島嶼子模組。\n自由填寫 1~24 小時，超出範圍會在運行時收斂到邊界。"
     },
-    "TaskPriority": {
-      "name": "子模組清單（同時決定執行順序）",
-      "help": "按順序列出要執行的島嶼子模組，用 > 分隔，未列出的模組不會執行。\n可用名稱：IslandAirDrop、IslandDailyGather、IslandCargoPreparation、IslandDailyOrder、IslandDailyInteract、IslandFarm、IslandRancher、IslandMineForest、IslandPearlSell、IslandManufacture、IslandBusiness、IslandRestaurant、IslandTeahouse、IslandGrill、IslandJuuEatery、IslandJuuCoffee。\n只有各自「下次運行時間」已到的模組才會真正執行，因此每日補給一天只跑一次、珍珠倒賣一週只跑一次。"
+    "EnableAirDrop": {
+      "name": "啟用每日補給",
+      "help": "島嶼計劃運行時是否執行「每日補給」。關閉後該模組不再進島；開啟時一天也只會跑一次。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableDailyGather": {
+      "name": "啟用每日採集",
+      "help": "島嶼計劃運行時是否執行「每日採集」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableCargoPreparation": {
+      "name": "啟用貨物籌備",
+      "help": "島嶼計劃運行時是否執行「貨物籌備」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableDailyOrder": {
+      "name": "啟用每日訂單",
+      "help": "島嶼計劃運行時是否執行「每日訂單」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableDailyInteract": {
+      "name": "啟用每日/週任務",
+      "help": "島嶼計劃運行時是否執行「每日/週任務」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableFarm": {
+      "name": "啟用農田",
+      "help": "島嶼計劃運行時是否執行「農田」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableRancher": {
+      "name": "啟用牧場",
+      "help": "島嶼計劃運行時是否執行「牧場」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableMineForest": {
+      "name": "啟用礦山林場",
+      "help": "島嶼計劃運行時是否執行「礦山林場」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnablePearlSell": {
+      "name": "啟用每週珍珠採購與售賣",
+      "help": "島嶼計劃運行時是否執行「每週珍珠採購與售賣」。關閉後該模組不再進島；開啟時一週也只會跑一次。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableManufacture": {
+      "name": "啟用製造業",
+      "help": "島嶼計劃運行時是否執行「製造業」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableBusiness": {
+      "name": "啟用經營模組",
+      "help": "島嶼計劃運行時是否執行「經營模組」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableRestaurant": {
+      "name": "啟用有魚餐館",
+      "help": "島嶼計劃運行時是否執行「有魚餐館」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableTeahouse": {
+      "name": "啟用白熊飲品",
+      "help": "島嶼計劃運行時是否執行「白熊飲品」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableGrill": {
+      "name": "啟用烏魚烤肉",
+      "help": "島嶼計劃運行時是否執行「烏魚烤肉」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableJuuEatery": {
+      "name": "啟用啾啾簡餐",
+      "help": "島嶼計劃運行時是否執行「啾啾簡餐」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "EnableJuuCoffee": {
+      "name": "啟用啾咖啡",
+      "help": "島嶼計劃運行時是否執行「啾咖啡」。關閉後該模組不再進島。",
+      "True": "已啟用",
+      "False": "未啟用"
+    },
+    "TaskOrder": {
+      "name": "自訂執行順序（可選）",
+      "help": "留空（推薦）即按內建順序執行。填寫時只調整順序，不影響上面的開關；未列出的已啟用模組會排在它們之後。用 > 分隔，可用名稱：IslandAirDrop（每日補給）、IslandDailyGather（每日採集）、IslandCargoPreparation（貨物籌備）、IslandDailyOrder（每日訂單）、IslandDailyInteract（每日/週任務）、IslandFarm（農田）、IslandRancher（牧場）、IslandMineForest（礦山林場）、IslandPearlSell（每週珍珠採購與售賣）、IslandManufacture（製造業）、IslandBusiness（經營模組）、IslandRestaurant（有魚餐館）、IslandTeahouse（白熊飲品）、IslandGrill（烏魚烤肉）、IslandJuuEatery（啾啾簡餐）、IslandJuuCoffee（啾咖啡）"
     }
   },
   "IslandFarm": {

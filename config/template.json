@@ -3001,7 +3001,23 @@
     "IslandPlan": {
       "Season": "spring",
       "IntervalHours": 12,
-      "TaskPriority": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture > IslandBusiness\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee"
+      "EnableAirDrop": true,
+      "EnableDailyGather": true,
+      "EnableCargoPreparation": true,
+      "EnableDailyOrder": true,
+      "EnableDailyInteract": true,
+      "EnableFarm": true,
+      "EnableRancher": true,
+      "EnableMineForest": true,
+      "EnablePearlSell": true,
+      "EnableManufacture": true,
+      "EnableBusiness": true,
+      "EnableRestaurant": true,
+      "EnableTeahouse": true,
+      "EnableGrill": true,
+      "EnableJuuEatery": true,
+      "EnableJuuCoffee": true,
+      "TaskOrder": ""
     },
     "Storage": {
       "Storage": {}

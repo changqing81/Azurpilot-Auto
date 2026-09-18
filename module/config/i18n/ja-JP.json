@@ -3810,7 +3810,7 @@
   "IslandPlan": {
     "_info": {
       "name": "アイランド計画グローバル",
-      "help": "アイランド計画のグローバル設定。季節設定を含みます。"
+      "help": "アイランドプランの全体設定：現在の季節、実行間隔、サブモジュールのスイッチ。"
     },
     "Season": {
       "name": "現在の季節",
@@ -3822,15 +3822,107 @@
     },
     "IntervalHours": {
       "name": "入島間隔（時間）",
-      "help": "アイランドプランを1周した後、この時間が経過するまで再入島しません。待機中はアイランドのサブモジュールを一切実行しません。",
-      "6": "6",
-      "8": "8",
-      "12": "12",
-      "24": "24"
+      "help": "アイランドプランの1周が終わってから、この時間だけ待って再び島へ入ります。間隔中は島のサブモジュールを実行しません。\n1〜24 時間で自由に入力できます。範囲外の値は実行時に丸められます。"
     },
-    "TaskPriority": {
-      "name": "サブモジュール一覧（実行順も兼ねる）",
-      "help": "実行するアイランドサブモジュールを順番に > で区切って列挙します。記載のないモジュールは実行されません。\n使用可能な名前：IslandAirDrop、IslandDailyGather、IslandCargoPreparation、IslandDailyOrder、IslandDailyInteract、IslandFarm、IslandRancher、IslandMineForest、IslandPearlSell、IslandManufacture、IslandBusiness、IslandRestaurant、IslandTeahouse、IslandGrill、IslandJuuEatery、IslandJuuCoffee。\nそれぞれの「次回実行時間」が到来したモジュールだけが実際に実行されるため、毎日補給は1日1回、真珠の転売は週1回だけになります。"
+    "EnableAirDrop": {
+      "name": "デイリー補給を有効化",
+      "help": "アイランドプラン実行時に「デイリー補給」を実行するかどうか。オフにすると実行されません。オンでも1日1回までです。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableDailyGather": {
+      "name": "デイリー採集を有効化",
+      "help": "アイランドプラン実行時に「デイリー採集」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableCargoPreparation": {
+      "name": "貨物準備を有効化",
+      "help": "アイランドプラン実行時に「貨物準備」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableDailyOrder": {
+      "name": "デイリーオーダーを有効化",
+      "help": "アイランドプラン実行時に「デイリーオーダー」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableDailyInteract": {
+      "name": "デイリー/週間任務を有効化",
+      "help": "アイランドプラン実行時に「デイリー/週間任務」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableFarm": {
+      "name": "農地を有効化",
+      "help": "アイランドプラン実行時に「農地」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableRancher": {
+      "name": "牧場を有効化",
+      "help": "アイランドプラン実行時に「牧場」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableMineForest": {
+      "name": "鉱山＆林場を有効化",
+      "help": "アイランドプラン実行時に「鉱山＆林場」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnablePearlSell": {
+      "name": "週間パール取引を有効化",
+      "help": "アイランドプラン実行時に「週間パール取引」を実行するかどうか。オフにすると実行されません。オンでも1週間に1回までです。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableManufacture": {
+      "name": "製造業を有効化",
+      "help": "アイランドプラン実行時に「製造業」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableBusiness": {
+      "name": "経営モジュールを有効化",
+      "help": "アイランドプラン実行時に「経営モジュール」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableRestaurant": {
+      "name": "有魚レストランを有効化",
+      "help": "アイランドプラン実行時に「有魚レストラン」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableTeahouse": {
+      "name": "白熊ドリンクを有効化",
+      "help": "アイランドプラン実行時に「白熊ドリンク」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableGrill": {
+      "name": "イカ焼きを有効化",
+      "help": "アイランドプラン実行時に「イカ焼き」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableJuuEatery": {
+      "name": "ジュウ簡餐を有効化",
+      "help": "アイランドプラン実行時に「ジュウ簡餐」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "EnableJuuCoffee": {
+      "name": "ジュウコーヒーを有効化",
+      "help": "アイランドプラン実行時に「ジュウコーヒー」を実行するかどうか。オフにするとこのモジュールは実行されません。",
+      "True": "有効",
+      "False": "無効"
+    },
+    "TaskOrder": {
+      "name": "実行順序のカスタマイズ（任意）",
+      "help": "空欄（推奨）なら内蔵の順序で実行します。入力しても順序だけが変わり、上のスイッチには影響しません。書かれていない有効なモジュールはその後ろで実行されます。> で区切ってください。使用可能な名前：IslandAirDrop (デイリー補給)、IslandDailyGather (デイリー採集)、IslandCargoPreparation (貨物準備)、IslandDailyOrder (デイリーオーダー)、IslandDailyInteract (デイリー/週間任務)、IslandFarm (農地)、IslandRancher (牧場)、IslandMineForest (鉱山＆林場)、IslandPearlSell (週間パール取引)、IslandManufacture (製造業)、IslandBusiness (経営モジュール)、IslandRestaurant (有魚レストラン)、IslandTeahouse (白熊ドリンク)、IslandGrill (イカ焼き)、IslandJuuEatery (ジュウ簡餐)、IslandJuuCoffee (ジュウコーヒー)"
     }
   },
   "IslandFarm": {
