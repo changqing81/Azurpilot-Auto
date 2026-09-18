@@ -31,7 +31,9 @@
    1. CSS 变量定义
    ========================================== */
 
-:root {
+/* 用 html:root 提高特异性：entry-alas.css 的 :root 里有同名入口变量默认值，
+   特异性相同时只能靠加载顺序决定胜负（曾出现主题变量被浅色默认值反超）。 */
+html:root {
 	/* === 色彩系统 === */
 	--alas-apple-bg: #f5f5f7;
 	--alas-apple-bg-image: none;

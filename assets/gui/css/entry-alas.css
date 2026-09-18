@@ -1,4 +1,8 @@
-:root {
+/* 用 :where() 把特异性降到 0：这里的值只是「主题没定义时的兜底默认」。
+   原写法 `:root` 与各主题文件里的 `:root` 特异性相同，胜负只能靠加载顺序，
+   实测出现过浅色默认值反超深色主题的情况（首页分组标题深底深字、
+   自建面板变白底、帮助文案偏暗）。降级后任何主题定义都能稳定覆盖它。 */
+:where(:root) {
     --alas-entry-page: #f4f5f7;
     --alas-entry-surface: #ffffff;
     --alas-entry-surface-muted: #f7f7fa;

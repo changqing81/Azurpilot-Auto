@@ -1,4 +1,8 @@
-:root {
+/* 用 html:root 提高特异性：入口页的默认值定义在 entry-alas.css 的 :root 里，
+   两者特异性相同就会退化成「谁后加载谁赢」。实测出现过主题变量被浅色默认值
+   反超的情况——首页分组标题变深（深底深字）、自建面板变成白底。
+   加一个元素选择器后，主题侧的定义稳定胜出，不再受注入顺序影响。 */
+html:root {
     --alas-entry-page: #282a2f;
     --alas-entry-surface: #2f3136;
     --alas-entry-surface-muted: #36393f;

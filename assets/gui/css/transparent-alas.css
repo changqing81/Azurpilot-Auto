@@ -17,7 +17,9 @@
    1. CSS 变量覆盖
    ========================================== */
 
-:root {
+/* html:root：与 advanced-material-alas.css 同级、靠注入顺序压过它，
+   同时优先于 entry-alas.css 的 :root 默认值（避免透明化被浅色默认值反超）。 */
+html:root {
 	/* 面板底色全部透明 */
 	--alas-apple-card-bg: transparent;
 	--alas-apple-card-bg-solid: transparent;

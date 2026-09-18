@@ -1,6 +1,8 @@
-/* 高级材质暗色覆盖层：需在 advanced-material-alas.css 之后加载。 */
+/* 高级材质暗色覆盖层：需在 advanced-material-alas.css 之后加载。
+   html:root 与 advanced-material-alas.css 保持同级，靠注入顺序压过它，
+   同时优先于 entry-alas.css 的 :root 默认值。 */
 
-:root {
+html:root {
 	--alas-apple-bg: #0b1220;
 	--alas-apple-card-bg: rgba(15, 23, 42, 0.78);
 	--alas-apple-card-bg-solid: #111827;
