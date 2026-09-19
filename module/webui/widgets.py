@@ -10,6 +10,8 @@ import json
 import pywebio.pin
 import random
 import string
+import threading
+from collections import OrderedDict
 from typing import Any, Callable, Dict, Generator, List, Optional, TYPE_CHECKING, Union
 
 from pywebio.exceptions import SessionException
@@ -144,8 +146,44 @@ class RichLog:
             code_format=LOG_CODE_FORMAT,
             inline_styles=True,
         )
-        # 调试：打印生成的 HTML
         return html
+
+    # rich→HTML 片段缓存：(宽度, id) -> (renderable, html)。
+    # 命中前用 `is` 校验对象同一性，id 被新对象复用时不会误命中。
+    _html_cache = OrderedDict()
+    _html_cache_limit = 2048
+    _html_cache_lock = threading.Lock()
+
+    def render_cached(self, renderables) -> str:
+        """逐条渲染并缓存 HTML 片段，用于切换页面后的全量首显。
+
+        缓存命中时直接拼接字符串，跳过 rich 渲染与 export；
+        未命中条目逐条转换。多会话共享缓存（对象同一性全局唯一）。
+        """
+        parts = []
+        missed = []
+        width = self.console.width
+        with RichLog._html_cache_lock:
+            cache = RichLog._html_cache
+            for renderable in renderables:
+                key = (width, id(renderable))
+                entry = cache.get(key)
+                if entry is not None and entry[0] is renderable:
+                    parts.append(entry[1])
+                    cache.move_to_end(key)
+                else:
+                    missed.append((key, renderable))
+
+        if missed:
+            for key, renderable in missed:
+                html = self.render_many((renderable,))
+                parts.append(html)
+                with RichLog._html_cache_lock:
+                    cache[key] = (renderable, html)
+                    while len(cache) > RichLog._html_cache_limit:
+                        cache.popitem(last=False)
+
+        return "".join(parts)
 
     def extend(self, text):
         if text:
@@ -185,6 +223,12 @@ class RichLog:
         self.first_display = True
 
     def get_width(self):
+        # eval_js 是同步往返，远程高延迟下会卡住整个渲染流程；
+        # 宽度按会话缓存，只在会话首次显示日志时测量一次，
+        # 切页/切实例直接复用，切换路径零往返。
+        cached = getattr(local, "rich_log_width", None)
+        if cached is not None:
+            return cached
         js = """
         let canvas = document.createElement('canvas');
         canvas.style.position = "absolute";
@@ -201,7 +245,9 @@ class RichLog:
             scope=self.scope
         )
         width = eval_js(js)
-        return 80 if width is None else 128 if width > 128 else int(width)
+        result = 80 if width is None else 128 if width > 128 else int(width)
+        local.rich_log_width = result
+        return result
 
     # 以下为已废弃的窗口宽度自适应回调代码，保留供参考
     # def _register_resize_callback(self):
@@ -236,22 +282,22 @@ class RichLog:
     def put_log(self, pm: ProcessManager) -> Generator:
         yield
         try:
+            last_idx = len(pm.renderables)
+            # 全量首显走缓存片段：切回总览页时只需渲染新增部分
+            html = self.render_cached(pm.renderables[:])
+            self.reset()
+            self.extend(html)
             while True:
-                last_idx = len(pm.renderables)
-                html = self.render_many(pm.renderables[:])
-                self.reset()
-                self.extend(html)
-                counter = last_idx
-                while counter < pm.renderables_max_length * 2:
-                    yield
-                    idx = len(pm.renderables)
-                    if idx < last_idx:
-                        last_idx -= pm.renderables_reduce_length
-                    if idx != last_idx:
-                        html = self.render_many(pm.renderables[last_idx:idx])
-                        self.extend(html)
-                        counter += idx - last_idx
-                        last_idx = idx
+                # 持续增量 append，不再在缓冲累计一圈后整页重渲染
+                yield
+                idx = len(pm.renderables)
+                if idx < last_idx:
+                    # 环形缓冲回绕：旧日志被裁剪，按裁剪量修正渲染游标
+                    last_idx -= pm.renderables_reduce_length
+                if idx != last_idx:
+                    html = self.render_many(pm.renderables[last_idx:idx])
+                    self.extend(html)
+                    last_idx = idx
         except SessionException:
             pass
 
