@@ -5,7 +5,8 @@
 NTP 校时可以保证委托、科研等定时任务的精确触发。
 
 特性：
-- 启动时自动校准，后续读取使用缓存的偏移量
+- 校准完全在后台线程执行，任何调用线程（含 WebUI 首屏）零网络阻塞
+- 首次读取即触发后台校准，未完成前使用本机时间
 - 支持多个 NTP 服务器，自动故障转移
 - 校时失败时回退到本机时间，不影响运行
 - 可通过环境变量 AZURPILOT_NTP_DISABLE 禁用
@@ -40,6 +41,9 @@ class NetworkTimeSource:
     """通过 NTP 服务器校准本地时间。
 
     只缓存本机时间与 NTP 时间的偏移量，后续读取不会频繁访问网络。
+    所有联网操作都发生在一次性后台线程中，读取路径（timestamp/now/status）
+    绝不联网、绝不长持锁——WebUI 与调度器在未同步期间直接使用本机时间，
+    后台同步完成后自动切换到校准时间。
     """
 
     def __init__(self):
@@ -55,6 +59,10 @@ class NetworkTimeSource:
         self.timeout = 1.0
         self._lock = threading.RLock()
         self._warned = False
+        # 后台同步调度：_sync_lock 只保护线程启动判定（微秒级），
+        # 联网查询不持任何读者锁，失败退避由 retry_after_monotonic 控制。
+        self._sync_lock = threading.Lock()
+        self._sync_thread = None
 
     @property
     def enabled(self):
@@ -108,25 +116,49 @@ class NetworkTimeSource:
         raise OSError(f'无效的 NTP 响应: {host}')
 
     def refresh(self, force=False):
-        """刷新 NTP 偏移量，失败时保留已有偏移并退回本机时间。"""
+        """调度一次后台校时并立即返回；调用线程绝不联网。
+
+        Args:
+            force: 忽略失败退避，立即重新校时。
+
+        Returns:
+            bool: 当前是否已有有效校准结果。
+        """
         if not self.enabled:
             return False
-
-        current = time_.monotonic()
+        self._schedule_sync(force=force)
         with self._lock:
-            if not force and self.synced and current - self.last_sync_monotonic < self.refresh_interval:
-                return True
-            if not force and current < self.retry_after_monotonic:
-                return self.synced
+            return self.synced
 
-            errors = []
-            for server in self.servers:
-                try:
-                    offset = self._query_server(server)
-                except OSError as e:
-                    errors.append(f'{server}: {e}')
-                    continue
+    def _schedule_sync(self, force=False):
+        """确保有一个后台线程正在（或即将）执行校时。"""
+        now_mono = time_.monotonic()
+        with self._sync_lock:
+            if force:
+                # 强制刷新：清除失败退避，允许立即重试
+                self.retry_after_monotonic = 0.0
+            elif self.synced and now_mono - self.last_sync_monotonic < self.refresh_interval:
+                return
+            elif now_mono < self.retry_after_monotonic:
+                return
+            if self._sync_thread is not None and self._sync_thread.is_alive():
+                return
+            self._sync_thread = threading.Thread(
+                target=self._sync_worker, name='NtpTimeSync', daemon=True
+            )
+            self._sync_thread.start()
 
+    def _sync_worker(self):
+        """后台执行一次完整校时：逐个服务器尝试，成功或进入退避后线程退出。"""
+        errors = []
+        for server in self.servers:
+            try:
+                offset = self._query_server(server)
+            except OSError as e:
+                errors.append(f'{server}: {e}')
+                continue
+
+            with self._lock:
                 self.offset = offset
                 self.base_timestamp = time_.time() + offset
                 self.base_monotonic = time_.monotonic()
@@ -135,36 +167,44 @@ class NetworkTimeSource:
                 self.last_sync_monotonic = time_.monotonic()
                 self.retry_after_monotonic = 0.0
                 self._warned = False
-                self._log_info(f'网络时间已校准: {server}, offset={offset:.3f}s')
-                return True
+            self._log_info(f'网络时间已校准: {server}, offset={offset:.3f}s')
+            return
 
+        with self._lock:
             self.retry_after_monotonic = time_.monotonic() + self.retry_interval
             if not self._warned:
                 detail = '; '.join(errors) if errors else '没有可用服务器'
                 self._log_warning(f'NTP 校时失败，暂时使用本机时间: {detail}')
                 self._warned = True
-            return self.synced
 
     def timestamp(self):
-        self.refresh()
-        if self.synced:
-            return self.base_timestamp + (time_.monotonic() - self.base_monotonic)
-        return time_.time() + self.offset
+        """返回校准时间戳；未同步或同步未完成时返回本机时间，零网络调用。"""
+        self._schedule_sync()
+        with self._lock:
+            if self.synced:
+                return self.base_timestamp + (time_.monotonic() - self.base_monotonic)
+            return time_.time() + self.offset
 
     def now(self, tz=None):
         return datetime.fromtimestamp(self.timestamp(), tz=tz)
 
     def status(self):
-        self.refresh()
+        """返回校时状态快照，只读缓存，不触发网络调用。"""
+        self._schedule_sync()
+        with self._lock:
+            synced = self.synced
+            server = self.server
+            offset = self.offset
+            last_sync_monotonic = self.last_sync_monotonic
         return {
             'enabled': self.enabled,
-            'synced': self.synced,
-            'server': self.server or '-',
-            'offset': self.offset,
+            'synced': synced,
+            'server': server or '-',
+            'offset': offset,
             'refresh_interval': self.refresh_interval,
             'last_sync_elapsed': (
-                time_.monotonic() - self.last_sync_monotonic
-                if self.synced else None
+                time_.monotonic() - last_sync_monotonic
+                if synced else None
             ),
         }
 
