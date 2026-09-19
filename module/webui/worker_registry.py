@@ -22,6 +22,15 @@ REGISTRY_LOCK_RETRY_INTERVAL = 0.05
 # 同一 Python 进程内先串行化，避免重复竞争系统级文件锁。
 _registry_lock = threading.RLock()
 
+# 登记文件读多写少（UI 状态探测每 1~2 秒读取，注册/注销只在启停时发生），
+# 以 (mtime_ns, size) 校验的进程内快照缓存消除重复的文件锁竞争与 JSON 解析。
+# 写路径通过 _write_registry 写穿缓存；跨进程修改会使 mtime 失配而自动失效。
+_registry_cache: dict[str, dict] = {}
+_registry_cache_lock = threading.Lock()
+
+# 当前进程的创建时间在进程存活期内不变，缓存后状态探测不再反复 psutil 自查。
+_self_created_at: float | None = None
+
 
 class WorkerRegistryOwnershipError(RuntimeError):
     """当前进程无权修改 WebUI worker 登记。"""
@@ -246,15 +255,60 @@ def _write_registry(registry: dict, registry_file: Path) -> None:
         registry_file,
         json.dumps(registry, ensure_ascii=True, sort_keys=True),
     )
+    # 写穿：用刚写入的内容刷新进程内读缓存，避免写后读到过期快照。
+    # 写路径到此为止不再修改 registry 对象，缓存引用安全。
+    stat_key = _registry_stat_key(registry_file)
+    with _registry_cache_lock:
+        if stat_key is not None:
+            _registry_cache[str(registry_file)] = {"stat": stat_key, "registry": registry}
+        else:
+            _registry_cache.pop(str(registry_file), None)
+
+
+def _registry_stat_key(registry_file: Path) -> tuple | None:
+    """返回用于缓存校验的 (mtime_ns, size)；文件不存在时返回 None。"""
+    try:
+        st = registry_file.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _read_registry_cached(registry_file: Path) -> dict:
+    """读取登记内容，命中 mtime/size 快照缓存时跳过读盘与 JSON 解析。
+
+    仅用于只读路径；需要原地修改的写事务应使用 _read_registry。
+    """
+    stat_key = _registry_stat_key(registry_file)
+    path_key = str(registry_file)
+    if stat_key is not None:
+        with _registry_cache_lock:
+            cached = _registry_cache.get(path_key)
+            if cached is not None and cached["stat"] == stat_key:
+                return cached["registry"]
+
+    registry = _read_registry(registry_file)
+    with _registry_cache_lock:
+        if stat_key is not None:
+            _registry_cache[path_key] = {"stat": stat_key, "registry": registry}
+        else:
+            _registry_cache.pop(path_key, None)
+    return registry
 
 
 def _process_created_at(pid: int) -> float:
+    global _self_created_at
+    if pid == os.getpid() and _self_created_at is not None:
+        return _self_created_at
     try:
         import psutil
 
-        return psutil.Process(pid).create_time()
+        created_at = psutil.Process(pid).create_time()
     except Exception as exc:
         raise RuntimeError(f"无法读取 worker PID {pid} 的创建时间: {exc}") from exc
+    if pid == os.getpid():
+        _self_created_at = created_at
+    return created_at
 
 
 def _owner_record(registry: dict) -> dict | None:
@@ -295,15 +349,27 @@ def _require_current_owner(registry: dict, owner_pid: int) -> None:
     )
 
 
+def _read_registry_for_probe() -> dict:
+    """探测路径的登记读取：缓存优先，绕过系统级文件锁。
+
+    写方经 atomic_write 原子替换文件，无锁读到的是完整旧/新快照；
+    缓存以 (mtime_ns, size) 校验，跨进程修改自动失效。仅旧登记残留时
+    回退带锁路径，让迁移逻辑正常执行（迁移完成后即走快路径）。
+    """
+    if _legacy_registry_enabled() and LEGACY_WORKER_REGISTRY_FILE.exists():
+        with _locked_registry() as registry_file:
+            return _read_registry(registry_file)
+    return _read_registry_cached(WORKER_REGISTRY_FILE)
+
+
 def is_current_owner(owner_pid: int) -> bool:
     """返回 PID 是否仍对应登记文件中的当前 WebUI 所有者。"""
-    with _locked_registry() as registry_file:
-        registry = _read_registry(registry_file)
-        try:
-            _require_current_owner(registry, owner_pid)
-        except WorkerRegistryOwnershipError:
-            return False
-        return True
+    registry = _read_registry_for_probe()
+    try:
+        _require_current_owner(registry, owner_pid)
+    except WorkerRegistryOwnershipError:
+        return False
+    return True
 
 
 def filter_live_workers(workers: dict[str, dict]) -> dict[str, dict]:
@@ -398,24 +464,20 @@ def unregister_worker(owner_pid: int, config_name: str) -> bool:
 
 def get_workers(owner_pid: int) -> dict[str, dict]:
     """返回指定 WebUI 所登记的 worker 快照。"""
-    with _locked_registry() as registry_file:
-        registry = _read_registry(registry_file)
-        if registry["owner_pid"] != owner_pid:
-            return {}
-        return deepcopy(registry["workers"])
+    registry = _read_registry_for_probe()
+    if registry["owner_pid"] != owner_pid:
+        return {}
+    return deepcopy(registry["workers"])
 
 
 def get_owner() -> int | None:
     """返回当前登记文件所有者的 PID。"""
-    with _locked_registry() as registry_file:
-        return _read_registry(registry_file)["owner_pid"]
+    return _read_registry_for_probe()["owner_pid"]
 
 
 def get_owner_record() -> dict | None:
     """返回 WebUI 所有者的 PID 与创建时间，供父进程验证进程身份。"""
-    with _locked_registry() as registry_file:
-        registry = _read_registry(registry_file)
-        return _owner_record(registry)
+    return _owner_record(_read_registry_for_probe())
 
 
 def clear_owner(owner_pid: int) -> bool:

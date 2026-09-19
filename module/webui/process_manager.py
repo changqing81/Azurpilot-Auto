@@ -60,7 +60,7 @@ class ProcessManager:
     # alive/state 的探测涉及跨进程文件锁、JSON 读盘和 psutil 调用，
     # 而 UI 刷新任务每 1~2 秒就会查询一次。短 TTL 缓存消除重复探测，
     # 启停等关键路径通过 invalidate_state_cache() 主动失效。
-    STATE_CACHE_TTL = 0.75
+    STATE_CACHE_TTL = 1.5
 
     def __init__(self, config_name: str = DEFAULT_CONFIG_NAME) -> None:
         self.config_name = config_name
@@ -77,12 +77,17 @@ class ProcessManager:
         self._alive_cache: bool | None = None
         self._state_cache: int | None = None
         self._state_cache_time: float = 0.0
+        # 停止态的字符串匹配基于尾部日志做 rich 渲染，日志未变化时结果不变，
+        # 用（长度, 末条身份）避免每 TTL 重复渲染。
+        self._state_renderables_key: tuple | None = None
+        self._state_renderables_value: int = 0
 
     def invalidate_state_cache(self) -> None:
         """在启停等关键操作后立即失效状态缓存，保证 UI 及时反映变化。"""
         self._alive_cache = None
         self._state_cache = None
         self._state_cache_time = 0.0
+        self._state_renderables_key = None
 
     @classmethod
     def _get_lifecycle_lock(cls, config_name: str) -> threading.RLock:
@@ -654,7 +659,23 @@ class ProcessManager:
         return result
 
     def _probe_alive(self) -> bool:
-        with self._get_lifecycle_lock(self.config_name):
+        # 快路径：本地句柄存活即为运行中。句柄在 start() 时创建并登记，
+        # 与 worker 一一对应，无需锁、无需登记验证，UI 每 2 秒轮询的成本
+        # 从"锁+文件锁+读盘+psutil×N"降为一次进程状态检查。
+        process = self._process
+        if process is not None and self._is_process_alive(process):
+            return True
+        # 慢路径：句柄缺失/已死才需要登记验证。生命周期锁可能被启停操作
+        # 长期持有（terminate/join/taskkill 最长十余秒），UI 探测绝不排队
+        # ——拿不到锁时沿用最近一次已知状态，避免整页刷新任务排队冻结。
+        lock = self._get_lifecycle_lock(self.config_name)
+        if not lock.acquire(blocking=False):
+            # RLock 同线程重入（启停流程内部查询）仍会成功走到这里；
+            # 仅跨线程竞争时返回缓存值。
+            if self._alive_cache is not None:
+                return self._alive_cache
+            return False
+        try:
             if self._is_process_alive(self._process):
                 return True
             pid, pid_verified = self._registered_pid()
@@ -664,6 +685,8 @@ class ProcessManager:
                 # start() 通过额外的 _registered_worker 检查防止重复启动。
                 return False
             return pid is not None
+        finally:
+            lock.release()
 
     @property
     def state(self) -> int:
@@ -684,8 +707,20 @@ class ProcessManager:
         elif len(self.renderables) == 0:
             return 2
         else:
+            # 停止态日志不再变化：以（长度, 末条身份）为键复用上次的
+            # 字符串匹配结果，避免错误/完成态下每 TTL 重复 8 次 rich 渲染。
+            renderables = self.renderables
+            key = (
+                len(renderables),
+                id(renderables[-1]) if renderables else 0,
+            )
+            if (
+                self._state_renderables_key == key
+            ):
+                return self._state_renderables_value
+
             console = Console(no_color=True)
-            tail = self.renderables[-8:]
+            tail = renderables[-8:]
             rendered_tail = []
             for renderable in tail:
                 with console.capture() as capture:
@@ -695,32 +730,36 @@ class ProcessManager:
             tail_text = "\n".join(rendered_tail)
 
             if ("Reason: Manual stop" in s) or ("原因: 手动停止" in s) or ("原因：手动停止" in s):
-                return 2
-
-            update_marker_hit = (
-                ("Reason: Update" in s)
-                or ("原因: 更新" in s)
-                or ("检测到更新事件" in s)
-            )
-            update_tail_hit = (
-                ("Reason: Update" in tail_text)
-                or ("原因: 更新" in tail_text)
-                or ("检测到更新事件" in tail_text)
-            )
-            if update_marker_hit:
-                return 4
-
-            if ("Reason: Finish" in s) or ("原因: 完成" in s):
-                # 在更新流程中，部分代码路径可能会在更新退出日志之后追加 "Finish"。
-                if update_tail_hit:
-                    return 4
-                return 2
-            elif "此版本为演示用途" in s:
-                return 2
-            elif update_tail_hit:
-                return 4
+                result = 2
             else:
-                return 3
+                update_marker_hit = (
+                    ("Reason: Update" in s)
+                    or ("原因: 更新" in s)
+                    or ("检测到更新事件" in s)
+                )
+                update_tail_hit = (
+                    ("Reason: Update" in tail_text)
+                    or ("原因: 更新" in tail_text)
+                    or ("检测到更新事件" in tail_text)
+                )
+                if update_marker_hit:
+                    result = 4
+                elif ("Reason: Finish" in s) or ("原因: 完成" in s):
+                    # 在更新流程中，部分代码路径可能会在更新退出日志之后追加 "Finish"。
+                    if update_tail_hit:
+                        result = 4
+                    else:
+                        result = 2
+                elif "此版本为演示用途" in s:
+                    result = 2
+                elif update_tail_hit:
+                    result = 4
+                else:
+                    result = 3
+
+            self._state_renderables_key = key
+            self._state_renderables_value = result
+            return result
 
     @classmethod
     def get_manager(cls, config_name: str) -> "ProcessManager":
