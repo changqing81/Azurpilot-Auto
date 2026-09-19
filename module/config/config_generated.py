@@ -166,8 +166,6 @@ class GeneratedConfig:
     DropRecord_OpsiShopRecord = 'upload'  # do_not, save, upload, save_and_upload
     DropRecord_MeowfficerBuy = 'do_not'  # do_not, save
     DropRecord_MeowfficerTalent = 'do_not'  # do_not, save, upload, save_and_upload
-    DropRecord_TelemetryReport = True
-    DropRecord_BugReport = True
 
     # 配置组 `Log`
     Log_LogKeepCount = 3
