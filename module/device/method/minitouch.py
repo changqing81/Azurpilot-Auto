@@ -176,7 +176,7 @@ class Command:
             if self.mode:
                 return f'{self.operation} {self.contact} {self.mode}\n'
             else:
-                return f'{self.operation} {self.ms}\n'
+                return f'{self.operation} {self.contact}\n'
         elif self.operation == 'w':
             return f'{self.operation} {self.ms}\n'
         elif self.operation == 's':
