@@ -2,8 +2,8 @@ import threading
 import unittest
 from unittest.mock import Mock, PropertyMock, patch
 
-from module.webui.process_manager import ProcessManager
-from module.webui.setting import State
+from module.runtime.process_manager import ProcessManager
+from module.runtime.setting import State
 
 
 class TestProcessManagerRegistry(unittest.TestCase):
@@ -36,13 +36,13 @@ class TestProcessManagerRegistry(unittest.TestCase):
 
         with (
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=True),
+            patch("module.runtime.process_manager.process_matches", return_value=True),
         ):
             self.assertTrue(manager.alive)
 
@@ -53,14 +53,14 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree", return_value=True) as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=True),
-            patch("module.webui.process_manager.unregister_worker"),
+            patch("module.runtime.process_manager.process_matches", return_value=True),
+            patch("module.runtime.process_manager.unregister_worker"),
         ):
             self.assertTrue(manager.stop())
 
@@ -81,14 +81,14 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree") as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=True),
-            patch("module.webui.process_manager.unregister_worker"),
+            patch("module.runtime.process_manager.process_matches", return_value=True),
+            patch("module.runtime.process_manager.unregister_worker"),
         ):
             self.assertTrue(manager.stop())
 
@@ -113,14 +113,14 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree", return_value=True) as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=True),
-            patch("module.webui.process_manager.unregister_worker"),
+            patch("module.runtime.process_manager.process_matches", return_value=True),
+            patch("module.runtime.process_manager.unregister_worker"),
         ):
             self.assertTrue(manager.stop())
 
@@ -136,13 +136,13 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with patch.object(ProcessManager, "_kill_process_tree", return_value=False):
             with (
                 patch(
-                    "module.webui.process_manager.is_current_owner", return_value=True
+                    "module.runtime.process_manager.is_current_owner", return_value=True
                 ),
                 patch(
-                    "module.webui.process_manager.get_workers",
+                    "module.runtime.process_manager.get_workers",
                     return_value={"alas": {"pid": 12345, "created_at": 1}},
                 ),
-                patch("module.webui.process_manager.process_matches", return_value=True),
+                patch("module.runtime.process_manager.process_matches", return_value=True),
             ):
                 self.assertFalse(manager.stop())
 
@@ -155,14 +155,14 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree") as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=False),
-            patch("module.webui.process_manager.unregister_worker"),
+            patch("module.runtime.process_manager.process_matches", return_value=False),
+            patch("module.runtime.process_manager.unregister_worker"),
         ):
             self.assertTrue(manager.stop())
 
@@ -176,7 +176,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree") as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=False
+                "module.runtime.process_manager.is_current_owner", return_value=False
             ),
         ):
             self.assertFalse(manager.stop())
@@ -195,14 +195,14 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree") as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=False),
-            patch("module.webui.process_manager.unregister_worker"),
+            patch("module.runtime.process_manager.process_matches", return_value=False),
+            patch("module.runtime.process_manager.unregister_worker"),
         ):
             self.assertFalse(manager.stop())
 
@@ -224,14 +224,14 @@ class TestProcessManagerRegistry(unittest.TestCase):
         with (
             patch.object(ProcessManager, "_kill_process_tree") as kill,
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
             patch(
-                "module.webui.process_manager.process_matches",
+                "module.runtime.process_manager.process_matches",
                 side_effect=[True, False],
             ) as matches,
         ):
@@ -269,15 +269,15 @@ class TestProcessManagerRegistry(unittest.TestCase):
                 ProcessManager, "_kill_process_tree", side_effect=kill_process_tree
             ),
             patch(
-                "module.webui.process_manager.is_current_owner", return_value=True
+                "module.runtime.process_manager.is_current_owner", return_value=True
             ),
             patch(
-                "module.webui.process_manager.get_workers",
+                "module.runtime.process_manager.get_workers",
                 return_value={"alas": {"pid": 12345, "created_at": 1}},
             ),
-            patch("module.webui.process_manager.process_matches", return_value=True),
-            patch("module.webui.process_manager.unregister_worker"),
-            patch("module.webui.process_manager.Process", return_value=new_process),
+            patch("module.runtime.process_manager.process_matches", return_value=True),
+            patch("module.runtime.process_manager.unregister_worker"),
+            patch("module.runtime.process_manager.Process", return_value=new_process),
             patch.object(starter_manager, "_register_process"),
             patch.object(starter_manager, "start_log_queue_handler"),
             patch.object(
@@ -310,7 +310,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.start.side_effect = process_started.set
 
         with (
-            patch("module.webui.process_manager.Process", return_value=process),
+            patch("module.runtime.process_manager.Process", return_value=process),
             patch.object(manager, "_register_process"),
             patch.object(manager, "start_log_queue_handler"),
             patch.object(
@@ -339,7 +339,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.start.side_effect = process_started.set
 
         with (
-            patch("module.webui.process_manager.Process", return_value=process),
+            patch("module.runtime.process_manager.Process", return_value=process),
             patch.object(manager, "_register_process"),
             patch.object(manager, "start_log_queue_handler"),
             patch.object(
@@ -368,7 +368,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.start.side_effect = process_started.set
 
         with (
-            patch("module.webui.process_manager.Process", return_value=process),
+            patch("module.runtime.process_manager.Process", return_value=process),
             patch.object(manager, "_register_process"),
             patch.object(manager, "start_log_queue_handler"),
             patch.object(
@@ -390,7 +390,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.is_alive.return_value = False
 
         with (
-            patch("module.webui.process_manager.Process", return_value=process),
+            patch("module.runtime.process_manager.Process", return_value=process),
             patch.object(manager, "_register_process", side_effect=RuntimeError("deny")),
             patch.object(ProcessManager, "_kill_process_tree") as kill,
         ):
@@ -401,7 +401,32 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.join.assert_called_once_with(timeout=0)
         self.assertIsNone(manager._process)
 
+    def test_stop_by_user_stay_there_uses_original_stop_path(self):
+        manager = ProcessManager.get_manager("alas")
+
+        with (
+            patch.object(manager, "stop", return_value=True) as stop,
+            patch.object(manager, "_stop_worker_locked") as stop_worker,
+            patch.object(manager, "_run_manual_stop_action_locked") as action,
+        ):
+            self.assertTrue(manager.stop_by_user("stay_there"))
+
+        stop.assert_called_once_with()
+        stop_worker.assert_not_called()
+        action.assert_not_called()
+
     def test_stop_by_user_runs_action_after_confirmed_worker_stop(self):
+        manager = ProcessManager.get_manager("alas")
+
+        with (
+            patch.object(manager, "_stop_worker_locked", return_value=(True, True)),
+            patch.object(manager, "_run_manual_stop_action_locked") as action,
+        ):
+            self.assertTrue(manager.stop_by_user("goto_main"))
+
+        action.assert_called_once_with()
+
+    def test_stop_by_user_without_action_keeps_legacy_config_resolution(self):
         manager = ProcessManager.get_manager("alas")
 
         with (
@@ -419,7 +444,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
             patch.object(manager, "_stop_worker_locked", return_value=(False, True)),
             patch.object(manager, "_run_manual_stop_action_locked") as action,
         ):
-            self.assertFalse(manager.stop_by_user())
+            self.assertFalse(manager.stop_by_user("close_game"))
 
         action.assert_not_called()
 
@@ -430,7 +455,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
             patch.object(manager, "_stop_worker_locked", return_value=(True, False)),
             patch.object(manager, "_run_manual_stop_action_locked") as action,
         ):
-            self.assertTrue(manager.stop_by_user())
+            self.assertTrue(manager.stop_by_user("close_emulator"))
 
         action.assert_not_called()
 
@@ -451,7 +476,7 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.is_alive.return_value = False
         process.exitcode = 0
 
-        with patch("module.webui.process_manager.Process", return_value=process) as cls:
+        with patch("module.runtime.process_manager.Process", return_value=process) as cls:
             manager._run_manual_stop_action_locked()
 
         cls.assert_called_once_with(
@@ -459,88 +484,9 @@ class TestProcessManagerRegistry(unittest.TestCase):
             args=("alas",),
         )
         process.start.assert_called_once_with()
-
-    def test_manual_stop_action_join_runs_in_background_thread(self):
-        """收尾进程的 join 必须在后台线程执行，点击回调不能被阻塞。"""
-        manager = ProcessManager.get_manager("alas")
-        join_started = threading.Event()
-        release_join = threading.Event()
-        process = Mock()
-
-        def blocking_join(timeout=None):
-            join_started.set()
-            release_join.wait(timeout=5)
-            return
-
-        process.join.side_effect = blocking_join
-        process.is_alive.return_value = False
-        process.exitcode = 0
-
-        try:
-            with patch(
-                "module.webui.process_manager.Process", return_value=process
-            ):
-                manager._run_manual_stop_action_locked()
-
-            # 点击回调返回时 join 尚未结束（进程仍在运行）
-            self.assertIs(manager._manual_stop_action_process, process)
-            self.assertTrue(join_started.wait(timeout=5))
-            self.assertTrue(process.join.called)
-        finally:
-            release_join.set()
-            thread = manager._manual_stop_action_thread
-            if thread is not None:
-                thread.join(timeout=5)
-
-    def test_start_cancels_pending_manual_stop_action(self):
-        """启动 worker 前必须终止仍在运行的收尾进程，避免抢占设备。"""
-        manager = ProcessManager.get_manager("alas")
-        pending = Mock()
-        manager._manual_stop_action_process = pending
-        process = Mock()
-        process.pid = 12345
-
-        with (
-            patch("module.webui.process_manager.Process", return_value=process),
-            patch.object(manager, "_register_process"),
-            patch.object(manager, "start_log_queue_handler"),
-            patch.object(
-                ProcessManager,
-                "alive",
-                new_callable=PropertyMock,
-                return_value=False,
-            ),
-            patch.object(
-                ProcessManager, "_cancel_pending_manual_stop_action"
-            ) as cancel,
-        ):
-            manager.start("alas")
-
-        cancel.assert_called_once_with()
-
-    def test_cancel_pending_manual_stop_action_terminates_process(self):
-        manager = ProcessManager.get_manager("alas")
-        pending = Mock()
-        manager._manual_stop_action_process = pending
-
-        with patch.object(
-            ProcessManager, "_terminate_manual_stop_action"
-        ) as terminate:
-            manager._cancel_pending_manual_stop_action()
-
-        terminate.assert_called_once_with(pending)
-        self.assertIsNone(manager._manual_stop_action_process)
-
-    def test_cancel_pending_manual_stop_action_skips_when_none(self):
-        manager = ProcessManager.get_manager("alas")
-        manager._manual_stop_action_process = None
-
-        with patch.object(
-            ProcessManager, "_terminate_manual_stop_action"
-        ) as terminate:
-            manager._cancel_pending_manual_stop_action()
-
-        terminate.assert_not_called()
+        process.join.assert_called_once_with(
+            timeout=ProcessManager.MANUAL_STOP_ACTION_TIMEOUT
+        )
 
     def test_manual_stop_action_timeout_terminates_helper(self):
         manager = ProcessManager.get_manager("alas")
@@ -548,14 +494,11 @@ class TestProcessManagerRegistry(unittest.TestCase):
         process.is_alive.return_value = True
 
         with (
-            patch("module.webui.process_manager.Process", return_value=process),
+            patch("module.runtime.process_manager.Process", return_value=process),
             patch.object(
                 ProcessManager, "_terminate_manual_stop_action"
             ) as terminate,
         ):
             manager._run_manual_stop_action_locked()
-            thread = manager._manual_stop_action_thread
-            if thread is not None:
-                thread.join(timeout=5)
 
         terminate.assert_called_once_with(process)

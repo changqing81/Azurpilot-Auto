@@ -139,7 +139,7 @@ def notify_webui(instance: str, title: str, content: str, **kwargs) -> bool:
         推送成功返回 True，失败返回 False。
     """
     try:
-        from module.webui.setting import State
+        from module.runtime.setting import State
         port = int(State.deploy_config.WebuiPort) or 25548
     except Exception:
         port = 25548

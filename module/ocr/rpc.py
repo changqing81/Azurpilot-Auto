@@ -9,7 +9,7 @@ import multiprocessing
 import pickle
 
 from module.logger import logger
-from module.webui.setting import State
+from module.runtime.setting import State
 
 process: multiprocessing.Process = None
 

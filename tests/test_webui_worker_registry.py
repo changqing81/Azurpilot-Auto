@@ -10,8 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from module.webui import worker_registry
-from module.webui.setting import State
+from module.runtime import worker_registry
+from module.runtime.setting import State
 
 
 def _wait_forever():
@@ -315,16 +315,13 @@ class TestWorkerRegistry(unittest.TestCase):
             start_file = work_dir / "start"
             release_file = work_dir / "release"
             script = """
-import atexit
-import glob
-import logging
 import os
 import sys
 import time
 from pathlib import Path
 
 sys.argv[0] = f"registryclaim{os.getpid()}.py"
-from module.webui import worker_registry
+from module.runtime import worker_registry
 
 work_dir = Path(os.environ["WORKER_REGISTRY_TEST_DIR"])
 pid = os.getpid()
@@ -345,34 +342,6 @@ else:
     (work_dir / f"{pid}.result").write_text("claimed", encoding="utf-8")
     while not (work_dir / "release").exists():
         time.sleep(0.01)
-
-# 导入 module.webui 会连带初始化 module.logger，在 log/ 下产生本进程专属日志。
-# atexit 后注册先执行，先关闭日志句柄再删除，避免 log/ 目录堆积垃圾文件。
-def _remove_own_log():
-    from module.logger import logger as azur_logger
-
-    for hdlr in list(azur_logger.handlers):
-        # RichTimedRotatingHandler 的真实文件句柄挂在 richd.console.file 上，
-        # Handler.close() 只关 self.stream（已置 None），必须单独关闭
-        rich_console = getattr(getattr(hdlr, "richd", None), "console", None)
-        if rich_console is not None:
-            try:
-                if rich_console.file is not None:
-                    rich_console.file.close()
-            except Exception:
-                pass
-        try:
-            hdlr.close()
-        except Exception:
-            pass
-    logging.shutdown()
-    for log in glob.glob(f"./log/*registryclaim{os.getpid()}.txt"):
-        try:
-            os.remove(log)
-        except OSError:
-            pass
-
-atexit.register(_remove_own_log)
 """
             environment = os.environ.copy()
             environment.update(
@@ -493,20 +462,8 @@ atexit.register(_remove_own_log)
                     record = worker_registry.get_workers(owner_pid)["alas"]
                     self.assertTrue(worker_registry.process_matches(record))
                     self.assertTrue(_get_gui()._stop_registered_workers(owner_pid))
-            # POSIX 上 psutil.wait_procs 会 waitpid 收割掉当前进程的直接子进程，
-            # 而 Python 3.14 起 multiprocessing 在 waitpid 返回 ECHILD 时不再写
-            # returncode，Process.is_alive() 会永远返回 True。终止与否必须以
-            # OS 进程是否消失为准（process_matches 同时校验 PID 未被复用）。
-            deadline = time.monotonic() + 3
-            while (
-                worker_registry.process_matches(record) is True
-                and time.monotonic() < deadline
-            ):
-                time.sleep(0.1)
-            self.assertIsNone(
-                worker_registry.process_matches(record),
-                "登记的 worker 进程在终止后仍存活",
-            )
+            worker.join(timeout=3)
+            self.assertFalse(worker.is_alive())
         finally:
             if worker.is_alive():
                 worker.kill()
@@ -544,9 +501,9 @@ class TestStateWorkerOwnership(unittest.TestCase):
         State._init = False
 
         with (
-            patch("module.webui.setting.multiprocessing.Manager", return_value=manager),
+            patch("module.runtime.setting.multiprocessing.Manager", return_value=manager),
             patch(
-                "module.webui.worker_registry.claim_owner",
+                "module.runtime.worker_registry.claim_owner",
                 side_effect=worker_registry.WorkerRegistryOwnershipError("owner exists"),
             ),
         ):

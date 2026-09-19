@@ -1,0 +1,1555 @@
+2026-09-18T07:30:32.564985Z  INFO i18n locale set to: zh-CN
+2026-09-18T07:30:32.565031Z  INFO === AzurPilot starting ===
+2026-09-18T07:30:32.565046Z  INFO Launcher log file: log/2026-09-18_launcher.txt
+2026-09-18T07:30:32.565805Z  INFO Starting Webview...
+2026-09-18T07:30:34.060264Z  INFO Creating system tray...
+2026-09-18T07:30:34.061109Z  INFO Tray menu created successfully
+2026-09-18T07:30:34.091935Z  INFO Building tray icon...
+2026-09-18T07:30:34.130262Z  INFO System tray created successfully!
+2026-09-18T07:30:34.130322Z DEBUG RunEvent::Ready
+2026-09-18T07:30:34.133769Z DEBUG starting new connection: https://github.com/    
+2026-09-18T07:30:34.149986Z DEBUG connecting to 127.0.0.1:443
+2026-09-18T07:30:34.150655Z DEBUG connected to 127.0.0.1:443
+2026-09-18T07:30:34.187156Z  WARN Unable to fetch launcher update manifest from https://github.com/changqing81/alas-launcher/releases/latest/download/stable.json: request launcher update manifest from https://github.com/changqing81/alas-launcher/releases/latest/download/stable.json: error sending request for url (https://github.com/changqing81/alas-launcher/releases/latest/download/stable.json): client error (Connect): invalid peer certificate: UnknownIssuer
+2026-09-18T07:30:34.187525Z DEBUG starting new connection: https://raw.githubusercontent.com/    
+2026-09-18T07:30:34.187875Z DEBUG connecting to 127.0.0.1:443
+2026-09-18T07:30:34.188247Z DEBUG connected to 127.0.0.1:443
+2026-09-18T07:30:34.201677Z  INFO Injecting saveFile function to loaded page: about:blank
+2026-09-18T07:30:34.219592Z  WARN Unable to fetch launcher update manifest from https://raw.githubusercontent.com/changqing81/alas-launcher/main/updata/stable.json: request launcher update manifest from https://raw.githubusercontent.com/changqing81/alas-launcher/main/updata/stable.json: error sending request for url (https://raw.githubusercontent.com/changqing81/alas-launcher/main/updata/stable.json): client error (Connect): invalid peer certificate: UnknownIssuer
+2026-09-18T07:30:34.221137Z  WARN Launcher update check failed, continuing startup: 无法检查启动器更新，无法继续启动：Unable to fetch launcher update manifest from all configured URLs: https://github.com/changqing81/alas-launcher/releases/latest/download/stable.json: request launcher update manifest from https://github.com/changqing81/alas-launcher/releases/latest/download/stable.json: error sending request for url (https://github.com/changqing81/alas-launcher/releases/latest/download/stable.json): client error (Connect): invalid peer certificate: UnknownIssuer; https://raw.githubusercontent.com/changqing81/alas-launcher/main/updata/stable.json: request launcher update manifest from https://raw.githubusercontent.com/changqing81/alas-launcher/main/updata/stable.json: error sending request for url (https://raw.githubusercontent.com/changqing81/alas-launcher/main/updata/stable.json): client error (Connect): invalid peer certificate: UnknownIssuer
+2026-09-18T07:30:34.319916Z  INFO Node.js runtime is available version="v24.19.0" executable=D:\node.js\node.exe
+2026-09-18T07:30:34.319937Z  INFO Starting setup for AzurPilot repository...
+2026-09-18T07:30:36.238928Z  INFO Updated self-contained .venv settings in ./config/deploy.yaml
+2026-09-18T07:30:36.933582Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:36.933601Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:36.933603Z  INFO Branch: dev
+2026-09-18T07:30:36.933606Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:36.933634Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:36.933637Z  INFO AutoRestartTime: None
+2026-09-18T07:30:36.933640Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:36.933642Z  INFO WebuiPort: 22267
+2026-09-18T07:30:36.933644Z  INFO Language: zh-CN
+2026-09-18T07:30:36.933646Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:36.933648Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:36.933651Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:30:36.933653Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:36.933662Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:30:36.946540Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:30:36.946622Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:30:36.946860Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:30:36.946890Z  INFO "git" init
+2026-09-18T07:30:37.232534Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:30:37.239927Z  INFO [ success ]
+2026-09-18T07:30:37.240566Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:30:37.240585Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:30:37.491991Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:37.492007Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:30:37.784435Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:37.784453Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:30:38.064688Z  INFO [ success ]
+2026-09-18T07:30:38.064747Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:30:38.064785Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:38.310083Z  INFO [ success ]
+2026-09-18T07:30:38.310584Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:30:38.310609Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:30:39.345971Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:30:39.373784Z  INFO [ failure ], error_code: 128
+2026-09-18T07:30:39.373964Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:39.373990Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:30:39.373995Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:39.374049Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:39.374277Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:39.374411Z  INFO Branch: dev
+2026-09-18T07:30:39.374625Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:39.374680Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:39.374866Z  INFO AutoRestartTime: None
+2026-09-18T07:30:39.375728Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:39.375773Z  INFO WebuiPort: 22267
+2026-09-18T07:30:39.375780Z  INFO Language: zh-CN
+2026-09-18T07:30:39.375785Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:39.375791Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:30:39.375796Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:30:39.375802Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:30:39.377902Z  WARN Traceback (most recent call last):
+2026-09-18T07:30:39.379690Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:30:39.379724Z  WARN     gm.git_install()
+2026-09-18T07:30:39.379733Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:30:39.379741Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:30:39.379748Z  WARN     self.git_repository_init(
+2026-09-18T07:30:39.379756Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:30:39.379763Z  WARN         repo=self.Repository,
+2026-09-18T07:30:39.379770Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:39.379778Z  WARN     ...<3 lines>...
+2026-09-18T07:30:39.379785Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:30:39.379796Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:39.379803Z  WARN     )
+2026-09-18T07:30:39.379810Z  WARN     ^
+2026-09-18T07:30:39.379818Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:30:39.379826Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:30:39.379833Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:39.379840Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:30:39.379847Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:30:39.379854Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:30:39.379861Z  WARN     raise ExecutionError
+2026-09-18T07:30:39.379868Z  WARN deploy.config.ExecutionError
+2026-09-18T07:30:39.463093Z  WARN 代码更新 failed (retry 1/20): deploy.config.ExecutionError
+2026-09-18T07:30:41.532101Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:41.532131Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:41.532136Z  INFO Branch: dev
+2026-09-18T07:30:41.532141Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:41.532214Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:41.532231Z  INFO AutoRestartTime: None
+2026-09-18T07:30:41.532236Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:41.532241Z  INFO WebuiPort: 22267
+2026-09-18T07:30:41.532246Z  INFO Language: zh-CN
+2026-09-18T07:30:41.532592Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:41.532618Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:41.532624Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:30:41.532628Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:41.532632Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:30:41.552720Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:30:41.552788Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:30:41.553170Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:30:41.553194Z  INFO "git" init
+2026-09-18T07:30:41.848763Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:30:41.859470Z  INFO [ success ]
+2026-09-18T07:30:41.859541Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:30:41.859549Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:30:42.131630Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:42.131644Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:30:42.407072Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:42.407091Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:30:42.667573Z  INFO [ success ]
+2026-09-18T07:30:42.667617Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:30:42.667620Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:42.902000Z  INFO [ success ]
+2026-09-18T07:30:42.902041Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:30:42.902045Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:30:43.464954Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:30:43.500925Z  INFO [ failure ], error_code: 128
+2026-09-18T07:30:43.500964Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:43.500972Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:30:43.500979Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:43.501050Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:43.501060Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:43.501067Z  INFO Branch: dev
+2026-09-18T07:30:43.501303Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:43.501349Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:43.501358Z  INFO AutoRestartTime: None
+2026-09-18T07:30:43.501365Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:43.501373Z  INFO WebuiPort: 22267
+2026-09-18T07:30:43.501380Z  INFO Language: zh-CN
+2026-09-18T07:30:43.501386Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:43.501565Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:30:43.501586Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:30:43.501593Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:30:43.508773Z  WARN Traceback (most recent call last):
+2026-09-18T07:30:43.511075Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:30:43.511106Z  WARN     gm.git_install()
+2026-09-18T07:30:43.511112Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:30:43.511118Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:30:43.511124Z  WARN     self.git_repository_init(
+2026-09-18T07:30:43.511129Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:30:43.511134Z  WARN         repo=self.Repository,
+2026-09-18T07:30:43.511139Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:43.511144Z  WARN     ...<3 lines>...
+2026-09-18T07:30:43.511149Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:30:43.511157Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:43.511162Z  WARN     )
+2026-09-18T07:30:43.511166Z  WARN     ^
+2026-09-18T07:30:43.511172Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:30:43.511177Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:30:43.511182Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:43.511187Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:30:43.511191Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:30:43.511196Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:30:43.511201Z  WARN     raise ExecutionError
+2026-09-18T07:30:43.511206Z  WARN deploy.config.ExecutionError
+2026-09-18T07:30:43.549097Z  WARN 代码更新 failed (retry 2/20): deploy.config.ExecutionError
+2026-09-18T07:30:45.661942Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:45.661962Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:45.661964Z  INFO Branch: dev
+2026-09-18T07:30:45.661967Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:45.661971Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:45.661973Z  INFO AutoRestartTime: None
+2026-09-18T07:30:45.661996Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:45.661999Z  INFO WebuiPort: 22267
+2026-09-18T07:30:45.662002Z  INFO Language: zh-CN
+2026-09-18T07:30:45.662004Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:45.662006Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:45.662009Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:30:45.662011Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:45.662051Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:30:45.679728Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:30:45.680270Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:30:45.680329Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:30:45.680338Z  INFO "git" init
+2026-09-18T07:30:45.962833Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:30:45.969190Z  INFO [ success ]
+2026-09-18T07:30:45.969225Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:30:45.969229Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:30:46.276657Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:46.276773Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:30:46.585565Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:46.585581Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:30:46.880859Z  INFO [ success ]
+2026-09-18T07:30:46.880901Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:30:46.880905Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:47.127809Z  INFO [ success ]
+2026-09-18T07:30:47.127849Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:30:47.127853Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:30:47.631726Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:30:47.662137Z  INFO [ failure ], error_code: 128
+2026-09-18T07:30:47.662183Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:47.662193Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:30:47.662200Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:47.662285Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:47.662298Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:47.662307Z  INFO Branch: dev
+2026-09-18T07:30:47.662316Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:47.662325Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:47.662764Z  INFO AutoRestartTime: None
+2026-09-18T07:30:47.662840Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:47.662853Z  INFO WebuiPort: 22267
+2026-09-18T07:30:47.662861Z  INFO Language: zh-CN
+2026-09-18T07:30:47.662869Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:47.662877Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:30:47.662885Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:30:47.662893Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:30:47.666559Z  WARN Traceback (most recent call last):
+2026-09-18T07:30:47.668276Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:30:47.668295Z  WARN     gm.git_install()
+2026-09-18T07:30:47.668299Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:30:47.668303Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:30:47.668307Z  WARN     self.git_repository_init(
+2026-09-18T07:30:47.668311Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:30:47.668314Z  WARN         repo=self.Repository,
+2026-09-18T07:30:47.668318Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:47.668322Z  WARN     ...<3 lines>...
+2026-09-18T07:30:47.668325Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:30:47.668331Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:47.668334Z  WARN     )
+2026-09-18T07:30:47.668338Z  WARN     ^
+2026-09-18T07:30:47.668342Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:30:47.668346Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:30:47.668350Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:47.668354Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:30:47.668357Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:30:47.668361Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:30:47.668365Z  WARN     raise ExecutionError
+2026-09-18T07:30:47.668368Z  WARN deploy.config.ExecutionError
+2026-09-18T07:30:47.736338Z  WARN 代码更新 failed (retry 3/20): deploy.config.ExecutionError
+2026-09-18T07:30:49.698316Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:49.698334Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:49.698337Z  INFO Branch: dev
+2026-09-18T07:30:49.698339Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:49.698342Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:49.698344Z  INFO AutoRestartTime: None
+2026-09-18T07:30:49.698346Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:49.698348Z  INFO WebuiPort: 22267
+2026-09-18T07:30:49.698350Z  INFO Language: zh-CN
+2026-09-18T07:30:49.698466Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:49.698479Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:49.698481Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:30:49.698483Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:49.698485Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:30:49.709234Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:30:49.709680Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:30:49.709709Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:30:49.709715Z  INFO "git" init
+2026-09-18T07:30:50.010652Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:30:50.016946Z  INFO [ success ]
+2026-09-18T07:30:50.016983Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:30:50.016987Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:30:50.281563Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:50.281577Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:30:50.533678Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:50.533692Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:30:50.799464Z  INFO [ success ]
+2026-09-18T07:30:50.799585Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:30:50.799597Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:51.068749Z  INFO [ success ]
+2026-09-18T07:30:51.068816Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:30:51.068824Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:30:51.513584Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:30:51.542014Z  INFO [ failure ], error_code: 128
+2026-09-18T07:30:51.542076Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:51.542085Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:30:51.542092Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:51.542167Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:51.542175Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:51.542182Z  INFO Branch: dev
+2026-09-18T07:30:51.542190Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:51.542198Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:51.542403Z  INFO AutoRestartTime: None
+2026-09-18T07:30:51.542416Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:51.542424Z  INFO WebuiPort: 22267
+2026-09-18T07:30:51.542431Z  INFO Language: zh-CN
+2026-09-18T07:30:51.542440Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:51.542560Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:30:51.542573Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:30:51.542582Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:30:51.546550Z  WARN Traceback (most recent call last):
+2026-09-18T07:30:51.547988Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:30:51.548005Z  WARN     gm.git_install()
+2026-09-18T07:30:51.548011Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:30:51.548015Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:30:51.548020Z  WARN     self.git_repository_init(
+2026-09-18T07:30:51.548024Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:30:51.548029Z  WARN         repo=self.Repository,
+2026-09-18T07:30:51.548033Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:51.548038Z  WARN     ...<3 lines>...
+2026-09-18T07:30:51.548042Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:30:51.548049Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:51.548053Z  WARN     )
+2026-09-18T07:30:51.548057Z  WARN     ^
+2026-09-18T07:30:51.548062Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:30:51.548067Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:30:51.548071Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:51.548076Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:30:51.548080Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:30:51.548085Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:30:51.548089Z  WARN     raise ExecutionError
+2026-09-18T07:30:51.548094Z  WARN deploy.config.ExecutionError
+2026-09-18T07:30:51.611909Z  WARN 代码更新 failed (retry 4/20): deploy.config.ExecutionError
+2026-09-18T07:30:53.609203Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:53.609221Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:53.609223Z  INFO Branch: dev
+2026-09-18T07:30:53.609225Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:53.609321Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:53.609328Z  INFO AutoRestartTime: None
+2026-09-18T07:30:53.609330Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:53.609333Z  INFO WebuiPort: 22267
+2026-09-18T07:30:53.609335Z  INFO Language: zh-CN
+2026-09-18T07:30:53.609337Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:53.609339Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:53.609341Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:30:53.609343Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:53.609345Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:30:53.617204Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:30:53.617235Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:30:53.617394Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:30:53.617404Z  INFO "git" init
+2026-09-18T07:30:53.857948Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:30:53.863916Z  INFO [ success ]
+2026-09-18T07:30:53.863950Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:30:53.863954Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:30:54.084481Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:54.084496Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:30:54.379820Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:54.379837Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:30:54.646625Z  INFO [ success ]
+2026-09-18T07:30:54.646709Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:30:54.646717Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:54.910043Z  INFO [ success ]
+2026-09-18T07:30:54.910859Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:30:54.910894Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:30:55.362697Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:30:55.401997Z  INFO [ failure ], error_code: 128
+2026-09-18T07:30:55.402061Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:55.402068Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:30:55.402075Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:55.402151Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:55.402379Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:55.402420Z  INFO Branch: dev
+2026-09-18T07:30:55.402428Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:55.402438Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:55.402445Z  INFO AutoRestartTime: None
+2026-09-18T07:30:55.402451Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:55.402536Z  INFO WebuiPort: 22267
+2026-09-18T07:30:55.402829Z  INFO Language: zh-CN
+2026-09-18T07:30:55.402867Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:55.402877Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:30:55.402885Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:30:55.402893Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:30:55.406563Z  WARN Traceback (most recent call last):
+2026-09-18T07:30:55.407932Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:30:55.407945Z  WARN     gm.git_install()
+2026-09-18T07:30:55.407948Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:30:55.407950Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:30:55.407952Z  WARN     self.git_repository_init(
+2026-09-18T07:30:55.407954Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:30:55.407956Z  WARN         repo=self.Repository,
+2026-09-18T07:30:55.407958Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:55.407960Z  WARN     ...<3 lines>...
+2026-09-18T07:30:55.407962Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:30:55.407964Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:55.407966Z  WARN     )
+2026-09-18T07:30:55.407968Z  WARN     ^
+2026-09-18T07:30:55.407970Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:30:55.407972Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:30:55.407974Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:55.407976Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:30:55.407978Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:30:55.407980Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:30:55.407982Z  WARN     raise ExecutionError
+2026-09-18T07:30:55.407984Z  WARN deploy.config.ExecutionError
+2026-09-18T07:30:55.465074Z  WARN 代码更新 failed (retry 5/20): deploy.config.ExecutionError
+2026-09-18T07:30:57.606180Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:57.606261Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:57.606270Z  INFO Branch: dev
+2026-09-18T07:30:57.606276Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:57.606286Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:57.606292Z  INFO AutoRestartTime: None
+2026-09-18T07:30:57.606298Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:57.606305Z  INFO WebuiPort: 22267
+2026-09-18T07:30:57.606311Z  INFO Language: zh-CN
+2026-09-18T07:30:57.606317Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:57.606323Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:57.606329Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:30:57.606334Z  INFO +--------------------------------------------------------+
+2026-09-18T07:30:57.606484Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:30:57.615395Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:30:57.615430Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:30:57.615590Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:30:57.615602Z  INFO "git" init
+2026-09-18T07:30:57.915830Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:30:57.922504Z  INFO [ success ]
+2026-09-18T07:30:57.922909Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:30:57.922926Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:30:58.194954Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:58.194968Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:30:58.469139Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:30:58.469262Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:30:58.777104Z  INFO [ success ]
+2026-09-18T07:30:58.777178Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:30:58.777185Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:59.051247Z  INFO [ success ]
+2026-09-18T07:30:59.051291Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:30:59.051295Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:30:59.558906Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:30:59.595777Z  INFO [ failure ], error_code: 128
+2026-09-18T07:30:59.595822Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:59.595830Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:30:59.595911Z  INFO +-----------------------------------------------------+
+2026-09-18T07:30:59.595985Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:30:59.595997Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:30:59.596005Z  INFO Branch: dev
+2026-09-18T07:30:59.596013Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:30:59.596067Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:30:59.596108Z  INFO AutoRestartTime: None
+2026-09-18T07:30:59.596262Z  INFO EnableRemoteAccess: True
+2026-09-18T07:30:59.596297Z  INFO WebuiPort: 22267
+2026-09-18T07:30:59.596307Z  INFO Language: zh-CN
+2026-09-18T07:30:59.596315Z  INFO Rest of the configs are the same as default
+2026-09-18T07:30:59.596451Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:30:59.596475Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:30:59.596496Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:30:59.600515Z  WARN Traceback (most recent call last):
+2026-09-18T07:30:59.602417Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:30:59.602437Z  WARN     gm.git_install()
+2026-09-18T07:30:59.602443Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:30:59.602449Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:30:59.602454Z  WARN     self.git_repository_init(
+2026-09-18T07:30:59.602459Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:30:59.602465Z  WARN         repo=self.Repository,
+2026-09-18T07:30:59.602470Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:59.602475Z  WARN     ...<3 lines>...
+2026-09-18T07:30:59.602480Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:30:59.602487Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:59.602492Z  WARN     )
+2026-09-18T07:30:59.602497Z  WARN     ^
+2026-09-18T07:30:59.602502Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:30:59.602508Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:30:59.602512Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:30:59.602517Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:30:59.602522Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:30:59.602527Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:30:59.602532Z  WARN     raise ExecutionError
+2026-09-18T07:30:59.602537Z  WARN deploy.config.ExecutionError
+2026-09-18T07:30:59.664754Z  WARN 代码更新 failed (retry 6/20): deploy.config.ExecutionError
+2026-09-18T07:31:01.713851Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:01.714017Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:01.714059Z  INFO Branch: dev
+2026-09-18T07:31:01.714094Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:01.714131Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:01.714162Z  INFO AutoRestartTime: None
+2026-09-18T07:31:01.714192Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:01.714223Z  INFO WebuiPort: 22267
+2026-09-18T07:31:01.714254Z  INFO Language: zh-CN
+2026-09-18T07:31:01.714284Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:01.714314Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:01.714343Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:01.714373Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:01.714402Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:01.729043Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:01.732442Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:01.732606Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:01.732650Z  INFO "git" init
+2026-09-18T07:31:02.018201Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:02.026230Z  INFO [ success ]
+2026-09-18T07:31:02.026624Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:02.026714Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:02.272975Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:02.273119Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:02.586254Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:02.586366Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:02.915598Z  INFO [ success ]
+2026-09-18T07:31:02.916160Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:02.916299Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:03.256369Z  INFO [ success ]
+2026-09-18T07:31:03.257414Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:03.257515Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:03.845088Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:03.867376Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:03.867494Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:03.867530Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:03.867560Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:03.867722Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:03.867766Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:03.867797Z  INFO Branch: dev
+2026-09-18T07:31:03.867827Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:03.867861Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:03.867891Z  INFO AutoRestartTime: None
+2026-09-18T07:31:03.867921Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:03.867951Z  INFO WebuiPort: 22267
+2026-09-18T07:31:03.867981Z  INFO Language: zh-CN
+2026-09-18T07:31:03.868010Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:03.868039Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:03.868067Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:03.868096Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:03.869168Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:03.870694Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:03.870767Z  WARN     gm.git_install()
+2026-09-18T07:31:03.870806Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:03.871053Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:03.875674Z  WARN     self.git_repository_init(
+2026-09-18T07:31:03.875748Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:03.875787Z  WARN         repo=self.Repository,
+2026-09-18T07:31:03.875818Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:03.875850Z  WARN     ...<3 lines>...
+2026-09-18T07:31:03.875938Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:03.875980Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:03.876010Z  WARN     )
+2026-09-18T07:31:03.876040Z  WARN     ^
+2026-09-18T07:31:03.876069Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:03.876099Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:03.876129Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:03.876158Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:03.876186Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:03.876214Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:03.876242Z  WARN     raise ExecutionError
+2026-09-18T07:31:03.876271Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:04.188551Z  WARN 代码更新 failed (retry 7/20): deploy.config.ExecutionError
+2026-09-18T07:31:06.044346Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:06.044562Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:06.044604Z  INFO Branch: dev
+2026-09-18T07:31:06.044641Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:06.044680Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:06.044711Z  INFO AutoRestartTime: None
+2026-09-18T07:31:06.044739Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:06.044769Z  INFO WebuiPort: 22267
+2026-09-18T07:31:06.044798Z  INFO Language: zh-CN
+2026-09-18T07:31:06.044828Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:06.044857Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:06.044885Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:06.044915Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:06.044944Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:06.054305Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:06.054900Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:06.055107Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:06.055150Z  INFO "git" init
+2026-09-18T07:31:06.277914Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:06.286704Z  INFO [ success ]
+2026-09-18T07:31:06.287877Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:06.288049Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:06.550548Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:06.550650Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:06.822940Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:06.823043Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:07.119938Z  INFO [ success ]
+2026-09-18T07:31:07.120422Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:07.120664Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:07.904912Z  INFO [ success ]
+2026-09-18T07:31:07.905669Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:07.905953Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:08.752239Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:08.775010Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:08.775974Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:08.777916Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:08.778158Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:08.778721Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:08.778954Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:08.779003Z  INFO Branch: dev
+2026-09-18T07:31:08.779695Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:08.779768Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:08.779808Z  INFO AutoRestartTime: None
+2026-09-18T07:31:08.780687Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:08.781773Z  INFO WebuiPort: 22267
+2026-09-18T07:31:08.781931Z  INFO Language: zh-CN
+2026-09-18T07:31:08.781979Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:08.782335Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:08.782379Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:08.782412Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:08.812974Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:08.826779Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:08.826894Z  WARN     gm.git_install()
+2026-09-18T07:31:08.826933Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:08.826966Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:08.826998Z  WARN     self.git_repository_init(
+2026-09-18T07:31:08.827029Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:08.827060Z  WARN         repo=self.Repository,
+2026-09-18T07:31:08.827088Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:08.827119Z  WARN     ...<3 lines>...
+2026-09-18T07:31:08.827150Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:08.827192Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:08.827223Z  WARN     )
+2026-09-18T07:31:08.827252Z  WARN     ^
+2026-09-18T07:31:08.827284Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:08.827316Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:08.827346Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:08.827377Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:08.827470Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:08.827505Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:08.827537Z  WARN     raise ExecutionError
+2026-09-18T07:31:08.827792Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:09.061824Z  WARN 代码更新 failed (retry 8/20): deploy.config.ExecutionError
+2026-09-18T07:31:10.943713Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:10.943854Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:10.943893Z  INFO Branch: dev
+2026-09-18T07:31:10.943926Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:10.943962Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:10.943993Z  INFO AutoRestartTime: None
+2026-09-18T07:31:10.944022Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:10.944054Z  INFO WebuiPort: 22267
+2026-09-18T07:31:10.944084Z  INFO Language: zh-CN
+2026-09-18T07:31:10.944115Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:10.944146Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:10.944177Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:10.944205Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:10.944235Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:10.954579Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:10.955137Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:10.955414Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:10.955460Z  INFO "git" init
+2026-09-18T07:31:11.210114Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:11.218352Z  INFO [ success ]
+2026-09-18T07:31:11.218617Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:11.218668Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:11.475483Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:11.475617Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:11.695911Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:11.696030Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:11.892694Z  INFO [ success ]
+2026-09-18T07:31:11.892958Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:11.893013Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:12.160049Z  INFO [ success ]
+2026-09-18T07:31:12.160793Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:12.160896Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:12.647922Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:12.669069Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:12.669200Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:12.669241Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:12.669272Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:12.670195Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:12.670359Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:12.670402Z  INFO Branch: dev
+2026-09-18T07:31:12.670436Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:12.670472Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:12.670504Z  INFO AutoRestartTime: None
+2026-09-18T07:31:12.670532Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:12.670640Z  INFO WebuiPort: 22267
+2026-09-18T07:31:12.670670Z  INFO Language: zh-CN
+2026-09-18T07:31:12.670699Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:12.670728Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:12.670757Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:12.670787Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:12.671227Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:12.672729Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:12.672797Z  WARN     gm.git_install()
+2026-09-18T07:31:12.672832Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:12.672864Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:12.672894Z  WARN     self.git_repository_init(
+2026-09-18T07:31:12.672925Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:12.672956Z  WARN         repo=self.Repository,
+2026-09-18T07:31:12.672986Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:12.673017Z  WARN     ...<3 lines>...
+2026-09-18T07:31:12.673047Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:12.673654Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:12.673737Z  WARN     )
+2026-09-18T07:31:12.673925Z  WARN     ^
+2026-09-18T07:31:12.675512Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:12.675605Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:12.675752Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:12.675824Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:12.675864Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:12.675896Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:12.675926Z  WARN     raise ExecutionError
+2026-09-18T07:31:12.676361Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:12.716216Z  WARN 代码更新 failed (retry 9/20): deploy.config.ExecutionError
+2026-09-18T07:31:14.583878Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:14.583995Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:14.584034Z  INFO Branch: dev
+2026-09-18T07:31:14.584068Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:14.584105Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:14.584136Z  INFO AutoRestartTime: None
+2026-09-18T07:31:14.584166Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:14.584196Z  INFO WebuiPort: 22267
+2026-09-18T07:31:14.584226Z  INFO Language: zh-CN
+2026-09-18T07:31:14.584255Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:14.584286Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:14.584317Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:14.584347Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:14.584377Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:14.599382Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:14.599628Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:14.599836Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:14.599880Z  INFO "git" init
+2026-09-18T07:31:14.933129Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:14.943880Z  INFO [ success ]
+2026-09-18T07:31:14.944150Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:14.944198Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:15.242204Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:15.242329Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:15.473248Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:15.473393Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:15.703648Z  INFO [ success ]
+2026-09-18T07:31:15.704156Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:15.704275Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:15.994970Z  INFO [ success ]
+2026-09-18T07:31:15.995973Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:15.996110Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:16.516236Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:16.531123Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:16.531239Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:16.531276Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:16.531308Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:16.531496Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:16.531540Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:16.531570Z  INFO Branch: dev
+2026-09-18T07:31:16.531600Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:16.531633Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:16.531662Z  INFO AutoRestartTime: None
+2026-09-18T07:31:16.531691Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:16.531721Z  INFO WebuiPort: 22267
+2026-09-18T07:31:16.531750Z  INFO Language: zh-CN
+2026-09-18T07:31:16.531782Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:16.531812Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:16.531841Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:16.531870Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:16.535410Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:16.537185Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:16.537276Z  WARN     gm.git_install()
+2026-09-18T07:31:16.537315Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:16.537348Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:16.537381Z  WARN     self.git_repository_init(
+2026-09-18T07:31:16.537411Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:16.537442Z  WARN         repo=self.Repository,
+2026-09-18T07:31:16.537471Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:16.537503Z  WARN     ...<3 lines>...
+2026-09-18T07:31:16.540824Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:16.540976Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:16.541015Z  WARN     )
+2026-09-18T07:31:16.541047Z  WARN     ^
+2026-09-18T07:31:16.541079Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:16.541109Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:16.541139Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:16.541169Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:16.541198Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:16.541227Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:16.541258Z  WARN     raise ExecutionError
+2026-09-18T07:31:16.541288Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:16.577107Z  WARN 代码更新 failed (retry 10/20): deploy.config.ExecutionError
+2026-09-18T07:31:18.531608Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:18.531733Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:18.531770Z  INFO Branch: dev
+2026-09-18T07:31:18.531800Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:18.531836Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:18.531864Z  INFO AutoRestartTime: None
+2026-09-18T07:31:18.531892Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:18.531921Z  INFO WebuiPort: 22267
+2026-09-18T07:31:18.531949Z  INFO Language: zh-CN
+2026-09-18T07:31:18.531977Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:18.532004Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:18.532031Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:18.532057Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:18.532086Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:18.552127Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:18.554198Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:18.554472Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:18.554518Z  INFO "git" init
+2026-09-18T07:31:18.910683Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:18.921186Z  INFO [ success ]
+2026-09-18T07:31:18.921445Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:18.921496Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:19.168203Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:19.168339Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:19.419906Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:19.420050Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:19.628815Z  INFO [ success ]
+2026-09-18T07:31:19.629099Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:19.629153Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:19.874941Z  INFO [ success ]
+2026-09-18T07:31:19.875341Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:19.875539Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:20.442088Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:20.463292Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:20.463409Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:20.463447Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:20.463476Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:20.463679Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:20.463723Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:20.463753Z  INFO Branch: dev
+2026-09-18T07:31:20.463783Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:20.463816Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:20.463845Z  INFO AutoRestartTime: None
+2026-09-18T07:31:20.463874Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:20.463905Z  INFO WebuiPort: 22267
+2026-09-18T07:31:20.463934Z  INFO Language: zh-CN
+2026-09-18T07:31:20.463962Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:20.463990Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:20.464018Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:20.464046Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:20.465796Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:20.467250Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:20.467318Z  WARN     gm.git_install()
+2026-09-18T07:31:20.467355Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:20.467389Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:20.467420Z  WARN     self.git_repository_init(
+2026-09-18T07:31:20.467451Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:20.467480Z  WARN         repo=self.Repository,
+2026-09-18T07:31:20.467510Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:20.467540Z  WARN     ...<3 lines>...
+2026-09-18T07:31:20.467569Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:20.467606Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:20.467636Z  WARN     )
+2026-09-18T07:31:20.467676Z  WARN     ^
+2026-09-18T07:31:20.467712Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:20.467745Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:20.467776Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:20.467806Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:20.467837Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:20.470999Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:20.471066Z  WARN     raise ExecutionError
+2026-09-18T07:31:20.471107Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:20.516633Z  WARN 代码更新 failed (retry 11/20): deploy.config.ExecutionError
+2026-09-18T07:31:22.944407Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:22.944549Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:22.944591Z  INFO Branch: dev
+2026-09-18T07:31:22.944625Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:22.944660Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:22.945031Z  INFO AutoRestartTime: None
+2026-09-18T07:31:22.945163Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:22.945200Z  INFO WebuiPort: 22267
+2026-09-18T07:31:22.945229Z  INFO Language: zh-CN
+2026-09-18T07:31:22.945257Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:22.945283Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:22.945310Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:22.945335Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:22.945362Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:22.972409Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:22.974673Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:22.974964Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:22.975036Z  INFO "git" init
+2026-09-18T07:31:23.311814Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:23.321362Z  INFO [ success ]
+2026-09-18T07:31:23.322406Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:23.322540Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:23.651337Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:23.651461Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:23.983851Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:23.983973Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:24.324407Z  INFO [ success ]
+2026-09-18T07:31:24.324664Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:24.324715Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:24.704324Z  INFO [ success ]
+2026-09-18T07:31:24.705108Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:24.705218Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:25.377366Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:25.412958Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:25.413235Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:25.413566Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:25.413822Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:25.414069Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:25.414304Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:25.414440Z  INFO Branch: dev
+2026-09-18T07:31:25.415197Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:25.415610Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:25.415785Z  INFO AutoRestartTime: None
+2026-09-18T07:31:25.416112Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:25.416230Z  INFO WebuiPort: 22267
+2026-09-18T07:31:25.416555Z  INFO Language: zh-CN
+2026-09-18T07:31:25.416903Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:25.417272Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:25.417383Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:25.418072Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:25.437788Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:25.448782Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:25.448905Z  WARN     gm.git_install()
+2026-09-18T07:31:25.448940Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:25.448969Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:25.448998Z  WARN     self.git_repository_init(
+2026-09-18T07:31:25.449024Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:25.449051Z  WARN         repo=self.Repository,
+2026-09-18T07:31:25.449078Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:25.449106Z  WARN     ...<3 lines>...
+2026-09-18T07:31:25.449133Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:25.449167Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:25.449194Z  WARN     )
+2026-09-18T07:31:25.449232Z  WARN     ^
+2026-09-18T07:31:25.449266Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:25.449298Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:25.449326Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:25.449355Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:25.449382Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:25.449411Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:25.449439Z  WARN     raise ExecutionError
+2026-09-18T07:31:25.449467Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:25.708741Z  WARN 代码更新 failed (retry 12/20): deploy.config.ExecutionError
+2026-09-18T07:31:27.737926Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:27.738104Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:27.738147Z  INFO Branch: dev
+2026-09-18T07:31:27.738182Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:27.738220Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:27.738252Z  INFO AutoRestartTime: None
+2026-09-18T07:31:27.738281Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:27.738311Z  INFO WebuiPort: 22267
+2026-09-18T07:31:27.738340Z  INFO Language: zh-CN
+2026-09-18T07:31:27.738369Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:27.738397Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:27.738426Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:27.738732Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:27.738842Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:27.764341Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:27.765837Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:27.766045Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:27.766090Z  INFO "git" init
+2026-09-18T07:31:28.081602Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:28.092040Z  INFO [ success ]
+2026-09-18T07:31:28.092599Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:28.092752Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:28.409580Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:28.409711Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:28.663905Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:28.664027Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:28.875297Z  INFO [ success ]
+2026-09-18T07:31:28.875542Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:28.875593Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:29.145204Z  INFO [ success ]
+2026-09-18T07:31:29.145470Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:29.145522Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:29.590181Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:29.603888Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:29.604021Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:29.604062Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:29.604094Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:29.604313Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:29.604362Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:29.604393Z  INFO Branch: dev
+2026-09-18T07:31:29.604426Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:29.604460Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:29.604492Z  INFO AutoRestartTime: None
+2026-09-18T07:31:29.604522Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:29.604555Z  INFO WebuiPort: 22267
+2026-09-18T07:31:29.604585Z  INFO Language: zh-CN
+2026-09-18T07:31:29.604615Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:29.604646Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:29.604676Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:29.604962Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:29.606136Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:29.608435Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:29.608518Z  WARN     gm.git_install()
+2026-09-18T07:31:29.608558Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:29.608593Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:29.608625Z  WARN     self.git_repository_init(
+2026-09-18T07:31:29.608655Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:29.608685Z  WARN         repo=self.Repository,
+2026-09-18T07:31:29.608715Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:29.608745Z  WARN     ...<3 lines>...
+2026-09-18T07:31:29.608775Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:29.608812Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:29.608842Z  WARN     )
+2026-09-18T07:31:29.608871Z  WARN     ^
+2026-09-18T07:31:29.608900Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:29.608930Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:29.608960Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:29.608991Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:29.609021Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:29.609051Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:29.609081Z  WARN     raise ExecutionError
+2026-09-18T07:31:29.609112Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:29.648233Z  WARN 代码更新 failed (retry 13/20): deploy.config.ExecutionError
+2026-09-18T07:31:31.595504Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:31.595620Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:31.595658Z  INFO Branch: dev
+2026-09-18T07:31:31.595691Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:31.595725Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:31.595756Z  INFO AutoRestartTime: None
+2026-09-18T07:31:31.595785Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:31.595815Z  INFO WebuiPort: 22267
+2026-09-18T07:31:31.595845Z  INFO Language: zh-CN
+2026-09-18T07:31:31.595873Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:31.595900Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:31.595929Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:31.595958Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:31.595986Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:31.607881Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:31.609031Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:31.609165Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:31.609205Z  INFO "git" init
+2026-09-18T07:31:31.967788Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:31.984671Z  INFO [ success ]
+2026-09-18T07:31:31.985959Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:31.986100Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:32.295807Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:32.295932Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:32.583109Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:32.583225Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:32.843114Z  INFO [ success ]
+2026-09-18T07:31:32.843392Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:32.843446Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:33.109944Z  INFO [ success ]
+2026-09-18T07:31:33.110581Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:33.110716Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:33.582530Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:33.602615Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:33.603205Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:33.603276Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:33.603446Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:33.603642Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:33.603695Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:33.603728Z  INFO Branch: dev
+2026-09-18T07:31:33.603760Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:33.603796Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:33.603825Z  INFO AutoRestartTime: None
+2026-09-18T07:31:33.603854Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:33.603885Z  INFO WebuiPort: 22267
+2026-09-18T07:31:33.603915Z  INFO Language: zh-CN
+2026-09-18T07:31:33.603945Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:33.603974Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:33.604004Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:33.604034Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:33.606246Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:33.607418Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:33.607484Z  WARN     gm.git_install()
+2026-09-18T07:31:33.607520Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:33.607554Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:33.607584Z  WARN     self.git_repository_init(
+2026-09-18T07:31:33.607614Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:33.607643Z  WARN         repo=self.Repository,
+2026-09-18T07:31:33.607672Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:33.607702Z  WARN     ...<3 lines>...
+2026-09-18T07:31:33.607731Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:33.607769Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:33.607798Z  WARN     )
+2026-09-18T07:31:33.607824Z  WARN     ^
+2026-09-18T07:31:33.607853Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:33.607880Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:33.607909Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:33.607938Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:33.607967Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:33.607995Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:33.608024Z  WARN     raise ExecutionError
+2026-09-18T07:31:33.608054Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:33.651043Z  WARN 代码更新 failed (retry 14/20): deploy.config.ExecutionError
+2026-09-18T07:31:35.508298Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:35.508406Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:35.508439Z  INFO Branch: dev
+2026-09-18T07:31:35.508468Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:35.508501Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:35.508529Z  INFO AutoRestartTime: None
+2026-09-18T07:31:35.508557Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:35.508586Z  INFO WebuiPort: 22267
+2026-09-18T07:31:35.508614Z  INFO Language: zh-CN
+2026-09-18T07:31:35.508772Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:35.508862Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:35.508899Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:35.508929Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:35.508958Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:35.517003Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:35.517248Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:35.517298Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:35.517330Z  INFO "git" init
+2026-09-18T07:31:35.801021Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:35.815837Z  INFO [ success ]
+2026-09-18T07:31:35.816094Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:35.816141Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:36.118062Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:36.118181Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:36.369887Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:36.370023Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:36.599106Z  INFO [ success ]
+2026-09-18T07:31:36.600133Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:36.600256Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:36.898712Z  INFO [ success ]
+2026-09-18T07:31:36.898963Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:36.899016Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:37.337975Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:37.379066Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:37.379242Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:37.379282Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:37.379314Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:37.380111Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:37.380243Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:37.380283Z  INFO Branch: dev
+2026-09-18T07:31:37.380318Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:37.380353Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:37.380384Z  INFO AutoRestartTime: None
+2026-09-18T07:31:37.380412Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:37.380442Z  INFO WebuiPort: 22267
+2026-09-18T07:31:37.380471Z  INFO Language: zh-CN
+2026-09-18T07:31:37.380500Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:37.380528Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:37.380558Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:37.380588Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:37.383464Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:37.385387Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:37.385474Z  WARN     gm.git_install()
+2026-09-18T07:31:37.385510Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:37.385541Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:37.385571Z  WARN     self.git_repository_init(
+2026-09-18T07:31:37.385740Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:37.385894Z  WARN         repo=self.Repository,
+2026-09-18T07:31:37.386107Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:37.386174Z  WARN     ...<3 lines>...
+2026-09-18T07:31:37.386209Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:37.386247Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:37.386276Z  WARN     )
+2026-09-18T07:31:37.386304Z  WARN     ^
+2026-09-18T07:31:37.386335Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:37.386365Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:37.386395Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:37.386424Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:37.386455Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:37.386485Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:37.386515Z  WARN     raise ExecutionError
+2026-09-18T07:31:37.386546Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:37.443971Z  WARN 代码更新 failed (retry 15/20): deploy.config.ExecutionError
+2026-09-18T07:31:39.267866Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:39.268002Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:39.268163Z  INFO Branch: dev
+2026-09-18T07:31:39.268590Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:39.268860Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:39.268913Z  INFO AutoRestartTime: None
+2026-09-18T07:31:39.268948Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:39.268979Z  INFO WebuiPort: 22267
+2026-09-18T07:31:39.269008Z  INFO Language: zh-CN
+2026-09-18T07:31:39.269038Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:39.269146Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:39.269185Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:39.269402Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:39.269464Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:39.281492Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:39.282193Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:39.282348Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:39.282385Z  INFO "git" init
+2026-09-18T07:31:39.549271Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:39.559422Z  INFO [ success ]
+2026-09-18T07:31:39.559660Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:39.559707Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:39.837440Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:39.837561Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:40.091944Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:40.092061Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:40.340299Z  INFO [ success ]
+2026-09-18T07:31:40.340748Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:40.340842Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:40.593855Z  INFO [ success ]
+2026-09-18T07:31:40.594116Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:40.594177Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:41.137412Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:41.175752Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:41.175864Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:41.175899Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:41.175928Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:41.176091Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:41.176130Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:41.176160Z  INFO Branch: dev
+2026-09-18T07:31:41.176189Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:41.176222Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:41.176251Z  INFO AutoRestartTime: None
+2026-09-18T07:31:41.176277Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:41.176306Z  INFO WebuiPort: 22267
+2026-09-18T07:31:41.176333Z  INFO Language: zh-CN
+2026-09-18T07:31:41.176361Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:41.176389Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:41.176416Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:41.176445Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:41.179476Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:41.180765Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:41.180873Z  WARN     gm.git_install()
+2026-09-18T07:31:41.180910Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:41.180944Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:41.180976Z  WARN     self.git_repository_init(
+2026-09-18T07:31:41.181005Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:41.181036Z  WARN         repo=self.Repository,
+2026-09-18T07:31:41.181065Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:41.181095Z  WARN     ...<3 lines>...
+2026-09-18T07:31:41.181124Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:41.181160Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:41.181189Z  WARN     )
+2026-09-18T07:31:41.181218Z  WARN     ^
+2026-09-18T07:31:41.181247Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:41.181275Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:41.181304Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:41.181333Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:41.181362Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:41.181390Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:41.181418Z  WARN     raise ExecutionError
+2026-09-18T07:31:41.181446Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:41.219908Z  WARN 代码更新 failed (retry 16/20): deploy.config.ExecutionError
+2026-09-18T07:31:43.021554Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:43.022583Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:43.022633Z  INFO Branch: dev
+2026-09-18T07:31:43.022667Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:43.022704Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:43.022736Z  INFO AutoRestartTime: None
+2026-09-18T07:31:43.022766Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:43.022797Z  INFO WebuiPort: 22267
+2026-09-18T07:31:43.022897Z  INFO Language: zh-CN
+2026-09-18T07:31:43.022933Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:43.022964Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:43.022993Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:43.023025Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:43.023054Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:43.040954Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:43.041876Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:43.042038Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:43.042085Z  INFO "git" init
+2026-09-18T07:31:43.309782Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:43.318176Z  INFO [ success ]
+2026-09-18T07:31:43.319243Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:43.319409Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:43.581050Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:43.581161Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:43.819509Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:43.819633Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:44.111126Z  INFO [ success ]
+2026-09-18T07:31:44.111381Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:44.111431Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:44.403056Z  INFO [ success ]
+2026-09-18T07:31:44.403395Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:44.403502Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:44.847781Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:44.885915Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:44.886047Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:44.886086Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:44.886118Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:44.886863Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:44.886979Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:44.887020Z  INFO Branch: dev
+2026-09-18T07:31:44.887055Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:44.887092Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:44.887124Z  INFO AutoRestartTime: None
+2026-09-18T07:31:44.887155Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:44.887187Z  INFO WebuiPort: 22267
+2026-09-18T07:31:44.887217Z  INFO Language: zh-CN
+2026-09-18T07:31:44.887248Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:44.887279Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:44.887309Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:44.887340Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:44.891221Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:44.893870Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:44.893983Z  WARN     gm.git_install()
+2026-09-18T07:31:44.894019Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:44.894053Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:44.894083Z  WARN     self.git_repository_init(
+2026-09-18T07:31:44.894113Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:44.894143Z  WARN         repo=self.Repository,
+2026-09-18T07:31:44.894171Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:44.894201Z  WARN     ...<3 lines>...
+2026-09-18T07:31:44.894230Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:44.894267Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:44.894298Z  WARN     )
+2026-09-18T07:31:44.894338Z  WARN     ^
+2026-09-18T07:31:44.894374Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:44.894407Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:44.894439Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:44.894471Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:44.894501Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:44.894533Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:44.894564Z  WARN     raise ExecutionError
+2026-09-18T07:31:44.894594Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:44.977929Z  WARN 代码更新 failed (retry 17/20): deploy.config.ExecutionError
+2026-09-18T07:31:46.760870Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:46.760994Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:46.761029Z  INFO Branch: dev
+2026-09-18T07:31:46.761059Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:46.761097Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:46.761130Z  INFO AutoRestartTime: None
+2026-09-18T07:31:46.761159Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:46.761189Z  INFO WebuiPort: 22267
+2026-09-18T07:31:46.761220Z  INFO Language: zh-CN
+2026-09-18T07:31:46.761251Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:46.761283Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:46.761313Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:46.761651Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:46.761710Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:46.773362Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:46.773843Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:46.774000Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:46.774039Z  INFO "git" init
+2026-09-18T07:31:47.072673Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:47.080425Z  INFO [ success ]
+2026-09-18T07:31:47.080654Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:47.080702Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:47.320527Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:47.321118Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:47.568640Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:47.568974Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:47.800526Z  INFO [ success ]
+2026-09-18T07:31:47.800805Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:47.801255Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:48.080748Z  INFO [ success ]
+2026-09-18T07:31:48.080992Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:48.081043Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:48.625161Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:48.654388Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:48.654525Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:48.654756Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:48.654939Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:48.655116Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:48.655161Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:48.655194Z  INFO Branch: dev
+2026-09-18T07:31:48.655226Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:48.655261Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:48.655291Z  INFO AutoRestartTime: None
+2026-09-18T07:31:48.655320Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:48.655350Z  INFO WebuiPort: 22267
+2026-09-18T07:31:48.655379Z  INFO Language: zh-CN
+2026-09-18T07:31:48.655414Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:48.655443Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:48.655472Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:48.655502Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:48.659674Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:48.660946Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:48.661038Z  WARN     gm.git_install()
+2026-09-18T07:31:48.661086Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:48.661116Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:48.661145Z  WARN     self.git_repository_init(
+2026-09-18T07:31:48.661173Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:48.661200Z  WARN         repo=self.Repository,
+2026-09-18T07:31:48.661226Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:48.661254Z  WARN     ...<3 lines>...
+2026-09-18T07:31:48.661280Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:48.661313Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:48.661341Z  WARN     )
+2026-09-18T07:31:48.661366Z  WARN     ^
+2026-09-18T07:31:48.661393Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:48.661420Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:48.661446Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:48.661473Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:48.661499Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:48.661525Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:48.661551Z  WARN     raise ExecutionError
+2026-09-18T07:31:48.661576Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:48.700648Z  WARN 代码更新 failed (retry 18/20): deploy.config.ExecutionError
+2026-09-18T07:31:50.560045Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:50.560161Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:50.560200Z  INFO Branch: dev
+2026-09-18T07:31:50.560232Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:50.560268Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:50.560300Z  INFO AutoRestartTime: None
+2026-09-18T07:31:50.560385Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:50.560416Z  INFO WebuiPort: 22267
+2026-09-18T07:31:50.560446Z  INFO Language: zh-CN
+2026-09-18T07:31:50.560475Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:50.560505Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:50.560534Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:50.560562Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:50.560589Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:50.574847Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:50.575299Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:50.575418Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:50.575459Z  INFO "git" init
+2026-09-18T07:31:50.846033Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:50.853518Z  INFO [ success ]
+2026-09-18T07:31:50.854303Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:50.854413Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:51.122408Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:51.122548Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:51.396819Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:51.396947Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:51.693064Z  INFO [ success ]
+2026-09-18T07:31:51.693368Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:51.693437Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:51.958367Z  INFO [ success ]
+2026-09-18T07:31:51.959210Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:51.959340Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:52.421135Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:52.435464Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:52.435588Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:52.435626Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:52.435657Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:52.435804Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:52.435849Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:52.435880Z  INFO Branch: dev
+2026-09-18T07:31:52.435910Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:52.435943Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:52.435972Z  INFO AutoRestartTime: None
+2026-09-18T07:31:52.436001Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:52.436047Z  INFO WebuiPort: 22267
+2026-09-18T07:31:52.436080Z  INFO Language: zh-CN
+2026-09-18T07:31:52.436235Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:52.436317Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:52.436622Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:52.436698Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:52.436734Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:52.437646Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:52.437713Z  WARN     gm.git_install()
+2026-09-18T07:31:52.437749Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:52.437782Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:52.437812Z  WARN     self.git_repository_init(
+2026-09-18T07:31:52.437841Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:52.437871Z  WARN         repo=self.Repository,
+2026-09-18T07:31:52.437900Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:52.437931Z  WARN     ...<3 lines>...
+2026-09-18T07:31:52.437959Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:52.437996Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:52.438025Z  WARN     )
+2026-09-18T07:31:52.438053Z  WARN     ^
+2026-09-18T07:31:52.438081Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:52.438109Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:52.438137Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:52.438165Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:52.438193Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:52.438221Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:52.438250Z  WARN     raise ExecutionError
+2026-09-18T07:31:52.438277Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:52.494186Z  WARN 代码更新 failed (retry 19/20): deploy.config.ExecutionError
+2026-09-18T07:31:54.530661Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:54.530687Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:54.530691Z  INFO Branch: dev
+2026-09-18T07:31:54.530694Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:54.530700Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:54.530766Z  INFO AutoRestartTime: None
+2026-09-18T07:31:54.530772Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:54.530776Z  INFO WebuiPort: 22267
+2026-09-18T07:31:54.530779Z  INFO Language: zh-CN
+2026-09-18T07:31:54.531405Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:54.531893Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:54.532068Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:54.532537Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:54.532574Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:54.558838Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:54.558887Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:54.559185Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:54.559198Z  INFO "git" init
+2026-09-18T07:31:54.927239Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:54.948555Z  INFO [ success ]
+2026-09-18T07:31:54.948918Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:54.948957Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:31:55.165959Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:55.166087Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:31:55.452615Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:31:55.452664Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:31:55.769286Z  INFO [ success ]
+2026-09-18T07:31:55.770567Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:31:55.770600Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:56.091363Z  INFO [ success ]
+2026-09-18T07:31:56.091411Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:31:56.091416Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:31:56.709317Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:31:56.740446Z  INFO [ failure ], error_code: 128
+2026-09-18T07:31:56.740507Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:56.740516Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:31:56.740524Z  INFO +-----------------------------------------------------+
+2026-09-18T07:31:56.741316Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:56.741374Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:56.741385Z  INFO Branch: dev
+2026-09-18T07:31:56.741394Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:56.741405Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:56.741413Z  INFO AutoRestartTime: None
+2026-09-18T07:31:56.741421Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:56.741429Z  INFO WebuiPort: 22267
+2026-09-18T07:31:56.741436Z  INFO Language: zh-CN
+2026-09-18T07:31:56.741444Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:56.741452Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:31:56.741460Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:31:56.741468Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:31:56.745734Z  WARN Traceback (most recent call last):
+2026-09-18T07:31:56.747420Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:31:56.747438Z  WARN     gm.git_install()
+2026-09-18T07:31:56.747443Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:31:56.747448Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:31:56.747453Z  WARN     self.git_repository_init(
+2026-09-18T07:31:56.747457Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:31:56.747462Z  WARN         repo=self.Repository,
+2026-09-18T07:31:56.747466Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:56.747471Z  WARN     ...<3 lines>...
+2026-09-18T07:31:56.747475Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:31:56.747481Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:56.747486Z  WARN     )
+2026-09-18T07:31:56.747490Z  WARN     ^
+2026-09-18T07:31:56.747495Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:31:56.747500Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:31:56.747504Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:31:56.747509Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:31:56.747513Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:31:56.747517Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:31:56.747522Z  WARN     raise ExecutionError
+2026-09-18T07:31:56.747526Z  WARN deploy.config.ExecutionError
+2026-09-18T07:31:56.833320Z  WARN 代码更新 failed (retry 20/20): deploy.config.ExecutionError
+2026-09-18T07:31:59.094573Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:31:59.094632Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:31:59.094641Z  INFO Branch: dev
+2026-09-18T07:31:59.094649Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:31:59.094658Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:31:59.094666Z  INFO AutoRestartTime: None
+2026-09-18T07:31:59.094672Z  INFO EnableRemoteAccess: True
+2026-09-18T07:31:59.094679Z  INFO WebuiPort: 22267
+2026-09-18T07:31:59.094685Z  INFO Language: zh-CN
+2026-09-18T07:31:59.094691Z  INFO Rest of the configs are the same as default
+2026-09-18T07:31:59.094698Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:59.094704Z  INFO |                    UPDATE AZURPILOT                    |
+2026-09-18T07:31:59.094710Z  INFO +--------------------------------------------------------+
+2026-09-18T07:31:59.094717Z  INFO Check cloud update control: https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/switch/updata
+2026-09-18T07:31:59.128161Z  INFO Cloud update control unreachable, allow update (fail-open): HTTPSConnectionPool(host='cdn.jsdelivr.net', port=443): Max retries exceeded with url: /gh/changqing81/Azurpilot-Auto@master/switch/updata (Caused by NameResolutionError("HTTPSConnection(host='cdn.jsdelivr.net', port=443): Failed to resolve 'cdn.jsdelivr.net' ([Errno 11001] getaddrinfo failed)"))
+2026-09-18T07:31:59.128222Z  INFO ==================== GIT INIT ====================
+2026-09-18T07:31:59.128548Z  INFO GitExecutable: D:/alas/AzurPilot/.venv/Scripts/git/cmd/git.exe does not exist, use `git` instead
+2026-09-18T07:31:59.128564Z  INFO "git" init
+2026-09-18T07:31:59.427225Z  INFO Reinitialized existing Git repository in D:/alas/AzurPilot/.git/
+2026-09-18T07:31:59.440047Z  INFO [ success ]
+2026-09-18T07:31:59.440086Z  INFO ==================== SET GIT PROXY ====================
+2026-09-18T07:31:59.440090Z  INFO "git" config --local --unset http.proxy
+2026-09-18T07:32:00.233688Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:32:00.233804Z  INFO "git" config --local --unset https.proxy
+2026-09-18T07:32:00.579833Z  INFO [ allowed failure ], error_code: 5
+2026-09-18T07:32:00.579877Z  INFO "git" config --local http.sslVerify true
+2026-09-18T07:32:00.917249Z  INFO [ success ]
+2026-09-18T07:32:00.918089Z  INFO ==================== SET GIT REPOSITORY ====================
+2026-09-18T07:32:00.918123Z  INFO "git" remote set-url origin https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:32:01.199472Z  INFO [ success ]
+2026-09-18T07:32:01.199528Z  INFO ==================== FETCH REPOSITORY BRANCH ====================
+2026-09-18T07:32:01.199533Z  INFO "git" fetch --progress origin dev
+2026-09-18T07:32:01.675412Z  WARN fatal: unable to access 'https://github.com/changqing81/Azurpilot-Auto/': The requested URL returned error: 502
+2026-09-18T07:32:01.708264Z  INFO [ failure ], error_code: 128
+2026-09-18T07:32:01.708307Z  INFO +-----------------------------------------------------+
+2026-09-18T07:32:01.708315Z  INFO |                    UPDATE FAILED                    |
+2026-09-18T07:32:01.708322Z  INFO +-----------------------------------------------------+
+2026-09-18T07:32:01.708525Z  INFO ==================== SHOW DEPLOY CONFIG ====================
+2026-09-18T07:32:01.708553Z  INFO Repository: https://github.com/changqing81/Azurpilot-Auto
+2026-09-18T07:32:01.708561Z  INFO Branch: dev
+2026-09-18T07:32:01.708569Z  INFO PypiMirror: https://mirrors.aliyun.com/pypi/simple
+2026-09-18T07:32:01.708579Z  INFO CheckUpdateInterval: 0
+2026-09-18T07:32:01.708587Z  INFO AutoRestartTime: None
+2026-09-18T07:32:01.708594Z  INFO EnableRemoteAccess: True
+2026-09-18T07:32:01.708697Z  INFO WebuiPort: 22267
+2026-09-18T07:32:01.708707Z  INFO Language: zh-CN
+2026-09-18T07:32:01.708788Z  INFO Rest of the configs are the same as default
+2026-09-18T07:32:01.708845Z  INFO Last command: "git" fetch --progress origin dev
+2026-09-18T07:32:01.708903Z  INFO Please check your deploy settings in config/deploy.yaml and re-open AzurPilot.exe
+2026-09-18T07:32:01.708915Z  INFO Take the screenshot of entire window if you need help
+2026-09-18T07:32:01.713793Z  WARN Traceback (most recent call last):
+2026-09-18T07:32:01.716514Z  WARN   File "<string>", line 11, in <module>
+2026-09-18T07:32:01.716637Z  WARN     gm.git_install()
+2026-09-18T07:32:01.716675Z  WARN     ~~~~~~~~~~~~~~^^
+2026-09-18T07:32:01.716708Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 178, in git_install
+2026-09-18T07:32:01.716739Z  WARN     self.git_repository_init(
+2026-09-18T07:32:01.716768Z  WARN     ~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-09-18T07:32:01.716797Z  WARN         repo=self.Repository,
+2026-09-18T07:32:01.716826Z  WARN         ^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:32:01.716854Z  WARN     ...<3 lines>...
+2026-09-18T07:32:01.716884Z  WARN         ssl_verify=self.SSLVerify,
+2026-09-18T07:32:01.716994Z  WARN         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:32:01.717108Z  WARN     )
+2026-09-18T07:32:01.717135Z  WARN     ^
+2026-09-18T07:32:01.717145Z  WARN   File "D:\alas\AzurPilot\deploy\git.py", line 57, in git_repository_init
+2026-09-18T07:32:01.717164Z  WARN     self.execute(f'"{self.git}" fetch {source} {branch}')
+2026-09-18T07:32:01.717172Z  WARN     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-18T07:32:01.717179Z  WARN   File "<string>", line 7, in new_fn
+2026-09-18T07:32:01.717185Z  WARN     return fn(*args, **kwargs)
+2026-09-18T07:32:01.717192Z  WARN   File "D:\alas\AzurPilot\deploy\config.py", line 283, in execute
+2026-09-18T07:32:01.717199Z  WARN     raise ExecutionError
+2026-09-18T07:32:01.717206Z  WARN deploy.config.ExecutionError
+2026-09-18T07:32:01.784366Z ERROR deploy.config.ExecutionError

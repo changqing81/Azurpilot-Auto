@@ -21,7 +21,7 @@ AzurPilot 是碧蓝航线手游的自动化框架。通过 ADB/uiautomator2 控�
 
 ### 环境搭建
 ```bash
-uv sync --frozen                               # 从 pyproject.toml + uv.lock 创建/同步 .venv
+uv sync                                         # 创建/同步 .venv（本仓库不提交 uv.lock，不用 --frozen）
 ```
 
 ### 运行应用
@@ -36,21 +36,20 @@ uv run python mcp_server_sse.py  # 启动独立 MCP SSE 服务器（端口 22268
 # Python（CI 使用 ruff 宽松设置——仅检查致命语法错误和未定义名称）
 uv run ruff check . --select E9,F63,F7,F82 --ignore F821,F722
 
-# Webapp（Electron/Vue）
-cd webapp && pnpm lint
-cd webapp && pnpm typecheck
+# 前端代码检查与测试
+npm run typecheck --prefix frontend
+npm test --prefix frontend
 ```
 
 ### 测试
 ```bash
-uv run python -m unittest discover -s tests    # 运行全部单元测试（约 160 个）
-uv run python -m unittest tests.test_webui_config_search  # 运行单个测试文件
+uv run python -m unittest discover -s tests    # 运行全部单元测试
+uv run python -m unittest tests.test_api       # 运行单个测试文件
 ```
 
-### 构建 Webapp（前端静态资源）
+### 构建前端（React 静态资源）
 ```bash
-# webapp/ 仅包含前端静态 HTML/JS 资源（Electron 客户端源码已于 2026-07 移除）
-# 前端资源直接放置在 webapp/ 与 assets/gui/、assets/spa/ 下，无构建步骤
+npm run build --prefix frontend               # 构建前端产物到 frontend/dist
 ```
 
 ### 配置生成（修改配置 YAML 文件后必须执行）
@@ -452,19 +451,20 @@ uv run dev_tools/grids_debug.py         # 调试网格检测
 | `module/notify/` | 推送通知（onepush 集成） |
 | `module/llm.py` | LLM 错误分析（OpenAI API 集成） |
 | `module/logger.py` | 日志系统（基于 Rich、文件轮转、Web UI 流式输出） |
-| `module/webui/` | WebUI 应用（PyWebIO + Starlette） |
+| `module/api/` | WebUI REST 与 WebSocket API 服务 |
+| `module/runtime/` | WebUI 运行时服务、任务派发与进程管理 |
 | `module/submodule/` | 外部桥接（AlasFpyBridge、AlasMaaBridge） |
 | `campaign/` | 活动/地图数据文件——每个活动有自己的子目录和 YAML 地图定义 |
 | `assets/` | UI 识别的模板图像，按服务器 (cn/en/jp/tw) 和功能组织 |
 | `config/` | 配置模板（`template.json`、`deploy.template.yaml` 等） |
 | `deploy/` | 安装脚本、Docker 设置、平台特定部署（AidLux、Windows） |
-| `webapp/` | 前端静态资源（HTML/JS；原 Electron + Vue 3 应用已于 2026-07 移除） |
+| `frontend/` | WebUI 前端应用（React 19 + TypeScript + Vite） |
 | `dev_tools/` | 开发工具：地图提取器、战役滑动工具、物品统计 |
 | `bin/` | 二进制工具：DroidCast、scrcpy、ascreencap、MaaTouch、OCR 模型 |
 | `submodule/` | 外部桥接：AlasFpyBridge、AlasMaaBridge |
 
 ## 测试
-Python 单元测试在 `tests/`，使用标准库 `unittest`（`discover` 模式，非 pytest），覆盖 WebUI、进程管理、部署与配置逻辑。运行：`uv run python -m unittest discover -s tests`；单个文件：`uv run python -m unittest tests.test_webui_config_search`。游戏逻辑无自动化测试——通过在真实模拟器实例上运行任务完成。OCR 基准测试见 `module/daemon/ocr_benchmark.py`。
+Python 单元测试在 `tests/`，使用标准库 `unittest`（`discover` 模式，非 pytest），覆盖 WebUI API、运行时生命周期、进程管理、部署与配置逻辑。运行：`uv run python -m unittest discover -s tests`；单个文件：`uv run python -m unittest tests.test_api`。游戏逻辑无自动化测试——通过在真实模拟器实例上运行任务完成。OCR 基准测试见 `module/daemon/ocr_benchmark.py`。
 
 ## 备注
 - `alas.py` 中的 `run()` 方法抛出异常而不是调用 `exit(1)`，允许调度循环捕获并重试
@@ -559,30 +559,28 @@ page_main.link(button=MAIN_GOTO_REWARD, destination=page_reward)
 - `++` 陆地（不可通行）、`--` 海洋、`SP` 舰队出生点、`ME` 敌人可能出现、`MB` Boss 可能出现、`MM` 神秘敌人、`MA` 弹药拾取、`MS` 精英/塞壬出现
 
 ## Python 依赖
-所有依赖管理使用 **uv** 项目模式。直接依赖声明在 `pyproject.toml` 中，平台差异使用 PEP 508 标记，锁定的解析提交在 `uv.lock` 中。不要添加或重新生成 `requirements*.txt`。
+所有依赖管理使用 **uv** 项目模式。直接依赖声明在 `pyproject.toml` 中，平台差异使用 PEP 508 标记。本仓库约定**不提交 `uv.lock`**（CI 使用 `uv sync`，不用 `--frozen`）。不要添加或重新生成 `requirements*.txt`。
 
 关键依赖：
 - **Python**：>=3.14,<3.15
 - **核心**：numpy、scipy、pillow、opencv-python、imageio、imageio-ffmpeg
 - **设备**：adbutils、uiautomator2、uiautomator2cache
 - **OCR**：rapidocr、ncnn、onnxruntime-directml (Windows)、onnxruntime (Linux/Mac)
-- **Web**：pywebio、starlette、uvicorn、aiofiles
+- **Web**：starlette、uvicorn[standard]、anyio
 - **通知**：onepush
 - **AI**：openai（用于 LLM 错误分析）
-- **MCP**：mcp、sse-starlette
-- **工具**：pyyaml、inflection、psutil、chardet、matplotlib、pycryptodome、watchdog、numba、lz4
+- **MCP**：mcp
+- **网络与远程**：aiohttp、aiortc
+- **工具**：pyyaml、inflection、jellyfish、psutil、matplotlib、pycryptodome、pydantic、numba、uv、lz4、packaging
 
-## Webapp（前端静态资源）
-`webapp/` 仅包含前端静态资源（HTML/JS 片段，如 `ap_chart.js`、`resource_chart.html` 等），直接由 `module/webui/` 服务。原 Electron + Vue 3 应用（`webapp/packages/*`）已于 2026-07-24 提交 `53e23a23b` 移除，无 pnpm 构建步骤。`gui.py` 的 `--electron` 参数保留（用于旧客户端兼容），前端样式与 SPA 资源位于 `assets/gui/`、`assets/spa/`。
+## Frontend（WebUI 前端）
+前端代码位于 `frontend/` 目录，基于 React 19 + TypeScript + Vite 构建。开发时由 Vite 提供热重载，生产构建由 `npm run build` 输出静态文件到 `frontend/dist/`，后端 Starlette 服务通过 `deploy.frontend.ensure_frontend()` 自动校验或构建，并本地托管静态页面。
+- 类型检查：`npm run typecheck --prefix frontend`
+- 单元测试：`npm test --prefix frontend`
+- 端到端测试：`npm run test:e2e --prefix frontend`
 
 ## CI
-GitHub Actions 使用 `uv sync --frozen` 和 `uv run`。运行：ruff lint、`button_extract.py`、`config_updater.py`（检查未提交的 diff）、Docker 发布、上游同步。
-
-工作流文件：
-- `lint.yml` — Ruff lint + button_extract + config_updater（检查未提交的 diff）
-- `docker-publish.yml` — 标签推送时构建并推送 Docker 镜像
-- `sync2.yml` — 推送到 master/dev 时同步到 GitCode 镜像
-- `ai-issue-labeler.yml` — 基于 AI 的 issue 标签
+GitHub Actions 只有 `lint.yml`（`uv sync`，无 `--frozen`，仓库不提交 `uv.lock`）。五个 job：ruff lint、`button_extract.py` + `config_updater.py`（检查未提交的 diff）、全仓调用签名自检（`dev_tools/audit_call_kwargs.py`）、unittest 全量、React 前端构建与测试（含 API 契约校验）。
 - `git-over-cdn-*.yml` — 面向中国用户的 Git over CDN
 
 ## 代码分析文档

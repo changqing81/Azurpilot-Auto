@@ -73,3 +73,38 @@ jobs:
         run: uv sync
       - name: Run unittest
         run: uv run python -m unittest discover -s tests
+
+  frontend:
+    name: React 前端与 API 契约检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - name: Install system libs for python imports
+        run: sudo apt-get update && sudo apt-get install -y libgl1 libglib2.0-0 libgomp1
+      - name: Install dependencies
+        run: |
+          uv sync
+          npm ci --prefix frontend
+      - name: 校验 API 契约
+        run: |
+          uv run python -m dev_tools.export_api_schema
+          git diff --exit-code -- frontend/src/api/generated.ts frontend/src/api/contract.json
+      - name: Build and test frontend
+        run: |
+          npm run build --prefix frontend
+          npm test --prefix frontend

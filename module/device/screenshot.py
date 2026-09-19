@@ -2,17 +2,12 @@
 
 管理所有截图捕获后端（ADB、ADB_nc、uiautomator2、aScreenCap、DroidCast、
 scrcpy、nemu_ipc、ldopengl），提供截图、分辨率校验、黑屏检测、截图保存等功能。
-包含后台编码线程，用于将图像序列化并通过 Base64 供 WebUI 实时渲染预览。
+统一入口将已有截图投递至被动预览通道，编码由运行服务后台线程完成。
 """
 import os
 import time
 from collections import deque
 from PIL import Image
-# 此文件定义了截图处理逻辑。
-# 管理各种截图捕获方式，并包含后台编码线程用于将图像序列化并通过 Base64 供 WebUI 实时渲染预览。
-import base64
-import threading
-import queue as _queue
 
 import cv2
 import numpy as np
@@ -20,6 +15,7 @@ import numpy as np
 from module.base.decorator import cached_property
 from module.base.timer import Timer
 from module.base.utils import get_color, image_size, limit_in, save_image, set_template_match_non_native_720p
+from module.runtime.preview import publish
 from module.config.time_source import now as current_time
 from module.device.method.adb import Adb
 from module.device.method.ascreencap import AScreenCap
@@ -120,6 +116,7 @@ class Screenshot(Adb, WSA, DroidCast, AScreenCap, Scrcpy, NemuIpc, LDOpenGL):
             else:
                 continue
 
+        publish(self.image)
         return self.image
 
     @staticmethod

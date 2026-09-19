@@ -26,12 +26,12 @@ from deploy.uv import (
     redact_sensitive_text,
 )
 from module.logger import logger
-from module.webui.setting import (
+from module.runtime.setting import (
     State,
     clear_dependency_sync_pending,
     is_dependency_sync_pending,
 )
-from module.webui import worker_registry
+from module.runtime import worker_registry
 
 
 WEBUI_READY_TIMEOUT = 120
@@ -149,6 +149,9 @@ def func(
     State.restart_event = ev
     State.dependency_sync_event = dependency_sync_event
 
+    from deploy.frontend import ensure_frontend
+    ensure_frontend()
+
     # 解析命令行参数
     parser = argparse.ArgumentParser(description="AzurPilot Web 服务")
     parser.add_argument(
@@ -168,7 +171,7 @@ def func(
     parser.add_argument(
         "--cdn",
         action="store_true",
-        help="使用jsdelivr CDN获取pywebio静态文件（css, js）。默认使用自托管CDN",
+        help="已废弃，React 静态资源始终由本地提供",
     )
     parser.add_argument(
         "--electron", action="store_true", help="由Electron客户端运行"
@@ -218,15 +221,13 @@ def func(
         logger.error("[GUI] 提供了SSL证书但未提供密钥。请同时提供SSL密钥和证书。")
 
     # 通配地址显式创建两个 socket，避免 Windows 将 IPv6 wildcard 作为仅 IPv6 监听。
-    # WebSocket 单条消息上限：pywebio file_upload 把整个文件 base64 后放单条
-    # WebSocket 消息传输，uvicorn 默认 16MB（文件实际上限约 12MB）会导致大视频
-    # 上传中途断连；调大到 256MB 以支持约 180MB 以内的背景视频
     try:
         uvicorn_options = {
             "host": host,
             "port": port,
             "factory": True,
-            "ws_max_size": 256 * 1024 * 1024,
+            "ws_max_size": 1048576,
+            "ws_max_queue": 16,
             # 远控 P2P 链路抖动下 pong 可能迟到超过默认 20s，会被服务端
             # 误杀导致频繁断线重连；保留 20s ping 保活穿透 NAT，放宽
             # pong 超时到 60s 容忍抖动。keep-alive 同步放宽到 75s。
@@ -243,7 +244,7 @@ def func(
         if host in ("0.0.0.0", "::", "[::]"):
             if host in ("::", "[::]"):
                 uvicorn_options["host"] = "::"
-            config = uvicorn.Config("module.webui.app:app", **uvicorn_options)
+            config = uvicorn.Config("module.api.app:create_app", **uvicorn_options)
             sockets = _create_dual_stack_sockets(
                 port,
                 backlog=config.backlog,
@@ -263,7 +264,7 @@ def func(
                 for listener in sockets:
                     listener.close()
         else:
-            config = uvicorn.Config("module.webui.app:app", **uvicorn_options)
+            config = uvicorn.Config("module.api.app:create_app", **uvicorn_options)
             _run_uvicorn_server(config, ready_event=ready_event)
     except Exception as e:
         logger.exception_context(
@@ -862,6 +863,20 @@ def run_webui_supervisor() -> None:
                 should_exit = True
                 break
             force_dependency_sync = False
+
+            # 首次安装前端依赖可能较慢，必须在子进程监听计时开始前完成。
+            from deploy.frontend import ensure_frontend
+            try:
+                ensure_frontend()
+            except Exception as exc:
+                logger.exception_context(
+                    title='React 前端构建失败',
+                    exc=exc,
+                    impact='前端静态资源不可用，停止创建 WebUI 子进程。',
+                    action='检查 Node.js 安装和 npm 输出，修复后重新启动。',
+                    level=50,
+                )
+                break
 
             event = Event()
             dependency_sync_event = Event()

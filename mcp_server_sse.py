@@ -23,14 +23,9 @@ from io import BytesIO
 from module.config.config import AzurLaneConfig
 from module.config.time_source import now as current_time
 from module.config.utils import DEFAULT_CONFIG_NAME, alas_instance
-from module.webui.process_manager import ProcessManager
+from module.runtime.process_manager import ProcessManager
 from module.config.mcp_helper import McpConfigHelper
-from module.webui.setting import State
-
-try:
-    from module.webui.fake_pil_module import remove_fake_pil_module
-except ImportError:
-    remove_fake_pil_module = None
+from module.runtime.setting import State
 
 # 初始化日志
 logging.basicConfig(level=logging.INFO)
@@ -303,8 +298,6 @@ async def _tool_get_screenshot(arguments: Dict[str, Any]) -> ToolResponse:
     inst = arguments["instance"]
     if "ALAS_CONFIG_NAME" not in os.environ:
         os.environ["ALAS_CONFIG_NAME"] = inst
-    if remove_fake_pil_module:
-        remove_fake_pil_module()
 
     from module.device.device import Device
     from PIL import Image
@@ -406,8 +399,6 @@ async def _tool_restart_emulator(arguments: Dict[str, Any]) -> ToolResponse:
     if "ALAS_CONFIG_NAME" not in os.environ:
         os.environ["ALAS_CONFIG_NAME"] = inst
     manager = ProcessManager.get_manager(inst)
-    if remove_fake_pil_module:
-        remove_fake_pil_module()
 
     from module.device.device import Device
     try:
@@ -454,7 +445,7 @@ async def _tool_restart_adb(arguments: Dict[str, Any]) -> ToolResponse:
 
 async def _tool_update_alas(arguments: Dict[str, Any]) -> ToolResponse:
     try:
-        from module.webui.updater import updater
+        from module.runtime.updater import updater
 
         def do_update():
             updater.update()

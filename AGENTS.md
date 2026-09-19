@@ -321,7 +321,8 @@ Device ← Screenshot + Control + AppControl + Input
 | `notify/` | 推送通知（onepush 集成） |
 | `llm.py` | LLM 错误分析（OpenAI API 集成） |
 | `logger.py` | 日志系统（Rich、文件轮转、Web UI 流式输出） |
-| `webui/` | WebUI 应用 |
+| `api/` | WebUI 后端（Starlette WebSocket v1 API、统计与日志导出服务） |
+| `runtime/` | WebUI 运行时服务（进程管理、任务派发、更新器、远控） |
 | `submodule/` | 外部桥接（AlasFpyBridge、AlasMaaBridge） |
 
 ---
@@ -494,7 +495,7 @@ server.server = 'en'
 | `assets/` | UI 模板图像（按服务器和模块组织） |
 | `config/` | 配置模板 |
 | `deploy/` | 安装脚本、Docker |
-| `webapp/` | Electron + Vue 3 桌面应用 |
+| `frontend/` | WebUI 前端（React 19 + TypeScript + Vite，`npm run build` 产物由后端托管） |
 | `dev_tools/` | 开发工具 |
 | `bin/` | 二进制工具和 OCR 模型 |
 
@@ -548,25 +549,25 @@ server.server = 'en'
 
 ---
 
-## Webapp（Electron）
+## Frontend（React WebUI）
 
-- **技术栈**：Vue 3 + Ant Design Vue + Electron，pnpm + Vite + electron-builder
-- **命令**：`pnpm lint`、`pnpm typecheck`、`pnpm test`（Playwright）
-- **构建**：`pnpm build && pnpm compile`
-- **Monorepo**：`webapp/packages/main`（主进程）、`webapp/packages/preload`（预加载）、`webapp/packages/renderer`（Vue 前端）
+- **技术栈**：React 19 + TypeScript + Vite + ECharts，npm 管理
+- **通信**：`module/api/` 提供版本化 WebSocket v1 API；API 契约由 `uv run python -m dev_tools.export_api_schema` 生成到 `frontend/src/api/generated.ts` 与 `contract.json`，CI 校验无漂移
+- **命令**：`npm run typecheck --prefix frontend`、`npm test --prefix frontend`
+- **构建**：`npm run build --prefix frontend`；源码启动时 `deploy.frontend.ensure_frontend()` 自动校验或构建（需 Node ≥ 22.12）
 
 ---
 
 ## 测试
 
-- **单元测试**：`tests/` 目录，285 个测试，全量运行约 7-10 秒：
+- **单元测试**：`tests/` 目录约 530 个测试，全量运行约 1-2 分钟：
 
   ```bash
   uv run python -m unittest discover -s tests
   ```
 
 - CI 的 `unittest` job 跑的是同一套测试。CI 在 Ubuntu 上运行，部分行为与 Windows 不同（如进程收割、路径、文件锁），本地通过不代表 CI 通过——推送后仍需关注 CI 结果
-- Webapp 有基本的 Playwright 测试（`webapp/tests/app.spec.js`）
+- **前端测试**：`npm test --prefix frontend`（Vitest 单测）；构建校验 `npm run build --prefix frontend`
 
 ### 提交/推送前强制检查（必须遵守）
 
