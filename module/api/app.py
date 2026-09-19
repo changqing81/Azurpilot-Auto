@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from starlette.applications import Starlette
+from starlette.background import BackgroundTask
 from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
@@ -62,7 +63,24 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
     async def health(request):
         return JSONResponse({'status': 'ok', 'protocolVersion': 1})
 
-    routes = [Route('/healthz', health), WebSocketRoute('/api/v1/ws', gateway.endpoint)]
+    async def export_download(request):
+        """一次性令牌的日志下载端点；令牌在已鉴权的 WS 会话中申请。"""
+        from module.api import log_export
+
+        entry = await asyncio.to_thread(log_export.pop_download, request.path_params['token'])
+        if entry is None:
+            return JSONResponse({'error': '下载令牌无效或已过期，请重新导出'}, status_code=404)
+        path, filename, temp = entry
+        if temp:
+            cleanup = BackgroundTask(lambda target=path: Path(target).unlink(missing_ok=True))
+            return FileResponse(path, filename=filename, background=cleanup)
+        return FileResponse(path, filename=filename)
+
+    routes = [
+        Route('/healthz', health),
+        Route('/api/v1/export/{token}', export_download),
+        WebSocketRoute('/api/v1/ws', gateway.endpoint),
+    ]
     if (dist / 'assets').is_dir():
         routes.append(Mount('/assets', StaticFiles(directory=dist / 'assets')))
     if mount_mcp:

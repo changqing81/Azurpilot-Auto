@@ -24,6 +24,7 @@ export interface Overview {
 }
 export interface LogEntry { id: number; level: string; text: string }
 export interface Logs { instance: string; cursor: number; reset: boolean; entries: LogEntry[] }
+export interface LogsExportBundle { url: string; filename: string; expiresIn: number; scope: string; files?: number; bytes?: number; human_bytes?: string; human_estimate?: string; estimate_bytes?: number }
 export interface Preview { instance: string; image: string | null; capturedAt: string | null }
 export interface Statistics { instance: string; resource: string; points: {time: string; value: number}[]; truncated: boolean }
 export interface StatPoint {time: string; value: number; source?: string}
@@ -63,6 +64,7 @@ export interface Results {
   'scheduler.stop': Overview
   'tasks.run': Overview
   'logs.get': Logs
+  'logs.requestExport': LogsExportBundle
   'preview.capture': Preview
   'statistics.resources': Statistics
   'statistics.report': StatisticsReport

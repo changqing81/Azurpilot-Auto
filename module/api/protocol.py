@@ -77,6 +77,14 @@ class LogsParams(InstanceParams):
     after: StrictInt = Field(default=0, ge=0)
 
 
+class LogsExportParams(InstanceParams):
+    """日志导出：申请一次性下载令牌；文件经 HTTP GET 取回。"""
+
+    kind: Literal['runtime', 'error'] = 'runtime'
+    # runtime: all / today / YYYY-MM-DD；error: full / text
+    scope: StrictStr | None = Field(default=None, max_length=32)
+
+
 class StatisticsParams(InstanceParams):
     days: StrictInt = Field(default=7, ge=1, le=90)
     resource: Literal['Oil', 'Coin', 'Gem', 'Cube', 'Pt', 'ActionPoint', 'Core', 'Medal', 'Merit', 'GuildCoin', 'YellowCoin', 'PurpleCoin'] = 'Oil'

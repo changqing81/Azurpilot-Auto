@@ -327,6 +327,48 @@
         "type": "object"
       }
     },
+    "logs.requestExport": {
+      "mutates": false,
+      "params": {
+        "additionalProperties": false,
+        "description": "日志导出：申请一次性下载令牌；文件经 HTTP GET 取回。",
+        "properties": {
+          "instance": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Instance",
+            "type": "string"
+          },
+          "kind": {
+            "default": "runtime",
+            "enum": [
+              "runtime",
+              "error"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "scope": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scope"
+          }
+        },
+        "required": [
+          "instance"
+        ],
+        "title": "LogsExportParams",
+        "type": "object"
+      }
+    },
     "preview.capture": {
       "mutates": false,
       "params": {

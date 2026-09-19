@@ -13,6 +13,7 @@ export interface Parameters {
   "scheduler.stop": { instance: string }
   "tasks.run": { instance: string; task: string }
   "logs.get": { instance: string; after?: number }
+  "logs.requestExport": { instance: string; kind?: "runtime" | "error"; scope?: string | null }
   "preview.capture": { instance: string }
   "statistics.refreshLoot": { instance: string }
   "statistics.report": { instance: string; category?: "resources" | "delta" | "action" | "opsi" | "commission" | "ships" | "loot"; month?: string | null; days?: number; period?: "day" | "week" | "month" }

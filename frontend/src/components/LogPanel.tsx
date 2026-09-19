@@ -1,7 +1,7 @@
 import { Select } from './FormControls'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
-import { Download, Pause, Play, Search, SlidersHorizontal, Terminal, Trash2 } from 'lucide-react'
+import { Download, HardDriveDownload, Pause, Play, Search, SlidersHorizontal, Terminal, Trash2 } from 'lucide-react'
 import { api } from '../api/client'
 import type { Logs as LogsData, LogEntry } from '../api/types'
 import { useApp, useConnection } from '../app/context'
@@ -174,6 +174,8 @@ export function LogPanel({active = true}: {active?: boolean}) {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [follow, setFollow] = useState(true)
   const [floor, setFloor] = useState(0)
+  const [exportKind, setExportKind] = useState('runtime:all')
+  const [exporting, setExporting] = useState(false)
   const connection = useConnection()
   const {notify, ui} = useApp()
   const scroll = useRef<HTMLDivElement>(null)
@@ -234,6 +236,30 @@ export function LogPanel({active = true}: {active?: boolean}) {
     URL.revokeObjectURL(url)
   }
 
+  async function downloadServerBundle() {
+    const [kind, scope] = exportKind.split(':') as ['runtime' | 'error', string]
+    setExporting(true)
+    try {
+      const result = await api.request('logs.requestExport', {instance, kind, scope})
+      // 经同一 origin（远控下经 P2P HTTP 代理）取文件，保证远控链路也能下载
+      const response = await fetch(result.url)
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        throw new Error(payload?.error ?? ui('log.exportFileFailed'))
+      }
+      const blob = await response.blob()
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = result.filename || `${instance}-logs.zip`
+      link.click()
+      URL.revokeObjectURL(link.href)
+    } catch (error) {
+      notify((error as Error).message, true)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <section className="log-panel">
       <div className="log-toolbar" aria-label={ui('log.tools')}>
@@ -246,6 +272,15 @@ export function LogPanel({active = true}: {active?: boolean}) {
         </button>
         <button className="text-button" onClick={download} aria-label={ui('log.export')}>
           <Download size={15} />{ui('log.exportShort')}
+        </button>
+        <Select aria-label={ui('log.exportFileSelect')} value={exportKind} onChange={event => setExportKind(event.target.value)}>
+          <option value="runtime:all">{ui('log.exportFileOption.runtimeAll')}</option>
+          <option value="runtime:today">{ui('log.exportFileOption.runtimeToday')}</option>
+          <option value="error:text">{ui('log.exportFileOption.errorText')}</option>
+          <option value="error:full">{ui('log.exportFileOption.errorFull')}</option>
+        </Select>
+        <button className="text-button" disabled={exporting} onClick={() => void downloadServerBundle()} aria-label={ui('log.exportFile')}>
+          <HardDriveDownload size={15} />{exporting ? ui('log.exportFilePacking') : ui('log.exportFile')}
         </button>
       </div>
       {filtersOpen && <div className="log-filters" id="log-filters">

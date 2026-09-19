@@ -31,6 +31,7 @@ class Router:
             'scheduler.stop': Method(p.InstanceParams, lambda x: runtime.stop(x.instance), True),
             'tasks.run': Method(p.TaskParams, lambda x: runtime.start(x.instance, x.task), True),
             'logs.get': Method(p.LogsParams, lambda x: runtime.logs(x.instance, x.after)),
+            'logs.requestExport': Method(p.LogsExportParams, self.request_log_export),
             'preview.capture': Method(p.InstanceParams, lambda x: runtime.capture(x.instance)),
             'statistics.refreshLoot': Method(p.InstanceParams, self.refresh_loot, True),
             'statistics.report': Method(p.StatisticsReportParams, self.statistics_report),
@@ -68,6 +69,35 @@ class Router:
     def statistics_report(self, params):
         from module.api.statistics_service import report
         return report(self.configs, params.instance, params.category, params.month, params.days, params.period)
+
+    def request_log_export(self, params):
+        """打包日志并签发一次性下载令牌；文件本体经 HTTP GET 流式取回。"""
+        from module.api import log_export
+
+        # configs.path 校验实例存在且名称安全（防路径穿越）
+        self.configs.path(params.instance)
+        instance = params.instance
+        scope = str(params.scope) if params.scope else None
+        if params.kind == 'error':
+            info = log_export.describe_error_log_dir(scope or log_export.SCOPE_FULL)
+            if info['bytes'] > log_export.EXPORT_MAX_BYTES:
+                raise p.ApiError(
+                    'INVALID_PARAMS',
+                    f"错误日志共 {info['human_bytes']}，超过导出上限；请改用“仅文本”范围",
+                )
+            path = log_export.build_error_log_zip(scope or log_export.SCOPE_FULL)
+            token = log_export.register_download(path, path.name, temp_file=True)
+            return {'url': f'/api/v1/export/{token}', 'filename': path.name, 'expiresIn': 120, **info}
+
+        info = log_export.describe_runtime_logs(instance, scope or '')
+        if info['bytes'] > log_export.EXPORT_MAX_BYTES:
+            raise p.ApiError(
+                'INVALID_PARAMS',
+                f"运行日志共 {info['human_bytes']}，超过导出上限；请按日期分段导出",
+            )
+        path, filename, temp = log_export.build_runtime_log_bundle(instance, scope or '')
+        token = log_export.register_download(path, filename, temp_file=temp)
+        return {'url': f'/api/v1/export/{token}', 'filename': filename, 'expiresIn': 120, **info}
 
     def dispatch(self, method, params):
         entry = self.methods.get(method)
