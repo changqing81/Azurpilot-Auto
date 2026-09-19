@@ -414,15 +414,17 @@ class MaaTouch(Connection):
         builder = self.maatouch_builder
 
         builder.down(*points[0]).commit().wait(10)
-        builder.send_sync()
-
         for point in points[1:]:
             builder.move(*point).commit().wait(10)
+        builder.move(*p2).commit()
         builder.send_sync()
 
-        # 在终点原地按住 hold_time 毫秒，对应岛屿摇杆的持续偏移
-        builder.move(*p2).commit().wait(hold_time)
-        builder.send_sync()
+        # 保持不能用 wait 写进 send_sync 批次：MaaTouch 二进制要执行完整批命令
+        # （含 wait）才回执同步时间戳，而操作流的读超时只有 2 秒（maatouch_init
+        # 里 settimeout(2)），wait 超过它必然同步超时→重连→重试连环失败。
+        # 摇杆触点在两次 send_sync 之间保持按下（与 drag_maatouch 的分批发送
+        # 同一机制），宿主侧睡 hold_time 毫秒后再发送抬起。
+        self.sleep(hold_time / 1000)
 
         builder.up().commit()
         builder.send_sync()
