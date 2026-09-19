@@ -28,11 +28,22 @@ if TYPE_CHECKING:
     from module.runtime.task_handler import TaskHandler
 
 
-HTTP_BODY_CHUNK = 12 * 1024
+HTTP_BODY_CHUNK = 32 * 1024
 P2P_SETUP_TIMEOUT = 60
 SSH_RECONNECT_DELAY = 2
 SSH_RECONNECT_MAX_DELAY = 30
 HOST_KEY_CHANGED_MARKER = "REMOTE HOST IDENTIFICATION HAS CHANGED"
+# P2P datachannel 单条消息分块：32KB（base64 后约 43KB）。过小会导致
+# 大响应（CSS/JS/背景图）往返次数多，远控下页面加载明显变慢
+# P2P 发送背压水位。datachannel 是**所有流量的共用通道**（HTTP 响应、UI 的
+# WebSocket、SSE、实时预览），且 aiortc 的 channel.send() 只入队不阻塞。
+# 若不加节制地把大响应灌进去，SCTP 发送缓冲会被堆满，排在后面的 UI 消息要等
+# 前面几 MB 传完才轮到——表现就是"导出日志时整个界面卡死"。
+# 超过 HIGH 就暂停发送，等缓冲回落到 LOW 以下再继续（aiortc bufferedamountlow 事件）。
+P2P_SEND_HIGH_WATER = 512 * 1024
+P2P_SEND_LOW_WATER = 128 * 1024
+# 单次等待上限：链路异常/对端不再读取时不能让请求永久挂住，超时就继续发
+P2P_SEND_DRAIN_TIMEOUT = 15
 
 
 class ParseError(Exception):
@@ -519,6 +530,43 @@ class WebRTCTunnel:
         self.ws_sessions = {}
         self.sse_tasks = {}
         self.ws_incoming_chunks = {}
+        # 一次性设定低水位线：bufferedAmount 回落到该值以下时 aiortc 会触发
+        # bufferedamountlow，供 _wait_send_capacity 恢复发送
+        try:
+            channel.bufferedAmountLowThreshold = P2P_SEND_LOW_WATER
+        except Exception as e:
+            logger.debug(f"P2P 通道不支持发送背压水位设置: {e}")
+
+    async def _wait_send_capacity(self) -> None:
+        """等 datachannel 发送缓冲回落，避免大响应独占共用通道。
+
+        背景：一条 datachannel 同时承载 HTTP 响应、UI 的 WebSocket、SSE 与实时预览，
+        且 send() 只入队不阻塞。不节流地灌入几十 MB（如日志压缩包）会把 SCTP 缓冲
+        堆满，导致 UI 消息排在几 MB 数据之后 → 用户看到的是"整个界面卡住"。
+        """
+        channel = self.channel
+        buffered = getattr(channel, "bufferedAmount", 0)
+        if buffered <= P2P_SEND_HIGH_WATER:
+            return
+        if getattr(channel, "readyState", "open") != "open":
+            return
+
+        loop = asyncio.get_running_loop()
+        drained = loop.create_future()
+
+        def _on_low():
+            if not drained.done():
+                drained.set_result(None)
+
+        channel.on("bufferedamountlow", _on_low)
+        try:
+            await asyncio.wait_for(drained, timeout=P2P_SEND_DRAIN_TIMEOUT)
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"P2P 发送缓冲 {buffered} 字节长时间未排空，继续发送以避免阻塞"
+            )
+        finally:
+            channel.remove_listener("bufferedamountlow", _on_low)
 
     @property
     def base_http_url(self) -> str:
@@ -613,6 +661,7 @@ class WebRTCTunnel:
                         "headers": dict(resp.headers),
                     })
                     async for chunk in resp.content.iter_chunked(HTTP_BODY_CHUNK):
+                        await self._wait_send_capacity()
                         self.send_json({
                             "type": "http.response.chunk",
                             "id": req_id,
@@ -733,6 +782,7 @@ class WebRTCTunnel:
                 headers = self._apply_browser_headers({"Accept": "text/event-stream"}, payload)
                 async with session.get(url, headers=headers) as resp:
                     async for chunk in resp.content.iter_chunked(8192):
+                        await self._wait_send_capacity()
                         self.send_json({
                             "type": "sse.chunk",
                             "id": sse_id,
@@ -766,6 +816,7 @@ class WebRTCTunnel:
             "total": total,
         })
         for index in range(total):
+            await self._wait_send_capacity()
             chunk = data[index * HTTP_BODY_CHUNK:(index + 1) * HTTP_BODY_CHUNK]
             self.send_json({
                 "type": "ws.message.chunk",
@@ -825,7 +876,7 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
             if not self.info.peer_id:
                 raise ParseError("localshare 服务端未返回 peer_id，无法启用 P2P")
             self.info.connection_state = "signaling"
-            asyncio.run(self._run_signal_loop())
+            asyncio.run(self._run_signal_loop_with_reconnect())
         except RemoteDependencyError as e:
             self._missing_dependency = str(e)
             self.info.error = str(e)
@@ -840,6 +891,34 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
             self.info.connection_state = "failed"
             logger.exception(e)
         logger.info("退出WebRTC远程访问服务线程")
+
+    async def _run_signal_loop_with_reconnect(self) -> None:
+        """信令断开后在线程内自动重连（指数退避 2s→30s），线程不再退出。
+
+        旧实现中信令一断线程即退出，要等 keep_ssh_alive 轮询（原 60 秒）才会重启，
+        期间远控完全不可用；改为循环内重连后，浏览器重连只需一次信令往返。
+        RemoteDependencyError / ParseError 等配置类异常仍向上抛出，
+        由 _thread_main 按原语义退出线程。
+        """
+        delay = SSH_RECONNECT_DELAY
+        while not self.stop_event.is_set():
+            try:
+                await self._run_signal_loop()
+                if self.stop_event.is_set():
+                    return
+                logger.warning("[WebUI-远程] 信令连接已关闭，稍后自动重连")
+            except RemoteSignalError as e:
+                if self.stop_event.is_set():
+                    return
+                self.info.error = str(e)
+                logger.warning(f"[WebUI-远程] 信令连接断开，{delay} 秒后自动重连: {e}")
+            # 本轮成功连上过信令（状态推进到 waiting_peer 及以后，断开不改状态）
+            # 视为链路可达，重置退避；从未连上（状态停在 signaling）才逐步加长
+            if self.info.connection_state in ("waiting_peer", "direct_p2p"):
+                delay = SSH_RECONNECT_DELAY
+            self.info.connection_state = "signaling"
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, SSH_RECONNECT_MAX_DELAY)
 
     async def _run_signal_loop(self) -> None:
         try:
