@@ -80,6 +80,64 @@ def report(configs, instance, category, month, days, period):
         result['series'] = [series(rows, key, RESOURCE_LABELS[name]) for name, key in resource_items]
         return result
 
+    if category == 'delta':
+        from module.statistics.resource_delta_stats import (
+            get_consumption_ranking,
+            get_delta_daily_series,
+            get_delta_summary,
+            get_task_delta_timeline,
+        )
+        # 窗口起点：事件时间戳是 ISO 字符串（空格分隔），与 resources 类别同口径比较
+        cutoff = (now - timedelta(days=days)).isoformat(sep=' ')
+        summary = get_delta_summary(instance, cutoff)
+        ranking = get_consumption_ranking(instance, cutoff)
+        timeline = get_task_delta_timeline(instance, cutoff)
+        daily = get_delta_daily_series(instance, cutoff)
+
+        def label(name):
+            return RESOURCE_LABELS.get(name, name)
+
+        total_increase = sum(item['increase'] for item in summary)
+        total_decrease = sum(item['decrease'] for item in summary)
+        metric('总增加', total_increase)
+        metric('总消耗', total_decrease)
+        metric('净变化', total_increase - total_decrease)
+        result['notes'].append('数据来自任务运行中的资源变动记录；委托（Commission）收益不参与增减统计。')
+
+        # 汇总表按消耗降序，与旧版"资源按总消耗降序分节"一致
+        ordered = sorted(summary, key=lambda item: item['decrease'], reverse=True)
+        result['tables'].append(table('增减汇总', ['资源', '增加', '消耗', '净变化', '事件数'],
+            [[label(item['resource']), item['increase'], item['decrease'], item['net'], item['events']] for item in ordered]))
+
+        # 消耗排行榜：资源内按消耗降序；资源之间按总消耗降序分节
+        consumption_order = {item['resource']: index for index, item in enumerate(ordered)}
+        ranking_rows = sorted(ranking, key=lambda item: consumption_order.get(item['resource'], len(ordered)))
+        result['tables'].append(table('消耗排行榜', ['资源', '任务', '消耗', '次数'],
+            [[label(item['resource']), item['source'], item['consumed'], item['times']] for item in ranking_rows],
+            default_sort={'index': 2, 'descending': True}))
+
+        # 任务时间轴：任务沿时间排列，上方增加、下方消耗（表格化为增加/消耗明细两列）
+        timeline_rows = []
+        for item in reversed(timeline):
+            increased = '、'.join(f"{label(name)} +{data['increased']}" for name, data in item['resources'].items() if data.get('increased'))
+            consumed = '、'.join(f"{label(name)} -{data['consumed']}" for name, data in item['resources'].items() if data.get('consumed'))
+            timeline_rows.append([item['source'], item['last_ts'].replace('T', ' ') if item.get('last_ts') else '', increased or '—', consumed or '—'])
+        result['tables'].append(table('任务时间轴', ['任务', '最近活动', '增加明细', '消耗明细'], timeline_rows,
+            default_sort={'index': 1, 'descending': True}))
+
+        # 每日净变化趋势：只为变动最多的前 8 个资源画线，避免图例爆炸
+        net_by_resource = {}
+        for item in summary:
+            net_by_resource[item['resource']] = item['net']
+        top_resources = sorted(net_by_resource, key=lambda name: abs(net_by_resource[name]), reverse=True)[:8]
+        daily_rows = []
+        for row in daily:
+            if row['resource'] not in top_resources:
+                continue
+            daily_rows.append({'ts': f"{row['day']} 00:00:00", row['resource']: row['net']})
+        result['series'] = [series(daily_rows, name, label(name)) for name in top_resources]
+        return result
+
     from module.statistics.cl1_database import db
     if category == 'opsi':
         from module.statistics.opsi_month import get_opsi_stats, compute_monthly_cl1_akashi_ap

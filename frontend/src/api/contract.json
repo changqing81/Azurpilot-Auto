@@ -380,6 +380,7 @@
             "default": "resources",
             "enum": [
               "resources",
+              "delta",
               "action",
               "opsi",
               "commission",

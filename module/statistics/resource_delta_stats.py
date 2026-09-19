@@ -260,9 +260,50 @@ def get_consumption_ranking(
         return []
 
 
+def get_delta_daily_series(
+    instance: str,
+    start_ts: Optional[str] = None,
+    end_ts: Optional[str] = None,
+) -> List[Dict]:
+    """按天聚合增减事件，用于资源净变化趋势图。
+
+    Returns:
+        list[dict]: 按 day 升序，每项包含:
+            - day: 日期字符串（YYYY-MM-DD，取事件时间前 10 位）
+            - resource: 资源名
+            - increase: 当日增加合计（正数）
+            - decrease: 当日消耗合计（正数）
+            - net: 当日净变化（增加 - 消耗）
+    """
+    try:
+        _ensure_table()
+        actual_start = start_ts if start_ts is not None else _TS_MIN
+        actual_end = end_ts if end_ts is not None else _TS_MAX
+        with closing(sqlite3.connect(_LOCAL_DB)) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                '''
+                SELECT substr(ts, 1, 10) AS day, resource,
+                       SUM(CASE WHEN delta > 0 THEN delta ELSE 0 END) AS increase,
+                       SUM(CASE WHEN delta < 0 THEN -delta ELSE 0 END) AS decrease,
+                       SUM(delta) AS net
+                FROM resource_delta_events
+                WHERE instance = ? AND ts >= ? AND ts < ?
+                GROUP BY day, resource
+                ORDER BY day
+                ''',
+                (instance, actual_start, actual_end),
+            ).fetchall()
+        return [dict(row) for row in rows]
+    except Exception as e:
+        logger.warning(f'[统计-增减] 获取每日净变化失败: {e}')
+        return []
+
+
 __all__ = [
     'record_resource_delta',
     'get_delta_summary',
     'get_task_delta_timeline',
     'get_consumption_ranking',
+    'get_delta_daily_series',
 ]
