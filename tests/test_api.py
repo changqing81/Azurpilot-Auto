@@ -65,6 +65,21 @@ class ConfigApiTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(ApiError):
                 self.configs.path(name, exists=False)
 
+    def test_chinese_instance_names_are_first_class(self):
+        """历史配置大量使用中文实例名（如 小号.json），新 API 必须同等支持。"""
+        service = self.configs
+        service.create('小号')
+        self.assertIn('小号', service.names())
+        self.assertEqual('小号', service.get('小号')['instance'])
+        self.assertTrue(service.path('小号').is_file())
+        # 复制来源为中文实例同样合法
+        service.create('小号副本', source='小号')
+        self.assertIn('小号副本', service.names())
+        # 路径穿越与非法形态仍被拒绝
+        for name in ['../小号', '小号/x', '小号.txt', '.hidden']:
+            with self.subTest(name=name), self.assertRaises(ApiError):
+                service.path(name, exists=False)
+
     def test_patch_merges_fields_from_stale_revision(self):
         original = self.configs.get('testpilot')
         changed = self.configs.patch('testpilot', original['revision'], [ConfigChange(path='Alas.Emulator.Serial', value='127.0.0.1:5555')])
