@@ -455,7 +455,7 @@ class HomeMixin(WebUIMixinBase):
             ).style("text-align: center")
 
         if lang.TRANSLATE_MODE:
-            lang.reload()
+            lang.reload_all()
 
             def _disable():
                 lang.TRANSLATE_MODE = False

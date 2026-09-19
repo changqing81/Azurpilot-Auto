@@ -13,7 +13,7 @@ MCP 子应用进一步推迟到首次 /mcp 请求时加载。
 
 from hashlib import sha256
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 
 from module.webui.app_dashboard import DashboardMixin
 from module.webui.app_dependencies import (
@@ -511,9 +511,14 @@ def app():
         debug=False,
         on_startup=[
             startup,
-            lambda: ProcessManager.restart_processes(
-                instances=instances, ev=updater.event
-            ),
+            # worker 拉起是逐个 spawn 新解释器的重操作，放后台线程执行，
+            # WebUI 就绪不再被实例数量拖慢；页面可用后侧栏如实显示启动状态。
+            lambda: Thread(
+                target=ProcessManager.restart_processes,
+                kwargs=dict(instances=instances, ev=updater.event),
+                name="RestartProcesses",
+                daemon=True,
+            ).start(),
         ],
         on_shutdown=[clearup],
     )
