@@ -41,8 +41,8 @@ def startup() -> None:
     lang.reload()
     updater.event = State.manager.Event()
     if updater.delay > 0:
-        task_handler.add(updater.check_update, updater.delay)
-    task_handler.add(updater.schedule_update(), 86400)
+        task_handler.add(updater.check_update, updater.delay, group="slow")
+    task_handler.add(updater.schedule_update(), 86400, group="slow")
     task_handler.start()
     if State.deploy_config.DiscordRichPresence:
         init_discord_rpc()
@@ -52,7 +52,7 @@ def startup() -> None:
         State.deploy_config.Password is not None or os.environ.get("DEMO") == "1"
     ):
         # 10 秒轮询：远程访问线程一旦退出，最多 10 秒内自动拉起（原 60 秒会造成远控盲区）
-        task_handler.add(RemoteAccess.keep_ssh_alive(), 10)
+        task_handler.add(RemoteAccess.keep_ssh_alive(), 10, group="slow")
 
 
 def clearup() -> bool:

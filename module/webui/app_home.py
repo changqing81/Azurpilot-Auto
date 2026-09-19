@@ -1921,7 +1921,7 @@ class HomeMixin(WebUIMixinBase):
 
         self.task_handler.add(self.state_switch.g(), 2)
         self.task_handler.add(self.set_aside_status, 2)
-        self.task_handler.add(visibility_state_switch.g(), 15)
+        self.task_handler.add(visibility_state_switch.g(), 15, group="slow")
         self.task_handler.add(update_switch.g(), 1)
 
         # 公告检查功能（非阻塞）
@@ -1971,7 +1971,7 @@ class HomeMixin(WebUIMixinBase):
                 yield
 
         # 首次立即执行，后续间隔由任务自身根据请求状态动态调整。
-        self.task_handler.add(announcement_checker(), delay=5)
+        self.task_handler.add(announcement_checker(), delay=5, group="slow")
 
         if restore_instance:
             self.ui_alas(aside)

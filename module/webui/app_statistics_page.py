@@ -32,7 +32,7 @@ class StatisticsPageMixin(WebUIMixinBase):
 
         # 原先的 5 个任务会在进页后立即各重绘一次。现在仅轮询本地数据源
         # 版本并提示存在新数据，不再打断用户正在查看的图表状态。
-        self.task_handler.add(self._refresh_statistics_if_changed, 15, True)
+        self.task_handler.add(self._refresh_statistics_if_changed, 15, True, group="slow")
 
     def _mount_statistics_page(self, cache_key) -> None:
         """为当前实例首次创建统计内容。"""

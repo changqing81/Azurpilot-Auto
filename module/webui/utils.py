@@ -112,13 +112,24 @@ class QueueHandler:
 
 class Task:
     def __init__(
-        self, g: Generator, delay: float, next_run: float = None, name: str = None
+        self,
+        g: Generator,
+        delay: float,
+        next_run: float = None,
+        name: str = None,
+        group: str = "fast",
     ) -> None:
         self.g = g
         g.send(None)
         self.delay = delay
         self.next_run = next_run if next_run is not None else time.time()
         self.name = name if name is not None else self.g.__name__
+        # 任务组：同组任务在各自线程内串行执行，不同组并行。
+        # fast=高频 UI 任务（日志/状态/侧栏），slow=低频重任务（总览/仪表盘/更新检查）。
+        self.group = group
+        # 任务是否正在其组线程中执行；wake_task 需要区分
+        # 「唤醒正在执行的任务」与「提前唤醒等待中的任务」。
+        self.running = False
         self.wake_requested = False
 
     def __str__(self) -> str:
@@ -139,16 +150,27 @@ class TaskHandler:
         self.tasks: List[Task] = []
         # 待移除的任务列表
         self.pending_remove_tasks: List[Task] = []
-        # 当前正在运行的任务
-        self._task = None
-        # 任务运行线程
-        self._thread: threading.Thread = None
+        # 当前线程正在运行的任务（thread-local，供任务生成器内调整自身 delay 等）
+        self._local = threading.local()
+        # 任务运行线程：每个任务组一个，组内串行、组间并行
+        self._threads: Dict[str, threading.Thread] = {}
         self._alive = False
         self._lock = threading.RLock()
         # 新增、移除或停止任务时主动唤醒调度线程，避免固定间隔空轮询。
         self._condition = threading.Condition(self._lock)
 
-    def add(self, func, delay: float, pending_delete: bool = False) -> None:
+    @property
+    def _task(self):
+        """当前线程正在执行的任务；仅在任务生成器内访问时有意义。"""
+        return getattr(self._local, "task", None)
+
+    @_task.setter
+    def _task(self, task) -> None:
+        self._local.task = task
+
+    def add(
+        self, func, delay: float, pending_delete: bool = False, group: str = "fast"
+    ) -> None:
         """
         添加后台运行的任务。
 
@@ -158,12 +180,13 @@ class TaskHandler:
             func: Callable 或 Generator
             delay: 任务执行间隔（秒）
             pending_delete: 是否标记为待删除
+            group: 任务组；fast=高频 UI 任务，slow=低频重任务
         """
         if isinstance(func, Callable):
             g = get_generator(func)
         elif isinstance(func, Generator):
             g = func
-        self.add_task(Task(g, delay), pending_delete=pending_delete)
+        self.add_task(Task(g, delay, group=group), pending_delete=pending_delete)
 
     def add_task(self, task: Task, pending_delete: bool = False) -> None:
         """
@@ -177,7 +200,14 @@ class TaskHandler:
             self.tasks.append(task)
             if pending_delete:
                 self.pending_remove_tasks.append(task)
-            self._condition.notify()
+            if self._alive:
+                # 运行期动态添加的任务组没有专属线程时补建，保证组间隔离
+                thread = self._threads.get(task.group)
+                if thread is None or not thread.is_alive():
+                    thread = self._get_thread(task.group)
+                    self._threads[task.group] = thread
+                    thread.start()
+            self._condition.notify_all()
 
     def _remove_task(self, task: Task) -> None:
         if task in self.tasks:
@@ -201,7 +231,7 @@ class TaskHandler:
                 self._remove_task(task)
             elif task not in self.pending_remove_tasks:
                 self.pending_remove_tasks.append(task)
-            self._condition.notify()
+            self._condition.notify_all()
 
     def remove_pending_task(self) -> None:
         """
@@ -211,7 +241,7 @@ class TaskHandler:
             for task in self.pending_remove_tasks:
                 self._remove_task(task)
             self.pending_remove_tasks = []
-            self._condition.notify()
+            self._condition.notify_all()
 
     def remove_current_task(self) -> None:
         self.remove_task(self._task, nowait=True)
@@ -228,33 +258,36 @@ class TaskHandler:
         with self._condition:
             for task in self.tasks:
                 if task.name == name:
-                    if task is self._task:
+                    if task.running:
+                        # 任务正在执行：直接改 next_run 会被执行后的重新计时覆盖
                         task.wake_requested = True
                     else:
                         task.next_run = time.time()
-                    self._condition.notify()
+                    self._condition.notify_all()
                     return True
             return False
 
-    def loop(self) -> None:
+    def loop(self, group: str = "fast") -> None:
         """
-        启动任务循环。
+        运行指定任务组的调度循环。
 
-        此函数**必须**在独立线程中运行。
+        此函数**必须**在独立线程中运行。每个任务组一个线程：
+        组内任务串行执行，组间并行——慢任务（总览/仪表盘/更新检查）
+        不再阻塞高频 UI 任务（日志/状态/侧栏）。
         """
         while True:
             with self._condition:
                 while self._alive:
-                    if not self.tasks:
+                    group_tasks = [task for task in self.tasks if task.group == group]
+                    if not group_tasks:
                         self._condition.wait()
                         continue
-                    self.tasks.sort(key=operator.attrgetter("next_run"))
-                    task = self.tasks[0]
+                    group_tasks.sort(key=operator.attrgetter("next_run"))
+                    task = group_tasks[0]
                     wait_seconds = task.next_run - time.time()
                     if wait_seconds > 0:
                         self._condition.wait(timeout=wait_seconds)
                         continue
-                    self._task = task
                     break
                 else:
                     break
@@ -263,6 +296,8 @@ class TaskHandler:
                 break
 
             try:
+                self._task = task
+                task.running = True
                 task.send(self)
             except SessionClosedException:
                 logger.debug(f"WebIO 会话已关闭，停止任务 {task.name}")
@@ -271,6 +306,8 @@ class TaskHandler:
                 logger.exception(e)
                 self.remove_task(task, nowait=True)
             finally:
+                task.running = False
+                self._task = None
                 with self._condition:
                     # 每次执行后从当前时间重新计时。系统休眠或事件循环长时间
                     # 阻塞后不会补跑大量已经过期的刷新任务。
@@ -280,56 +317,63 @@ class TaskHandler:
                             task.next_run = time.time()
                         else:
                             task.next_run = time.time() + max(0, task.delay)
-                    self._task = None
+                    self._condition.notify_all()
         logger.info("任务处理循环结束")
 
-    def _get_thread(self) -> threading.Thread:
-        thread = threading.Thread(target=self.loop, daemon=True)
+    def _get_thread(self, group: str) -> threading.Thread:
+        thread = threading.Thread(
+            target=self.loop, args=(group,), daemon=True, name=f"TaskHandler-{group}"
+        )
         return thread
 
     def start(self) -> None:
         """
-        启动任务处理器。
+        启动任务处理器：为已注册任务涉及的每个组启动一个调度线程。
         """
         with self._condition:
             logger.info("启动任务处理")
-            if self._thread is not None and self._thread.is_alive():
+            if any(t.is_alive() for t in self._threads.values()):
                 logger.warning("[WebUI-工具] 任务处理器已在运行！")
                 return
             self._alive = True
-            self._thread = self._get_thread()
+            groups = {task.group for task in self.tasks} or {"fast"}
             try:
-                self._thread.start()
+                for group in sorted(groups):
+                    thread = self._get_thread(group)
+                    self._threads[group] = thread
+                    thread.start()
             except Exception:
                 self._alive = False
-                self._thread = None
+                self._threads = {}
                 raise
 
     def stop(self) -> bool:
-        """停止任务线程，并返回是否已能安全释放共享状态。"""
+        """停止所有任务线程，并返回是否已能安全释放共享状态。"""
         self.remove_pending_task()
         with self._condition:
             self._alive = False
             self._condition.notify_all()
-        if self._thread is None:
+        threads = list(self._threads.values())
+        if not threads:
             logger.info("[WebUI] 任务处理器未启动，跳过停止")
             return True
-        if threading.current_thread() is not self._thread:
-            self._thread.join(timeout=2)
-            if not self._thread.is_alive():
-                logger.info("完成任务处理")
-                return True
-            else:
-                logger.warning("[WebUI] 任务处理器未在 2 秒内停止")
-                return False
-        else:
+        if threading.current_thread() in threads:
             logger.info("[WebUI] 任务处理器在其自身线程内调用了停止，跳过 join")
             return True
+        success = True
+        for thread in threads:
+            thread.join(timeout=2)
+            if thread.is_alive():
+                logger.warning("[WebUI] 任务处理器未在 2 秒内停止")
+                success = False
+        if success:
+            logger.info("完成任务处理")
+        return success
 
 
 class WebIOTaskHandler(TaskHandler):
-    def _get_thread(self) -> threading.Thread:
-        thread = super()._get_thread()
+    def _get_thread(self, group: str) -> threading.Thread:
+        thread = super()._get_thread(group)
         register_thread(thread)
         return thread
 

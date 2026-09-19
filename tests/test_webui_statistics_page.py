@@ -15,7 +15,7 @@ class _TaskHandlerStub:
     def __init__(self):
         self.added = []
 
-    def add(self, func, delay, pending_delete=False):
+    def add(self, func, delay, pending_delete=False, group="fast"):
         self.added.append((func, delay, pending_delete))
 
 
