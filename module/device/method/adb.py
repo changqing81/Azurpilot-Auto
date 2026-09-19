@@ -223,19 +223,36 @@ class Adb(Connection):
 
     @retry
     def island_swipe_hold_adb(self, p1, p2, hold_time):
-        """岛屿摇杆的 ADB 近似实现（Hermit 同样走这里）。
+        """岛屿摇杆的 ADB 实现（Hermit 同样走这里）。
 
-        `input swipe` 无法在终点保持按住，拆成「快速滑动到终点 + 原地长按」
-        两段近似；两条命令之间摇杆会短暂回中，实际移动距离略短于流式触控后端。
+        摇杆必须是「从摇杆中心按下 → 移到偏移点 → 保持 → 抬起」的连续手势。
+        旧近似（input swipe 到偏移点 + 在偏移点原地长按）的第二段触摸起点在
+        偏移位置，游戏抓不住摇杆，角色只会挪动一下就停（真机 2026-09-19）。
+
+        Android 11+（SDK >= 30）用 `input motionevent DOWN/MOVE/UP` 三条命令
+        注入同一次手势：命令间不产生 UP，触点在 MOVE 与 UP 之间保持按下，
+        由宿主侧 sleep hold_time 毫秒。更老的系统没有等价原语，退回两段近似
+        并警告（角色可能无法持续移动，建议改用 MaaTouch / uiautomator2）。
 
         Args:
             p1 (tuple): 起始坐标 (x, y)。
             p2 (tuple): 终点坐标 (x, y)。
             hold_time (int, float): 在终点保持的时间（毫秒）。
         """
-        self.swipe_adb(p1, p2, duration=0.1)
-        # 起点终点相同的 input swipe = 原地长按
-        self.swipe_adb(p2, p2, duration=hold_time / 1000)
+        if self.sdk_ver >= 30:
+            self.adb_shell(['input', 'motionevent', 'DOWN', *p1])
+            self.adb_shell(['input', 'motionevent', 'MOVE', *p2])
+            self.sleep(hold_time / 1000)
+            self.adb_shell(['input', 'motionevent', 'UP', *p2])
+        else:
+            logger.warning(
+                f'[设备-控制] 设备 SDK 版本 {self.sdk_ver} 不支持 input motionevent'
+                f'（需 Android 11+），岛屿摇杆退回两段近似，角色可能无法持续移动，'
+                f'建议改用 MaaTouch / uiautomator2 等流式触控方案'
+            )
+            self.swipe_adb(p1, p2, duration=0.1)
+            # 起点终点相同的 input swipe = 原地长按
+            self.swipe_adb(p2, p2, duration=hold_time / 1000)
 
     @retry
     def app_current_adb(self):

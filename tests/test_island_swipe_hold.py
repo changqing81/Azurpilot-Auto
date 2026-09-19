@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import yaml
 
 from module.device.control import Control
+from module.device.method.adb import Adb
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -91,6 +92,53 @@ class TestIslandSwipeHoldDispatch(unittest.TestCase):
         mocks = self._dispatch('NotARealMethod')
         self.assertTrue(mocks['island_swipe_hold_adb'].called)
         self._assert_hold_passthrough(mocks['island_swipe_hold_adb'])
+
+
+class TestIslandSwipeHoldAdb(unittest.TestCase):
+    """island_swipe_hold_adb 的手势注入测试。
+
+    两段近似（input swipe 到偏移点 + 在偏移点原地长按）的第二段触摸起点
+    不在摇杆中心，游戏抓不住摇杆，角色只会挪动一下就停（真机 2026-09-19）。
+    SDK >= 30 必须用 input motionevent 注入「中心按下 → 移到偏移点 →
+    保持 → 抬起」的连续手势；更老的系统回退两段近似并警告。
+    """
+
+    P1 = (218, 507)
+    P2 = (218, 441)
+
+    def _make(self, sdk_ver):
+        adb = Adb.__new__(Adb)
+        # 实例属性遮蔽 cached_property，避免测试触发 getprop
+        adb.sdk_ver = sdk_ver
+        return adb
+
+    def test_motionevent_continuous_gesture(self):
+        adb = self._make(31)
+        with contextlib.ExitStack() as stack:
+            shell = stack.enter_context(patch.object(Adb, 'adb_shell', autospec=True))
+            # sleep 是 Connection 上的 staticmethod，autospec 会按普通函数
+            # 绑定 self 导致签名 TypeError，这里只需记录调用，用普通 Mock
+            sleep = stack.enter_context(patch.object(Adb, 'sleep'))
+            adb.island_swipe_hold_adb(self.P1, self.P2, 800)
+
+        cmds = [call.args[1] for call in shell.call_args_list]
+        self.assertEqual(cmds, [
+            ['input', 'motionevent', 'DOWN', *self.P1],
+            ['input', 'motionevent', 'MOVE', *self.P2],
+            ['input', 'motionevent', 'UP', *self.P2],
+        ])
+        # 保持发生在宿主侧：MOVE 与 UP 之间睡 hold_time 毫秒
+        self.assertEqual(sleep.call_args.args[-1], 0.8)
+
+    def test_old_sdk_falls_back_to_two_segment(self):
+        adb = self._make(28)
+        with contextlib.ExitStack() as stack:
+            shell = stack.enter_context(patch.object(Adb, 'adb_shell', autospec=True))
+            swipe = stack.enter_context(patch.object(Adb, 'swipe_adb', autospec=True))
+            adb.island_swipe_hold_adb(self.P1, self.P2, 800)
+
+        self.assertEqual(shell.call_count, 0)
+        self.assertEqual(swipe.call_count, 2)
 
 
 if __name__ == '__main__':
