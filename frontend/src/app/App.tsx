@@ -2,11 +2,12 @@ import { PasswordInput, Select } from '../components/FormControls'
 import { useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowRight, CalendarClock, ChartNoAxesCombined, Code2, Compass, LayoutDashboard, House, Download, Menu, Settings2, WifiOff, X } from 'lucide-react'
-import { api } from '../api/client'
+import { api, assetUrl } from '../api/client'
 import { useApp, useConnection } from './context'
 import { ErrorBox, Loading, Modal } from '../components/ui'
 import { GlassMaterial } from '../components/GlassMaterial'
 import { InstanceSwitcher } from '../components/InstanceSwitcher'
+import { Wallpaper } from '../components/Wallpaper'
 import { RightRail } from '../components/RightRail'
 import { TaskNav } from '../components/TaskNav'
 import { useUpdater } from './updater'
@@ -45,7 +46,7 @@ function Login() {
     event.preventDefault(); setError(''); setBusy(true)
     try { await api.login(password) } catch (error) { setError((error as Error).message) } finally { setBusy(false) }
   }
-  return <div className="login-page"><div className="login-art"><Compass size={200} strokeWidth={0.5}/><span>{ui('auth.slogan')}</span></div>
+  return <div className="login-page"><Wallpaper/><div className="login-art"><Compass size={200} strokeWidth={0.5}/><span>{ui('auth.slogan')}</span></div>
     <form onSubmit={submit} className="login-card"><div className="brand-mark"><NavigationMark/></div><h1>{ui('auth.welcome')}</h1>
       <label htmlFor="password">{ui('auth.password')}</label><PasswordInput id="password" autoComplete="current-password" autoFocus required value={password} onChange={event => setPassword(event.target.value)}/>
       {error && <ErrorBox message={error}/>}
@@ -55,7 +56,7 @@ function Login() {
 }
 
 export function NavigationMark() {
-  return <img src="/azurpilot.svg" alt="AzurPilot" width="28" height="28" className="brand-logo"/>
+  return <img src={assetUrl('azurpilot.svg')} alt="AzurPilot" width="28" height="28" className="brand-logo"/>
 }
 
 export function App() {
@@ -91,8 +92,8 @@ export function App() {
     void api.request('events.subscribe', {instance: instance ?? null, topics: instance ? previewEnabled ? ['instances', 'overview', 'logs', 'preview'] : ['instances', 'overview', 'logs'] : ['instances']}).catch(error => notify(error.message, true))
   }, [instance, connection, notify, previewEnabled])
   if (connection === 'auth') return <Login/>
-  return <div className={`app-shell ${instance ? 'with-rail' : ''} ${mobileOpen ? 'mobile-open' : ''} ${railOpen ? 'rail-open' : ''}`}>
-    <a className="skip-link" href="#main-content" onClick={event => {event.preventDefault(); document.getElementById('main-content')?.focus()}}>{ui('nav.skipContent')}</a><aside className="sidebar"><div className="sidebar-brand"><div className="sidebar-brand-left"><Link to="/" className="brand-title" aria-label={`AzurPilot ${ui('nav.home')}`}><img src="/azurpilot.svg" alt="" className="brand-logo" onClick={handleBrandLogoClick}/><span>AzurPilot</span></Link>{update.data?.available && <Link className="update-notice sidebar-update-notice" to="/updater" aria-label={ui('nav.newVersion')} title={ui('nav.newVersion')}><span>{ui('nav.newBadge')}</span></Link>}</div><button className="mobile-close icon-button" aria-label={ui('nav.close')} onClick={() => setMobileOpen(false)}><X size={18}/></button></div>
+  return <div className={`app-shell ${instance ? 'with-rail' : ''} ${mobileOpen ? 'mobile-open' : ''} ${railOpen ? 'rail-open' : ''}`}><Wallpaper/>
+    <a className="skip-link" href="#main-content" onClick={event => {event.preventDefault(); document.getElementById('main-content')?.focus()}}>{ui('nav.skipContent')}</a><aside className="sidebar"><div className="sidebar-brand"><div className="sidebar-brand-left"><Link to="/" className="brand-title" aria-label={`AzurPilot ${ui('nav.home')}`}><img src={assetUrl('azurpilot.svg')} alt="" className="brand-logo" onClick={handleBrandLogoClick}/><span>AzurPilot</span></Link>{update.data?.available && <Link className="update-notice sidebar-update-notice" to="/updater" aria-label={ui('nav.newVersion')} title={ui('nav.newVersion')}><span>{ui('nav.newBadge')}</span></Link>}</div><button className="mobile-close icon-button" aria-label={ui('nav.close')} onClick={() => setMobileOpen(false)}><X size={18}/></button></div>
       <nav className="primary-nav" aria-label={ui('nav.primary')}>
         {instance ? <><NavLink to={`${base}/overview`}><LayoutDashboard size={17}/>{ui('nav.overview')}</NavLink><NavLink to={`${base}/statistics`}><ChartNoAxesCombined size={17}/>{ui('nav.statistics')}</NavLink></> : <><NavLink to="/" end><House size={17}/>{ui('nav.home')}</NavLink><NavLink to="/updater"><Download size={17}/>{ui('nav.updater')}{update.data?.available && <span className="tiny-dot teal"/>}</NavLink><NavLink to="/settings"><Settings2 size={17}/>{ui('nav.settings')}</NavLink>{devMode && <NavLink to="/dev"><Code2 size={17}/>{ui('nav.developer')}</NavLink>}</>}
       </nav>

@@ -660,13 +660,25 @@ class WebRTCTunnel:
                         "status_text": resp.reason,
                         "headers": dict(resp.headers),
                     })
-                    async for chunk in resp.content.iter_chunked(HTTP_BODY_CHUNK):
+                    # index.html 注入 <base href="/p2p/{id}/">：SPA 页面挂在代理
+                    # 前缀之后，前端资源用的是相对路径，必须补回基准目录。
+                    if self.peer_id and 'text/html' in (resp.headers.get('content-type') or ''):
+                        html = await resp.read()
+                        html = html.replace(b'<head>', f'<head><base href="/p2p/{self.peer_id}/">'.encode('ascii'), 1)
                         await self._wait_send_capacity()
                         self.send_json({
                             "type": "http.response.chunk",
                             "id": req_id,
-                            "data": base64.b64encode(chunk).decode("ascii"),
+                            "data": base64.b64encode(html).decode("ascii"),
                         })
+                    else:
+                        async for chunk in resp.content.iter_chunked(HTTP_BODY_CHUNK):
+                            await self._wait_send_capacity()
+                            self.send_json({
+                                "type": "http.response.chunk",
+                                "id": req_id,
+                                "data": base64.b64encode(chunk).decode("ascii"),
+                            })
                     self.send_json({"type": "http.response.end", "id": req_id})
         except Exception as e:
             logger.warning(f"P2P HTTP代理失败: {e}")

@@ -66,16 +66,18 @@ def report(configs, instance, category, month, days, period):
         result['metrics'].append({'label': label, 'value': value, 'unit': unit})
 
     if category == 'resources':
-        from module.statistics.resource_stats import RESOURCE_COLUMNS, get_resource_timeline
+        from module.statistics.resource_stats import get_resource_timeline
         rows = get_resource_timeline(instance, limit=50001)
         cutoff = (now - timedelta(days=days)).isoformat(sep=' ')
         rows = [row for row in rows if str(row['ts']).replace('T', ' ') >= cutoff]
         if len(rows) > 50000:
             result['notes'].append('记录超过 50,000 条，当前展示最近 50,000 条，请缩短时间范围查看细节。')
             rows = rows[-50000:]
+        # 本地 resource_stats 的快照列为 snake_case；口径与旧界面一致，
+        # 行动力与两类凭证不在资源趋势里（分别在"大世界趋势"和"资源增减"里看）。
         resource_items = [
-            (name, key) for name, key in RESOURCE_COLUMNS.items()
-            if name not in ('ActionPoint', 'YellowCoin', 'PurpleCoin')
+            ('Oil', 'oil'), ('Coin', 'coin'), ('Gem', 'gem'), ('Pt', 'pt'), ('Cube', 'cube'),
+            ('Core', 'core'), ('Medal', 'medal'), ('Merit', 'merit'), ('GuildCoin', 'guild_coin'),
         ]
         result['series'] = [series(rows, key, RESOURCE_LABELS[name]) for name, key in resource_items]
         return result

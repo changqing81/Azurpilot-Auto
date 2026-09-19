@@ -5,6 +5,13 @@ import { translateCurrentUi } from '../i18n'
 export class ApiError extends Error {
   constructor(public code: string, message: string, public details?: unknown) { super(message) }
 }
+/** 站点基准地址：<base>（本地 /，P2P 远控 /p2p/{id}/）优先；无 DOM 环境（单测）回退 location。 */
+const baseHref = (): string => {
+  if (typeof document !== 'undefined' && document.baseURI) return document.baseURI
+  return window.location.href
+}
+/** 以基准地址解析站点资源路径。 */
+export const assetUrl = (path: string) => new URL(path.replace(/^\//, ''), baseHref()).href
 export type Connection = 'connecting' | 'ready' | 'auth' | 'offline'
 type Pending = { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
 
@@ -32,7 +39,7 @@ export class ApiClient {
     if (!this.password) { try { this.password = window.localStorage.getItem('azurpilot.access-password') ?? '' } catch { /* 浏览器禁用存储时保留会话登录。 */ } }
     this.stopped = false
     this.setState('connecting')
-    const url = new URL('/api/v1/ws', window.location.href)
+    const url = new URL('api/v1/ws', baseHref())
     url.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const socket = this.socket = new WebSocket(url)
     socket.onmessage = event => {

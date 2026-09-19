@@ -119,8 +119,16 @@ class RuntimeService:
 
     def statistics(self, instance, days, resource):
         self.configs.path(instance)
-        from module.statistics.resource_stats import get_resource_timeline, RESOURCE_COLUMNS
-        key = RESOURCE_COLUMNS[resource]
+        from module.statistics.resource_stats import get_resource_timeline
+        # 本地 resource_stats 的快照列为 snake_case，资源名 -> 列名映射
+        key = {
+            'Oil': 'oil', 'Coin': 'coin', 'Gem': 'gem', 'Cube': 'cube', 'Pt': 'pt',
+            'ActionPoint': 'action_point', 'Core': 'core', 'Medal': 'medal',
+            'Merit': 'merit', 'GuildCoin': 'guild_coin', 'YellowCoin': 'yellow_coin',
+            'PurpleCoin': 'purple_coin',
+        }.get(resource)
+        if key is None:
+            raise ApiError('INVALID_PARAMS', f'未知资源: {resource}')
         cutoff = (datetime.now() - timedelta(days=days)).isoformat(sep=' ')
         rows = get_resource_timeline(instance=instance, limit=5000)
         points = [{'time': row['ts'], 'value': row.get(key)} for row in rows

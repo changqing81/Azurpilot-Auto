@@ -6,7 +6,7 @@ from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.background import BackgroundTask
-from starlette.responses import FileResponse, JSONResponse, PlainTextResponse
+from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 
@@ -55,10 +55,27 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
 
     dist = root / 'frontend/dist'
 
+    def _index_response():
+        """返回注入了 <base> 的 index.html；P2P 远控依赖它解析相对资源路径。"""
+        html = (dist / 'index.html').read_bytes().replace(
+            b'<head>', b'<head><base href="/">', 1)
+        return Response(html, media_type='text/html', headers={'Cache-Control': 'no-cache'})
+
     async def index(request):
         if (dist / 'index.html').is_file():
-            return FileResponse(dist / 'index.html', headers={'Cache-Control': 'no-cache'})
+            return _index_response()
         return PlainTextResponse('前端尚未构建，请在 frontend 目录运行 npm ci 和 npm run build。', status_code=503)
+
+    async def custom_background(request):
+        """提供用户自定义背景（wallpapers/custom_background.*），图片与视频皆可。"""
+        mimes = {'.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+                 '.webp': 'image/webp', '.mp4': 'video/mp4', '.m4v': 'video/mp4',
+                 '.webm': 'video/webm', '.mov': 'video/quicktime'}
+        for path in sorted((root / 'wallpapers').glob('custom_background.*')):
+            mime = mimes.get(path.suffix.lower())
+            if mime:
+                return FileResponse(path, media_type=mime, headers={'Cache-Control': 'no-store'})
+        return JSONResponse({'error': 'no custom background'}, status_code=404)
 
     async def health(request):
         return JSONResponse({'status': 'ok', 'protocolVersion': 1})
@@ -78,11 +95,15 @@ def create_app(*, root: Path = ROOT, password=None, manage_runtime=True, mount_m
 
     routes = [
         Route('/healthz', health),
+        Route('/api/background/custom', custom_background, methods=['GET', 'HEAD']),
         Route('/api/v1/export/{token}', export_download),
         WebSocketRoute('/api/v1/ws', gateway.endpoint),
     ]
     if (dist / 'assets').is_dir():
         routes.append(Mount('/assets', StaticFiles(directory=dist / 'assets')))
+    if (root / 'assets/spa').is_dir():
+        # 登录页/主界面的默认背景占位图（与旧版 WebUI 的 static/assets/spa 路径一致）
+        routes.append(Mount('/static/assets/spa', StaticFiles(directory=root / 'assets/spa')))
     if mount_mcp:
         from mcp_server_sse import app as mcp_app, configure_auth
         configure_auth(password, public_bind=bool(password))

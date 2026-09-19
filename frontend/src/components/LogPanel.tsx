@@ -2,7 +2,7 @@ import { Select } from './FormControls'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { Download, HardDriveDownload, Pause, Play, Search, SlidersHorizontal, Terminal, Trash2 } from 'lucide-react'
-import { api } from '../api/client'
+import { api, assetUrl } from '../api/client'
 import type { Logs as LogsData, LogEntry } from '../api/types'
 import { useApp, useConnection } from '../app/context'
 import { Empty } from '../components/ui'
@@ -241,8 +241,9 @@ export function LogPanel({active = true}: {active?: boolean}) {
     setExporting(true)
     try {
       const result = await api.request('logs.requestExport', {instance, kind, scope})
-      // 经同一 origin（远控下经 P2P HTTP 代理）取文件，保证远控链路也能下载
-      const response = await fetch(result.url)
+      // 经同一 origin（远控下经 P2P HTTP 代理）取文件，保证远控链路也能下载；
+      // assetUrl 以 <base> 解析相对路径，P2P 前缀不会丢。
+      const response = await fetch(assetUrl(result.url))
       if (!response.ok) {
         const payload = await response.json().catch(() => null)
         throw new Error(payload?.error ?? ui('log.exportFileFailed'))

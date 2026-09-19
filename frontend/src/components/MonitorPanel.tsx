@@ -18,6 +18,20 @@ export function MonitorPanel({instance}: {instance: string}) {
   useEffect(() => api.onEvent(event => {
     if (event.topic === 'preview' && (event.data as Preview).instance === instance) setFrame(event.data as Preview)
   }), [instance])
+  // 主动兜底取帧：任务运行中的帧经事件推送，这里再定期拉最新帧，
+  // 避免事件在断线重连期间丢失后一直停留在"等待任务截图"。
+  useEffect(() => {
+    if (view !== 'preview') return
+    let active = true
+    const grab = () => {
+      void api.request('preview.capture', {instance}).then(value => {
+        if (active && value?.image) setFrame(value)
+      }).catch(() => { /* 实例未运行时没有帧，保留空状态。 */ })
+    }
+    grab()
+    const timer = setInterval(grab, 15000)
+    return () => {active = false; clearInterval(timer)}
+  }, [view, instance])
   return <section className="panel monitor-panel"><div className="monitor-tabs" aria-label={ui('monitor.title')}>
     <SegmentedControl label={ui('monitor.view')} value={view} onChange={setView} options={[
       {value: 'logs', label: <><Terminal size={15}/>{ui('monitor.logs')}</>},

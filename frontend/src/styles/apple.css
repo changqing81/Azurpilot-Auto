@@ -20,6 +20,7 @@ body {background: var(--bg); background-attachment: fixed}
 #root {isolation: isolate}
 .wallpaper {position: fixed; inset: 0; z-index: -1; pointer-events: none; background: none}
 .wallpaper img {width: 100%; height: 100%; object-fit: cover; opacity: 1}
+.wallpaper video {width: 100%; height: 100%; object-fit: cover; opacity: 1}
 .lucide {stroke-width: 1.75}
 
 /* 兼容前缀必须先于标准属性，避免生产压缩后只保留 WebKit 的模糊声明。 */
