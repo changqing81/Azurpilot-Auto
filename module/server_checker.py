@@ -3,6 +3,8 @@
 通过外部 API 查询碧蓝航线各服务器（CN/EN/JP/TW）的在线状态。
 在任务调度前检查服务器是否可用，避免在维护期间执行无效操作。
 
+公共 API 不可用时，回退为直连游戏网关查询（module.server_status），
+两种来源均失败才进入快速重试与退避流程。
 状态检查结果通过队列缓存，支持定时刷新和即时查询。
 """
 
@@ -15,6 +17,24 @@ from module.base.timer import Timer
 from module.config.server import VALID_SERVER_LIST as server_list
 from module.exception import ScriptError
 from module.logger import logger
+from module.server_status import GatewayServer, ServerStatusQueryError, query_region
+
+# 本地 VALID_SERVER_LIST 的 region 键 → module.server_status 的网关 region 键。
+# 同一物理服务器在安卓 TCP / iOS / 渠道服多个网关入口均有条目，
+# 按顺序尝试，任一入口命中即可。
+GATEWAY_REGION_MAP: dict[str, tuple[str, ...]] = {
+    'cn_android': ('cn', 'cn_ios', 'cn_channel'),
+    'cn_ios': ('cn_ios', 'cn_channel'),
+    'cn_channel': ('cn_channel', 'cn_ios'),
+    'en': ('en',),
+    'jp': ('jp',),
+    'tw': ('tw',),
+}
+
+# 游戏网关状态文本 → 本调度器的可用性语义。
+# full / reg_full 表示满员但可登录排队，与公共 API 的判定口径保持一致。
+GATEWAY_AVAILABLE_STATES = {'normal', 'full', 'reg_full'}
+GATEWAY_UNAVAILABLE_STATES = {'maintenance', 'unopened'}
 
 
 class ServerChecker:
@@ -27,6 +47,8 @@ class ServerChecker:
 
     Attributes:
         _server (str): 目标服务器标识，如 'cn'、'en'、'jp'、'tw'，或 'disabled'。
+        _region (str): 目标服务器所属的本地 region 键（'cn_android' 等），
+            'disabled' 时为空字符串，用于网关后备查询选择网关入口。
         _state (deque): 状态历史队列（最大长度 2），用于状态变化检测。
         _recover (bool): 服务器是否从不可用状态恢复。
         _retry (bool): 是否需要重试。
@@ -43,8 +65,10 @@ class ServerChecker:
             'list': '/server/list'                      # GET 请求
         }
 
+        self._region: str = ''
         if server != 'disabled':
             server = server.split('-')
+            self._region = server[0]
             server = server_list[server[0]][int(server[-1])]
 
         self._server: str = server
@@ -63,7 +87,9 @@ class ServerChecker:
         """
         通过 API 获取服务器状态。
 
-        若服务器不可用，记录原因。API 出现异常时抛出 ScriptError。
+        公共 API 暂时不可用（连接失败或响应非 JSON）时，改为直连游戏网关。
+        两种来源均无法取得状态才走既有的快速重试；API 出现结构异常时
+        抛出 ScriptError，由顶层临时禁用检查器。
         """
         if self._server == 'disabled':
             self._state.append(True)
@@ -117,17 +143,69 @@ class ServerChecker:
         except (requests.exceptions.ConnectionError, requests.exceptions.ConnectTimeout) as e:
             logger.error(e)
             logger.error('连接服务器检查API超时。')
+            if self._load_gateway_server():
+                return
             if self._retry:
                 self._state.append(False)
             else:
                 self._state.append(self.fast_retry())
         except JSONDecodeError:
+            if self._load_gateway_server():
+                return
             self._state.append(False)
             raise ScriptError(f'Response "{resp.text}" seems not to be a JSON.')
         except Exception as e:
             logger.error(e)
             self._state.append(False)
             raise e
+
+    def _query_gateway(self) -> GatewayServer:
+        """按服务器名在游戏网关中查找当前服务器。
+
+        遍历本 region 对应的网关入口，逐个拉取完整服务器列表，
+        以服务器名精确匹配（本地 VALID_SERVER_LIST 与网关返回的
+        服务器名同源于游戏服务器列表）。
+
+        Returns:
+            GatewayServer: 名字匹配的服务器条目。
+
+        Raises:
+            ServerStatusQueryError: 所有相关网关入口均无法访问，或均未收录该服务器。
+        """
+        last_error: ServerStatusQueryError | None = None
+        for region in GATEWAY_REGION_MAP.get(self._region, ()):
+            try:
+                servers = query_region(region, timeout=5)
+            except ServerStatusQueryError as e:
+                last_error = e
+                continue
+            for server in servers:
+                if server.name == self._server:
+                    return server
+        raise last_error if last_error is not None else ServerStatusQueryError('not_found')
+
+    def _load_gateway_server(self) -> bool:
+        """公共 API 不可用时，直连游戏网关查询当前服务器。
+
+        返回 True 说明已取得并记录服务器状态。网关失败只作为公共 API
+        故障的后备处理，交由调用方进入原有的快速重试与退避流程。
+        """
+        try:
+            server = self._query_gateway()
+        except ServerStatusQueryError as e:
+            logger.warning(f'[服务器检查] 直连游戏网关失败（{e.code}）。')
+            return False
+
+        if server.status in GATEWAY_AVAILABLE_STATES:
+            self._state.append(True)
+            logger.info(f'[服务器检查] 服务器 "{self._server}" 可用（游戏网关 {server.status}）。')
+            return True
+        if server.status in GATEWAY_UNAVAILABLE_STATES:
+            self._state.append(False)
+            logger.info(f'[服务器检查] 服务器 "{self._server}" 暂不可用（游戏网关 {server.status}）。')
+            return True
+        logger.warning(f'[服务器检查] 游戏网关返回了未知状态：{server.status}。')
+        return False
 
     def wait_until_available(self) -> None:
         while not self.is_available():
