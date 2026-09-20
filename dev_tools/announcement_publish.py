@@ -155,9 +155,24 @@ def find_credential_helper() -> str:
     return "manager"
 
 
-def request_json(method: str, url: str, token: str | None = None, payload: dict | None = None):
+def request_json(
+    method: str,
+    url: str,
+    token: str | None = None,
+    payload: dict | None = None,
+    accept: str | None = None,
+):
+    """发一次 JSON 请求。
+
+    `accept` 默认按 GitHub API 的要求设置；调 jsdelivr 的 purge 接口时必须显式传
+    `application/json` —— purge 服务不接受 `application/vnd.github+json`，否则返回
+    **HTTP 406 NotAcceptable**（2026-09-20 实测，会让发布后的缓存刷新静默失败）。
+    """
     data = None
-    headers = {"User-Agent": "AzurPilot-announcement-publisher", "Accept": "application/vnd.github+json"}
+    headers = {
+        "User-Agent": "AzurPilot-announcement-publisher",
+        "Accept": accept or "application/vnd.github+json",
+    }
     if token:
         headers["Authorization"] = f"Bearer {token}"
     if payload is not None:
@@ -252,14 +267,19 @@ def put_file(token: str, path: str, content: bytes, message: str, sha: str | Non
 
 
 def purge_jsdelivr(paths: list[str]) -> list[str]:
-    """尽力刷新 jsdelivr 分支引用缓存，返回失败的 URL 列表。"""
+    """尽力刷新 jsdelivr 分支引用缓存，返回失败描述列表（含失败原因）。
+
+    实测（2026-09-20）：purge 成功（HTTP 200）后，`@master` 的文件内容会**立刻**变成新版，
+    所以"发布 -> purge -> 客户端下次轮询即见"就是当前架构下的实时上限，别放弃这一步。
+    """
     failed = []
     for path in paths:
         url = f"{PURGE_ROOT}/{REPO}@{BRANCH}/{path}"
         try:
-            request_json("GET", url)
-        except Exception:  # noqa: BLE001 - 刷新失败不影响发布结果，只提示
-            failed.append(url)
+            request_json("GET", url, accept="application/json")
+        except Exception as error:  # noqa: BLE001 - 刷新失败不影响发布结果，只提示原因
+            reason = str(error).splitlines()[0][:160]
+            failed.append(f"{url} —— {reason}")
     return failed
 
 

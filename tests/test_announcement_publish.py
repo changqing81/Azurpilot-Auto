@@ -14,6 +14,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from dev_tools import announcement_publish
 from dev_tools.announcement_publish import (
@@ -146,6 +147,48 @@ class TestWritePreview(_DraftTestCase):
         self.assertIn("暗色主题", html)
         self.assertIn(json.dumps("20260920-1", ensure_ascii=False), html)
         self.assertIn("正文", html)
+
+
+class TestRequestHeaders(unittest.TestCase):
+    """回归：jsdelivr purge 接口不接受 GitHub 的 Accept，必须能切换。
+
+    （2026-09-20 实测：带 `application/vnd.github+json` 调 purge 会返回 HTTP 406
+     NotAcceptable，发布后的缓存刷新因此静默失败，表现为"发完了但客户端还是旧内容"。）
+    """
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return b'{"ok": true}'
+
+    def _capture(self):
+        captured = {}
+
+        class _Opener:
+            def open(self, request, timeout=None):
+                captured["accept"] = request.get_header("Accept")
+                return TestRequestHeaders._Response()
+
+        return captured, _Opener
+
+    def test_default_accept_is_github_json(self):
+        captured, opener = self._capture()
+        with patch.object(announcement_publish, "_opener", return_value=opener()):
+            announcement_publish.request_json("GET", "https://example.com/a")
+        self.assertEqual(captured["accept"], "application/vnd.github+json")
+
+    def test_purge_accept_can_switch_to_plain_json(self):
+        captured, opener = self._capture()
+        with patch.object(announcement_publish, "_opener", return_value=opener()):
+            announcement_publish.request_json(
+                "GET", "https://example.com/a", accept="application/json"
+            )
+        self.assertEqual(captured["accept"], "application/json")
 
 
 class TestNoHardcodedEnvironment(unittest.TestCase):
