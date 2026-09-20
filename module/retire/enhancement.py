@@ -272,7 +272,12 @@ class Enhancement(Dock):
                 logger.info(f'Enhance de-select common CV done')
                 break
 
-            if self.appear(ENHANCE_RECOMMEND, offset=(5, 5), interval=2):
+            # Accidentally entered dock
+            if self.appear(DOCK_CHECK, offset=(20, 20), interval=3):
+                logger.info(f'{DOCK_CHECK} -> {BACK_ARROW}')
+                self.device.click(BACK_ARROW)
+                continue
+            if self.appear(ENHANCE_RECOMMEND, offset=(5, 5), interval=5):
                 self.device.click(cv)
                 continue
 
