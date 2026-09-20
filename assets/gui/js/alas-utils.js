@@ -1292,6 +1292,82 @@
 (function () {
     var STORAGE_KEY = 'alas_shown_announcements';
 
+    // URL 安全校验：仅放行 http(s) 与 data:image/
+    // （公告模块此前直接调用截图查看器 IIFE 内的同名局部函数，url 非空时会抛
+    //  ReferenceError 导致弹窗根本不显示，这里补上本模块自己的实现）
+    function sanitizeUrl(url) {
+        if (!url) return '';
+        var text = String(url).trim();
+        var protocol = text.split(':')[0].toLowerCase();
+        if (['javascript', 'data', 'vbscript'].indexOf(protocol) !== -1) {
+            if (text.startsWith('data:image/')) return text;
+            return '';
+        }
+        return text;
+    }
+
+    // 正文内嵌图片：整行 `![说明](图片URL)` 或整行裸图片直链
+    var ANNOUNCEMENT_IMAGE_MD = /^!\[([^\]]*)\]\(\s*(\S+?)\s*\)$/;
+    var ANNOUNCEMENT_IMAGE_RAW = /^<?(https?:\/\/[^\s<>"'`]+\.(?:png|jpe?g|gif|webp|bmp|svg|avif)(?:\?[^\s<>"'`]*)?)>?$/i;
+
+    function parseAnnouncementImage(line) {
+        var text = String(line == null ? '' : line).trim();
+        var matched = ANNOUNCEMENT_IMAGE_MD.exec(text);
+        if (matched) {
+            return { src: sanitizeUrl(matched[2]), alt: matched[1] };
+        }
+        matched = ANNOUNCEMENT_IMAGE_RAW.exec(text);
+        if (matched) {
+            return { src: sanitizeUrl(matched[1]), alt: '' };
+        }
+        return null;
+    }
+
+    function appendAnnouncementText(container, lines) {
+        if (!lines.length) return;
+        if (!lines.join('').trim()) return;
+        var textEl = document.createElement('div');
+        textEl.className = 'alas-announcement-text';
+        // 一律 textContent 输出，不使用 innerHTML
+        textEl.textContent = lines.join('\n');
+        textEl.style.cssText = 'font-size:1rem;color:#555;line-height:1.6;white-space:pre-wrap;';
+        container.appendChild(textEl);
+    }
+
+    function appendAnnouncementImage(container, source, alt) {
+        if (!source) return;
+        var img = document.createElement('img');
+        img.className = 'alas-announcement-image';
+        img.src = source;
+        img.alt = alt || '';
+        img.loading = 'lazy';
+        img.style.cssText = 'display:block;max-width:100%;height:auto;margin:10px auto;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);';
+        img.onerror = function () {
+            var fallback = document.createElement('div');
+            fallback.className = 'alas-announcement-image-error';
+            fallback.textContent = alt ? ('[图片加载失败] ' + alt) : '[图片加载失败]';
+            fallback.style.cssText = 'font-size:0.9rem;color:#b2bec3;text-align:center;margin:8px 0;';
+            if (img.parentNode) img.parentNode.replaceChild(fallback, img);
+        };
+        container.appendChild(img);
+    }
+
+    function renderAnnouncementContent(container, content) {
+        var lines = String(content == null ? '' : content).replace(/\r\n?/g, '\n').split('\n');
+        var buffer = [];
+        for (var i = 0; i < lines.length; i++) {
+            var image = parseAnnouncementImage(lines[i]);
+            if (image) {
+                appendAnnouncementText(container, buffer);
+                buffer = [];
+                appendAnnouncementImage(container, image.src, image.alt);
+            } else {
+                buffer.push(lines[i]);
+            }
+        }
+        appendAnnouncementText(container, buffer);
+    }
+
     window.alasGetShownAnnouncements = function () {
         try {
             var stored = localStorage.getItem(STORAGE_KEY);
@@ -1353,8 +1429,9 @@
             modal.appendChild(iframe);
         } else {
             var contentEl = document.createElement('div');
-            contentEl.textContent = content;
-            contentEl.style.cssText = 'font-size:1rem;color:#555;line-height:1.6;margin-bottom:20px;white-space:pre-wrap;';
+            contentEl.className = 'alas-announcement-content';
+            contentEl.style.cssText = 'margin-bottom:20px;';
+            renderAnnouncementContent(contentEl, content);
             modal.appendChild(contentEl);
         }
 
@@ -1396,9 +1473,15 @@
                 modal.style.background = '#2d3436';
                 titleEl.style.color = '#dfe6e9';
                 if (!isWeb) {
-                    // contentEl only exists in text mode
-                    var c = modal.querySelector('div[style*="font-size:1rem"]');
-                    if (c) c.style.color = '#b2bec3';
+                    // 正文文本元素（图片不受主题影响）
+                    var texts = modal.querySelectorAll('.alas-announcement-text');
+                    for (var ti = 0; ti < texts.length; ti++) {
+                        texts[ti].style.color = '#b2bec3';
+                    }
+                    var errors = modal.querySelectorAll('.alas-announcement-image-error');
+                    for (var ei = 0; ei < errors.length; ei++) {
+                        errors[ei].style.color = '#8b949e';
+                    }
                 }
             }
         } catch (e) { }
