@@ -6662,7 +6662,10 @@
       "Time": "提出時間",
       "Message": "情報の送信",
       "DisabledWarn": "更新モジュールが有効になっていません。更新するには手動で再起動する必要があります。",
-      "DetailedHistory": "詳細なコミット履歴"
+      "DetailedHistory": "詳細なコミット履歴",
+      "Changelog": "更新履歴",
+      "ChangelogLoading": "更新履歴を取得しています…",
+      "ChangelogEmpty": "更新履歴はまだありません"
     },
     "Remote": {
       "Running": "ランニング",

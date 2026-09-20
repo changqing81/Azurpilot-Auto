@@ -233,6 +233,9 @@ Update:
   Message:
   DisabledWarn:
   DetailedHistory:
+  Changelog:
+  ChangelogLoading:
+  ChangelogEmpty:
 
 Remote:
   Running:

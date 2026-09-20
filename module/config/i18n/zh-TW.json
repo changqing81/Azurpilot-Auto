@@ -6662,7 +6662,10 @@
       "Time": "提交時間",
       "Message": "提交資訊",
       "DisabledWarn": "更新模組未啟用，你需要手動重啟 AzurPilot 進行更新",
-      "DetailedHistory": "詳細提交歷史"
+      "DetailedHistory": "詳細提交歷史",
+      "Changelog": "更新日誌",
+      "ChangelogLoading": "正在取得更新日誌…",
+      "ChangelogEmpty": "暫無更新日誌"
     },
     "Remote": {
       "Running": "執行中",

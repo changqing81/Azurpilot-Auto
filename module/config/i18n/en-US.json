@@ -6662,7 +6662,10 @@
       "Time": "Commit Time",
       "Message": "Commit Message",
       "DisabledWarn": "The update module is not enabled, you need to manually restart AzurPilot to update",
-      "DetailedHistory": "Detailed commit history"
+      "DetailedHistory": "Detailed commit history",
+      "Changelog": "Update Log",
+      "ChangelogLoading": "Loading update log...",
+      "ChangelogEmpty": "No update log yet"
     },
     "Remote": {
       "Running": "Running",
