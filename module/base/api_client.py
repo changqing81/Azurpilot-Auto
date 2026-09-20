@@ -29,6 +29,14 @@ class ApiClient:
     # 公告检查间隔（秒），5分钟 = 300秒
     ANNOUNCEMENT_CHECK_INTERVAL = 300
 
+    # 更新日志地址（与公告同一套分发机制：主源 jsdelivr、备用源 GitHub raw，master 分支）
+    CHANGELOG_PRIMARY_URL = (
+        'https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/changelog.json'
+    )
+    CHANGELOG_FALLBACK_URL = (
+        'https://raw.githubusercontent.com/changqing81/Azurpilot-Auto/master/changelog.json'
+    )
+
     @classmethod
     def get_announcement(cls, timeout: int = 1, current_id: int = None) -> Optional[Dict[str, Any]]:
         """
@@ -93,4 +101,61 @@ class ApiClient:
                 last_error = str(e)
 
         logger.warning(f'[Base] 获取公告失败: {last_error}')
+        return None
+
+    @classmethod
+    def get_changelog(cls, timeout: int = 5) -> Optional[Dict[str, Any]]:
+        """获取更新日志（同步）
+
+        更新日志与公告同样放在远端 master 分支，客户端在更新前即可读到本次要更新什么。
+        取不到时返回 None，调用方应静默降级（更新器页面显示占位提示），不要影响更新流程。
+
+        Args:
+            timeout: 单个源的请求超时时间（秒）
+
+        Returns:
+            含 entries 列表的字典，None 表示获取失败或数据不可用
+        """
+        timestamp = int(time.time())
+        sources = [
+            ('主源', f'{cls.CHANGELOG_PRIMARY_URL}?t={timestamp}'),
+            ('备用源', f'{cls.CHANGELOG_FALLBACK_URL}?t={timestamp}'),
+        ]
+        last_error = None
+
+        for name, url in sources:
+            try:
+                response = requests.get(
+                    url,
+                    timeout=timeout,
+                    headers={'User-Agent': 'alas AzurPilot'}
+                )
+                if response.status_code != 200:
+                    logger.warning(f'[基础-API] 更新日志{name}返回错误状态: {response.status_code}')
+                    last_error = f'HTTP {response.status_code}'
+                    continue
+
+                if not response.text.strip():
+                    last_error = 'EmptyBody'
+                    continue
+
+                data = json.loads(response.text)
+                if isinstance(data, dict) and isinstance(data.get('entries'), list):
+                    return data
+                logger.warning('[基础-API] 更新日志结构不符合预期（缺少 entries 列表）')
+                last_error = 'BadSchema'
+            except json.JSONDecodeError as e:
+                logger.warning(f'[基础-API] 解析更新日志JSON失败: {e}')
+                last_error = str(e)
+            except requests.exceptions.Timeout:
+                logger.warning(f'[基础-API] 更新日志{name}请求超时')
+                last_error = 'Timeout'
+            except requests.exceptions.RequestException as e:
+                logger.warning(f'[基础-API] 更新日志{name}请求失败: {e}')
+                last_error = str(e)
+            except Exception as e:
+                logger.warning(f'[基础-API] 更新日志{name}发生异常: {e}')
+                last_error = str(e)
+
+        logger.warning(f'[Base] 获取更新日志失败: {last_error}')
         return None

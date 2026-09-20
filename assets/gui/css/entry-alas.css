@@ -169,6 +169,91 @@
     font-size: .875rem;
 }
 
+/* ---------- 更新器：更新日志（changelog，支持配图） ---------- */
+
+.update-log {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    margin-top: .5rem;
+}
+
+.update-log-entry {
+    padding: .75rem 1rem;
+    color: var(--alas-entry-text);
+    background: var(--alas-entry-surface);
+    border: 1px solid var(--alas-entry-border);
+    border-radius: 16px;
+    box-shadow: var(--alas-entry-panel-shadow);
+}
+
+.update-log-summary {
+    display: flex;
+    gap: .5rem;
+    align-items: baseline;
+    cursor: pointer;
+    list-style: none;
+}
+
+.update-log-summary::-webkit-details-marker {
+    display: none;
+}
+
+.update-log-summary::before {
+    content: "▸";
+    color: var(--alas-entry-muted);
+    font-size: .85rem;
+}
+
+.update-log-entry[open] > .update-log-summary::before {
+    content: "▾";
+}
+
+.update-log-title {
+    flex: 1 1 auto;
+    color: var(--alas-entry-text);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.update-log-meta {
+    flex: 0 0 auto;
+    color: var(--alas-entry-muted);
+    font-size: .8rem;
+    font-weight: 400;
+}
+
+.update-log-body {
+    margin-top: .75rem;
+}
+
+.update-log-text {
+    color: var(--alas-entry-text);
+    font-size: .92rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.update-log-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: .5rem auto;
+    border: 1px solid var(--alas-entry-border);
+    border-radius: 12px;
+}
+
+.update-log-placeholder {
+    margin-top: .5rem;
+    padding: .75rem 1rem;
+    color: var(--alas-entry-muted);
+    background: var(--alas-entry-surface);
+    border: 1px dashed var(--alas-entry-border);
+    border-radius: 16px;
+    font-size: .9rem;
+}
+
 .launcher-setting-row,
 .deploy-setting-toolbar {
     display: grid;

@@ -1,5 +1,6 @@
 """WebUI更新和启动项设置"""
 
+from module.logger import logger
 from module.webui.app_dependencies import (
     DEFAULT_CONFIG_NAME,
     State,
@@ -17,6 +18,7 @@ from module.webui.app_dependencies import (
     re,
     run_js,
     t,
+    threading,
     updater,
     use_scope,
 )
@@ -35,6 +37,9 @@ class DeveloperUpdateMixin(WebUIMixinBase):
         self.init_menu(name="Update", skip_clear=True)
         self.set_title(t("Gui.MenuDevelop.Update"))
 
+        # 更新行为设置（隐藏更新提示）置顶：原先在页面最底部，需要滚动才能看到
+        self._render_hide_update_notice_setting()
+
         put_scope("updater_info")
         with use_scope("updater_info"):
             if State.restart_event is None:
@@ -51,6 +56,10 @@ class DeveloperUpdateMixin(WebUIMixinBase):
 
             put_scope("updater_btn")
             put_scope("updater_table")
+        # 更新日志放在「详细提交历史」上方：先看这一版改了什么，再看逐条提交
+        put_scope("updater_changelog")
+        self._render_update_log()
+
         put_scope("updater_detail")
 
         def update_table():
@@ -212,10 +221,58 @@ class DeveloperUpdateMixin(WebUIMixinBase):
         update_table()
         self.task_handler.add(updater_switch.g(), delay=0.5, pending_delete=True)
 
-        self._render_hide_update_notice_setting()
-
         updater.check_update()
 
+
+    def _render_update_log(self) -> None:
+        """渲染「更新日志」区块。
+
+        更新日志托管在远端 master 分支的 changelog.json，客户端在**更新前**就能读到这一版
+        改了什么（含图片）。请求放后台线程，先渲染占位提示、拿到数据后原地替换，避免
+        jsdelivr 在弱网下把页面卡住；取不到时只显示占位提示，不影响更新流程。
+        """
+        from module.webui import update_log
+
+        put_text(t("Gui.Update.Changelog"), scope="updater_changelog")
+        put_html(
+            update_log.render_placeholder_html(t("Gui.Update.ChangelogLoading")),
+            scope="updater_changelog",
+        )
+
+        result = {"data": None, "done": False}
+
+        def fetch():
+            try:
+                from module.base.api_client import ApiClient
+
+                result["data"] = ApiClient.get_changelog(timeout=5)
+            except Exception as e:  # noqa: BLE001 - 拉取失败不应影响更新器页面
+                logger.warning(f"[WebUI-更新器] 获取更新日志失败: {e}")
+            finally:
+                result["done"] = True
+
+        threading.Thread(target=fetch, daemon=True).start()
+
+        def update_log_checker():
+            th = yield
+            while True:
+                if result["done"]:
+                    entries = update_log.normalize_entries(result["data"])
+                    with use_scope("updater_changelog", clear=True):
+                        put_text(t("Gui.Update.Changelog"))
+                        if entries:
+                            put_html(update_log.render_entries_html(entries))
+                        else:
+                            put_html(
+                                update_log.render_placeholder_html(
+                                    t("Gui.Update.ChangelogEmpty")
+                                )
+                            )
+                    break
+                th._task.delay = 0.5
+                yield
+
+        self.task_handler.add(update_log_checker(), delay=0.5)
 
     def _render_hide_update_notice_setting(self) -> None:
         scope_id = "hide-update-notice"
