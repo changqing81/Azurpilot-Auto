@@ -31,7 +31,8 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(sys.argv[1] if len(sys.argv) > 1 else r'D:\alas\AzurPilot')
+# 默认扫描本文件所在的仓库根（不写死本机绝对路径：本文件会进公共仓库）
+ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent
 SKIP_DIRS = {'.venv', '__pycache__', '.git', 'node_modules', 'log', 'webapp'}
 
 
