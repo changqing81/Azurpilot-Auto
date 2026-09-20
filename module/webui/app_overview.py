@@ -5,7 +5,6 @@ from module.webui.app_dependencies import (
     LogRes,
     RichLog,
     deep_iter,
-    get_device_id,
     json,
     put_button,
     put_html,
@@ -16,11 +15,6 @@ from module.webui.app_dependencies import (
     t,
     updater,
     use_scope,
-)
-
-from module.webui.app_helpers import (
-    DEMO_DEVICE_ID_TEXT,
-    is_demo_mode,
 )
 
 
@@ -341,9 +335,8 @@ class OverviewMixin(WebUIMixinBase):
             # version
             local_commit = updater.get_commit(short_sha1=True)
             version = local_commit[0] if local_commit and local_commit[0] else "Unknown"
-            device_id = DEMO_DEVICE_ID_TEXT if is_demo_mode() else get_device_id()
             put_scope("log-container", [put_scope("log", [put_html("")])]).style(
-                f"--device-id: '{device_id}'; --version: 'Ver.{version}';"
+                f"--version: 'Ver.{version}';"
             )
 
         log.console.width = log.get_width()
