@@ -41,6 +41,10 @@ P2P_SEND_LOW_WATER = 128 * 1024
 # 单次等待上限：链路异常/对端不再读取时不能让请求永久挂住，超时就继续发
 P2P_SEND_DRAIN_TIMEOUT = 15
 P2P_SETUP_TIMEOUT = 60
+# "disconnected" 是 ICE 的可恢复瞬时状态（链路抖动 / NAT 重绑），不是断开。
+# aiortc 1.15 没有 restartIce()，只能在宽限期内等 ICE 自己回到 connected；
+# 一到 disconnected 就 pc.close() 会顺手掐断在线页面的 WebSocket，页面随即整页刷新。
+P2P_DISCONNECTED_GRACE = 10
 SSH_RECONNECT_DELAY = 2
 SSH_RECONNECT_MAX_DELAY = 30
 HOST_KEY_CHANGED_MARKER = "REMOTE HOST IDENTIFICATION HAS CHANGED"
@@ -870,6 +874,11 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
         self._lock = threading.Lock()
         self.info = RemoteAccessInfo(connection_state="stopped")
         self._missing_dependency = ""
+        # peer 连接挂在实例上，而不是 _run_signal_loop 的局部变量：信令只是控制面，
+        # 已建立的 datachannel 与本地隧道不依赖它，信令重连时不能把在线页面一起关掉。
+        self._peer_connections: set = set()
+        self._peer_connections_by_viewer: dict = {}
+        self._peer_grace_tasks: dict = {}
 
     def start(self) -> None:
         with self._lock:
@@ -884,13 +893,28 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
             self.thread.start()
 
     def _wait_for_ssh_info(self) -> bool:
+        """等待 SSH provider 产出地址。
+
+        SSHRemoteAccessProvider.start() 只负责拉起线程，ssh 进程要等线程内 spawn
+        完成，这期间 is_alive() 为 False（process 仍是 None）。旧实现在这个启动窗口
+        里直接判失败，WebRTC 线程秒退，只能等 keep_ssh_alive 的下一轮（10 秒）重启，
+        而重启会关掉所有已连 peer → 远控页面周期性掉线。
+        因此这里只在"SSH 线程确实已退出 / 明确未找到服务"时才算失败。
+        """
         started = time.time()
         while time.time() - started < P2P_SETUP_TIMEOUT:
             if self.stop_event.is_set():
                 return False
             if self.ssh_provider.info.address:
                 return True
-            if not self.ssh_provider.is_alive() and self.ssh_provider.get_state() in (0, 3):
+            if self.ssh_provider.is_alive():
+                time.sleep(0.2)
+                continue
+            # 未 alive：区分"还在启动中"与"真失败"
+            if getattr(self.ssh_provider, "notfound", False):
+                return False
+            thread = getattr(self.ssh_provider, "thread", None)
+            if thread is None or not thread.is_alive():
                 return False
             time.sleep(0.2)
         return False
@@ -935,24 +959,29 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
         由 _thread_main 按原语义退出线程。
         """
         delay = SSH_RECONNECT_DELAY
-        while not self.stop_event.is_set():
-            try:
-                await self._run_signal_loop()
-                if self.stop_event.is_set():
-                    return
-                logger.warning("[WebUI-远程] 信令连接已关闭，稍后自动重连")
-            except RemoteSignalError as e:
-                if self.stop_event.is_set():
-                    return
-                self.info.error = str(e)
-                logger.warning(f"[WebUI-远程] 信令连接断开，{delay} 秒后自动重连: {e}")
-            # 本轮成功连上过信令（状态推进到 waiting_peer 及以后，断开不改状态）
-            # 视为链路可达，重置退避；从未连上（状态停在 signaling）才逐步加长
-            if self.info.connection_state in ("waiting_peer", "direct_p2p"):
-                delay = SSH_RECONNECT_DELAY
-            self.info.connection_state = "signaling"
-            await asyncio.sleep(delay)
-            delay = min(delay * 2, SSH_RECONNECT_MAX_DELAY)
+        try:
+            while not self.stop_event.is_set():
+                try:
+                    await self._run_signal_loop()
+                    if self.stop_event.is_set():
+                        return
+                    logger.warning("[WebUI-远程] 信令连接已关闭，稍后自动重连")
+                except RemoteSignalError as e:
+                    if self.stop_event.is_set():
+                        return
+                    self.info.error = str(e)
+                    logger.warning(f"[WebUI-远程] 信令连接断开，{delay} 秒后自动重连: {e}")
+                # 本轮成功连上过信令（状态推进到 waiting_peer 及以后，断开不改状态）
+                # 视为链路可达，重置退避；从未连上（状态停在 signaling）才逐步加长
+                if self.info.connection_state in ("waiting_peer", "direct_p2p"):
+                    delay = SSH_RECONNECT_DELAY
+                self.info.connection_state = "signaling"
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, SSH_RECONNECT_MAX_DELAY)
+        finally:
+            # 线程退出（stop()/异常）时统一回收。重连期间刻意保活的 peer 连接
+            # 必须在这里关，否则每次信令抖动都会留下一条僵尸连接。
+            await self._close_all_peers()
 
     async def _run_signal_loop(self) -> None:
         try:
@@ -980,8 +1009,6 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
                 )
             )
         rtc_config = RTCConfiguration(iceServers=rtc_servers)
-        peer_connections = set()
-        peer_connections_by_viewer = {}
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -1009,14 +1036,15 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
                                 logger.info(f"P2P远程访问URL: {self.info.address}")
                             elif msg_type == "offer":
                                 pc = RTCPeerConnection(configuration=rtc_config)
-                                peer_connections.add(pc)
-                                viewer_id = data.get("viewer_id")
-                                if viewer_id:
-                                    old_pc = peer_connections_by_viewer.pop(viewer_id, None)
-                                    if old_pc is not None:
-                                        peer_connections.discard(old_pc)
+                                pc_viewer_id = data.get("viewer_id")
+                                self._peer_connections.add(pc)
+                                if pc_viewer_id:
+                                    old_pc = self._peer_connections_by_viewer.pop(pc_viewer_id, None)
+                                    if old_pc is not None and old_pc is not pc:
+                                        self._peer_connections.discard(old_pc)
+                                        self._cancel_peer_grace(old_pc)
                                         await old_pc.close()
-                                    peer_connections_by_viewer[viewer_id] = pc
+                                    self._peer_connections_by_viewer[pc_viewer_id] = pc
 
                                 @pc.on("datachannel")
                                 def on_datachannel(channel):
@@ -1038,13 +1066,18 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
                                         asyncio.create_task(tunnel.handle(payload))
 
                                 @pc.on("connectionstatechange")
-                                async def on_connectionstatechange():
+                                async def on_connectionstatechange(pc=pc, pc_viewer_id=pc_viewer_id):
+                                    # viewer_id 用默认参数绑定：闭包变量会被后续信令消息改写，
+                                    # 老实现清理时会摘错 viewer 的键，留下僵尸连接。
                                     if pc.connectionState == "connected":
+                                        self._cancel_peer_grace(pc)
                                         self.info.connection_state = "direct_p2p"
-                                    elif pc.connectionState in ("failed", "closed", "disconnected"):
-                                        peer_connections.discard(pc)
-                                        if viewer_id and peer_connections_by_viewer.get(viewer_id) is pc:
-                                            peer_connections_by_viewer.pop(viewer_id, None)
+                                    elif pc.connectionState == "disconnected":
+                                        # 可恢复的瞬时状态：给宽限期，期间回到 connected 就不动它
+                                        self._schedule_peer_grace(pc, pc_viewer_id)
+                                    elif pc.connectionState in ("failed", "closed"):
+                                        self._cancel_peer_grace(pc)
+                                        self._drop_peer_connection(pc, pc_viewer_id)
                                         await pc.close()
 
                                 offer = RTCSessionDescription(sdp=data.get("sdp"), type=data.get("kind", "offer"))
@@ -1054,13 +1087,13 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
                                 await self._wait_ice_complete(pc)
                                 await ws.send_json({
                                     "type": "answer",
-                                    "viewer_id": viewer_id,
+                                    "viewer_id": pc_viewer_id,
                                     "sdp": pc.localDescription.sdp,
                                     "kind": pc.localDescription.type,
                                 })
                             elif msg_type == "candidate":
                                 viewer_id = data.get("viewer_id")
-                                pc = peer_connections_by_viewer.get(viewer_id)
+                                pc = self._peer_connections_by_viewer.get(viewer_id)
                                 if pc is None:
                                     continue
                                 raw_candidate = data.get("candidate")
@@ -1083,8 +1116,61 @@ class WebRTCRemoteAccessProvider(RemoteAccessProvider):
         except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as e:
             raise RemoteSignalError(_format_signal_error(e, signal_url)) from e
         finally:
-            for pc in list(peer_connections):
+            # 这里**不能**关闭 peer 连接：信令只是控制面，已建立的 datachannel 与本地
+            # 隧道不依赖它。旧实现在信令一断就 close 掉所有 peer，远控页面的 WebSocket
+            # 随之断开 → 触发整页刷新；现在只回收已失效的连接，信令重连期间在线页面照常用。
+            self._prune_peer_connections()
+
+    def _schedule_peer_grace(self, pc, viewer_id: Optional[str]) -> None:
+        """disconnected 后的恢复窗口，超时仍未回到 connected 才重建连接。"""
+        if pc in self._peer_grace_tasks:
+            return
+        logger.info(f"[WebUI-远程] P2P 连接进入 disconnected，等待 {P2P_DISCONNECTED_GRACE} 秒恢复")
+
+        async def _grace() -> None:
+            try:
+                await asyncio.sleep(P2P_DISCONNECTED_GRACE)
+            except asyncio.CancelledError:
+                return
+            self._peer_grace_tasks.pop(pc, None)
+            if pc.connectionState == "disconnected":
+                logger.warning("[WebUI-远程] P2P 连接宽限期内未恢复，重建连接")
+                self._drop_peer_connection(pc, viewer_id)
                 await pc.close()
+
+        self._peer_grace_tasks[pc] = asyncio.create_task(_grace())
+
+    def _cancel_peer_grace(self, pc) -> None:
+        task = self._peer_grace_tasks.pop(pc, None)
+        if task is not None and not task.done():
+            task.cancel()
+
+    def _drop_peer_connection(self, pc, viewer_id: Optional[str]) -> None:
+        self._peer_connections.discard(pc)
+        if viewer_id and self._peer_connections_by_viewer.get(viewer_id) is pc:
+            self._peer_connections_by_viewer.pop(viewer_id, None)
+        self._peer_grace_tasks.pop(pc, None)
+
+    def _prune_peer_connections(self) -> None:
+        for viewer_id, pc in list(self._peer_connections_by_viewer.items()):
+            if pc.connectionState in ("failed", "closed"):
+                self._drop_peer_connection(pc, viewer_id)
+        for pc in list(self._peer_connections):
+            if pc.connectionState in ("failed", "closed"):
+                self._drop_peer_connection(pc, None)
+
+    async def _close_all_peers(self) -> None:
+        for task in list(self._peer_grace_tasks.values()):
+            if not task.done():
+                task.cancel()
+        self._peer_grace_tasks.clear()
+        self._peer_connections_by_viewer.clear()
+        for pc in list(self._peer_connections):
+            self._peer_connections.discard(pc)
+            try:
+                await pc.close()
+            except Exception as e:
+                logger.debug(f"P2P 连接关闭失败: {e}")
 
     @staticmethod
     async def _wait_ice_complete(pc, timeout=3.5) -> None:

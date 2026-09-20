@@ -84,7 +84,10 @@ from module.webui.app_stat_opsi_export import OpsiExportMixin
 from module.webui.app_stat_ship import ShipExperienceStatisticsMixin
 from module.webui.app_statistics_page import StatisticsPageMixin
 from module.webui.app_task_config import TaskConfigMixin
-from module.webui.fastapi import INITIAL_LOADING_STYLE_MARKER
+from module.webui.fastapi import (
+    INITIAL_LOADING_STYLE_MARKER,
+    WEBSOCKET_RECONNECT_TIMEOUT,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -148,42 +151,170 @@ INITIAL_LOADING_JS = """
     markReady();
 })();
 (function () {
-    // —— 远控断线看门狗：WS 全断且无重连时自动按退避刷新页面 ——
-    // pywebio 1.7.1 重连失败无退避、部分关闭路径页面假死，这里兜底。
+    // —— 远控断线看门狗：只在"页面自身的重连循环已经死掉"时才整页刷新 ——
+    //
+    // 服务端已开启 PyWebIO 会话重连（fastapi.py::WEBSOCKET_RECONNECT_TIMEOUT）：
+    // WS 断开后前端会自动用同一个 session id 重连，服务端保留会话并补发漏掉的
+    // 消息，页面状态不丢、也不需要刷新。所以这里的职责从"断线就刷新"改成：
+    //  1) 只要有连接在建/已连，或最近 ATTEMPT_MS 内有过新的建连尝试（说明 pywebio
+    //     的重连循环还活着），就一直等、绝不刷新 —— 远控抖动时页面原地恢复；
+    //  2) 只有下面两种情况才判定页面没救了、按退避刷新：a) 连续静默超过
+    //     ATTEMPT_MS（既无连接也无建连尝试 → 页面假死）；b) 重连循环空转但
+    //     连续 MAX_DOWN_MS 都没能真正连上（隧道彻底不可达，转圈也没意义）。
+    //     刷新本身也有上限：单次故障最多 MAX_RELOADS 次快重试（1s/2s/4s），
+    //     之后转 SLOW_RETRY_MS 慢重试并常驻提示条，不会无限刷新；
+    //  3) 刷新计数只在"本次连接稳定存活满 STABLE_MS"后才清零（旧实现一收到 ws
+    //     open 就清零，抖动链路上"几次就停手"的上限形同虚设）；
+    //  4) 与 assets/gui/js/alas-utils.js 的 on_session_close 共用同一计数入口
+    //     （window.__alasReconnect），避免两条刷新链各自计数互相叠加；
+    //  5) 想彻底不刷新：控制台执行 window.reload = 0，或
+    //     localStorage.setItem('alas_auto_reload', '0')（后者重启浏览器仍生效）。
     var NativeWebSocket = window.WebSocket;
     var KEY = 'alas_watchdog_reload';
+    var OPEN_KEY = 'alas_watchdog_open_at';
+    var POLL_MS = 5000;          // 复查间隔
+    var ATTEMPT_MS = 45000;      // 连续静默超过该时长才认为重连循环已死
+    var MAX_DOWN_MS = 300000;    // 持续连不上多久才兜底刷新一次（5 分钟）
+    var STABLE_MS = 60000;       // 连续在线满 60 秒才算一次健康连接
+    var WINDOW_MS = 600000;      // 距上次自动刷新超过 10 分钟视为新故障
+    var MAX_RELOADS = 3;         // 单次故障内最多自动刷新次数
+    var SLOW_RETRY_MS = 120000;  // 超出次数上限后的慢重试间隔
     var sockets = [];
-    function backoffMs(tries) { return Math.min(30000, 1000 * Math.pow(2, tries)); }
-    function readTries() {
-        try {
-            var rec = JSON.parse(sessionStorage.getItem(KEY) || '{"t":0,"ts":0}');
-            if (Date.now() - rec.ts > 300000) rec.t = 0;   // 5 分钟稳定期后重置
-            return rec;
-        } catch (e) { return { t: 0, ts: Date.now() }; }
+    var lastAttemptTs = Date.now();   // 最近一次新建 WebSocket 的时间
+    var downSince = 0;                // 本轮"连不上"的起点（真正连上时清零）
+    var scheduled = false;       // 已安排刷新，避免多条刷新链重复计时
+    var watching = false;        // 已在复查循环里
+
+    // 本页的"首个 WS 连上时刻"记号，每次页面加载重新计时
+    try { sessionStorage.setItem(OPEN_KEY, '0'); } catch (e) {}
+
+    function backoffMs(tries) { return Math.min(15000, 1000 * Math.pow(2, tries)); }
+    function autoReloadDisabled() {
+        if (window.reload === 0) return true;
+        try { return localStorage.getItem('alas_auto_reload') === '0'; } catch (e) { return false; }
+    }
+    function readOpenAt() {
+        try { return parseInt(sessionStorage.getItem(OPEN_KEY) || '0', 10) || 0; } catch (e) { return 0; }
+    }
+    function readRecord() {
+        var rec = null;
+        try { rec = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (e) { rec = null; }
+        if (!rec || typeof rec !== 'object' || typeof rec.t !== 'number') rec = { t: 0, ts: 0 };
+        if (Date.now() - (rec.ts || 0) > WINDOW_MS) rec.t = 0;   // 超出窗口期，按新故障重算
+        return rec;
+    }
+    function writeRecord(rec) {
+        try { sessionStorage.setItem(KEY, JSON.stringify(rec)); } catch (e) {}
+    }
+    function hideBanner() {
+        var bar = document.getElementById('alas-offline-banner');
+        if (bar && bar.parentNode) bar.parentNode.removeChild(bar);
+    }
+    function setBanner(text) {
+        var bar = document.getElementById('alas-offline-banner');
+        if (bar) {
+            if (bar.firstChild) bar.firstChild.textContent = text;
+            return;
+        }
+        var host = document.body || document.documentElement;
+        if (!host) return;
+        bar = document.createElement('div');
+        bar.id = 'alas-offline-banner';
+        bar.style.cssText = 'position:fixed;left:50%;bottom:18px;transform:translateX(-50%);'
+            + 'z-index:2147483600;display:flex;align-items:center;gap:12px;padding:10px 16px;'
+            + 'border-radius:8px;font-size:13px;line-height:1.4;background:rgba(32,34,37,.94);'
+            + 'color:#f2f3f5;box-shadow:0 6px 24px rgba(0,0,0,.45)';
+        var label = document.createElement('span');
+        label.textContent = text;
+        var button = document.createElement('button');
+        button.textContent = '立即重载';
+        button.style.cssText = 'padding:4px 12px;border-radius:6px;border:1px solid #8b89d8;'
+            + 'background:transparent;color:#8b89d8;cursor:pointer;font-size:13px';
+        button.onclick = function () {
+            try { sessionStorage.removeItem(KEY); } catch (e) {}
+            location.reload();
+        };
+        bar.appendChild(label);
+        bar.appendChild(button);
+        host.appendChild(bar);
     }
     function scheduleReload() {
-        var rec = readTries();
-        if (rec.t >= 5) return;   // 连续 5 次自动刷新仍失败，停止等待人工介入
+        if (autoReloadDisabled()) {
+            setBanner('与服务器的连接已断开，自动重载已关闭');
+            return;
+        }
+        if (scheduled) return;
+        scheduled = true;
+        var rec = readRecord();
+        if (rec.t >= MAX_RELOADS) {
+            rec.ts = Date.now();
+            writeRecord(rec);
+            setBanner('重连失败，已切换为慢速重试');
+            setTimeout(function () { location.reload(); }, SLOW_RETRY_MS);
+            return;
+        }
         var delay = backoffMs(rec.t);
         rec.t += 1; rec.ts = Date.now();
-        try { sessionStorage.setItem(KEY, JSON.stringify(rec)); } catch (e) {}
+        writeRecord(rec);
+        setBanner('重连失败，正在重新加载页面…');
         setTimeout(function () { location.reload(); }, delay);
     }
+    function anyOpen() {
+        return sockets.some(function (s) { return s.readyState === 1; });
+    }
+    function armWatch() {
+        if (watching || scheduled) return;
+        watching = true;
+        setTimeout(watchConnection, POLL_MS);
+    }
+    function watchConnection() {
+        watching = false;
+        if (scheduled) return;
+        if (anyOpen()) {                 // 已经连上：什么都不做
+            downSince = 0;
+            hideBanner();
+            return;
+        }
+        if (!downSince) downSince = Date.now();
+        if (Date.now() - lastAttemptTs >= ATTEMPT_MS) {
+            scheduleReload();            // 连建连尝试都没有 → 页面假死
+            return;
+        }
+        if (Date.now() - downSince >= MAX_DOWN_MS) {
+            scheduleReload();            // 重连循环空转太久（隧道彻底不可达）
+            return;
+        }
+        // 页面自己的重连循环还活着（pywebio 约每 5 秒重连一次）→ 继续等，不刷新
+        setBanner('与服务器的连接中断，正在自动重连…');
+        armWatch();
+    }
+    function markOpen() {
+        downSince = 0;
+        if (!readOpenAt()) {
+            try { sessionStorage.setItem(OPEN_KEY, String(Date.now())); } catch (e) {}
+        }
+    }
     function WrappedWebSocket(url, protocols) {
+        lastAttemptTs = Date.now();
         var ws = protocols === undefined
             ? new NativeWebSocket(url)
             : new NativeWebSocket(url, protocols);
+        // 只保留活跃连接，重连次数多时不让数组无限增长
+        sockets = sockets.filter(function (s) {
+            return s.readyState === 0 || s.readyState === 1;
+        });
         sockets.push(ws);
         ws.addEventListener('open', function () {
-            try { sessionStorage.removeItem(KEY); } catch (e) {}
+            markOpen();
+            hideBanner();
         });
         ws.addEventListener('close', function () {
-            setTimeout(function () {
-                var anyOpen = sockets.some(function (s) {
-                    return s.readyState === 0 || s.readyState === 1;
-                });
-                if (!anyOpen) scheduleReload();
-            }, 4000);
+            // 本次连接稳定存活过 STABLE_MS → 上一次故障已结束，计数清零重来
+            var openAt = readOpenAt();
+            if (openAt && Date.now() - openAt >= STABLE_MS) {
+                try { sessionStorage.removeItem(KEY); } catch (e) {}
+            }
+            armWatch();
         });
         return ws;
     }
@@ -193,6 +324,8 @@ INITIAL_LOADING_JS = """
     WrappedWebSocket.CLOSING = NativeWebSocket.CLOSING;
     WrappedWebSocket.CLOSED = NativeWebSocket.CLOSED;
     window.WebSocket = WrappedWebSocket;
+    // alas-utils.js 等独立脚本复用同一套退避/限次逻辑，避免多条刷新链各自计数
+    window.__alasReconnect = { schedule: scheduleReload, banner: setBanner };
 })();
 """
 
@@ -507,6 +640,9 @@ def app():
         cdn=cdn,
         static_mounts=static_mounts,
         debug=False,
+        # 远控断线时不整页刷新：PyWebIO 保留会话，前端用同一 session id 原地重连;
+        # 断开超过该秒数才是会话过期，届时才需要重新加载。
+        reconnect_timeout=WEBSOCKET_RECONNECT_TIMEOUT,
         on_startup=[
             startup,
             # worker 拉起是逐个 spawn 新解释器的重操作，放后台线程执行，

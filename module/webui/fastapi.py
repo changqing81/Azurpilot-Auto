@@ -31,6 +31,8 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocketDisconnect
 
+from module.logger import logger as app_logger
+
 ROBOTS_TXT = """\
 User-agent: *
 Disallow: /
@@ -44,6 +46,13 @@ NO_CACHE_CONTROL = "no-cache"
 HTTP_GZIP_MINIMUM_SIZE = 1024
 HTTP_GZIP_COMPRESS_LEVEL = 5
 WEBSOCKET_MAX_PENDING_MESSAGES = 2048
+# PyWebIO 原生会话重连：WebSocket 断开后服务端**保留会话**，前端会用同一个
+# session id 自动重连（pywebio.min.js 的 ws.onclose → start_session），服务端
+# 只补发断开期间漏掉的消息，页面状态不丢、也完全不需要整页刷新。
+# 该能力只在 reconnect_timeout > 0 时开启（见 webio_routes(reconnectable=...)），
+# 默认 0 = 断开即结束会话，此时页面除了重新加载没有别的恢复手段。
+# 超过该秒数仍未重连上，才是会话过期，前端会收到 close_session 并整页重载。
+WEBSOCKET_RECONNECT_TIMEOUT = 600
 INITIAL_LOADING_STYLE_MARKER = "alas-initial-loading-critical"
 
 _STYLESHEET_LINK_PATTERN = re.compile(rb'<link rel="stylesheet"[^>]*>')
@@ -241,6 +250,13 @@ class SafeWebSocketConnection(pywebio_fastapi.WebSocketConnection):
                 "PyWebIO 客户端发送积压超过 %d 条，主动断开慢连接",
                 WEBSOCKET_MAX_PENDING_MESSAGES,
             )
+            # 本模块 logger 未挂到文件日志上（文件日志只挂 alas logger），
+            # 不镜像一份的话，"服务端主动断开 WebSocket"这条远控断线的关键证据
+            # 在 log/*.txt 里永远查不到。
+            app_logger.warning(
+                "PyWebIO 客户端发送积压超过 %d 条，主动断开慢连接（远端页面将自动重载）",
+                WEBSOCKET_MAX_PENDING_MESSAGES,
+            )
             self._pending_messages.clear()
             self._close_requested = True
             sender_task = self._sender_task
@@ -270,6 +286,7 @@ def asgi_app(
     allowed_origins=None,
     check_origin=None,
     static_mounts: Mapping[str, str] | None = None,
+    reconnect_timeout: int = WEBSOCKET_RECONNECT_TIMEOUT,
     **starlette_settings,
 ):
     debug = bool(os.environ.get("PYWEBIO_DEBUG", debug))
@@ -282,6 +299,8 @@ def asgi_app(
         applications,
         # PyWebIO 支持 CDN 地址字符串，但其运行时类型推断仅保留了 bool。
         cdn=cast(Any, validated_cdn),
+        # >0 才会话可重连：断开后保留会话，前端原地重连而不是整页刷新
+        reconnect_timeout=reconnect_timeout,
         allowed_origins=allowed_origins,
         check_origin=check_origin,
     )

@@ -13,9 +13,15 @@
     if (window.WebIO && WebIO._state && WebIO._state.CurrentSession) {
         WebIO._state.CurrentSession.on_session_close(function () {
             setTimeout(function () {
-                if (window.reload == 1) {
-                    location.reload();
+                if (window.reload == 0) return;
+                // 统一交给远控断线看门狗的重连控制器（退避 + 限次 + 稳定期清零）。
+                // 各自 location.reload() 会让两条刷新链互相叠加，谁都限制不住谁，
+                // 在远控这种"连上几秒又断"的链路上就是无限整页刷新。
+                if (window.__alasReconnect && window.__alasReconnect.schedule) {
+                    window.__alasReconnect.schedule();
+                    return;
                 }
+                location.reload();
             }, 4000);
         });
     }
