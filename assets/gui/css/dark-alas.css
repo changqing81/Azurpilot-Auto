@@ -18,6 +18,8 @@ html:root {
     --alas-entry-action-hover: #93c5fd;
     --alas-entry-on-action: #0f172a;
     --alas-entry-success: #4ade80;
+    --alas-entry-badge-error: #ff8a80;
+    --alas-entry-badge-updating: #fbbf24;
     --alas-entry-on-success: #052e16;
     --alas-entry-shadow: 0 16px 40px rgba(0, 0, 0, .34);
     --alas-entry-panel-shadow: 0 1px 2px rgba(0, 0, 0, .40);

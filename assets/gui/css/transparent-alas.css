@@ -297,14 +297,6 @@ html:root {
 	background-color: transparent !important;
 }
 
-*[style*="--manage-config-card--"] *[style*="--manage-config-row--"] {
-	background-color: rgba(255, 255, 255, 0.14);
-}
-
-*[style*="--manage-config-card--"]:hover *[style*="--manage-config-row--"] {
-	background-color: rgba(255, 255, 255, 0.3);
-}
-
 /* ==========================================
    8. 交互控件（保留淡底保证可用性）
    ========================================== */

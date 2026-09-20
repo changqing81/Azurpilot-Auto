@@ -32,6 +32,7 @@ from module.webui.app_dependencies import (
     put_buttons,
     put_column,
     put_error,
+    put_html,
     put_input,
     put_row,
     put_scope,
@@ -47,6 +48,29 @@ from module.webui.app_dependencies import (
 
 if TYPE_CHECKING:
     from module.webui.app import AlasGUI
+
+
+# 实例卡片左上角的方块图标（lucide `server`），与 React 新前端实例卡片上的图标同一形状。
+_INSTANCE_ICON = (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"'
+    ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
+    ' stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>'
+    '<rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>'
+    '<line x1="6" x2="6.01" y1="6" y2="6"/>'
+    '<line x1="6" x2="6.01" y1="18" y2="18"/>'
+    "</svg>"
+)
+
+# ProcessManager.state 的取值与侧栏的状态图标同一套：1 运行中 / 2 停止 / 3 异常 / 4 更新中。
+# 键用于拼 CSS 钩子，值用于取文案。
+_INSTANCE_STATUS = {
+    1: ("running", "Gui.AppManage.StatusRunning"),
+    2: ("stopped", "Gui.AppManage.StatusStopped"),
+    3: ("error", "Gui.AppManage.StatusError"),
+    4: ("updating", "Gui.AppManage.StatusUpdating"),
+}
+_INSTANCE_STATUS_FALLBACK = _INSTANCE_STATUS[2]
 
 
 def app_manage(gui: "AlasGUI") -> None:
@@ -298,6 +322,18 @@ def app_manage(gui: "AlasGUI") -> None:
         )
         _show_list()
 
+    def _instance_status(config_name: str):
+        """返回实例的 (CSS 钩子后缀, 文案 key)。
+
+        取值与侧栏实例图标同一来源；探测失败时按「待命中」处理，
+        避免管理页因为单个实例的状态读不到而整页渲染不出来。
+        """
+        try:
+            state = ProcessManager.get_manager(config_name).state
+        except Exception:
+            return _INSTANCE_STATUS_FALLBACK
+        return _INSTANCE_STATUS.get(state, _INSTANCE_STATUS_FALLBACK)
+
     @use_scope("content", clear=True)
     def _show_list():
         with gui.render_lock:
@@ -308,6 +344,7 @@ def app_manage(gui: "AlasGUI") -> None:
             with use_scope("manage_config_list"):
                 for index, name in enumerate(alas_instance()):
                     mod_name = get_config_mod(name)
+                    status_key, status_label = _instance_status(name)
                     action_scope = f"manage_config_actions_{index}"
                     summary_scope = f"manage_config_summary_{index}"
                     put_scope(
@@ -315,19 +352,21 @@ def app_manage(gui: "AlasGUI") -> None:
                         [
                             put_row(
                                 [
-                                    put_column(
-                                        [
-                                            put_text(name).style("--manage-config-name--"),
-                                            put_text(
-                                                f"{t('Gui.AppManage.Mod')}: {mod_name}"
-                                            ).style("--manage-config-meta--"),
-                                        ],
-                                        size="auto auto",
-                                    ).style("--manage-config-identity--"),
-                                    put_scope(action_scope),
+                                    put_html(_INSTANCE_ICON).style(
+                                        "--manage-config-icon--"
+                                    ),
+                                    put_text(t(status_label)).style(
+                                        f"--manage-config-badge-- "
+                                        f"--manage-config-badge-{status_key}--"
+                                    ),
                                 ],
                                 size="minmax(0, 1fr) auto",
-                            ).style("--manage-config-row--"),
+                            ).style("--manage-config-head--"),
+                            put_text(name).style("--manage-config-name--"),
+                            put_text(
+                                f"{t('Gui.AppManage.Mod')}: {mod_name}"
+                            ).style("--manage-config-meta--"),
+                            put_scope(action_scope),
                             put_scope(summary_scope),
                         ],
                     ).style("--manage-config-card--")

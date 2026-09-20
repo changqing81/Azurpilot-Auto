@@ -1259,14 +1259,6 @@ details[open]>summary::after {
 	border-top: 1px solid var(--alas-apple-border);
 }
 
-*[style*="--manage-config-card--"] *[style*="--manage-config-row--"] {
-	background-color: rgba(255, 255, 255, 0.14);
-}
-
-*[style*="--manage-config-card--"]:hover *[style*="--manage-config-row--"] {
-	background-color: rgba(245, 245, 247, 0.32);
-}
-
 *[style*="--manage-config-card--"] *[style*="--manage-summary-panel--"] {
 	background-color: transparent;
 }
