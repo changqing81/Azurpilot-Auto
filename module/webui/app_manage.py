@@ -1,5 +1,6 @@
 """WebUI实例管理页面"""
 
+from html import escape
 from typing import TYPE_CHECKING
 
 from module.webui.app_dependencies import (
@@ -51,10 +52,12 @@ if TYPE_CHECKING:
 
 
 # 实例卡片左上角的方块图标（lucide `server`），与 React 新前端实例卡片上的图标同一形状。
+# 必须带 width/height：只给 viewBox 的话，一旦外层的尺寸约束没落到它身上，
+# SVG 会按 300x150 的默认尺寸渲染，把 48px 的方块撑破。
 _INSTANCE_ICON = (
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"'
-    ' stroke="currentColor" stroke-width="2" stroke-linecap="round"'
-    ' stroke-linejoin="round" aria-hidden="true" focusable="false">'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"'
+    ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"'
+    ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'
     '<rect width="20" height="8" x="2" y="2" rx="2" ry="2"/>'
     '<rect width="20" height="8" x="2" y="14" rx="2" ry="2"/>'
     '<line x1="6" x2="6.01" y1="6" y2="6"/>'
@@ -350,18 +353,14 @@ def app_manage(gui: "AlasGUI") -> None:
                     put_scope(
                         f"manage_config_card_{index}",
                         [
-                            put_row(
-                                [
-                                    put_html(_INSTANCE_ICON).style(
-                                        "--manage-config-icon--"
-                                    ),
-                                    put_text(t(status_label)).style(
-                                        f"--manage-config-badge-- "
-                                        f"--manage-config-badge-{status_key}--"
-                                    ),
-                                ],
-                                size="minmax(0, 1fr) auto",
-                            ).style("--manage-config-head--"),
+                            put_html(
+                                '<div class="manage-card-head">'
+                                f'<span class="manage-card-icon">{_INSTANCE_ICON}</span>'
+                                '<span class="manage-card-badge'
+                                f' manage-card-badge-{status_key}">'
+                                f"{escape(t(status_label))}</span>"
+                                "</div>"
+                            ),
                             put_text(name).style("--manage-config-name--"),
                             put_text(
                                 f"{t('Gui.AppManage.Mod')}: {mod_name}"
