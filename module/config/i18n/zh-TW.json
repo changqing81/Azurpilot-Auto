@@ -958,10 +958,10 @@
       "save_and_local": "儲存並本機記錄"
     },
     "OpsiShopRecord": {
-      "name": "DropRecord.OpsiShopRecord.name",
-      "help": "DropRecord.OpsiShopRecord.help",
-      "do_not": "do_not",
-      "save": "save"
+      "name": "行動力箱子掉落截圖",
+      "help": "明石商店出現行動力箱時，把整張商店截圖存到 screenshots/opsi_shop/，僅供人工核對；不會上傳任何資料",
+      "do_not": "無操作",
+      "save": "儲存"
     },
     "MeowfficerBuy": {
       "name": "指揮喵購買截圖",

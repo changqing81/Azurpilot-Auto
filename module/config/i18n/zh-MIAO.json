@@ -958,10 +958,10 @@
       "save_and_local": "保存并本地记录喵"
     },
     "OpsiShopRecord": {
-      "name": "DropRecord.OpsiShopRecord.name",
-      "help": "DropRecord.OpsiShopRecord.help",
-      "do_not": "do_not",
-      "save": "save"
+      "name": "行动力箱子掉落截图",
+      "help": "明石商店出现行动力箱时存一张商店截图到 screenshots/opsi_shop/ 喵，只给自己看，不会上传喵",
+      "do_not": "无视喵",
+      "save": "保存喵"
     },
     "MeowfficerBuy": {
       "name": "指挥喵购买截图",

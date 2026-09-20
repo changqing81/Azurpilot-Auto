@@ -958,10 +958,10 @@
       "save_and_local": "Save and Local Record"
     },
     "OpsiShopRecord": {
-      "name": "DropRecord.OpsiShopRecord.name",
-      "help": "DropRecord.OpsiShopRecord.help",
-      "do_not": "do_not",
-      "save": "save"
+      "name": "AP Box Screenshot",
+      "help": "When Action Point boxes appear in Akashi's shop, save the shop screenshot to screenshots/opsi_shop/ for manual review; nothing is uploaded",
+      "do_not": "No Action",
+      "save": "Save"
     },
     "MeowfficerBuy": {
       "name": "Meowfficer Purchase Screenshot",

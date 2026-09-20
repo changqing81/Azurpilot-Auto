@@ -959,7 +959,7 @@
     },
     "OpsiShopRecord": {
       "name": "行动力箱子掉落截图",
-      "help": "",
+      "help": "明石商店出现行动力箱时，把整张商店截图存到 screenshots/opsi_shop/，便于人工核对；不会上传任何数据",
       "do_not": "无操作",
       "save": "保存"
     },

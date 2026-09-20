@@ -94,10 +94,23 @@ class AkashiShop(OSStatus, OSShopUI, Selector, MapEventHandler):
         return shop_items
 
     # =========================================================
-    # AP Box 截图（只触发一次，不影响流程）
+    # AP Box 截图（受 DropRecord_OpsiShopRecord 开关控制）
     # =========================================================
 
     def save_akashi_ap_box_screenshot(self, snapshot):
+        """商店内出现行动力箱时留一张截图。
+
+        由 `DropRecord.OpsiShopRecord` 开关控制（设置 — 智慧港区 — 掉落记录）：
+        选「无操作」不做任何事，选「保存」把整张商店截图存到
+        `screenshots/opsi_shop/`，文件名带箱子档位与时间戳。
+        只用于人工核对，不参与购买决策，也不影响购买流程。
+
+        Args:
+            snapshot (dict): 含 `image`（商店截图）与 `items`（识别到的商品）。
+        """
+        if self.config.DropRecord_OpsiShopRecord == 'do_not':
+            return
+
         items = snapshot["items"]
         image = snapshot["image"]
 
@@ -125,9 +138,8 @@ class AkashiShop(OSStatus, OSShopUI, Selector, MapEventHandler):
         )
         file_path = os.path.join(folder, filename)
 
-        # ✅ 只保存一次，不递归、不上传逻辑干扰主流程
         save_image(image, file_path)
-        logger.info(f"[AP BOX] screenshot saved -> {file_path}")
+        logger.info(f'[AP BOX] 行动力箱截图已保存 -> {file_path}')
 
     # =========================================================
     # 商品识别
@@ -178,9 +190,7 @@ class AkashiShop(OSStatus, OSShopUI, Selector, MapEventHandler):
                     "items": items
                 }
                 continue
-            # -------------------------------------------------
-            # ✅ 只允许执行一次 AP box 截图
-            # -------------------------------------------------
+            # 同一次逛店只留一张 AP 箱截图（开关关闭时方法内部直接返回）
             if not ap_box_captured:
                 self.save_akashi_ap_box_screenshot(snapshot)
                 ap_box_captured = True

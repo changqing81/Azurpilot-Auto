@@ -958,10 +958,10 @@
       "save_and_local": "保存してローカル記録"
     },
     "OpsiShopRecord": {
-      "name": "DropRecord.OpsiShopRecord.name",
-      "help": "DropRecord.OpsiShopRecord.help",
-      "do_not": "do_not",
-      "save": "save"
+      "name": "行動力箱スクリーンショット",
+      "help": "明石商店に行動力箱が並んだとき、商店のスクリーンショットを screenshots/opsi_shop/ に保存します（確認用、アップロードは行いません）",
+      "do_not": "アクションなし",
+      "save": "保存"
     },
     "MeowfficerBuy": {
       "name": "オフニャ購入スクリーンショット",
