@@ -166,6 +166,25 @@ class TestNoHardcodedEnvironment(unittest.TestCase):
         self.assertTrue(announcement_publish.find_git())
         self.assertTrue(announcement_publish.find_credential_helper())
 
+    def test_resolved_paths_use_forward_slashes(self):
+        """回归：git 的 -c 配置值会吃掉反斜杠，探测结果必须是正斜杠路径。
+
+        （2026-09-20 实测：探测返回 `C:\\Users\\...\\git-credential-manager.EXE` 时，
+         git 把路径解析成 `C:Users...` 并报 command not found，导致取不到凭据。）
+        """
+        for value in (
+            announcement_publish.find_git(),
+            announcement_publish.find_credential_helper(),
+            announcement_publish._to_posix_path(r"C:\Users\a\b.exe"),
+        ):
+            self.assertNotIn("\\", value)
+
+    def test_to_posix_path(self):
+        self.assertEqual(
+            announcement_publish._to_posix_path(r"C:\Users\x\gcm.exe"),
+            "C:/Users/x/gcm.exe",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

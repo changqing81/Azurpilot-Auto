@@ -110,18 +110,28 @@ def _portable_git_candidates(filename: str) -> list[Path]:
     return found
 
 
+def _to_posix_path(path) -> str:
+    """统一成正斜杠。
+
+    这些路径最终会作为 `git -c credential.helper=<路径>` 的值传给 git，而 git 在解析
+    该配置值时会把反斜杠当转义符吃掉（实测 `C:\\Users\\a\\b.exe` 变成 `C:Usersab.exe`，
+    报 `command not found`）。Windows 上的 git 同样接受正斜杠，所以统一转换。
+    """
+    return str(path).replace("\\", "/")
+
+
 def find_git() -> str:
     """定位 git 可执行文件：环境变量 ALAS_GIT → PATH → PortableGit 常见位置。"""
     override = os.environ.get("ALAS_GIT")
     if override:
-        return override
+        return _to_posix_path(override)
     for name in ("git", "git.exe"):
         found = shutil.which(name)
         if found:
-            return found
+            return _to_posix_path(found)
     for candidate in _portable_git_candidates("git.exe"):
         if candidate.is_file():
-            return str(candidate)
+            return _to_posix_path(candidate)
     return "git"
 
 
@@ -129,17 +139,18 @@ def find_credential_helper() -> str:
     """定位 git-credential-manager：环境变量 ALAS_ANNOUNCE_GCM → PATH → PortableGit → 通用名。
 
     不写死本机用户名与版本号 —— 本文件会进公共仓库，硬编码路径既不可移植也泄漏环境信息。
+    返回值一律转成正斜杠，原因见 `_to_posix_path`。
     """
     override = os.environ.get("ALAS_ANNOUNCE_GCM")
     if override:
-        return override
+        return _to_posix_path(override)
     for name in ("git-credential-manager", "git-credential-manager.exe"):
         found = shutil.which(name)
         if found:
-            return found
+            return _to_posix_path(found)
     for candidate in _portable_git_candidates("git-credential-manager.exe"):
         if candidate.is_file():
-            return str(candidate)
+            return _to_posix_path(candidate)
     # GCM 装在 git 同目录时可直接用简名，由 git 自行解析
     return "manager"
 
