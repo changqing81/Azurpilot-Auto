@@ -6639,7 +6639,11 @@
       "NewSuccess": "新增成功",
       "Name": "配置名稱",
       "Mod": "外掛",
-      "Actions": "操作"
+      "Actions": "操作",
+      "StatusRunning": "執行中",
+      "StatusStopped": "待命中",
+      "StatusError": "需要處理",
+      "StatusUpdating": "更新中"
     },
     "Update": {
       "UpToDate": "已是最新版本",

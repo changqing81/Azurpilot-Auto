@@ -6639,7 +6639,11 @@
       "NewSuccess": "正常に追加されました",
       "Name": "構成名",
       "Mod": "プラグイン",
-      "Actions": "操作する"
+      "Actions": "操作する",
+      "StatusRunning": "実行中",
+      "StatusStopped": "待機中",
+      "StatusError": "対応が必要",
+      "StatusUpdating": "更新中"
     },
     "Update": {
       "UpToDate": "すでに最新バージョン",

@@ -6639,7 +6639,11 @@
       "NewSuccess": "添加成功喵",
       "Name": "配置名称喵",
       "Mod": "插件喵",
-      "Actions": "操作喵"
+      "Actions": "操作喵",
+      "StatusRunning": "运行中喵",
+      "StatusStopped": "待命中喵",
+      "StatusError": "需要处理喵",
+      "StatusUpdating": "更新中喵"
     },
     "Update": {
       "UpToDate": "已是最新喵",

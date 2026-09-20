@@ -6639,7 +6639,11 @@
       "NewSuccess": "Added successfully",
       "Name": "Configuration name",
       "Mod": "Mod",
-      "Actions": "Actions"
+      "Actions": "Actions",
+      "StatusRunning": "Running",
+      "StatusStopped": "Idle",
+      "StatusError": "Needs attention",
+      "StatusUpdating": "Updating"
     },
     "Update": {
       "UpToDate": "Already the latest version",

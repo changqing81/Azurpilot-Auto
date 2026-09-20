@@ -210,6 +210,10 @@ AppManage:
   Name:
   Mod:
   Actions:
+  StatusRunning:
+  StatusStopped:
+  StatusError:
+  StatusUpdating:
 
 Update:
   UpToDate:
