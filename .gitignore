@@ -324,3 +324,11 @@ RTK.md
 wallpapers/*
 !wallpapers/.gitkeep
 wallpaper_*.jpg
+
+# 公告与更新日志数据：已迁到独立数据仓库 changqing81/announcement-changelog，
+# 不再随代码分发（客户端更新包不带它们，代码仓库的提交历史也不被发布动作污染）。
+# 这里拦住路径，避免以后有人把文件放回来又被提交。
+/announcement.json
+/changelog.json
+/announcement/
+/changelog/

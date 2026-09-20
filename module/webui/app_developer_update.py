@@ -227,9 +227,10 @@ class DeveloperUpdateMixin(WebUIMixinBase):
     def _render_update_log(self) -> None:
         """渲染「更新日志」区块。
 
-        更新日志托管在远端 master 分支的 changelog.json，客户端在**更新前**就能读到这一版
-        改了什么（含图片）。请求放后台线程，先渲染占位提示、拿到数据后原地替换，避免
-        jsdelivr 在弱网下把页面卡住；取不到时只显示占位提示，不影响更新流程。
+        更新日志托管在**独立数据仓库**（`changqing81/announcement-changelog`）的
+        changelog.json 上，客户端在**更新前**就能读到这一版改了什么（含图片）。
+        请求放后台线程，先渲染占位提示、拿到数据后原地替换，避免 jsdelivr 在弱网下
+        把页面卡住；取不到时只显示占位提示，不影响更新流程。
         """
         from module.webui import update_log
 

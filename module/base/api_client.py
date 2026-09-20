@@ -1,9 +1,11 @@
 """
 API 客户端模块
-负责获取公告信息
-公告文件由本仓库根目录的 announcement.json 发布：主源 jsdelivr CDN（国内可达，
-分支引用缓存约12小时，发新公告后可通过 purge.jsdelivr.net 立即刷新），
-备用源 GitHub raw（缓存约5分钟，主源不可达时兜底）
+负责获取公告与更新日志
+
+数据放在**独立的数据仓库** `changqing81/announcement-changelog`（不参与代码更新，
+避免公告与配图被塞进更新包、也不污染代码仓库的提交历史）：
+主源 jsdelivr CDN（国内可达，分支引用缓存约12小时，发布后可通过 purge.jsdelivr.net
+立即刷新），备用源 GitHub raw（缓存约5分钟，主源不可达时兜底）
 """
 import json
 import time
@@ -17,24 +19,27 @@ from module.logger import logger
 class ApiClient:
     """公告客户端：拉取仓库公告文件，支持主源+备用源故障转移"""
 
-    # 公告文件地址（jsdelivr 对国内用户可达性最好作主源；raw.githubusercontent.com
+    # 数据仓库里的公告文件（jsdelivr 对国内用户可达性最好作主源；raw.githubusercontent.com
     # 在国内普遍被阻断，仅作主源故障时的兜底）
+    DATA_REPO = 'changqing81/announcement-changelog'
+    DATA_BRANCH = 'main'
+
     ANNOUNCEMENT_PRIMARY_URL = (
-        'https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/announcement.json'
+        f'https://cdn.jsdelivr.net/gh/{DATA_REPO}@{DATA_BRANCH}/announcement.json'
     )
     ANNOUNCEMENT_FALLBACK_URL = (
-        'https://raw.githubusercontent.com/changqing81/Azurpilot-Auto/master/announcement.json'
+        f'https://raw.githubusercontent.com/{DATA_REPO}/{DATA_BRANCH}/announcement.json'
     )
 
     # 公告检查间隔（秒），5分钟 = 300秒
     ANNOUNCEMENT_CHECK_INTERVAL = 300
 
-    # 更新日志地址（与公告同一套分发机制：主源 jsdelivr、备用源 GitHub raw，master 分支）
+    # 更新日志地址（同一数据仓库、同一套分发机制）
     CHANGELOG_PRIMARY_URL = (
-        'https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/changelog.json'
+        f'https://cdn.jsdelivr.net/gh/{DATA_REPO}@{DATA_BRANCH}/changelog.json'
     )
     CHANGELOG_FALLBACK_URL = (
-        'https://raw.githubusercontent.com/changqing81/Azurpilot-Auto/master/changelog.json'
+        f'https://raw.githubusercontent.com/{DATA_REPO}/{DATA_BRANCH}/changelog.json'
     )
 
     @classmethod

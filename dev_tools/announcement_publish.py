@@ -1,13 +1,18 @@
-"""AzurPilot 公告发布工具（GitHub API 直写，不经过本地 git）
+"""AzurPilot 公告发布工具（GitHub API 直写数据仓库）
 
-公告客户端（module/base/api_client.py）从以下地址拉取公告：
-    主源  https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@master/announcement.json
-    备用  https://raw.githubusercontent.com/changqing81/Azurpilot-Auto/master/announcement.json
+公告客户端（module/base/api_client.py）从**独立的数据仓库**拉取公告与更新日志：
+    主源  https://cdn.jsdelivr.net/gh/changqing81/announcement-changelog@main/announcement.json
+    备用  https://raw.githubusercontent.com/changqing81/announcement-changelog/main/announcement.json
 
-因此公告必须落在**远端 master 分支的 announcement.json** 上。本工具通过 GitHub
-REST API 直接改写该文件（以及上传公告图片），好处：
+数据仓库（`DATA_REPO`）只放公告 / 更新日志 / 配图，与代码仓库彻底分离：
+    * 客户端拉取代码更新时不会再带上这些数据；
+    * 代码仓库（changqing81/Azurpilot-Auto）的提交历史不会被发布动作污染。
+
+本工具通过 GitHub REST API 直接改写数据仓库里的文件（以及上传配图），好处：
     * 不产生本地提交、不碰工作树，不受启动器 `git reset --hard` 影响
     * 不需要 `git add/commit/push`，一条 HTTP 请求即完成发布
+    * 代价：GitHub 的内容 API 本身就是"以提交方式写文件"，所以数据仓库里必然留下提交记录
+      （这是 2026-09-20 把数据搬出代码仓库的直接原因）
 
 凭据：默认从本机 Git Credential Manager 里取已存的 GitHub 凭据（无需新建 token），
 可用环境变量 ALAS_ANNOUNCE_GCM / ALAS_GIT 覆盖。凭据只存在于进程内存，不落盘。
@@ -49,16 +54,24 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-REPO = "changqing81/Azurpilot-Auto"
-BRANCH = "master"
+# 数据仓库：公告、更新日志与配图都放这里（经 jsdelivr 分发）。
+# 与代码仓库彻底分离 —— 客户端拉取代码时不会再带上这些数据，
+# 代码仓库的提交历史也不会被发布动作污染（2026-09-20 用户明确要求）。
+DATA_REPO = "changqing81/announcement-changelog"
+DATA_BRANCH = "main"
+CODE_REPO = "changqing81/Azurpilot-Auto"  # 代码仓库，仅用于提示信息
+
 ANNOUNCEMENT_PATH = "announcement.json"
-ASSET_DIR = "announcement"  # 公告图片存放目录（仓库根下）
+ASSET_DIR = "announcement"  # 公告图片目录：announcement/<公告ID>/<文件名>
 API_ROOT = "https://api.github.com"
 CDN_ROOT = "https://cdn.jsdelivr.net/gh"
 PURGE_ROOT = "https://purge.jsdelivr.net/gh"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DRAFT = REPO_ROOT / ".workbuddy" / "announcement" / "draft.md"
+# 本地工作副本放在 gitignore 的 .workbuddy 下，不进版本库、不参与代码更新
+WORK_DIR = REPO_ROOT / ".workbuddy" / "announcement"
+DEFAULT_DRAFT = WORK_DIR / "draft.md"
+LOCAL_ANNOUNCEMENT = WORK_DIR / "announcement.json"
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif", ".svg"}
 MD_IMAGE_RE = re.compile(r"^!\[([^\]]*)\]\(\s*(\S+?)\s*\)$")
@@ -235,9 +248,11 @@ def get_credential() -> str:
 # --------------------------------------------------------------------------
 # 远端读写
 # --------------------------------------------------------------------------
-def fetch_remote_announcement(token: str) -> tuple[dict | None, str | None]:
+def fetch_remote_announcement(
+    token: str, repo: str = DATA_REPO, branch: str = DATA_BRANCH
+) -> tuple[dict | None, str | None]:
     """返回 (公告数据, blob sha)；文件不存在时返回 (None, None)。"""
-    url = f"{API_ROOT}/repos/{REPO}/contents/{ANNOUNCEMENT_PATH}?ref={BRANCH}"
+    url = f"{API_ROOT}/repos/{repo}/contents/{ANNOUNCEMENT_PATH}?ref={branch}"
     try:
         data = request_json("GET", url, token)
     except RuntimeError as error:
@@ -250,16 +265,28 @@ def fetch_remote_announcement(token: str) -> tuple[dict | None, str | None]:
     return None, None
 
 
-def put_file(token: str, path: str, content: bytes, message: str, sha: str | None) -> str:
-    """写入/新增仓库文件，返回产生的 commit sha。"""
+def put_file(
+    token: str,
+    path: str,
+    content: bytes,
+    message: str,
+    sha: str | None,
+    repo: str = DATA_REPO,
+    branch: str = DATA_BRANCH,
+) -> str:
+    """写入/新增文件，返回产生的 commit sha。
+
+    注意：GitHub 的内容 API **本身就是以提交方式写文件**的 —— 这一步必然在该仓库留下
+    一条提交记录，没有"写文件但不留提交"的接口。这也是把数据放到独立数据仓库的原因。
+    """
     payload = {
         "message": message,
         "content": base64.b64encode(content).decode("ascii"),
-        "branch": BRANCH,
+        "branch": branch,
     }
     if sha:
         payload["sha"] = sha
-    data = request_json("PUT", f"{API_ROOT}/repos/{REPO}/contents/{path}", token, payload)
+    data = request_json("PUT", f"{API_ROOT}/repos/{repo}/contents/{path}", token, payload)
     commit_sha = (data.get("commit") or {}).get("sha")
     if not commit_sha:
         raise RuntimeError(f"写入 {path} 后没有拿到 commit sha：{str(data)[:300]}")
@@ -269,12 +296,12 @@ def put_file(token: str, path: str, content: bytes, message: str, sha: str | Non
 def purge_jsdelivr(paths: list[str]) -> list[str]:
     """尽力刷新 jsdelivr 分支引用缓存，返回失败描述列表（含失败原因）。
 
-    实测（2026-09-20）：purge 成功（HTTP 200）后，`@master` 的文件内容会**立刻**变成新版，
+    实测（2026-09-20）：purge 成功（HTTP 200）后，分支引用的文件内容会**立刻**变成新版，
     所以"发布 -> purge -> 客户端下次轮询即见"就是当前架构下的实时上限，别放弃这一步。
     """
     failed = []
     for path in paths:
-        url = f"{PURGE_ROOT}/{REPO}@{BRANCH}/{path}"
+        url = f"{PURGE_ROOT}/{DATA_REPO}@{DATA_BRANCH}/{path}"
         try:
             request_json("GET", url, accept="application/json")
         except Exception as error:  # noqa: BLE001 - 刷新失败不影响发布结果，只提示原因
@@ -542,7 +569,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
         print("\n[dry-run] 未做任何写入。去掉 --dry-run 才会真正发布。")
         return 0
 
-    image_ref = BRANCH
+    image_ref = DATA_BRANCH
     local_to_url: dict[str, str] = {}
     uploaded: list[str] = []
     for index, path in enumerate(local_images, start=1):
@@ -556,7 +583,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
         )
         if index == 1 and args.image_ref == "sha":
             image_ref = commit_sha
-        local_to_url[str(path.resolve())] = f"{CDN_ROOT}/{REPO}@{image_ref}/{repo_path}"
+        local_to_url[str(path.resolve())] = f"{CDN_ROOT}/{DATA_REPO}@{image_ref}/{repo_path}"
         uploaded.append(repo_path)
         print(f"已上传 {path.name} -> commit {commit_sha[:10]}")
 
@@ -577,14 +604,15 @@ def cmd_publish(args: argparse.Namespace) -> int:
     )
     print(f"已发布 {ANNOUNCEMENT_PATH} -> commit {commit_sha[:10]}")
 
-    # 本地文件同步成远端内容，避免下次 dev -> master 同步时把公告顶回去（不提交）
-    local_file = REPO_ROOT / ANNOUNCEMENT_PATH
-    local_file.write_text(
+    # 本地留一份工作副本（在 gitignore 的 .workbuddy 下），方便下次发布时对照；
+    # 它不进版本库，所以不会出现在代码更新里。
+    LOCAL_ANNOUNCEMENT.parent.mkdir(parents=True, exist_ok=True)
+    LOCAL_ANNOUNCEMENT.write_text(
         json.dumps(payload, ensure_ascii=False, indent=4) + "\n",
         encoding="utf-8",
         newline="\n",  # 固定 LF：Windows 下默认 CRLF 会让整个文件变成一处大 diff
     )
-    print(f"已同步本地 {ANNOUNCEMENT_PATH}（未提交，避免误导后续同步）")
+    print(f"已更新本地工作副本 {LOCAL_ANNOUNCEMENT.relative_to(REPO_ROOT)}")
 
     failed = purge_jsdelivr([ANNOUNCEMENT_PATH, *uploaded])
     if failed:
@@ -595,7 +623,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
         print("已请求刷新 jsdelivr 缓存。")
 
     print("\n发布完成。验证地址：")
-    print(f"  {CDN_ROOT}/{REPO}@{BRANCH}/{ANNOUNCEMENT_PATH}")
+    print(f"  {CDN_ROOT}/{DATA_REPO}@{DATA_BRANCH}/{ANNOUNCEMENT_PATH}")
     return 0
 
 
@@ -620,8 +648,8 @@ def build_parser() -> argparse.ArgumentParser:
     preview.set_defaults(func=cmd_preview)
 
     publish = sub.add_parser("publish", parents=[common], help="上传图片并发布公告到远端 master")
-    publish.add_argument("--image-ref", choices=["sha", "master"], default="sha",
-                         help="图片外链使用固定 commit sha（默认，立即生效）还是 master 分支引用")
+    publish.add_argument("--image-ref", choices=["sha", "branch"], default="sha",
+                         help="图片外链用固定 commit sha（默认，上传即可用）还是分支引用")
     publish.add_argument("--dry-run", action="store_true", help="只打印计划，不做任何写入")
     publish.set_defaults(func=cmd_publish)
     return parser

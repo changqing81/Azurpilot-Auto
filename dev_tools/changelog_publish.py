@@ -36,10 +36,11 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from dev_tools.announcement_publish import (
-    BRANCH,
     CDN_ROOT,
-    REPO,
+    DATA_BRANCH,
+    DATA_REPO,
     REPO_ROOT,
+    WORK_DIR,
     find_git,
     get_credential,
     is_local_image,
@@ -54,9 +55,9 @@ from module.webui.update_log import MAX_ENTRIES, render_entries_html, render_pla
 CHANGELOG_PATH = "changelog.json"
 ASSET_DIR = "changelog"  # 配图目录：changelog/<entry-id>/<文件名>
 MAX_LOCAL_ENTRIES = 20  # 本地文件保留的历史条数（页面只展示最新几条）
-CHANGELOG_FILE = REPO_ROOT / CHANGELOG_PATH
-DEFAULT_DRAFT = REPO_ROOT / ".workbuddy" / "announcement" / "changelog-draft.md"
-DEFAULT_PREVIEW = REPO_ROOT / ".workbuddy" / "announcement" / "changelog-preview.html"
+CHANGELOG_FILE = WORK_DIR / CHANGELOG_PATH  # 本地工作副本（gitignore，不进版本库）
+DEFAULT_DRAFT = WORK_DIR / "changelog-draft.md"
+DEFAULT_PREVIEW = WORK_DIR / "changelog-preview.html"
 
 
 # --------------------------------------------------------------------------
@@ -215,7 +216,9 @@ def cmd_publish(args: argparse.Namespace) -> int:
     remote = None
     try:
         remote = request_json(
-            "GET", f"https://api.github.com/repos/{REPO}/contents/{CHANGELOG_PATH}?ref={BRANCH}", token
+            "GET",
+            f"https://api.github.com/repos/{DATA_REPO}/contents/{CHANGELOG_PATH}?ref={DATA_BRANCH}",
+            token,
         )
     except RuntimeError:
         remote = None
@@ -230,7 +233,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
             remote_entries = []
 
     merged = merge_entries(entries, remote_entries)
-    image_ref = BRANCH
+    image_ref = DATA_BRANCH
     local_to_url: dict[str, str] = {}
     uploaded: list[str] = []
 
@@ -261,7 +264,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
         )
         if index == 1 and args.image_ref == "sha":
             image_ref = commit_sha
-        local_to_url[str(path.resolve())] = f"{CDN_ROOT}/{REPO}@{image_ref}/{repo_path}"
+        local_to_url[str(path.resolve())] = f"{CDN_ROOT}/{DATA_REPO}@{image_ref}/{repo_path}"
         uploaded.append(repo_path)
         print(f"已上传 {path.name} -> commit {commit_sha[:10]}")
 
@@ -296,7 +299,7 @@ def cmd_publish(args: argparse.Namespace) -> int:
         print("已请求刷新 jsdelivr 缓存。")
 
     print("\n发布完成。验证地址：")
-    print(f"  {CDN_ROOT}/{REPO}@{BRANCH}/{CHANGELOG_PATH}")
+    print(f"  {CDN_ROOT}/{DATA_REPO}@{DATA_BRANCH}/{CHANGELOG_PATH}")
     return 0
 
 
