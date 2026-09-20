@@ -1,6 +1,6 @@
 {
-    "announcementId": "20260919-1",
-    "title": "公告源已迁移至本仓库",
-    "content": "自本版本起，公告改由本仓库根目录的 announcement.json 发布，不再连接原上游 API 服务器（nanoda.work）。公告获取失败或显示“暂无公告”属正常现象，更新到本版本后即可正常接收公告。",
+    "announcementId": "20260920-1",
+    "title": "公告配图测试",
+    "content": "这是一条测试公告，用来确认公告弹窗的配图与排版是否正常。\n\n![测试配图](https://cdn.jsdelivr.net/gh/changqing81/Azurpilot-Auto@7637aafea8441e10c40c9e8d74c1281da3008b75/announcement/20260920-1/f6669cba322e4186c579c9ddb287667c.png)\n\n如果上面的图片能正常显示，说明公告配图功能已经可用；图片会自动适配弹窗宽度并居中。\n\n项目地址：https://github.com/changqing81/Azurpilot-Auto",
     "url": ""
 }
