@@ -1,10 +1,12 @@
-"""掉落记录改本地的单测：档位语义与旧值迁移。
+"""掉落记录改本地的单测：档位语义、旧值迁移与开关接线。
 
-覆盖两件事：
+覆盖三件事：
 1. 掉落记录档位（do_not / save / local / save_and_local）与
    AzurStats.new() 的本地解析判定一一对应，短猫相接的本地统计
    不再依赖早已废弃的"上传"档位。
 2. 老配置里的 upload / save_and_upload 会被迁到新档位。
+3. 行动力箱截图开关确实被 akashi_shop 读取——它历史上做了三个月
+   没有接线的死配置，用源码检查兜住这种回归。
 """
 
 import json
@@ -19,7 +21,9 @@ from module.config.redirect_utils.utils import (
 )
 from module.statistics.azurstats import AzurStats
 
-ARGS_FILE = Path(__file__).resolve().parents[1] / 'module' / 'config' / 'argument' / 'args.json'
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+ARGS_FILE = PROJECT_ROOT / 'module' / 'config' / 'argument' / 'args.json'
+AKASHI_SHOP_FILE = PROJECT_ROOT / 'module' / 'os_shop' / 'akashi_shop.py'
 
 
 class TestDropRecordRedirect(unittest.TestCase):
@@ -150,6 +154,31 @@ class TestDropRecordOptionsMatchCode(unittest.TestCase):
     def test_upload_only_arguments_removed(self):
         self.assertNotIn('AzurStatsID', self.args['Alas']['DropRecord'])
         self.assertNotIn('API', self.args['Alas']['DropRecord'])
+
+    def test_opai_shop_record_is_screenshot_switch(self):
+        # 行动力箱截图只有"存不存图"，没有本地解析，档位收敛为 do_not/save。
+        definition = self.args['Alas']['DropRecord']['OpsiShopRecord']
+        self.assertEqual(['do_not', 'save'], definition['option'])
+        self.assertEqual('do_not', definition['value'])
+
+
+class TestApBoxScreenshotSwitchWired(unittest.TestCase):
+    """行动力箱截图开关必须真的被代码读取。
+
+    只用源码检查：真导入 module.os_shop.akashi_shop 冷启动要 7 秒，
+    会把整套单测拖慢（见 AGENTS.md 的 Mock 盲区条目）。
+    """
+
+    def test_akashi_shop_reads_switch(self):
+        source = AKASHI_SHOP_FILE.read_text(encoding='utf-8')
+        self.assertIn('save_akashi_ap_box_screenshot', source)
+        # 开关关闭时必须直接返回，参数不能是"读了配置但没用"。
+        self.assertIn("if self.config.DropRecord_OpsiShopRecord == 'do_not':", source)
+        self.assertIn('return', source.split("if self.config.DropRecord_OpsiShopRecord == 'do_not':")[1][:64])
+
+    def test_switch_is_called_on_shop_visit(self):
+        source = AKASHI_SHOP_FILE.read_text(encoding='utf-8')
+        self.assertIn('self.save_akashi_ap_box_screenshot(snapshot)', source)
 
 
 if __name__ == '__main__':
