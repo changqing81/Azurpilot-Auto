@@ -144,7 +144,7 @@ def find_credential_helper() -> str:
     return "manager"
 
 
-def _request(method: str, url: str, token: str | None = None, payload: dict | None = None):
+def request_json(method: str, url: str, token: str | None = None, payload: dict | None = None):
     data = None
     headers = {"User-Agent": "AzurPilot-announcement-publisher", "Accept": "application/vnd.github+json"}
     if token:
@@ -213,7 +213,7 @@ def fetch_remote_announcement(token: str) -> tuple[dict | None, str | None]:
     """返回 (公告数据, blob sha)；文件不存在时返回 (None, None)。"""
     url = f"{API_ROOT}/repos/{REPO}/contents/{ANNOUNCEMENT_PATH}?ref={BRANCH}"
     try:
-        data = _request("GET", url, token)
+        data = request_json("GET", url, token)
     except RuntimeError as error:
         if "HTTP 404" in str(error):
             return None, None
@@ -233,7 +233,7 @@ def put_file(token: str, path: str, content: bytes, message: str, sha: str | Non
     }
     if sha:
         payload["sha"] = sha
-    data = _request("PUT", f"{API_ROOT}/repos/{REPO}/contents/{path}", token, payload)
+    data = request_json("PUT", f"{API_ROOT}/repos/{REPO}/contents/{path}", token, payload)
     commit_sha = (data.get("commit") or {}).get("sha")
     if not commit_sha:
         raise RuntimeError(f"写入 {path} 后没有拿到 commit sha：{str(data)[:300]}")
@@ -246,7 +246,7 @@ def purge_jsdelivr(paths: list[str]) -> list[str]:
     for path in paths:
         url = f"{PURGE_ROOT}/{REPO}@{BRANCH}/{path}"
         try:
-            _request("GET", url)
+            request_json("GET", url)
         except Exception:  # noqa: BLE001 - 刷新失败不影响发布结果，只提示
             failed.append(url)
     return failed
@@ -548,7 +548,11 @@ def cmd_publish(args: argparse.Namespace) -> int:
 
     # 本地文件同步成远端内容，避免下次 dev -> master 同步时把公告顶回去（不提交）
     local_file = REPO_ROOT / ANNOUNCEMENT_PATH
-    local_file.write_text(json.dumps(payload, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+    local_file.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=4) + "\n",
+        encoding="utf-8",
+        newline="\n",  # 固定 LF：Windows 下默认 CRLF 会让整个文件变成一处大 diff
+    )
     print(f"已同步本地 {ANNOUNCEMENT_PATH}（未提交，避免误导后续同步）")
 
     failed = purge_jsdelivr([ANNOUNCEMENT_PATH, *uploaded])
