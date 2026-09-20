@@ -279,31 +279,27 @@ Optimization:
     validate: [1, 1440]
 DropRecord:
   SaveFolder: ./screenshots
-  AzurStatsID: null
-  API:
-    value: default
-    option: [default, cn_gz_reverse_proxy]
   ResearchRecord:
     value: do_not
-    option: [do_not, save, upload, save_and_upload]
+    option: [do_not, save]
   CommissionRecord:
     value: do_not
-    option: [do_not, save, upload, save_and_upload]
+    option: [do_not, save]
   CombatRecord:
     value: do_not
     option: [do_not, save]
   OpsiRecord:
-    value: upload
-    option: [do_not, save, upload, save_and_upload]
+    value: local
+    option: [do_not, save, local, save_and_local]
   OpsiShopRecord:
-    value: upload
-    option: [do_not, save, upload, save_and_upload]
+    value: do_not
+    option: [do_not, save]
   MeowfficerBuy:
     value: do_not
     option: [do_not, save]
   MeowfficerTalent:
     value: do_not
-    option: [do_not, save, upload, save_and_upload]
+    option: [do_not, save]
 Log:
   LogKeepCount: 3
   LogBackUpMethod:

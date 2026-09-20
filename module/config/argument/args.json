@@ -720,26 +720,12 @@
         "type": "input",
         "value": "./screenshots"
       },
-      "AzurStatsID": {
-        "type": "input",
-        "value": null
-      },
-      "API": {
-        "type": "select",
-        "value": "default",
-        "option": [
-          "default",
-          "cn_gz_reverse_proxy"
-        ]
-      },
       "ResearchRecord": {
         "type": "select",
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       },
       "CommissionRecord": {
@@ -747,9 +733,7 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       },
       "CombatRecord": {
@@ -762,22 +746,20 @@
       },
       "OpsiRecord": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiShopRecord": {
         "type": "select",
-        "value": "upload",
+        "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       },
       "MeowfficerBuy": {
@@ -793,9 +775,7 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       }
     },

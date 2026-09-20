@@ -931,31 +931,17 @@
       "name": "掉落保存目录",
       "help": ""
     },
-    "AzurStatsID": {
-      "name": "AzurStat ID",
-      "help": "上传至 https://azur-stats.lyoko.io 时，声明的客户端 ID\n由随机字符组成，可随意修改"
-    },
-    "API": {
-      "name": "上传线路",
-      "help": "如果国内用户无法连接到 AzurStat，可以使用\"国内反向代理\"",
-      "default": "默认 (Cloudflare)",
-      "cn_gz_reverse_proxy": "国内反向代理 (广州)"
-    },
     "ResearchRecord": {
       "name": "科研截图",
       "help": "",
       "do_not": "无操作",
-      "save": "保存",
-      "upload": "上传",
-      "save_and_upload": "保存并上传"
+      "save": "保存"
     },
     "CommissionRecord": {
       "name": "委托截图",
       "help": "",
       "do_not": "无操作",
-      "save": "保存",
-      "upload": "上传",
-      "save_and_upload": "保存并上传"
+      "save": "保存"
     },
     "CombatRecord": {
       "name": "战斗掉落截图",
@@ -965,19 +951,17 @@
     },
     "OpsiRecord": {
       "name": "大世界掉落截图",
-      "help": "",
+      "help": "只在本机解析并计入统计界面的「耄耋相接收获」，不会上传任何数据",
       "do_not": "无操作",
       "save": "保存",
-      "upload": "上传",
-      "save_and_upload": "保存并上传"
+      "local": "本地记录",
+      "save_and_local": "保存并本地记录"
     },
     "OpsiShopRecord": {
       "name": "行动力箱子掉落截图",
       "help": "",
       "do_not": "无操作",
-      "save": "保存",
-      "upload": "上传",
-      "save_and_upload": "保存并上传"
+      "save": "保存"
     },
     "MeowfficerBuy": {
       "name": "指挥喵购买截图",
@@ -989,9 +973,7 @@
       "name": "指挥喵天赋截图",
       "help": "",
       "do_not": "无操作",
-      "save": "保存",
-      "upload": "上传",
-      "save_and_upload": "保存并上传"
+      "save": "保存"
     }
   },
   "Log": {

@@ -931,31 +931,17 @@
       "name": "Drop Save Directory",
       "help": ""
     },
-    "AzurStatsID": {
-      "name": "AzurStat ID",
-      "help": "The client ID declared when uploading to https://azur-stats.lyoko.io\nComposed of random characters and can be modified at will"
-    },
-    "API": {
-      "name": "Upload Route",
-      "help": "If users in China cannot connect to AzurStat, they can use \"China Reverse Proxy\"",
-      "default": "Default (Cloudflare)",
-      "cn_gz_reverse_proxy": "China Reverse Proxy (Guangzhou)"
-    },
     "ResearchRecord": {
       "name": "Research Screenshot",
       "help": "",
       "do_not": "No Action",
-      "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and Upload"
+      "save": "Save"
     },
     "CommissionRecord": {
       "name": "Commission Screenshot",
       "help": "",
       "do_not": "No Action",
-      "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and Upload"
+      "save": "Save"
     },
     "CombatRecord": {
       "name": "Combat Drop Screenshot",
@@ -965,19 +951,17 @@
     },
     "OpsiRecord": {
       "name": "OpSi Drop Screenshot",
-      "help": "",
+      "help": "Parsed and counted locally for the Meowfficer farming statistics only, nothing is uploaded",
       "do_not": "No Action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and Upload"
+      "local": "Local Record",
+      "save_and_local": "Save and Local Record"
     },
     "OpsiShopRecord": {
       "name": "DropRecord.OpsiShopRecord.name",
       "help": "DropRecord.OpsiShopRecord.help",
       "do_not": "do_not",
-      "save": "save",
-      "upload": "upload",
-      "save_and_upload": "save_and_upload"
+      "save": "save"
     },
     "MeowfficerBuy": {
       "name": "Meowfficer Purchase Screenshot",
@@ -989,9 +973,7 @@
       "name": "Meowfficer Talent Screenshot",
       "help": "",
       "do_not": "No Action",
-      "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and Upload"
+      "save": "Save"
     }
   },
   "Log": {

@@ -931,31 +931,17 @@
       "name": "掉落保存目录",
       "help": ""
     },
-    "AzurStatsID": {
-      "name": "AzurStat ID 喵",
-      "help": "上传到 https://azur-stats.lyoko.io 时声明的客户端ID，随意修改喵。"
-    },
-    "API": {
-      "name": "上传线路喵",
-      "help": "国内用户连不上可用\"国内反向代理\"喵~",
-      "default": "默认",
-      "cn_gz_reverse_proxy": "国内反向代理 喵"
-    },
     "ResearchRecord": {
       "name": "科研截图动作",
       "help": "",
       "do_not": "无视喵",
-      "save": "保存喵",
-      "upload": "上传喵",
-      "save_and_upload": "保存并上传喵"
+      "save": "保存喵"
     },
     "CommissionRecord": {
       "name": "委托截图动作",
       "help": "",
       "do_not": "无视喵",
-      "save": "保存喵",
-      "upload": "上传喵",
-      "save_and_upload": "保存并上传喵"
+      "save": "保存喵"
     },
     "CombatRecord": {
       "name": "战斗掉落截图",
@@ -965,19 +951,17 @@
     },
     "OpsiRecord": {
       "name": "大世界掉落截图",
-      "help": "",
+      "help": "只在本机解析并记进统计界面的「耄耋相接收获」喵，不会上传任何数据喵",
       "do_not": "无视喵",
       "save": "保存喵",
-      "upload": "上传喵",
-      "save_and_upload": "保存并上传喵"
+      "local": "本地记录喵",
+      "save_and_local": "保存并本地记录喵"
     },
     "OpsiShopRecord": {
       "name": "DropRecord.OpsiShopRecord.name",
       "help": "DropRecord.OpsiShopRecord.help",
       "do_not": "do_not",
-      "save": "save",
-      "upload": "upload",
-      "save_and_upload": "save_and_upload"
+      "save": "save"
     },
     "MeowfficerBuy": {
       "name": "指挥喵购买截图",
@@ -989,9 +973,7 @@
       "name": "指挥喵天赋截图",
       "help": "",
       "do_not": "无视喵",
-      "save": "保存喵",
-      "upload": "上传喵",
-      "save_and_upload": "保存并上传喵"
+      "save": "保存喵"
     }
   },
   "Log": {

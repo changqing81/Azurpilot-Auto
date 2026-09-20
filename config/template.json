@@ -140,13 +140,11 @@
     },
     "DropRecord": {
       "SaveFolder": "./screenshots",
-      "AzurStatsID": null,
-      "API": "default",
       "ResearchRecord": "do_not",
       "CommissionRecord": "do_not",
       "CombatRecord": "do_not",
-      "OpsiRecord": "upload",
-      "OpsiShopRecord": "upload",
+      "OpsiRecord": "local",
+      "OpsiShopRecord": "do_not",
       "MeowfficerBuy": "do_not",
       "MeowfficerTalent": "do_not"
     },
