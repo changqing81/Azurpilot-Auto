@@ -15,12 +15,13 @@ class IslandAirDrop(Island):
     def run(self):
         self.island_error = False
         now = current_time()
-        # 每日边界以服务器 0 点为准（换算为本机时间轴）
-        today = get_server_last_update('00:00')
-        next_daily_time = today + timedelta(days=1, hours=1)  # 服务器次日 01:00
+        # 岛屿内容每天 03:00 刷新（2026-09-21 实测：02:02 跑的时候补给箱还没刷出来，
+        # 旧代码按 0 点算边界，导致"没找到箱子也把当天额度消耗掉"）
+        today = get_server_last_update('03:00')
+        next_daily_time = today + timedelta(days=1)  # 次日 03:00（刷新后才有箱子）
         last_steal_time = self.config.IslandAirDrop_LastSteal
         next_steal_time = now + timedelta(hours=5)
-        last_attempt_today = today + timedelta(hours=23)  # 服务器当日 23:00
+        last_attempt_today = today + timedelta(hours=23)  # 当日 23:00（次日 03:00 刷新前最后一次尝试）
         if last_steal_time < today:
             self.goto_postmanage()
             if self.appear_then_click(MY_AIR_DROP_ALREADY):

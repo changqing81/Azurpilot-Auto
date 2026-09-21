@@ -69,7 +69,7 @@ class FakeConfig:
         self.bound.append(func)
 
     def task_delay(self, success=None, server_update=None, target=None, minute=None, task=None):
-        self.delays.append({'minute': minute, 'task': task})
+        self.delays.append({'minute': minute, 'target': target, 'task': task})
 
 
 def make_config(enabled=None, interval=12, task_order='', next_runs=None):
@@ -174,6 +174,11 @@ class TestIslandTaskList(unittest.TestCase):
 class TestIslandInterval(unittest.TestCase):
     """运行间隔自由填写，越界收敛到 [1, 24] 小时。"""
 
+    def setUp(self):
+        patcher = patch('module.island.island_scheduling.current_time', return_value=NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def _interval(self, raw):
         return make_runner(make_config(interval=raw))._get_interval_hours()
 
@@ -199,11 +204,11 @@ class TestIslandInterval(unittest.TestCase):
                 self.assertEqual(self._interval(raw), default)
 
     def test_delay_uses_clamped_interval(self):
-        for raw, minute in ((30, 24 * 60), (0, 1 * 60), (6, 6 * 60)):
+        for raw, hours in ((30, 24), (0, 1), (6, 6)):
             with self.subTest(raw=raw):
                 config = make_config(enabled=['IslandFarm'], interval=raw)
                 make_runner(config)._delay_next_run()
-                self.assertEqual(config.delays, [{'minute': minute, 'task': None}])
+                self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=hours))
 
 
 class TestIslandIntervalClamp(unittest.TestCase):
@@ -346,7 +351,58 @@ class TestIslandAggregation(unittest.TestCase):
 
         runner.run()
 
-        self.assertEqual(config.delays, [{'minute': 720, 'task': None}])
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+
+class TestIslandNextRunAlignment(unittest.TestCase):
+    """父任务下一轮必须对齐最早的子模块 NextRun。
+
+    子模块把下次时间指到固定时刻（18:00 采集 / 次日 03:00 订单·任务·补给），
+    只按固定间隔进岛的话，这些时刻落在两轮之间，当天那次必然被跳过
+    —— 2026-09-21 实测：每日采集 02:03 设 18:00，下一轮 14:23 未到期，
+    18:00 那次采集永远丢了。
+    """
+
+    def setUp(self):
+        patcher = patch('module.island.island_scheduling.current_time', return_value=NOW)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_earliest_sub_task_next_run_wins(self):
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(hours=2)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(
+            config.delays[0]['target'], NOW + timedelta(hours=2, minutes=5)
+        )
+
+    def test_far_future_next_run_falls_back_to_interval(self):
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(hours=30)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+    def test_immediate_recheck_is_floored(self):
+        # 子模块 minute=0 的"立刻再看"不能造成高频进岛
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(minutes=1)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(minutes=30))
+
+    def test_overdue_next_run_is_ignored(self):
+        # 本轮刚跑完、已过期的 NextRun 不能把下一轮拉回现在
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW - timedelta(hours=1)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
 
 
 class TestIslandNavigationSignature(unittest.TestCase):
@@ -509,7 +565,7 @@ class TestIslandTaskContext(unittest.TestCase):
             config.task_delay(minute=6 * 60)
 
         self._run_context(runner, 'IslandFarm', func)
-        self.assertEqual(config.delays, [{'minute': 360, 'task': None}])
+        self.assertEqual(config.delays[0]['minute'], 360)
 
 
 class TestIslandSwitchArgNaming(unittest.TestCase):
