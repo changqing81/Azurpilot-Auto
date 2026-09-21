@@ -75,6 +75,13 @@ DET_DEBUG = False
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OCR_MODEL_VERSION_AUTO = 'auto'
 
+# rapidocr 的 RapidOCR._load_config 在 Global.model_root_dir 为 None 时会把
+# pathlib.Path 写进 DictConfig，而 omegaconf 2.0.x（rapidocr 只声明
+# omegaconf!=2.2.1，没有下限，Python 3.14 下会解析到 2.0.6）拒绝 Path，
+# 抛 UnsupportedValueType 导致所有 OCR 初始化失败。显式给字符串即可跳过
+# 该赋值分支；识别/检测模型路径本身就是绝对的，model_root_dir 只影响相对路径解析。
+OCR_MODEL_ROOT_DIR = str(REPO_ROOT / 'bin' / 'ocr_models')
+
 # PP-OCRv6 三档模型：lite(tiny) / standard(small) / pro(medium)。
 # lite 的类别数(6906)与 standard/pro(18710) 不同，字典需分别对齐。
 PPOCR_V6_LITE_MODEL = "bin/ocr_models/ppocr-v6/PP-OCRv6_tiny_rec.onnx"
@@ -327,6 +334,7 @@ def _create_ocr(name):
         params = {
             "Global.use_det": False,
             "Global.use_cls": False,
+            "Global.model_root_dir": OCR_MODEL_ROOT_DIR,
             "Det.model_path": None,
             "Cls.model_path": None,
             "Rec.ocr_version": ocr_version,
@@ -413,6 +421,7 @@ def _create_det_ocr_for_onnx(name):
     params = {
         "Global.use_det": True,
         "Global.use_cls": False,
+        "Global.model_root_dir": OCR_MODEL_ROOT_DIR,
         "Det.model_path": DET_MODEL_PATH,
         "Cls.model_path": None,
         "Rec.ocr_version": ocr_version,
@@ -440,6 +449,7 @@ def _create_det_ocr_for_ncnn():
         "Global.use_det": True,
         "Global.use_cls": False,
         "Global.use_rec": False,
+        "Global.model_root_dir": OCR_MODEL_ROOT_DIR,
         "Det.model_path": DET_MODEL_PATH,
         "Cls.model_path": None,
         "Rec.model_path": None,
