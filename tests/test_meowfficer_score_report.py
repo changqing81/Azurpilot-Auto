@@ -351,12 +351,13 @@ class ReportRouteTests(unittest.TestCase):
 
 
 class DaemonOverviewLogVisibilityTests(unittest.TestCase):
-    """「指挥喵评分」页去掉日志内容区，但保留顶部日志工具栏。
+    """「指挥喵评分」页去掉日志内容区与「自动滚动」开关，保留其余日志工具栏。
 
     ``use_scope`` 对不存在的 scope 会在 ROOT 下创建孤儿容器（仓库里踩过这个坑），
     所以少渲染一个 scope 就必须把对应的 ``use_scope`` 与后台日志任务一并挡掉；
-    容器行/列模板是写死行数的，也要一并改掉，否则空出来的那一行会把工具栏拉成 1fr。
-    这里用 Mock 断言实际调用，比源码文本断言更能兜住「漏挡一处」。
+    「自动滚动」只控制日志内容区滚动，内容区没了就没有作用对象，连它的
+    ``BinarySwitchButton`` 一起省掉。容器行/列模板是写死行数的，也要一并改掉，
+    否则空出来的那一行会把工具栏拉成 1fr。这里用 Mock 断言实际调用。
     """
 
     def _render(self, task, is_mobile=False):
@@ -378,6 +379,7 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
         fake.is_mobile = is_mobile
         fake.alas_name = 'alas'
         fake.ALAS_ARGS = {task: {}}
+        switch = Mock()
 
         raw = app_overview.OverviewMixin.alas_daemon_overview.__wrapped__
         with patch.object(app_overview, 'put_scope', put_scope), \
@@ -388,16 +390,21 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
                 patch.object(app_overview, 'put_button', Mock()), \
                 patch.object(app_overview, 'run_js', lambda script: scripts.append(script)), \
                 patch.object(app_overview, 'RichLog', Mock()), \
-                patch.object(app_overview, 'BinarySwitchButton', Mock()):
+                patch.object(app_overview, 'BinarySwitchButton', switch):
             raw(fake, task)
-        return scopes, targeted, scripts
+        return scopes, targeted, scripts, switch
+
+    @staticmethod
+    def _switch_scopes(switch):
+        """各 BinarySwitchButton 构造时声明的 scope —— 决定它渲染到哪个容器。"""
+        return [call.kwargs.get('scope') for call in switch.call_args_list]
 
     def test_score_page_drops_log_content_but_keeps_toolbar(self):
-        scopes, targeted, scripts = self._render('MeowfficerScore')
+        scopes, targeted, scripts, _ = self._render('MeowfficerScore')
         # 日志内容区整块不渲染，对应的 use_scope 也不能碰
         self.assertNotIn('log', scopes)
         self.assertNotIn('log', targeted)
-        # 顶部日志工具栏保留
+        # 顶部日志工具栏保留（截图预览 / 导出今日日志仍可用）
         self.assertIn('log-bar', scopes)
         self.assertIn('log-bar-btns', scopes)
         self.assertIn('log-bar', targeted)
@@ -409,18 +416,30 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
         self.assertIn('grid-template-rows', joined)
         self.assertIn('grid-template-columns', joined)
 
+    def test_score_page_drops_the_auto_scroll_toggle(self):
+        """「自动滚动」没有作用对象，scope 与开关都不该出现。"""
+        scopes, _, _, switch = self._render('MeowfficerScore')
+        self.assertNotIn('log_scroll_btn', scopes)
+        self.assertNotIn('log_scroll_btn', self._switch_scopes(switch))
+        # 调度开关仍要渲染，别把整条工具栏一起挡掉
+        self.assertIn('scheduler_btn', self._switch_scopes(switch))
+
     def test_score_page_mobile_drops_the_trailing_log_row(self):
-        _, _, scripts = self._render('MeowfficerScore', is_mobile=True)
+        _, _, scripts, _ = self._render('MeowfficerScore', is_mobile=True)
         joined = ' '.join(scripts)
         self.assertIn('grid-template-rows', joined)
         # 移动端本来就是单列铺满，不需要动列模板
         self.assertNotIn('grid-template-columns', joined)
 
-    def test_other_tool_pages_keep_the_log(self):
-        scopes, targeted, scripts = self._render('OcrBenchmark')
+    def test_other_tool_pages_keep_the_whole_log_area(self):
+        scopes, targeted, scripts, switch = self._render('OcrBenchmark')
         self.assertIn('log', scopes)
         self.assertIn('log-bar', scopes)
         self.assertIn('log-bar', targeted)
+        # 有日志的页面必须保留「自动滚动」
+        self.assertIn('log_scroll_btn', scopes)
+        self.assertIn('log_scroll_btn', self._switch_scopes(switch))
+        # 不受评分页的模板覆盖影响
         self.assertFalse(any('grid-template-rows' in script for script in scripts))
         self.assertFalse(any('grid-template-columns' in script for script in scripts))
 

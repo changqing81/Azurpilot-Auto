@@ -459,31 +459,36 @@ class OverviewMixin(WebUIMixinBase):
             put_text(t("Gui.Overview.Log")).style(
                 "font-size: 1.25rem; margin: auto .5rem auto;"
             )
-            put_scope(
-                "log-bar-btns",
-                [
-                    put_scope("log_scroll_btn"),
-                    put_button(
-                        label="截图预览",
-                        onclick=lambda: run_js(
-                            f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
-                        ),
-                        color="off",
+            log_bar_btns = []
+            if show_log_content:
+                # 「自动滚动」只控制日志内容区要不要滚到底：内容区不渲染时它没有作用
+                # 对象，连它的 scope 一起省掉 —— 否则 BinarySwitchButton 会往不存在的
+                # scope 里渲染，在 ROOT 下留下一个孤儿容器（仓库里踩过这个坑）。
+                log_bar_btns.append(put_scope("log_scroll_btn"))
+            log_bar_btns.append(
+                put_button(
+                    label="截图预览",
+                    onclick=lambda: run_js(
+                        f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
                     ),
-                    self._log_export_toolbar_button(),
-                ],
+                    color="off",
+                )
             )
+            log_bar_btns.append(self._log_export_toolbar_button())
+            put_scope("log-bar-btns", log_bar_btns)
 
-        switch_log_scroll = BinarySwitchButton(
-            label_on=t("Gui.Button.ScrollON"),
-            label_off=t("Gui.Button.ScrollOFF"),
-            onclick_on=lambda: log.set_scroll(False),
-            onclick_off=lambda: log.set_scroll(True),
-            get_state=lambda: log.keep_bottom,
-            color_on="on",
-            color_off="off",
-            scope="log_scroll_btn",
-        )
+        switch_log_scroll = None
+        if show_log_content:
+            switch_log_scroll = BinarySwitchButton(
+                label_on=t("Gui.Button.ScrollON"),
+                label_off=t("Gui.Button.ScrollOFF"),
+                onclick_on=lambda: log.set_scroll(False),
+                onclick_off=lambda: log.set_scroll(True),
+                get_state=lambda: log.keep_bottom,
+                color_on="on",
+                color_off="off",
+                scope="log_scroll_btn",
+            )
 
         config = self.alas_config.read_file(self.alas_name)
         if task == "MeowfficerScore":
@@ -531,6 +536,7 @@ class OverviewMixin(WebUIMixinBase):
             )
 
         self.task_handler.add(switch_scheduler.g(), 1, True)
-        self.task_handler.add(switch_log_scroll.g(), 1, True)
+        if switch_log_scroll is not None:
+            self.task_handler.add(switch_log_scroll.g(), 1, True)
         if show_log_content and hasattr(self, "alas") and self.alas is not None:
             self.task_handler.add(log.put_log(self.alas), 0.25, True)
