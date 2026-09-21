@@ -9,9 +9,14 @@
 - 多只猫时自动堆叠成卡片，并在顶部给出汇总表
 
 只负责渲染，不写文件（文件写入由 :mod:`module.meowfficer.score_task` 决定）。
+
+除自包含 HTML 报告外，还提供 :func:`render_panel`：把同一份
+:func:`to_payload` 数据渲染成 WebUI 评分面板的正文，结构对齐上游
+wess09/AzurPilot PR #998 的 ``MeowfficerScorePanel``。
 """
 
 import html
+import re
 
 from module.meowfficer.score import RESET_COST
 
@@ -456,3 +461,189 @@ def render_html(results, title: str = '指挥喵天赋评分报告', generated_a
 </body>
 </html>
 """
+
+
+# ---------------------------------------------------------------------------
+# WebUI 评分面板（结构对齐上游 wess09/AzurPilot PR #998 的 MeowfficerScorePanel）
+# ---------------------------------------------------------------------------
+
+# 档位关键词 -> 面板配色类，越靠前越优先匹配（与上游 tierStyles 同序）
+PANEL_TIER_CLASSES = (
+    ('完美', 'is-perfect'), ('准毕业', 'is-near'), ('毕业', 'is-graduate'),
+    ('过渡', 'is-transition'), ('零食', 'is-snack'),
+    ('不适合', 'is-unsuitable'), ('雷暴', 'is-thunder'),
+)
+
+# 命中标签形如「雷击长·潜艇 Lv3」，把等级拆出来单独做成小徽章
+_HIT_LEVEL_RE = re.compile(r'^(.*?)\s*Lv\s*(\d+)$')
+
+
+def panel_tier_class(tier: str) -> str:
+    """把档位文案映射到面板配色类，未知档位走中性样式。"""
+    for keyword, css_class in PANEL_TIER_CLASSES:
+        if keyword in (tier or ''):
+            return css_class
+    return 'is-other'
+
+
+def split_hit(hit: str) -> tuple:
+    """拆分命中标签，返回 ``(名字, 等级)``；没有等级时等级为 0。"""
+    match = _HIT_LEVEL_RE.match(str(hit).strip())
+    if match:
+        return match.group(1), int(match.group(2))
+    return str(hit).strip(), 0
+
+
+def _level_badge(level) -> str:
+    """天赋等级小徽章（罗马数字），超出 1~3 时不渲染。"""
+    if not isinstance(level, int) or not 1 <= level <= len(LEVEL_MARKS):
+        return ''
+    return f'<span class="meow-level">{LEVEL_MARKS[level]}</span>'
+
+
+def _panel_talent_chip(talent: dict, inferred_label: str) -> str:
+    """天赋标签：彩天赋描金带星，推断项虚线加警示。"""
+    classes = ['meow-talent']
+    special = talent.get('kind') == 'special'
+    inferred = talent.get('inferred') is True
+    if special:
+        classes.append('is-special')
+    if inferred:
+        classes.append('is-inferred')
+    star = '<span class="meow-star">✦</span>' if special else ''
+    warn = '<span class="meow-warn-mark">⚠</span>' if inferred else ''
+    title = f' title="{_e(inferred_label)}"' if inferred else ''
+    return (f'<span class="{" ".join(classes)}"{title}>{star}'
+            f'{_e(talent.get("name"))}{_level_badge(talent.get("level"))}{warn}</span>')
+
+
+def _panel_hit_chip(hit: str, special: bool) -> str:
+    """命中标签：等级徽章 + 名字。"""
+    name, level = split_hit(hit)
+    css_class = 'meow-hit is-special' if special else 'meow-hit'
+    return f'<span class="{css_class}">{_level_badge(level)}{_e(name)}</span>'
+
+
+def _panel_axis(label: str, hits: list, special: bool, no_hits: str) -> str:
+    """X（彩天赋）/ Y（有用普通）的命中标签行。"""
+    if hits:
+        chips = ''.join(_panel_hit_chip(hit, special) for hit in hits)
+    else:
+        chips = f'<span class="meow-hit is-empty">{_e(no_hits)}</span>'
+    return (f'<div class="meow-axis"><span class="meow-axis-label">{_e(label)}</span>'
+            f'{chips}</div>')
+
+
+def _panel_rubric(rubric: dict, tr, minor: bool = False) -> str:
+    """一条口径的正文：标题 + 公式 + 分数条 + 命中行 + 说明 + 出处。"""
+    label = rubric.get('label') or ''
+    x, y = rubric.get('x'), rubric.get('y')
+    # 雷暴口径是加权点制，后端不给 x/y；此时不渲染公式，
+    # 避免出现「x + y = 0 + 0.0」这种没有意义的式子。
+    weighted = not isinstance(x, (int, float)) or not isinstance(y, (int, float))
+    head = [f'<strong>{_e(label)}</strong>']
+    if not weighted:
+        head.append(f'<span class="meow-formula">x + y = {int(x)} + {float(y):.1f}</span>')
+    if minor:
+        tier = rubric.get('tier') or ''
+        if tier:
+            head.append(f'<span class="meow-tier {panel_tier_class(tier)}">{_e(tier)}</span>')
+        score = rubric.get('score')
+        if isinstance(score, (int, float)):
+            head.append(f'<span class="meow-score">{int(score)}<small>{_e(tr("Score"))}</small></span>')
+
+    parts = [f'<div class="meow-rubric-head">{"".join(head)}</div>']
+    score = rubric.get('score')
+    if not minor and isinstance(score, (int, float)):
+        width = min(100, max(0, float(score)))
+        parts.append(f'<div class="meow-score-bar" role="img" aria-label="{_e(tr("Score"))}">'
+                     f'<i style="width:{width:g}%"></i></div>')
+    parts.append(_panel_axis(rubric.get('xLabel') or tr('AxisX'), rubric.get('xHits') or [],
+                             True, tr('NoHits')))
+    parts.append(_panel_axis(rubric.get('yLabel') or tr('AxisY'), rubric.get('yHits') or [],
+                             False, tr('NoHits')))
+    notes = rubric.get('notes') or []
+    if notes:
+        parts.append('<ul class="meow-notes">')
+        parts.extend(f'<li>{_e(note)}</li>' for note in notes)
+        parts.append('</ul>')
+    if rubric.get('source'):
+        parts.append(f'<p class="meow-rubric-source">{_e(tr("Source", source=rubric["source"]))}</p>')
+    css_class = 'meow-rubric-minor' if minor else 'meow-primary'
+    return f'<div class="{css_class}">{"".join(parts)}</div>'
+
+
+def _panel_cat_card(cat: dict, tr) -> str:
+    """单只猫的卡片（面板版）。"""
+    rubrics = cat.get('rubrics') or []
+    primary = next((item for item in rubrics if item.get('primary')), None) or (rubrics[0] if rubrics else None)
+    others = [item for item in rubrics if item is not primary]
+    talents = cat.get('talents') or []
+    inferred_label = tr('Inferred')
+
+    title = [f'<h2>{_e(cat.get("cat") or "未知")}</h2>']
+    title.extend(f'<span class="meow-tag">{_e(tag)}</span>' for tag in cat.get('tags') or [])
+    if cat.get('maxed'):
+        title.append(f'<span class="meow-flag is-maxed">{_e(tr("Maxed"))}</span>')
+    if cat.get('fixed'):
+        title.append(f'<span class="meow-flag is-fixed">{_e(tr("Fixed"))}</span>')
+
+    score_box = []
+    if primary and primary.get('tier'):
+        tier = primary['tier']
+        score_box.append(f'<span class="meow-tier {panel_tier_class(tier)}">{_e(tier)}</span>')
+    if primary and isinstance(primary.get('score'), (int, float)):
+        score_box.append(f'<span class="meow-score">{int(primary["score"])}'
+                         f'<small>{_e(tr("Score"))}</small></span>')
+
+    parts = ['<section class="meow-card">',
+             '<div class="meow-card-head">',
+             f'<div class="meow-card-title">{"".join(title)}</div>',
+             f'<div class="meow-card-score">{"".join(score_box)}</div>',
+             '</div>']
+    if cat.get('note'):
+        parts.append(f'<p class="meow-cat-note">{_e(cat["note"])}</p>')
+    if talents:
+        chips = ''.join(_panel_talent_chip(talent, inferred_label) for talent in talents)
+        if any(talent.get('inferred') for talent in talents):
+            chips += (f'<span class="meow-inferred-hint">'
+                      f'<span class="meow-warn-mark">⚠</span>{_e(inferred_label)}</span>')
+        parts.append(f'<div class="meow-talents">{chips}</div>')
+    if primary:
+        parts.append(_panel_rubric(primary, tr))
+    if others:
+        body = ''.join(_panel_rubric(item, tr, minor=True) for item in others)
+        parts.append(f'<details class="meow-others">'
+                     f'<summary>{_e(tr("OtherRubrics", count=len(others)))}</summary>'
+                     f'<div class="meow-others-body">{body}</div></details>')
+    foot = []
+    if cat.get('source'):
+        foot.append(f'<span class="meow-shot">{_e(tr("Screenshot", name=cat["source"]))}</span>')
+    if isinstance(cat.get('pointsSpent'), int):
+        foot.append(f'<span>{_e(tr("PointsSpent", count=int(cat["pointsSpent"])))}</span>')
+    if foot:
+        parts.append(f'<div class="meow-card-foot">{"".join(foot)}</div>')
+    parts.append('</section>')
+    return ''.join(parts)
+
+
+def render_panel(payload: dict, tr) -> str:
+    """把 :func:`to_payload` 的结果渲染成评分面板的正文 HTML。
+
+    只渲染面板正文（卡片列表或空状态）：面板头部的标题、汇总与刷新按钮由
+    WebUI 侧用 PyWebIO 控件拼装，保证刷新是真的能点。
+
+    Args:
+        payload: :func:`to_payload` 产出的 dict，缺失或结构不对时按空状态渲染。
+        tr: 翻译函数，签名为 ``tr(key, **kwargs) -> str``，
+            key 为 ``Gui.MeowfficerScore`` 下的字段名（如 ``'Title'``）。
+
+    Returns:
+        str: 面板正文 HTML。
+    """
+    cats = payload.get('cats') if isinstance(payload, dict) else None
+    if not cats:
+        return (f'<div class="meow-body"><div class="meow-empty">'
+                f'<strong>{_e(tr("EmptyTitle"))}</strong>{_e(tr("EmptyHint"))}</div></div>')
+    cards = ''.join(_panel_cat_card(cat, tr) for cat in cats if isinstance(cat, dict))
+    return f'<div class="meow-cats">{cards}</div>'
