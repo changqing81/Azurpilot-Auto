@@ -427,15 +427,23 @@ class OverviewMixin(WebUIMixinBase):
             )
             put_scope("scheduler_btn")
 
-        with use_scope("stat-bar"):
-            put_text(t("Gui.Overview.Stat")).style(
-                "font-size: 1.25rem; margin: auto .5rem auto;"
-            )
-            put_button(
-                label=t("Gui.Button.Open"),
-                onclick=self.alas_set_stat,
-                color="on",
-            )
+        # 统计入口只在移动端布局里占位（见上方 daemon-overview 的
+        # put_scope("stat-bar")）。桌面端 _daemon 是三行 grid
+        # （_daemon_upper / groups / log），_daemon_upper 只放 scheduler-bar 与
+        # log-bar，没有 stat-bar 的容器。若在这里无条件 use_scope("stat-bar")，
+        # PyWebIO 找不到该 scope 会在 ROOT 下自动创建孤儿容器，把「统计界面 +
+        # 打开」渲染到内容区之外——表现为所有工具页底部多出一块悬空卡片，
+        # 并挤压 _daemon 的 grid 高度。桌面端统计入口在「总览」页。
+        if self.is_mobile:
+            with use_scope("stat-bar"):
+                put_text(t("Gui.Overview.Stat")).style(
+                    "font-size: 1.25rem; margin: auto .5rem auto;"
+                )
+                put_button(
+                    label=t("Gui.Button.Open"),
+                    onclick=self.alas_set_stat,
+                    color="on",
+                )
 
         switch_scheduler = BinarySwitchButton(
             label_on=t("Gui.Button.Stop"),
