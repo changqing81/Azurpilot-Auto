@@ -6580,6 +6580,28 @@
       "Fleet": "Fleet",
       "Ships": "Ships"
     },
+    "MeowfficerScore": {
+      "Title": "Meowfficer Score Report",
+      "Refresh": "Refresh",
+      "Refreshing": "Refreshing…",
+      "OpenReport": "Open full report",
+      "EmptyTitle": "No score run yet",
+      "EmptyHint": "Run the task once in \"Tool+ → Meowfficer Score\", then come back and refresh to see the results.",
+      "Summary": "{count} cats · generated {time}",
+      "Broken": "The score report could not be parsed",
+      "Score": "score",
+      "Maxed": "Maxed",
+      "Fixed": "Assigned",
+      "AxisX": "X (special talents)",
+      "AxisY": "Y (useful normal)",
+      "NoHits": "no hits",
+      "OtherRubrics": "Other rubrics ({count})",
+      "Source": "Source: {source}",
+      "Screenshot": "Screenshot: {name}",
+      "PointsSpent": "{count} points spent",
+      "Inferred": "Inferred entry, please verify",
+      "Disclaimer": "Scoring criteria come from public guides (28-rule guide / detailed meowfficer guide), not official game values"
+    },
     "MenuDevelop": {
       "HomePage": "Home",
       "Translate": "Translate",

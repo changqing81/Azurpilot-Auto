@@ -97,6 +97,28 @@ FleetManagement:
   Fleet:
   Ships:
 
+MeowfficerScore:
+  Title:
+  Refresh:
+  Refreshing:
+  OpenReport:
+  EmptyTitle:
+  EmptyHint:
+  Summary:
+  Broken:
+  Score:
+  Maxed:
+  Fixed:
+  AxisX:
+  AxisY:
+  NoHits:
+  OtherRubrics:
+  Source:
+  Screenshot:
+  PointsSpent:
+  Inferred:
+  Disclaimer:
+
 MenuDevelop:
   HomePage:
   Translate:

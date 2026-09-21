@@ -6580,6 +6580,28 @@
       "Fleet": "艦隊",
       "Ships": "艦船"
     },
+    "MeowfficerScore": {
+      "Title": "指揮喵評分報告",
+      "Refresh": "重新整理",
+      "Refreshing": "正在重新整理…",
+      "OpenReport": "查看完整報告",
+      "EmptyTitle": "還沒跑過評分任務",
+      "EmptyHint": "在「工具+ → 指揮喵評分」執行一次任務，完成後回到這裡重新整理即可看到評分結果。",
+      "Summary": "共 {count} 隻 · 產生時間 {time}",
+      "Broken": "評分報告無法解析",
+      "Score": "參考分",
+      "Maxed": "已滿級",
+      "Fixed": "已指定",
+      "AxisX": "X（彩天賦）",
+      "AxisY": "Y（有用普通）",
+      "NoHits": "無命中",
+      "OtherRubrics": "其他口徑（{count}）",
+      "Source": "依據：{source}",
+      "Screenshot": "來源截圖：{name}",
+      "PointsSpent": "消耗 {count} 點",
+      "Inferred": "推斷項目，請核對",
+      "Disclaimer": "評分口徑來自公開攻略（28法則執行篇 / 詳細上手攻略），非遊戲官方數值"
+    },
     "MenuDevelop": {
       "HomePage": "主頁",
       "Translate": "翻譯",

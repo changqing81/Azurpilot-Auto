@@ -6580,6 +6580,28 @@
       "Fleet": "艦隊",
       "Ships": "艦船"
     },
+    "MeowfficerScore": {
+      "Title": "指揮ニャン評価レポート",
+      "Refresh": "更新",
+      "Refreshing": "更新中…",
+      "OpenReport": "完全なレポートを開く",
+      "EmptyTitle": "まだ評価タスクを実行していません",
+      "EmptyHint": "「ツール+ → 指揮ニャン評価」でタスクを一度実行し、完了後にここで更新すると結果が表示されます。",
+      "Summary": "{count} 匹 · 生成 {time}",
+      "Broken": "評価レポートを解析できません",
+      "Score": "参考スコア",
+      "Maxed": "レベル最大",
+      "Fixed": "指定済み",
+      "AxisX": "X（レア天賦）",
+      "AxisY": "Y（有用な通常天賦）",
+      "NoHits": "該当なし",
+      "OtherRubrics": "その他の基準（{count}）",
+      "Source": "根拠：{source}",
+      "Screenshot": "元スクリーンショット：{name}",
+      "PointsSpent": "{count} ポイント消費",
+      "Inferred": "推定項目、確認してください",
+      "Disclaimer": "評価基準は公開攻略（28法則実行編 / 詳細ガイド）によるもので、ゲーム公式の数値ではありません"
+    },
     "MenuDevelop": {
       "HomePage": "ホームページ",
       "Translate": "翻訳する",

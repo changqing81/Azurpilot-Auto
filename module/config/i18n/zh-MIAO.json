@@ -6580,6 +6580,28 @@
       "Fleet": "舰队喵",
       "Ships": "舰娘喵"
     },
+    "MeowfficerScore": {
+      "Title": "指挥喵评分报告喵",
+      "Refresh": "刷新喵",
+      "Refreshing": "正在刷新喵…",
+      "OpenReport": "看完整报告喵",
+      "EmptyTitle": "还没跑过评分任务喵",
+      "EmptyHint": "在「工具+ → 指挥喵评分」跑一次任务喵，跑完回到这里刷新就能看到结果喵。",
+      "Summary": "共 {count} 只喵 · 生成时间 {time}",
+      "Broken": "评分报告读不出来喵",
+      "Score": "参考分喵",
+      "Maxed": "已满级喵",
+      "Fixed": "已指定喵",
+      "AxisX": "X（彩天赋）喵",
+      "AxisY": "Y（有用普通）喵",
+      "NoHits": "没有命中喵",
+      "OtherRubrics": "其他口径喵（{count}）",
+      "Source": "依据喵：{source}",
+      "Screenshot": "来源截图喵：{name}",
+      "PointsSpent": "消耗 {count} 点喵",
+      "Inferred": "猜出来的，要自己核对喵",
+      "Disclaimer": "评分口径来自公开攻略（28法则执行篇 / 详细上手攻略）喵，不是官方数值喵"
+    },
     "MenuDevelop": {
       "HomePage": "主页喵",
       "Translate": "翻译喵",
