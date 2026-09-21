@@ -421,35 +421,98 @@ def _set_file_logger(name=pyw_name):
     logger.log_file = log_file
 
 
-def set_file_logger(name=pyw_name):
-    if "_" in name:
-        name = name.split("_", 1)[0]
-    # Windows 下有 "SyncManager-N:N"、"MainProcess"、"Process-N"、"gui" 四种进程
-    # Linux 下没有 "SyncManager" 进程，只有 "MainProcess"
-    if os.name == "nt":
-        # Windows 下这些进程无需保存日志文件
-        processes = ["SyncManager-", "MainProcess", "Process-"]
+# 只有这些入口脚本（sys.argv[0] 的文件名去掉扩展名）才允许在未显式指定名字时写
+# 文件日志。其它启动方式（`python -c`、临时脚本、被包装器当成 argv[0] 传进来的
+# 解释器名等）只输出到控制台，否则每换一种跑法就会在 log/ 里多出一族没人看的
+# 孤儿日志（历史上的 `-c` / `python` / `meow` / `config` 就是这么来的）。
+FILE_LOG_ENTRIES = ("gui", "alas", "mcp_server_sse")
+
+# 这些多进程内部进程不写文件日志：Windows 下有 SyncManager-N / MainProcess /
+# Process-N（含 SpawnProcess-N）。实例 worker 由调用方显式传实例名后再挂日志。
+SKIP_PROCESS_NAMES = ("MainProcess", "Process-", "SyncManager-")
+
+
+def _close_rotating_handler(hdlr) -> None:
+    """关闭轮转处理器持有的文件句柄（移除处理器前调用，避免占用文件）。"""
+    try:
+        if hdlr.richd.console.file is not None:
+            hdlr.richd.console.file.close()
+            hdlr.richd.console.file = None
+    except Exception:
+        pass
+
+
+def resolve_log_name(name=None, pname=None, argv0=None):
+    """推断当前进程该用哪个名字写文件日志，返回 ``None`` 表示不写。
+
+    判定顺序：
+
+    1. ``name`` 非空（调用方显式给实例名）：直接采用，不受下面任何规则限制；
+    2. ``pname == "gui"``：WebUI 服务跑在 ``Process(name="gui")`` 里，写 ``gui.txt``；
+    3. Windows 的多进程内部进程：``SyncManager-N`` / ``Process-N``（含
+       ``SpawnProcess-N``）一律不写；``MainProcess`` 只有本身是入口脚本时才写
+       （``gui.py`` 的主进程只是拉起 WebUI 的监督进程，不写）；
+    4. 其余按 ``sys.argv[0]`` 判定：只有 ``FILE_LOG_ENTRIES`` 里的入口才写。
+
+    第 4 条是本轮修复的核心——``python -c``、临时脚本、``-m module.xxx``、
+    被包装器当成脚本名的解释器名都不再落盘，避免 log/ 里堆积孤儿日志族。
+
+    独立成纯函数是为了能单测命名规则，不用真的去读写 log 目录。
+    """
+    if name is not None:
+        return name.split("_", 1)[0]
+    if pname is None:
         pname = multiprocessing.current_process().name.replace(":", "_")
-        # 每个进程在 AzurPilot 启动时只应调用一次。
-        if any(isinstance(hdlr, RichTimedRotatingHandler) for hdlr in logger.handlers):
-            return
-    else:
-        processes = []
-        pname = name
-        for hdlr in logger.handlers:
-            if isinstance(hdlr, RichTimedRotatingHandler):
-                # 每个进程在 AzurPilot 启动时只应调用一次。
-                if hdlr.pname == name:
-                    return
-                else:
-                    logger.handlers = [h for h in logger.handlers if not isinstance(
-                        h, (logging.FileHandler, RichTimedRotatingHandler, RichFileHandler))]
-    
-    log_dir = Path("./log")
-    log_dir.mkdir(parents=True, exist_ok=True)
-    log_file = log_dir.joinpath(f"{pname}.txt" if name == "gui" else f"{name}.txt")
-    if any(p in log_file.name for p in processes):
+    if pname == "gui":
+        return "gui"
+    entry = os.path.splitext(os.path.basename(argv0 if argv0 is not None else sys.argv[0]))[0]
+    if os.name == "nt" and any(p in pname for p in SKIP_PROCESS_NAMES):
+        if pname == "MainProcess" and entry in FILE_LOG_ENTRIES and entry != "gui":
+            return entry
+        return None
+    if entry in FILE_LOG_ENTRIES:
+        return entry
+    return None
+
+
+def set_file_logger(name=None):
+    """给当前进程挂上按天轮转的文件日志处理器。
+
+    - ``name`` 省略：按入口脚本名（``sys.argv[0]``）推断，且只有 ``FILE_LOG_ENTRIES``
+      中的入口才落盘；
+    - ``name`` 显式传入（实例名，如 ``alas.py`` / ``process_manager.py`` 传 config_name）：
+      总是落盘，并把启动时按入口名挂错的处理器换掉，保证实例日志落在
+      ``log/{实例名}.txt``（WebUI 日志导出依赖该约定）。
+
+    非标准启动一律不写文件日志——只输出到控制台，避免 log/ 里堆积孤儿日志族。
+    """
+    explicit = name is not None
+    pname = multiprocessing.current_process().name.replace(":", "_")
+
+    target = resolve_log_name(name=name, pname=pname)
+    if target is None:
         return
+    name = target
+
+    if os.name != "nt":
+        pname = name
+
+    handlers = [h for h in logger.handlers if isinstance(h, RichTimedRotatingHandler)]
+    if handlers:
+        if not explicit or any(hdlr.pname == name for hdlr in handlers):
+            # 每个进程在 AzurPilot 启动时只应调用一次
+            return
+        # 启动时按入口名挂了处理器（如 `python alas.py` 先挂到 alas.txt），
+        # 这里换成实例名对应的日志文件，并释放旧句柄
+        logger.handlers = [h for h in logger.handlers if not isinstance(
+            h, (logging.FileHandler, RichTimedRotatingHandler, RichFileHandler))]
+        for hdlr in handlers:
+            _close_rotating_handler(hdlr)
+
+    log_file = Path("./log").joinpath(f"{pname}.txt" if name == "gui" else f"{name}.txt")
+    if any(p in log_file.name for p in SKIP_PROCESS_NAMES):
+        return
+    log_file.parent.mkdir(parents=True, exist_ok=True)
 
     hdlr = RichTimedRotatingHandler(
         pname=name,

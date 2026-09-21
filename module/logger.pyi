@@ -14,6 +14,10 @@ WEB_THEME: Theme
 logger_debug: bool
 pyw_name: str
 
+# 允许写文件日志的入口脚本名 / 不写文件日志的多进程内部进程名
+FILE_LOG_ENTRIES: tuple[str, ...]
+SKIP_PROCESS_NAMES: tuple[str, ...]
+
 file_formatter: logging.Formatter
 console_formatter: logging.Formatter
 web_formatter: logging.Formatter
@@ -21,8 +25,13 @@ web_formatter: logging.Formatter
 stdout_console: Console
 console_hdlr: RichHandler
 
+def resolve_log_name(
+    name: str | None = None,
+    pname: str | None = None,
+    argv0: str | None = None,
+) -> str | None: ...
 def set_file_logger(
-    name: str = pyw_name,
+    name: str | None = None,
 ) -> None: ...
 def set_func_logger(
     func: Callable[[ConsoleRenderable], None],
@@ -57,7 +66,7 @@ class __logger(logging.Logger):
     ) -> None: ...
     def set_file_logger(
         self,
-        name: str = pyw_name,
+        name: str | None = None,
     ) -> None: ...
     def set_func_logger(
         self,
