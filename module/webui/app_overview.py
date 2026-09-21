@@ -491,14 +491,15 @@ class OverviewMixin(WebUIMixinBase):
             )
 
         config = self.alas_config.read_file(self.alas_name)
-        if task == "MeowfficerScore":
-            # 评分结果面板挂在参数卡上方，与上游 PR #998 的面板位置一致
-            with use_scope("groups"):
-                self.put_meowfficer_score_panel()
         for group, arg_dict in deep_iter(self.ALAS_ARGS[task], depth=1):
             if group[0] == "Storage":
                 continue
             self.set_group(group, arg_dict, config, task)
+        if task == "MeowfficerScore":
+            # 评分报告排在参数卡**之后**：报告可能有几十只猫、很长，参数卡放在前面
+            # 才不用滚很久就能改「评分来源」或点启动。
+            with use_scope("groups"):
+                self.put_meowfficer_score_panel()
 
         if show_log_content:
             run_js(

@@ -140,22 +140,15 @@ class RenderPanelTests(unittest.TestCase):
 
 
 class MeowfficerScorePanelWiringTests(unittest.TestCase):
-    """源码级落位锁：面板挂在哪、样式注册在哪。
+    """源码级落位锁：面板怎么接线、样式注册在哪。
 
-    单测跑不起整页 PyWebIO 渲染，用文本断言兜住「面板没被挂上 / 样式没被注册」
-    这类只在真机才暴露的回归。
+    单测跑不起整页 PyWebIO 渲染，用文本断言兜住「mixin 没注册 / 样式没被注册」
+    这类只在真机才暴露的回归。面板与参数卡的先后顺序由渲染测试
+    :class:`DaemonOverviewLayoutTests` 用 Mock 记录调用顺序来锁。
     """
 
     def _read(self, *parts):
         return (PROJECT_ROOT.joinpath(*parts)).read_text(encoding='utf-8')
-
-    def test_panel_is_attached_on_the_task_page_before_config_groups(self):
-        source = self._read('module', 'webui', 'app_overview.py')
-        self.assertIn('task == "MeowfficerScore"', source)
-        panel_call = source.index('self.put_meowfficer_score_panel()')
-        config_loop = source.index('deep_iter(self.ALAS_ARGS[task], depth=1)')
-        # 面板排在参数卡之前，与上游 PR #998 的面板位置一致
-        self.assertLess(panel_call, config_loop)
 
     def test_mixin_is_registered_in_alas_gui(self):
         source = self._read('module', 'webui', 'app.py')
@@ -350,14 +343,14 @@ class ReportRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-class DaemonOverviewLogVisibilityTests(unittest.TestCase):
-    """「指挥喵评分」页去掉日志内容区与「自动滚动」开关，保留其余日志工具栏。
+class DaemonOverviewLayoutTests(unittest.TestCase):
+    """「指挥喵评分」页的容器布局：日志区取舍、参数卡与报告的先后、整宽铺满。
 
     ``use_scope`` 对不存在的 scope 会在 ROOT 下创建孤儿容器（仓库里踩过这个坑），
-    所以少渲染一个 scope 就必须把对应的 ``use_scope`` 与后台日志任务一并挡掉；
+    所以少渲染一个 scope 就必须把对应的 ``use_scope`` 与后台任务一并挡掉；
     「自动滚动」只控制日志内容区滚动，内容区没了就没有作用对象，连它的
     ``BinarySwitchButton`` 一起省掉。容器行/列模板是写死行数的，也要一并改掉，
-    否则空出来的那一行会把工具栏拉成 1fr。这里用 Mock 断言实际调用。
+    否则空出来的那一行会把工具栏拉成 1fr。这里用 Mock 记录实际调用与调用顺序。
     """
 
     def _render(self, task, is_mobile=False):
@@ -378,7 +371,7 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
         fake = Mock()
         fake.is_mobile = is_mobile
         fake.alas_name = 'alas'
-        fake.ALAS_ARGS = {task: {}}
+        fake.ALAS_ARGS = {task: {f'{task}Group': {}}}
         switch = Mock()
 
         raw = app_overview.OverviewMixin.alas_daemon_overview.__wrapped__
@@ -392,7 +385,14 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
                 patch.object(app_overview, 'RichLog', Mock()), \
                 patch.object(app_overview, 'BinarySwitchButton', switch):
             raw(fake, task)
-        return scopes, targeted, scripts, switch
+        return {
+            'scopes': scopes,
+            'targeted': targeted,
+            'scripts': scripts,
+            'switch': switch,
+            # Mock 会按调用顺序记录所有属性调用，用它断言「参数卡先于报告面板」
+            'calls': [call[0] for call in fake.mock_calls],
+        }
 
     @staticmethod
     def _switch_scopes(switch):
@@ -400,7 +400,8 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
         return [call.kwargs.get('scope') for call in switch.call_args_list]
 
     def test_score_page_drops_log_content_but_keeps_toolbar(self):
-        scopes, targeted, scripts, _ = self._render('MeowfficerScore')
+        result = self._render('MeowfficerScore')
+        scopes, targeted, scripts = result['scopes'], result['targeted'], result['scripts']
         # 日志内容区整块不渲染，对应的 use_scope 也不能碰
         self.assertNotIn('log', scopes)
         self.assertNotIn('log', targeted)
@@ -418,30 +419,39 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
 
     def test_score_page_drops_the_auto_scroll_toggle(self):
         """「自动滚动」没有作用对象，scope 与开关都不该出现。"""
-        scopes, _, _, switch = self._render('MeowfficerScore')
-        self.assertNotIn('log_scroll_btn', scopes)
-        self.assertNotIn('log_scroll_btn', self._switch_scopes(switch))
+        result = self._render('MeowfficerScore')
+        self.assertNotIn('log_scroll_btn', result['scopes'])
+        self.assertNotIn('log_scroll_btn', self._switch_scopes(result['switch']))
         # 调度开关仍要渲染，别把整条工具栏一起挡掉
-        self.assertIn('scheduler_btn', self._switch_scopes(switch))
+        self.assertIn('scheduler_btn', self._switch_scopes(result['switch']))
+
+    def test_report_panel_sits_below_the_config_groups(self):
+        """报告可能有几十只猫、很长，参数卡必须排在它前面，否则改选项要滚很久。"""
+        calls = self._render('MeowfficerScore')['calls']
+        self.assertLess(calls.index('set_group'), calls.index('put_meowfficer_score_panel'))
 
     def test_score_page_mobile_drops_the_trailing_log_row(self):
-        _, _, scripts, _ = self._render('MeowfficerScore', is_mobile=True)
+        scripts = self._render('MeowfficerScore', is_mobile=True)['scripts']
         joined = ' '.join(scripts)
         self.assertIn('grid-template-rows', joined)
         # 移动端本来就是单列铺满，不需要动列模板
         self.assertNotIn('grid-template-columns', joined)
 
     def test_other_tool_pages_keep_the_whole_log_area(self):
-        scopes, targeted, scripts, switch = self._render('OcrBenchmark')
+        result = self._render('OcrBenchmark')
+        scopes, targeted, scripts = result['scopes'], result['targeted'], result['scripts']
         self.assertIn('log', scopes)
         self.assertIn('log-bar', scopes)
         self.assertIn('log-bar', targeted)
         # 有日志的页面必须保留「自动滚动」
         self.assertIn('log_scroll_btn', scopes)
-        self.assertIn('log_scroll_btn', self._switch_scopes(switch))
+        self.assertIn('log_scroll_btn', self._switch_scopes(result['switch']))
         # 不受评分页的模板覆盖影响
         self.assertFalse(any('grid-template-rows' in script for script in scripts))
         self.assertFalse(any('grid-template-columns' in script for script in scripts))
+
+    def test_other_tool_pages_have_no_report_panel(self):
+        self.assertNotIn('put_meowfficer_score_panel', self._render('OcrBenchmark')['calls'])
 
 
 if __name__ == '__main__':

@@ -80,7 +80,7 @@ def report_html_path(instance: str):
 
 
 class MeowfficerScoreMixin(WebUIMixinBase):
-    """在指挥喵评分任务页的配置分组之前插入评分结果面板。"""
+    """在指挥喵评分任务页的配置分组之后插入评分结果面板。"""
 
     @staticmethod
     def _meowfficer_tr(key, **kwargs):
@@ -172,7 +172,7 @@ class MeowfficerScoreMixin(WebUIMixinBase):
                  f'{escape(t("Gui.MeowfficerScore.Disclaimer"))}</p>')
 
     def put_meowfficer_score_panel(self) -> None:
-        """在配置分组之前插入面板（调用方需先进入 ``groups`` scope）。"""
+        """在配置分组之后插入面板（调用方需先进入 ``groups`` scope）。"""
         put_scope('meowfficer-score-panel')
         with use_scope('meowfficer-score-panel'):
             self._put_meowfficer_score_panel()
