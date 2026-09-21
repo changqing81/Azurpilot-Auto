@@ -351,14 +351,15 @@ class ReportRouteTests(unittest.TestCase):
 
 
 class DaemonOverviewLogVisibilityTests(unittest.TestCase):
-    """「指挥喵评分」页不渲染日志区。
+    """「指挥喵评分」页去掉日志内容区，但保留顶部日志工具栏。
 
     ``use_scope`` 对不存在的 scope 会在 ROOT 下创建孤儿容器（仓库里踩过这个坑），
-    所以少渲染一个 scope 就必须把对应的 ``use_scope`` 与后台日志任务一并挡掉。
+    所以少渲染一个 scope 就必须把对应的 ``use_scope`` 与后台日志任务一并挡掉；
+    容器行/列模板是写死行数的，也要一并改掉，否则空出来的那一行会把工具栏拉成 1fr。
     这里用 Mock 断言实际调用，比源码文本断言更能兜住「漏挡一处」。
     """
 
-    def _render(self, task):
+    def _render(self, task, is_mobile=False):
         from unittest.mock import MagicMock, Mock
 
         from module.webui import app_overview
@@ -374,7 +375,7 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
             return MagicMock()
 
         fake = Mock()
-        fake.is_mobile = False
+        fake.is_mobile = is_mobile
         fake.alas_name = 'alas'
         fake.ALAS_ARGS = {task: {}}
 
@@ -391,17 +392,29 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
             raw(fake, task)
         return scopes, targeted, scripts
 
-    def test_score_page_has_no_log_scopes(self):
+    def test_score_page_drops_log_content_but_keeps_toolbar(self):
         scopes, targeted, scripts = self._render('MeowfficerScore')
+        # 日志内容区整块不渲染，对应的 use_scope 也不能碰
         self.assertNotIn('log', scopes)
-        self.assertNotIn('log-bar', scopes)
-        self.assertNotIn('log-bar-btns', scopes)
-        self.assertNotIn('log-bar', targeted)
-        # 调度条与参数区仍然保留
+        self.assertNotIn('log', targeted)
+        # 顶部日志工具栏保留
+        self.assertIn('log-bar', scopes)
+        self.assertIn('log-bar-btns', scopes)
+        self.assertIn('log-bar', targeted)
+        # 调度条与参数区照旧
         self.assertIn('scheduler-bar', scopes)
         self.assertIn('groups', scopes)
-        # 容器行模板的末行要一并去掉，否则会留一条空白把面板压扁
-        self.assertTrue(any('grid-template-rows' in script for script in scripts))
+        # 行模板与列模板都要改：否则空行会把工具栏拉成 1fr、两侧各留 1/8 空白
+        joined = ' '.join(scripts)
+        self.assertIn('grid-template-rows', joined)
+        self.assertIn('grid-template-columns', joined)
+
+    def test_score_page_mobile_drops_the_trailing_log_row(self):
+        _, _, scripts = self._render('MeowfficerScore', is_mobile=True)
+        joined = ' '.join(scripts)
+        self.assertIn('grid-template-rows', joined)
+        # 移动端本来就是单列铺满，不需要动列模板
+        self.assertNotIn('grid-template-columns', joined)
 
     def test_other_tool_pages_keep_the_log(self):
         scopes, targeted, scripts = self._render('OcrBenchmark')
@@ -409,6 +422,7 @@ class DaemonOverviewLogVisibilityTests(unittest.TestCase):
         self.assertIn('log-bar', scopes)
         self.assertIn('log-bar', targeted)
         self.assertFalse(any('grid-template-rows' in script for script in scripts))
+        self.assertFalse(any('grid-template-columns' in script for script in scripts))
 
 
 if __name__ == '__main__':

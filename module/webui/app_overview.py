@@ -387,33 +387,37 @@ class OverviewMixin(WebUIMixinBase):
         self.set_title(t(f"Task.{task}.name"))
 
         log = RichLog("log")
-        # 「指挥喵评分」页不渲染日志区：这一页的主体是评分报告，日志区（含任务收尾
-        # 打出的 rich 汇总表）会把报告挤成一条缝，而该任务没有需要盯的运行日志。
-        show_log = task != "MeowfficerScore"
+        # 「指挥喵评分」页只去掉**日志内容区**（含任务收尾打出的 rich 汇总表）：这一页的
+        # 主体是评分报告，日志内容会和报告抢 _daemon 的行高，把报告压成一条缝、汇总表
+        # 还会盖在参数区上。顶部日志工具栏（自动滚动 / 截图预览 / 导出今日日志）照常保留。
+        show_log_content = task != "MeowfficerScore"
 
         if self.is_mobile:
             scopes = [
                 put_scope("scheduler-bar"),
                 put_scope("stat-bar"),
                 put_scope("groups"),
+                put_scope("log-bar"),
             ]
-            if show_log:
-                scopes.append(put_scope("log-bar"))
+            if show_log_content:
                 scopes.append(put_scope("log", [put_html("")]))
             put_scope("daemon-overview", scopes)
         else:
-            upper = [put_scope("scheduler-bar")]
-            if show_log:
-                upper.append(put_scope("log-bar"))
-            children = [put_scope("_daemon_upper", upper), put_scope("groups")]
-            if show_log:
+            children = [
+                put_scope(
+                    "_daemon_upper",
+                    [put_scope("scheduler-bar"), put_scope("log-bar")],
+                ),
+                put_scope("groups"),
+            ]
+            if show_log_content:
                 children.append(put_scope("log", [put_html("")]))
             put_scope(
                 "daemon-overview",
                 [put_none(), put_scope("_daemon", children), put_none()],
             )
 
-        if show_log:
+        if show_log_content:
             log.console.width = log.get_width()
 
         with use_scope("scheduler-bar"):
@@ -451,25 +455,24 @@ class OverviewMixin(WebUIMixinBase):
             scope="scheduler_btn",
         )
 
-        if show_log:
-            with use_scope("log-bar"):
-                put_text(t("Gui.Overview.Log")).style(
-                    "font-size: 1.25rem; margin: auto .5rem auto;"
-                )
-                put_scope(
-                    "log-bar-btns",
-                    [
-                        put_scope("log_scroll_btn"),
-                        put_button(
-                            label="截图预览",
-                            onclick=lambda: run_js(
-                                f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
-                            ),
-                            color="off",
+        with use_scope("log-bar"):
+            put_text(t("Gui.Overview.Log")).style(
+                "font-size: 1.25rem; margin: auto .5rem auto;"
+            )
+            put_scope(
+                "log-bar-btns",
+                [
+                    put_scope("log_scroll_btn"),
+                    put_button(
+                        label="截图预览",
+                        onclick=lambda: run_js(
+                            f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
                         ),
-                        self._log_export_toolbar_button(),
-                    ],
-                )
+                        color="off",
+                    ),
+                    self._log_export_toolbar_button(),
+                ],
+            )
 
         switch_log_scroll = BinarySwitchButton(
             label_on=t("Gui.Button.ScrollON"),
@@ -492,7 +495,7 @@ class OverviewMixin(WebUIMixinBase):
                 continue
             self.set_group(group, arg_dict, config, task)
 
-        if show_log:
+        if show_log_content:
             run_js(
                 """
                 $("#pywebio-scope-log").css(
@@ -509,18 +512,25 @@ class OverviewMixin(WebUIMixinBase):
                 );
             """
             )
+        elif self.is_mobile:
+            # 容器模板是写死行数的，少了日志内容行必须一并改掉：空出来的那一行会按
+            # 原模板把日志工具栏拉成 1fr（占满剩余高度），评分面板反而没有高度。
+            run_js(
+                '$("#pywebio-scope-daemon-overview")'
+                '.css("grid-template-rows", "auto auto 1fr auto");'
+            )
         else:
-            # 容器模板是写死行数的（桌面 _daemon 三行、移动端 daemon-overview 四行），
-            # 少了日志行要一并去掉末行，否则会留下一条空的 1fr / 15rem 空白，
-            # 把评分面板压成一条缝。
-            if self.is_mobile:
-                selector, rows = "#pywebio-scope-daemon-overview", "auto auto 1fr"
-            else:
-                selector, rows = "#pywebio-scope-_daemon", "auto minmax(6rem, 1fr)"
-            run_js(f'$("{selector}").css("grid-template-rows", "{rows}");')
+            # 桌面端同理把 _daemon 收成两行；另外 daemon-overview 的列模板原本是
+            # 1fr minmax(25rem, 6fr) 1fr —— 两侧各留 1/8 空白做居中，报告页要铺满，
+            # 所以把两侧收成 0。
+            run_js(
+                '$("#pywebio-scope-_daemon")'
+                '.css("grid-template-rows", "auto minmax(6rem, 1fr)");'
+                '$("#pywebio-scope-daemon-overview")'
+                '.css("grid-template-columns", "0 minmax(0, 1fr) 0");'
+            )
 
         self.task_handler.add(switch_scheduler.g(), 1, True)
-        if show_log:
-            self.task_handler.add(switch_log_scroll.g(), 1, True)
-            if hasattr(self, "alas") and self.alas is not None:
-                self.task_handler.add(log.put_log(self.alas), 0.25, True)
+        self.task_handler.add(switch_log_scroll.g(), 1, True)
+        if show_log_content and hasattr(self, "alas") and self.alas is not None:
+            self.task_handler.add(log.put_log(self.alas), 0.25, True)
