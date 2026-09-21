@@ -57,7 +57,15 @@ class TestLogExportLogic(unittest.TestCase):
     def test_real_project_root_contains_module_and_log(self):
         root = log_export.get_project_root()
         self.assertTrue((root / "module").is_dir())
-        self.assertTrue((root / "log").is_dir())
+        self.assertTrue((root / "pyproject.toml").is_file())
+        # log/ 是运行时目录（被 .gitignore 忽略），全新检出里不存在属正常。
+        # 这条断言以前能过，只是因为旧 logger 会按 argv[0] 在 log/ 下建孤儿日志文件、
+        # 顺手把目录创建出来；非标准启动不再落盘后，全新检出（含 CI）里没有 log/。
+        # 这里只校验它被解析到项目根下，目录是否已存在不影响。
+        log_dir = root / log_export.LOG_DIRNAME
+        self.assertEqual(log_dir.parent, root)
+        if log_dir.exists():
+            self.assertTrue(log_dir.is_dir())
 
     def test_today_str_matches_log_rotation_prefix(self):
         value = log_export.today_str()
