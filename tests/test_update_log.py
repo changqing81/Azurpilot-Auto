@@ -102,8 +102,11 @@ class TestRenderEntriesHtml(unittest.TestCase):
                 {"title": "旧", "date": "2026-09-19", "sha": "", "content": "b"},
             ]
         )
-        self.assertEqual(html.count("<details"), 2)
-        self.assertEqual(html.count(" open>"), 1)
+        # 整块折叠层（update-log-root）不是条目，按 class 数而不是数 <details>，
+        # 否则加一层折叠就会把这里算成 3。
+        self.assertEqual(html.count('class="update-log-root"'), 1)
+        self.assertEqual(html.count('class="update-log-entry"'), 2)
+        self.assertEqual(html.count('class="update-log-entry" open'), 1)
         self.assertIn("abcdef1234", html)  # sha 截断到 10 位
         self.assertIn("2026-09-19", html)
 
