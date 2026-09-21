@@ -24,13 +24,20 @@ class TestResolveLogName(unittest.TestCase):
     def test_known_entries_are_logged(self):
         """入口脚本照常写文件日志。"""
         self.assertEqual(resolve_log_name(pname='probe', argv0='gui.py'), 'gui')
-        self.assertEqual(resolve_log_name(pname='probe', argv0=r'C:\a\alas.py'), 'alas')
+        self.assertEqual(
+            resolve_log_name(pname='probe', argv0=os.path.join('dir', 'alas.py')), 'alas'
+        )
         self.assertEqual(
             resolve_log_name(pname='probe', argv0='mcp_server_sse.py'), 'mcp_server_sse'
         )
         self.assertEqual(
             resolve_log_name(pname='probe', argv0='/root/AzurPilot/alas.py'), 'alas'
         )
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows 反斜杠路径')
+    def test_windows_backslash_argv0(self):
+        """Windows 下 argv[0] 带盘符反斜杠，仍要认出入口名。"""
+        self.assertEqual(resolve_log_name(pname='probe', argv0=r'C:\a\alas.py'), 'alas')
 
     def test_non_entry_launch_is_not_logged(self):
         """非标准启动不再产生孤儿日志族。"""
