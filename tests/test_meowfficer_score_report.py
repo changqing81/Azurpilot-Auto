@@ -350,5 +350,66 @@ class ReportRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class DaemonOverviewLogVisibilityTests(unittest.TestCase):
+    """「指挥喵评分」页不渲染日志区。
+
+    ``use_scope`` 对不存在的 scope 会在 ROOT 下创建孤儿容器（仓库里踩过这个坑），
+    所以少渲染一个 scope 就必须把对应的 ``use_scope`` 与后台日志任务一并挡掉。
+    这里用 Mock 断言实际调用，比源码文本断言更能兜住「漏挡一处」。
+    """
+
+    def _render(self, task):
+        from unittest.mock import MagicMock, Mock
+
+        from module.webui import app_overview
+
+        scopes, targeted, scripts = [], [], []
+
+        def put_scope(name, *args, **kwargs):
+            scopes.append(name)
+            return Mock()
+
+        def use_scope(name, *args, **kwargs):
+            targeted.append(name)
+            return MagicMock()
+
+        fake = Mock()
+        fake.is_mobile = False
+        fake.alas_name = 'alas'
+        fake.ALAS_ARGS = {task: {}}
+
+        raw = app_overview.OverviewMixin.alas_daemon_overview.__wrapped__
+        with patch.object(app_overview, 'put_scope', put_scope), \
+                patch.object(app_overview, 'use_scope', use_scope), \
+                patch.object(app_overview, 'put_none', Mock()), \
+                patch.object(app_overview, 'put_html', Mock()), \
+                patch.object(app_overview, 'put_text', Mock()), \
+                patch.object(app_overview, 'put_button', Mock()), \
+                patch.object(app_overview, 'run_js', lambda script: scripts.append(script)), \
+                patch.object(app_overview, 'RichLog', Mock()), \
+                patch.object(app_overview, 'BinarySwitchButton', Mock()):
+            raw(fake, task)
+        return scopes, targeted, scripts
+
+    def test_score_page_has_no_log_scopes(self):
+        scopes, targeted, scripts = self._render('MeowfficerScore')
+        self.assertNotIn('log', scopes)
+        self.assertNotIn('log-bar', scopes)
+        self.assertNotIn('log-bar-btns', scopes)
+        self.assertNotIn('log-bar', targeted)
+        # 调度条与参数区仍然保留
+        self.assertIn('scheduler-bar', scopes)
+        self.assertIn('groups', scopes)
+        # 容器行模板的末行要一并去掉，否则会留一条空白把面板压扁
+        self.assertTrue(any('grid-template-rows' in script for script in scripts))
+
+    def test_other_tool_pages_keep_the_log(self):
+        scopes, targeted, scripts = self._render('OcrBenchmark')
+        self.assertIn('log', scopes)
+        self.assertIn('log-bar', scopes)
+        self.assertIn('log-bar', targeted)
+        self.assertFalse(any('grid-template-rows' in script for script in scripts))
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -387,39 +387,34 @@ class OverviewMixin(WebUIMixinBase):
         self.set_title(t(f"Task.{task}.name"))
 
         log = RichLog("log")
+        # 「指挥喵评分」页不渲染日志区：这一页的主体是评分报告，日志区（含任务收尾
+        # 打出的 rich 汇总表）会把报告挤成一条缝，而该任务没有需要盯的运行日志。
+        show_log = task != "MeowfficerScore"
 
         if self.is_mobile:
-            put_scope(
-                "daemon-overview",
-                [
-                    put_scope("scheduler-bar"),
-                    put_scope("stat-bar"),
-                    put_scope("groups"),
-                    put_scope("log-bar"),
-                    put_scope("log", [put_html("")]),
-                ],
-            )
+            scopes = [
+                put_scope("scheduler-bar"),
+                put_scope("stat-bar"),
+                put_scope("groups"),
+            ]
+            if show_log:
+                scopes.append(put_scope("log-bar"))
+                scopes.append(put_scope("log", [put_html("")]))
+            put_scope("daemon-overview", scopes)
         else:
+            upper = [put_scope("scheduler-bar")]
+            if show_log:
+                upper.append(put_scope("log-bar"))
+            children = [put_scope("_daemon_upper", upper), put_scope("groups")]
+            if show_log:
+                children.append(put_scope("log", [put_html("")]))
             put_scope(
                 "daemon-overview",
-                [
-                    put_none(),
-                    put_scope(
-                        "_daemon",
-                        [
-                            put_scope(
-                                "_daemon_upper",
-                                [put_scope("scheduler-bar"), put_scope("log-bar")],
-                            ),
-                            put_scope("groups"),
-                            put_scope("log", [put_html("")]),
-                        ],
-                    ),
-                    put_none(),
-                ],
+                [put_none(), put_scope("_daemon", children), put_none()],
             )
 
-        log.console.width = log.get_width()
+        if show_log:
+            log.console.width = log.get_width()
 
         with use_scope("scheduler-bar"):
             put_text(t("Gui.Overview.Scheduler")).style(
@@ -456,24 +451,25 @@ class OverviewMixin(WebUIMixinBase):
             scope="scheduler_btn",
         )
 
-        with use_scope("log-bar"):
-            put_text(t("Gui.Overview.Log")).style(
-                "font-size: 1.25rem; margin: auto .5rem auto;"
-            )
-            put_scope(
-                "log-bar-btns",
-                [
-                    put_scope("log_scroll_btn"),
-                    put_button(
-                        label="截图预览",
-                        onclick=lambda: run_js(
-                            f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
+        if show_log:
+            with use_scope("log-bar"):
+                put_text(t("Gui.Overview.Log")).style(
+                    "font-size: 1.25rem; margin: auto .5rem auto;"
+                )
+                put_scope(
+                    "log-bar-btns",
+                    [
+                        put_scope("log_scroll_btn"),
+                        put_button(
+                            label="截图预览",
+                            onclick=lambda: run_js(
+                                f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
+                            ),
+                            color="off",
                         ),
-                        color="off",
-                    ),
-                    self._log_export_toolbar_button(),
-                ],
-            )
+                        self._log_export_toolbar_button(),
+                    ],
+                )
 
         switch_log_scroll = BinarySwitchButton(
             label_on=t("Gui.Button.ScrollON"),
@@ -496,24 +492,35 @@ class OverviewMixin(WebUIMixinBase):
                 continue
             self.set_group(group, arg_dict, config, task)
 
-        run_js(
+        if show_log:
+            run_js(
+                """
+                $("#pywebio-scope-log").css(
+                    "grid-row-start",
+                    -2 - $("#pywebio-scope-_daemon").children().filter(
+                        function(){
+                            return $(this).css("display") === "none";
+                        }
+                    ).length
+                );
+                $("#pywebio-scope-log").css(
+                    "grid-row-end",
+                    -1
+                );
             """
-            $("#pywebio-scope-log").css(
-                "grid-row-start",
-                -2 - $("#pywebio-scope-_daemon").children().filter(
-                    function(){
-                        return $(this).css("display") === "none";
-                    }
-                ).length
-            );
-            $("#pywebio-scope-log").css(
-                "grid-row-end",
-                -1
-            );
-        """
-        )
+            )
+        else:
+            # 容器模板是写死行数的（桌面 _daemon 三行、移动端 daemon-overview 四行），
+            # 少了日志行要一并去掉末行，否则会留下一条空的 1fr / 15rem 空白，
+            # 把评分面板压成一条缝。
+            if self.is_mobile:
+                selector, rows = "#pywebio-scope-daemon-overview", "auto auto 1fr"
+            else:
+                selector, rows = "#pywebio-scope-_daemon", "auto minmax(6rem, 1fr)"
+            run_js(f'$("{selector}").css("grid-template-rows", "{rows}");')
 
         self.task_handler.add(switch_scheduler.g(), 1, True)
-        self.task_handler.add(switch_log_scroll.g(), 1, True)
-        if hasattr(self, "alas") and self.alas is not None:
-            self.task_handler.add(log.put_log(self.alas), 0.25, True)
+        if show_log:
+            self.task_handler.add(switch_log_scroll.g(), 1, True)
+            if hasattr(self, "alas") and self.alas is not None:
+                self.task_handler.add(log.put_log(self.alas), 0.25, True)
