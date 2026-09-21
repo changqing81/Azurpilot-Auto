@@ -69,6 +69,7 @@ from module.webui.app_home import HomeMixin
 from module.webui.app_instances import InstanceMixin
 from module.webui.app_lifecycle import clearup, startup
 from module.webui.app_manage import app_manage
+from module.webui.app_meowfficer_score import MeowfficerScoreMixin
 from module.webui.app_overview import OverviewMixin
 from module.webui.app_shell import (
     AppShellMixin,
@@ -402,6 +403,7 @@ def _build_alas_gui_class():
     from module.webui.app_fleet_management import FleetManagementMixin
     from module.webui.app_home import HomeMixin
     from module.webui.app_instances import InstanceMixin
+    from module.webui.app_meowfficer_score import MeowfficerScoreMixin
     from module.webui.app_overview import OverviewMixin
     from module.webui.app_shell import AppShellMixin
     from module.webui.app_stat_action_point import ActionPointStatisticsMixin
@@ -425,6 +427,7 @@ def _build_alas_gui_class():
         CommissionIncomeStatisticsMixin,
         ResourceDeltaStatisticsMixin,
         FleetManagementMixin,
+        MeowfficerScoreMixin,
         TaskConfigMixin,
         EventToolsMixin,
         OverviewMixin,

@@ -89,6 +89,7 @@ def _reload_theme_css(theme: str) -> None:
     injected_styles = getattr(local, "webui_injected_styles", None)
     if injected_styles is not None:
         injected_styles.discard(filepath_css("stat-delta-alas"))
+        injected_styles.discard(filepath_css("meowfficer-score-alas"))
         injected_styles.discard(filepath_css("light-alas"))
         injected_styles.discard(filepath_css("dark-alas"))
         injected_styles.discard(filepath_css("advanced-material-alas"))
@@ -98,6 +99,8 @@ def _reload_theme_css(theme: str) -> None:
     # 统计页资源增减视图的基础组件样式被上方清理移除，随主题一起重注入
     # （主题 CSS 在其后加载，--rd-* 变量覆盖才能生效）
     add_css_files((filepath_css("stat-delta-alas"),))
+    # 指挥喵评分面板同理：先注入基础样式，再由主题 CSS 覆盖 --meow-* 变量
+    add_css_files((filepath_css("meowfficer-score-alas"),))
     if theme == "dark":
         add_css_files((filepath_css("dark-alas"),))
     elif theme == "advanced_material":

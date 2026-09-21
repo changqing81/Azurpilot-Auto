@@ -1,0 +1,512 @@
+/* 指挥喵评分面板（--meow-*）
+ *
+ * 结构移植自上游 wess09/AzurPilot PR #998 的 MeowfficerScorePanel：
+ * 面板头（标题 + 汇总 + 刷新）→ 每只猫一张卡（档位徽章 / 参考分 / 天赋标签 /
+ * 主口径 x+y 与命中行 / 折叠的其他口径 / 页脚来源）。
+ *
+ * 颜色全部走 --meow-* 变量：本文件提供暗色回退值，
+ * 由 light-alas / dark-alas / advanced-material-alas / transparent-alas 覆盖。
+ * 档位徽章与命中标签的半透明底色与上游一致，两种明暗下共用，
+ * 因此只有文字色做成变量。
+ */
+
+:root {
+    --meow-text: #e9eff7;
+    --meow-muted: #8798ad;
+    --meow-card-bg: #151d27;
+    --meow-card-border: #27313e;
+    --meow-chip-bg: #1b2531;
+    --meow-track: rgba(255, 255, 255, 0.10);
+    --meow-badge-bg: rgba(255, 255, 255, 0.08);
+    --meow-accent: #5aa9e6;
+    --meow-accent-soft: rgba(90, 169, 230, 0.16);
+    --meow-warn: #fbbf24;
+    --meow-perfect: #e3c169;
+    --meow-near: #8ab4f0;
+    --meow-graduate: #63c3ac;
+    --meow-transition: #b39bf0;
+    --meow-snack: #8fa0b4;
+    --meow-unsuitable: #e0858a;
+    --meow-thunder: #6cc5e8;
+}
+
+/* ---------- 面板外壳 ---------- */
+/* 面板根节点是 WebUI 的 scope：头部为 PyWebIO 控件，正文是渲染出的 HTML。
+   高级材质/透明主题会用卡片规则覆盖下面的外观，这里主要供浅色/深色主题使用。 */
+#pywebio-scope-meowfficer-score-panel {
+    background: var(--meow-card-bg);
+    border: 1px solid var(--meow-card-border);
+    border-radius: 12px;
+    color: var(--meow-text);
+    overflow: hidden;
+}
+
+.meow-panel {
+    background: var(--meow-card-bg);
+    border: 1px solid var(--meow-card-border);
+    border-radius: 12px;
+    color: var(--meow-text);
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+
+.meow-panel-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--meow-card-border);
+}
+
+.meow-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.meow-panel-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.meow-summary {
+    font-size: 11px;
+    color: var(--meow-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* 「查看完整报告」：与刷新按钮并排的次级操作，用链接实现（新开标签页） */
+.meow-report-link {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border: 1px solid var(--meow-card-border);
+    border-radius: 7px;
+    background: var(--meow-chip-bg);
+    color: var(--meow-accent);
+    font-size: 11px;
+    font-weight: 550;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.meow-report-link:hover {
+    border-color: var(--meow-accent);
+}
+
+.meow-body {
+    padding: 18px 21px;
+}
+
+.meow-empty {
+    padding: 14px 0;
+    text-align: center;
+    color: var(--meow-muted);
+    font-size: 12.5px;
+    line-height: 1.9;
+}
+
+.meow-empty strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--meow-text);
+    font-size: 13.5px;
+}
+
+.meow-disclaimer {
+    margin: 0;
+    padding: 11px 20px;
+    border-top: 1px solid var(--meow-card-border);
+    color: var(--meow-muted);
+    font-size: 11px;
+    line-height: 1.8;
+}
+
+/* ---------- 猫卡片 ---------- */
+.meow-cats {
+    display: grid;
+    gap: 14px;
+    padding: 16px 18px;
+}
+
+.meow-card {
+    border: 1px solid var(--meow-card-border);
+    border-radius: 10px;
+    background: var(--meow-card-bg);
+    overflow: hidden;
+}
+
+.meow-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--meow-card-border);
+}
+
+.meow-card-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+}
+
+.meow-card-title h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.meow-card-score {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 12px;
+}
+
+.meow-tag {
+    padding: 2px 7px;
+    border-radius: 5px;
+    background: var(--meow-chip-bg);
+    color: var(--meow-muted);
+    font-size: 9px;
+}
+
+.meow-flag {
+    padding: 2px 7px;
+    border: 1px solid var(--meow-card-border);
+    border-radius: 5px;
+    color: var(--meow-muted);
+    font-size: 9px;
+}
+
+.meow-flag.is-maxed {
+    border-color: #d9b25a55;
+    background: #d9b25a14;
+    color: var(--meow-perfect);
+}
+
+.meow-flag.is-fixed {
+    border-color: #3b82f655;
+    background: #3b82f614;
+    color: var(--meow-near);
+}
+
+.meow-tier {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--meow-chip-bg);
+    color: var(--meow-muted);
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.meow-tier.is-perfect {
+    background: #d9b25a22;
+    color: var(--meow-perfect);
+}
+
+.meow-tier.is-near {
+    background: #3b82f61a;
+    color: var(--meow-near);
+}
+
+.meow-tier.is-graduate {
+    background: #269a8120;
+    color: var(--meow-graduate);
+}
+
+.meow-tier.is-transition {
+    background: #8b5cf61a;
+    color: var(--meow-transition);
+}
+
+.meow-tier.is-snack {
+    background: #94a3b81f;
+    color: var(--meow-snack);
+}
+
+.meow-tier.is-unsuitable {
+    background: #bd555518;
+    color: var(--meow-unsuitable);
+}
+
+.meow-tier.is-thunder {
+    background: #0ea5e91a;
+    color: var(--meow-thunder);
+}
+
+.meow-score {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    color: var(--meow-text);
+    font-size: 17px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.meow-score small {
+    color: var(--meow-muted);
+    font-size: 9px;
+    font-weight: 400;
+}
+
+.meow-cat-note {
+    margin: 0;
+    padding: 11px 16px 0;
+    color: var(--meow-muted);
+    font-size: 11px;
+    line-height: 1.9;
+}
+
+/* ---------- 天赋标签 ---------- */
+.meow-talents {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    border-bottom: 1px solid var(--meow-card-border);
+}
+
+.meow-talent {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border: 1px solid var(--meow-card-border);
+    border-radius: 7px;
+    background: var(--meow-chip-bg);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.meow-talent.is-special {
+    border-color: #d9b25a66;
+    background: #d9b25a14;
+    color: var(--meow-perfect);
+    font-weight: 550;
+}
+
+.meow-talent.is-inferred {
+    border-style: dashed;
+}
+
+.meow-level {
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: var(--meow-badge-bg);
+    color: var(--meow-muted);
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+/* 彩天赋的星标与推断项的警示符（上游用 lucide 图标，这里用字形） */
+.meow-star {
+    color: #c9a227;
+}
+
+.meow-warn-mark {
+    color: var(--meow-warn);
+    font-size: 11px;
+}
+
+.meow-inferred-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    color: var(--meow-warn);
+    font-size: 10px;
+}
+
+/* ---------- 口径区块 ---------- */
+.meow-primary {
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px;
+}
+
+.meow-rubric-minor {
+    display: grid;
+    gap: 10px;
+    padding: 11px 13px;
+    border: 1px solid var(--meow-card-border);
+    border-radius: 8px;
+    background: var(--meow-chip-bg);
+}
+
+.meow-rubric-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.meow-rubric-head strong {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.meow-rubric-head .meow-score {
+    margin-left: auto;
+    font-size: 14px;
+}
+
+.meow-formula {
+    color: var(--meow-muted);
+    font-family: 'Cascadia Code', 'Consolas', 'Microsoft YaHei', monospace;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.meow-score-bar {
+    height: 5px;
+    border-radius: 999px;
+    background: var(--meow-track);
+    overflow: hidden;
+}
+
+.meow-score-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #74bda8, #2f9e83);
+}
+
+.meow-axis {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.meow-axis-label {
+    flex: 0 0 auto;
+    min-width: 96px;
+    max-width: 180px;
+    color: var(--meow-muted);
+    font-size: 10px;
+}
+
+.meow-hit {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: var(--meow-accent-soft);
+    color: var(--meow-accent);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.meow-hit.is-special {
+    border: 1px solid #d9b25a55;
+    background: #d9b25a14;
+    color: var(--meow-perfect);
+}
+
+.meow-hit.is-empty {
+    background: transparent;
+    color: var(--meow-muted);
+    font-style: italic;
+}
+
+.meow-notes {
+    display: grid;
+    gap: 5px;
+    margin: 0;
+    padding-left: 18px;
+    color: var(--meow-muted);
+    font-size: 11px;
+    line-height: 1.9;
+}
+
+.meow-rubric-source {
+    margin: 0;
+    color: var(--meow-muted);
+    font-size: 10px;
+    line-height: 1.8;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- 折叠的其他口径 ---------- */
+.meow-others {
+    border-top: 1px solid var(--meow-card-border);
+}
+
+.meow-others > summary {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 11px 16px;
+    color: var(--meow-muted);
+    font-size: 11px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.meow-others > summary::-webkit-details-marker {
+    display: none;
+}
+
+.meow-others > summary::before {
+    content: '▸';
+    transition: transform .2s;
+}
+
+.meow-others[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.meow-others-body {
+    display: grid;
+    gap: 10px;
+    padding: 0 16px 14px;
+}
+
+/* ---------- 页脚 ---------- */
+.meow-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--meow-card-border);
+    color: var(--meow-muted);
+    font-size: 10px;
+}
+
+.meow-shot {
+    font-family: 'Cascadia Code', 'Consolas', 'Microsoft YaHei', monospace;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+    .meow-cats {
+        padding: 12px;
+    }
+
+    .meow-axis-label {
+        flex-basis: 100%;
+    }
+
+    .meow-card-score {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}

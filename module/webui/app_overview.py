@@ -487,6 +487,10 @@ class OverviewMixin(WebUIMixinBase):
         )
 
         config = self.alas_config.read_file(self.alas_name)
+        if task == "MeowfficerScore":
+            # 评分结果面板挂在参数卡上方，与上游 PR #998 的面板位置一致
+            with use_scope("groups"):
+                self.put_meowfficer_score_panel()
         for group, arg_dict in deep_iter(self.ALAS_ARGS[task], depth=1):
             if group[0] == "Storage":
                 continue

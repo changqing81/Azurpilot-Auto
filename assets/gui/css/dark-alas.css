@@ -327,4 +327,23 @@ pre.rich-traceback-code {
     --rd-btn-bg: #33363f;
     --rd-btn-border: #4a4d59;
     --rd-btn-text: #c3c9d6;
+
+    /* 指挥喵评分面板 */
+    --meow-text: var(--alas-entry-text, #eeeeee);
+    --meow-muted: var(--alas-entry-muted, #adb5bd);
+    --meow-card-bg: #22242c;
+    --meow-card-border: #34363f;
+    --meow-chip-bg: #2b2d36;
+    --meow-track: rgba(255, 255, 255, 0.07);
+    --meow-badge-bg: rgba(255, 255, 255, 0.10);
+    --meow-accent: #7aa2f7;
+    --meow-accent-soft: rgba(122, 162, 247, 0.16);
+    --meow-warn: #e0b25a;
+    --meow-perfect: #e3c169;
+    --meow-near: #8ab4f0;
+    --meow-graduate: #63c3ac;
+    --meow-transition: #b39bf0;
+    --meow-snack: #8fa0b4;
+    --meow-unsuitable: #e0858a;
+    --meow-thunder: #6cc5e8;
 }

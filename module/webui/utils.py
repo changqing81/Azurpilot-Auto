@@ -630,6 +630,8 @@ def load_webui_styles(theme=None, is_mobile=None):
         "entry-alas",
         # 统计页资源增减视图组件样式（--rd-* 变量回退值，主题 CSS 稍后加载可覆盖）
         "stat-delta-alas",
+        # 指挥喵评分面板样式（--meow-* 变量回退值，主题 CSS 稍后加载可覆盖）
+        "meowfficer-score-alas",
     ]
     theme_styles = {
         "dark": ("dark-alas",),

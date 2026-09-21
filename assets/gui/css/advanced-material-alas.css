@@ -1620,4 +1620,23 @@ button[style*="--menu-Overview--"] {
 	--rd-btn-bg: rgba(255, 255, 255, 0.55);
 	--rd-btn-border: rgba(60, 64, 80, 0.22);
 	--rd-btn-text: var(--alas-apple-text-secondary, #6e6e73);
+
+	/* 指挥喵评分面板：中性色跟随苹果材质变量，档位色取明暗都清晰的中间调 */
+	--meow-text: var(--alas-apple-text, #1d1d1f);
+	--meow-muted: var(--alas-apple-text-secondary, #6e6e73);
+	--meow-card-bg: var(--alas-apple-card-bg, rgba(255, 255, 255, 0.72));
+	--meow-card-border: var(--alas-apple-glass-border, rgba(0, 0, 0, 0.08));
+	--meow-chip-bg: rgba(120, 120, 128, 0.12);
+	--meow-track: rgba(120, 120, 128, 0.16);
+	--meow-badge-bg: rgba(120, 120, 128, 0.18);
+	--meow-accent: #3b82f6;
+	--meow-accent-soft: rgba(59, 130, 246, 0.12);
+	--meow-warn: #c07a1a;
+	--meow-perfect: #c9a227;
+	--meow-near: #4a90d9;
+	--meow-graduate: #269a81;
+	--meow-transition: #8b5cf6;
+	--meow-snack: #7b8b98;
+	--meow-unsuitable: #c06066;
+	--meow-thunder: #0ea5e9;
 }

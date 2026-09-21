@@ -386,4 +386,23 @@ select.form-control,
 	--rd-btn-bg: rgba(0, 0, 0, 0.42);
 	--rd-btn-border: rgba(255, 255, 255, 0.40);
 	--rd-btn-text: #ffffff;
+
+	/* 指挥喵评分面板：透明主题下卡片只留描边，文字提亮保证壁纸上可读 */
+	--meow-text: #ffffff;
+	--meow-muted: rgba(255, 255, 255, 0.78);
+	--meow-card-bg: transparent;
+	--meow-card-border: rgba(255, 255, 255, 0.30);
+	--meow-chip-bg: rgba(0, 0, 0, 0.38);
+	--meow-track: rgba(255, 255, 255, 0.22);
+	--meow-badge-bg: rgba(255, 255, 255, 0.18);
+	--meow-accent: #93c5fd;
+	--meow-accent-soft: rgba(147, 197, 253, 0.18);
+	--meow-warn: #fbbf24;
+	--meow-perfect: #e3c169;
+	--meow-near: #8ab4f0;
+	--meow-graduate: #63c3ac;
+	--meow-transition: #b39bf0;
+	--meow-snack: #cbd5e1;
+	--meow-unsuitable: #e0858a;
+	--meow-thunder: #6cc5e8;
 }

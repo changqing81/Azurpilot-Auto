@@ -1908,6 +1908,41 @@ async def api_log_error_archive(request):
         )
 
 
+async def api_meowfficer_report(request):
+    """GET /api/reports/meowfficer[?instance=] 或 /api/reports/meowfficer/<instance>
+    打开「指挥喵评分」任务产出的 HTML 报告。
+
+    面板上的「查看完整报告」用它把用户自己那份报告在新标签页里打开。只放行
+    「实例配置的 MeowfficerScore.ReportPath 换成 .html、且落在项目 log/ 目录内、
+    文件真实存在」这一个文件：不做目录浏览，配置里填了任意路径也读不出去。
+    """
+    raw_instance = request.path_params.get("instance") or request.query_params.get(
+        "instance"
+    )
+    try:
+        instance = validate_instance(raw_instance)
+    except ValueError as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+
+    from module.webui.app_meowfficer_score import report_html_path
+
+    try:
+        path = await asyncio.to_thread(report_html_path, instance)
+    except OSError as e:
+        logger.warning(f"[WebUI] 读取指挥喵评分报告失败: {e}")
+        path = None
+    if path is None:
+        return JSONResponse(
+            {"success": False, "error": "评分报告尚未生成，请先运行一次「指挥喵评分」"},
+            status_code=404,
+        )
+    return FileResponse(
+        path,
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 api_routes = [
     Route("/api/cl1_stats", api_cl1_stats),
     Route("/api/custom_background_video", api_custom_background_video),
@@ -1944,6 +1979,9 @@ api_routes = [
     Route("/api/log/error/{scope}", api_log_error_archive),
     # CSS 热更新指纹：供前端轮询，样式文件改动后原地刷新，无需手动刷新页面
     Route("/api/css-fingerprint", api_css_fingerprint),
+    # 指挥喵评分 HTML 报告：同样给 path 形式，远控代理剥掉 query 也能打开
+    Route("/api/reports/meowfficer", api_meowfficer_report),
+    Route("/api/reports/meowfficer/{instance}", api_meowfficer_report),
     Route("/obs", serve_obs_overlay),
     WebSocketRoute("/ws/live_screenshot", ws_live_screenshot),
     WebSocketRoute("/ws/live_control", ws_live_control),
