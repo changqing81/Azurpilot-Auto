@@ -185,13 +185,35 @@ class RichLog:
 
         return "".join(parts)
 
+    # 前端日志 DOM 上限。
+    #
+    # 服务端有环形缓冲（ProcessManager.renderables_max_length = 400），但前端
+    # 拿到的是**增量 append**：服务端裁掉旧条目只影响它自己，已经下发到页面的
+    # 节点没有任何回收机制。7x24 挂机时 DOM 元素会一直堆积——实测每条日志约
+    # 9 个元素（1 个 pre + 8 个 span）、约 846 字节 HTML，一天上万条日志即约
+    # 10 万个元素，最终把 WebView2 渲染进程撑到 GB 级（用户实测 3.3GB）。
+    #
+    # 这里在每批 append 后裁掉最旧的节点。取 2000 是因为：
+    # reset() 全量首显最多一次渲染 400 条，上限必须显著大于它，否则首显后立刻
+    # 被裁掉、向上回溯也没有空间；2000 条约合 1.8MB HTML、1.8 万个元素，
+    # 量级可控又不影响查看历史。
+    dom_max_entries = 2000
+
     def extend(self, text):
         if text:
+            # 用 % 格式化而非 str.format：JS 里大量 {} 会被 format 当成占位符。
             run_js(
-                """$("#pywebio-scope-{scope}>div").append(text);
-            """.format(
-                    scope=self.scope
-                ),
+                (
+                    "(function () {"
+                    'var box = $("#pywebio-scope-%s>div");'
+                    "box.append(text);"
+                    "var nodes = box.children();"
+                    "if (nodes.length > %d) {"
+                    "nodes.slice(0, nodes.length - %d).remove();"
+                    "}"
+                    "})();"
+                )
+                % (self.scope, self.dom_max_entries, self.dom_max_entries),
                 text=str(text),
             )
             if self.keep_bottom:

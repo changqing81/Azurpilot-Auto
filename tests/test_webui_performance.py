@@ -190,6 +190,46 @@ class TestRichLogRendering(unittest.TestCase):
 
         self.assertEqual("", log.render_many([]))
 
+    def test_extend_appends_and_trims_oldest_nodes(self):
+        """前端日志 DOM 必须有上限：只 append 不回收会把 WebView2 撑到 GB 级。"""
+        log = RichLog("log")
+        log.keep_bottom = False
+
+        with patch("module.webui.widgets.run_js", autospec=True) as run_js:
+            log.extend("<pre>一行日志</pre>")
+
+        js = run_js.call_args[0][0]
+        self.assertIn("#pywebio-scope-log>div", js)
+        self.assertIn("box.append(text)", js)
+        self.assertIn("box.children()", js)
+        self.assertIn(".remove()", js)
+        self.assertIn(str(RichLog.dom_max_entries), js)
+        self.assertEqual(run_js.call_args[1]["text"], "<pre>一行日志</pre>")
+
+    def test_extend_does_not_emit_js_for_empty_text(self):
+        log = RichLog("log")
+        log.keep_bottom = False
+
+        with patch("module.webui.widgets.run_js", autospec=True) as run_js:
+            log.extend("")
+
+        run_js.assert_not_called()
+
+    def test_extend_keeps_scrolling_when_keep_bottom(self):
+        log = RichLog("log")
+        log.keep_bottom = True
+
+        with patch("module.webui.widgets.run_js", autospec=True) as run_js:
+            log.extend("<pre>x</pre>")
+
+        self.assertEqual(run_js.call_count, 2)
+        self.assertIn("scrollTop", run_js.call_args_list[1][0][0])
+
+    def test_dom_limit_leaves_room_for_full_reset_render(self):
+        # reset() 会把服务端缓冲（ProcessManager.renderables_max_length = 400）
+        # 全量渲染进 DOM，上限必须大于它，否则首显结果会被立刻裁掉。
+        self.assertGreater(RichLog.dom_max_entries, 400)
+
 
 class TestInitialRendering(unittest.TestCase):
     def test_shell_is_sent_before_localstorage_roundtrip(self):
