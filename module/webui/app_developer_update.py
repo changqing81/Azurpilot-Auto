@@ -259,6 +259,13 @@ class DeveloperUpdateMixin(WebUIMixinBase):
             th = yield
             while True:
                 if result["done"]:
+                    # 页面守卫：拉取走后台线程（首次最慢要等满 5s 超时），用户很可能在
+                    # 结果回来前就离开了更新器页面。那时 updater_changelog 已随 content
+                    # 一起清空，use_scope 找不到该 scope 会在 ROOT 下新建同名容器 ——
+                    # 更新日志就渲染到整个页面底部并常驻，用户看到的是"内容区之外多了
+                    # 一块更新日志"。同 app_dashboard.alas_update_overview_task 的守卫。
+                    if self.page != "Update":
+                        break
                     entries = update_log.normalize_entries(result["data"])
                     with use_scope("updater_changelog", clear=True):
                         if entries:

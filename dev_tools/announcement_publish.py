@@ -569,10 +569,9 @@ def cmd_publish(args: argparse.Namespace) -> int:
         print("\n[dry-run] 未做任何写入。去掉 --dry-run 才会真正发布。")
         return 0
 
-    image_ref = DATA_BRANCH
     local_to_url: dict[str, str] = {}
     uploaded: list[str] = []
-    for index, path in enumerate(local_images, start=1):
+    for path in local_images:
         repo_path = f"{ASSET_DIR}/{announcement_id}/{path.name}"
         commit_sha = put_file(
             token,
@@ -581,9 +580,12 @@ def cmd_publish(args: argparse.Namespace) -> int:
             f"chore(announcement): 上传公告图片 {announcement_id} - {path.name}",
             sha=None,
         )
-        if index == 1 and args.image_ref == "sha":
-            image_ref = commit_sha
-        local_to_url[str(path.resolve())] = f"{CDN_ROOT}/{DATA_REPO}@{image_ref}/{repo_path}"
+        # 每张图必须引用**它自己那次上传**产生的 commit：逐张上传会各生成一个
+        # commit，只有该 commit 里才有这个文件。原先只在第一张时记录 image_ref，
+        # 第 2 张起沿用第 1 张的 commit —— 那个 commit 里没有后续文件，jsdelivr
+        # 直接 404（与 changelog_publish.py 是同一处逻辑的两个副本，一并修）。
+        ref = commit_sha if args.image_ref == "sha" else DATA_BRANCH
+        local_to_url[str(path.resolve())] = f"{CDN_ROOT}/{DATA_REPO}@{ref}/{repo_path}"
         uploaded.append(repo_path)
         print(f"已上传 {path.name} -> commit {commit_sha[:10]}")
 

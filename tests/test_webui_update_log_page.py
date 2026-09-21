@@ -7,6 +7,7 @@
 
 import json
 import unittest
+from contextlib import nullcontext, suppress
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -58,6 +59,11 @@ class TestRenderUpdateLog(unittest.TestCase):
                 "module.webui.app_developer_update.t",
                 side_effect=lambda key, **kwargs: key,
             ),
+            # use_scope 只在测试里当上下文管理器用，换成 nullcontext 避免依赖会话
+            patch(
+                "module.webui.app_developer_update.use_scope",
+                side_effect=lambda *args, **kwargs: nullcontext(),
+            ),
             patch("module.webui.app_developer_update.threading", SimpleNamespace(Thread=_FakeThread)),
             patch(
                 "module.base.api_client.ApiClient.get_changelog",
@@ -83,6 +89,34 @@ class TestRenderUpdateLog(unittest.TestCase):
 
         self.assertEqual(len(harness.added), 1, "应把拉取结果的轮询任务挂到 task_handler")
         self.assertEqual(harness.added[0][1].get("delay"), 0.5)
+
+    def test_skips_render_when_user_left_the_page(self):
+        """拉取返回时用户已离开更新器页面 → 不得渲染。
+
+        否则 use_scope 找不到已随 content 清空的 updater_changelog，会在 ROOT 下
+        新建孤儿容器，更新日志就裸奔到整个页面底部（同 adc16709b 修过的悬空卡片）。
+        """
+        harness = _Harness()
+        harness.page = "Home"
+        harness._render_update_log()
+
+        generator = harness.added[0][0]
+        with suppress(StopIteration):
+            next(generator)
+
+        self.assertEqual(len(self.html_calls), 1, "只应有首次占位，不应再渲染")
+
+    def test_renders_when_still_on_update_page(self):
+        harness = _Harness()
+        harness.page = "Update"
+        harness._render_update_log()
+
+        generator = harness.added[0][0]
+        with suppress(StopIteration):
+            next(generator)
+
+        self.assertEqual(len(self.html_calls), 2, "占位 + 一次渲染")
+        self.assertIn("update-log-root", self.html_calls[1][0][0])
 
 
 class TestRenderEntriesHtml(unittest.TestCase):
