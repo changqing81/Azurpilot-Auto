@@ -178,6 +178,54 @@
     margin-top: .5rem;
 }
 
+/* 整块一层折叠：收起时只占一行（标题 + 最新日期/提交），
+   否则更新日志随版本累积会把更新器页面越撑越长。 */
+.update-log-root-summary {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .75rem 1rem;
+    color: var(--alas-entry-text);
+    background: var(--alas-entry-surface);
+    border: 1px solid var(--alas-entry-border);
+    border-radius: 16px;
+    box-shadow: var(--alas-entry-panel-shadow);
+    cursor: pointer;
+    list-style: none;
+}
+
+.update-log-root-summary::-webkit-details-marker {
+    display: none;
+}
+
+.update-log-root-summary::before {
+    content: "▸";
+    color: var(--alas-entry-muted);
+    font-size: .85rem;
+}
+
+.update-log-root[open] > .update-log-root-summary::before {
+    content: "▾";
+}
+
+.update-log-root-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--alas-entry-text);
+    font-size: 1rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.update-log-entries {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    margin-top: .5rem;
+}
+
 .update-log-entry {
     padding: .75rem 1rem;
     color: var(--alas-entry-text);
@@ -187,10 +235,12 @@
     box-shadow: var(--alas-entry-panel-shadow);
 }
 
+/* 标题与日期各自成行。原先用 flex 同行排列时，长标题会把日期顶到紧贴
+   标题末尾（窄屏下图上看就是"粘"在一起），改成块级 + 绝对定位箭头。 */
 .update-log-summary {
-    display: flex;
-    gap: .5rem;
-    align-items: baseline;
+    display: block;
+    position: relative;
+    padding-left: 1.05rem;
     cursor: pointer;
     list-style: none;
 }
@@ -201,6 +251,9 @@
 
 .update-log-summary::before {
     content: "▸";
+    position: absolute;
+    left: 0;
+    top: .15rem;
     color: var(--alas-entry-muted);
     font-size: .85rem;
 }
@@ -210,17 +263,20 @@
 }
 
 .update-log-title {
-    flex: 1 1 auto;
+    display: block;
     color: var(--alas-entry-text);
     font-size: 1rem;
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
 
 .update-log-meta {
-    flex: 0 0 auto;
+    display: block;
+    margin-top: .2rem;
     color: var(--alas-entry-muted);
     font-size: .8rem;
     font-weight: 400;
+    white-space: nowrap;
 }
 
 .update-log-body {

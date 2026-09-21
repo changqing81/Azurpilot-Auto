@@ -28,8 +28,10 @@ import html
 import re
 from typing import Any
 
-# 更新器页面最多展示几条（最新的在最上面，默认展开）
-MAX_ENTRIES = 5
+# 更新器页面最多展示几条（最新的在最上面，第一条默认展开）。
+# 只留最近 3 条：更新日志每条都是"这一版改了什么"，历史版本看页面下方的
+# 「详细提交历史」即可，留着只会让区块随版本一直变长。
+MAX_ENTRIES = 3
 
 TEXT_CLASS = "update-log-text"
 IMAGE_CLASS = "update-log-image"
@@ -134,11 +136,26 @@ def normalize_entries(data: Any, limit: int = MAX_ENTRIES) -> list[dict[str, str
     return result
 
 
-def render_entries_html(entries: list[dict[str, str]]) -> str:
-    """渲染成可折叠卡片列表：第一条默认展开，其余收起（原生 details，无需 JS）。"""
+def render_entries_html(entries: list[dict[str, str]], title: str = "") -> str:
+    """渲染成「整块一层折叠 + 条目列表」。
+
+    整块默认收起，收起时只占一行（标题 + 最新一条的日期/提交），点开才展开条目；
+    这样更新日志随版本累积也不会把更新器页面越撑越长。条目内部仍是独立的
+    `<details>`，第一条默认展开内容（全部是原生 details，无需 JS）。
+
+    Args:
+        entries: `normalize_entries()` 的结果，最新的在前。
+        title: 折叠行的标题文案（由调用方传 i18n 文本），为空时只显示日期。
+
+    Returns:
+        str: 可直接交给 `put_html` 的 HTML 片段。
+    """
+    if not entries:
+        return ""
+
     blocks: list[str] = []
     for index, entry in enumerate(entries):
-        title = html.escape(entry.get("title") or "")
+        entry_title = html.escape(entry.get("title") or "")
         date = html.escape(entry.get("date") or "")
         sha = html.escape((entry.get("sha") or "")[:10])
         meta = " · ".join(part for part in (date, sha) if part)
@@ -146,13 +163,33 @@ def render_entries_html(entries: list[dict[str, str]]) -> str:
         blocks.append(
             f'<details class="update-log-entry"{open_attr}>'
             f'<summary class="update-log-summary">'
-            f'<span class="update-log-title">{title or "&nbsp;"}</span>'
+            f'<span class="update-log-title">{entry_title or "&nbsp;"}</span>'
             f'<span class="update-log-meta">{meta}</span>'
             f"</summary>"
             f'<div class="update-log-body">{render_content_html(entry.get("content"))}</div>'
             f"</details>"
         )
-    return f'<div class="update-log">{"".join(blocks)}</div>'
+
+    head = entries[0]
+    head_meta = " · ".join(
+        part
+        for part in (
+            html.escape(head.get("date") or ""),
+            html.escape((head.get("sha") or "")[:10]),
+        )
+        if part
+    )
+    return (
+        '<div class="update-log">'
+        '<details class="update-log-root">'
+        '<summary class="update-log-root-summary">'
+        f'<span class="update-log-root-title">{html.escape(title) or "&nbsp;"}</span>'
+        f'<span class="update-log-meta">{head_meta}</span>'
+        "</summary>"
+        f'<div class="update-log-entries">{"".join(blocks)}</div>'
+        "</details>"
+        "</div>"
+    )
 
 
 def render_placeholder_html(message: str) -> str:

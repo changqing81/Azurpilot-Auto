@@ -234,7 +234,8 @@ class DeveloperUpdateMixin(WebUIMixinBase):
         """
         from module.webui import update_log
 
-        put_text(t("Gui.Update.Changelog"), scope="updater_changelog")
+        # 区块标题并入折叠行（见 update_log.render_entries_html），避免
+        # 「更新日志」标题与可点开的折叠行上下重复占位。
         put_html(
             update_log.render_placeholder_html(t("Gui.Update.ChangelogLoading")),
             scope="updater_changelog",
@@ -260,9 +261,13 @@ class DeveloperUpdateMixin(WebUIMixinBase):
                 if result["done"]:
                     entries = update_log.normalize_entries(result["data"])
                     with use_scope("updater_changelog", clear=True):
-                        put_text(t("Gui.Update.Changelog"))
                         if entries:
-                            put_html(update_log.render_entries_html(entries))
+                            put_html(
+                                update_log.render_entries_html(
+                                    entries,
+                                    title=t("Gui.Update.Changelog"),
+                                )
+                            )
                         else:
                             put_html(
                                 update_log.render_placeholder_html(

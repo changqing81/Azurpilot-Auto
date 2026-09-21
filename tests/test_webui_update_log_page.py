@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from module.webui.app_developer_update import DeveloperUpdateMixin
+from module.webui.update_log import render_entries_html
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 LANGUAGES = ("zh-CN", "zh-TW", "zh-MIAO", "en-US", "ja-JP")
@@ -71,18 +72,55 @@ class TestRenderUpdateLog(unittest.TestCase):
         harness = _Harness()
         harness._render_update_log()
 
-        self.assertTrue(self.text_calls, "应输出区块标题")
-        args, kwargs = self.text_calls[0]
-        self.assertEqual(args[0], "Gui.Update.Changelog")
-        self.assertEqual(kwargs.get("scope"), "updater_changelog")
+        # 区块标题已并入折叠行（由 render_entries_html 输出），不再单独 put_text，
+        # 否则「更新日志」标题会和可点开的折叠行上下重复。
+        self.assertFalse(self.text_calls, "不应再单独输出区块标题")
 
         self.assertTrue(self.html_calls, "应先输出加载中占位")
-        _, html_kwargs = self.html_calls[0]
+        args, html_kwargs = self.html_calls[0]
         self.assertEqual(html_kwargs.get("scope"), "updater_changelog")
-        self.assertIn("Gui.Update.ChangelogLoading", self.html_calls[0][0][0])
+        self.assertIn("Gui.Update.ChangelogLoading", args[0])
 
         self.assertEqual(len(harness.added), 1, "应把拉取结果的轮询任务挂到 task_handler")
         self.assertEqual(harness.added[0][1].get("delay"), 0.5)
+
+
+class TestRenderEntriesHtml(unittest.TestCase):
+    """折叠结构回归：整块一层折叠，避免更新日志把更新器页面越撑越长。"""
+
+    ENTRIES = [
+        {
+            "id": "20260921-1",
+            "date": "2026-09-21",
+            "title": "新版本",
+            "content": "正文",
+            "sha": "3238fcbe6",
+        },
+        {
+            "id": "20260920-2",
+            "date": "2026-09-20",
+            "title": "旧版本",
+            "content": "旧正文",
+            "sha": "a4fa3e33b",
+        },
+    ]
+
+    def test_wrapped_in_collapsed_details(self):
+        html_text = render_entries_html(self.ENTRIES, title="更新日志")
+
+        # 整块默认收起：根 details 不带 open，常驻的只有一行 summary
+        self.assertIn('<details class="update-log-root">', html_text)
+        self.assertNotIn('<details class="update-log-root" open>', html_text)
+        # 收起状态下也能看到标题与最新一条的日期/提交
+        self.assertIn("更新日志", html_text)
+        self.assertIn("2026-09-21", html_text)
+        self.assertIn("3238fcbe6", html_text)
+        # 条目各自仍可折叠，且只有第一条默认展开
+        self.assertEqual(html_text.count('class="update-log-entry"'), 2)
+        self.assertEqual(html_text.count('<details class="update-log-entry" open>'), 1)
+
+    def test_empty_entries_returns_empty_string(self):
+        self.assertEqual("", render_entries_html([]))
 
 
 class TestChangelogI18n(unittest.TestCase):
