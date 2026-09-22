@@ -72,7 +72,8 @@ class FakeConfig:
         self.delays.append({'minute': minute, 'target': target, 'task': task})
 
 
-def make_config(enabled=None, interval=12, task_order='', next_runs=None):
+def make_config(enabled=None, interval=12, task_order='', next_runs=None,
+                respect_sub_task_times=True):
     """构造只含岛屿任务的配置数据。
 
     Args:
@@ -80,6 +81,7 @@ def make_config(enabled=None, interval=12, task_order='', next_runs=None):
         interval: `IslandPlan.IntervalHours` 的原始值。
         task_order: `IslandPlan.TaskOrder` 的原始文本。
         next_runs: 各子任务的 `Scheduler.NextRun`。
+        respect_sub_task_times: `IslandPlan.RespectSubTaskTimes` 的值。
     """
     enabled = set(IslandScheduling.SUB_TASKS) if enabled is None else set(enabled)
     next_runs = next_runs or {}
@@ -99,8 +101,11 @@ def make_config(enabled=None, interval=12, task_order='', next_runs=None):
             'NextRun': NOW - timedelta(hours=1),
         },
         'IslandPlan': {
-            IslandScheduling._enable_arg(name): name in enabled
-            for name in IslandScheduling.SUB_TASKS
+            'RespectSubTaskTimes': respect_sub_task_times,
+            **{
+                IslandScheduling._enable_arg(name): name in enabled
+                for name in IslandScheduling.SUB_TASKS
+            },
         },
     }
     return FakeConfig(data=data, interval=interval, task_order=task_order)
@@ -355,12 +360,16 @@ class TestIslandAggregation(unittest.TestCase):
 
 
 class TestIslandNextRunAlignment(unittest.TestCase):
-    """父任务下一轮必须对齐最早的子模块 NextRun。
+    """父任务下一轮必须对齐「远期」子模块 NextRun，且不被近期待重检拖成高频进岛。
 
     子模块把下次时间指到固定时刻（18:00 采集 / 次日 03:00 订单·任务·补给），
     只按固定间隔进岛的话，这些时刻落在两轮之间，当天那次必然被跳过
     —— 2026-09-21 实测：每日采集 02:03 设 18:00，下一轮 14:23 未到期，
     18:00 那次采集永远丢了。
+
+    但餐馆家族 `task_delay(minute=0)` 的立刻回访、几十分钟后的重检每轮都会出现，
+    不能当作提前进岛的理由 —— 2026-09-22 实测：配 12 小时被压成 30 分钟，
+    一天跑了 18 轮。只有超过 `EARLY_TRIGGER_MIN_MINUTES`（60 分钟）的才算数。
     """
 
     def setUp(self):
@@ -368,7 +377,7 @@ class TestIslandNextRunAlignment(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def test_earliest_sub_task_next_run_wins(self):
+    def test_earliest_far_next_run_wins(self):
         config = make_config(
             enabled=['IslandDailyGather'],
             next_runs={'IslandDailyGather': NOW + timedelta(hours=2)},
@@ -386,20 +395,87 @@ class TestIslandNextRunAlignment(unittest.TestCase):
         make_runner(config)._delay_next_run()
         self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
 
-    def test_immediate_recheck_is_floored(self):
-        # 子模块 minute=0 的"立刻再看"不能造成高频进岛
+    def test_immediate_recheck_is_ignored(self):
+        # 子模块 minute=0 的"立刻再看"不能把下一轮拉回现在
         config = make_config(
             enabled=['IslandDailyGather'],
             next_runs={'IslandDailyGather': NOW + timedelta(minutes=1)},
         )
         make_runner(config)._delay_next_run()
-        self.assertEqual(config.delays[0]['target'], NOW + timedelta(minutes=30))
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+    def test_near_future_below_threshold_is_ignored(self):
+        # 59 分钟后才到期的回访属于"近期待重检"，本轮不去接它
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(minutes=59)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+    def test_threshold_boundary_is_ignored(self):
+        # 阈值语义是"超过 60 分钟"，正好 60 分钟不算
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(minutes=60)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+    def test_next_run_beyond_threshold_uses_reset_buffer(self):
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(minutes=61)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(
+            config.delays[0]['target'], NOW + timedelta(minutes=66)
+        )
 
     def test_overdue_next_run_is_ignored(self):
         # 本轮刚跑完、已过期的 NextRun 不能把下一轮拉回现在
         config = make_config(
             enabled=['IslandDailyGather'],
             next_runs={'IslandDailyGather': NOW - timedelta(hours=1)},
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+    def test_switch_off_uses_fixed_interval(self):
+        # 关掉「尊重子模块到期时间」= 纯固定间隔，远期 NextRun 也不再提前进岛
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(hours=2)},
+            respect_sub_task_times=False,
+        )
+        make_runner(config)._delay_next_run()
+        self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
+
+    def test_missing_switch_defaults_to_respecting_sub_task_times(self):
+        # 旧配置缺字段时保持既有行为，且不能整轮不跑
+        config = make_config(
+            enabled=['IslandDailyGather'],
+            next_runs={'IslandDailyGather': NOW + timedelta(hours=2)},
+        )
+        del config.data['IslandPlan']['IslandPlan']['RespectSubTaskTimes']
+        self.assertTrue(make_runner(config)._respect_sub_task_times())
+        make_runner(config)._delay_next_run()
+        self.assertEqual(
+            config.delays[0]['target'], NOW + timedelta(hours=2, minutes=5)
+        )
+
+    def test_shop_refill_noise_does_not_shrink_interval(self):
+        # 复刻 2026-09-22 真机日志的那一轮：餐馆家族刚写了 minute=0 的立刻回访，
+        # 每日订单 5 分钟后重检，啾咖啡 20 分钟后回收 —— 三个都是噪声，
+        # 结果必须是固定间隔 12 小时，而不是被压到 30 分钟。
+        config = make_config(
+            next_runs={
+                'IslandJuuEatery': NOW + timedelta(seconds=1),
+                'IslandJuuCoffee': NOW + timedelta(seconds=1),
+                'IslandRestaurant': NOW + timedelta(seconds=1),
+                'IslandDailyOrder': NOW + timedelta(minutes=5),
+                'IslandTeahouse': NOW + timedelta(minutes=20),
+            },
         )
         make_runner(config)._delay_next_run()
         self.assertEqual(config.delays[0]['target'], NOW + timedelta(hours=12))
@@ -492,6 +568,16 @@ class TestIslandExceptionIsolation(unittest.TestCase):
             with self.assertRaises(GameStuckError):
                 runner.run()
         self.assertEqual(executed, ['IslandFarm', 'IslandAirDrop'])
+
+    def test_fatal_exception_still_schedules_next_run(self):
+        # 2026-09-22 实测：中断时若跳过排期，NextRun 停在已过期的旧值，
+        # 调度器下一个空闲槽立刻重跑（间隔只有 9.7 分钟）。
+        with self._runner_with_failures({'IslandAirDrop': GameStuckError('卡死')}) as (runner, _):
+            with self.assertRaises(GameStuckError):
+                runner.run()
+        self.assertEqual(
+            runner.config.delays[-1]['target'], NOW + timedelta(hours=12)
+        )
 
     def test_run_sub_task_returns_false_on_failure(self):
         with self._runner_with_failures({'IslandFarm': ValueError('识别失败')}) as (runner, _):
