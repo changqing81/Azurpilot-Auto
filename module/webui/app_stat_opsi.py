@@ -2,7 +2,6 @@
 
 from module.webui.app_dependencies import (
     current_time,
-    put_button,
     put_html,
     put_row,
     put_scope,
@@ -432,14 +431,3 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             put_scope("meow_loot_scope")
 
             self._render_meowofficer_farming()
-
-            put_row(
-                [
-                    put_button(
-                        t("Gui.Stat.ExportAndSaveDesktop"),
-                        onclick=lambda: self._export_opsi_csv(True),
-                        color="off",
-                    ),
-                ],
-                size="auto",
-            )
