@@ -2057,6 +2057,7 @@
       "DoMajorCommission": false,
       "NotifyReward": true,
       "NotifyRewardStatistics": true,
+      "DetectShipDrop": false,
       "GemNotify": true,
       "GemStatistics": false,
       "GemStatisticsPeriod": "month",

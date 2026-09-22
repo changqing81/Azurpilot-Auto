@@ -2091,6 +2091,12 @@
       "name": "Reward Notification Details",
       "help": "When enabled, AzurPilot will notify the rewards obtained from this commission and the total rewards for today/week/month"
     },
+    "DetectShipDrop": {
+      "name": "Detect ship drop",
+      "help": "Detect and close the ship obtained popup after claiming commission rewards. Disable if you do not run ship-dropping commissions to avoid detection errors.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
     "GemNotify": {
       "name": "Gem Commission Execution Notification",
       "help": "After a new Gem Commission starts, send the list of all currently running Gem Commissions"

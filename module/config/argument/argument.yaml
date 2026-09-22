@@ -761,6 +761,10 @@ Commission:
   NotifyRewardStatistics:
     type: checkbox
     value: true
+  DetectShipDrop:
+    type: checkbox
+    value: false
+    option: [true, false]
   GemNotify:
     type: checkbox
     value: true
