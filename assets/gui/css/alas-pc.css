@@ -13,6 +13,14 @@
     column-gap: 2rem;
 }
 
+/* 标题、分组说明、分隔线同样是分组的直接子元素：留 auto 会被上面那个两列网格
+   当成两件普通网格项，把「标题 + 说明」摆成左右并排、分隔线只剩半行。
+   这里一并让它们占满整行，标题与说明恢复成上下结构。 */
+#pywebio-scope-group_IslandPlan>p,
+#pywebio-scope-group_IslandPlan>hr {
+    grid-column: 1 / -1;
+}
+
 #pywebio-scope-group_IslandPlan>[id*="Enable"] {
     grid-column: auto;
 }
