@@ -3813,8 +3813,14 @@
       "winter": "Winter"
     },
     "IntervalHours": {
-      "name": "Island Run Interval (hours)",
-      "help": "How many hours to wait before entering the island again after a round of the Island Plan. No island sub-module runs during the interval.\nFree input, valid range 1-24 hours; out-of-range values are changed to the nearest bound."
+      "name": "Max island run interval (hours)",
+      "help": "After a round of the Island Plan, wait at most this many hours before entering the island again; no island sub-module runs during the interval.\nIf a sub-module is due more than 60 minutes from now (Daily Gather at 18:00, Daily Order at 03:00 the next day, etc.), the island is entered earlier to catch that moment. Turn off \"Respect sub-module due time\" for a strictly fixed interval.\nFree input, valid range 1-24 hours; out-of-range values are changed to the nearest bound."
+    },
+    "RespectSubTaskTimes": {
+      "name": "Respect sub-module due time",
+      "help": "On: when a sub-module's own \"next run\" is due more than 60 minutes from now, the next island visit is moved up to that moment (so Daily Gather at 18:00 and Daily Order at 03:00 the next day are not missed). The actual interval may then be shorter than the maximum above.\nOff: always enter the island on the maximum interval; a sub-module that came due but was not reached runs on the next round.\nThe restaurant family's \"come back right after opening the shop to restock\" re-checks within tens of minutes never count as a reason to visit earlier.",
+      "True": "On",
+      "False": "Off"
     },
     "EnableAirDrop": {
       "name": "Enable Daily Supply",

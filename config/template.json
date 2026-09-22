@@ -3000,6 +3000,7 @@
     "IslandPlan": {
       "Season": "spring",
       "IntervalHours": 12,
+      "RespectSubTaskTimes": true,
       "EnableAirDrop": true,
       "EnableDailyGather": true,
       "EnableCargoPreparation": true,

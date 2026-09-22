@@ -15116,6 +15116,14 @@
         "type": "input",
         "value": 12
       },
+      "RespectSubTaskTimes": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
       "EnableAirDrop": {
         "type": "checkbox",
         "value": true,

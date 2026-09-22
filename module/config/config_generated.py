@@ -743,6 +743,7 @@ class GeneratedConfig:
     # 配置组 `IslandPlan`
     IslandPlan_Season = 'spring'  # spring, summer, autumn, winter
     IslandPlan_IntervalHours = 12
+    IslandPlan_RespectSubTaskTimes = True  # True, False
     IslandPlan_EnableAirDrop = True  # True, False
     IslandPlan_EnableDailyGather = True  # True, False
     IslandPlan_EnableCargoPreparation = True  # True, False
