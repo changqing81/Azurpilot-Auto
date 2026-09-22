@@ -1214,7 +1214,11 @@ class Cl1Database:
     # ========== 委托收益数据记录方法 ==========
 
     def add_commission_income(
-        self, instance: str, items: Dict[str, int], commission_count: int = 1
+        self,
+        instance: str,
+        items: Dict[str, int],
+        commission_count: int = 1,
+        screenshots: Optional[List[str]] = None,
     ):
         """记录一次委托收益
 
@@ -1222,6 +1226,8 @@ class Cl1Database:
             instance: 实例名称
             items: 物品字典，如 {'Gem': 30, 'Cube': 1, 'Chip': 10, 'Oil': 500, 'Coin': 800}
             commission_count: 本次结算的委托数量
+            screenshots: 本次结算的收益截图相对路径列表（相对 log/commission_rewards
+                根目录），WebUI 统计页「查看截图」按它拼 URL；没有截图时传 None
         """
         month = datetime.now().strftime("%Y-%m")
         data = self.get_stats(instance, month)
@@ -1231,6 +1237,7 @@ class Cl1Database:
             "ts": datetime.now().isoformat(),
             "items": {k: self._coerce_int(v) for k, v in items.items() if v > 0},
             "commission_count": commission_count,
+            "screenshots": [str(path) for path in (screenshots or [])],
         }
 
         entries = data.get("commission_income_entries", [])
@@ -1609,12 +1616,16 @@ class Cl1Database:
         return settled
 
     def async_add_commission_income(
-        self, instance: str, items: Dict[str, int], commission_count: int = 1
+        self,
+        instance: str,
+        items: Dict[str, int],
+        commission_count: int = 1,
+        screenshots: Optional[List[str]] = None,
     ):
         from module.base.async_executor import async_executor
 
         return async_executor.submit(
-            self.add_commission_income, instance, items, commission_count
+            self.add_commission_income, instance, items, commission_count, screenshots
         )
 
     def async_get_commission_income(
