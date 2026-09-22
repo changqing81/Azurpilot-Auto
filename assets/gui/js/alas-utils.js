@@ -1313,8 +1313,9 @@
     }
 
     // 正文内嵌图片：整行 `![说明](图片URL)` 或整行裸图片直链
+    // 站内路径同样放行：服务端会把远端配图本地化后换成 /api/announcement/image/...
     var ANNOUNCEMENT_IMAGE_MD = /^!\[([^\]]*)\]\(\s*(\S+?)\s*\)$/;
-    var ANNOUNCEMENT_IMAGE_RAW = /^<?(https?:\/\/[^\s<>"'`]+\.(?:png|jpe?g|gif|webp|bmp|svg|avif)(?:\?[^\s<>"'`]*)?)>?$/i;
+    var ANNOUNCEMENT_IMAGE_RAW = /^<?((?:https?:\/\/|\/)[^\s<>"'`]+\.(?:png|jpe?g|gif|webp|bmp|svg|avif)(?:\?[^\s<>"'`]*)?)>?$/i;
 
     function parseAnnouncementImage(line) {
         var text = String(line == null ? '' : line).trim();

@@ -1616,6 +1616,15 @@ class HomeMixin(WebUIMixinBase):
             from module.base.api_client import ApiClient
 
             data = ApiClient.get_announcement(timeout=10)
+            # 配图先落到本地再推给前端：手机（尤其远控）直连 jsdelivr 基本不通，
+            # 交给服务端抓回本地后走同一条 WebUI 通道。
+            if data and data.get("content"):
+                try:
+                    from module.webui.announcement_images import localize_images
+
+                    data["content"] = localize_images(data["content"])
+                except Exception as e:
+                    logger.warning(f"[WebUI-主页] 公告配图本地化失败: {e}")
             self._announcement_result = {"data": data, "force": force}
         except Exception as e:
             logger.error(f"[WebUI-主页] 获取公告失败: {e}")

@@ -1943,8 +1943,26 @@ async def api_meowfficer_report(request):
     )
 
 
+async def api_announcement_image(request):
+    """返回公告配图的本地缓存。
+
+    公告配图原本放独立数据仓库、走 jsdelivr，手机直连不通；改由服务端在拉公告时
+    抓到本地（见 module/webui/announcement_images.py），客户端只访问本机。
+    """
+    from module.webui.announcement_images import cached_file, is_valid_name
+
+    name = request.path_params.get("name") or ""
+    if not is_valid_name(name):
+        return JSONResponse({"error": "invalid name"}, status_code=400)
+    path = cached_file(name)
+    if path is None:
+        return JSONResponse({"error": "not cached"}, status_code=404)
+    return FileResponse(path)
+
+
 api_routes = [
     Route("/api/cl1_stats", api_cl1_stats),
+    Route("/api/announcement/image/{name}", api_announcement_image),
     Route("/api/custom_background_video", api_custom_background_video),
     Route("/api/ap_timeline", api_ap_timeline),
     Route("/api/notify", api_notify, methods=["POST"]),

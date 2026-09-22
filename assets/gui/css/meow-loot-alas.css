@@ -27,22 +27,9 @@
 	box-sizing: border-box;
 }
 
-/* 手机竖屏（内容区通常只剩 280~350px）：两列会把「隐蔽海域」这类名字截断，
-   统一退成一列，并把卡片内部改成「图标 | 名称 …… 数值」横排，
-   避免右侧留一大片空。 */
-@media (max-width: 419px) {
-	#pywebio-scope-meow_loot_scope .meow-loot-grid {
-		grid-template-columns: minmax(0, 1fr);
-	}
-
-	#pywebio-scope-meow_loot_scope .meow-loot-card-body {
-		flex: 1;
-		flex-direction: row;
-		align-items: baseline;
-		justify-content: space-between;
-		gap: 8px;
-	}
-}
+/* 断点只用「最小宽度」逐级加列：
+   手机内容区被侧边栏挤到 300~350px 时仍排 2 列（每列约 150px，图标 30 + 名称 48 + padding 22 放得下），
+   不要退成单列 —— 单列会让每张卡片拉满整行，看着又大又空（2026-09-22 用户实测反馈）。 */
 
 @media (min-width: 640px) {
 	#pywebio-scope-meow_loot_scope .meow-loot-grid {
