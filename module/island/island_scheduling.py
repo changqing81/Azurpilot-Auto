@@ -7,7 +7,9 @@
    再从中筛出 `Scheduler.NextRun` 已到期的子模块；
 3. 以子任务身份代跑（配置绑定与 NextRun 都归子任务自己所有），
    子模块既有的「每日一次 / 每周一次 / 固定刷新」时间语义因此原样生效；
-4. 一轮结束后延迟 `IslandPlan.IntervalHours` 小时（收敛到 1~24 小时）才再次进岛。
+4. 一轮结束后把下一轮排在 `IslandPlan.IntervalHours` 小时之后（收敛到 1~24 小时）；
+   若开启 `IslandPlan.RespectSubTaskTimes`（默认开），则当某个子模块在 60 分钟以外到期时
+   会提前进岛去接那个时刻，否则完全按固定间隔。
 
 Pages:
     in: 任意页面
@@ -73,8 +75,13 @@ class IslandScheduling(Island):
     DEFAULT_INTERVAL_HOURS = ISLAND_PLAN_INTERVAL_DEFAULT
     # 岛屿内容每天 03:00 刷新，进岛时间到点后多等几分钟，避免和刷新抢跑
     RESET_BUFFER_MINUTES = 5
-    # 两次进岛的最小间隔：子模块 minute=0 的"立刻再看"不能造成高频进岛
-    MIN_RECHECK_MINUTES = 30
+    # 只有「距现在超过这个时长」的子模块 NextRun 才允许把下一轮拉近。
+    # 餐馆家族在开完店后会写 `task_delay(minute=0)`（立刻回头补货），每日订单 / 有鱼餐馆 /
+    # 白熊饮品等也会把 NextRun 指到几十分钟内。这类「近期待重检」几乎每轮都出现，
+    # 若也算作提前进岛的理由，IntervalHours 会被一直压到下界（2026-09-22 实测：
+    # 配 12 小时，实际每 33 分钟进一次岛，一天跑了 18 轮）。
+    # 阈值同时替代了早年那个 30 分钟的下界：任何留下来的候选都必然 ≥ 60 + 5 分钟。
+    EARLY_TRIGGER_MIN_MINUTES = 60
 
     # 游戏状态已损坏，继续代跑只会连环失败，需要交给调度器的重启流程处理
     FATAL_EXCEPTIONS = (
@@ -88,32 +95,41 @@ class IslandScheduling(Island):
     def run(self):
         """岛屿计划入口：一轮运行内代跑所有到期的岛屿子模块。"""
         logger.hr('岛屿计划运行', level=1)
-        self._converge_atomic_tasks()
+        finished = False
+        try:
+            self._converge_atomic_tasks()
 
-        task_list = self._build_task_list()
-        due_tasks = [name for name in task_list if self._is_sub_task_due(name)]
-        skipped = [name for name in task_list if name not in due_tasks]
-        logger.attr('岛屿计划清单', task_list)
-        logger.attr('本轮执行', due_tasks)
-        if skipped:
-            logger.attr('未到期跳过', skipped)
+            task_list = self._build_task_list()
+            due_tasks = [name for name in task_list if self._is_sub_task_due(name)]
+            skipped = [name for name in task_list if name not in due_tasks]
+            logger.attr('岛屿计划清单', task_list)
+            logger.attr('本轮执行', due_tasks)
+            if skipped:
+                logger.attr('未到期跳过', skipped)
 
-        if due_tasks:
-            # 岛屿内导航一律 get_ship=False：岛屿/管理页与「获得舰船」弹窗的特征容易
-            # 互认，交给 UI 去处理会点错东西。注意 get_ship 是 ui_goto 的参数，
-            # ui_ensure 的签名里没有（曾因此抛 TypeError 让整轮任务直接失败）。
-            self.ui_goto(page_island, get_ship=False)
-            failed = []
-            for task_name in due_tasks:
-                if not self._run_sub_task(task_name):
-                    failed.append(task_name)
-            if failed:
-                logger.warning(f'[岛屿计划] 本轮失败子任务: {failed}')
-            logger.info('[岛屿计划] 一轮运行结束')
-        else:
-            logger.info('[岛屿计划] 没有到期的岛屿子模块，跳过本次进岛')
-
-        self._delay_next_run()
+            if due_tasks:
+                # 岛屿内导航一律 get_ship=False：岛屿/管理页与「获得舰船」弹窗的特征容易
+                # 互认，交给 UI 去处理会点错东西。注意 get_ship 是 ui_goto 的参数，
+                # ui_ensure 的签名里没有（曾因此抛 TypeError 让整轮任务直接失败）。
+                self.ui_goto(page_island, get_ship=False)
+                failed = []
+                for task_name in due_tasks:
+                    if not self._run_sub_task(task_name):
+                        failed.append(task_name)
+                if failed:
+                    logger.warning(f'[岛屿计划] 本轮失败子任务: {failed}')
+                logger.info('[岛屿计划] 一轮运行结束')
+            else:
+                logger.info('[岛屿计划] 没有到期的岛屿子模块，跳过本次进岛')
+            finished = True
+        finally:
+            # 排期必须放在 finally：一轮被 GameStuckError 之类的致命异常中断时，
+            # 如果跳过排期，`Scheduler.NextRun` 会停在已过期的旧值，
+            # 调度器下一个空闲槽就立刻重跑（2026-09-22 实测：04:24 那轮 04:32 中断，
+            # 04:34 又进岛，间隔只有 9.7 分钟）。
+            if not finished:
+                logger.warning('[岛屿计划] 本轮被中断，仍按原计划排期，避免立刻重跑')
+            self._delay_next_run()
 
     # ==================== 调度决策 ====================
 
@@ -236,12 +252,19 @@ class IslandScheduling(Island):
         return hours
 
     def _next_island_run(self, interval_hours):
-        """计算下一轮进岛时间：取「固定间隔」与「最早到期的子模块 NextRun」中较早者。
+        """计算下一轮进岛时间。
 
-        子模块把下次时间指到 18:00（每日采集第二次）/ 次日 03:00（每日订单、每日任务）、
-        次日 03:00（每日补给）这类**固定时刻**。如果只按固定间隔进岛（如 12 小时），
+        默认（`IslandPlan.RespectSubTaskTimes` 开启）取「固定间隔」与「最早到期的子模块
+        NextRun」中较早者：子模块把下次时间指到 18:00（每日采集第二次）/ 次日 03:00
+        （每日订单、每日任务、每日补给）这类**固定时刻**，如果只按固定间隔进岛，
         这些时刻会落在两轮之间——2026-09-21 实测：每日采集 02:03 把下次设成当天 18:00，
         而下一轮是 14:23（未到期跳过），18:00 那次采集就永远丢了。
+
+        但只有「距现在超过 `EARLY_TRIGGER_MIN_MINUTES` 分钟」的 NextRun 才算数：
+        餐馆家族 `task_delay(minute=0)` 的立刻回访、几十分钟后的重检都属于噪声，
+        每轮结束都会出现，认了它们就等于把间隔一直压到下界（2026-09-22 实测见常量注释）。
+
+        关掉开关则完全按固定间隔，不再理会子模块时刻。
 
         Args:
             interval_hours (float): 用户配置的运行间隔（小时），作为间隔上限。
@@ -250,26 +273,36 @@ class IslandScheduling(Island):
             datetime: 下一轮进岛时间。
         """
         cap = current_time() + timedelta(hours=interval_hours)
+        if not self._respect_sub_task_times():
+            return cap
+
+        threshold = current_time() + timedelta(minutes=self.EARLY_TRIGGER_MIN_MINUTES)
         earliest = None
         for name in self.SUB_TASKS:
             next_run = deep_get(
                 self.config.data, keys=f'{name}.Scheduler.NextRun', default=None
             )
-            if isinstance(next_run, datetime) and next_run > current_time():
-                earliest = next_run if earliest is None else min(earliest, next_run)
+            if not isinstance(next_run, datetime) or next_run <= threshold:
+                continue
+            earliest = next_run if earliest is None else min(earliest, next_run)
         if earliest is None or earliest >= cap:
             return cap
         # 岛屿内容每天 03:00 刷新，到点后稍等几分钟再进岛，避免和刷新抢跑
         return earliest + timedelta(minutes=self.RESET_BUFFER_MINUTES)
 
+    def _respect_sub_task_times(self):
+        """是否允许子模块的到期时刻把下一轮提前。
+
+        配置里读不到时按「尊重」处理，保持既有行为。
+
+        Returns:
+            bool: 是否尊重子模块时刻。
+        """
+        return bool(getattr(self.config, 'IslandPlan_RespectSubTaskTimes', True))
+
     def _delay_next_run(self):
         """把岛屿计划自身延迟到下一轮进岛时间。"""
-        interval = self._get_interval_hours()
-        target = self._next_island_run(interval)
-        # 防抖：子模块 minute=0 的"立刻再看"不能造成高频进岛
-        floor = current_time() + timedelta(minutes=self.MIN_RECHECK_MINUTES)
-        if target < floor:
-            target = floor
+        target = self._next_island_run(self._get_interval_hours())
         self.config.task_delay(target=target)
         logger.info(f'[岛屿计划] 下次进岛时间: {self.config.Scheduler_NextRun}')
 
