@@ -191,7 +191,12 @@ class TestRichLogRendering(unittest.TestCase):
         self.assertEqual("", log.render_many([]))
 
     def test_extend_appends_and_trims_oldest_nodes(self):
-        """前端日志 DOM 必须有上限：只 append 不回收会把 WebView2 撑到 GB 级。"""
+        """前端日志 DOM 必须有上限：只 append 不回收会把 WebView2 撑到 GB 级。
+
+        裁剪必须按"块"整删：rich 输出的 HTML 里 span 之间夹杂裸文本节点，
+        若按元素节点逐个裁剪（children() + remove()），夹在中间的文本节点
+        会残留且永不回收，内存照样无限增长。
+        """
         log = RichLog("log")
         log.keep_bottom = False
 
@@ -199,11 +204,13 @@ class TestRichLogRendering(unittest.TestCase):
             log.extend("<pre>一行日志</pre>")
 
         js = run_js.call_args[0][0]
-        self.assertIn("#pywebio-scope-log>div", js)
-        self.assertIn("box.append(text)", js)
-        self.assertIn("box.children()", js)
-        self.assertIn(".remove()", js)
-        self.assertIn(str(RichLog.dom_max_entries), js)
+        self.assertIn('document.querySelector("#pywebio-scope-log>div")', js)
+        # 内容注入：整块 innerHTML，块级分组后整删
+        self.assertIn("chunk.innerHTML = text", js)
+        self.assertIn("box.appendChild(chunk)", js)
+        self.assertIn("firstElementChild", js)
+        self.assertIn("removeChild", js)
+        self.assertIn(str(RichLog.dom_max_chunks), js)
         self.assertEqual(run_js.call_args[1]["text"], "<pre>一行日志</pre>")
 
     def test_extend_does_not_emit_js_for_empty_text(self):
@@ -226,9 +233,9 @@ class TestRichLogRendering(unittest.TestCase):
         self.assertIn("scrollTop", run_js.call_args_list[1][0][0])
 
     def test_dom_limit_leaves_room_for_full_reset_render(self):
-        # reset() 会把服务端缓冲（ProcessManager.renderables_max_length = 400）
-        # 全量渲染进 DOM，上限必须大于它，否则首显结果会被立刻裁掉。
-        self.assertGreater(RichLog.dom_max_entries, 400)
+        # reset() 全量首显（400 条）只占 1 块，chunk 上限必须远大于 1，
+        # 保证首显后仍有足够的向上回溯空间且不会被立刻裁掉。
+        self.assertGreaterEqual(RichLog.dom_max_chunks, 100)
 
 
 class TestInitialRendering(unittest.TestCase):

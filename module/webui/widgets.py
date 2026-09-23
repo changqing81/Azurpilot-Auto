@@ -185,19 +185,28 @@ class RichLog:
 
         return "".join(parts)
 
-    # 前端日志 DOM 上限。
+    # 前端日志 DOM 上限（按"块"计）。
     #
     # 服务端有环形缓冲（ProcessManager.renderables_max_length = 400），但前端
     # 拿到的是**增量 append**：服务端裁掉旧条目只影响它自己，已经下发到页面的
-    # 节点没有任何回收机制。7x24 挂机时 DOM 元素会一直堆积——实测每条日志约
-    # 9 个元素（1 个 pre + 8 个 span）、约 846 字节 HTML，一天上万条日志即约
-    # 10 万个元素，最终把 WebView2 渲染进程撑到 GB 级（用户实测 3.3GB）。
+    # 节点没有任何回收机制。7x24 挂机时 DOM 会一直堆积——最终把 WebView2
+    # 渲染进程撑到 GB 级（用户实测 3.3GB / 4.6GB）。
     #
-    # 这里在每批 append 后裁掉最旧的节点。取 2000 是因为：
-    # reset() 全量首显最多一次渲染 400 条，上限必须显著大于它，否则首显后立刻
-    # 被裁掉、向上回溯也没有空间；2000 条约合 1.8MB HTML、1.8 万个元素，
-    # 量级可控又不影响查看历史。
-    dom_max_entries = 2000
+    # 第一版修复（236126ab4）在 append 后用 `box.children()` 计数并裁掉最旧
+    # 节点，但它数的是**元素节点**：rich 渲染输出的 HTML 里 span 之间夹杂着
+    # 裸文本节点（时间分隔符 `│`、换行 `\n` 等），裁剪删掉 span 后，夹在
+    # span 之间的文本节点全部残留且永不回收。CDP 实测（2026-09-23）：children
+    # 稳定在 2000 的同时 innerHTML 以 ~7KB/s 无限增长、全页节点数疯涨。
+    #
+    # 现改为"分块"方案：每次 append 的内容整体包进一个 `display: contents`
+    # 的 div（布局上完全透明，视觉与直插无差异），裁剪按块整删——块内的
+    # span 与文本节点一起回收，不存在残留。`display: contents` 在 WebView2
+    # (Chromium) 下无兼容性问题。
+    #
+    # 取 200：每次 append 生成 1 块（默认 0.25s 一批，约 1~25 条日志），
+    # 200 块约合 400~5000 条日志、2MB HTML、4 万节点以内，量级可控又不影响
+    # 查看历史；全量首显（400 条）只占 1 块，不会被立刻裁掉。
+    dom_max_chunks = 200
 
     def extend(self, text):
         if text:
@@ -205,15 +214,21 @@ class RichLog:
             run_js(
                 (
                     "(function () {"
-                    'var box = $("#pywebio-scope-%s>div");'
-                    "box.append(text);"
-                    "var nodes = box.children();"
-                    "if (nodes.length > %d) {"
-                    "nodes.slice(0, nodes.length - %d).remove();"
+                    'var box = document.querySelector("#pywebio-scope-%s>div");'
+                    "if (!box) return;"
+                    'var chunk = document.createElement("div");'
+                    'chunk.className = "alas-log-chunk";'
+                    'chunk.style.display = "contents";'
+                    "chunk.innerHTML = text;"
+                    "box.appendChild(chunk);"
+                    "var n = box.children.length;"
+                    "if (n > %d) {"
+                    "for (var i = 0; i < n - %d; i++) "
+                    "box.removeChild(box.firstElementChild);"
                     "}"
                     "})();"
                 )
-                % (self.scope, self.dom_max_entries, self.dom_max_entries),
+                % (self.scope, self.dom_max_chunks, self.dom_max_chunks),
                 text=str(text),
             )
             if self.keep_bottom:
