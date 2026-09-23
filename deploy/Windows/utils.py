@@ -73,7 +73,7 @@ def poor_yaml_read(file):
                 continue
             result = re.match(regex, line)
             if result:
-                k, v = result.group(1), result.group(2).strip('\n\r\t\' ')
+                k, v = result.group(1), result.group(2).strip('\n\r\t\'" ')
                 if v:
                     if v.lower() == 'null':
                         v = None
@@ -81,7 +81,10 @@ def poor_yaml_read(file):
                         v = False
                     elif v.lower() == 'true':
                         v = True
-                    elif v.isdigit():
+                    elif v.isdigit() and not (len(v) > 1 and v.startswith('0')):
+                        # 以 0 开头的纯数字转 int 会吃掉前导 0（'060606' -> 60606），
+                        # 密码这类语义上就是字符串的配置会因此永远校验不通过；
+                        # 故只有不以 0 开头的纯数字才按数字处理。
                         v = int(v)
                     data[k] = v
 
@@ -106,6 +109,10 @@ def poor_yaml_write(data, file, template_file=DEPLOY_TEMPLATE):
             value = "true"
         elif value is False:
             value = "false"
+        elif key == 'Password' and isinstance(value, str) and value:
+            # 密码一律写成带引号的字符串：下游读取方（含启动器的 YAML 解析）
+            # 会把 '060606' 这类不带引号的纯数字当整数，丢掉前导 0。
+            value = f'"{value}"'
         text = re.sub(f'{key}:.*?\n', f'{key}: {value}\n', text)
 
     with open(file, 'w', encoding='utf-8', newline='') as f:

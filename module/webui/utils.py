@@ -29,6 +29,7 @@ from rich.terminal_theme import TerminalTheme
 
 from module.config.deep import deep_iter
 from module.logger import logger
+from module.webui.lang import t
 from module.webui.setting import State
 
 RE_DATETIME = (
