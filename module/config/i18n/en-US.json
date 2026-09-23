@@ -1762,6 +1762,10 @@
       "name": "Urgent Commission Farming",
       "help": "Warning: This feature allows players to obtain a small amount of diamonds, but is not an efficient way to obtain diamonds.\nPlayers who have been playing Azur Lane for a short time can easily become superstitious about zero breakage and low consumption, while neglecting character development.\nRunning this function will only make you feel very fulfilled, but your account will actually have zero improvement.\nThe main purpose of this function is to allow players with a formed lineup to obtain additional Rubik's Cubes. Please treat diamonds rationally as a by-product.\n\nThis feature will replace the flagship after flagship level 32\nRegarding the emergency commission refresh mechanism, you can read https://bbs.nga.cn/read.php?tid=27134956\nCommissioned fuel consumption ratio: A3 > A1 > 2-4 > 2-1. It is recommended to choose the activity diagram when there is an activity diagram. 2-1 will pick the question mark to have more supplies.\nOne team will complete all battles. The front row should be level 100 zero-break destroyer with output equipment, and the back row should be level 33 and below white-skin zero-break aircraft carriers.\nThe second team should provide cross-team support (cross-team barrage, cross-team assistance)\n\nWhen the fleet function cannot be set, the mission should be stopped in the following ways to avoid cross-team attacks and a large amount of oil being consumed:\nIf error push is set, a task stop message will be pushed and the task will be stopped.\nIf error push is not set, AzurPilot will be stopped directly."
     },
+    "EventFallbackStage": {
+      "name": "Stage after event",
+      "help": "When the event PT limit or time limit is reached, or the event is unavailable, continue on this main campaign stage. Default: 2-4. Enter 0 to disable the task and keep the event stage. Only applies to tasks currently farming an event stage."
+    },
     "ChangeFlagship": {
       "name": "Change Flagship",
       "help": "Change flagship when flagship level >= 32 or red face\nLook for white-skinned aircraft carriers with levels between 1-31, and choose replacement flagships when they retire. All white-skinned aircraft carriers with levels greater than level 1 will be considered decommissioned targets. Please be sure to target ships that are not targets. Change flagship equipment when changing ships, this is done by recording the previous equipment.\n\nChanging equipment will only change the slot in the equipment, even white equipment will be changed. If a flagship is specified, all 5 equipment will be replaced. If a flagship is not specified, only the equipment will be replaced.",
@@ -1856,12 +1860,12 @@
       "help": ""
     },
     "PtLimit": {
-      "name": "Event PT Limit",
-      "help": "When accumulated PT reaches the given value, all event tasks are disabled. 0 means no limit. Cannot trigger immediately when using auto-search.\nAfter enabling, you only need to open all event tasks without counting total runs."
+      "name": "Stop when event PT reaches X",
+      "help": "When accumulated PT reaches the given value, all event tasks are disabled. 0 means no limit. Cannot trigger immediately when using auto-search.\nAfter enabling, you only need to open all event tasks without counting total runs.\nGems farming and Three-oil low-cost farming follow their own Stage after event setting: continue on a main campaign stage, or stop if set to 0."
     },
     "TimeLimit": {
-      "name": "Event Time Limit",
-      "help": "When local time exceeds the given value, all event tasks are disabled. '2020-01-01 00:00:00' means no limit. Timer resets after triggering once.\nAfter setting, prevents forgetting to close tasks after an event ends."
+      "name": "Event time limit",
+      "help": "When local time exceeds the given value, all event tasks are disabled. '2023-01-01 00:00:00' means no limit. Timer resets after triggering once.\nAfter setting, prevents forgetting to close tasks after an event ends.\nGems farming and Three-oil low-cost farming follow their own Stage after event setting: continue on a main campaign stage, or stop if set to 0."
     }
   },
   "TaskBalancer": {

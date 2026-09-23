@@ -2,7 +2,7 @@
 
 管理活动战役的配置和状态，包括：
 - 活动结束时的自动禁用和配置重置
-- GemsFarming 任务的关卡重置（活动结束时回退到 2-4）
+- 低耗活动任务结束时按配置切换主线，或停用并保留活动关卡
 - 活动推送通知
 - 活动页面的导航检测
 
@@ -17,6 +17,7 @@
 继承自 CampaignStatus，提供活动状态检测能力。
 """
 
+import os
 import re
 
 from module.campaign.campaign_status import CampaignStatus
@@ -53,7 +54,7 @@ class CampaignEvent(CampaignStatus):
 
     def _disable_tasks(self, tasks):
         """
-        禁用指定任务列表中的任务。
+        禁用活动任务；低耗任务按各自配置切换主线或停止。
 
         Args:
             tasks (list[str]): 任务名称列表。
@@ -62,7 +63,23 @@ class CampaignEvent(CampaignStatus):
             # 禁用普通活动任务
             for task in tasks:
                 if task in GEMS_FARMINGS:
-                    continue
+                    # 原本就在刷主线的任务不受活动收尾影响。
+                    name = self.config.cross_get(keys=f'{task}.Campaign.Name', default='2-4')
+                    if self.stage_is_main(name):
+                        continue
+                    stage = str(self.config.cross_get(
+                        keys=f'{task}.GemsFarming.EventFallbackStage', default='2-4')).strip().lower()
+                    match = re.fullmatch(r'(?:campaign_)?([1-9]\d?)[-_]([1-4])', stage)
+                    if match and os.path.isfile(
+                            f'./campaign/campaign_main/campaign_{match[1]}_{match[2]}.py'):
+                        stage = f'{match[1]}-{match[2]}'
+                        logger.info(f'[活动战役] 将 `{task}` 切换到主线 {stage}')
+                        self.config.cross_set(keys=f'{task}.Campaign.Name', value=stage)
+                        self.config.cross_set(keys=f'{task}.Campaign.Event', value='campaign_main')
+                        # 保留启用状态和调度时间，不重新启用用户已关闭的任务。
+                        continue
+                    if stage != '0':
+                        logger.warning(f'[活动战役] `{task}` 的后续关卡无效: {stage}，停止任务')
                 keys = f'{task}.Scheduler.Enable'
                 logger.info(f'[活动战役] 禁用任务 `{task}`')
                 self.config.cross_set(keys=keys, value=False)
@@ -70,9 +87,6 @@ class CampaignEvent(CampaignStatus):
                 self.config.cross_set(keys=keys, value=False)
                 keys = f'{task}.Emotion.Fleet2Onsen'
                 self.config.cross_set(keys=keys, value=False)
-
-            # 重置 GemsFarming
-            self._reset_gems_farming(tasks)
 
             logger.info(f'[活动战役] 重置活动时间限制')
             self.config.cross_set(keys='EventGeneral.EventGeneral.TimeLimit', value=DEFAULT_TIME)

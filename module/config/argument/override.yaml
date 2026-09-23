@@ -119,6 +119,7 @@ Ambush11:
     AutoSearchMode: sub_standby
     DistanceToBoss: use_open_ocean_support
   GemsFarming:
+    EventFallbackStage: '0'
     VanguardLevelMin: 1
     VanguardLevelMax: 28
 

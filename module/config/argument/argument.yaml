@@ -602,6 +602,9 @@ C124LargeLeveling:
     value: 3
     option: [3, 4, 5]
 GemsFarming:
+  EventFallbackStage:
+    type: input
+    value: 2-4
   ChangeFlagship:
     value: ship_equip
     option: [ ship, ship_equip ]
