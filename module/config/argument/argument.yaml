@@ -288,7 +288,7 @@ DropRecord:
   CombatRecord:
     value: do_not
     option: [do_not, save]
-  # 大世界掉落截图按任务拆分（原 OpsiRecord 单一开关）。跨月每日跟短猫相接、
+  # 大世界掉落截图按任务拆分（原 OpsiRecord 单一开关）。跨月每日跟大世界每日、
   # 档案坐标跟隐秘海域、月度Boss跟深渊坐标共用一项，其余任务走 OpsiOther。
   # 本地为本地档位体系（掉落记录落本地档，无上传通道），沿用 local/save_and_local。
   OpsiHazard1Leveling:

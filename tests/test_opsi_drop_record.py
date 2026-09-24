@@ -2,7 +2,7 @@
 
 背景：原先只有一个 `Alas.DropRecord.OpsiRecord` 管着所有大世界任务的掉落截图，
 现在拆成 8 个开关——侵蚀1练级、耄耋相接、大世界每日、隐秘海域、深渊海域、
-塞壬要塞、每月开荒各一个，`OpsiOther` 兜底没列出的任务。跨月每日跟耄耋相接、
+塞壬要塞、每月开荒各一个，`OpsiOther` 兜底没列出的任务。跨月每日跟大世界每日、
 档案坐标跟隐秘海域、月度Boss跟深渊海域共用开关，共用只影响存图与否，掉落统计
 仍按各自的 genre 归类。这里锁定四件事：旧配置迁移时旧值被铺给每个新开关、
 运行期按当前任务取到该读的开关（含共用）、没列出的任务落到 `OpsiOther`、
@@ -108,13 +108,13 @@ class TestOpsiDropRecordLookup(FakeConfigTestCase):
                 self.assertEqual(opsi_drop_record(config), expect)
 
     def test_shared_tasks_read_the_host_switch(self):
-        """跨月每日跟短猫相接、档案坐标跟隐秘海域、月度Boss跟深渊坐标共用开关。"""
+        """跨月每日跟大世界每日、档案坐标跟隐秘海域、月度Boss跟深渊坐标共用开关。"""
         values = {
-            'OpsiMeowfficerFarming': 'upload',
+            'OpsiDaily': 'save_and_upload',
             'OpsiObscure': 'save',
             'OpsiAbyssal': 'do_not',
         }
-        for task, expect in (('OpsiCrossMonth', 'upload'),
+        for task, expect in (('OpsiCrossMonth', 'save_and_upload'),
                              ('OpsiArchive', 'save'),
                              ('OpsiMonthBoss', 'do_not')):
             with self.subTest(task=task):

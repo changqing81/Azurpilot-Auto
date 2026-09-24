@@ -1018,7 +1018,7 @@
     },
     "OpsiMeowfficerFarming": {
       "name": "Meowfficer farming drop screenshot",
-      "help": "Upload parses drops into the local statistics database, which the profit stats under the \"Meowfficer loot\" category rely on\nCross-Month Daily shares this switch",
+      "help": "Upload parses drops into the local statistics database, which the profit stats under the \"Meowfficer loot\" category rely on",
       "do_not": "No action",
       "save": "Save",
       "upload": "Upload",
@@ -1026,7 +1026,7 @@
     },
     "OpsiDaily": {
       "name": "Operation Siren daily drop screenshot",
-      "help": "Upload currently only takes effect on Meowfficer farming",
+      "help": "Upload currently only takes effect on Meowfficer farming\nCross-Month Daily shares this switch",
       "do_not": "No action",
       "save": "Save",
       "upload": "Upload",
