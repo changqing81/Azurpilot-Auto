@@ -210,3 +210,27 @@ def clamp_island_plan_interval(value, default=ISLAND_PLAN_INTERVAL_DEFAULT):
     if hours > ISLAND_PLAN_INTERVAL_MAX:
         return ISLAND_PLAN_INTERVAL_MAX
     return int(hours) if hours.is_integer() else hours
+
+
+# 大世界掉落截图拆成按任务分类的开关后的参数名（DropRecord 组内），
+# 最后一个 OpsiOther 兜底未单独列出的任务。
+OPSI_RECORD_ARGS = (
+    'OpsiHazard1Leveling',
+    'OpsiMeowfficerFarming',
+    'OpsiDaily',
+    'OpsiObscure',
+    'OpsiAbyssal',
+    'OpsiStronghold',
+    'OpsiExplore',
+    'OpsiOther',
+)
+
+
+def opsi_record_redirect(value):
+    """
+    OpsiRecord → 按任务拆分的 8 个掉落截图开关。
+
+    旧的单一开关同时管着所有大世界任务，拆分后旧值原样铺给每一个开关，
+    升级后各任务的截图行为与升级前一致，不会突然多出或丢掉截图。
+    """
+    return [value] * len(OPSI_RECORD_ARGS)

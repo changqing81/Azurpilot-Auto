@@ -93,9 +93,9 @@ class GeneratedConfig:
     # 配置组 `Emulator`
     Emulator_Serial = 'auto'
     Emulator_PackageName = 'auto'  # auto, com.bilibili.azurlane, com.YoStarEN.AzurLane, com.YoStarJP.AzurLane, com.hkmanjuu.azurlane.gp, com.bilibili.blhx.huawei, com.bilibili.blhx.honor, com.bilibili.blhx.mi, com.tencent.tmgp.bilibili.blhx, com.bilibili.blhx.baidu, com.bilibili.blhx.qihoo, com.bilibili.blhx.nearme.gamecenter, com.bilibili.blhx.vivo, com.bilibili.blhx.mz, com.bilibili.blhx.dl, com.bilibili.blhx.lenovo, com.bilibili.blhx.uc, com.bilibili.blhx.mzw, com.yiwu.blhx.yx15, com.bilibili.blhx.m4399, com.bilibili.blhx.bilibiliMove, com.hkmanjuu.azurlane.gp.mc
-    Emulator_ServerName = 'disabled'  # disabled, cn_android-0, cn_android-1, cn_android-2, cn_android-3, cn_android-4, cn_android-5, cn_android-6, cn_android-7, cn_android-8, cn_android-9, cn_android-10, cn_android-11, cn_android-12, cn_android-13, cn_android-14, cn_android-15, cn_android-16, cn_android-17, cn_android-18, cn_android-19, cn_android-20, cn_android-21, cn_android-22, cn_android-23, cn_android-24, cn_android-25, cn_android-26, cn_android-27, cn_android-28, cn_android-29, cn_ios-0, cn_ios-1, cn_ios-2, cn_ios-3, cn_ios-4, cn_ios-5, cn_ios-6, cn_ios-7, cn_ios-8, cn_ios-9, cn_ios-10, cn_channel-0, cn_channel-1, cn_channel-2, cn_channel-3, cn_channel-4, cn_channel-5, en-0, en-1, en-2, en-3, en-4, en-5, jp-0, jp-1, jp-2, jp-3, jp-4, jp-5, jp-6, jp-7, jp-8, jp-9, jp-10, jp-11, jp-12, jp-13, jp-14, jp-15, jp-16, jp-17
-    Emulator_ScreenshotMethod = 'auto'  # auto, ADB, ADB_nc, uiautomator2, aScreenCap, aScreenCap_nc, DroidCast, DroidCast_raw, nemu_ipc, ldopengl
-    Emulator_ControlMethod = 'MaaTouch'  # ADB, uiautomator2, minitouch, Hermit, MaaTouch
+    Emulator_ServerName = 'disabled'  # disabled, cn_android-0, cn_android-1, cn_android-2, cn_android-3, cn_android-4, cn_android-5, cn_android-6, cn_android-7, cn_android-8, cn_android-9, cn_android-10, cn_android-11, cn_android-12, cn_android-13, cn_android-14, cn_android-15, cn_android-16, cn_android-17, cn_android-18, cn_android-19, cn_android-20, cn_android-21, cn_android-22, cn_android-23, cn_android-24, cn_android-25, cn_android-26, cn_android-27, cn_android-28, cn_android-29, cn_ios-0, cn_ios-1, cn_ios-2, cn_ios-3, cn_ios-4, cn_ios-5, cn_ios-6, cn_ios-7, cn_ios-8, cn_ios-9, cn_ios-10, cn_channel-0, cn_channel-1, cn_channel-2, cn_channel-3, cn_channel-4, cn_channel-5, en-0, en-1, en-2, en-3, en-4, en-5, en-6, jp-0, jp-1, jp-2, jp-3, jp-4, jp-5, jp-6, jp-7, jp-8, jp-9, jp-10, jp-11, jp-12, jp-13, jp-14, jp-15, jp-16, jp-17, tw-0, tw-1, tw-2, tw-3, tw-4
+    Emulator_ScreenshotMethod = 'auto'  # auto, ADB, ADB_nc, uiautomator2, aScreenCap, aScreenCap_nc, DroidCast, DroidCast_raw, nemu_ipc, ldopengl, azurpilot_android
+    Emulator_ControlMethod = 'MaaTouch'  # ADB, uiautomator2, minitouch, Hermit, MaaTouch, nemu_ipc, azurpilot_android
     Emulator_GameSettings = False  # True, False
     Emulator_ScreenshotDedithering = False
     Emulator_AdbRestart = False
@@ -116,27 +116,28 @@ class GeneratedConfig:
     Error_HandleError = True
     Error_SaveError = True
     Error_StrictRestart = False
-    Error_SaveErrorCount = 30
+    Error_SaveErrorRetentionDays = 30
+    Error_SaveErrorBackUpMethod = 'zip'  # delete, zip, copy
+    Error_SaveErrorZipMethod = 'zip'  # bz2, gzip, xz, zip
     Error_OnePushConfig = 'provider: null'
     Error_ScreenshotLength = 1
     Error_GameStuckRestart = False
     Error_GameStuckThreshold = 3
     Error_AdbOfflineRestart = False
     Error_AdbOfflineThreshold = 3
-    Error_LlmAnalysis = True
+    Error_WatchdogEnable = False
+    Error_WatchdogTaskEnable = False
+    Error_WatchdogTaskTimeout = 120
+    Error_RestartOperationTimeoutEnable = False
+    Error_RestartOperationTimeout = 120
+    Error_LlmAnalysis = False
     Error_LlmApiKey = None
     Error_LlmApiBase = 'https://api.xiaomimimo.com/v1'
     Error_LlmModel = 'mimo-v2.5-pro'
 
-    # 配置组 `TaskFailureProtection`
-    TaskFailureProtection_Enable = False  # True, False
-    TaskFailureProtection_PushNotify = False  # True, False
-    TaskFailureProtection_MaxFailures = 3
-    TaskFailureProtection_TimeWindowHours = 24
-    TaskFailureProtection_WatchdogEnable = True  # True, False
-    TaskFailureProtection_WatchdogLogTimeout = 300
-    TaskFailureProtection_WatchdogTaskTimeout = 120
-    TaskFailureProtection_RestartOperationTimeout = 120
+    # 配置组 `DailySummary`
+    DailySummary_Enable = False  # True, False
+    DailySummary_TriggerTime = '20:00'
 
     # 配置组 `Optimization`
     Optimization_OcrDevice = 'auto'  # auto, qnn_npu, openvino_npu, openvino_gpu, gpu, openvino_cpu, cpu, ane
@@ -149,7 +150,7 @@ class GeneratedConfig:
     Optimization_ScreenshotInterval = 0.3
     Optimization_CombatScreenshotInterval = 1.0
     Optimization_TaskHoardingDuration = 0
-    Optimization_CloseEmulatorDuringLongWait = True  # True, False
+    Optimization_CloseEmulatorDuringLongWait = False  # True, False
     Optimization_WhenTaskQueueEmpty = 'goto_main'  # stay_there, goto_main, close_game
     Optimization_WhenSchedulerStopped = 'stay_there'  # stay_there, goto_main, close_game, close_emulator
     Optimization_WarmupEnable = True  # True, False
@@ -157,13 +158,31 @@ class GeneratedConfig:
 
     # 配置组 `DropRecord`
     DropRecord_SaveFolder = './screenshots'
-    DropRecord_ResearchRecord = 'do_not'  # do_not, save
-    DropRecord_CommissionRecord = 'do_not'  # do_not, save
+    DropRecord_RetentionDays = 0
+    DropRecord_BackUpMethod = 'zip'  # delete, zip, copy
+    DropRecord_ZipMethod = 'zip'  # bz2, gzip, xz, zip
+    DropRecord_AzurStatsID = None
+    DropRecord_API = 'default'  # default, cn_gz_reverse_proxy
+    DropRecord_ResearchRecord = 'do_not'  # do_not, save, upload, save_and_upload
+    DropRecord_CommissionRecord = 'do_not'  # do_not, save, upload, save_and_upload
+    DropRecord_CommissionIncomeScreenshot = 'save'  # do_not, save
     DropRecord_CombatRecord = 'do_not'  # do_not, save
-    DropRecord_OpsiRecord = 'local'  # do_not, save, local, save_and_local
-    DropRecord_OpsiShopRecord = 'do_not'  # do_not, save
+    DropRecord_OpsiHazard1Leveling = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiMeowfficerFarming = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiDaily = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiObscure = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiAbyssal = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiStronghold = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiExplore = 'upload'  # do_not, save, upload, save_and_upload
+    DropRecord_OpsiOther = 'upload'  # do_not, save, upload, save_and_upload
     DropRecord_MeowfficerBuy = 'do_not'  # do_not, save
-    DropRecord_MeowfficerTalent = 'do_not'  # do_not, save
+    DropRecord_MeowfficerTalent = 'do_not'  # do_not, save, upload, save_and_upload
+    DropRecord_TelemetryReport = True
+    DropRecord_BugReport = True
+
+    # 配置组 `Backup`
+    Backup_Enable = True
+    Backup_KeepDays = 7
 
     # 配置组 `Log`
     Log_LogKeepCount = 3
@@ -184,7 +203,7 @@ class GeneratedConfig:
     PublicEmotion_FleetOnsen = False
 
     # 配置组 `YukikazeTaskManager`
-    YukikazeTaskManager_TaskPriorityAdjustment = 'Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandPlan\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover'
+    YukikazeTaskManager_TaskPriorityAdjustment = 'Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover'
 
     # 配置组 `OneClickRetire`
     OneClickRetire_KeepLimitBreak = 'keep_limit_break'  # keep_limit_break, do_not_keep
@@ -217,11 +236,18 @@ class GeneratedConfig:
     OperationHandover_Count = 1
     OperationHandover_AutoSupplementTime = False
     OperationHandover_UseHandoverBook = False
+    OperationHandover_ConsumeAllBook = False  # True, False
+    OperationHandover_ConsumeAllBookWeekday = 'sun'  # mon, tue, wed, thu, fri, sat, sun
+    OperationHandover_ConsumeAllBookTime = '00:00'
+    OperationHandover_MaintainOverride = False  # True, False
+    OperationHandover_OilLimit = 1000
+    OperationHandover_ConsumeAllBookRecord = datetime.datetime(2020, 1, 1, 0, 0)
+    OperationHandover_CommissionEnd = datetime.datetime(2020, 1, 1, 0, 0)
 
     # 配置组 `StopCondition`
     StopCondition_OilLimit = 1000
+    StopCondition_OilLimitHardFloor = 500
     StopCondition_CoinLimit = 0
-    StopCondition_CoinLimit_Enable = False
     StopCondition_RunCount = 0
     StopCondition_MapAchievement = 'non_stop'  # non_stop, non_stop_clear_all, 100_percent_clear, map_3_stars, threat_safe, threat_safe_without_3_stars
     StopCondition_StageIncrease = False
@@ -259,6 +285,7 @@ class GeneratedConfig:
 
     # 配置组 `Emotion`
     Emotion_Mode = 'calculate'  # calculate, ignore, calculate_ignore
+    Emotion_IgnoreShipwreck = False
     Emotion_Fleet1Value = 119
     Emotion_Fleet1Record = datetime.datetime(2020, 1, 1, 0, 0)
     Emotion_Fleet1Control = 'prevent_green_face'  # keep_exp_bonus, prevent_green_face, prevent_yellow_face, prevent_red_face
@@ -321,7 +348,7 @@ class GeneratedConfig:
 
     # 配置组 `EventGeneral`
     EventGeneral_PtLimit = 0
-    EventGeneral_TimeLimit = datetime.datetime(2020, 1, 1, 0, 0)
+    EventGeneral_TimeLimit = datetime.datetime(2023, 1, 1, 0, 0)
 
     # 配置组 `TaskBalancer`
     TaskBalancer_Enable = False
@@ -362,6 +389,10 @@ class GeneratedConfig:
     EventShop_PresetFilter = 'all'  # all, custom
     EventShop_CustomFilter = 'EquipUR > EquipSSR > Cube > GachaTicket\n> Array > Chip > CatT3 \n> Meta > SkinBox\n> Oil > Coin > Medal > ExpBookT1 > FoodT1\n> DR > PR\n> AugmentCore > AugmentEnhanceT2 > AugmentChangeT2 > AugmentChangeT1\n> CatT2 > CatT1 > PlateGeneralT3 > PlateT3 > BoxT4\n> ShipSSR'
 
+    # 配置组 `ShopAdvanced`
+    ShopAdvanced_Mode = 'legacy'  # legacy, advanced
+    ShopAdvanced_Script = ''
+
     # 配置组 `Commission`
     Commission_PresetFilter = 'cube'  # cube, cube_24h, chip, chip_24h, oil, custom
     Commission_DynamicProgramming = True
@@ -373,13 +404,12 @@ class GeneratedConfig:
     Commission_CustomFilter = 'DailyEvent > Gem-4 > Gem-2 > Gem-8 > ExtraCube-0:30\n> UrgentCube-1:30 > UrgentCube-1:45 > UrgentCube-3\n> ExtraDrill-5:20 > ExtraDrill-2 > ExtraDrill-3:20\n> UrgentCube-2:15 > UrgentCube-4\n> ExtraDrill-1 > UrgentCube-6 > ExtraCube-1:30\n> ExtraDrill-2:40 > ExtraDrill-0:20\n> Major > DailyChip > DailyResource\n> ExtraPart-0:30 > ExtraOil-1 > UrgentBox-6\n> ExtraCube-3 > ExtraPart-1 > UrgentBox-3\n> ExtraCube-4 > ExtraPart-1:30 > ExtraOil-4\n> UrgentBox-1 > ExtraCube-5 > UrgentBox-1\n> ExtraCube-8 > ExtraOil-8\n> UrgentDrill-4 > UrgentDrill-2:40 > UrgentDrill-2\n> UrgentDrill-1 > UrgentDrill-1:30 > UrgentDrill-1:10\n> Extra-0:20 > Extra-0:30 > Extra-1:00 > Extra-1:30 > Extra-2:00\n> shortest'
     Commission_Blacklist = None
     Commission_DoMajorCommission = False
-    Commission_NotifyReward = True
-    Commission_NotifyRewardStatistics = True
+    Commission_CommissionNotifyReward = False
+    Commission_CommissionNotifyRewardStatistics = True
     Commission_DetectShipDrop = False  # True, False
     Commission_GemNotify = True
     Commission_GemStatistics = False
     Commission_GemStatisticsPeriod = 'month'  # today, week, month
-    Commission_CommissionNotifyRewardCube = False
 
     # 配置组 `Tactical`
     Tactical_TacticalFilter = 'SameT4 > SameT3 > SameT2 > SameT1\n> BlueT2 > YellowT2 > RedT2\n> BlueT3 > YellowT3 > RedT3\n> BlueT4 > YellowT4 > RedT4\n> BlueT1 > YellowT1 > RedT1\n> first'
@@ -453,22 +483,18 @@ class GeneratedConfig:
     Reward_CollectMission = True
     Reward_CollectWeeklyMission = False
 
-    # 配置组 `Secretary`
-    Secretary_CustomFilter = 'ultra > super_rare > elite > rare > common'
-    Secretary_LowFavorabilityPriority = False
-    Secretary_BackupEnable = True
-    Secretary_CheckInterval = 0
-    Secretary_Notify = True
-    Secretary_OnePushConfig = 'provider: null'
-
     # 配置组 `Awaken`
     Awaken_LevelCap = 'level120'  # level120, level125
     Awaken_Favourite = False
 
-    # 配置组 `Report`
-    Report_Enable = False
-    Report_TriggerTime = '23:50'
-    Report_OnePushConfig = 'provider: null'
+    # 配置组 `Secretary`
+    Secretary_CustomFilter = 'ultra > super_rare > elite > rare > common'
+    Secretary_LowFavorabilityPriority = False
+    Secretary_FavouriteOnly = True
+    Secretary_BackupEnable = True
+    Secretary_CheckInterval = 0
+    Secretary_Notify = True
+    Secretary_OnePushConfig = 'provider: null'
 
     # 配置组 `GeneralShop`
     GeneralShop_Enable = True
@@ -579,7 +605,6 @@ class GeneratedConfig:
     # 配置组 `Hard`
     Hard_HardStage = '11-4'
     Hard_HardFleet = 1  # 1, 2
-    Hard_UseRecommendFleet = False
 
     # 配置组 `Exercise`
     Exercise_DelayUntilHoursBeforeNextUpdate = 12  # 1, 2, 3, 4, 5, 12
@@ -686,7 +711,7 @@ class GeneratedConfig:
     OpsiHazard1Leveling_TargetZone = 0  # 0, 44, 22
     OpsiHazard1Leveling_OperationCoinsPreserve = 40000
     OpsiHazard1Leveling_MinimumActionPointReserve = 200
-    OpsiHazard1Leveling_ExecuteFixedPatrolScan = 0  # 0, 1, 2
+    OpsiHazard1Leveling_ExecuteFixedPatrolScan = False
     OpsiHazard1Leveling_SkipHpCheck = False  # True, False
     OpsiHazard1Leveling_Cl1Filter = 'ActionPoint'
     OpsiHazard1Leveling_RecordNonCL1AP = True
@@ -708,7 +733,6 @@ class GeneratedConfig:
 
     # 配置组 `OpsiFleetAutoChange`
     OpsiFleetAutoChange_Enable = False  # True, False
-    OpsiFleetAutoChange_AnyShipReached = False  # True, False
     OpsiFleetAutoChange_CooldownHours = 24  # 12, 24, 48, 72
     OpsiFleetAutoChange_LastRun = datetime.datetime(2020, 1, 1, 0, 0)
 
@@ -722,46 +746,19 @@ class GeneratedConfig:
     OpsiScheduling_EnableAbyssal = False  # True, False
     OpsiScheduling_EnableStronghold = False  # True, False
     OpsiScheduling_TaskPriority = 'OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming'
+    OpsiScheduling_ObscureAbyssalCheckDelayDays = 0
     OpsiScheduling_MonthEndActionPointCleanupEnable = False  # True, False
     OpsiScheduling_MonthEndActionPointCleanupDays = 0
     OpsiScheduling_MonthEndActionPointPreserve = 0
     OpsiScheduling_MonthEndShopPurchase = True  # True, False
-    OpsiScheduling_BuyActionPointMode = 'off'  # off, hazard1_leveling, meowfficer_farming
-    OpsiScheduling_BuyActionPointUpperThreshold = 200
-    OpsiScheduling_BuyActionPointLowerThreshold = 100
 
     # 配置组 `OpsiPreventActionPointOverflow`
     OpsiPreventActionPointOverflow_Task = 'OpsiScheduling'  # OpsiScheduling, OpsiHazard1Leveling, OpsiMeowfficerFarming
     OpsiPreventActionPointOverflow_ActionPointUpperbound = 200
     OpsiPreventActionPointOverflow_ActionPointLowerbound = 10
 
-    # 配置组 `OpsiCrossMonth`
-    OpsiCrossMonth_ActionPointCleanupEnable = True
-    OpsiCrossMonth_ActionPointPreserve = 50
-    OpsiCrossMonth_PushNotify = True
-    OpsiCrossMonth_RehearsalDebug = 'off'  # off, cleanup, full
-
     # 配置组 `IslandPlan`
     IslandPlan_Season = 'spring'  # spring, summer, autumn, winter
-    IslandPlan_IntervalHours = 12
-    IslandPlan_RespectSubTaskTimes = True  # True, False
-    IslandPlan_EnableAirDrop = True  # True, False
-    IslandPlan_EnableDailyGather = True  # True, False
-    IslandPlan_EnableCargoPreparation = True  # True, False
-    IslandPlan_EnableDailyOrder = True  # True, False
-    IslandPlan_EnableDailyInteract = True  # True, False
-    IslandPlan_EnableFarm = True  # True, False
-    IslandPlan_EnableRancher = True  # True, False
-    IslandPlan_EnableMineForest = True  # True, False
-    IslandPlan_EnablePearlSell = True  # True, False
-    IslandPlan_EnableManufacture = True  # True, False
-    IslandPlan_EnableRestaurant = True  # True, False
-    IslandPlan_EnableTeahouse = True  # True, False
-    IslandPlan_EnableGrill = True  # True, False
-    IslandPlan_EnableJuuEatery = True  # True, False
-    IslandPlan_EnableJuuCoffee = True  # True, False
-    IslandPlan_EnableBusiness = True  # True, False
-    IslandPlan_TaskOrder = 'IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness'
 
     # 配置组 `IslandFarm`
     IslandFarm_Positions = 3  # 1, 2, 3, 4
@@ -1083,6 +1080,7 @@ class GeneratedConfig:
     EmulatorManagement_ScheduledEmulatorRestart = False
     EmulatorManagement_ForceScheduledRestart = False
     EmulatorManagement_RestartIntervalHours = 4
+    EmulatorManagement_DeepRestartAfterFailures = 0
 
     # 配置组 `EmulatorManager`
     EmulatorManager_EnableRemoteSSH = False  # True, False

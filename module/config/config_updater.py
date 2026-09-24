@@ -700,6 +700,8 @@ class ConfigUpdater:
     ]
     # 2026.09.18 岛屿计划：TaskPriority 文本框（面向开发者的 Filter 语法）改成
     # 16 个面向普通用户的独立开关，旧清单里出现过的模块翻译成「开」。
+    # 大世界掉落截图由单一开关拆成按任务分类的 8 个开关，旧值铺给每一个，
+    # 升级后各任务的截图行为与升级前保持一致。
     redirection += [
         (
             'IslandPlan.IslandPlan.TaskPriority',

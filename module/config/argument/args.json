@@ -306,6 +306,7 @@
           "en-3",
           "en-4",
           "en-5",
+          "en-6",
           "jp-0",
           "jp-1",
           "jp-2",
@@ -323,7 +324,12 @@
           "jp-14",
           "jp-15",
           "jp-16",
-          "jp-17"
+          "jp-17",
+          "tw-0",
+          "tw-1",
+          "tw-2",
+          "tw-3",
+          "tw-4"
         ]
       },
       "ScreenshotMethod": {
@@ -339,7 +345,8 @@
           "DroidCast",
           "DroidCast_raw",
           "nemu_ipc",
-          "ldopengl"
+          "ldopengl",
+          "azurpilot_android"
         ]
       },
       "ControlMethod": {
@@ -350,8 +357,11 @@
           "uiautomator2",
           "minitouch",
           "Hermit",
-          "MaaTouch"
-        ]
+          "MaaTouch",
+          "nemu_ipc",
+          "azurpilot_android"
+        ],
+        "help": "nemu_ipc 需与截图方式配套使用（截图选 nemu_ipc 时启动会自动联动）。注意：nemu_ipc 触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形，调用偶发挂死会丢失点击；滑动或拖拽异常时请改回 minitouch / MaaTouch。"
       },
       "GameSettings": {
         "type": "checkbox",
@@ -449,9 +459,32 @@
         "type": "checkbox",
         "value": false
       },
-      "SaveErrorCount": {
+      "SaveErrorRetentionDays": {
         "type": "input",
-        "value": 30
+        "value": 30,
+        "validate": [
+          0,
+          3650
+        ]
+      },
+      "SaveErrorBackUpMethod": {
+        "type": "select",
+        "value": "zip",
+        "option": [
+          "delete",
+          "zip",
+          "copy"
+        ]
+      },
+      "SaveErrorZipMethod": {
+        "type": "select",
+        "value": "zip",
+        "option": [
+          "bz2",
+          "gzip",
+          "xz",
+          "zip"
+        ]
       },
       "OnePushConfig": {
         "type": "textarea",
@@ -486,9 +519,37 @@
           10
         ]
       },
+      "WatchdogEnable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "WatchdogTaskEnable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "WatchdogTaskTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "RestartOperationTimeoutEnable": {
+        "type": "checkbox",
+        "value": false
+      },
+      "RestartOperationTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          10,
+          600
+        ]
+      },
       "LlmAnalysis": {
         "type": "checkbox",
-        "value": true
+        "value": false
       },
       "LlmApiKey": {
         "type": "textarea",
@@ -504,7 +565,7 @@
         "valuetype": "str"
       }
     },
-    "TaskFailureProtection": {
+    "DailySummary": {
       "Enable": {
         "type": "checkbox",
         "value": false,
@@ -512,77 +573,11 @@
           true,
           false
         ]
-      },
-      "PushNotify": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "MaxFailures": {
-        "type": "input",
-        "value": 3,
-        "validate": [
-          1,
-          10
-        ]
-      },
-      "TimeWindowHours": {
-        "type": "input",
-        "value": 24,
-        "validate": [
-          1,
-          168
-        ]
-      },
-      "WatchdogEnable": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "WatchdogLogTimeout": {
-        "type": "input",
-        "value": 300,
-        "validate": [
-          0,
-          99999
-        ]
-      },
-      "WatchdogTaskTimeout": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          0,
-          99999
-        ]
-      },
-      "RestartOperationTimeout": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          1,
-          99999
-        ]
-      }
-    },
-    "Report": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "TriggerTime": {
         "type": "input",
-        "value": "23:50"
-      },
-      "OnePushConfig": {
-        "type": "textarea",
-        "value": "provider: null",
-        "mode": "yaml"
+        "value": "20:00",
+        "valuetype": "str"
       }
     },
     "Optimization": {
@@ -673,7 +668,7 @@
       },
       "CloseEmulatorDuringLongWait": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "option": [
           true,
           false
@@ -720,17 +715,68 @@
         "type": "input",
         "value": "./screenshots"
       },
+      "RetentionDays": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          3650
+        ]
+      },
+      "BackUpMethod": {
+        "type": "select",
+        "value": "zip",
+        "option": [
+          "delete",
+          "zip",
+          "copy"
+        ]
+      },
+      "ZipMethod": {
+        "type": "select",
+        "value": "zip",
+        "option": [
+          "bz2",
+          "gzip",
+          "xz",
+          "zip"
+        ]
+      },
+      "AzurStatsID": {
+        "type": "input",
+        "value": null
+      },
+      "API": {
+        "type": "select",
+        "value": "default",
+        "option": [
+          "default",
+          "cn_gz_reverse_proxy"
+        ]
+      },
       "ResearchRecord": {
         "type": "select",
         "value": "do_not",
         "option": [
           "do_not",
-          "save"
+          "save",
+          "upload",
+          "save_and_upload"
         ]
       },
       "CommissionRecord": {
         "type": "select",
         "value": "do_not",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "CommissionIncomeScreenshot": {
+        "type": "select",
+        "value": "save",
         "option": [
           "do_not",
           "save"
@@ -744,22 +790,84 @@
           "save"
         ]
       },
-      "OpsiRecord": {
+      "OpsiHazard1Leveling": {
         "type": "select",
-        "value": "local",
+        "value": "upload",
         "option": [
           "do_not",
           "save",
-          "local",
-          "save_and_local"
+          "upload",
+          "save_and_upload"
         ]
       },
-      "OpsiShopRecord": {
+      "OpsiMeowfficerFarming": {
         "type": "select",
-        "value": "do_not",
+        "value": "upload",
         "option": [
           "do_not",
-          "save"
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiDaily": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiObscure": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiAbyssal": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiStronghold": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiExplore": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "OpsiOther": {
+        "type": "select",
+        "value": "upload",
+        "option": [
+          "do_not",
+          "save",
+          "upload",
+          "save_and_upload"
         ]
       },
       "MeowfficerBuy": {
@@ -775,7 +883,31 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save"
+          "save",
+          "upload",
+          "save_and_upload"
+        ]
+      },
+      "TelemetryReport": {
+        "type": "checkbox",
+        "value": true
+      },
+      "BugReport": {
+        "type": "checkbox",
+        "value": true
+      }
+    },
+    "Backup": {
+      "Enable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "KeepDays": {
+        "type": "input",
+        "value": 7,
+        "validate": [
+          1,
+          3650
         ]
       }
     },
@@ -794,6 +926,14 @@
         "validate": [
           1,
           24
+        ]
+      },
+      "DeepRestartAfterFailures": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          10
         ]
       }
     },
@@ -947,7 +1087,7 @@
     "YukikazeTaskManager": {
       "TaskPriorityAdjustment": {
         "type": "task_priority",
-        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandPlan\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
+        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
       }
     },
     "Storage": {
@@ -1164,13 +1304,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -1357,6 +1497,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -1599,13 +1743,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -1792,6 +1936,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -2034,13 +2182,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -2228,6 +2376,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -2346,294 +2498,6 @@
           "S3_enemy_first",
           "S1_enemy_first"
         ]
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "OperationHandover": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "PushNotification": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "input",
-        "value": "OperationHandover",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": 30,
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": 30,
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      },
-      "Sensitive": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      }
-    },
-    "Campaign": {
-      "Name": {
-        "type": "input",
-        "value": "12-4"
-      },
-      "Event": {
-        "type": "select",
-        "value": "campaign_main",
-        "option": [
-          "campaign_main"
-        ]
-      },
-      "Mode": {
-        "type": "select",
-        "value": "normal",
-        "option": [
-          "normal",
-          "hard"
-        ],
-        "display": "hide"
-      },
-      "UseClearMode": {
-        "type": "checkbox",
-        "value": true,
-        "display": "hide"
-      },
-      "UseFleetLock": {
-        "type": "checkbox",
-        "value": true,
-        "display": "hide"
-      },
-      "UseAutoSearch": {
-        "type": "checkbox",
-        "value": true,
-        "display": "hide"
-      },
-      "Use2xBook": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "AmbushEvade": {
-        "type": "checkbox",
-        "value": true,
-        "display": "hide"
-      },
-      "UseRecommendFleet": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "DefeatWithdraw": {
-        "type": "select",
-        "value": "withdraw_stop",
-        "option": [
-          "withdraw_continue",
-          "switch_fleet",
-          "withdraw_stop"
-        ],
-        "display": "hide"
-      }
-    },
-    "OperationHandover": {
-      "Count": {
-        "type": "input",
-        "value": 1,
-        "validate": [
-          1,
-          999
-        ]
-      },
-      "AutoSupplementTime": {
-        "type": "checkbox",
-        "value": false
-      },
-      "UseHandoverBook": {
-        "type": "checkbox",
-        "value": false
-      }
-    },
-    "Fleet": {
-      "Fleet1": {
-        "type": "select",
-        "value": 1,
-        "option": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          6
-        ]
-      },
-      "Fleet1Formation": {
-        "type": "select",
-        "value": "double_line",
-        "option": [
-          "line_ahead",
-          "double_line",
-          "diamond"
-        ]
-      },
-      "Fleet1Mode": {
-        "type": "select",
-        "value": "combat_auto",
-        "option": [
-          "combat_auto",
-          "combat_manual",
-          "stand_still_in_the_middle",
-          "hide_in_bottom_left",
-          "hide_in_upper_left"
-        ]
-      },
-      "Fleet1Step": {
-        "type": "select",
-        "value": 3,
-        "option": [
-          2,
-          3,
-          4,
-          5
-        ]
-      },
-      "Fleet2": {
-        "type": "select",
-        "value": 2,
-        "option": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6
-        ]
-      },
-      "Fleet2Formation": {
-        "type": "select",
-        "value": "double_line",
-        "option": [
-          "line_ahead",
-          "double_line",
-          "diamond"
-        ]
-      },
-      "Fleet2Mode": {
-        "type": "select",
-        "value": "combat_auto",
-        "option": [
-          "combat_auto",
-          "combat_manual",
-          "stand_still_in_the_middle",
-          "hide_in_bottom_left",
-          "hide_in_upper_left"
-        ]
-      },
-      "Fleet2Step": {
-        "type": "select",
-        "value": 2,
-        "option": [
-          2,
-          3,
-          4,
-          5
-        ]
-      },
-      "FleetOrder": {
-        "type": "select",
-        "value": "fleet1_mob_fleet2_boss",
-        "option": [
-          "fleet1_mob_fleet2_boss",
-          "fleet1_boss_fleet2_mob",
-          "fleet1_all_fleet2_standby",
-          "fleet1_standby_fleet2_all"
-        ]
-      },
-      "SkipPreparation": {
-        "type": "checkbox",
-        "value": false
-      }
-    },
-    "Submarine": {
-      "Fleet": {
-        "type": "select",
-        "value": 0,
-        "option": [
-          0,
-          1,
-          2
-        ]
-      },
-      "Mode": {
-        "type": "select",
-        "value": "do_not_use",
-        "option": [
-          "do_not_use",
-          "hunt_only",
-          "boss_only",
-          "hunt_and_boss",
-          "every_combat",
-          "advanced"
-        ]
-      },
-      "AutoSearchMode": {
-        "type": "select",
-        "value": "sub_standby",
-        "option": [
-          "sub_standby",
-          "sub_auto_call"
-        ]
-      },
-      "DistanceToBoss": {
-        "type": "select",
-        "value": "2_grid_to_boss",
-        "option": [
-          "to_boss_position",
-          "1_grid_to_boss",
-          "2_grid_to_boss",
-          "use_open_ocean_support"
-        ]
-      },
-      "AdvancedConfig": {
-        "type": "textarea",
-        "value": "# 弹药数\nammo: 7\n\n# 远洋支援数\nsupport: 1\n\n# 松鲷的狩猎范围\nrange:\n  - \"ONONOOO\"\n  - \"ONNNNOO\"\n  - \"NNNNNNO\"\n  - \"ONNHNNN\"\n  - \"NNNNNNO\"\n  - \"ONOONOO\"\n  - \"OOOOOOO\"\n\n# 规则\nrules:\n  battle_0: # 所有战斗\n    type: hunt  # 出击类型为狩猎\n    condition:  # 出击条件\n      ammo: \">2\"  # 弹药数大于2\n      enemy:  # 敌人类型为\n        - \"2C\"  # 中航\n        - \"3T\"  # 大运\n        - \"0E\"  # 未知敌人\n      in_range: true  # 在狩猎范围里\n    move: false # 不移动\n  battle_2: # 第二场战斗\n    type: call  # 出击类型为召唤\n    condition:  # 出击条件\n      ammo: \">=2\" # 弹药数大于等于2\n      support: \"!=0\" # 远洋支援数不等于0\n      enemy:  # 敌人类型为\n        - \"3*\"  # 所有大型舰队\n      in_range: false  # 不要求在狩猎范围里\n    move: false # 不移动\n  battle_-1:  # 最后一场战斗\n    type: call  # 出击类型为召唤\n    # 这里没写条件所以是必定出击\n    support: true # 远洋支援\n    move: true # 移动\n",
-        "mode": "yaml"
       }
     },
     "Storage": {
@@ -2816,6 +2680,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -2828,9 +2693,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -2886,13 +2752,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -3060,7 +2926,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -3084,6 +2950,10 @@
           "calculate_ignore"
         ],
         "display": "hide"
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -3127,14 +2997,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "display": "hide"
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
+        "display": "disabled"
       },
       "Fleet2Control": {
         "type": "select",
@@ -3358,6 +3227,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -3370,9 +3240,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -3428,13 +3299,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -3602,7 +3473,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "use_open_ocean_support",
+        "value": "2_grid_to_boss",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -3626,6 +3497,10 @@
           "calculate_ignore"
         ],
         "display": "hide"
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -3959,13 +3834,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4156,6 +4031,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -4248,7 +4127,7 @@
       },
       "TimeLimit": {
         "type": "datetime",
-        "value": "2020-01-01 00:00:00",
+        "value": "2023-01-01 00:00:00",
         "validate": "datetime"
       }
     },
@@ -4343,6 +4222,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4355,9 +4235,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4410,13 +4291,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4603,6 +4484,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -4794,6 +4679,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4806,9 +4692,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4861,13 +4748,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5054,6 +4941,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -5245,6 +5136,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -5257,9 +5149,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -5311,13 +5204,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5504,6 +5397,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -5783,13 +5680,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5834,6 +5731,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -5873,12 +5774,12 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "input",
+        "type": "stored",
         "value": 119,
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "datetime",
+        "type": "stored",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "hide"
@@ -6067,13 +5968,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6261,6 +6162,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -6408,13 +6313,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6460,6 +6365,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -6502,12 +6411,12 @@
         "display": "hide"
       },
       "Fleet2Value": {
-        "type": "input",
+        "type": "stored",
         "value": 119,
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "datetime",
+        "type": "stored",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "hide"
@@ -6707,13 +6616,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6758,6 +6667,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -6796,12 +6709,12 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "input",
+        "type": "stored",
         "value": 119,
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "datetime",
+        "type": "stored",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "hide"
@@ -7011,13 +6924,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -7061,6 +6974,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -7290,6 +7207,22 @@
       "CustomFilter": {
         "type": "textarea",
         "value": "EquipUR > EquipSSR > Cube > GachaTicket\n> Array > Chip > CatT3 \n> Meta > SkinBox\n> Oil > Coin > Medal > ExpBookT1 > FoodT1\n> DR > PR\n> AugmentCore > AugmentEnhanceT2 > AugmentChangeT2 > AugmentChangeT1\n> CatT2 > CatT1 > PlateGeneralT3 > PlateT3 > BoxT4\n> ShipSSR"
+      }
+    },
+    "ShopAdvanced": {
+      "Mode": {
+        "type": "select",
+        "value": "legacy",
+        "option": [
+          "legacy",
+          "advanced"
+        ]
+      },
+      "Script": {
+        "type": "textarea",
+        "value": "",
+        "mode": "restricted_lua",
+        "preserve_empty": true
       }
     },
     "Storage": {
@@ -7711,13 +7644,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -7949,6 +7882,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -8150,6 +8087,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -8162,9 +8100,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -8218,13 +8157,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8416,6 +8355,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -8618,6 +8561,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -8630,9 +8574,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -8686,13 +8631,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8884,6 +8829,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -9086,6 +9035,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9098,9 +9048,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9154,13 +9105,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -9352,6 +9303,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -9554,6 +9509,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9566,9 +9522,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9622,13 +9579,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -9820,6 +9777,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -10012,6 +9973,7 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -10024,9 +9986,10 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260908_cn"
+          "event_20260813_cn"
         ],
         "option_bold": [
+          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -10080,13 +10043,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10279,6 +10242,10 @@
           "ignore",
           "calculate_ignore"
         ]
+      },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
       },
       "Fleet1Value": {
         "type": "input",
@@ -10548,13 +10515,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10600,6 +10567,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -10638,12 +10609,12 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "input",
+        "type": "stored",
         "value": 119,
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "datetime",
+        "type": "stored",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "hide"
@@ -10844,13 +10815,13 @@
         "type": "input",
         "value": 1000
       },
+      "OilLimitHardFloor": {
+        "type": "input",
+        "value": 500
+      },
       "CoinLimit": {
         "type": "input",
         "value": 0
-      },
-      "CoinLimit_Enable": {
-        "type": "checkbox",
-        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10895,6 +10866,10 @@
           "calculate_ignore"
         ]
       },
+      "IgnoreShipwreck": {
+        "type": "checkbox",
+        "value": false
+      },
       "Fleet1Value": {
         "type": "input",
         "value": 119
@@ -10933,12 +10908,12 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "input",
+        "type": "stored",
         "value": 119,
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "datetime",
+        "type": "stored",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "hide"
@@ -10987,7 +10962,7 @@
     "Scheduler": {
       "Enable": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "option": [
           true,
           false
@@ -11084,11 +11059,11 @@
         "type": "checkbox",
         "value": false
       },
-      "NotifyReward": {
+      "CommissionNotifyReward": {
         "type": "checkbox",
-        "value": true
+        "value": false
       },
-      "NotifyRewardStatistics": {
+      "CommissionNotifyRewardStatistics": {
         "type": "checkbox",
         "value": true
       },
@@ -11116,10 +11091,6 @@
           "week",
           "month"
         ]
-      },
-      "CommissionNotifyRewardCube": {
-        "type": "checkbox",
-        "value": false
       }
     },
     "Storage": {
@@ -11257,7 +11228,7 @@
     "Scheduler": {
       "Enable": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "option": [
           true,
           false
@@ -11712,7 +11683,7 @@
     "Scheduler": {
       "Enable": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "option": [
           true,
           false
@@ -11927,6 +11898,10 @@
         "type": "checkbox",
         "value": false
       },
+      "FavouriteOnly": {
+        "type": "checkbox",
+        "value": true
+      },
       "BackupEnable": {
         "type": "checkbox",
         "value": true
@@ -11943,6 +11918,199 @@
         "type": "textarea",
         "value": "provider: null",
         "mode": "yaml"
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "OperationHandover": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "OperationHandover",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 30,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 30,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
+    "Campaign": {
+      "Name": {
+        "type": "input",
+        "value": "12-4"
+      },
+      "Event": {
+        "type": "select",
+        "value": "campaign_main",
+        "option": [
+          "campaign_main"
+        ]
+      },
+      "Mode": {
+        "type": "select",
+        "value": "normal",
+        "option": [
+          "normal",
+          "hard"
+        ],
+        "display": "hide"
+      },
+      "UseClearMode": {
+        "type": "checkbox",
+        "value": true,
+        "display": "hide"
+      },
+      "UseFleetLock": {
+        "type": "checkbox",
+        "value": true,
+        "display": "hide"
+      },
+      "UseAutoSearch": {
+        "type": "checkbox",
+        "value": true,
+        "display": "hide"
+      },
+      "Use2xBook": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "AmbushEvade": {
+        "type": "checkbox",
+        "value": true,
+        "display": "hide"
+      },
+      "UseRecommendFleet": {
+        "type": "checkbox",
+        "value": false,
+        "display": "hide"
+      },
+      "DefeatWithdraw": {
+        "type": "select",
+        "value": "withdraw_stop",
+        "option": [
+          "withdraw_continue",
+          "switch_fleet",
+          "withdraw_stop"
+        ],
+        "display": "hide"
+      }
+    },
+    "OperationHandover": {
+      "Count": {
+        "type": "input",
+        "value": 1,
+        "validate": [
+          0,
+          999
+        ]
+      },
+      "AutoSupplementTime": {
+        "type": "checkbox",
+        "value": false
+      },
+      "UseHandoverBook": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ConsumeAllBook": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "ConsumeAllBookWeekday": {
+        "type": "select",
+        "value": "sun",
+        "option": [
+          "mon",
+          "tue",
+          "wed",
+          "thu",
+          "fri",
+          "sat",
+          "sun"
+        ]
+      },
+      "ConsumeAllBookTime": {
+        "type": "input",
+        "value": "00:00",
+        "valuetype": "str"
+      },
+      "MaintainOverride": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 1000,
+        "validate": [
+          0,
+          999999
+        ]
+      },
+      "ConsumeAllBookRecord": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "CommissionEnd": {
+        "type": "stored",
+        "value": "2020-01-01 00:00:00",
+        "display": "hide"
       }
     },
     "Storage": {
@@ -12225,10 +12393,6 @@
           1,
           2
         ]
-      },
-      "UseRecommendFleet": {
-        "type": "checkbox",
-        "value": false
       }
     },
     "Storage": {
@@ -12440,6 +12604,22 @@
       "Filter": {
         "type": "textarea",
         "value": "BookRedT3 > BookYellowT3 > BookBlueT3 > BookRedT2\n> Cube\n> FoodT6 > FoodT5"
+      }
+    },
+    "ShopAdvanced": {
+      "Mode": {
+        "type": "select",
+        "value": "legacy",
+        "option": [
+          "legacy",
+          "advanced"
+        ]
+      },
+      "Script": {
+        "type": "textarea",
+        "value": "",
+        "mode": "restricted_lua",
+        "preserve_empty": true
       }
     },
     "Storage": {
@@ -12739,6 +12919,22 @@
       "Filter": {
         "type": "textarea",
         "value": "Array"
+      }
+    },
+    "ShopAdvanced": {
+      "Mode": {
+        "type": "select",
+        "value": "legacy",
+        "option": [
+          "legacy",
+          "advanced"
+        ]
+      },
+      "Script": {
+        "type": "textarea",
+        "value": "",
+        "mode": "restricted_lua",
+        "preserve_empty": true
       }
     },
     "Storage": {
@@ -13234,6 +13430,22 @@
         ]
       }
     },
+    "ShopAdvanced": {
+      "Mode": {
+        "type": "select",
+        "value": "legacy",
+        "option": [
+          "legacy",
+          "advanced"
+        ]
+      },
+      "Script": {
+        "type": "textarea",
+        "value": "",
+        "mode": "restricted_lua",
+        "preserve_empty": true
+      }
+    },
     "Storage": {
       "Storage": {
         "type": "storage",
@@ -13660,6 +13872,22 @@
         "value": 0
       }
     },
+    "ShopAdvanced": {
+      "Mode": {
+        "type": "select",
+        "value": "legacy",
+        "option": [
+          "legacy",
+          "advanced"
+        ]
+      },
+      "Script": {
+        "type": "textarea",
+        "value": "",
+        "mode": "restricted_lua",
+        "preserve_empty": true
+      }
+    },
     "Storage": {
       "Storage": {
         "type": "storage",
@@ -13725,6 +13953,22 @@
       "Filter": {
         "type": "textarea",
         "value": "LoggerAbyssal > LoggerObscure > Book > Coin > Fragment"
+      }
+    },
+    "ShopAdvanced": {
+      "Mode": {
+        "type": "select",
+        "value": "legacy",
+        "option": [
+          "legacy",
+          "advanced"
+        ]
+      },
+      "Script": {
+        "type": "textarea",
+        "value": "",
+        "mode": "restricted_lua",
+        "preserve_empty": true
       }
     },
     "Storage": {
@@ -14315,7 +14559,8 @@
       },
       "TargetZone": {
         "type": "input",
-        "value": 0
+        "value": "0",
+        "mode": "text"
       },
       "StayInZone": {
         "type": "checkbox",
@@ -14466,13 +14711,8 @@
         "value": 200
       },
       "ExecuteFixedPatrolScan": {
-        "type": "select",
-        "value": 0,
-        "option": [
-          0,
-          1,
-          2
-        ]
+        "type": "checkbox",
+        "value": false
       },
       "SkipHpCheck": {
         "type": "checkbox",
@@ -14578,14 +14818,6 @@
     },
     "OpsiFleetAutoChange": {
       "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "AnyShipReached": {
         "type": "checkbox",
         "value": false,
         "option": [
@@ -14727,6 +14959,10 @@
         "type": "textarea",
         "value": "OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
       },
+      "ObscureAbyssalCheckDelayDays": {
+        "type": "input",
+        "value": 0
+      },
       "MonthEndActionPointCleanupEnable": {
         "type": "checkbox",
         "value": false,
@@ -14750,23 +14986,6 @@
           true,
           false
         ]
-      },
-      "BuyActionPointMode": {
-        "type": "select",
-        "value": "off",
-        "option": [
-          "off",
-          "hazard1_leveling",
-          "meowfficer_farming"
-        ]
-      },
-      "BuyActionPointUpperThreshold": {
-        "type": "input",
-        "value": 200
-      },
-      "BuyActionPointLowerThreshold": {
-        "type": "input",
-        "value": 100
       }
     },
     "Storage": {
@@ -14910,30 +15129,6 @@
         ]
       }
     },
-    "OpsiCrossMonth": {
-      "ActionPointCleanupEnable": {
-        "type": "checkbox",
-        "value": true
-      },
-      "ActionPointPreserve": {
-        "type": "input",
-        "value": 50
-      },
-      "PushNotify": {
-        "type": "checkbox",
-        "value": true
-      },
-      "RehearsalDebug": {
-        "type": "select",
-        "value": "off",
-        "option": [
-          "off",
-          "cleanup",
-          "full"
-        ],
-        "display": "hide"
-      }
-    },
     "Storage": {
       "Storage": {
         "type": "storage",
@@ -15037,57 +15232,6 @@
     }
   },
   "IslandPlan": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "PushNotification": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "input",
-        "value": "IslandPlan",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": 0,
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": 120,
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      },
-      "Sensitive": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      }
-    },
     "IslandPlan": {
       "Season": {
         "type": "select",
@@ -15098,150 +15242,6 @@
           "autumn",
           "winter"
         ]
-      },
-      "IntervalHours": {
-        "type": "input",
-        "value": 12
-      },
-      "RespectSubTaskTimes": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableAirDrop": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableDailyGather": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableCargoPreparation": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableDailyOrder": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableDailyInteract": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableFarm": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableRancher": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableMineForest": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnablePearlSell": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableManufacture": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableRestaurant": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableTeahouse": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableGrill": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableJuuEatery": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableJuuCoffee": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "EnableBusiness": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "TaskOrder": {
-        "type": "textarea",
-        "value": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness"
       }
     },
     "Storage": {
@@ -18550,16 +18550,6 @@
       }
     }
   },
-  "FleetScan": {
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
   "FleetInfo": {
     "FleetInfo": {
       "Result": {
@@ -18574,6 +18564,16 @@
         "display": "hide"
       }
     },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "FleetScan": {
     "Storage": {
       "Storage": {
         "type": "storage",

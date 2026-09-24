@@ -66,10 +66,6 @@
       "name": "主线图-3冲锋喵！",
       "help": "第三章挑战，雪风会保护大家的喵！( •̀ ω •́ )✧"
     },
-    "OperationHandover": {
-      "name": "作战委托喵！",
-      "help": "把舰队派出去挂机打工喵～委托期间不能出击哦 (๑•̀ㅂ•́)و✧"
-    },
     "GemsFarming": {
       "name": "紧急委托喵赚！",
       "help": "通过紧急委托攒点零花钱喵，钻石亮闪闪 ✧٩(ˊωˋ*)و✧"
@@ -115,8 +111,8 @@
       "help": "拿起相机拍下最美的瞬间喵，模特队的胜利！(ﾉ◕ヮ◕)ﾉ"
     },
     "CoalitionScuttle": {
-      "name": "Task.CoalitionScuttle.name",
-      "help": "Task.CoalitionScuttle.help"
+      "name": "联盟沉船喵",
+      "help": "联盟活动中舰船被击沉后刷取好感度喵，建议多队出击、第一队就沉，建议看相关教程喵"
     },
     "MaritimeEscort": {
       "name": "商路护航喵",
@@ -193,6 +189,10 @@
     "Secretary": {
       "name": "秘书舰轮值喵",
       "help": "自动检测秘书舰好感度，达到90后自动换人，让舰娘们都能陪伴指挥官喵！( •̀ᴗ-)✧"
+    },
+    "OperationHandover": {
+      "name": "作战委托合约喵！",
+      "help": "交委托书就能自动跑作战委托喵～挂机期间只有大世界能打喵 (๑•̀ㅂ•́)و✧"
     },
     "Daily": {
       "name": "每日任务清剿喵",
@@ -307,8 +307,8 @@
       "help": "用蒙特卡洛算法模拟侵蚀循环结果，不影响运行。请确保正确配置调度等参数。测试版，结果仅供参考。关于奸商行动力模型缺乏证据。坠机指行动力低于保留阈值。"
     },
     "IslandPlan": {
-      "name": "岛屿计划统一调度喵",
-      "help": "一次进岛按清单把到期的岛屿子模块全部跑完喵，跑完就在设定的间隔时间内不再进岛啦～\n开了这个任务记得把其它岛屿子任务的独立调度关掉喵，不然会重复进岛 (｡•́︿•̀｡)"
+      "name": "岛屿计划全局喵",
+      "help": "岛屿计划的全局配置喵，包括季节设定~"
     },
     "IslandBusiness": {
       "name": "经营模块喵",
@@ -374,13 +374,13 @@
       "name": "每周珍珠采购与售卖喵",
       "help": "仅支持minitouch喵。每周二 01:00 自动处理珍珠喵：先买本周珍珠，再卖已有珍珠。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错喵。(´;ω;`)"
     },
-    "FleetScan": {
-      "name": "舰队扫描喵",
-      "help": "扫描当前编入舰队的舰娘信息喵"
-    },
     "FleetInfo": {
       "name": "舰队信息喵",
       "help": "查看最近一次舰队扫描结果喵"
+    },
+    "FleetScan": {
+      "name": "舰队扫描喵",
+      "help": "扫描当前编入舰队的舰娘信息喵"
     },
     "Daemon": {
       "name": "半自动点击小助手喵",
@@ -434,7 +434,7 @@
     },
     "Enable": {
       "name": "启用此功能喵",
-      "help": "把任务加入调度列表，委托、科研、收获强制开启喵~ (´・ω・`)",
+      "help": "把任务加入调度列表喵~ (´・ω・`)",
       "True": "开启中",
       "False": "关闭中"
     },
@@ -589,6 +589,7 @@
       "en-3": "[EN] Washington",
       "en-4": "[EN] Amagi",
       "en-5": "[EN] Little Enterprise",
+      "en-6": "[EN] Belfast",
       "jp-0": "[JP] ブレスト",
       "jp-1": "[JP] 横須賀",
       "jp-2": "[JP] 佐世保",
@@ -606,7 +607,12 @@
       "jp-14": "[JP] キール",
       "jp-15": "[JP] 若松",
       "jp-16": "[JP] オデッサ",
-      "jp-17": "[JP] スイートバン"
+      "jp-17": "[JP] スイートバン",
+      "tw-0": "[TW] 珍珠港",
+      "tw-1": "[TW] 珊瑚海",
+      "tw-2": "[TW] 中途島",
+      "tw-3": "[TW] 瓜達康納爾",
+      "tw-4": "[TW] 雷伊泰灣"
     },
     "ScreenshotMethod": {
       "name": "模拟器截图法术 ∩",
@@ -620,16 +626,19 @@
       "DroidCast": "DroidCast喵",
       "DroidCast_raw": "DroidCast_raw喵",
       "nemu_ipc": "nemu_ipc喵",
-      "ldopengl": "ldopengl喵"
+      "ldopengl": "ldopengl喵",
+      "azurpilot_android": "AzurPilot Android 虚拟屏"
     },
     "ControlMethod": {
       "name": "模拟器控制手势",
-      "help": "速度 minitouch > Hermit > uiautomator2 ~= ADB 推荐 minitouch，VMOS下用 Hermit 喵~",
+      "help": "点击/滑动的注入方式喵。速度: minitouch ≈ MaaTouch > ADB >>> uiautomator2，推荐 MaaTouch 喵（minitouch 在部分新安卓设备上不稳定喵）。\n⚠️ nemu_ipc 要和截图方式配套使用喵（截图选 nemu_ipc 时启动会自动联动喵）：触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形喵，偶发挂死会丢点击喵；滑动异常请改回 minitouch / MaaTouch 喵。",
       "ADB": "ADB喵",
       "uiautomator2": "uiautomator2喵",
       "minitouch": "minitouch喵",
       "Hermit": "Hermit喵",
-      "MaaTouch": "MaaTouch喵"
+      "MaaTouch": "MaaTouch喵",
+      "nemu_ipc": "nemu_ipc",
+      "azurpilot_android": "AzurPilot Android 虚拟屏"
     },
     "GameSettings": {
       "name": "自动应用推荐游戏设置",
@@ -729,9 +738,24 @@
       "name": "敏感任务出错禁止重启",
       "help": "隐秘、深渊、跨月每日出错时停止AzurPilot而不是重启喵，避免损失。"
     },
-    "SaveErrorCount": {
-      "name": "错误日志保留数",
-      "help": "超过上限的日志会被清理喵，0或负数无限喵。"
+    "SaveErrorRetentionDays": {
+      "name": "错误日志过期天数喵",
+      "help": "超过天数的错误现场按下面的方式处理喵\n0 = 不清理喵"
+    },
+    "SaveErrorBackUpMethod": {
+      "name": "过期错误日志处理方式喵",
+      "help": "备份到./log/error/<实例名>/bak 喵",
+      "delete": "删除喵",
+      "zip": "压缩备份喵",
+      "copy": "拷贝备份喵"
+    },
+    "SaveErrorZipMethod": {
+      "name": "压缩格式喵",
+      "help": "",
+      "bz2": "bz2喵",
+      "gzip": "gzip喵",
+      "xz": "xz喵",
+      "zip": "zip喵"
     },
     "OnePushConfig": {
       "name": "错误推送通知喵",
@@ -757,6 +781,26 @@
       "name": "检测不到设备重启阈值",
       "help": "连续多少次触发重启喵。"
     },
+    "WatchdogEnable": {
+      "name": "启用看门狗总开关喵",
+      "help": "看门狗总开关喵。关掉之后，所有看门狗检测都不生效；开启后，还要单独打开下面的子开关喵。默认关闭。"
+    },
+    "WatchdogTaskEnable": {
+      "name": "任务跑太久自动重启喵",
+      "help": "开了之后喵，如果某个任务跑得太久（比如卡在剧情跳不过去、地图走不动了），就会自动重启模拟器把它打断。\n得先开上面的「看门狗总开关」才管用喵。默认关。"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "任务卡死保护超时喵（分钟）",
+      "help": "单个任务运行超过指定时间后没切换其他任务（一般委托科研切换后会重新计算），就判定任务逻辑死循环（如剧情无法跳过、寻路死循环等）喵，强制重启模拟器以中断任务。\n0 表示禁用；99999 表示几乎无限制。\n默认 120 分钟（2 小时）。"
+    },
+    "RestartOperationTimeoutEnable": {
+      "name": "重启游戏保护开关喵",
+      "help": ""
+    },
+    "RestartOperationTimeout": {
+      "name": "重启游戏卡多久算死喵（秒）",
+      "help": "重启游戏时，关游戏或开游戏这步卡住超过这个秒数，就当模拟器卡死了喵，直接去重启模拟器。\n得先开上面的「重启游戏超时保护」才管用喵。\n默认 120 秒。"
+    },
     "LlmAnalysis": {
       "name": "启用 LLM 错误分析喵",
       "help": "发生异常时调用LLM分析原因给建议喵~ (ΦωΦ)"
@@ -774,48 +818,20 @@
       "help": "填写已购买服务支持的模型名称，请以 https://platform.deepseek.com/ 或 https://platform.xiaomimimo.com/ 平台展示为准喵。"
     }
   },
-  "TaskFailureProtection": {
+  "DailySummary": {
     "_info": {
-      "name": "防止任务失败过多导致频繁重启喵",
-      "help": "当任务在设定的时间窗口内因同一错误原因连续失败达到设定次数时，自动关闭该任务喵，避免反复重启游戏喵~ 关闭后需手动重新启用该任务喵。"
+      "name": "每日总结喵",
+      "help": "每天在设定时间生成并推送运行总结喵。需要先在调试设置里配置 OnePush 和 LLM 喵。"
     },
     "Enable": {
-      "name": "启用失败保护喵",
-      "help": "开启后，任务连续失败达到设定次数时会自动关闭该任务喵，而不是反复重启游戏喵~",
-      "True": "是喵",
-      "False": "否喵"
+      "name": "启用每日总结喵",
+      "help": "开启后，AzurPilot 会在设定时间生成并推送当天的运行总结喵。",
+      "True": "开启喵",
+      "False": "关闭喵"
     },
-    "PushNotify": {
-      "name": "推送失败通知喵",
-      "help": "开启后，任务被自动关闭时会按照错误推送设置（Error.OnePushConfig）发送通知喵~",
-      "True": "是喵",
-      "False": "否喵"
-    },
-    "MaxFailures": {
-      "name": "最大失败次数喵",
-      "help": "在时间窗口内同一错误原因累计失败达到此次数后，自动关闭该任务喵。取值范围 1~10 喵。"
-    },
-    "TimeWindowHours": {
-      "name": "累计时间窗口（小时）喵",
-      "help": "统计失败次数的时间范围喵。超过此时间后失败计数自动清零喵。例如设为 3，表示 3 小时内同一错误累计达到设定次数才关闭任务喵。取值范围 1~168 喵。"
-    },
-    "WatchdogEnable": {
-      "name": "启用看门狗守护喵",
-      "help": "开启后，看门狗线程在任务执行期间监控日志心跳和任务运行时间，检测到卡死时强制重启模拟器以解除阻塞喵。",
-      "True": "是",
-      "False": "否"
-    },
-    "WatchdogLogTimeout": {
-      "name": "日志心跳超时（秒）喵",
-      "help": "任务执行期间超过指定秒数无任何日志输出时，判定主线程卡死，强制停止模拟器以解除阻塞喵。\n0 表示禁用；99999 表示几乎无限制喵。\n默认 300 秒（5 分钟）喵。"
-    },
-    "WatchdogTaskTimeout": {
-      "name": "任务卡死保护超时（分钟）喵",
-      "help": "单个任务运行超过指定时间后，看门狗判定任务逻辑死循环（如剧情无法跳过、寻路死循环等），强制重启模拟器以中断任务喵。\n0 表示禁用；99999 表示几乎无限制喵。\n默认 120 分钟（2 小时）喵。"
-    },
-    "RestartOperationTimeout": {
-      "name": "重启操作超时（秒）喵",
-      "help": "应用停止/启动或模拟器停止/启动操作的硬超时秒数喵。超过此时间判定模拟器或 atx-agent 卡死，立即触发模拟器重启喵。\n默认 120 秒喵。"
+    "TriggerTime": {
+      "name": "生成时间喵",
+      "help": "按游戏服务器时区生成日报的时间，格式是 HH:MM，例如 20:00 喵。"
     }
   },
   "Optimization": {
@@ -935,16 +951,55 @@
       "name": "掉落保存目录",
       "help": ""
     },
+    "RetentionDays": {
+      "name": "截图保留天数喵",
+      "help": "掉落记录截图超过这么多天就按下面的方式处理喵~\n0 = 不按天数处理（委托收益截图还是只留最近 50 张喵）"
+    },
+    "BackUpMethod": {
+      "name": "过期截图处理方式喵",
+      "help": "备份到保存目录下的 bak 资料夹喵（委托收益截图是各自实例目录下的 bak 喵）",
+      "delete": "删除喵",
+      "zip": "压缩备份喵",
+      "copy": "拷贝备份喵"
+    },
+    "ZipMethod": {
+      "name": "压缩格式喵",
+      "help": "",
+      "bz2": "bz2喵",
+      "gzip": "gzip喵",
+      "xz": "xz喵",
+      "zip": "zip喵"
+    },
+    "AzurStatsID": {
+      "name": "AzurStat ID 喵",
+      "help": "上传到 https://azur-stats.lyoko.io 时声明的客户端ID，随意修改喵。"
+    },
+    "API": {
+      "name": "上传线路喵",
+      "help": "国内用户连不上可用\"国内反向代理\"喵~",
+      "default": "默认",
+      "cn_gz_reverse_proxy": "国内反向代理 喵"
+    },
     "ResearchRecord": {
       "name": "科研截图动作",
       "help": "",
       "do_not": "无视喵",
-      "save": "保存喵"
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
     },
     "CommissionRecord": {
       "name": "委托截图动作",
       "help": "",
       "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "CommissionIncomeScreenshot": {
+      "name": "委托收益截图喵",
+      "help": "委托结算时把「获取物品」截图存下来喵，统计页能点「查看截图」看~\n关掉也照样记收益，只是不存图了喵",
+      "do_not": "不保存喵",
       "save": "保存喵"
     },
     "CombatRecord": {
@@ -953,19 +1008,69 @@
       "do_not": "无视喵",
       "save": "保存喵"
     },
-    "OpsiRecord": {
-      "name": "大世界掉落截图",
-      "help": "只在本机解析并记进统计界面的「耄耋相接收获」喵，不会上传任何数据喵",
+    "OpsiHazard1Leveling": {
+      "name": "侵蚀一掉落截图喵",
+      "help": "「上传」现在只管短猫相接喵~",
       "do_not": "无视喵",
       "save": "保存喵",
-      "local": "本地记录喵",
-      "save_and_local": "保存并本地记录喵"
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
     },
-    "OpsiShopRecord": {
-      "name": "行动力箱子掉落截图",
-      "help": "明石商店出现行动力箱时存一张商店截图到 screenshots/opsi_shop/ 喵，只给自己看，不会上传喵",
+    "OpsiMeowfficerFarming": {
+      "name": "短猫掉落截图喵",
+      "help": "「上传」会把掉落解析进本地统计库喵，统计页「短猫掉落」的收益统计靠它喵~\n跨月每日也读这个开关喵",
       "do_not": "无视喵",
-      "save": "保存喵"
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "OpsiDaily": {
+      "name": "大世界每日掉落截图喵",
+      "help": "「上传」现在只管短猫相接喵~",
+      "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "OpsiObscure": {
+      "name": "隐秘海域掉落截图喵",
+      "help": "「上传」现在只管短猫相接喵~\n档案坐标也读这个开关喵",
+      "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "OpsiAbyssal": {
+      "name": "深渊海域掉落截图喵",
+      "help": "「上传」现在只管短猫相接喵~\n月度Boss也读这个开关喵",
+      "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "OpsiStronghold": {
+      "name": "塞壬要塞掉落截图喵",
+      "help": "「上传」现在只管短猫相接喵~",
+      "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "OpsiExplore": {
+      "name": "每月开荒掉落截图喵",
+      "help": "每月开荒Plus 自己一个开关喵，不跟别人挤",
+      "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "OpsiOther": {
+      "name": "其他大世界任务掉落截图喵",
+      "help": "没有单独开关的大世界任务都归它兜底喵\n「上传」现在只管短猫相接喵~",
+      "do_not": "无视喵",
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
     },
     "MeowfficerBuy": {
       "name": "指挥喵购买截图",
@@ -977,7 +1082,31 @@
       "name": "指挥喵天赋截图",
       "help": "",
       "do_not": "无视喵",
-      "save": "保存喵"
+      "save": "保存喵",
+      "upload": "上传喵",
+      "save_and_upload": "保存并上传喵"
+    },
+    "TelemetryReport": {
+      "name": "遥测数据上报",
+      "help": "匿名上报CL1统计数据，统计网站 https://alas.nanoda.work/ 喵。"
+    },
+    "BugReport": {
+      "name": "Bug 日志上报",
+      "help": "匿名上报异常日志帮助改进喵。"
+    }
+  },
+  "Backup": {
+    "_info": {
+      "name": "每日备份喵",
+      "help": "每天第一次启动调度器的时候，把数据库和用户配置备份到项目根目录的 AzurPilot_Data_Backup 文件夹里喵。"
+    },
+    "Enable": {
+      "name": "启用每日备份喵",
+      "help": "关掉之后不会再生成新的备份，也不会删除已有的历史备份喵。"
+    },
+    "KeepDays": {
+      "name": "备份保留天数喵",
+      "help": "超过这个天数的历史备份会在每次备份完成后自动删掉，比如填 7 就是只留最近 7 天喵。"
     }
   },
   "Log": {
@@ -1070,7 +1199,7 @@
     },
     "TaskPriorityAdjustment": {
       "name": "任务优先级调整喵",
-      "help": "拖动任务行调整调度优先级喵，越靠上越先执行喵。新增任务会按照内置默认优先级自动插入到合适位置喵。"
+      "help": "按从上到下的顺序填写任务名喵，越靠前越先执行喵；一行一个，也可以用 > 分隔喵。新增任务会按照内置默认优先级自动插入到合适位置喵~"
     }
   },
   "OneClickRetire": {
@@ -1345,7 +1474,7 @@
     },
     "Count": {
       "name": "委托次数",
-      "help": "要挂多少次关卡喵～"
+      "help": "这次要打多少把喵\n填 0 就是降到最少：这时候要是没开一键消耗委托书，这个任务就直接被关掉喵 (・_・)"
     },
     "AutoSupplementTime": {
       "name": "自动补充时间",
@@ -1354,6 +1483,45 @@
     "UseHandoverBook": {
       "name": "使用作战全权委托书",
       "help": "开打之前把委托书塞满喵！"
+    },
+    "ConsumeAllBook": {
+      "name": "一键把委托书全烧了喵",
+      "help": "每周挑一天，把仓库里的作战全权委托书一次性烧光喵！\n火力全开，委托次数自己看着办喵 (๑•̀ㅂ•́)و✧\n开了这个之后，触发当天就无视「委托次数」；委托次数填 0 的话，这个任务只会在触发时间跑喵",
+      "True": "开烧喵",
+      "False": "不烧"
+    },
+    "ConsumeAllBookWeekday": {
+      "name": "哪天开烧喵",
+      "help": "一周就烧这一次喵",
+      "mon": "周一",
+      "tue": "周二",
+      "wed": "周三",
+      "thu": "周四",
+      "fri": "周五",
+      "sat": "周六",
+      "sun": "周日"
+    },
+    "ConsumeAllBookTime": {
+      "name": "几点开烧喵",
+      "help": "到了这个点才开始烧，格式 HH:MM 喵"
+    },
+    "MaintainOverride": {
+      "name": "维护前也要薅一把喵",
+      "help": "每天看一眼停服公告喵~ 会按你玩的服找对应的公告，今天要维护的话，就在维护前 10 分钟把作战次数拉满，跑最后一次喵！\n已经停服了或者不是今天就当无事发生喵 (´・ω・`)",
+      "True": "开着喵",
+      "False": "关着喵"
+    },
+    "OilLimit": {
+      "name": "石油低于 X 就歇着喵",
+      "help": "油不够就先别跑，等油攒够了再来喵~ (￣ω￣)"
+    },
+    "ConsumeAllBookRecord": {
+      "name": "上次烧书是啥时候喵",
+      "help": "上一次把委托书烧光的时刻喵~\n在本周内就说明这周已经烧过了，不会再烧；\n清空或者改到上周以前，这周就能再烧一次喵 (๑•̀ㅂ•́)و✧"
+    },
+    "CommissionEnd": {
+      "name": "委托啥时候结束喵",
+      "help": "脚本自己记的，用来知道啥时候回来收菜喵~"
     }
   },
   "StopCondition": {
@@ -1365,13 +1533,13 @@
       "name": "石油低于 X 后推迟",
       "help": "石油不足时歇一歇，等回复再出喵~ (=^･ω･^=)"
     },
+    "OilLimitHardFloor": {
+      "name": "石油停止下限喵",
+      "help": "实际停止阈值为 max(下限, 石油上限)。500 是历史遗留的安全网，低耗监工希望把油打到更低时可以调小，设为 0 则石油上限直接生效喵"
+    },
     "CoinLimit": {
       "name": "物资大于 X 后停止喵",
       "help": "物资大于该数值后停止当前任务喵 0 表示不限制物资喵"
-    },
-    "CoinLimit_Enable": {
-      "name": "物资上限推送通知喵",
-      "help": "开启后物资达到CoinLimit值时推送通知喵\n关闭后仍会推迟任务但不推送喵"
     },
     "RunCount": {
       "name": "出击次数大于 X 停止",
@@ -1524,8 +1692,8 @@
       "fleet1_standby_fleet2_all": "一队待机 二队全清喵"
     },
     "SkipPreparation": {
-      "name": "Fleet.SkipPreparation.name",
-      "help": "Fleet.SkipPreparation.help"
+      "name": "跳过编队检测喵",
+      "help": "开启后会跳过编队界面的舰队选择步骤喵，直接使用游戏内当前预选的舰队出击\n适用于舰队槽位未完全解锁的账号，避免下拉菜单检测卡死\n开启前请确保游戏内已手动选好舰队1和舰队2喵"
     }
   },
   "Submarine": {
@@ -1552,7 +1720,7 @@
     },
     "AutoSearchMode": {
       "name": "潜艇自律方案",
-      "help": "自律寻敌下生效",
+      "help": "自律寻敌下按此设置潜艇喵；手动寻敌时若为待机，进图前也会同步关闭游戏内的自动召唤（仅限已通关地图，开荒图无此设置页）喵",
       "sub_standby": "待机喵",
       "sub_auto_call": "自动召唤潜艇喵"
     },
@@ -1565,8 +1733,8 @@
       "use_open_ocean_support": "使用远洋支援喵"
     },
     "AdvancedConfig": {
-      "name": "Submarine.AdvancedConfig.name",
-      "help": "Submarine.AdvancedConfig.help"
+      "name": "高级配置喵",
+      "help": "高级配置当且仅当潜艇出击方案选择“高级”时生效喵。配置严格遵循 YAML 格式喵。\n\n【基础参数】\n- ammo: 潜艇总弹药数。\n- support: 远洋支援可用次数。\n- range: 狩猎范围，由 7 个长度为 7 的字符串组成。\"N\" 代表覆盖范围；\"O\" 代表未覆盖范围；\"H\" 代表潜艇位置，只出现在第4行第4列（中心位置）。\n\n【规则 rules】\n- 战斗索引: battle_0（所有战斗）、battle_N（第 N 场战斗，1 起始）、battle_-N（倒数第 N 场战斗）。某场战斗如匹配多条规则则会按照“召唤 > 狩猎 > 不出击”的方式出击。\n- type: 出击类型。hunt（狩猎）、call（召唤）。\n- condition: 触发条件（省略则无条件出击）。\n    ammo: 弹药条件表达式，如 \">2\"、\">=2\"、\"=3\"。支持的运算符：\">\"、\">=\"、\"<\"、\"<=\"、\"=\"、\"!=\"。\n    support: 远洋支援次数条件表达式，如 \">2\"、\">=2\"、\"=3\"。支持的运算符：\">\"、\">=\"、\"<\"、\"<=\"、\"=\"、\"!=\"。\n    enemy: 目标敌舰类型列表，采用规模+舰种的方式表示。如 \"3M\" 代表大型主力舰队。支持通配符 \"*\"，如 \"3*\" 代表所有大型舰队，\"*T\" 代表所有运输船。\n    - 规模：1：小型舰队；2：中型舰队；3：大型舰队；0：未知规模。\n    - 舰种：L：侦察舰队；M：主力舰队；C：航空舰队；T：运输船；E：未知类型。\n    in_range（true/false）: 是否在狩猎范围内，如不在狩猎范围内召唤潜艇会消耗远洋支援次数。\n- move: 范围不足时是否消耗石油移动潜艇到能覆盖目标的油耗最小处（true/false），如果远洋支援次数有剩余则不会移动而是使用远洋支援。"
     }
   },
   "Emotion": {
@@ -1580,6 +1748,10 @@
       "calculate": "计算心情消耗喵",
       "ignore": "无视红脸警告喵",
       "calculate_ignore": "计算+无视喵"
+    },
+    "IgnoreShipwreck": {
+      "name": "无视沉船心情惩罚喵",
+      "help": "开了之后，舰娘沉了也不会多扣 10 点心情喵~ 只在「计算心情消耗喵」的时候有用喵 (=^･ω･^=)"
     },
     "Fleet1Value": {
       "name": "一队心情值",
@@ -1998,12 +2170,12 @@
   },
   "CoalitionScuttle": {
     "_info": {
-      "name": "CoalitionScuttle._info.name",
-      "help": "CoalitionScuttle._info.help"
+      "name": "联盟沉船喵",
+      "help": "联盟活动沉船设置喵，选择被击沉的舰船位置"
     },
     "Sacrifice": {
-      "name": "CoalitionScuttle.Sacrifice.name",
-      "help": "CoalitionScuttle.Sacrifice.help",
+      "name": "牺牲船位置喵",
+      "help": "选择要被击沉的舰船位置喵，前排/旗舰/前排+旗舰",
       "vanguard": "vanguard",
       "flagship": "flagship",
       "vanguard_flagship": "vanguard_flagship"
@@ -2034,6 +2206,22 @@
     "CustomFilter": {
       "name": "自定义过滤器",
       "help": "需将过滤器设为自定义。阅读文档，乱设出问题别叫喵→ https://github.com/LmeSzinc/AzurLaneAutoScript/wiki/filter_string_cn"
+    }
+  },
+  "ShopAdvanced": {
+    "_info": {
+      "name": "高级商店策略",
+      "help": "使用受限 Lua 风格规则生成商店购买计划。"
+    },
+    "Mode": {
+      "name": "策略模式",
+      "help": "简单模式继续使用现有过滤器；高级模式使用下方策略脚本。",
+      "legacy": "简单模式",
+      "advanced": "高级模式"
+    },
+    "Script": {
+      "name": "策略脚本",
+      "help": "仅支持受限 Lua 规则语法。校验失败时本轮不会购买任何物品。"
     }
   },
   "Commission": {
@@ -2087,13 +2275,13 @@
       "name": "做主要委托 (1200油/1000油)",
       "help": "1200油委现已过时收益低，建议关闭喵。 (´・ω・`)"
     },
-    "NotifyReward": {
-      "name": "委托成功获取钻石推送喵",
-      "help": "注意，请开启错误推送设置并配置，否则此功能不生效喵。 (´・ω・`)"
+    "CommissionNotifyReward": {
+      "name": "委托奖励推送通知喵~",
+      "help": "获得委托奖励时推送通知喵（特别关注钻石奖励）！"
     },
-    "NotifyRewardStatistics": {
-      "name": "奖励推送详情喵",
-      "help": "开启后，AzurPilot在推送本次委托获取奖励的同时推送当日/本周/本月的累计获取数量喵~ (´・ω・`)"
+    "CommissionNotifyRewardStatistics": {
+      "name": "推送含统计信息喵~",
+      "help": "通知里会显示今日/本周/本月累计钻石数量喵！"
     },
     "DetectShipDrop": {
       "name": "检测舰船掉落喵",
@@ -2115,10 +2303,6 @@
       "today": "今日喵",
       "week": "本周喵",
       "month": "本月喵"
-    },
-    "CommissionNotifyRewardCube": {
-      "name": "Commission.CommissionNotifyRewardCube.name",
-      "help": "Commission.CommissionNotifyRewardCube.help"
     }
   },
   "Tactical": {
@@ -2437,36 +2621,6 @@
       "help": ""
     }
   },
-  "Secretary": {
-    "_info": {
-      "name": "秘书舰设置喵",
-      "help": "设置秘书舰自动轮换和通知，让舰娘们轮流陪伴指挥官喵！(◕ᴗ◕✿)"
-    },
-    "CustomFilter": {
-      "name": "稀有度筛选器喵",
-      "help": "稀有度包含海上传奇ultra、超稀有super_rare、精锐elite、稀有rare、普通common喵\n请在下方填入自定义的顺序喵～\n默认优先顺序为ultra > super_rare > elite > rare > common"
-    },
-    "LowFavorabilityPriority": {
-      "name": "低好感度优先喵",
-      "help": "会按照好感度从低到高的顺序选择秘书舰喵，让更多秘书舰获得培养机会喵"
-    },
-    "BackupEnable": {
-      "name": "候补秘书舰喵",
-      "help": "把秘书组里的舰船当作候补秘书舰喵，优先进行更换喵！"
-    },
-    "CheckInterval": {
-      "name": "自定义检测时间（小时）喵",
-      "help": "更换秘书舰后会按设定时间重新检查喵！设为 0 时会根据好感度自动计算喵～如果安排秘书舰出击提升好感，设置此项就能更及时地更换秘书舰喵！"
-    },
-    "Notify": {
-      "name": "秘书舰推送喵",
-      "help": "使用 OnePush 推送秘书舰相关信息喵～"
-    },
-    "OnePushConfig": {
-      "name": "秘书舰推送通知喵",
-      "help": "秘书舰轮换完成后发送通知喵，不填写的话就使用全局推送配置喵~ (≧▽≦)"
-    }
-  },
   "Awaken": {
     "_info": {
       "name": "认知觉醒",
@@ -2483,22 +2637,38 @@
       "help": ""
     }
   },
-  "Report": {
+  "Secretary": {
     "_info": {
-      "name": "大世界日报喵",
-      "help": "每天定时推送大世界资源统计日报喵，通过企业微信机器人发送喵！"
+      "name": "秘书舰设置喵",
+      "help": "设置秘书舰自动轮换和通知，让舰娘们轮流陪伴指挥官喵！(◕ᴗ◕✿)"
     },
-    "Enable": {
-      "name": "启用日报喵",
-      "help": "开启后每天到触发时间就自动发送大世界日报喵～"
+    "CustomFilter": {
+      "name": "稀有度筛选器喵",
+      "help": "稀有度包含海上传奇ultra、超稀有super_rare、精锐elite、稀有rare、普通common喵\n请在下方填入自定义的顺序喵～\n默认优先顺序为ultra > super_rare > elite > rare > common"
     },
-    "TriggerTime": {
-      "name": "触发时间喵",
-      "help": "每天发送日报的时间喵，格式 HH:MM，比如 23:50"
+    "LowFavorabilityPriority": {
+      "name": "低好感度优先喵",
+      "help": "会按照好感度从低到高的顺序选择秘书舰喵，让更多秘书舰获得培养机会喵"
+    },
+    "FavouriteOnly": {
+      "name": "只从常用舰船里挑喵",
+      "help": "勾上就只在船坞里标了「常用」的舰船里挑秘书舰喵；不勾就把整个船坞翻一遍，按稀有度和好感度挑喵～"
+    },
+    "BackupEnable": {
+      "name": "候补秘书舰喵",
+      "help": "把秘书组里的舰船当作候补秘书舰喵，优先进行更换喵！"
+    },
+    "CheckInterval": {
+      "name": "自定义检测时间（小时）喵",
+      "help": "更换秘书舰后会按设定时间重新检查喵！设为 0 时会根据好感度自动计算喵～如果安排秘书舰出击提升好感，设置此项就能更及时地更换秘书舰喵！"
+    },
+    "Notify": {
+      "name": "秘书舰推送喵",
+      "help": "使用 OnePush 推送秘书舰相关信息喵～"
     },
     "OnePushConfig": {
-      "name": "OnePush 推送配置喵",
-      "help": "用于日报推送的通知配置喵（企业微信机器人渠道）"
+      "name": "秘书舰推送通知喵",
+      "help": "秘书舰轮换完成后发送通知喵，不填写的话就使用全局推送配置喵~ (≧▽≦)"
     }
   },
   "GeneralShop": {
@@ -3103,10 +3273,6 @@
       "help": "",
       "1": "1喵",
       "2": "2喵"
-    },
-    "UseRecommendFleet": {
-      "name": "自动配队困难图",
-      "help": "使用游戏推荐阵容自动完成困难配队喵~ (=^･ω･^=)"
     }
   },
   "Exercise": {
@@ -3254,7 +3420,7 @@
     },
     "IndependentPush": {
       "name": "大世界信息独立推送",
-      "help": "发需要同时开启“推送大世界相关信息”功能喵。 关闭时使用智慧港区设置 —> 调试设置 —> 错误推送设置，需要同时开启“错误推送”功能喵。 开启时使用大世界推送设置，需要分离推送内容时请开启此功能喵。"
+      "help": "发需要同时开启“推送大世界相关信息”功能喵。 关闭时使用系统设置 —> 调试设置 —> 错误推送设置，需要同时开启“错误推送”功能喵。 开启时使用大世界推送设置，需要分离推送内容时请开启此功能喵。"
     },
     "OpsiOnePushConfig": {
       "name": "大世界推送设置",
@@ -3552,11 +3718,8 @@
       "help": "搏一搏，单车变摩托！雪风大人已把幸运分给指挥官喵，上吧！(ง •̀_•́)ง"
     },
     "ExecuteFixedPatrolScan": {
-      "name": "强制移动等级",
-      "help": "明石被舰队挡住或刷新在雷达外面时喵，要不要让舰队动一动去处理它喵。0=关闭：不处理喵；1=效率模式：只切换舰队看雷达喵，一支都不挪动，最快喵，找不到就放弃喵；2=保守模式：先只扫雷达（不动）喵，扫不到再逐个挪动舰队+扫图找喵，更稳但会挪动、慢一点喵。默认 0 关闭喵；旧版布尔 true 迁移为 2、false 迁移为 0喵！",
-      "0": "关闭",
-      "1": "效率模式喵",
-      "2": "保守模式喵"
+      "name": "战后强制移动（效率模式）",
+      "help": "开启后喵，战后会挨个切 1~4 队看雷达清剩下的问号喵（只换队看雷达、一支都不挪动）喵，找到明石/记录塔/装置就处理掉喵。这样还不够的时候再一队一队挪开做一遍整图重扫喵，落点是固定的 C1/D1/E1/F1 喵（只适合侵蚀1那张图）喵：要是有人看到了问号却走不过去喵（被挡住/超出移动范围），那就直接挪喵；只有全队雷达都没线索的时候喵，才看界面上的当前行动力喵，大于 7 才挪喵，不然就留着给下一轮练级喵。默认关闭喵！短猫相接不吃这套喵，它只换队扫雷达喵。"
     },
     "SkipHpCheck": {
       "name": "献祭流跳过血量检测",
@@ -3651,12 +3814,6 @@
       "True": "已启用",
       "False": "未启用"
     },
-    "AnyShipReached": {
-      "name": "任意舰船达到等级后更换喵",
-      "help": "开启后，当任意检测舰船达到目标等级时执行自动配队\n关闭时，需要所有检测舰船达到目标等级才执行自动配队 (´・ω・`)",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
     "CooldownHours": {
       "name": "冷却时间",
       "help": "每次自动配队后的冷却时间，避免频繁触发 (´・ω・`)",
@@ -3721,40 +3878,29 @@
       "name": "补充黄币任务优先级喵~",
       "help": "黄币不足时，执行补充黄币任务的优先级顺序喵~。使用 > 分隔。"
     },
+    "ObscureAbyssalCheckDelayDays": {
+      "name": "隐秘/深渊延迟检查天数喵~",
+      "help": "隐秘海域和深渊坐标全部打完后，智能调度会延迟指定天数再检查，期间直接跳过，补黄币跑得更快喵~。0 表示每轮都检查 (´・ω・`)。大世界每月重置会刷新它们，重置后会照常检查喵~"
+    },
     "MonthEndActionPointCleanupEnable": {
-      "name": "OpsiScheduling.MonthEndActionPointCleanupEnable.name",
-      "help": "OpsiScheduling.MonthEndActionPointCleanupEnable.help",
+      "name": "启用月末清理行动力喵",
+      "help": "是否启用月末清理行动力功能喵。开启后，当距大世界重置剩余天数小于等于「月末清理行动力天数」时，启动月末清理模式消耗行动力喵。",
       "True": "True",
       "False": "False"
     },
     "MonthEndActionPointCleanupDays": {
-      "name": "OpsiScheduling.MonthEndActionPointCleanupDays.name",
-      "help": "OpsiScheduling.MonthEndActionPointCleanupDays.help"
+      "name": "月末清理行动力天数喵",
+      "help": "距大世界重置剩余天数小于等于此值时，启动月末清理行动力模式喵。0 表示禁用。启用后会循环执行短猫相接、商店购买、隐秘海域、深渊坐标消耗行动力，首次运行时还会调出塞壬要塞喵。"
     },
     "MonthEndActionPointPreserve": {
-      "name": "OpsiScheduling.MonthEndActionPointPreserve.name",
-      "help": "OpsiScheduling.MonthEndActionPointPreserve.help"
+      "name": "月末清理行动力保留喵",
+      "help": "月末清理行动力模式下的行动力保留值喵。如果启用跨月每日任务，最低预留 200 行动力；当此值大于最低预留时使用此值喵。"
     },
     "MonthEndShopPurchase": {
-      "name": "OpsiScheduling.MonthEndShopPurchase.name",
-      "help": "OpsiScheduling.MonthEndShopPurchase.help",
+      "name": "月末清理商店购买喵",
+      "help": "月末清理行动力时是否执行大世界商店购买喵。关闭后，月末清理循环将跳过商店购买步骤喵。",
       "True": "True",
       "False": "False"
-    },
-    "BuyActionPointMode": {
-      "name": "买行动力模式喵~",
-      "help": "购买行动力专用模式喵，与现有黄币/行动力调度互斥喵~ 开启后将用石油购买行动力并执行对应任务喵。需先在「大世界通用设置 → 买行动力X次」设置每周购买上限喵~",
-      "off": "关闭喵",
-      "hazard1_leveling": "侵蚀1练级喵",
-      "meowfficer_farming": "短猫补黄币喵"
-    },
-    "BuyActionPointUpperThreshold": {
-      "name": "买行动力上限阈值喵~",
-      "help": "仅「短猫补黄币」模式使用喵~ 当前真实行动力超过此值时跳过购买，直接执行海域任务喵。默认 200（大世界行动力自然回复上限）喵~"
-    },
-    "BuyActionPointLowerThreshold": {
-      "name": "买行动力下限阈值喵~",
-      "help": "仅「短猫补黄币」模式使用喵~ 当前真实行动力低于此值时停止执行海域任务，回到购买步骤喵。默认 100 喵~"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -3778,35 +3924,10 @@
       "help": "防溢出任务会持续运行，直到当前行动力低于此值喵"
     }
   },
-  "OpsiCrossMonth": {
-    "_info": {
-      "name": "跨月每日",
-      "help": "跨月每日相关配置：完成后清理多余行动力并推送消息喵。(´・ω・`)"
-    },
-    "ActionPointCleanupEnable": {
-      "name": "清理多余行动力",
-      "help": "跨月每日完成后检查剩余行动力，自动检查塞壬要塞并循环 隐秘海域 → 深渊坐标 → 耄耋相接，烧到总行动力低于保留值为止喵。(´・ω・`)"
-    },
-    "ActionPointPreserve": {
-      "name": "清理行动力保留值",
-      "help": "总行动力（当前行动力+行动力箱子折算）低于该值就收工喵，箱子里的行动力也算在内。 (´・ω・`)"
-    },
-    "PushNotify": {
-      "name": "推送跨月任务信息",
-      "help": "跨月每日完成或失败时推送消息，渠道遵循大世界推送设置喵。(´・ω・`)"
-    },
-    "RehearsalDebug": {
-      "name": "预演请求（开发者工具）",
-      "help": "由开发者工具页的跨月预演按钮写入，任务读取一次后自动复位为 off 喵，请勿手动修改。(´・ω・`)",
-      "off": "关闭",
-      "cleanup": "仅清理",
-      "full": "完整流程"
-    }
-  },
   "IslandPlan": {
     "_info": {
       "name": "岛屿计划全局喵",
-      "help": "岛屿计划的全局配置喵：当前季节、运行间隔与子模块开关喵~\n下面的开关决定哪些模块参与岛屿计划喵；开启后仍需等该模块自己的「下次运行时间」到期才会执行喵，因此每日补给一天只会跑一次、珍珠倒卖一周只会跑一次喵~"
+      "help": "岛屿计划的全局配置喵，包括季节设定~"
     },
     "Season": {
       "name": "四季轮转喵",
@@ -3815,116 +3936,6 @@
       "summer": "夏季",
       "autumn": "秋季",
       "winter": "冬季"
-    },
-    "IntervalHours": {
-      "name": "岛屿运行最长间隔喵（小时）",
-      "help": "一轮岛屿计划结束后喵，最长等该小时数才再次进岛喵；间隔期内不会运行任何岛屿子模块喵~\n如果有子模块在 60 分钟以外到期喵（当天 18:00 的每日采集、次日 03:00 的每日订单之类），会提前进岛去接那个时刻喵。想要严格固定间隔，就把「尊重子模块到期时间」关掉喵~\n自由填写 1~24 小时，超出范围会自动改为边界值喵。"
-    },
-    "RespectSubTaskTimes": {
-      "name": "尊重子模块到期时间喵",
-      "help": "开启喵：子模块自己的「下次运行时间」如果在 60 分钟以外到期，就把下一轮进岛提前到那一刻喵（当天 18:00 的每日采集、次日 03:00 的每日订单就不会被漏掉喵~）。代价是实际间隔可能比上面的最长间隔短喵。\n关闭喵：完全按最长间隔进岛，到期但没赶上的子模块留到下一轮再跑喵。\n餐馆家族「开完店立刻回头补货」这种几十分钟内的重复检查，永远不算提前进岛的理由喵~",
-      "True": "开启喵",
-      "False": "关闭喵"
-    },
-    "EnableAirDrop": {
-      "name": "启用每日补给",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableDailyGather": {
-      "name": "启用每日采集",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableCargoPreparation": {
-      "name": "启用货物筹备",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableDailyOrder": {
-      "name": "启用每日订单",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableDailyInteract": {
-      "name": "启用每日/周任务",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableFarm": {
-      "name": "启用农田耕作",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableRancher": {
-      "name": "启用牧场养殖",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableMineForest": {
-      "name": "启用矿山林场",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnablePearlSell": {
-      "name": "启用每周珍珠采购与售卖",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableManufacture": {
-      "name": "启用制造业",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableRestaurant": {
-      "name": "启用有鱼餐馆",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableTeahouse": {
-      "name": "启用白熊饮品",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableGrill": {
-      "name": "启用乌鱼烤肉",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableJuuEatery": {
-      "name": "启用啾啾简餐",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableJuuCoffee": {
-      "name": "启用啾咖啡",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "EnableBusiness": {
-      "name": "启用经营模块",
-      "help": "",
-      "True": "已启用喵",
-      "False": "未启用喵"
-    },
-    "TaskOrder": {
-      "name": "自定义执行顺序（可选）喵",
-      "help": "内置执行顺序喵，默认已填好，可直接调整喵。开关决定「跑不跑」，这里只决定「先跑谁」喵：用 > 分隔，未列出的已启用模块会排在它们之后喵；清空会恢复成这份默认顺序喵~\n可用名称：IslandAirDrop（每日补给）、IslandDailyGather（每日采集）、IslandCargoPreparation（货物筹备）、IslandDailyOrder（每日订单）、IslandDailyInteract（每日/周任务）、IslandFarm（农田耕作）、IslandRancher（牧场养殖）、IslandMineForest（矿山林场）、IslandPearlSell（每周珍珠采购与售卖）、IslandManufacture（制造业）、IslandRestaurant（有鱼餐馆）、IslandTeahouse（白熊饮品）、IslandGrill（乌鱼烤肉）、IslandJuuEatery（啾啾简餐）、IslandJuuCoffee（啾咖啡）、IslandBusiness（经营模块）"
     }
   },
   "IslandFarm": {
@@ -6325,12 +6336,16 @@
       "help": "每隔指定时间自动重启模拟器，防内存泄漏卡顿，等当前任务完成再重启喵。 (´・ω・`)"
     },
     "ForceScheduledRestart": {
-      "name": "强制定时重启",
-      "help": "到点就算在跑非敏感任务也会强制重启模拟器，保证准点维护喵。敏感任务不会被中断的。要先开「定时重启模拟器」喵。 (≧ω≦)"
+      "name": "强制定时重启喵（不等任务）",
+      "help": "开了之后喵，到点就直接重启模拟器，不等当前任务跑完。\n不过如果正在跑重要任务（敏感任务），还是会等它跑完再重启喵。\n得先开上面的「定时重启模拟器」才管用。默认关喵。"
     },
     "RestartIntervalHours": {
       "name": "重启间隔",
       "help": ""
+    },
+    "DeepRestartAfterFailures": {
+      "name": "深度重启：连续失败几次后执行",
+      "help": "模拟器连着好几次都重启不起来，就干脆把 MuMu 的进程全关掉再重新开喵！(๑•̀ㅂ•́)و✧\n设备差的机器上这是最后的手段，平时不用开喵。\n注意：会把多开的其它实例一起关掉喵。\n0 就是不开，默认 0 喵。"
     }
   },
   "EmulatorManager": {
@@ -6527,48 +6542,11 @@
       "DisableTranslateMode": "点这里关翻译模式喵",
       "ConfigSaved": "设定已保存喵~",
       "AlasIsRunning": "雪风已经在跑啦，别急喵~",
-      "ClickToUpdate": "有新鱼干可以更新啦喵！",
-      "ReloadEnabled": "自动重载开着喵，进程不用重启啦喵",
-      "AlasRestart": "正在重启 Alas 喵，稍等一下喵～",
-      "RestartCancelled": "自动更新在跑喵，或者实例存不下来喵，重启取消啦喵",
-      "NoInstance": "没有找到能用的实例喵",
-      "NoInstanceSimulateIcon": "没有能用的实例喵，没法模拟图标状态",
-      "NoInstanceClearIcon": "没有能用的实例喵，清不掉模拟状态",
-      "NoInstanceSimulateError": "没有能用的实例喵，模拟不了错误弹窗",
-      "NoInstanceCrossMonth": "没有能用的实例喵，跨月预演跑不起来",
-      "NoInstanceNotifyTest": "没有能用的实例喵，发不了错误推送测试",
-      "ErrorPopupShown": "错误弹窗弹出来啦喵",
-      "NotifyUpdateTestSent": "更新测试通知发出去啦喵",
-      "NotifyAnnouncementTestSent": "公告测试通知发出去啦喵",
-      "NotifyErrorTestSent": "错误推送测试发出去啦喵",
-      "NotifyErrorTestFailed": "错误推送测试发失败了喵，去看看错误推送设置吧",
-      "CalculatorNotReady": "活动计算器还在加载喵，再等等",
-      "InvalidEventEndDate": "活动结束日期不对喵",
-      "NoShopFilterItems": "没有能写进去的商店过滤器项目喵",
-      "WallpaperNameRequired": "名称和 API 地址不能空着喵",
-      "NoWallpaperSource": "还没有图源喵",
-      "NoRemovableWallpaperSource": "没有能删的图源喵（内置的删不掉，可以禁用）",
-      "WallpaperSourceReset": "图源设置恢复默认啦喵",
-      "RandomWallpaperApplied": "换成随机背景啦喵",
-      "NoAnnouncement": "还没有公告喵",
-      "FetchingAnnouncement": "正在找公告喵...",
-      "TooManyPasswordAttempts": "密码错太多次喵，重启一下再试吧。",
-      "PasswordWrongRemaining": "密码不对喵，还剩 {remaining} 次机会。",
-      "IconSimulated": "已经给 {target} 模拟成 {state} 啦喵（{seconds}s）",
-      "IconSimulationCleared": "已经清掉 {target} 的图标模拟喵",
-      "WriteRecordFailed": "写记录失败了喵：{e}",
-      "CrossMonthRequestFailed": "跨月预演请求没写进去喵：{e}",
-      "CancelRehearsalFailed": "取消预演也没成功喵：{e}",
-      "MediaTypeSwitched": "背景媒体类型换成 {label} 啦喵",
-      "WallpaperSourceAdded": "添加图源成功喵: {name}",
-      "WallpaperSourceRemoved": "图源删掉啦喵: {name}",
-      "CustomWallpaperApplied": "自定义背景换上啦喵: {path}",
-      "Unnamed": "没名字喵"
+      "ClickToUpdate": "有新鱼干可以更新啦喵！"
     },
     "Status": {
-      "Prefix": "待到山花烂漫时，她在丛中笑",
-      "Running": "",
-      "Inactive": "",
+      "Running": "雪风值班中喵",
+      "Inactive": "茗正在偷你箱子",
       "Warning": "出错了喵！",
       "Updating": "更新中喵，稍等~"
     },
@@ -6596,28 +6574,6 @@
       "UnderwaterFleet": "水下舰队喵",
       "Fleet": "舰队喵",
       "Ships": "舰娘喵"
-    },
-    "MeowfficerScore": {
-      "Title": "指挥喵评分报告喵",
-      "Refresh": "刷新喵",
-      "Refreshing": "正在刷新喵…",
-      "OpenReport": "看完整报告喵",
-      "EmptyTitle": "还没跑过评分任务喵",
-      "EmptyHint": "在「工具+ → 指挥喵评分」跑一次任务喵，跑完回到这里刷新就能看到结果喵。",
-      "Summary": "共 {count} 只喵 · 生成时间 {time}",
-      "Broken": "评分报告读不出来喵",
-      "Score": "参考分喵",
-      "Maxed": "已满级喵",
-      "Fixed": "已指定喵",
-      "AxisX": "X（彩天赋）喵",
-      "AxisY": "Y（有用普通）喵",
-      "NoHits": "没有命中喵",
-      "OtherRubrics": "其他口径喵（{count}）",
-      "Source": "依据喵：{source}",
-      "Screenshot": "来源截图喵：{name}",
-      "PointsSpent": "消耗 {count} 点喵",
-      "Inferred": "猜出来的，要自己核对喵",
-      "Disclaimer": "评分口径来自公开攻略（28法则执行篇 / 详细上手攻略）喵，不是官方数值喵"
     },
     "MenuDevelop": {
       "HomePage": "主页喵",
@@ -6655,7 +6611,19 @@
       "Pending": "队列中",
       "Waiting": "等待中",
       "NoTask": "无任务喵",
-      "Stat": "统计喵"
+      "Stat": "统计喵",
+      "BackgroundCurrentDefault": "**当前使用**：网页（默认）喵",
+      "BackgroundCurrentLocal": "**当前使用**：本地喵",
+      "BackgroundCurrentMixed": "**当前使用**：混合喵",
+      "BackgroundCurrentUrl": "**当前使用**：网页喵",
+      "BackgroundCustomUrls": "**自定义网址喵**",
+      "BackgroundDirectLink": "当前图片直链喵：",
+      "BackgroundExtractToLocal": "提取到本地喵",
+      "BackgroundLocalCount": "本地：{n} 张喵",
+      "BackgroundOpenFolder": "打开文件夹喵",
+      "BackgroundOpenInNewWindow": "在新窗口打开这张图喵",
+      "BackgroundTitle": "### 背景图喵",
+      "BackgroundUrlCount": "已解析链接：{n} 个喵"
     },
     "Dashboard": {
       "TimeError": "时间错误喵",
@@ -6731,11 +6699,7 @@
       "NewSuccess": "添加成功喵",
       "Name": "配置名称喵",
       "Mod": "插件喵",
-      "Actions": "操作喵",
-      "StatusRunning": "运行中喵",
-      "StatusStopped": "待命中喵",
-      "StatusError": "需要处理喵",
-      "StatusUpdating": "更新中喵"
+      "Actions": "操作喵"
     },
     "Update": {
       "UpToDate": "已是最新喵",
@@ -6754,10 +6718,7 @@
       "Time": "提交时间喵",
       "Message": "提交信息喵",
       "DisabledWarn": "更新模块未启用，需手动重启 AzurPilot 更新喵",
-      "DetailedHistory": "详细提交历史喵",
-      "Changelog": "更新日誌喵",
-      "ChangelogLoading": "正在获取更新日誌喵…",
-      "ChangelogEmpty": "暂时沒有更新日誌喵"
+      "DetailedHistory": "详细提交历史喵"
     },
     "Remote": {
       "Running": "运行中喵",
@@ -6845,10 +6806,6 @@
       "CheckUpdateIntervalHelp": "每隔多少分钟检查一次更新，0 表示禁用喵。",
       "AutoRestartTime": "定时重启时间",
       "AutoRestartTimeHelp": "有更新时每天自动重启的时间，留空表示禁用喵。",
-      "HideUpdateNotice": "隐藏更新提示喵",
-      "HideUpdateNoticeHelp": "开启后看到新版本喵，也不会弹更新提示喵～想更新的话去开发工具里手动点喵。",
-      "HideAnnouncement": "藏掉公告小窗喵",
-      "HideAnnouncementHelp": "开启后WebUI不会再自动弹公告喵，但还是可以在开发工具菜单里手动查看喵~",
       "DiscordRichPresence": "Discord 富状态",
       "DiscordRichPresenceHelp": "在 Discord 中展示 AzurPilot 运行状态喵。",
       "EnableRemoteAccess": "启用远程访问",
@@ -6890,30 +6847,10 @@
       "WebuiSSLKey": "SSL 密钥文件",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密钥路径，需和证书同时设置喵。",
       "WebuiSSLCert": "SSL 证书文件",
-      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。"
-    },
-    "LogExport": {
-      "Title": "喵日誌匯出",
-      "InstanceLabel": "喵實例",
-      "RangeLabel": "喵日期",
-      "RangeAll": "全部喵日期（合併）",
-      "RangeToday": "今天喵",
-      "RuntimeLog": "匯出喵運行日誌",
-      "ExportToday": "匯出今日喵日誌",
-      "Exporting": "喵匯出中…",
-      "ErrorLogs": "匯出喵錯誤日誌目錄（含截圖）",
-      "ErrorLogsText": "只匯出喵日誌文字（不含截圖）",
-      "Pending": "正在匯出喵，請稍候…",
-      "Packing": "正在打包喵錯誤日誌，請稍候…",
-      "Started": "喵已開始下載",
-      "Failed": "喵匯出失敗",
-      "NoInstance": "未找到可用喵實例",
-      "NoRuntimeLog": "這隻喵實例沒有可匯出的運行日誌",
-      "Confirm": "確認匯出喵？",
-      "ConfirmSize": "共 {{files}} 個喵檔案、約 {{size}}，壓縮後約 {{zip}}。遠控下傳輸較慢喵，確認匯出？",
-      "ConfirmSizePlain": "共 {{files}} 個喵檔案、約 {{size}}。遠控下傳輸較慢喵，確認匯出？",
-      "InfoLoading": "正在統計喵體積…",
-      "NoFiles": "喵錯誤日誌目錄是空的"
+      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置喵。",
+      "DisableBranchWatermark": "关闭未经验证版本的水印喵",
+      "DisableBranchWatermarkHelp": "【不勾选的时候正常显示水印喵】\n⚠ 不了解 AzurPilot、或者搞不清 master / dev 等分支作用的人，禁止开启本项喵。\n⚠ 需要截图反馈问题、或者请别人帮忙定位问题的人，禁止开启本项喵：水印里的分支名、版本哈希和提交信息是判断你跑了哪一份代码的唯一线索喵，藏起来之后就定位不了问题喵。\n改完要重启 AzurPilot 才生效喵。",
+      "WatermarkHiddenNow": "水印已经藏起来啦喵；想再打开水印要刷新页面或者重启 AzurPilot 喵。"
     },
     "StartupRun": {
       "Title": "启动时自动运行喵",
@@ -6929,6 +6866,9 @@
       "InvalidFeedBack": "格式错误喵。示例：{0}",
       "Clear": "清除喵",
       "RunNow": "立即运行喵",
+      "RunNowSchedulerStopped": "调度器未启动喵，请先通过上方开关或总览页启动",
+      "RunNowTaskDisabled": "该任务未启用喵，请先勾选\"启用调度\"再立即运行",
+      "SchedulerQuickBar": "调度器喵",
       "EnterPassword": "输入密码喵",
       "ChooseFile": "选择文件喵"
     },
@@ -6939,7 +6879,7 @@
       "NewDataAvailable": "有新的统计数据喵，点击刷新",
       "NoValidApData": "暂无有效体力数据喵",
       "ViewTitleLine": "分时曲线 喵",
-      "ViewTitleDay": "天视图喵 ({day} 小时K线)",
+      "ViewTitleDay": "天视图 喵",
       "ViewTitleMonth": "月视图 喵",
       "CannotAggregateKline": "无法聚合K线数据喵",
       "ViewLineShort": "分时喵",
@@ -6947,9 +6887,9 @@
       "CandlesCount": "共 {count} 根K线",
       "ViewLabel": "📊 視圖喵:",
       "DetailLabel": "📈 詳情喵:",
-      "ViewLineButton": "折线喵",
-      "ViewDayButton": "按日喵",
-      "ViewMonthButton": "按月喵",
+      "ViewLineButton": "分时喵",
+      "ViewDayButton": "天视图喵",
+      "ViewMonthButton": "月视图喵",
       "DetailChartTitle": "单日体力波动详情 喵~",
       "ToggleDetailChart": "详情图喵",
       "DetailChartOn": "✓ 开启喵",
@@ -6957,7 +6897,6 @@
       "LoadOpsiStatsFailed": "加载 OpSi 统计失败: {e}",
       "LoadExpStatsFailed": "加载经验统计失败: {e}",
       "DailyExpCheckTitle": "每日经验检测喵",
-      "FoldShipDigest": "喵 {n} 艘喵",
       "CheckTime": "检测时间: {value}",
       "TargetLevel": "目标等级: {value}",
       "ShipSlot": "舰位喵",
@@ -6994,32 +6933,24 @@
       "OpsiDataCollectionTitle": "雪风大人的侵蚀一数据喵",
       "MonthlyPurchasedAP": "当月购买体力: {value}",
       "MeowDataCollectionTitle": "短猫相接数据收集喵",
-      "FoldMeowDigest": "喵 {n} 条喵",
       "MeowRounds": "出击轮次喵",
       "AvgMeowRoundTime": "平均一轮短猫时长喵",
-      "MeowLootTitleCurrent": "本月短猫相接收获喵",
-      "MeowLootTitleHistory": "历史短猫相接收获（{month}）喵",
-      "MeowLootHeaderItem": "物品喵",
-      "MeowLootHeaderTotal": "合计喵",
-      "MeowLootHazardColumn": "侵蚀 {level}喵",
-      "MeowLootItemPlate": "金菜喵",
-      "MeowLootItemGearDesign": "彩图纸喵",
-      "MeowLootItemOrdnance": "金机密喵",
-      "MeowLootItemObscure": "隐蔽海域喵",
-      "MeowLootItemAbyssal": "深渊海域喵",
-      "MeowLootItemCat": "金猫箱喵",
-      "MeowLootViewHistory": "查看历史月份喵",
-      "MeowLootBackToCurrent": "回到本月喵",
-      "MeowLootPickMonthTitle": "选择查看月份喵",
-      "MeowLootNoHistoryMonth": "暂无历史月份数据喵",
-      "MeowLootCurrentMonthOption": "本月（{month}）喵",
+      "MeowLootTitle": "短猫相接收获喵",
       "NoMeowDataNotice": "暂无本地短猫收获数据，完成一次短猫相接后会自动生成喵",
       "RoundUnit": "轮",
       "SecondUnit": "秒",
       "HourUnit": "小时",
       "MinuteUnit": "分钟",
+      "ExportModuleLoadFailed": "导出失败：无法加载统计模块：{e}",
+      "CsvHeaderAkashiRate": "遇见明石概率(%)喵",
+      "CsvHeaderLoopEfficiency": "循环效率(%)喵",
+      "CsvHeaderMonthlyPurchasedAP": "当月购买体力喵",
+      "CsvFilenameTemplate": "侵蚀1练级_{month}_详细数据.csv",
+      "SavedToDesktop": "已保存至桌面：{path}喵",
+      "SaveDesktopFailed": "保存桌面失败：{e}喵",
+      "ExportAndSaveDesktop": "导出并保存到桌面喵",
       "NoShipExpData": "暂无舰船经验数据，请先运行\"每日经验检测\"任务喵",
-      "ShipExpProgressTitle": "舰船经验进度喵",
+      "ShipExpProgressTitle": "每日经验检测：识别到的舰娘等级与升级进度喵",
       "LastCheckTime": "上次检查时间: {value}喵",
       "AvgOpsiRoundTime": "平均一轮侵蚀1时长: {value}{unit}喵",
       "TodayBattleUnit": "场",
@@ -7044,87 +6975,57 @@
       "CommissionIncomeHeaderAvg": "平均/次喵",
       "CommissionIncomeTotalCommissions": "委托总次数: {value}喵",
       "CommissionIncomeRecentTitle": "最近委托记录喵",
-      "DeltaPeriodDay": "日喵",
-      "DeltaPeriodWeek": "周喵",
-      "DeltaPeriodMonth": "月喵",
-      "DeltaPeriodTotal": "总喵",
-      "DeltaChartTitle": "资源增减趋势喵",
-      "DeltaSummaryTitle": "增减汇总喵",
-      "ConsumptionRankingTitle": "消耗排行榜喵",
-      "DeltaResource": "资源",
-      "DeltaIncrease": "增加",
-      "DeltaDecrease": "消耗",
-      "DeltaNet": "净变化喵",
-      "DeltaTotalConsumed": "总消耗 {total} 喵",
-      "NoDeltaData": "暂无资源增减数据喵，运行脚本后将自动记录喵",
-      "LoadDeltaDataFailed": "加载资源增减数据失败喵: {e}",
-      "DeltaTimelineHint": "任务按时间排列喵，节点上方为增加、下方为消耗喵",
-      "DeltaTaskTimes": "运行 {n} 次喵",
-      "DeltaMore": "+{n} 项喵",
-      "PageTitle": "统计喵",
-      "PageMeta": "数据截至 {time} 喵 · 实例 {instance} 喵",
-      "SourceOk": "数据源正常喵",
-      "SourceStale": "数据源好久没更新了喵",
-      "SourceMissing": "还没有数据源喵",
-      "KpiCurrentAp": "当前行动力喵",
-      "KpiChange": "区间变化喵",
-      "KpiRangeMax": "区间最高喵",
-      "KpiRangeMin": "区间最低喵",
-      "KpiAverage": "区间平均喵",
-      "ApChartTitle": "体力变化喵",
-      "SeriesActionPoint": "体力喵",
-      "SeriesYellowCoin": "黄币喵",
-      "SeriesPurpleCoin": "紫币喵",
-      "SeriesAsset": "资产喵",
-      "SeriesDistance": "海里数喵",
-      "MetricChange": "变化喵",
-      "MetricMax": "最高喵",
-      "MetricMin": "最低喵",
-      "OpsiCardAkashi": "遇见明石喵",
-      "OpsiCardCrane": "吊机喵",
-      "OpsiCardRate": "概率喵",
-      "OpsiCardBattleTime": "战斗时长喵",
-      "OpsiCardRound": "一轮喵",
-      "OpsiCardNetRatio": "净赚 / 购买喵",
-      "OpsiCardBought": "当月购买喵",
-      "OpsiCardSortieCost": "出击消耗喵",
-      "MeowLootYellowPerRound": "平均黄币/轮喵",
-      "MeowLootPlatePerRound": "平均金菜/轮喵",
-      "MeowLootAbyssalPerRound": "平均深渊/轮喵",
-      "MeowLootObscurePerRound": "平均隐秘/轮喵",
-      "ShipExpAvgRound": "平均一轮喵",
-      "ShipExpToday": "今日喵",
-      "ShipExpTodayValue": "{battles} 场喵 / {exp} 经验喵 / {run} 分钟喵",
-      "ShipExpLastCheck": "上次检查喵",
-      "ShipExpTargetShort": "目标 {level} 级喵",
-      "ShipExpTodayShort": "今日 {n} 场喵",
-      "ShipExpSlotValue": "{slot} 号位喵",
-      "ShipExpDone": "已完成喵",
-      "OpsiCardBattleUnit": "场",
-      "OpsiCardCount": "次",
-      "AuxFoldTitle": "资源明细喵",
-      "MeowLootFoldTitle": "本月收获喵",
-      "MeowLootFoldTitleHistory": "{month} 收获喵",
-      "MeowLootFoldDigest": "共 {n} 件喵",
-      "MeowLootDigestPart": "本月 {n} 件喵",
-      "MeowRoundDigest": "侵{level}：{rounds} 轮喵",
-      "MeowLootEmptyNotice": "本月暂无耄耋相接收获喵",
-      "TabOpsi": "大世界喵",
-      "TabCommission": "委托喵",
-      "TabResearch": "科研喵",
-      "TabResearchBadge": "规划中喵",
-      "TabResource": "资源喵",
-      "ResearchTitle": "科研统计喵",
-      "ResearchDesc": "还在规划喵。下面三个槽位已经划好边界和数据契约了喵，开发时只要往里填渲染逻辑就好喵，不会影响别的页签喵。",
-      "ResearchSlotProgress": "当前研究进度喵",
-      "ResearchSlotProgressDesc": "数据契约喵：项目 / 层级 / 进度 / 剩余时间喵",
-      "ResearchSlotQueue": "研究队列喵",
-      "ResearchSlotQueueDesc": "数据契约喵：槽位 / 名称 / 预计完成，最多 5 项喵",
-      "ResearchSlotCost": "图纸与物资收支喵",
-      "ResearchSlotCostDesc": "数据契约喵：图纸 / 资源 / 净变化喵",
-      "ResearchSlotPending": "待接入喵",
-      "ResearchEmptyTitle": "科研统计还没开喵",
-      "ResearchEmptyDesc": "这个页签是给以后开发留的喵。开了之后三个槽位会自己填上喵，别的页签不受影响喵。"
+      "ResourceChartTitle": "全资源变化趋势喵",
+      "LoadResourceDataFailed": "加载资源数据失败喵: {e}",
+      "NoResourceData": "暂无资源变化数据喵，运行脚本后将自动记录喵",
+      "NoValidResourceData": "暂无有效资源数据喵",
+      "BackgroundBtn": "背景喵",
+      "ChartAp": "体力喵: ",
+      "ChartApLabel": "行动力喵",
+      "ChartAsset": "资产喵: ",
+      "ChartChange": "涨跌喵: ",
+      "ChartChangeLabel": "变化喵",
+      "ChartClose": "收盘喵: ",
+      "ChartDelta": "单次变化喵: ",
+      "ChartDensity": "数据点密度喵: ",
+      "ChartDistance": "海里数喵: ",
+      "ChartHigh": "最高喵: ",
+      "ChartLow": "最低喵: ",
+      "ChartMa10": "  MA10(10期平均)喵: ",
+      "ChartMa5": "  MA5(5期平均)喵: ",
+      "ChartMaxLabel": "最高喵",
+      "ChartMean": "均值喵:",
+      "ChartMeanLabel": "均值喵",
+      "ChartMinLabel": "最低喵",
+      "ChartOpen": "开盘喵: ",
+      "ChartPanelTitle": "体力变化喵 - {view}",
+      "ChartPurple": "紫币喵: ",
+      "ChartResetBtn": "重置喵",
+      "ChartSeriesAp": "体力喵",
+      "ChartSeriesAsset": "资产喵",
+      "ChartSeriesDistance": "海里数喵",
+      "ChartSeriesPurple": "紫币喵",
+      "ChartSeriesYellow": "黄币喵",
+      "ChartSource": "来源喵: ",
+      "ChartYellow": "黄币喵: ",
+      "ExtractAlreadyLocal": "当前背景已经是本地图片，无需提取喵。",
+      "ExtractDone": "已提取到 bg/{sub}/{name} 喵",
+      "ExtractFailed": "提取失败喵：{error}",
+      "ExtractHint": "提取只是存放，不会自动当背景喵；想用请移到 bg/。",
+      "ExtractNoImage": "当前没有可提取的背景图喵。",
+      "ExtractNoImageData": "没有可提取的图片喵",
+      "ExtractRunning": "正在提取喵…",
+      "ExtractSkipped": "这张图之前已经提取过了喵：{name}",
+      "ExtractUnknownError": "未知错误喵",
+      "MaterialAdvancedOnly": "仅高级材质生效喵",
+      "MaterialBlur": "磨砂喵",
+      "MaterialCards": "卡片喵",
+      "MaterialReset": "重置喵",
+      "MaterialTiles": "贴片喵",
+      "MaterialTitle": "界面材质喵",
+      "MaterialTransparency": "透明喵",
+      "Readme": "把图片放进这个文件夹即可作为 WebUI 背景喵。\n支持：{{exts}}\n放多张会随机选取一张喵。\n\n子文件夹「{{sub}}」存放界面上点【提取】下载的图片喵，\n和你手动放进来的图片分开，页面上会标明每张图的来源。\n本文件可删除，不影响功能喵。\n",
+      "ScreenshotPreviewBtn": "截图预览喵"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自动切换喵"
