@@ -9,6 +9,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 
 class DeveloperMenuMixin(WebUIMixinBase):
@@ -72,5 +73,13 @@ class DeveloperMenuMixin(WebUIMixinBase):
 
         self._show_update_notice(handle_preview_click)
 
+    @render_locked
     def ui_develop(self) -> None:
+        if self.is_mobile and self._active_aside == "Home":
+            # 手机端主页内容页会把二级菜单折叠隐藏（alas-mobile.css 将折叠类渲染
+            # 为 display:none），主页成了唯一没有菜单入口的页面，远控时无法进入
+            # 更新器/远程控制。与 ui_alas / ui_manage 的约定保持一致：再次点击
+            # 已激活的侧栏图标仅展开二级菜单，不重渲染内容。
+            self.expand_menu()
+            return
         self.show_home()
