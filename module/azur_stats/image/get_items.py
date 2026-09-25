@@ -5,6 +5,7 @@
 处理物品网格定位和数量 OCR，以及信息栏遮挡的异常情况。
 """
 
+import cv2
 import numpy as np
 import typing as t
 
@@ -16,13 +17,47 @@ from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_ITEMS_3
 from module.handler.assets import INFO_BAR_1
 from module.logger import logger
 from module.statistics.assets import GET_ITEMS_ODD
-from module.statistics.item import Item, ItemGrid
+from module.statistics.item import AmountOcr, Item, ItemGrid
 from module.statistics.utils import ImageError
 
 ITEM_GRIDS_1_ODD = ButtonGrid(origin=(336, 298), delta=(128, 0), button_shape=(96, 96), grid_shape=(5, 1))
 ITEM_GRIDS_1_EVEN = ButtonGrid(origin=(400, 298), delta=(128, 0), button_shape=(96, 96), grid_shape=(4, 1))
 ITEM_GRIDS_2 = ButtonGrid(origin=(336, 227), delta=(128, 142), button_shape=(96, 96), grid_shape=(5, 2))
 ITEM_GRIDS_3 = ButtonGrid(origin=(336, 223), delta=(128, 149), button_shape=(96, 96), grid_shape=(5, 2))
+
+
+class AutoSearchAmount(AmountOcr):
+    """结算奖励页与获得道具页共用的数量识别。
+
+    两页的图标缩放不同（自律寻敌 64px 放大到 96、获得道具页原生 96），但数量
+    都是浅色数字压深色底，取字规则一致。
+
+    Attributes:
+        remove_fragments (bool): 开启碎片过滤，避免图标笔触被读成数字。
+        fragment_max_digit_gap (int): 右侧数字簇规则：数字之间水平间隙 ≤4px，
+            图标竖笔触与数字的间隙 ≥19px，据此把图标笔触排除在数字之外
+            （如 2 被读成 12）。
+    """
+
+    # 数量区域先放大 2.67 倍再提取文字：数字组件高度 24~27px，图标边缘碎片 ≤8px。
+    remove_fragments = True
+    fragment_min_height = 15
+    fragment_min_area = 30
+    fragment_max_digit_gap = 10
+
+    def pre_process(self, image):
+        # 自律寻敌页 group.amount_area = (35, 51, 63, 63)，目标高度 32
+        scale = 32 / 12
+        #     CV_INTER_NN       =0,
+        #     CV_INTER_LINEAR   =1,
+        #     CV_INTER_CUBIC    =2,
+        #     CV_INTER_AREA     =3,
+        #     CV_INTER_LANCZOS4 =4,
+        image = cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=2)
+
+        image = super().pre_process(image)
+
+        return image
 
 
 class GetItemsCoveredByInfoBar(ImageError):
@@ -76,12 +111,27 @@ class GetItems(ImageBase):
     # False at normal run
     ALLOW_TOO_MANY_NEW_TEMPLATE = False
 
+    # 数量区。获得道具页的数字贴着图标右下角、右对齐，位数多时左侧会超出这个区，
+    # 于是四位数被切掉首位（作战补给凭证 1638 读成 638，实测 6/9 张吃亏）；
+    # 而白纸类（图纸/实验计划）的数字压在右下角的灰色齿轮上，齿轮的齿在默认区里
+    # 会被读成「7」（1 读成 71）。两者都不能靠调一个通用区解决，只能按物品换区。
+    ITEM_AMOUNT_AREA = (60, 71, 91, 92)
+    ITEM_AMOUNT_AREA_RULES = (
+        # 数字在齿轮下方，下移一档避开齿轮的齿
+        ('GearDesignPlan', (60, 76, 90, 94)),
+        ('OrdnanceTestingReport', (60, 76, 90, 94)),
+        # 只有这一格会到四位数，且右下角没有压住数字的装饰，可以整体左扩
+        ('OperationCoin', (50, 71, 92, 92)),
+    )
+
     @cached_property
     def item_grid(self) -> ItemGrid:
-        grid = ItemGrid(None, {}, template_area=(40, 21, 89, 70), amount_area=(60, 71, 91, 92))
+        grid = ItemGrid(None, {}, template_area=(40, 21, 89, 70), amount_area=self.ITEM_AMOUNT_AREA)
         grid.item_class = Item
         grid.similarity = 0.92
-        grid.amount_area = (60, 71, 91, 92)
+        grid.amount_area = self.ITEM_AMOUNT_AREA
+        grid.amount_area_rules = list(self.ITEM_AMOUNT_AREA_RULES)
+        grid.amount_ocr = AutoSearchAmount([], threshold=96, name='Amount_ocr')
         grid.load_template_folder(self.ITEM_TEMPLATE_FOLDER)
         return grid
 

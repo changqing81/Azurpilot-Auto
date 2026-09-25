@@ -13,7 +13,7 @@ import re
 
 from module.azur_stats.image.base import CLASSIFY_CACHE
 from module.azur_stats.image.base import ImageBase
-from module.azur_stats.image.get_items import GetItems, TooManyNewTemplate, ZeroAmountError
+from module.azur_stats.image.get_items import AutoSearchAmount, GetItems, TooManyNewTemplate, ZeroAmountError
 from module.azur_stats.assets import AUTO_SEARCH_REWARD_TITLE
 from module.base.button import ButtonGrid
 from module.base.decorator import cached_property
@@ -21,7 +21,7 @@ from module.base.utils import area_offset, crop
 from module.base.utils import color_similar
 from module.logger import logger
 from module.os_handler.assets import AUTO_SEARCH_REWARD
-from module.statistics.item import AmountOcr, Item, ItemGrid
+from module.statistics.item import Item, ItemGrid
 from module.statistics.utils import ImageError
 
 
@@ -39,33 +39,6 @@ class AutoSearchItem(Item):
         # 19.32105580099661
         std = np.std(self.image, ddof=1)
         return std > 40
-
-
-class AutoSearchAmount(AmountOcr):
-    # 奖励页数量区域先放大 2.67 倍再提取文字：
-    # 数字组件高度 24~27px，图标边缘碎片 ≤8px。
-    # 开启碎片过滤避免碎片被误读为数字（如特别兑换券 3 被读成 23）。
-    remove_fragments = True
-    fragment_min_height = 15
-    fragment_min_area = 30
-    # 数字间水平间隙 ≤4px，图标竖笔触与数字间隙 ≥19px，
-    # 用右侧数字簇规则排除图标笔触（如 2 被读成 12）。
-    fragment_max_digit_gap = 10
-
-    def pre_process(self, image):
-        # group.amount_area = (35, 51, 63, 63)
-        # Target height: 32
-        scale = 32 / 12
-        #     CV_INTER_NN       =0,
-        #     CV_INTER_LINEAR   =1,
-        #     CV_INTER_CUBIC    =2,
-        #     CV_INTER_AREA     =3,
-        #     CV_INTER_LANCZOS4 =4,
-        image = cv2.resize(image, (0, 0), fx=scale, fy=scale, interpolation=2)
-
-        image = super().pre_process(image)
-
-        return image
 
 
 class AutoSearchItemGrid(ItemGrid):
