@@ -67,6 +67,7 @@ Toast:
   Unnamed:
 
 Status:
+  Prefix:
   Running:
   Inactive:
   Warning:
@@ -457,6 +458,7 @@ Stat:
   LoadOpsiStatsFailed:
   LoadExpStatsFailed:
   DailyExpCheckTitle:
+  FoldShipDigest:
   CheckTime:
   TargetLevel:
   ShipSlot:
@@ -493,6 +495,7 @@ Stat:
   OpsiDataCollectionTitle:
   MonthlyPurchasedAP:
   MeowDataCollectionTitle:
+  FoldMeowDigest:
   MeowRounds:
   AvgMeowRoundTime:
   MeowLootTitleCurrent:
@@ -559,6 +562,32 @@ Stat:
   DeltaTimelineHint:
   DeltaTaskTimes:
   DeltaMore:
+  PageTitle:
+  PageMeta:
+  SourceOk:
+  SourceStale:
+  SourceMissing:
+  KpiCurrentAp:
+  KpiChange:
+  KpiRangeMax:
+  KpiRangeMin:
+  KpiAverage:
+  TabOpsi:
+  TabCommission:
+  TabResearch:
+  TabResearchBadge:
+  TabResource:
+  ResearchTitle:
+  ResearchDesc:
+  ResearchSlotProgress:
+  ResearchSlotProgressDesc:
+  ResearchSlotQueue:
+  ResearchSlotQueueDesc:
+  ResearchSlotCost:
+  ResearchSlotCostDesc:
+  ResearchSlotPending:
+  ResearchEmptyTitle:
+  ResearchEmptyDesc:
 
 Tactical:
   SkillAutoSwitch:

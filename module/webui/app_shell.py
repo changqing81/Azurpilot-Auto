@@ -14,8 +14,11 @@ from module.webui.app_dependencies import (
     put_buttons,
     put_html,
     put_icon_buttons,
+    put_loading,
     put_loading_text,
+    put_row,
     put_scope,
+    put_text,
     queue,
     read_file,
     run_js,
@@ -31,6 +34,7 @@ from module.webui.app_dependencies import (
 
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.webui.widgets import get_loading_style
 
 
 VALID_WEBUI_THEMES = {
@@ -88,19 +92,30 @@ def _reload_theme_css(theme: str) -> None:
 
     injected_styles = getattr(local, "webui_injected_styles", None)
     if injected_styles is not None:
+        injected_styles.discard(filepath_css("statistics-alas"))
         injected_styles.discard(filepath_css("stat-delta-alas"))
         injected_styles.discard(filepath_css("meowfficer-score-alas"))
+        # meow-loot-alas 原先漏在清单外：上面的 JS 会按 style[id^="alas-css-"]
+        # 删除全部已注入样式，而它仍留在 injected_styles 里，
+        # 于是 add_css_files 判定「已注入」直接跳过 —— 切一次主题后
+        # 耄耋相接「收获」区块的样式就永久丢失了。
+        injected_styles.discard(filepath_css("meow-loot-alas"))
         injected_styles.discard(filepath_css("light-alas"))
         injected_styles.discard(filepath_css("dark-alas"))
         injected_styles.discard(filepath_css("advanced-material-alas"))
         injected_styles.discard(filepath_css("dark-advanced-material-overrides-alas"))
         injected_styles.discard(filepath_css("transparent-alas"))
 
+    # 统计页分页式改版的骨架样式。只消费 --alas-entry-* 与 --rd-*，
+    # 本身不含颜色常量，但同样需要随主题重注入（上面已从 DOM 删除）。
+    add_css_files((filepath_css("statistics-alas"),))
     # 统计页资源增减视图的基础组件样式被上方清理移除，随主题一起重注入
     # （主题 CSS 在其后加载，--rd-* 变量覆盖才能生效）
     add_css_files((filepath_css("stat-delta-alas"),))
     # 指挥喵评分面板同理：先注入基础样式，再由主题 CSS 覆盖 --meow-* 变量
     add_css_files((filepath_css("meowfficer-score-alas"),))
+    # 耄耋相接「收获」区块，同上
+    add_css_files((filepath_css("meow-loot-alas"),))
     if theme == "dark":
         add_css_files((filepath_css("dark-alas"),))
     elif theme == "advanced_material":
@@ -380,19 +395,42 @@ class AppShellMixin(WebUIMixinBase):
                 4 (stop for update)
                 0 (hide)
                 -1 (*state not changed)
+
+        加载圈的位置随语言变化（由 Gui.Status.Prefix 是否为空决定）：
+            有排头（en-US / ja-JP）：排头 + [〇 文字]，圆圈在文字左侧；
+            无排头（zh-CN / zh-MIAO / zh-TW）：整句由状态文字承载，
+                圆圈跟在整句之后，故这里把顺序反过来输出。
         """
         if state == -1:
             return
         clear()
 
         if state == 1:
-            put_loading_text(t("Gui.Status.Running"), color="success")
+            text, shape, color = t("Gui.Status.Running"), "border", "success"
         elif state == 2:
-            put_loading_text(t("Gui.Status.Inactive"), color="secondary", fill=True)
+            text, shape, color = t("Gui.Status.Inactive"), "border", "secondary"
         elif state == 3:
-            put_loading_text(t("Gui.Status.Warning"), shape="grow", color="warning")
+            text, shape, color = t("Gui.Status.Warning"), "grow", "warning"
         elif state == 4:
-            put_loading_text(t("Gui.Status.Updating"), shape="grow", color="success")
+            text, shape, color = t("Gui.Status.Updating"), "grow", "success"
+        else:
+            return
+
+        fill = state == 2
+        if t("Gui.Status.Prefix"):
+            put_loading_text(text, shape=shape, color=color, fill=fill)
+        else:
+            # 圆圈在整句之后：先输出文字，再输出加载圈。
+            put_row(
+                [
+                    put_text(text),
+                    None,
+                    put_loading(shape=shape, color=color).style(
+                        get_loading_style(shape=shape, fill=fill)
+                    ),
+                ],
+                size="auto 2px 1fr",
+            )
 
     @staticmethod
     def _format_tz_offset(offset: timedelta) -> str:

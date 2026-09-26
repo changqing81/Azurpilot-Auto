@@ -12,6 +12,7 @@ import threading
 from pywebio.output import clear, put_html, put_scope, put_text, use_scope
 from pywebio.session import defer_call, info, run_js
 
+from module.webui.lang import t
 from module.webui.utils import Icon, WebIOTaskHandler, set_localstorage
 
 
@@ -213,15 +214,19 @@ class Frame(Base):
     @staticmethod
     @use_scope("ROOT", clear=True)
     def _show() -> None:
-        put_scope(
-            "header",
-            [
-                put_html(Icon.ALAS).style("--header-icon--"),
-                put_text("待到山花烂漫时，").style("--header-text--"),
-                put_scope("header_status"),
-                put_scope("header_title"),
-            ],
-        )
+        # 页眉排头走 i18n：zh-CN / zh-MIAO / zh-TW 为空字符串，
+        # 表示该语言不使用排头，诗句由 header_status 的整句承载
+        # （「待到山花烂漫时，她在丛中笑」），加载圈跟在整句之后；
+        # 其它语言排头为 AzurPilot，加载圈夹在排头与状态文字之间。
+        header_items = [put_html(Icon.ALAS).style("--header-icon--")]
+        header_prefix = t("Gui.Status.Prefix")
+        if header_prefix:
+            header_items.append(put_text(header_prefix).style("--header-text--"))
+        header_items += [
+            put_scope("header_status"),
+            put_scope("header_title"),
+        ]
+        put_scope("header", header_items)
         put_scope(
             "contents",
             [
