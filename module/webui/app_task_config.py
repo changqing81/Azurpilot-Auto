@@ -461,6 +461,10 @@ class TaskConfigMixin(WebUIMixinBase):
                 group_outputs.append(put_scope("group_EventCalculator"))
                 render_event_calculator = True
 
+        # 清掉 init_menu 画的骨架屏（skip_clear=True 跳过了 init_menu 末尾的
+        # 清理），再落地页面——否则骨架残留在内容上方。
+        clear("content")
+
         # PyWebIO 的每个独立 output 都会形成一条 WebSocket 指令。将整个配置页
         # 作为嵌套 Output 一次发送，避免数十个控件触发数百次网络往返和重复布局。
         put_scope(
@@ -523,9 +527,13 @@ class TaskConfigMixin(WebUIMixinBase):
 
     def _expand_config_group_and_scroll(self, task, group) -> None:
         """懒渲染分组展开 + 滚动定位（分组壳按钮与导航按钮共用）。"""
+        from module.logger import logger as _logger
+        _logger.info(f"[lazy-debug] expand called: task={task} group={group[0]}")
         if getattr(self, "_group_render_task", None) != task:
+            _logger.info("[lazy-debug] stale task, return")
             return  # 任务已切换，过期点击
         self._ensure_group_expanded(task, group)
+        _logger.info("[lazy-debug] expanded ok")
         run_js(
             f"""
             $("#pywebio-scope-groups").scrollTop(
@@ -550,14 +558,18 @@ class TaskConfigMixin(WebUIMixinBase):
             self._expanded_groups.add(group_name)
             return
         config = self.alas_config.read_file(self.alas_name)
+        # 控件必须在 use_scope(group_X) 上下文内构造（pywebio 的 Output
+        # 在创建时烤入目标 scope）；整组控件作为嵌套 Output 单消息发送
+        # ——逐个 show 会产生 N 条消息，远控下按 RTT 放大。
+        # 组名/帮助文本位于 _body 包裹层内，样式由 alas.css 的镜像规则覆盖。
         with use_scope(f"group_{group_name}", clear=True):
             content, watcher_paths, _ = self._build_group_content(
                 group, arg_dict, config, task
             )
             if content is not None:
-                # 整组控件作为嵌套 Output 单消息发送——逐个 show 会产生
-                # N 条消息，远控下按 RTT 放大（实测单组展开 509ms→200ms 级）
                 put_scope(f"group_{group_name}_body", content=content)
+        for path in watcher_paths:
+            self._bind_config_watcher(path)
         self._expanded_groups.add(group_name)
         if content is not None:
             for path in watcher_paths:
