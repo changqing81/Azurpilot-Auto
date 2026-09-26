@@ -126,6 +126,30 @@
         ctx.scale(dpr, dpr);
         var oc = ovCv.getContext("2d");
 
+        // 主题调色板：原先这里把画布底色 / 网格线 / 刻度文字硬编码成
+        // #1a1a2e / #2a2a3e / #666（暗色），在浅色主题下会渲染成一块深色板。
+        // 改为读取主题 CSS 变量；变量缺失时回退到原来的暗色值，深色主题行为不变。
+        // 每次绘制都重新读取，所以切换主题后无需刷新即可生效。
+        function apChartVar(name, fallback) {
+            var v = "";
+            try {
+                v = getComputedStyle(document.documentElement)
+                    .getPropertyValue(name);
+            } catch (e) { v = ""; }
+            v = (v || "").trim();
+            return v || fallback;
+        }
+        var pal = {
+            // 画布底色 / 网格 / 刻度：固定用深色。
+            // 之前跟随 --rd-panel-bg，浅色主题下该变量是 #ffffff，
+            // 于是整块图表变成白底，体力折线与刻度在白色上几乎看不清。
+            // 现在统一走 --ap-chart-* 变量，默认值即深色，任何主题都一致；
+            // 若某主题确实想要别的底色，只需覆盖 --ap-chart-bg 即可。
+            bg: apChartVar("--ap-chart-bg", "#1a1a2e"),
+            grid: apChartVar("--ap-chart-grid", "#2a2a3e"),
+            tick: apChartVar("--ap-chart-tick", "#8a93a3")
+        };
+
         // 硬币刻度标签布局常量
         var COIN_TICK_X = 8;
         var COIN_TICK_BASELINE = 4;
@@ -289,12 +313,12 @@
         function xCenter(i) { return pad.l + candleSpace * (i + 0.5); }
 
         // ======== 初始绘制（非缩放全量视图） ========
-        ctx.fillStyle = "#1a1a2e";
+        ctx.fillStyle = pal.bg;
         ctx.fillRect(0, 0, W, H);
 
-        ctx.strokeStyle = "#2a2a3e";
+        ctx.strokeStyle = pal.grid;
         ctx.lineWidth = 1;
-        ctx.fillStyle = "#666";
+        ctx.fillStyle = pal.tick;
         ctx.font = "11px -apple-system, sans-serif";
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
@@ -319,7 +343,7 @@
         ctx.textAlign = "right";
         ctx.fillText("均值:" + avg, W - pad.r - 4, avgY - 8);
 
-        ctx.fillStyle = "#666";
+        ctx.fillStyle = pal.tick;
         ctx.font = "10px -apple-system, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "top";
@@ -620,7 +644,7 @@
                     { parts: [{ type: 'text', value: "最高: " }, { type: 'bold', value: String(h), style: { color: "#ef5350" } }] },
                     { parts: [{ type: 'text', value: "最低: " }, { type: 'bold', value: String(l), style: { color: "#26a69a" } }] },
                     { parts: [{ type: 'text', value: "涨跌: " }, { type: 'bold', value: chgSign + chg + " (" + chgSign + chgPct + "%)", style: { color: dc } }] },
-                    { style: { color: "#666", marginTop: "4px" }, parts: [{ type: 'text', value: "数据点密度: " + counts[idx] }] }
+                    { style: { color: pal.tick, marginTop: "4px" }, parts: [{ type: 'text', value: "数据点密度: " + counts[idx] }] }
                 ]);
             }
 
@@ -696,12 +720,12 @@
                 var drng = dMax - dMin || 1;
                 dMax += drng * 0.1;
 
-                ctx.fillStyle = "#1a1a2e";
+                ctx.fillStyle = pal.bg;
                 ctx.fillRect(0, 0, W, H);
 
-                ctx.strokeStyle = "#2a2a3e";
+                ctx.strokeStyle = pal.grid;
                 ctx.lineWidth = 1;
-                ctx.fillStyle = "#666";
+                ctx.fillStyle = pal.tick;
                 ctx.font = "11px -apple-system, sans-serif";
                 ctx.textAlign = "right";
                 ctx.textBaseline = "middle";

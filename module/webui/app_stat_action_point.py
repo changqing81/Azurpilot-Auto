@@ -7,6 +7,7 @@ from module.webui.app_dependencies import (
     put_button,
     put_buttons,
     put_html,
+    put_row,
     put_text,
     t,
     use_scope,
@@ -29,6 +30,75 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
     AP_LINE_VIEWS = ("line", "detail")
     # 支持的视图顺序即按钮顺序
     AP_CHART_VIEWS = ("line", "day", "month")
+    # 辅助序列的固定配色（图例色点与指标行共用）
+    AP_SERIES_COLORS = {
+        "ap": "#64b5f6",
+        "yellow": "#ffd54f",
+        "purple": "#ce93d8",
+        "asset": "#22d3ee",
+        "distance": "#1565c0",
+    }
+
+    @staticmethod
+    def _format_ap_metric(value, decimals=0):
+        """按千分位格式化指标数值；资产等小数量保留指定小数位。"""
+        if decimals:
+            return f"{value:,.{decimals}f}"
+        return f"{int(value):,}"
+
+    @staticmethod
+    def _ap_res_soft_color(hex_color, alpha=0.16):
+        """把资源色转成低透明度的胶囊底色，供浅色/深色主题叠加使用。"""
+        raw = hex_color.lstrip("#")
+        red, green, blue = int(raw[0:2], 16), int(raw[2:4], 16), int(raw[4:6], 16)
+        return f"rgba({red},{green},{blue},{alpha})"
+
+    @classmethod
+    def _build_ap_legend_item(cls, series_id, color, label, dashed=False):
+        """构造一个图例项（色条 + 文案，点击由前端 JS 负责开关）。"""
+        dash = f" border-top:1px dashed {color};" if dashed else ""
+        return (
+            f'<span class="ap-legend-item" data-series="{series_id}" '
+            'style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;">'
+            f'<span style="width:12px; height:2px; background:{color}; '
+            f'border-radius:1px;{dash}"></span>'
+            f"{label}</span>"
+        )
+
+    @classmethod
+    def _build_ap_resource_row(
+        cls, *, name, color, value, change, max_value, min_value, decimals=0
+    ):
+        """构造一行资源指标胶囊（对齐 statistics-v2 的 .chip）。
+
+        布局：资源名 + 当前值合成一个带色点和淡色底的胶囊，
+        变化 / 最高 / 最低 各一个中性胶囊；整行 flex-wrap，窄屏自动折行。
+        原先这里是行内 grid（固定 150/100/90/90/90 px，第 5 列恒为空），
+        窄屏会横向溢出。
+        """
+        fmt = cls._format_ap_metric
+        sign = "+" if change >= 0 else "-"
+        change_cls = "is-up" if change >= 0 else "is-down"
+        change_text = f"{sign}{fmt(abs(change), decimals)}"
+        soft = cls._ap_res_soft_color(color)
+        label_change = t("Gui.Stat.MetricChange")
+        label_max = t("Gui.Stat.MetricMax")
+        label_min = t("Gui.Stat.MetricMin")
+        return (
+            '<div class="ap-res-row">'
+            f'<span class="ap-res-tag" style="--ap-res-soft:{soft}">'
+            f'<span class="ap-res-dot" style="background:{color}"></span>'
+            f'<span class="ap-res-name">{name}</span>'
+            f'<b class="ap-res-value">{fmt(value, decimals)}</b>'
+            "</span>"
+            f'<span class="ap-res-chip"><span class="ap-res-label">{label_change}</span>'
+            f'<b class="ap-res-num {change_cls}">{change_text}</b></span>'
+            f'<span class="ap-res-chip"><span class="ap-res-label">{label_max}</span>'
+            f'<b class="ap-res-num">{fmt(max_value, decimals)}</b></span>'
+            f'<span class="ap-res-chip"><span class="ap-res-label">{label_min}</span>'
+            f'<b class="ap-res-num">{fmt(min_value, decimals)}</b></span>'
+            "</div>"
+        )
 
     def _load_ap_chart_timelines(self):
         """读取当前实例的行动力、凭证和资产时间线。"""
@@ -49,12 +119,37 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         asset_timeline = get_asset_timeline(instance_name=instance_name)
         return timeline, coins_timeline, asset_timeline
 
+    def _load_ap_chart_dataset(self, reuse: bool = False):
+        """读取并规范化图表所需的数据集。
+
+        切换视图（折线 / 按日 / 按月）只改变聚合口径，原始快照完全一样，
+        因此 ``reuse=True`` 时直接复用上一次的结果，跳过三个数据源的
+        文件读取与逐点时间解析——这是「切视图要等」的主要来源。
+        刷新 / 首次进入页面走 ``reuse=False``，保证拿到最新数据。
+
+        Returns:
+            tuple: (raw_points, timeline, coins_timeline, asset_timeline)
+        """
+        if reuse:
+            cached = getattr(self, "_ap_chart_dataset", None)
+            if cached is not None:
+                return cached
+
+        timeline, coins_timeline, asset_timeline = self._load_ap_chart_timelines()
+        raw_points = self._normalize_ap_chart_points(timeline)
+        dataset = (raw_points, timeline, coins_timeline, asset_timeline)
+        self._ap_chart_dataset = dataset
+        return dataset
+
     @render_locked
-    def _render_ap_chart(self):
+    def _render_ap_chart(self, reuse_dataset: bool = False):
         self.cleanup_client_resources("__apChartCleanups")
         try:
-            timeline, coins_timeline, asset_timeline = self._load_ap_chart_timelines()
+            raw_points, timeline, coins_timeline, asset_timeline = (
+                self._load_ap_chart_dataset(reuse=reuse_dataset)
+            )
         except Exception as e:
+            self._ap_chart_dataset = None
             with use_scope("ap_chart", clear=True):
                 put_text(t("Gui.Stat.LoadApDataFailed", e=e))
             return
@@ -64,7 +159,6 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                 put_html(build_muted_notice(t("Gui.Stat.NoApData")))
             return
 
-        raw_points = self._normalize_ap_chart_points(timeline)
         if not raw_points:
             with use_scope("ap_chart", clear=True):
                 put_html(build_muted_notice(t("Gui.Stat.NoValidApData")))
@@ -315,6 +409,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         show_coins = False
         stats_html = ""
         legend_html = ""
+        digest_parts = []
 
         if coins_timeline and chart_points and current_view in ("line", "detail"):
             coins_raw_points = []
@@ -356,13 +451,29 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                         if len(valid_yellow_coins) >= 2
                         else 0
                     )
-                    yc_change_color = "#ef5350" if yc_change >= 0 else "#26a69a"
-                    yc_change_sign = "+" if yc_change >= 0 else ""
                     yc_max = max(valid_yellow_coins)
                     yc_min = min(valid_yellow_coins)
 
-                    stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>黄币: <b style="color:#ffd54f">{yc_cur}</b></span><span>变化: <b style="color:{yc_change_color}">{yc_change_sign}{yc_change}</b></span><span>最高: <b style="color:#ef5350">{yc_max}</b></span><span>最低: <b style="color:#26a69a">{yc_min}</b></span><span></span></div>'
-                    legend_html += '<span class="ap-legend-item" data-series="2" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#ffd54f; border-radius:1px; border-top:1px dashed #ffd54f;"></span>黄币</span>'
+                    stats_html += self._build_ap_resource_row(
+                        name=t("Gui.Stat.SeriesYellowCoin"),
+                        color=self.AP_SERIES_COLORS["yellow"],
+                        value=yc_cur,
+                        change=yc_change,
+                        max_value=yc_max,
+                        min_value=yc_min,
+                    )
+                    digest_parts.append(
+                        (
+                            t("Gui.Stat.SeriesYellowCoin"),
+                            self._format_ap_metric(yc_cur, 0),
+                        )
+                    )
+                    legend_html += self._build_ap_legend_item(
+                        2,
+                        self.AP_SERIES_COLORS["yellow"],
+                        t("Gui.Stat.SeriesYellowCoin"),
+                        dashed=True,
+                    )
 
                 if valid_purple_coins:
                     pc_cur = valid_purple_coins[-1]
@@ -371,13 +482,29 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                         if len(valid_purple_coins) >= 2
                         else 0
                     )
-                    pc_change_color = "#ef5350" if pc_change >= 0 else "#26a69a"
-                    pc_change_sign = "+" if pc_change >= 0 else ""
                     pc_max = max(valid_purple_coins)
                     pc_min = min(valid_purple_coins)
 
-                    stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>紫币: <b style="color:#ce93d8">{pc_cur}</b></span><span>变化: <b style="color:{pc_change_color}">{pc_change_sign}{pc_change}</b></span><span>最高: <b style="color:#ef5350">{pc_max}</b></span><span>最低: <b style="color:#26a69a">{pc_min}</b></span><span></span></div>'
-                    legend_html += '<span class="ap-legend-item" data-series="1" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#ce93d8; border-radius:1px; border-top:1px dashed #ce93d8;"></span>紫币</span>'
+                    stats_html += self._build_ap_resource_row(
+                        name=t("Gui.Stat.SeriesPurpleCoin"),
+                        color=self.AP_SERIES_COLORS["purple"],
+                        value=pc_cur,
+                        change=pc_change,
+                        max_value=pc_max,
+                        min_value=pc_min,
+                    )
+                    digest_parts.append(
+                        (
+                            t("Gui.Stat.SeriesPurpleCoin"),
+                            self._format_ap_metric(pc_cur, 0),
+                        )
+                    )
+                    legend_html += self._build_ap_legend_item(
+                        1,
+                        self.AP_SERIES_COLORS["purple"],
+                        t("Gui.Stat.SeriesPurpleCoin"),
+                        dashed=True,
+                    )
 
         return {
             "yellow_coins_list": yellow_coins_list,
@@ -386,6 +513,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
             "show_coins": show_coins,
             "stats_html": stats_html,
             "legend_html": legend_html,
+            "digest_parts": digest_parts,
         }
 
     def _build_ap_chart_distance_data(self, timeline, chart_points, current_view):
@@ -410,6 +538,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         distance_list = []
         stats_html = ""
         legend_html = ""
+        digest_parts = []
         if distance_raw_points and chart_points and current_view in ("line", "detail"):
             for distance_point in self._align_ap_timeline(
                 distance_raw_points, chart_points
@@ -425,18 +554,34 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                         if len(valid_distance) >= 2
                         else 0
                     )
-                    d_change_color = "#ef5350" if d_change >= 0 else "#26a69a"
-                    d_change_sign = "+" if d_change >= 0 else ""
                     d_max = max(valid_distance)
                     d_min = min(valid_distance)
 
-                    stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>海里数: <b style="color:#1565c0">{d_cur}</b></span><span>变化: <b style="color:{d_change_color}">{d_change_sign}{d_change}</b></span><span>最高: <b style="color:#ef5350">{d_max}</b></span><span>最低: <b style="color:#26a69a">{d_min}</b></span><span></span></div>'
-                    legend_html += '<span class="ap-legend-item" data-series="4" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#1565c0; border-radius:1px;"></span>海里数</span>'
+                    stats_html += self._build_ap_resource_row(
+                        name=t("Gui.Stat.SeriesDistance"),
+                        color=self.AP_SERIES_COLORS["distance"],
+                        value=d_cur,
+                        change=d_change,
+                        max_value=d_max,
+                        min_value=d_min,
+                    )
+                    digest_parts.append(
+                        (
+                            t("Gui.Stat.SeriesDistance"),
+                            self._format_ap_metric(d_cur, 0),
+                        )
+                    )
+                    legend_html += self._build_ap_legend_item(
+                        4,
+                        self.AP_SERIES_COLORS["distance"],
+                        t("Gui.Stat.SeriesDistance"),
+                    )
 
         return {
             "distance_list": distance_list,
             "stats_html": stats_html,
             "legend_html": legend_html,
+            "digest_parts": digest_parts,
         }
 
     def _build_ap_chart_asset_data(self, asset_timeline, current_view):
@@ -459,6 +604,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
 
         stats_html = ""
         legend_html = ""
+        digest_parts = []
         if asset_list:
             valid_asset = [v for v in asset_list if v is not None]
             if valid_asset:
@@ -466,19 +612,36 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                 a_change = (
                     valid_asset[-1] - valid_asset[0] if len(valid_asset) >= 2 else 0
                 )
-                a_change_color = "#ef5350" if a_change >= 0 else "#26a69a"
-                a_change_sign = "+" if a_change >= 0 else ""
                 a_max = max(valid_asset)
                 a_min = min(valid_asset)
 
-                stats_html += f'<div style="display:grid; grid-template-columns:150px 100px 90px 90px 90px; gap:8px; margin-bottom:2px; font-size:12px; color:#aaa;"><span>资产: <b style="color:#22d3ee">{a_cur:.1f}</b></span><span>变化: <b style="color:{a_change_color}">{a_change_sign}{a_change:.1f}</b></span><span>最高: <b style="color:#ef5350">{a_max:.1f}</b></span><span>最低: <b style="color:#26a69a">{a_min:.1f}</b></span><span></span></div>'
-                legend_html += '<span class="ap-legend-item" data-series="3" style="display:flex; align-items:center; gap:4px;cursor:pointer;opacity:1;"><span style="width:12px; height:2px; background:#22d3ee; border-radius:1px;"></span>资产</span>'
+                stats_html += self._build_ap_resource_row(
+                    name=t("Gui.Stat.SeriesAsset"),
+                    color=self.AP_SERIES_COLORS["asset"],
+                    value=a_cur,
+                    change=a_change,
+                    max_value=a_max,
+                    min_value=a_min,
+                    decimals=1,
+                )
+                digest_parts.append(
+                    (
+                        t("Gui.Stat.SeriesAsset"),
+                        self._format_ap_metric(a_cur, 1),
+                    )
+                )
+                legend_html += self._build_ap_legend_item(
+                    3,
+                    self.AP_SERIES_COLORS["asset"],
+                    t("Gui.Stat.SeriesAsset"),
+                )
 
         return {
             "asset_list": asset_list,
             "asset_ts_list": asset_ts_list,
             "stats_html": stats_html,
             "legend_html": legend_html,
+            "digest_parts": digest_parts,
         }
 
     @staticmethod
@@ -511,6 +674,15 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                 + distance_data["legend_html"]
                 + asset_data["legend_html"]
             ),
+            # 折叠摘要：各序列当前值（黄币 72,366 · 紫币 2,838 · 资产 452,599.3）
+            "aux_digest": " · ".join(
+                f"{name} {value}"
+                for name, value in (
+                    coins_data["digest_parts"]
+                    + distance_data["digest_parts"]
+                    + asset_data["digest_parts"]
+                )
+            ),
         }
 
     @staticmethod
@@ -530,9 +702,34 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         )
 
         html_tpl = read_webapp_template("ap_chart_panel.html")
+        js_tpl = read_webapp_template("ap_chart.js")
+
+        # 黄币 / 紫币 / 资产 统计行 + 图例收进默认折叠的 details（用户拍板），
+        # 摘要行保留各序列当前值，收起时信息不丢。
+        aux_fold_html = (
+            '<details class="ap-aux-fold">'
+            "<summary>"
+            f'<span class="ap-aux-title">{t("Gui.Stat.AuxFoldTitle")}</span>'
+            f'<span class="ap-aux-digest">{auxiliary_data["aux_digest"]}</span>'
+            "</summary>"
+            '<div class="ap-aux-body">'
+            + auxiliary_data["coins_stats_html"]
+            + '<div id="'
+            + chart_id
+            + '_legend" style="display:flex; flex-wrap:wrap; gap:12px; '
+            'margin-top:10px; font-size:12px; color:#888;">'
+            + self._build_ap_legend_item(
+                0,
+                self.AP_SERIES_COLORS["ap"],
+                t("Gui.Stat.SeriesActionPoint"),
+            )
+            + auxiliary_data["coins_legend_html"]
+            + "</div>"
+            + "</div></details>"
+        )
+
         html = html_tpl.format(
             chart_id=chart_id,
-            view_title=chart_data["view_title"],
             ap_cur=chart_data["ap_cur"],
             change_color=chart_data["change_color"],
             change_sign=chart_data["change_sign"],
@@ -542,8 +739,13 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
             ap_avg=chart_data["ap_avg"],
             data_points_text=chart_data["data_points_text"],
             detail_controls_display=detail_controls_display,
-            coins_stats_html=auxiliary_data["coins_stats_html"],
-            coins_legend_html=auxiliary_data["coins_legend_html"],
+            aux_fold_html=aux_fold_html,
+            # KPI 卡文案。原模板里这几个标签是硬编码中文，顺手补上 i18n。
+            kpi_current_ap=t("Gui.Stat.KpiCurrentAp"),
+            kpi_change=t("Gui.Stat.KpiChange"),
+            kpi_range_max=t("Gui.Stat.KpiRangeMax"),
+            kpi_range_min=t("Gui.Stat.KpiRangeMin"),
+            kpi_average=t("Gui.Stat.KpiAverage"),
         )
 
         js_tpl = read_webapp_template("ap_chart.js")
@@ -588,37 +790,54 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         from pywebio.session import run_js
 
         with use_scope("ap_chart", clear=True):
+            self._render_ap_chart_view_switcher(chart_data["view_title"], current_view)
             put_html(html)
             run_js(js_code)
-            self._render_ap_chart_view_switcher(current_view)
 
-    def _render_ap_chart_view_switcher(self, current_view):
-        """渲染视图切换按钮组，点击后按新视图重绘。"""
+    def _render_ap_chart_view_switcher(self, view_title, current_view):
+        """标题行：左侧标题，右侧视图切换分段控件。
+
+        布局对齐 statistics-v2 的卡片头部（标题在左、粒度切换在右），
+        控件外观由 statistics-alas.css 的 .btn-group 规则给定。
+        """
         labels = {
             "line": t("Gui.Stat.ViewLineButton"),
             "day": t("Gui.Stat.ViewDayButton"),
             "month": t("Gui.Stat.ViewMonthButton"),
         }
-        put_buttons(
+        put_row(
             [
-                {
-                    "label": labels[view],
-                    "value": view,
-                    "color": "primary" if view == current_view else "off",
-                }
-                for view in self.AP_CHART_VIEWS
+                put_html(
+                    f'<div style="font-weight:600;font-size:14px;">'
+                    f'{t("Gui.Stat.ApChartTitle")} - {view_title}</div>'
+                ),
+                None,
+                put_buttons(
+                    [
+                        {
+                            "label": labels[view],
+                            "value": view,
+                            "color": "primary" if view == current_view else "off",
+                        }
+                        for view in self.AP_CHART_VIEWS
+                    ],
+                    onclick=self._switch_ap_chart_view,
+                    group=True,
+                ),
             ],
-            onclick=self._switch_ap_chart_view,
-        ).style(
-            "display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px;"
-        )
+            size="auto 1fr auto",
+        ).style("align-items:center;margin-top:16px;margin-bottom:8px;")
 
     @render_locked
     def _switch_ap_chart_view(self, view) -> None:
-        """切换体力图表视图并重绘。"""
+        """切换体力图表视图并重绘。
+
+        切换只改变聚合口径，原始快照不变，因此复用上一次的数据集，
+        避免每次切视图都重读三个数据源。
+        """
         if view not in self.AP_CHART_VIEWS:
             return
         if view == getattr(self, "_ap_chart_view", "line"):
             return
         self._ap_chart_view = view
-        self._render_ap_chart()
+        self._render_ap_chart(reuse_dataset=True)
