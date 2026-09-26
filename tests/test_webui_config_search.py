@@ -213,7 +213,9 @@ class TestWebUIConfigSearch(unittest.TestCase):
         task_config = object.__new__(TaskConfigMixin)
         call_order = []
         task_config.alas_set_group = Mock(
-            side_effect=lambda task: call_order.append(("alas_set_group", task))
+            side_effect=lambda task, **kwargs: call_order.append(
+                ("alas_set_group", task)
+            )
         )
         entry = make_entry(
             "PackageName",
@@ -228,7 +230,9 @@ class TestWebUIConfigSearch(unittest.TestCase):
         ) as run_js:
             task_config._open_config_search_result(entry)
 
-        task_config.alas_set_group.assert_called_once_with("Alas")
+        task_config.alas_set_group.assert_called_once_with(
+            "Alas", expand_group="Emulator"
+        )
         run_js.assert_called_once()
         self.assertEqual(call_order[0], ("alas_set_group", "Alas"))
         self.assertEqual(call_order[1][0], "run_js")

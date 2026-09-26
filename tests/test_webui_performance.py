@@ -363,7 +363,7 @@ class TestTaskConfigRendering(unittest.TestCase):
             gui.init_menu = lambda name, skip_clear=False: None
             gui.set_title = lambda text: None
             gui._bind_config_watcher = lambda path: None
-            gui._build_navigator = lambda group: put_text(group[0])
+            gui._build_navigator = lambda task, group: put_text(group[0])
             gui.alas_set_group("Synthetic")
 
         pywebio_session._active_session_cls[:] = [ThreadBasedSession]
