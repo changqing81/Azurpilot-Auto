@@ -1330,3 +1330,44 @@ body.alas-login-page::after,
         grid-template-columns: 1fr;
     }
 }
+
+/* ==========================================
+   菜单切换骨架屏（init_menu 注入，内容落地后自动替换）
+   颜色走 --alas-entry-* 主题令牌，五个主题自适应；
+   shimmer 动画只动 background-position，零重排成本。
+   ========================================== */
+.alas-skeleton {
+    padding: 10px 6px;
+}
+
+.alas-skeleton .alas-skeleton-title {
+    height: 24px;
+    width: 32%;
+    margin: 6px 0 18px;
+    border-radius: 8px;
+    background: var(--alas-entry-surface-muted, #f7f7fa);
+}
+
+.alas-skeleton .alas-skeleton-line {
+    height: 60px;
+    margin: 12px 0;
+    border-radius: 12px;
+    border: 1px solid var(--alas-entry-divider, #e7e9ed);
+    background: linear-gradient(
+        90deg,
+        var(--alas-entry-surface-muted, #f7f7fa) 25%,
+        var(--alas-entry-divider, #e7e9ed) 37%,
+        var(--alas-entry-surface-muted, #f7f7fa) 63%
+    );
+    background-size: 400% 100%;
+    animation: alas-skeleton-shimmer 1.2s ease infinite;
+}
+
+@keyframes alas-skeleton-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0 50%;
+    }
+}

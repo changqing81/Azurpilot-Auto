@@ -175,6 +175,24 @@ class Frame(Base):
                     "$('div[style*=\"--menu-" + name + "--\"]>button').addClass('btn-menu-active');\n"
                 )
 
+            # 骨架屏：点击菜单的下一帧就画出页面骨架，服务端内容落地后
+            # 被 use_scope(clear) 自动替换 —— 体感切换在 10ms 内完成，
+            # 与后端实际渲染时长解耦（主页内容本身即时，跳过）。
+            if name and name != "HomePage":
+                js_parts.append(
+                    "(function () {\n"
+                    "  var content = document.getElementById('pywebio-scope-content');\n"
+                    "  if (!content) return;\n"
+                    "  var lines = '';\n"
+                    "  for (var i = 0; i < 6; i++) {\n"
+                    "    lines += '<div class=\"alas-skeleton-line\" style=\"width:' +\n"
+                    "      (88 - i * 11) + '%\"></div>';\n"
+                    "  }\n"
+                    "  content.innerHTML = '<div class=\"alas-skeleton\">'\n"
+                    "    + '<div class=\"alas-skeleton-title\"></div>' + lines + '</div>';\n"
+                    "})();\n"
+                )
+
             # 主页右下角"纯背景模式"圆点仅在主页(menu=HomePage)显示
             js_parts.append(
                 "(function () {\n"
