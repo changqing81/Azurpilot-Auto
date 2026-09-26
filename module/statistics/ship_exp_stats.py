@@ -350,7 +350,9 @@ class ShipExpStats:
             'battles_done': battles_done,
             'exp_needed': exp_needed,
             'battles_needed': battles_needed,
-            'time_needed': self._format_time(time_seconds)
+            'time_needed': self._format_time(time_seconds),
+            # 供界面层按当前语言重新格式化用；数据层不碰 i18n。
+            'time_seconds': time_seconds,
         }
     
     def get_all_progress(self, current_battle_count: int) -> list[dict[str, Any]]:
