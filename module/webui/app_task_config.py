@@ -442,7 +442,6 @@ class TaskConfigMixin(WebUIMixinBase):
             expanded = (expand_group == group[0]) or (
                 expand_group is None and not first_group_done
             )
-            first_group_done = True
             if lazy and not expanded:
                 group_outputs.append(
                     self._build_config_group_shell(task, group, arg_dict)
@@ -455,6 +454,8 @@ class TaskConfigMixin(WebUIMixinBase):
                     group_outputs.append(group_output)
                     watcher_paths.extend(group_watcher_paths)
                     self._expanded_groups.add(group[0])
+                    # 空分组不占用「首组自动展开」的机会，让下一个非空组展开
+                    first_group_done = True
             navigator_outputs.append(self._build_navigator(task, group))
             if task == "EventGeneral" and group[0] == "EventGeneral":
                 group_outputs.append(put_scope("group_EventCalculator"))

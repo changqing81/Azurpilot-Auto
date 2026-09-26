@@ -20,7 +20,6 @@ from module.webui.app_dependencies import (
     eval_js,
     get_localstorage_values,
     get_window_visibility_state,
-    go_app,
     is_oobe_needed,
     json,
     lang,
@@ -350,7 +349,8 @@ class HomeMixin(WebUIMixinBase):
         def set_theme(t):
             self.set_theme(t)
             set_localstorage("aside", "Home")
-            go_app("index", new_window=False)
+            # 就地换肤：set_theme 已完整清理并重注入主题 CSS，
+            # 不再 go_app 整页重开（重开一次 = 全部页面重新渲染，主题切换卡顿的根源）
 
         if self.wallpaper_url:
             put_html(
