@@ -678,6 +678,19 @@ pre.rich-traceback-code {
     margin: .2rem .25rem .1rem .25rem !important;
 }
 
+/* 懒渲染分组（app_task_config._ensure_group_expanded）：控件整组嵌在
+   *_body 包裹层里，组名/帮助的选择器需要同步覆盖包裹层内的情况 */
+[id^="pywebio-scope-group_"] [id$="_body"]>p {
+    font-size: 1.25rem;
+    font-weight: 500;
+    margin: 0 .25rem 0 .25rem !important;
+}
+
+[id^="pywebio-scope-group_"] [id$="_body"]>p+p {
+    font-size: .80rem;
+    margin: .2rem .25rem .1rem .25rem !important;
+}
+
 #pywebio-scope-groups {
     overflow-y: auto;
 }
