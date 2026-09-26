@@ -81,6 +81,10 @@ class ProcessManager:
         # 用（长度, 末条身份）避免每 TTL 重复渲染。
         self._state_renderables_key: tuple | None = None
         self._state_renderables_value: int = 0
+        # WebUI 启动/停止按钮的后台执行标记（app_overview._spawn_instance_action）：
+        # _ui_pending 让按钮在操作进行中乐观翻转，_ui_action_running 防重入。
+        self._ui_pending: str | None = None
+        self._ui_action_running: bool = False
 
     def invalidate_state_cache(self) -> None:
         """在启停等关键操作后立即失效状态缓存，保证 UI 及时反映变化。"""

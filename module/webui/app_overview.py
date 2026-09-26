@@ -20,6 +20,7 @@ from module.webui.app_dependencies import (
 
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.webui.instance_action import alas_ui_state, spawn_instance_action
 
 
 # 日志工具栏「导出今日日志」按钮的客户端脚本。
@@ -154,6 +155,14 @@ class OverviewMixin(WebUIMixinBase):
 
     @render_locked
     @use_scope("content", clear=True)
+    def _spawn_instance_action(self, action, pending: str) -> None:
+        """把启动/停止实例的长耗时操作挪到后台线程执行（见 instance_action）。"""
+        spawn_instance_action(self.alas, action, pending)
+
+    def _alas_ui_state(self) -> bool:
+        """启动/停止进行中的乐观按钮状态（见 instance_action）。"""
+        return alas_ui_state(self.alas)
+
     def alas_overview(self) -> None:
         self.init_menu(name="Overview", skip_clear=True)
         self.set_title(t(f"Gui.MenuAlas.Overview"))
@@ -212,9 +221,13 @@ class OverviewMixin(WebUIMixinBase):
         switch_scheduler = BinarySwitchButton(
             label_on=t("Gui.Button.Stop"),
             label_off=t("Gui.Button.Start"),
-            onclick_on=lambda: self.alas.stop_by_user(),
-            onclick_off=self._alas_start,
-            get_state=lambda: self.alas.alive,
+            onclick_on=lambda: self._spawn_instance_action(
+                self.alas.stop_by_user, "stop"
+            ),
+            onclick_off=lambda: self._spawn_instance_action(
+                lambda: self._alas_start(), "start"
+            ),
+            get_state=self._alas_ui_state,
             color_on="off",
             color_off="on",
             scope="scheduler_btn",
@@ -447,9 +460,13 @@ class OverviewMixin(WebUIMixinBase):
         switch_scheduler = BinarySwitchButton(
             label_on=t("Gui.Button.Stop"),
             label_off=t("Gui.Button.Start"),
-            onclick_on=lambda: self.alas.stop_by_user(),
-            onclick_off=lambda: self.alas.start(task),
-            get_state=lambda: self.alas.alive,
+            onclick_on=lambda: self._spawn_instance_action(
+                self.alas.stop_by_user, "stop"
+            ),
+            onclick_off=lambda: self._spawn_instance_action(
+                lambda: self.alas.start(task), "start"
+            ),
+            get_state=self._alas_ui_state,
             color_on="off",
             color_off="on",
             scope="scheduler_btn",
