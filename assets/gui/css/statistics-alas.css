@@ -1,0 +1,1396 @@
+/* ==========================================================================
+   统计页 · 分页式改版（statistics-alas.css）
+   --------------------------------------------------------------------------
+   结构：页头（标题 + 刷新）→ 下划线页签 → 四个面板
+         大世界 / 委托 / 科研（预留） / 资源
+
+   设计约束：
+   1. 本文件**不定义任何颜色常量**。全部消费现有变量：
+        entry-alas.css            → --alas-entry-*（浅色默认，:where(:root)）
+        light-alas.css / dark-alas.css / advanced-material-* / transparent-*
+                                  → --alas-entry-* 与 --rd-* 的主题覆盖
+      因此换主题、加主题都不需要动这个文件。
+   2. 全部规则限定在 #pywebio-scope-statistics-content 内。
+      项目里 .card / .chip / .empty / .btn / .seg / .delta 等类名被多个页面
+      共用，本文件一律不复用这些名字，新增类统一加 st- 前缀。
+   3. 表格单元格：simple_table.html 把 padding / text-align 写成了行内样式，
+      行内样式优先级高于外部样式表，故此处用 !important 覆盖，
+      范围严格限定在 .simple-table，不影响 .rd-table / commission-income-table。
+
+   响应式：1180 → 900 → 720
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. 局部变量别名（只做语义映射，不引入新颜色）
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content {
+    --st-surface: var(--alas-entry-surface);
+    --st-surface-muted: var(--alas-entry-surface-muted);
+    --st-text: var(--alas-entry-text);
+    --st-muted: var(--alas-entry-muted);
+    --st-border: var(--alas-entry-border);
+    --st-divider: var(--alas-entry-divider);
+    --st-accent: var(--alas-entry-accent);
+    --st-on-accent: var(--alas-entry-on-accent);
+    --st-accent-soft: var(--alas-entry-accent-soft);
+    --st-card-shadow: var(--rd-panel-shadow, 0 1px 3px rgba(16, 24, 40, .06));
+    --st-table-border: var(--rd-table-border, #eceef3);
+    --st-table-head: var(--rd-table-head, #8a919e);
+    --st-tip-bg: var(--rd-tip-bg, rgba(255, 255, 255, .98));
+    --st-tip-border: var(--rd-tip-border, #d9dde8);
+    --st-tip-text: var(--rd-tip-text, #333a47);
+    --st-tip-shadow: var(--rd-tip-shadow, 0 6px 18px rgba(16, 24, 40, .14));
+    /* 增减语义沿用仓库既有约定（与 app_stat_delta.py 一致）：
+       增加 → --rd-gain，消耗 → --rd-loss。不再引入第二套涨跌色。 */
+    --st-gain: var(--rd-gain, #0e9384);
+    --st-loss: var(--rd-loss, #e04848);
+    /* 页头「数据源」状态点：正常复用涨色（绿），其余两个状态单独给值 */
+    --st-ok: var(--rd-gain, #22a06b);
+    --st-warn: #f0a020;
+    --st-idle: var(--st-muted);
+    /* 产出类指标的语义色：明石产出黄币、吊机产出紫币，
+       与体力图表里那两条辅助序列（#ffd54f / #ce93d8）呼应，因此各自借一档。
+       这两个只是文字色，比图例色点压深一档以保证浅底可读。 */
+    --st-akashi: #b98200;
+    --st-crane: #9c4fa8;
+    /* 净赚主卡的淡色底 / 描边（由涨色派生，避免再写死一组绿） */
+    --st-net-soft: rgba(14, 147, 132, .08);
+    --st-net-line: rgba(14, 147, 132, .26);
+    /* 刷新按钮的环形箭头图标（内联 SVG，避免额外请求）。
+       用 mask 引用，颜色由按钮的 currentColor 决定。 */
+    --st-refresh-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-2.64-6.36'/%3E%3Cpolyline points='21 3 21 9 15 9'/%3E%3C/svg%3E");
+}
+
+/* --------------------------------------------------------------------------
+   1. 页面容器与页头
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .st-page {
+    width: min(1200px, 100%);
+    margin: 0 auto;
+}
+
+#pywebio-scope-statistics-content .st-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+#pywebio-scope-statistics-content .st-head h1 {
+    margin: 0;
+    color: var(--st-text);
+    font-size: 1.375rem;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    line-height: 1.3;
+}
+
+#pywebio-scope-statistics-content .st-head-meta {
+    margin-top: 3px;
+    color: var(--st-muted);
+    font-size: .78rem;
+    line-height: 1.5;
+}
+
+#pywebio-scope-statistics-content .st-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* KPI 卡（对应 statistics-v2 的 .kpi-grid）
+   用于把原先那行纯文本指标（行动力/变化/最高/最低/均值）升级成卡片。
+   数值口径不变，只改呈现。 */
+#pywebio-scope-statistics-content .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+#pywebio-scope-statistics-content .kpi {
+    min-width: 0;
+    padding: 11px 13px;
+    border: 1px solid var(--st-border);
+    border-radius: 12px;
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content .kpi-label {
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.4;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#pywebio-scope-statistics-content .kpi-value {
+    color: var(--st-text);
+    font-size: 1.22rem;
+    font-weight: 600;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content .kpi-value .unit {
+    color: var(--st-muted);
+    font-size: .76rem;
+    font-weight: 400;
+}
+
+/* 体力变化区的辅助序列折叠（黄币 / 紫币 / 资产 统计行 + 图例）。
+   用户拍板默认收起 —— 摘要行保留各序列当前值，收起时信息不丢；
+   不用 backdrop-filter 这类重效果，保持零渲染成本。 */
+#pywebio-scope-statistics-content .ap-aux-fold {
+    margin: 2px 0 12px;
+    border: 1px solid var(--st-border);
+    border-radius: 10px;
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content .ap-aux-fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+#pywebio-scope-statistics-content .ap-aux-fold > summary::-webkit-details-marker {
+    display: none;
+}
+
+#pywebio-scope-statistics-content .ap-aux-fold > summary::before {
+    content: "\25B8";
+    flex: none;
+    color: var(--st-muted);
+    font-size: 10px;
+    transition: transform .15s;
+}
+
+#pywebio-scope-statistics-content .ap-aux-fold[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+#pywebio-scope-statistics-content .ap-aux-title {
+    flex: none;
+    color: var(--st-text);
+    font-size: .84rem;
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .ap-aux-digest {
+    min-width: 0;
+    margin-left: auto;
+    color: var(--st-muted);
+    font-size: .74rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#pywebio-scope-statistics-content .ap-aux-body {
+    padding: 2px 12px 12px;
+}
+
+/* KPI 卡脚注与状态点（对应 statistics-v2 的 .kpi-foot / .kpi-dot） */
+#pywebio-scope-statistics-content .kpi-foot {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 5px;
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.4;
+}
+
+#pywebio-scope-statistics-content .kpi-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--st-idle);
+}
+
+#pywebio-scope-statistics-content .kpi-dot.ok {
+    background: var(--st-ok);
+}
+
+#pywebio-scope-statistics-content .kpi-dot.warn {
+    background: var(--st-warn);
+}
+
+#pywebio-scope-statistics-content .kpi-dot.bad {
+    background: var(--st-loss);
+}
+
+/* 指标组（对应 statistics-v2 的 .metric-grid / .metric）
+   把原先「表头一行 + 数值一行」的单行表格拆成小卡片，列序与口径不变。
+   用于侵蚀一数据收集、指挥喵数据收集这两块多列窄数值的场景。 */
+#pywebio-scope-statistics-content .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+#pywebio-scope-statistics-content .metric {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--st-divider);
+    border-radius: 8px;
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content .metric-label {
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#pywebio-scope-statistics-content .metric-value {
+    color: var(--st-text);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+}
+
+/* chip 行（对应 statistics-v2 的 .chip）
+   给 ap_chart 的图例（.ap-legend-item）加 v2 风格的胶囊：圆角 + 半透明底 + 细边。
+   元素本身的 layout（flex / gap / cursor）保持行内 style 不动；这里只改视觉。 */
+#pywebio-scope-statistics-content .ap-legend-item {
+    padding: 3px 11px 3px 8px;
+    border: 1px solid var(--st-border);
+    border-radius: 999px;
+    background: var(--st-surface);
+    color: var(--st-text);
+    font-size: .72rem;
+    line-height: 1.4;
+    transition: opacity .15s ease;
+}
+
+#pywebio-scope-statistics-content .ap-legend-item:hover {
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content .ap-legend-item.is-off {
+    opacity: .45;
+}
+
+/* 内嵌的彩色短线（ap_chart 写死了 width:12px / height:3px） */
+#pywebio-scope-statistics-content .ap-legend-item > span:first-child {
+    width: 14px !important;
+    height: 3px !important;
+    border-radius: 2px !important;
+    flex: none;
+}
+
+/* 资源指标胶囊行（体力图的黄币 / 紫币 / 资产 / 海里数）。
+   对齐 statistics-v2 的 .chip：资源名 + 当前值合成一个带色点的胶囊，
+   变化 / 最高 / 最低 各一个中性胶囊。
+   原先这里是行内 grid（固定 150/100/90/90/90 px，第 5 列恒为空），窄屏会横向溢出；
+   改成 flex-wrap 后随容器宽度自动折行。
+   文字色一律走主题变量，资源色只用于色点与淡色底（--ap-res-soft 由 Python 侧按
+   资源色生成），深色主题下不必再单独覆盖。 */
+#pywebio-scope-statistics-content .ap-res-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    font-size: .74rem;
+    line-height: 1.6;
+}
+
+#pywebio-scope-statistics-content .ap-res-tag,
+#pywebio-scope-statistics-content .ap-res-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    max-width: 100%;
+}
+
+#pywebio-scope-statistics-content .ap-res-tag {
+    background: var(--ap-res-soft, var(--st-surface-muted));
+    color: var(--st-text);
+}
+
+#pywebio-scope-statistics-content .ap-res-chip {
+    background: var(--st-surface-muted);
+    color: var(--st-muted);
+}
+
+#pywebio-scope-statistics-content .ap-res-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+}
+
+#pywebio-scope-statistics-content .ap-res-value,
+#pywebio-scope-statistics-content .ap-res-num {
+    color: var(--st-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 变化：涨红跌绿，沿用仓库既有约定（与上方 KPI 卡同一套色值） */
+#pywebio-scope-statistics-content .ap-res-num.is-up {
+    color: #ef5350;
+}
+
+#pywebio-scope-statistics-content .ap-res-num.is-down {
+    color: #26a69a;
+}
+
+/* --------------------------------------------------------------------------
+   侵蚀一 · 数据收集（opsi）—— 净赚主卡 + 指标卡网格
+   --------------------------------------------------------------------------
+   布局：左侧净赚主卡（自然高度，在列内垂直居中），右侧 3 列 × 4 行的指标卡网格。
+   主卡用 align-items: center 而不是跟着网格拉伸 —— 它只有 ~240px 内容，
+   拉到 296px 会在底部空掉一块。
+
+   配色沿用 statistics-v2 参考稿的做法（单位拆成小字、支出红 / 收益绿），
+   并按「资源呼应」扩展：
+     支出     → --st-loss
+     收益     → --st-gain（主卡描边与淡底由 --st-net-* 派生）
+     遇见明石 → --st-akashi（借黄币色）
+     吊机     → --st-crane（借紫币色）
+     效率类   → --st-accent
+   卡片数值统一居中 + 600 字重，标签与副值同样居中。
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .opsi-summary {
+    display: grid;
+    grid-template-columns: 176px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+#pywebio-scope-statistics-content .opsi-net {
+    padding: 12px;
+    border: 1px solid var(--st-net-line);
+    border-radius: 12px;
+    background: var(--st-net-soft);
+}
+
+#pywebio-scope-statistics-content .opsi-net-label {
+    margin-bottom: 4px;
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.4;
+}
+
+#pywebio-scope-statistics-content .opsi-net-value {
+    color: var(--st-gain);
+    font-size: 1.9rem;
+    font-weight: 600;
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content .opsi-net-bars {
+    margin-top: 11px;
+    padding-top: 10px;
+    border-top: 1px solid var(--st-net-line);
+}
+
+#pywebio-scope-statistics-content .opsi-bar + .opsi-bar {
+    margin-top: 8px;
+}
+
+#pywebio-scope-statistics-content .opsi-bar-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content .opsi-bar-head b {
+    color: var(--st-text);
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .opsi-bar-head b.is-cost {
+    color: var(--st-loss);
+}
+
+#pywebio-scope-statistics-content .opsi-bar-track {
+    display: block;
+    height: 6px;
+    margin-top: 4px;
+    border-radius: 3px;
+    background: var(--st-divider);
+    overflow: hidden;
+}
+
+#pywebio-scope-statistics-content .opsi-bar-fill {
+    display: block;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--st-gain);
+    opacity: .55;
+}
+
+#pywebio-scope-statistics-content .opsi-bar-fill.is-cost {
+    background: var(--st-loss);
+}
+
+#pywebio-scope-statistics-content .opsi-net-meta {
+    margin-top: 11px;
+    padding-top: 9px;
+    border-top: 1px solid var(--st-net-line);
+}
+
+#pywebio-scope-statistics-content .opsi-net-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.85;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content .opsi-net-line b {
+    color: var(--st-text);
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .opsi-net-line b.is-net {
+    color: var(--st-gain);
+}
+
+#pywebio-scope-statistics-content .opsi-net-source {
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid var(--st-net-line);
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.4;
+}
+
+#pywebio-scope-statistics-content .opsi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+#pywebio-scope-statistics-content .opsi-card {
+    padding: 9px 11px;
+    border: 1px solid var(--st-border);
+    border-radius: 12px;
+    background: var(--st-surface-muted);
+    text-align: center;
+}
+
+#pywebio-scope-statistics-content .opsi-card-label {
+    margin-bottom: 3px;
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.35;
+}
+
+#pywebio-scope-statistics-content .opsi-card-value {
+    color: var(--st-text);
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.25;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content .opsi-card-unit {
+    color: var(--st-muted);
+    font-size: .7rem;
+    font-weight: 400;
+}
+
+#pywebio-scope-statistics-content .opsi-card-sub {
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 语义色调：只改数值（与副值）颜色，卡片底色给一层极淡的同色，帮助分组 */
+#pywebio-scope-statistics-content .opsi-card.is-cost {
+    border-color: rgba(224, 72, 72, .22);
+    background: rgba(224, 72, 72, .05);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-cost .opsi-card-value,
+#pywebio-scope-statistics-content .opsi-card.is-cost .opsi-card-sub {
+    color: var(--st-loss);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-akashi {
+    border-color: rgba(185, 130, 0, .22);
+    background: rgba(185, 130, 0, .05);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-akashi .opsi-card-value,
+#pywebio-scope-statistics-content .opsi-card.is-akashi .opsi-card-sub {
+    color: var(--st-akashi);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-crane {
+    border-color: rgba(156, 79, 168, .22);
+    background: rgba(156, 79, 168, .05);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-crane .opsi-card-value,
+#pywebio-scope-statistics-content .opsi-card.is-crane .opsi-card-sub {
+    color: var(--st-crane);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-eff {
+    border-color: rgba(78, 76, 151, .22);
+    background: rgba(78, 76, 151, .05);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-eff .opsi-card-value {
+    color: var(--st-accent);
+}
+
+/* 今日三项常为空，整卡降级成弱色，避免和当月数据抢注意力 */
+#pywebio-scope-statistics-content .opsi-card.is-idle .opsi-card-value {
+    color: var(--st-muted);
+}
+
+@media (max-width: 900px) {
+    #pywebio-scope-statistics-content .opsi-summary {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #pywebio-scope-statistics-content .opsi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    #pywebio-scope-statistics-content .opsi-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   耄耋相接 · 按侵蚀等级的卡片
+   --------------------------------------------------------------------------
+   与「侵蚀一」共用同一套卡片语言：左侧等级徽标 + 场次 / 轮次大字摘要，
+   右侧指标格。指标做了合并 —— 明石次数带概率副值、战斗时间带一轮时长副值。
+
+   收益四列来自本地累积 CSV（**没有月份维度**），单独借黄币色区分，
+   在视觉上与战斗数据分开 —— 否则「本月 0 场但收益有值」看着像 bug。
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .opsi-meow-card {
+    display: grid;
+    grid-template-columns: 158px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--st-border);
+    border-radius: 12px;
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content .opsi-meow-card + .opsi-meow-card {
+    margin-top: 8px;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-side {
+    min-width: 0;
+    padding-right: 10px;
+    border-right: 1px solid var(--st-divider);
+}
+
+#pywebio-scope-statistics-content .opsi-meow-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: #fff;
+    font-size: .6rem;
+    font-weight: 600;
+    flex: none;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-name {
+    color: var(--st-text);
+    font-size: .78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-month {
+    margin-left: auto;
+    color: var(--st-muted);
+    font-size: .68rem;
+    white-space: nowrap;
+}
+
+/* 场次 / 轮次是这块最重要的规模数据，给到 1.375rem 并加粗 */
+#pywebio-scope-statistics-content .opsi-meow-scale {
+    display: flex;
+    gap: 14px;
+    margin-top: 8px;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-scale-label {
+    display: block;
+    color: var(--st-muted);
+    font-size: .62rem;
+    line-height: 1.3;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-scale-value {
+    color: var(--st-text);
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    align-content: start;
+}
+
+/* 卡片里复用 .opsi-card，但内边距收紧、底色换成实底 */
+#pywebio-scope-statistics-content .opsi-meow-grid .opsi-card {
+    padding: 6px 8px;
+    background: var(--st-surface);
+}
+
+/* 收益类（本地累积口径）统一借黄币色，与战斗数据分开 */
+#pywebio-scope-statistics-content .opsi-card.is-loot {
+    background: rgba(185, 130, 0, .08);
+}
+
+#pywebio-scope-statistics-content .opsi-card.is-loot .opsi-card-value {
+    color: var(--st-akashi);
+}
+
+@media (max-width: 900px) {
+    #pywebio-scope-statistics-content .opsi-meow-card {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #pywebio-scope-statistics-content .opsi-meow-side {
+        padding-right: 0;
+        padding-bottom: 9px;
+        border-right: 0;
+        border-bottom: 1px solid var(--st-divider);
+    }
+}
+
+@media (max-width: 560px) {
+    #pywebio-scope-statistics-content .opsi-meow-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* --------------------------------------------------------------------------
+   指标胶囊行（对应 statistics-v2 的 .chip-row / .chip）
+   --------------------------------------------------------------------------
+   用于折叠块体内的指标摘要（每日经验检测的「平均战斗时间 / 经验效率 / 今日 …」），
+   比一行裸文字更好扫读，透明主题下也不会直接糊在壁纸上。 */
+#pywebio-scope-statistics-content .st-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+#pywebio-scope-statistics-content .st-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 5px;
+    padding: 4px 11px;
+    border: 1px solid var(--st-border);
+    border-radius: 999px;
+    background: var(--st-surface-muted);
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.5;
+}
+
+#pywebio-scope-statistics-content .st-chip b {
+    color: var(--st-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 表格里的数字统一等宽：右对齐时列与列之间才真的对得齐 */
+#pywebio-scope-statistics-content table.simple-table td,
+#pywebio-scope-statistics-content table.simple-table th {
+    font-variant-numeric: tabular-nums;
+}
+
+/* seg 分段控件 —— 视图 / 粒度切换按钮组。
+   两处结构相同：put_buttons(group=True) 生成
+     外层 div（--ap-chart-* 之类标记落在这层）> div.btn-group > button.btn
+   选中态是 .btn-primary，未选中的是 .btn-off。
+
+     ap_chart          → 折线 / 按日 / 按月，对齐 statistics-v2 的 .seg：
+                         浅色外框 + 内嵌选中块，放在图表标题行右侧；
+     commission_income → 今日 / 本周 / 本月（以及记录分页），保持连体胶囊。
+
+   图表右下角的缩放按钮是模板里写死的 <button>，没有 .btn 类，不会误伤。
+   :first-of-type / :last-of-type 相对父级计算，同 scope 内多组按钮各自成段。 */
+
+/* --- ap_chart：v2 的 .seg 外观 --- */
+#pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    padding: 3px;
+    border: 1px solid var(--st-border);
+    border-radius: 10px;
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn {
+    margin: 0;
+    padding: 5px 12px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--st-muted);
+    box-shadow: none;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.6;
+    white-space: nowrap;
+    transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+#pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn:hover {
+    color: var(--st-text);
+}
+
+#pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn-primary {
+    background: var(--st-surface);
+    color: var(--st-accent);
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, .12);
+}
+
+/* --- commission_income：保持连体胶囊 --- */
+#pywebio-scope-statistics-content #pywebio-scope-commission_income .btn {
+    border-radius: 0;
+    margin-left: -1px;
+}
+
+#pywebio-scope-statistics-content #pywebio-scope-commission_income .btn:first-of-type {
+    border-radius: 999px 0 0 999px;
+    margin-left: 0;
+}
+
+#pywebio-scope-statistics-content #pywebio-scope-commission_income .btn:last-of-type {
+    border-radius: 0 999px 999px 0;
+}
+
+/* 只有一个按钮时不该被拉成半圆 */
+#pywebio-scope-statistics-content #pywebio-scope-commission_income .btn:only-of-type {
+    border-radius: 999px;
+}
+
+/* metric 卡（对应 statistics-v2 的 .metric）—— 委托页的 5 张资源卡
+   （钻石 / 心智魔方 / 心智 / 石油 / 物资）。
+   标记 .commission-income-metric-card 由 app_stat_commission.py 输出，
+   但它的底色、边框、圆角写死在行内 style 里，普通规则盖不过去，
+   所以这里用 !important —— 只改视觉，不动 DOM 结构。 */
+#pywebio-scope-statistics-content .commission-income-metric-card {
+    border-radius: 12px !important;
+    border: 1px solid var(--st-border) !important;
+    background: var(--st-surface-muted) !important;
+}
+
+/* 卡内两行：资源名（小字、弱化）与数值（大字、主题前景） */
+#pywebio-scope-statistics-content .commission-income-metric-card span:first-of-type {
+    color: var(--st-muted);
+    opacity: 1;
+}
+
+#pywebio-scope-statistics-content .commission-income-metric-card span:last-of-type {
+    color: var(--st-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+/* 数据源状态徽标（胶囊 + 状态点） */
+#pywebio-scope-statistics-content .st-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--st-border);
+    border-radius: 999px;
+    background: var(--st-surface);
+    color: var(--st-text);
+    font-size: .76rem;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .st-source-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: none;
+    background: var(--st-idle);
+}
+
+#pywebio-scope-statistics-content .st-source.is-ok .st-source-dot {
+    background: var(--st-ok);
+}
+
+#pywebio-scope-statistics-content .st-source.is-stale .st-source-dot {
+    background: var(--st-warn);
+}
+
+/* 刷新按钮：补一个环形箭头图标。
+   用 mask 而不是 background-image，图标才能继承按钮的 currentColor，
+   这样各主题的按钮前景色变化时不用改这里。 */
+#pywebio-scope-statistics-content .st-head-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+#pywebio-scope-statistics-content .st-head-actions .btn::before {
+    content: "";
+    width: 14px;
+    height: 14px;
+    flex: none;
+    background-color: currentColor;
+    -webkit-mask: var(--st-refresh-icon) center / contain no-repeat;
+    mask: var(--st-refresh-icon) center / contain no-repeat;
+}
+
+/* 刷新按钮被搬进页头后，去掉原先的 flex 定位样式 */
+#pywebio-scope-statistics-content .st-head-actions #pywebio-scope-statistics-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   2. 页签（下划线式）
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .st-tabs {
+    position: relative;
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--st-divider);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+#pywebio-scope-statistics-content .st-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+#pywebio-scope-statistics-content .st-tab {
+    position: relative;
+    padding: 11px 16px 12px;
+    border: 0;
+    background: transparent;
+    color: var(--st-muted);
+    font-family: inherit;
+    font-size: .92rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color .18s ease;
+}
+
+#pywebio-scope-statistics-content .st-tab:hover {
+    color: var(--st-text);
+}
+
+#pywebio-scope-statistics-content .st-tab[aria-selected="true"] {
+    color: var(--st-accent);
+    font-weight: 700;
+}
+
+#pywebio-scope-statistics-content .st-tab-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--alas-entry-badge-updating);
+    color: #fff;
+    font-size: .6rem;
+    font-weight: 600;
+    line-height: 1.5;
+    vertical-align: 1px;
+}
+
+#pywebio-scope-statistics-content .st-tab-indicator {
+    position: absolute;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--st-accent);
+    transition: transform .24s cubic-bezier(.2, .8, .2, 1),
+                width .24s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* --------------------------------------------------------------------------
+   3. 面板
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .st-panels {
+    padding-top: 18px;
+}
+
+#pywebio-scope-statistics-content .st-panel {
+    display: none;
+    animation: st-panel-fade .26s ease;
+}
+
+#pywebio-scope-statistics-content .st-panel.is-active {
+    display: block;
+}
+
+@keyframes st-panel-fade {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* --------------------------------------------------------------------------
+   4. 分区卡片
+   —— 每个统计子视图的 scope 容器直接就是一张卡，不需要改各子视图的渲染代码。
+   -------------------------------------------------------------------------- */
+#pywebio-scope-ap_chart,
+#pywebio-scope-opsi_stats,
+#pywebio-scope-commission_income,
+#pywebio-scope-resource_delta,
+#pywebio-scope-ship_exp_table {
+    margin-bottom: 16px;
+    padding: 18px 20px;
+    background: var(--st-surface);
+    border: 1px solid var(--st-divider);
+    border-radius: 16px;
+    box-shadow: var(--st-card-shadow);
+}
+
+/* 子视图内部的小节标题（title_block.html 新增 st-title-block 类）：
+   非首个小节自动加分隔线，把「舰船经验 / 数据收集 / 收获」拆成视觉段落 */
+#pywebio-scope-statistics-content .st-title-block {
+    margin-top: 20px !important;
+    margin-bottom: 10px !important;
+    padding-top: 16px;
+    border-top: 1px solid var(--st-divider);
+    color: var(--st-text);
+    font-size: .95rem;
+    font-weight: 700 !important;
+    letter-spacing: -.1px;
+}
+
+#pywebio-scope-statistics-content .st-title-block:first-child {
+    margin-top: 0 !important;
+    padding-top: 0;
+    border-top: 0;
+}
+
+/* --------------------------------------------------------------------------
+   5. 表格
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .simple-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+#pywebio-scope-statistics-content table.simple-table {
+    /* 统计页祖先带 .markdown-body 类，其 `table { display: block }` 规则
+       会让表格收缩成匿名表格盒（内容宽、右侧留白），必须显式顶回
+       display: table，表格才能真正拉满卡片宽度。 */
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+}
+
+#pywebio-scope-statistics-content table.simple-table th,
+#pywebio-scope-statistics-content table.simple-table td {
+    padding: 10px 12px !important;
+    border: 0;
+    border-bottom: 1px solid var(--st-table-border);
+    color: var(--st-text);
+}
+
+#pywebio-scope-statistics-content table.simple-table th {
+    color: var(--st-table-head);
+    font-size: .72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    background: transparent;
+    text-align: right !important;
+}
+
+#pywebio-scope-statistics-content table.simple-table td {
+    text-align: right !important;
+    font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-statistics-content table.simple-table th:first-child,
+#pywebio-scope-statistics-content table.simple-table td:first-child {
+    text-align: left !important;
+}
+
+#pywebio-scope-statistics-content table.simple-table tbody tr:hover td {
+    background: var(--st-surface-muted);
+}
+
+#pywebio-scope-statistics-content table.simple-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   6. 委托收益视图：本文件**刻意不介入**
+   --------------------------------------------------------------------------
+   app_stat_commission.py 把该视图的每一个元素都用行内 style 写死了
+   （.commission-income-summary 是外层容器、卡片网格是它内部另一个行内 grid，
+   th/td 的 padding / text-align / border / font 全部行内），
+   并且 alas.css 还有一条 `#pywebio-scope-commission_income > div
+   { display: block !important }`。行内样式与 !important 都优先于外部样式表，
+   在这里写任何 .commission-income-* 规则都是死代码。
+   该视图自身已有完整视觉，不需要本文件补样式。 */
+
+/* --------------------------------------------------------------------------
+   7. 资源增减视图：由 stat-delta-alas.css 负责，本文件不重复定义
+   --------------------------------------------------------------------------
+   .rd-* 的配色与布局全部走 stat-delta-alas.css 的 --rd-* 变量体系，
+   并由各主题 CSS 覆盖。再写一层同名前缀规则只会造成两套样式互相打架，
+   所以这里只保证它在卡片里不溢出。 */
+#pywebio-scope-statistics-content #pywebio-scope-resource_delta {
+    overflow-x: auto;
+}
+
+/* 资源增减汇总行 → v2 chip 行（对应 statistics-v2 的 .chip-row / .chip）
+   元素本身（.rd-stats-row / .rd-stats-item）的 flex / 间距由
+   stat-delta-alas.css 提供，这里只把每一项包成胶囊。
+   颜色仍走 --rd-*，不在本文件引入新常量。 */
+#pywebio-scope-statistics-content .rd-stats-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border: 1px solid var(--st-divider);
+    border-radius: 999px;
+    background: var(--st-surface-muted);
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.5;
+}
+
+#pywebio-scope-statistics-content .rd-stats-row {
+    gap: 6px;
+}
+
+/* 折叠块（对应 statistics-v2 的 .fold / .fold-digest）
+   用于把体积大但非首要的表格（每日经验检查、指挥喵数据收集）收进 <details>，
+   摘要行右侧留一段摘要文本（.fold-digest）。 */
+#pywebio-scope-statistics-content .fold {
+    border: 0;
+    margin-top: 4px;
+}
+
+#pywebio-scope-statistics-content .fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 0 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+#pywebio-scope-statistics-content .fold > summary::-webkit-details-marker {
+    display: none;
+}
+
+#pywebio-scope-statistics-content .fold > summary::before {
+    content: "\25B8";
+    flex: none;
+    color: var(--st-muted);
+    font-size: .8rem;
+    line-height: 1;
+}
+
+#pywebio-scope-statistics-content .fold[open] > summary::before {
+    content: "\25BE";
+}
+
+#pywebio-scope-statistics-content .fold .fold-title {
+    flex: none;
+    color: var(--st-text);
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: -.1px;
+}
+
+#pywebio-scope-statistics-content .fold .fold-body {
+    padding-top: 2px;
+}
+
+#pywebio-scope-statistics-content .fold .fold-digest {
+    margin-left: auto;
+    min-width: 0;
+    color: var(--st-muted);
+    font-size: .74rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* --------------------------------------------------------------------------
+   8. 科研预留窗口（.st-ph-*）
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content .st-ph {
+    padding: 36px 26px 30px;
+    text-align: center;
+    background: var(--st-surface);
+    border: 1px dashed var(--st-border);
+    border-radius: 16px;
+}
+
+#pywebio-scope-statistics-content .st-ph-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 14px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(145deg, #51a9ff, #0071e3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 4px 12px rgba(0, 113, 227, .14);
+}
+
+#pywebio-scope-statistics-content .st-ph-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+#pywebio-scope-statistics-content .st-ph-title {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--st-text);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+#pywebio-scope-statistics-content .st-ph-badge {
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(255, 193, 7, .18);
+    color: var(--alas-entry-badge-updating);
+    font-size: .66rem;
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .st-ph-desc {
+    margin: 8px auto 0;
+    max-width: 52ch;
+    color: var(--st-muted);
+    font-size: .82rem;
+    line-height: 1.7;
+}
+
+#pywebio-scope-statistics-content .st-ph-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+    text-align: left;
+}
+
+#pywebio-scope-statistics-content .st-ph-slot {
+    padding: 14px;
+    border-radius: 12px;
+    background: var(--st-surface-muted);
+    border: 1px dashed var(--st-border);
+}
+
+#pywebio-scope-statistics-content .st-ph-slot-name {
+    color: var(--st-text);
+    font-size: .8rem;
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .st-ph-slot-desc {
+    margin-top: 4px;
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.55;
+}
+
+#pywebio-scope-statistics-content .st-ph-slot-state {
+    display: inline-block;
+    margin-top: 9px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--meow-chip-bg, var(--st-surface-muted));
+    border: 1px solid var(--st-divider);
+    color: var(--st-muted);
+    font-size: .66rem;
+}
+
+/* 通用空状态（子视图加载失败 / 无数据时用） */
+#pywebio-scope-statistics-content .st-empty {
+    padding: 22px;
+    border-radius: 12px;
+    text-align: center;
+    background: var(--st-surface-muted);
+    border: 1px dashed var(--st-border);
+    color: var(--st-muted);
+    font-size: .8rem;
+    line-height: 1.7;
+}
+
+/* --------------------------------------------------------------------------
+   9. 刷新按钮的「有新数据」提示点（沿用既有 .statistics-refresh-pending 语义）
+   -------------------------------------------------------------------------- */
+#pywebio-scope-statistics-content #pywebio-scope-statistics-toolbar button {
+    position: relative;
+}
+
+#pywebio-scope-statistics-content #pywebio-scope-statistics-toolbar button.statistics-refresh-pending::after {
+    content: "";
+    position: absolute;
+    top: -.2rem;
+    right: -.2rem;
+    width: .65rem;
+    height: .65rem;
+    border-radius: 50%;
+    background: #ff9800;
+    border: 2px solid currentColor;
+}
+
+/* --------------------------------------------------------------------------
+   10. 响应式
+   -------------------------------------------------------------------------- */
+@media (max-width: 1180px) {
+    #pywebio-scope-statistics-content .st-page {
+        width: 100%;
+    }
+}
+
+@media (max-width: 900px) {
+    #pywebio-scope-statistics-content .st-head {
+        flex-wrap: wrap;
+        align-items: flex-start;
+    }
+
+    #pywebio-scope-statistics-content .st-head-actions {
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 720px) {
+    #pywebio-scope-statistics-content .st-head h1 {
+        font-size: 1.16rem;
+    }
+
+    #pywebio-scope-statistics-content .st-tab {
+        padding: 10px 12px 11px;
+        font-size: .86rem;
+    }
+
+    #pywebio-scope-ap_chart,
+    #pywebio-scope-opsi_stats,
+    #pywebio-scope-commission_income,
+    #pywebio-scope-resource_delta,
+    #pywebio-scope-ship_exp_table {
+        padding: 15px 14px;
+        border-radius: 14px;
+    }
+
+    /* 窄屏表格转卡片列表：隐藏表头，逐行成块，字段名由 data-th 带出。
+       注意 table 必须一并改成 display:block —— 若只改 tbody/tr，
+       table 的 min-content 宽度会撑破窄视口，导致整页横向溢出。 */
+    #pywebio-scope-statistics-content table.simple-table {
+        display: block;
+        width: 100%;
+    }
+
+    #pywebio-scope-statistics-content table.simple-table thead {
+        display: none;
+    }
+
+    #pywebio-scope-statistics-content table.simple-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    #pywebio-scope-statistics-content table.simple-table tbody tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--st-table-border);
+    }
+
+    #pywebio-scope-statistics-content table.simple-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 0 !important;
+        border: 0;
+        text-align: right !important;
+    }
+
+    #pywebio-scope-statistics-content table.simple-table tbody td::before {
+        content: attr(data-th);
+        color: var(--st-muted);
+        font-size: .7rem;
+        text-align: left;
+    }
+
+    #pywebio-scope-statistics-content table.simple-table tbody td:first-child {
+        grid-column: 1 / -1;
+        text-align: left !important;
+    }
+
+    #pywebio-scope-statistics-content table.simple-table tbody td:first-child::before {
+        display: none;
+    }
+
+    #pywebio-scope-statistics-content .st-ph {
+        padding: 26px 16px 22px;
+    }
+
+    #pywebio-scope-statistics-content .st-ph-slots {
+        grid-template-columns: 1fr;
+    }
+}

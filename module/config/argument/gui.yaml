@@ -572,6 +572,44 @@ Stat:
   KpiRangeMax:
   KpiRangeMin:
   KpiAverage:
+  ApChartTitle:
+  SeriesActionPoint:
+  SeriesYellowCoin:
+  SeriesPurpleCoin:
+  SeriesAsset:
+  SeriesDistance:
+  MetricChange:
+  MetricMax:
+  MetricMin:
+  OpsiCardAkashi:
+  OpsiCardCrane:
+  OpsiCardRate:
+  OpsiCardBattleTime:
+  OpsiCardRound:
+  OpsiCardNetRatio:
+  OpsiCardBought:
+  OpsiCardSortieCost:
+  MeowLootYellowPerRound:
+  MeowLootPlatePerRound:
+  MeowLootAbyssalPerRound:
+  MeowLootObscurePerRound:
+  ShipExpAvgRound:
+  ShipExpToday:
+  ShipExpTodayValue:
+  ShipExpLastCheck:
+  ShipExpTargetShort:
+  ShipExpTodayShort:
+  ShipExpSlotValue:
+  ShipExpDone:
+  OpsiCardBattleUnit:
+  OpsiCardCount:
+  AuxFoldTitle:
+  MeowLootFoldTitle:
+  MeowLootFoldTitleHistory:
+  MeowLootFoldDigest:
+  MeowLootDigestPart:
+  MeowRoundDigest:
+  MeowLootEmptyNotice:
   TabOpsi:
   TabCommission:
   TabResearch:

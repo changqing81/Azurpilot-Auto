@@ -629,6 +629,10 @@ def load_webui_styles(theme=None, is_mobile=None):
         "alas",
         "alas-mobile" if is_mobile else "alas-pc",
         "entry-alas",
+        # 统计页分页式改版（页头 / 下划线页签 / 面板 / 分区卡片）。
+        # 只消费 --alas-entry-* 与 --rd-*，不定义颜色常量，
+        # 因此主题 CSS 在其后加载即可完成换肤。
+        "statistics-alas",
         # 统计页资源增减视图组件样式（--rd-* 变量回退值，主题 CSS 稍后加载可覆盖）
         "stat-delta-alas",
         # 指挥喵评分面板样式（--meow-* 变量回退值，主题 CSS 稍后加载可覆盖）

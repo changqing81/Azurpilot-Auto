@@ -76,7 +76,18 @@ class TestStatisticsPageCache(unittest.TestCase):
                 "module.webui.app_statistics_page.put_button",
                 return_value=_OutputStub(),
             ),
-            patch("module.webui.app_statistics_page.t", side_effect=lambda key: key),
+            # 分页式改版的页头 / 页签 / 科研占位是 HTML 字符串，走 put_html 输出。
+            # 与 put_scope / put_button 一样，这里不需要真实会话。
+            patch(
+                "module.webui.app_statistics_page.put_html",
+                return_value=_OutputStub(),
+            ),
+            # lang.t() 支持占位符参数（内部会 .format()），页头的
+            # 「数据截至 {time} · 实例 {instance}」就依赖这一点，所以桩要收下 kwargs。
+            patch(
+                "module.webui.app_statistics_page.t",
+                side_effect=lambda key, *args, **kwargs: key,
+            ),
             patch("module.webui.app_statistics_page.run_js"),
         )
         for active_patch in self.patches:

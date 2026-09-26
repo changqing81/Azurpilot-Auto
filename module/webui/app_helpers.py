@@ -1,5 +1,7 @@
 """WebUI 的安全判断、模板读取和轻量 HTML 构造函数。"""
 
+from html import escape as html_escape
+
 from module.webui.app_dependencies import (
     Path,
     State,
@@ -188,26 +190,118 @@ def build_muted_notice(text: str) -> str:
     return tpl.format(text=text)
 
 
-def build_simple_table(headers, rows, extra_style: str = "") -> str:
+def build_fold_block(
+    title: str, body_html: str, digest: str = "", open_by_default: bool = False
+) -> str:
+    """构造可折叠区块（对应 statistics-v2 原型的 .fold / .fold-digest）。
+
+    用于把体积大但非首要的表格收进 <details>，摘要行右侧可放一句摘要。
+
+    Args:
+        title: 摘要标题（纯文本，内部会转义）。
+        body_html: 折叠体内嵌 HTML。
+        digest: 摘要行右侧的补充说明（纯文本）。
+        open_by_default: 是否默认展开。
+
+    Returns:
+        str: 折叠块 HTML。
+    """
+    tpl = read_webapp_template("fold_block.html")
+    return tpl.format(
+        title=html_escape(str(title)),
+        digest=html_escape(str(digest)),
+        body_html=body_html,
+        open_attr=" open" if open_by_default else "",
+    )
+
+
+def build_metric_grid(labels, values, extra_style: str = "") -> str:
+    """构造指标组卡片（对应 statistics-v2 原型的 .metric-grid / .metric）。
+
+    把原先「表头一行 + 数值一行」的单行表格换成一组小卡片，
+    数值口径与列顺序完全不变，只改呈现。
+
+    Args:
+        labels: 指标名列表（与 values 一一对应）。
+        values: 指标值列表，可含 HTML（调用方自行保证已转义）。
+        extra_style: 附加 CSS 样式。
+
+    Returns:
+        str: 指标组 HTML。
+    """
+    cells = "".join(
+        [
+            '<div class="metric">'
+            f'<div class="metric-label" title="{html_escape(str(label))}">'
+            f"{html_escape(str(label))}</div>"
+            f'<div class="metric-value">{value}</div>'
+            "</div>"
+            for label, value in zip(labels, values)
+        ]
+    )
+    tpl = read_webapp_template("metric_grid.html")
+    return tpl.format(cells=cells, extra_style=extra_style)
+
+
+def build_chip_row(chips) -> str:
+    """把若干 (标签, 值) 渲染成一排胶囊（对应 statistics-v2 的 .chip-row / .chip）。
+
+    用于折叠块体内的指标摘要行 —— 比裸文字更易读，透明主题下也不会糊在壁纸上。
+
+    Args:
+        chips: (标签, 值) 二元组序列；标签与值都会转义，值加 <b> 强调。
+
+    Returns:
+        str: 胶囊行 HTML。
+    """
+    cells = "".join(
+        f'<span class="st-chip">{html_escape(str(label))}'
+        f"<b>{html_escape(str(value))}</b></span>"
+        for label, value in chips
+    )
+    return f'<div class="st-chip-row">{cells}</div>'
+
+
+def build_simple_table(headers, rows, extra_style: str = "", numeric_from=None) -> str:
     """构造统计用的简洁表格。
 
     Args:
         headers: 表头列表。
         rows: 表格行数据。
         extra_style: 附加 CSS 样式。
+        numeric_from: 从该列序号（含）起的列按右对齐渲染，表头一并对齐；
+            不传时保持原行为（表头左对齐、单元格居中）。
 
     Returns:
         str: 表格 HTML。
     """
     tpl = read_webapp_template("simple_table.html")
+    headers = list(headers)
+
+    def is_numeric(index: int) -> bool:
+        return numeric_from is not None and index >= numeric_from
+
     thead_cells = "".join(
-        [f'<th style="text-align:left;padding:6px">{h}</th>' for h in headers]
+        [
+            f'<th style="text-align:{"right" if is_numeric(i) else "left"};'
+            f'padding:6px">{h}</th>'
+            for i, h in enumerate(headers)
+        ]
     )
+    # data-th 供窄屏「表格转卡片列表」时以 ::before 带出字段名
+    # （statistics-alas.css 的 @media (max-width:720px) 分支）。
     tbody_rows = "".join(
         [
             "<tr>"
             + "".join(
-                [f'<td style="text-align:center;padding:6px">{v}</td>' for v in row]
+                [
+                    '<td data-th="{}" style="text-align:{};padding:6px">{}</td>'.format(
+                        html_escape(str(headers[index])) if index < len(headers) else "",
+                        "right" if is_numeric(index) else "center",
+                        value,
+                    )
+                    for index, value in enumerate(row)
+                ]
             )
             + "</tr>"
             for row in rows
