@@ -63,6 +63,89 @@ html:root {
 	text-shadow: none;
 }
 
+/* 统计页（分页式）挂在自己的 scope 下，祖先链是
+   statistics-content -> contents -> ROOT，并不经过 #pywebio-scope-content，
+   所以上面的描边规则覆盖不到它。这里单独补一份，否则页头标题与
+   说明文字直接压在壁纸上，深色字几乎读不出来。 */
+#pywebio-scope-statistics-content .st-head h1,
+#pywebio-scope-statistics-content .st-head-meta,
+#pywebio-scope-statistics-content .st-tab,
+#pywebio-scope-statistics-content .st-tab-badge,
+#pywebio-scope-statistics-content .st-title-block,
+#pywebio-scope-statistics-content .metric-label,
+#pywebio-scope-statistics-content .metric-value,
+#pywebio-scope-statistics-content .kpi-label,
+#pywebio-scope-statistics-content .kpi-value,
+#pywebio-scope-statistics-content .kpi-foot,
+#pywebio-scope-statistics-content .fold-title,
+#pywebio-scope-statistics-content .fold-digest {
+	-webkit-text-stroke: 0.6px rgba(255, 255, 255, 0.8);
+	paint-order: stroke fill;
+}
+
+/* 页头的胶囊与按钮自带底色/边框，同样不吃描边 */
+#pywebio-scope-statistics-content .st-source,
+#pywebio-scope-statistics-content .st-head-actions .btn {
+	-webkit-text-stroke: 0;
+	text-shadow: none;
+}
+
+/* 透明主题下 --alas-entry-surface 是 transparent，
+   胶囊会只剩一圈边框，在壁纸上立不住，给一层半透明白底。 */
+#pywebio-scope-statistics-content .st-source {
+	background: rgba(255, 255, 255, 0.32);
+	border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* --alas-entry-muted 是中灰，压在深色壁纸上对比不足。
+   配合上面的白描边把页头说明压深，深浅壁纸都能读。 */
+#pywebio-scope-statistics-content .st-head-meta {
+	color: rgba(32, 33, 36, 0.78);
+}
+
+/* 指标组 / KPI 卡的标签与折叠块摘要同样基于 --alas-entry-muted，
+   且坐在半透明白底（--alas-entry-surface-muted）上，
+   中灰配白底对比不足 —— 统一压深，与页头说明保持同一套取值。
+   注意折叠块那两条选择器要与 statistics-alas.css 里的
+   `#…-content .fold .fold-title` / `.fold .fold-digest` 同特异度（多带一层 .fold），
+   否则会因少一个类名而输给骨架样式。 */
+#pywebio-scope-statistics-content .metric-label,
+#pywebio-scope-statistics-content .metric-value,
+#pywebio-scope-statistics-content .kpi-value,
+#pywebio-scope-statistics-content .kpi-foot,
+#pywebio-scope-statistics-content .fold .fold-title,
+#pywebio-scope-statistics-content .fold .fold-digest {
+	color: rgba(32, 33, 36, 0.88);
+}
+
+#pywebio-scope-statistics-content .metric-label,
+#pywebio-scope-statistics-content .kpi-label,
+#pywebio-scope-statistics-content .kpi-foot,
+#pywebio-scope-statistics-content .fold .fold-digest {
+	color: rgba(32, 33, 36, 0.72);
+}
+
+/* 指标卡的底与边：--alas-entry-surface-muted 已是半透明白，
+   但 --alas-entry-divider 在透明主题下偏淡，边界立不住，补一圈白边。 */
+#pywebio-scope-statistics-content .metric,
+#pywebio-scope-statistics-content .kpi {
+	border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* 表头：--rd-table-head 在透明主题下是 rgba(255,255,255,.75)（白字），
+   而统计页的表格坐在半透明白底卡片上 —— 白字白底直接消失。
+   这里把表头压深，与正文保持同一对比层级。 */
+#pywebio-scope-statistics-content table.simple-table th {
+	color: rgba(32, 33, 36, 0.62);
+}
+
+/* 表格底部分隔线同理：--st-table-border 落到 --rd-table-border 上是半透明白，
+   在白底卡片上看不见，换成深色低透明度。 */
+#pywebio-scope-statistics-content table.simple-table th,
+#pywebio-scope-statistics-content table.simple-table td {
+	border-bottom-color: rgba(32, 33, 36, 0.12);
+}
+
 /* 分隔线统一为半透明白，匹配透明主题观感 */
 #pywebio-scope-content hr.hr-group {
 	border-top: 1px solid rgba(255, 255, 255, 0.55) !important;

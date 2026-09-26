@@ -139,6 +139,53 @@ body *:not(#pywebio-scope-log):not(#pywebio-scope-log *) {
 }
 
 /* ==========================================
+   2.1 统计页页头：压在壁纸上的文字补半透明胶囊
+   ==========================================
+   这两个主题下内容区是透明的，页头说明（--alas-entry-muted 中灰）与未选中页签
+   （background: transparent）直接压在壁纸上，遇到浅色壁纸几乎读不出来。
+
+   这里垫一层半透明白底胶囊。**刻意不用 backdrop-filter** —— 透明/高级材质
+   本身已经很重，再叠一层模糊会让滚动与重绘明显掉帧；纯 background + border
+   是零渲染成本的。
+   注意只有 advanced_material / dark_advanced_material / transparent 会加载本文件
+   （见 app.py 的 WEBUI_THEME_STYLE_NAMES），所以改这一处三个主题都生效。 */
+
+#pywebio-scope-statistics-content .st-head-meta,
+#pywebio-scope-statistics-content .st-tab {
+	background: rgba(255, 255, 255, 0.62);
+	border: 0.5px solid rgba(255, 255, 255, 0.75);
+	border-radius: 999px;
+}
+
+#pywebio-scope-statistics-content .st-head-meta {
+	display: inline-block;
+	margin-top: 6px;
+	padding: 3px 11px;
+	color: rgba(32, 33, 36, 0.82);
+}
+
+#pywebio-scope-statistics-content .st-tab {
+	margin: 6px 0;
+	padding: 7px 14px 8px;
+	color: rgba(32, 33, 36, 0.78);
+}
+
+#pywebio-scope-statistics-content .st-tab:hover {
+	color: rgba(32, 33, 36, 0.95);
+}
+
+#pywebio-scope-statistics-content .st-tab[aria-selected="true"] {
+	background: var(--st-accent-soft, rgba(0, 122, 255, 0.16));
+	border-color: rgba(0, 122, 255, 0.3);
+	color: var(--st-accent);
+}
+
+/* 页签本身已经是胶囊，下划线指示器会与它打架 —— 这两个主题下藏掉 */
+#pywebio-scope-statistics-content .st-tab-indicator {
+	display: none;
+}
+
+/* ==========================================
    3. 滚动条样式
    ========================================== */
 

@@ -209,6 +209,15 @@ input[type="checkbox"]::before {
 	background-color: rgba(37, 99, 235, 0.16) !important;
 }
 
+/* 表格默认白底（UA/基础样式）会透过悬停色的半透明底显形，
+   悬停行变成「浅底浅字」。暗色下把 tr 底色置透明，
+   让悬停 tint 直接叠在深色面板上。 */
+#pywebio-scope-opsi_stats tr,
+#pywebio-scope-ship_exp_table tr,
+#pywebio-scope-commission_income tr {
+	background-color: transparent !important;
+}
+
 #pywebio-scope-commission_income .commission-income-summary,
 #pywebio-scope-commission_income .commission-income-table-wrap,
 #pywebio-scope-commission_income .commission-income-recent {
@@ -388,4 +397,34 @@ select option {
 	--rd-btn-bg: rgba(30, 41, 59, 0.90);
 	--rd-btn-border: rgba(148, 163, 184, 0.35);
 	--rd-btn-text: #cbd5e1;
+}
+
+/* ==========================================
+   统计页页头：深色高级材质下的半透明胶囊
+   ==========================================
+   advanced-material-alas.css 里那套胶囊是按浅色壁纸写的（白底 + 深字），
+   深色模式下载入本文件把它覆盖成深色玻璃，否则页头会突兀地亮一块。 */
+
+#pywebio-scope-statistics-content .st-head-meta,
+#pywebio-scope-statistics-content .st-tab {
+	background: rgba(30, 41, 59, 0.72);
+	border-color: rgba(148, 163, 184, 0.34);
+}
+
+#pywebio-scope-statistics-content .st-head-meta {
+	color: rgba(229, 237, 247, 0.88);
+}
+
+#pywebio-scope-statistics-content .st-tab {
+	color: rgba(229, 237, 247, 0.82);
+}
+
+#pywebio-scope-statistics-content .st-tab:hover {
+	color: #eef4ff;
+}
+
+#pywebio-scope-statistics-content .st-tab[aria-selected="true"] {
+	background: rgba(96, 165, 250, 0.24);
+	border-color: rgba(96, 165, 250, 0.45);
+	color: #dbeafe;
 }

@@ -15,7 +15,6 @@ from module.webui.app_dependencies import (
     put_html,
     put_icon_buttons,
     put_loading,
-    put_loading_text,
     put_row,
     put_scope,
     put_text,
@@ -396,10 +395,10 @@ class AppShellMixin(WebUIMixinBase):
                 0 (hide)
                 -1 (*state not changed)
 
-        加载圈的位置随语言变化（由 Gui.Status.Prefix 是否为空决定）：
-            有排头（en-US / ja-JP）：排头 + [〇 文字]，圆圈在文字左侧；
-            无排头（zh-CN / zh-MIAO / zh-TW）：整句由状态文字承载，
-                圆圈跟在整句之后，故这里把顺序反过来输出。
+        页眉结构固定为「排头（base.py 渲染）+ 加载圈 + 状态文字」。
+        zh-CN / zh-MIAO / zh-TW 把整句放在排头（与 en/ja 的 AzurPilot 同位置），
+        Running / Inactive 文案为空，因此这里只剩一个加载圈；
+        en-US / ja-JP 状态文字非空，显示为「AzurPilot 〇 Waiting」。
         """
         if state == -1:
             return
@@ -417,20 +416,14 @@ class AppShellMixin(WebUIMixinBase):
             return
 
         fill = state == 2
-        if t("Gui.Status.Prefix"):
-            put_loading_text(text, shape=shape, color=color, fill=fill)
+        loading = put_loading(shape=shape, color=color).style(
+            get_loading_style(shape=shape, fill=fill)
+        )
+        if text:
+            put_row([loading, None, put_text(text)], size="auto 2px 1fr")
         else:
-            # 圆圈在整句之后：先输出文字，再输出加载圈。
-            put_row(
-                [
-                    put_text(text),
-                    None,
-                    put_loading(shape=shape, color=color).style(
-                        get_loading_style(shape=shape, fill=fill)
-                    ),
-                ],
-                size="auto 2px 1fr",
-            )
+            # 无状态文字（zh 系）：只留加载圈，不要多余的空占位元素。
+            put_row([loading], size="auto")
 
     @staticmethod
     def _format_tz_offset(offset: timedelta) -> str:

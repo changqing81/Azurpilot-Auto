@@ -214,19 +214,19 @@ class Frame(Base):
     @staticmethod
     @use_scope("ROOT", clear=True)
     def _show() -> None:
-        # 页眉排头走 i18n：zh-CN / zh-MIAO / zh-TW 为空字符串，
-        # 表示该语言不使用排头，诗句由 header_status 的整句承载
-        # （「待到山花烂漫时，她在丛中笑」），加载圈跟在整句之后；
-        # 其它语言排头为 AzurPilot，加载圈夹在排头与状态文字之间。
-        header_items = [put_html(Icon.ALAS).style("--header-icon--")]
-        header_prefix = t("Gui.Status.Prefix")
-        if header_prefix:
-            header_items.append(put_text(header_prefix).style("--header-text--"))
-        header_items += [
-            put_scope("header_status"),
-            put_scope("header_title"),
-        ]
-        put_scope("header", header_items)
+        # 页眉排头恒定渲染，结构为「头像 + 排头 + 加载圈 + 状态文字」：
+        #   zh-CN / zh-MIAO / zh-TW：排头是整句「待到山花烂漫时，她在丛中笑」，
+        #       状态文字为空，加载圈紧跟在排头之后；
+        #   en-US / ja-JP：排头是 AzurPilot，加载圈后还有状态文字。
+        put_scope(
+            "header",
+            [
+                put_html(Icon.ALAS).style("--header-icon--"),
+                put_text(t("Gui.Status.Prefix")).style("--header-text--"),
+                put_scope("header_status"),
+                put_scope("header_title"),
+            ],
+        )
         put_scope(
             "contents",
             [

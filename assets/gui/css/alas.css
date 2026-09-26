@@ -589,14 +589,7 @@ pre.rich-traceback-code {
     z-index: 100;
     display: grid;
     grid-auto-flow: column;
-    /* 排头（--header-text--）按语言可选：zh-CN / zh-MIAO / zh-TW 不渲染它，
-       诗句整句由 header_status 承载，此时列数为 3，否则为 4。
-       两种布局分开写，避免固定列数导致状态区/标题错位。 */
     grid-template-columns: 4.4rem auto auto 1fr !important;
-}
-
-#pywebio-scope-header:not(:has(*[style*="--header-text--"])) {
-    grid-template-columns: 4.4rem auto 1fr !important;
 }
 
 *[style*="--header-icon--"] {
