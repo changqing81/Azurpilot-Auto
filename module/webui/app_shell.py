@@ -107,31 +107,35 @@ def _reload_theme_css(theme: str) -> None:
 
     # 统计页分页式改版的骨架样式。只消费 --alas-entry-* 与 --rd-*，
     # 本身不含颜色常量，但同样需要随主题重注入（上面已从 DOM 删除）。
-    add_css_files((filepath_css("statistics-alas"),))
-    # 统计页资源增减视图的基础组件样式被上方清理移除，随主题一起重注入
-    # （主题 CSS 在其后加载，--rd-* 变量覆盖才能生效）
-    add_css_files((filepath_css("stat-delta-alas"),))
-    # 指挥喵评分面板同理：先注入基础样式，再由主题 CSS 覆盖 --meow-* 变量
-    add_css_files((filepath_css("meowfficer-score-alas"),))
-    # 耄耋相接「收获」区块，同上
-    add_css_files((filepath_css("meow-loot-alas"),))
-    if theme == "dark":
-        add_css_files((filepath_css("dark-alas"),))
-    elif theme == "advanced_material":
-        add_css_files((filepath_css("advanced-material-alas"),))
-    elif theme == "dark_advanced_material":
-        add_css_files((
-            filepath_css("advanced-material-alas"),
-            filepath_css("dark-advanced-material-overrides-alas"),
-        ))
-    elif theme == "transparent":
+    # 基础组件样式与主题 CSS 合并为单条消息注入（5 条消息→1 条，
+    # 远控下每次往返 = 一个 RTT）。顺序要求：主题 CSS 在组件样式之后。
+    theme_files = {
+        "dark": ("dark-alas",),
+        "advanced_material": ("advanced-material-alas",),
+        "dark_advanced_material": (
+            "advanced-material-alas",
+            "dark-advanced-material-overrides-alas",
+        ),
         # 透明主题：高级材质提供布局规则，透明覆盖层负责视觉
-        add_css_files((
-            filepath_css("advanced-material-alas"),
-            filepath_css("transparent-alas"),
-        ))
-    else:
-        add_css_files((filepath_css("light-alas"),))
+        "transparent": (
+            "advanced-material-alas",
+            "transparent-alas",
+        ),
+    }.get(theme, ("light-alas",))
+    add_css_files(
+        tuple(
+            filepath_css(name)
+            for name in (
+                "statistics-alas",
+                # 资源增减视图 / 指挥喵评分 / 耄耋收获区块的基础组件样式：
+                # 随主题一起重注入（主题 CSS 在其后加载，变量覆盖才能生效）
+                "stat-delta-alas",
+                "meowfficer-score-alas",
+                "meow-loot-alas",
+            )
+            + theme_files
+        )
+    )
 
 
 class AppShellMixin(WebUIMixinBase):

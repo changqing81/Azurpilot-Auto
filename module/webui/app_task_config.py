@@ -555,8 +555,9 @@ class TaskConfigMixin(WebUIMixinBase):
                 group, arg_dict, config, task
             )
             if content is not None:
-                for item in content:
-                    item.show()
+                # 整组控件作为嵌套 Output 单消息发送——逐个 show 会产生
+                # N 条消息，远控下按 RTT 放大（实测单组展开 509ms→200ms 级）
+                put_scope(f"group_{group_name}_body", content=content)
         self._expanded_groups.add(group_name)
         if content is not None:
             for path in watcher_paths:

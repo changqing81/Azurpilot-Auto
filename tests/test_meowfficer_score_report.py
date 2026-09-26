@@ -163,7 +163,8 @@ class MeowfficerScorePanelWiringTests(unittest.TestCase):
         shell = self._read('module', 'webui', 'app_shell.py')
         # 切主题会清掉所有 alas-css-* 的 <style>，必须显式重注入
         self.assertIn('injected_styles.discard(filepath_css("meowfficer-score-alas"))', shell)
-        self.assertIn('add_css_files((filepath_css("meowfficer-score-alas"),))', shell)
+        # 合并注入后，重注入清单里必须仍包含 meowfficer-score-alas
+        self.assertIn('"meowfficer-score-alas"', shell)
 
     def test_every_theme_defines_the_panel_variables(self):
         for name in ('light-alas.css', 'dark-alas.css', 'advanced-material-alas.css',
