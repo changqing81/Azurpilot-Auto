@@ -69,6 +69,10 @@ class TaskConfigMixin(WebUIMixinBase):
     CONFIG_SEARCH_PIN = "config_search_keyword"
     CONFIG_SEARCH_SELECTION_PIN = "config_search_selection"
     CONFIG_SEARCH_RESULT_LIMIT = 20
+    # 控件总数超过该阈值的任务页启用分组懒渲染：首屏只发分组壳，
+    # 点击/导航/搜索跳转时按需渲染该组控件（629ms→<100ms 的关键）。
+    # 小任务页维持全量渲染，不增加交互成本。
+    CONFIG_LAZY_GROUP_THRESHOLD = 48
 
     @use_scope("menu", clear=True)
     def alas_set_menu(self) -> None:
@@ -247,8 +251,8 @@ class TaskConfigMixin(WebUIMixinBase):
         )
 
     def _open_config_search_result(self, entry: ConfigSearchEntry) -> None:
-        """打开结果所在任务，并定位到对应的参数容器。"""
-        self.alas_set_group(entry.task)
+        """打开结果所在任务，展开对应分组并定位到参数容器。"""
+        self.alas_set_group(entry.task, expand_group=entry.group)
         run_js(
             build_config_search_focus_script(
                 config_search_field_scope(entry.task, entry.group, entry.argument)
@@ -390,9 +394,14 @@ class TaskConfigMixin(WebUIMixinBase):
 
     @render_locked
     @use_scope("content", clear=True)
-    def alas_set_group(self, task: str) -> None:
+    def alas_set_group(self, task: str, expand_group: str | None = None) -> None:
         """
         Set arg groups from dict
+
+        Args:
+            task: 任务名。
+            expand_group: 指定初始展开的分组名（搜索跳转用）；
+                未指定时展开第一个分组。
         """
         config = self.alas_config.read_file(self.alas_name)
         self.init_menu(name=task, skip_clear=True)
@@ -403,6 +412,17 @@ class TaskConfigMixin(WebUIMixinBase):
         watcher_paths: List[List[str]] = []
         render_event_calculator = False
 
+        # 控件总数超过阈值的大任务页启用分组懒渲染：先发分组壳（标题按钮），
+        # 点击/导航/搜索跳转时再按需渲染该组控件——首屏 DOM 从数百控件
+        # 降到数十个标题按钮，小任务页维持全量渲染不变。
+        total_controls = sum(
+            len(arg_dict) for _, arg_dict in deep_iter(self.ALAS_ARGS[task], depth=1)
+        )
+        lazy = total_controls > self.CONFIG_LAZY_GROUP_THRESHOLD
+        self._group_render_task = task
+        self._expanded_groups = {expand_group} if expand_group else set()
+
+        first_group_done = False
         task_help: str = t(f"Task.{task}.help")
         if task_help:
             group_outputs.append(
@@ -419,16 +439,26 @@ class TaskConfigMixin(WebUIMixinBase):
             group_outputs.append(put_scope("group_OpsiSimulatorRuntime"))
 
         for group, arg_dict in deep_iter(self.ALAS_ARGS[task], depth=1):
-            group_output, group_watcher_paths, _ = self._build_config_group(
-                group, arg_dict, config, task
+            expanded = (expand_group == group[0]) or (
+                expand_group is None and not first_group_done
             )
-            if group_output is not None:
-                group_outputs.append(group_output)
-                navigator_outputs.append(self._build_navigator(group))
-                watcher_paths.extend(group_watcher_paths)
-                if task == "EventGeneral" and group[0] == "EventGeneral":
-                    group_outputs.append(put_scope("group_EventCalculator"))
-                    render_event_calculator = True
+            first_group_done = True
+            if lazy and not expanded:
+                group_outputs.append(
+                    self._build_config_group_shell(task, group, arg_dict)
+                )
+            else:
+                group_output, group_watcher_paths, _ = self._build_config_group(
+                    group, arg_dict, config, task
+                )
+                if group_output is not None:
+                    group_outputs.append(group_output)
+                    watcher_paths.extend(group_watcher_paths)
+                    self._expanded_groups.add(group[0])
+            navigator_outputs.append(self._build_navigator(task, group))
+            if task == "EventGeneral" and group[0] == "EventGeneral":
+                group_outputs.append(put_scope("group_EventCalculator"))
+                render_event_calculator = True
 
         # PyWebIO 的每个独立 output 都会形成一条 WebSocket 指令。将整个配置页
         # 作为嵌套 Output 一次发送，避免数十个控件触发数百次网络往返和重复布局。
@@ -461,7 +491,84 @@ class TaskConfigMixin(WebUIMixinBase):
         config: Dict[str, Any],
         task: str,
     ) -> tuple[Optional[Output], List[List[str]], int]:
-        """构建一个配置分组，延迟到外层页面统一发送。"""
+        """构建一个配置分组（含外层 scope），供全量渲染路径使用。"""
+        content, watcher_paths, count = self._build_group_content(
+            group, arg_dict, config, task
+        )
+        if content is None:
+            return None, [], 0
+        return (
+            put_scope(f"group_{group[0]}", content=content),
+            watcher_paths,
+            count,
+        )
+
+    def _build_config_group_shell(self, task, group, arg_dict) -> Output:
+        """懒渲染分组壳：标题按钮显示组名与参数数，点击按需渲染控件。"""
+        group_name = group[0]
+        count = len(arg_dict)
+        return put_scope(
+            f"group_{group_name}",
+            content=[
+                put_button(
+                    label=f"{t(f'{group_name}._info.name')}（{count}）",
+                    onclick=lambda g=group: self._expand_config_group_and_scroll(
+                        task, g
+                    ),
+                    color="menu",
+                ).style("margin: 6px 0;")
+            ],
+        )
+
+    def _expand_config_group_and_scroll(self, task, group) -> None:
+        """懒渲染分组展开 + 滚动定位（分组壳按钮与导航按钮共用）。"""
+        if getattr(self, "_group_render_task", None) != task:
+            return  # 任务已切换，过期点击
+        self._ensure_group_expanded(task, group)
+        run_js(
+            f"""
+            $("#pywebio-scope-groups").scrollTop(
+                $("#pywebio-scope-group_{group[0]}").position().top
+                + $("#pywebio-scope-groups").scrollTop() - 59
+            )
+            """
+        )
+
+    def _ensure_group_expanded(self, task, group) -> None:
+        """确保某个懒渲染分组已渲染控件内容（幂等）。
+
+        ⚠️ 控件必须在 ``use_scope(group_X)`` 上下文**内**构造——pywebio 的
+        Output 在创建时就把目标 scope 烤进 spec，先建列表再 show 会把
+        内容发到创建时的 scope（ROOT）而非分组容器。
+        """
+        group_name = group[0]
+        if group_name in getattr(self, "_expanded_groups", set()):
+            return
+        arg_dict = deep_get(self.ALAS_ARGS, [task, group_name])
+        if not arg_dict:
+            self._expanded_groups.add(group_name)
+            return
+        config = self.alas_config.read_file(self.alas_name)
+        with use_scope(f"group_{group_name}", clear=True):
+            content, watcher_paths, _ = self._build_group_content(
+                group, arg_dict, config, task
+            )
+            if content is not None:
+                for item in content:
+                    item.show()
+        self._expanded_groups.add(group_name)
+        if content is not None:
+            for path in watcher_paths:
+                self._bind_config_watcher(path)
+
+    def _build_group_content(
+        self,
+        group,
+        arg_dict,
+        config: Dict[str, Any],
+        task: str,
+    ) -> tuple[Optional[List[Output]], List[List[str]], int]:
+        """构建一个分组的控件内容列表（不含外层 scope），全量/懒渲染共用。"""
         group_name = group[0]
 
         output_list: List[tuple[str, Output]] = []
@@ -518,11 +625,7 @@ class TaskConfigMixin(WebUIMixinBase):
             field_scope = config_search_field_scope(task, group_name, arg_name)
             content.append(put_scope(field_scope, content=[output]))
 
-        return (
-            put_scope(f"group_{group_name}", content=content),
-            watcher_paths,
-            len(output_list),
-        )
+        return content, watcher_paths, len(output_list)
 
     @use_scope("groups")
     def set_group(self, group, arg_dict, config: Dict[str, Any], task: str) -> int:
@@ -538,23 +641,21 @@ class TaskConfigMixin(WebUIMixinBase):
             self._bind_config_watcher(path)
         return output_count
 
-    def _build_navigator(self, group) -> Output:
-        """构建分组导航按钮，供配置页统一批量输出。"""
-        js = f"""
-            $("#pywebio-scope-groups").scrollTop(
-                $("#pywebio-scope-group_{group[0]}").position().top
-                + $("#pywebio-scope-groups").scrollTop() - 59
-            )
+    def _build_navigator(self, task, group) -> Output:
+        """构建分组导航按钮，供配置页统一批量输出。
+
+        懒渲染分组：点击先按需展开该组控件再滚动定位；
+        全量渲染分组：_ensure_group_expanded 命中已展开集合，仅滚动。
         """
         return put_button(
             label=t(f"{group[0]}._info.name"),
-            onclick=lambda: run_js(js),
+            onclick=lambda: self._expand_config_group_and_scroll(task, group),
             color="navigator",
         )
 
     @use_scope("navigator")
-    def set_navigator(self, group):
-        self._build_navigator(group).show()
+    def set_navigator(self, task, group):
+        self._build_navigator(task, group).show()
 
     def _alas_start(self):
         self.alas.start(None, updater.event)

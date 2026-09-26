@@ -456,17 +456,16 @@ class AppShellMixin(WebUIMixinBase):
 
         webconfig(theme=pywebio_theme)
 
-        run_js("""
+        # 三段客户端脚本合并为单条消息：远控下每次往返 = 一个 RTT，
+        # 主题切换属于高频操作，能省则省。
+        run_js(f"""
         document.querySelectorAll(
             'link[href*="advanced-material-alas"],' +
             'link[href*="dark-advanced-material-overrides-alas"],' +
             'link[href*="transparent-alas"]'
-        ).forEach(function(e) {
+        ).forEach(function(e) {{
             e.remove();
-        });
-        """)
-
-        run_js(f"""
+        }});
         (function() {{
             var link = document.querySelector('link[href*="bs-theme/"]');
             if (link) {{
@@ -479,13 +478,6 @@ class AppShellMixin(WebUIMixinBase):
                 .replace(/webio-theme-\\S+/g, '')
                 + ' webio-theme-{pywebio_theme}';
         }})();
-        """)
-
-        # 清空会话注入追踪中的主题 CSS 记录，然后重新调用 load_webui_styles
-        # 为当前主题注入正确的 CSS。旧主题残留的 !important 规则会被新 CSS 覆盖。
-        _reload_theme_css(theme)
-
-        run_js(f"""
         window.dispatchEvent(
             new CustomEvent(
                 "alas-theme-change",
@@ -493,3 +485,7 @@ class AppShellMixin(WebUIMixinBase):
             )
         );
         """)
+
+        # 清空会话注入追踪中的主题 CSS 记录，然后重新调用 load_webui_styles
+        # 为当前主题注入正确的 CSS。旧主题残留的 !important 规则会被新 CSS 覆盖。
+        _reload_theme_css(theme)
