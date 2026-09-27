@@ -153,8 +153,6 @@ class OverviewMixin(WebUIMixinBase):
             ],
         )
 
-    @render_locked
-    @use_scope("content", clear=True)
     def _spawn_instance_action(self, action, pending: str) -> None:
         """把启动/停止实例的长耗时操作挪到后台线程执行（见 instance_action）。"""
         spawn_instance_action(self.alas, action, pending)
@@ -163,6 +161,12 @@ class OverviewMixin(WebUIMixinBase):
         """启动/停止进行中的乐观按钮状态（见 instance_action）。"""
         return alas_ui_state(self.alas)
 
+    # ⚠️ 这两个装饰器必须紧贴 alas_overview：曾经把上面的 helper 插在装饰器与
+    # 函数之间，导致装饰器挂到了 _spawn_instance_action 上、alas_overview 裸奔 ——
+    # 总览内容不再清空内容区、也不再进 content scope，于是整页渲染进「菜单」
+    # scope（调度器/统计界面看起来像二级菜单）且骨架屏永久残留。
+    @render_locked
+    @use_scope("content", clear=True)
     def alas_overview(self) -> None:
         self.init_menu(name="Overview", skip_clear=True)
         self.set_title(t(f"Gui.MenuAlas.Overview"))

@@ -175,23 +175,53 @@ class Frame(Base):
                     "$('div[style*=\"--menu-" + name + "--\"]>button').addClass('btn-menu-active');\n"
                 )
 
-            # 骨架屏：点击菜单的下一帧就画出页面骨架，服务端内容落地后
-            # 被 use_scope(clear) 自动替换 —— 体感切换在 10ms 内完成，
-            # 与后端实际渲染时长解耦（主页内容本身即时，跳过）。
-            if name and name != "HomePage":
-                js_parts.append(
-                    "(function () {\n"
-                    "  var content = document.getElementById('pywebio-scope-content');\n"
-                    "  if (!content) return;\n"
-                    "  var lines = '';\n"
-                    "  for (var i = 0; i < 6; i++) {\n"
-                    "    lines += '<div class=\"alas-skeleton-line\" style=\"width:' +\n"
-                    "      (88 - i * 11) + '%\"></div>';\n"
-                    "  }\n"
-                    "  content.innerHTML = '<div class=\"alas-skeleton\">'\n"
-                    "    + '<div class=\"alas-skeleton-title\"></div>' + lines + '</div>';\n"
-                    "})();\n"
-                )
+            # 骨架屏：点击菜单的下一帧先画出占位，**真实内容落地后自动撤掉**。
+            # 三个历史坑（都踩过，别再改回去）：
+            #  1) 早期实现直接 `content.innerHTML = 骨架`：pywebio 自己的 scope
+            #     容器被一并抹掉，之后往这些 scope 输出时客户端只会在 ROOT 下
+            #     新建孤儿容器 —— 页面内容渲染到别处（总览的「调度器/统计界面」
+            #     整块跑进左侧菜单列，看着像二级菜单）。
+            #  2) 骨架写进 DOM 却没人清理：只有配置页自己补了一次 clear("content")，
+            #     其余页面（总览/设置/工具/更新/管理）骨架永久残留、压在内容上方。
+            #  3) 观察目标必须每次重新绑定：内容区元素可能被重建。
+            # 现在只 append 一个 #alas-page-skeleton 占位节点（不动别人的 DOM），
+            # 用 MutationObserver 盯内容区子节点：出现非骨架节点即撤掉骨架。
+            js_parts.append(
+                "(function () {\n"
+                "  var content = document.getElementById('pywebio-scope-content');\n"
+                "  if (!content) return;\n"
+                "  var stale = document.getElementById('alas-page-skeleton');\n"
+                "  if (stale) stale.remove();\n"
+                "  if (!" + ("true" if name and name != "HomePage" else "false") + ") return;\n"
+                "  var sk = document.createElement('div');\n"
+                "  sk.id = 'alas-page-skeleton';\n"
+                "  var lines = '';\n"
+                "  for (var i = 0; i < 6; i++) {\n"
+                "    lines += '<div class=\"alas-skeleton-line\" style=\"width:' +\n"
+                "      (88 - i * 11) + '%\"></div>';\n"
+                "  }\n"
+                "  sk.innerHTML = '<div class=\"alas-skeleton\">'\n"
+                "    + '<div class=\"alas-skeleton-title\"></div>' + lines + '</div>';\n"
+                "  content.appendChild(sk);\n"
+                "  if (!window.__alasSkeletonObserver) {\n"
+                "    window.__alasSkeletonObserver = new MutationObserver(function () {\n"
+                "      var c = document.getElementById('pywebio-scope-content');\n"
+                "      if (!c) return;\n"
+                "      var s = document.getElementById('alas-page-skeleton');\n"
+                "      var real = false;\n"
+                "      for (var i = 0; i < c.children.length; i++) {\n"
+                "        if (c.children[i] !== s) { real = true; break; }\n"
+                "      }\n"
+                "      if (real && s) s.remove();\n"
+                "    });\n"
+                "  }\n"
+                "  if (window.__alasSkeletonTarget !== content) {\n"
+                "    window.__alasSkeletonObserver.disconnect();\n"
+                "    window.__alasSkeletonObserver.observe(content, {childList: true});\n"
+                "    window.__alasSkeletonTarget = content;\n"
+                "  }\n"
+                "})();\n"
+            )
 
             # 主页右下角"纯背景模式"圆点仅在主页(menu=HomePage)显示
             js_parts.append(

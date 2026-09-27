@@ -491,6 +491,123 @@ class TestTaskConfigRendering(unittest.TestCase):
         self.assertNotIn("Storage", json.dumps(spec, ensure_ascii=False))
 
 
+class PageScopeDecoratorTests(unittest.TestCase):
+    """页面渲染方法必须把 content scope 的装饰器留在自己身上。
+
+    事故（dev `48a1e5469` 引入，用户实测发现）：把 `_spawn_instance_action` /
+    `_alas_ui_state` 两个 helper 插进了 `@render_locked` +
+    `@use_scope("content", clear=True)` 与 `alas_overview` **之间** —— 装饰器挂到
+    helper 上、页面函数裸奔：总览内容既不进 content scope 也不清空内容区，
+    于是整页渲染进「菜单」scope（调度器/统计界面看着像二级菜单），骨架屏也
+    永久残留。
+
+    这里锁住那条被违反的不变量：**凡是 `init_menu(..., skip_clear=True)` 的页面，
+    自己必须已经声明过 `use_scope("content", clear=True)`**（skip_clear 的语义
+    就是「调用方已清空」）。
+    """
+
+    @staticmethod
+    def _decorator_source(node) -> list:
+        import ast
+
+        return [ast.unparse(d) for d in node.decorator_list]
+
+    @staticmethod
+    def _own_calls(node, attr_name: str) -> list:
+        """收集函数自身（不含嵌套函数/lambda）里对 ``attr_name`` 的调用。"""
+        import ast
+
+        found = []
+        stack = list(node.body)
+        while stack:
+            item = stack.pop()
+            if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                continue
+            if (
+                isinstance(item, ast.Call)
+                and isinstance(item.func, ast.Attribute)
+                and item.func.attr == attr_name
+            ):
+                found.append(item)
+            stack.extend(ast.iter_child_nodes(item))
+        return found
+
+    @classmethod
+    def _calls_init_menu_with_skip_clear(cls, node) -> bool:
+        import ast
+
+        for call in cls._own_calls(node, "init_menu"):
+            for keyword in call.keywords:
+                if keyword.arg == "skip_clear" and isinstance(keyword.value, ast.Constant):
+                    if keyword.value.value is True:
+                        return True
+        return False
+
+    def test_skip_clear_pages_declare_content_scope(self):
+        import ast
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parent.parent / "module"
+        checked = []
+        offenders = []
+        for path in sorted(root.rglob("*.py")):
+            # 个别模块带 BOM，utf-8-sig 兜住
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if not self._calls_init_menu_with_skip_clear(node):
+                    continue
+                decorators = self._decorator_source(node)
+                checked.append(node.name)
+                if not any(
+                    "use_scope" in d and "content" in d for d in decorators
+                ):
+                    offenders.append(f"{path.name}:{node.lineno} {node.name} {decorators}")
+        # 至少覆盖到总览 / 配置页 / 设置 / 工具 / 更新 / 管理
+        self.assertIn("alas_overview", checked)
+        self.assertIn("alas_set_group", checked)
+        self.assertGreaterEqual(len(checked), 7)
+        self.assertEqual(offenders, [])
+
+    def test_alas_overview_keeps_its_content_scope_decorators(self):
+        import ast
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "module"
+            / "webui"
+            / "app_overview.py"
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "alas_overview":
+                decorators = self._decorator_source(node)
+                self.assertIn("render_locked", decorators)
+                self.assertTrue(
+                    any("use_scope" in d and "content" in d for d in decorators),
+                    decorators,
+                )
+                return
+        self.fail("alas_overview 不存在")
+
+    def test_skeleton_never_wipes_content_scope(self):
+        """骨架屏只 append 占位节点并由观察者自动撤掉，不得清空内容区 DOM。
+
+        早期实现 `content.innerHTML = 骨架` 会把 pywebio 自己的 scope 容器一起抹掉，
+        之后往这些 scope 输出时客户端只会在 ROOT 下新建孤儿容器（内容渲染到别处）。
+        """
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent / "module" / "webui" / "base.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("content.innerHTML = '<div class=\"alas-skeleton\">", source)
+        self.assertIn("alas-page-skeleton", source)
+        self.assertIn("MutationObserver", source)
+
+
 class TestWebUIImports(unittest.TestCase):
     def test_entry_does_not_eagerly_import_image_stack(self):
         result = subprocess.run(
