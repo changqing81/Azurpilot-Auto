@@ -61,22 +61,29 @@ def pywebio_theme_for(theme: str) -> str:
 
 
 def _reload_theme_css(theme: str) -> None:
-    """切换主题时按初始加载的顺序，用单条消息重注入整套 WebUI 样式。
+    """换主题：只换主题那几个 CSS，且删除 + 注入 + 保序**同一条消息**完成。
 
-    ⚠️ 删除旧样式与注入新样式必须是**同一次 DOM 操作**（``replace_css_files``）：
-    拆成「先删（一条消息）→ 再注入（另一条消息）」时，中间那段窗口（远控下
-    约等于一个 RTT）页面没有任何主题样式 —— 肉眼就是切主题一瞬间闪白，或者
-    闪出当时残留的其它背景规则（例如上一次自定义背景留下的
-    ``body{background-image:url(...)}``）。
-
-    ⚠️ 名单必须与 ``load_webui_styles`` 完全一致（共用 ``webui_style_names``）。
-    历史实现只重注入 statistics/stat-delta/meowfficer-score/meow-loot + 主题这几
-    项，alas / alas-pc(mobile) / entry-alas 被删掉后不再回来——PC 端布局规则
-    （岛屿计划两列网格、参数两列）会静默丢失，切一次主题就永久失效。
+    ⚠️ 三条硬约束，各对应一个真事故：
+    1. **只动主题样式**，不重新注入基础/组件样式（alas / alas-pc / entry-alas /
+       statistics / stat-delta / meowfficer-score / meow-loot）：每次切主题重注入
+       整套 ~200KB CSS，主线程实测阻塞 45~200ms，连点几次就整个界面发卡。
+    2. **删除与注入同一条消息**：拆两步时中间那段窗口（远控下约一个 RTT）页面
+       没有任何主题样式 —— 切主题闪白。
+    3. **自定义背景样式（#alas-custom-bg-style）在注入后搬到 head 末尾**：
+       否则它会被排在后面的主题样式压掉，换装那一瞬间露出主题背景
+       （实测：亮色主题露 `none`、暗色主题露渐变），然后再被自定义背景盖住 ——
+       肉眼就是「闪一下别的图」。视频自定义背景同理（body 必须保持透明）。
     """
-    from module.webui.utils import filepath_css, replace_css_files, webui_style_names
+    from module.webui.utils import (
+        filepath_css,
+        swap_theme_css,
+        webui_theme_style_names,
+    )
 
-    replace_css_files(filepath_css(name) for name in webui_style_names(theme))
+    swap_theme_css(
+        [filepath_css(name) for name in webui_theme_style_names(theme)],
+        keep_last=("#alas-custom-bg-style",),
+    )
 
 
 class AppShellMixin(WebUIMixinBase):
@@ -424,21 +431,11 @@ class AppShellMixin(WebUIMixinBase):
         }})();
         """)
 
-        # 删旧 + 注入新，一次 DOM 操作完成（单条消息）。
+        # 删旧 + 注入新 + 自定义背景样式保序，一次 DOM 操作完成（单条消息）。
         _reload_theme_css(theme)
 
-        # 事件最后派发：保证监听方（时间轴重绘等）读到的已是新主题的 CSS 变量。
-        # 同时把自定义背景样式（#alas-custom-bg-style）挪到 head 末尾：主题 CSS 是
-        # 重新 append 进 head 的，会排在更早注入的自定义背景样式之后；两边都是
-        # body 上的 `background-image: … !important`，同权重下按文档顺序由主题
-        # 胜出 —— 不挪的话切一次主题自定义背景就变成 none（用户实测）。
+        # 事件最后派发：保证监听方（时间轴重绘等）读到的已是新主题的 CSS 变量
         run_js(f"""
-        (function () {{
-            var el = document.getElementById('alas-custom-bg-style');
-            if (el && el.parentNode) {{
-                el.parentNode.appendChild(el);
-            }}
-        }})();
         window.dispatchEvent(
             new CustomEvent(
                 "alas-theme-change",

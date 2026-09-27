@@ -550,50 +550,80 @@ _THEME_LINK_HREF_PATTERNS = (
     "transparent-alas",
 )
 
+# 全部主题样式名（各主题取并集）：换主题时按 id 精确删掉，不做前缀匹配，
+# 免得误伤 `alas-css-*` 里的其它样式。
+_THEME_STYLE_NAMES = (
+    "dark-alas",
+    "light-alas",
+    "advanced-material-alas",
+    "dark-advanced-material-overrides-alas",
+    "transparent-alas",
+)
 
-def replace_css_files(filepaths):
-    """删掉旧主题样式并注入新的一套 —— **同一条消息**内完成，不留空窗。
 
-    主题切换本来是「先删（一条消息）→ 再注入（另一条消息）」两步；两步之间
-    页面没有任何主题样式，这段窗口在远控下约等于一个 RTT，肉眼可见：
-    表现为切主题时一瞬间闪白，或者闪出当时残留的其它背景规则（例如上一次
-    自定义背景留下的 `body{background-image:url(...)}`）。
-    这里把删除与注入合并成一次 DOM 操作，浏览器只会渲染换装后的结果。
+def _css_style_id(filepath: str) -> str:
+    return f"alas-css-{os.path.basename(filepath).replace('.', '-')}"
+
+
+def swap_theme_css(theme_filepaths, keep_last=()) -> None:
+    """换主题：只删旧的**主题**样式、注入新的，并且**同一条消息**内完成。
+
+    两条硬约束，各对应一个真事故：
+
+    1. 只动主题样式，不碰基础/组件样式（alas / alas-pc / entry-alas /
+       statistics / stat-delta / meowfficer-score / meow-loot）。它们不随主题
+       变化，重新注入一遍等于每次切主题都让浏览器重解析 ~200KB CSS ——
+       主线程实测阻塞 45~200ms，连续切几次主题整个界面就发卡。
+    2. 删除与注入必须在同一次 DOM 操作里。拆成两条消息时，中间那段窗口
+       （远控下约一个 RTT）页面没有主题样式 —— 表现为切主题闪白，或闪出
+       当时唯一还生效的背景规则。
+
+    Args:
+        theme_filepaths: 新主题的 CSS 文件路径，顺序即优先级。
+        keep_last: 注入完成后需要搬到 head 末尾的选择器（自定义背景样式必须
+            压过主题样式，否则换装那一瞬间会被主题背景盖住 → 闪一下别的图）。
     """
     injected_styles = getattr(local, "webui_injected_styles", None)
     if injected_styles is None:
         injected_styles = set()
         local.webui_injected_styles = injected_styles
 
-    styles = [
-        (
-            f"alas-css-{os.path.basename(filepath).replace('.', '-')}",
-            _read_css_cached(filepath),
-        )
-        for filepath in filepaths
-    ]
+    styles = [(_css_style_id(path), _read_css_cached(path)) for path in theme_filepaths]
 
+    remove_ids = [_css_style_id(filepath_css(name)) for name in _THEME_STYLE_NAMES]
     link_selector = ",".join(
         f'link[href*="{pattern}"]' for pattern in _THEME_LINK_HREF_PATTERNS
     )
     js = (
-        "(function(styles,linkSelector){"
+        "(function(styles,linkSelector,removeIds,keepLast){"
         "var links=document.querySelectorAll(linkSelector);"
         "for(var i=0;i<links.length;i++){links[i].parentNode.removeChild(links[i]);}"
-        "var old=document.querySelectorAll('style[id^=\"alas-css-\"]');"
-        "for(var i=0;i<old.length;i++){old[i].parentNode.removeChild(old[i]);}"
+        "removeIds.forEach(function(id){"
+        "var el=document.getElementById(id);"
+        "if(el&&el.parentNode){el.parentNode.removeChild(el);}"
+        "});"
         "styles.forEach(function(style){"
         "var element=document.createElement('style');"
         "element.type='text/css';element.id=style[0];"
         "element.appendChild(document.createTextNode(style[1]));"
         "document.head.appendChild(element);"
         "});"
-        "})(%s,%s);"
-    ) % (json.dumps(styles), json.dumps(link_selector))
+        "keepLast.forEach(function(selector){"
+        "var el=document.querySelector(selector);"
+        "if(el&&el.parentNode){el.parentNode.appendChild(el);}"
+        "});"
+        "})(%s,%s,%s,%s);"
+    ) % (
+        json.dumps(styles),
+        json.dumps(link_selector),
+        json.dumps(remove_ids),
+        json.dumps(list(keep_last)),
+    )
     run_js(js)
 
-    injected_styles.clear()
-    injected_styles.update(filepaths)
+    for name in _THEME_STYLE_NAMES:
+        injected_styles.discard(filepath_css(name))
+    injected_styles.update(theme_filepaths)
 
 
 def add_css(filepath):
@@ -669,13 +699,33 @@ def _inject_css_watcher(fingerprint):
     run_js(js)
 
 
+# 主题 → 主题样式文件（顺序即优先级：布局规则在前、覆盖层在后）。
+# default/light 共用 light-alas。
+_WEBUI_THEME_STYLES = {
+    "dark": ("dark-alas",),
+    "advanced_material": ("advanced-material-alas",),
+    "dark_advanced_material": (
+        "advanced-material-alas",
+        "dark-advanced-material-overrides-alas",
+    ),
+    # 透明主题：复用高级材质的布局规则，再叠加透明化覆盖层
+    "transparent": (
+        "advanced-material-alas",
+        "transparent-alas",
+    ),
+}
+
+
+def webui_theme_style_names(theme: str) -> tuple:
+    """只返回随主题变化的那几个 CSS 名（不含基础/组件样式）。"""
+    return _WEBUI_THEME_STYLES.get(theme, ("light-alas",))
+
+
 def webui_style_names(theme=None, is_mobile=None) -> list:
     """返回 WebUI 需要注入的 CSS 名单，顺序即加载优先级（主题 CSS 永远在最后）。
 
-    初始加载（``load_webui_styles``）与主题切换（``_reload_theme_css``）共用这份
-    名单。历史实现里主题切换只重注入少数几项，``alas`` / ``alas-pc`` /
-    ``entry-alas`` 被清理后不再回来（PC 端布局规则永久丢失），共用名单可从根上
-    消除这类名单漂移。
+    初始加载（``load_webui_styles``）用它一次注入全套；主题切换只换其中的主题
+    部分（``webui_theme_style_names``）。
 
     Args:
         theme: 当前主题名称。
@@ -704,20 +754,7 @@ def webui_style_names(theme=None, is_mobile=None) -> list:
         # 耄耋相接「收获」区块（物品卡片 + 侵蚀等级明细表）样式
         "meow-loot-alas",
     ]
-    theme_styles = {
-        "dark": ("dark-alas",),
-        "advanced_material": ("advanced-material-alas",),
-        "dark_advanced_material": (
-            "advanced-material-alas",
-            "dark-advanced-material-overrides-alas",
-        ),
-        # 透明主题：复用高级材质的布局规则，再叠加透明化覆盖层
-        "transparent": (
-            "advanced-material-alas",
-            "transparent-alas",
-        ),
-    }
-    styles.extend(theme_styles.get(theme, ("light-alas",)))
+    styles.extend(webui_theme_style_names(theme))
     return styles
 
 

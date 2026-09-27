@@ -155,20 +155,22 @@ class MeowfficerScorePanelWiringTests(unittest.TestCase):
         self.assertIn('from module.webui.app_meowfficer_score import MeowfficerScoreMixin', source)
         self.assertIn('MeowfficerScoreMixin,', source)
 
-    def test_stylesheet_is_registered_and_reinjected_on_theme_switch(self):
+    def test_stylesheet_is_registered_and_survives_theme_switch(self):
         self.assertTrue(
             PROJECT_ROOT.joinpath('assets', 'gui', 'css', 'meowfficer-score-alas.css').is_file()
         )
-        self.assertIn('meowfficer-score-alas', self._read('module', 'webui', 'utils.py'))
+        utils = self._read('module', 'webui', 'utils.py')
+        # 组件样式登记在初始加载名单里（基础名单，不随主题变化）
+        self.assertIn('meowfficer-score-alas', utils)
+        self.assertIn('"meowfficer-score-alas",', utils)
         shell = self._read('module', 'webui', 'app_shell.py')
-        # 切主题会清掉所有 alas-css-* 的 <style>，重注入必须复用它与
-        # load_webui_styles 共用的同一份名单（webui_style_names）：
-        # 逐项手写 discard 清单曾漏掉 meow-loot-alas、alas / alas-pc /
-        # entry-alas，漏项会被静默丢弃（PC 端布局规则永久失效）。
-        # 而且删旧 + 注入新必须原子完成（replace_css_files 单条消息），
-        # 拆两步会在中间露出「没有主题样式」的窗口，远控下肉眼闪屏。
-        self.assertIn('webui_style_names(theme)', shell)
-        self.assertIn('replace_css_files(', shell)
+        # 切主题**只换主题那几个 CSS**（webui_theme_style_names）：
+        # 基础/组件样式不再被删也不再被重注入 —— 既不会像历史实现那样
+        # 「删了却忘记 re-inject」导致永久丢失，也不会每次切主题重注入
+        # ~200KB 造成主线程卡顿。
+        self.assertIn('webui_theme_style_names(theme)', shell)
+        self.assertIn('swap_theme_css(', shell)
+        self.assertNotIn('webui_style_names(theme)', shell)
 
     def test_shared_style_list_covers_every_theme(self):
         """共用名单必须覆盖全部主题，且始终把主题 CSS 放在最后。"""

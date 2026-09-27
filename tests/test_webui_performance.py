@@ -705,13 +705,19 @@ class ThemeWallpaperTests(unittest.TestCase):
     """
 
     def test_theme_switch_moves_custom_background_style_to_head_end(self):
+        """自定义背景样式必须在「换主题」那条原子命令里被搬到 head 末尾。
+
+        搬晚了（下一条消息）或者不搬，换装那一瞬间主题背景会盖过自定义背景 ——
+        实测亮色主题露 `none`、暗色主题露渐变，肉眼就是「闪一下别的图」。
+        """
         from pathlib import Path
 
-        source = (
-            Path(__file__).resolve().parent.parent / "module" / "webui" / "app_shell.py"
-        ).read_text(encoding="utf-8")
-        self.assertIn("alas-custom-bg-style", source)
-        self.assertIn("el.parentNode.appendChild(el)", source)
+        root = Path(__file__).resolve().parent.parent / "module" / "webui"
+        shell = (root / "app_shell.py").read_text(encoding="utf-8")
+        utils = (root / "utils.py").read_text(encoding="utf-8")
+        self.assertIn('keep_last=("#alas-custom-bg-style",)', shell)
+        self.assertIn("keepLast.forEach(function(selector){", utils)
+        self.assertIn("el.parentNode.appendChild(el)", utils)
 
     def _gui(self, mode):
         calls = []
@@ -870,48 +876,74 @@ class LazyGroupAutoFillTests(unittest.TestCase):
 
 
 class ThemeCssSwapTests(unittest.TestCase):
-    """主题样式必须是「删旧 + 注入新」一次 DOM 操作（用户实测：切主题闪屏）。
+    """主题样式必须是「只换主题那几个 CSS + 删旧注入新同一条消息」（用户实测：
 
-    历史实现把删除放在 set_theme 的第一条消息、注入放在第二条：两步之间页面
-    没有任何主题样式，远控下这段窗口约一个 RTT，肉眼就是闪白 / 闪出当时残留的
-    其它背景规则（例如上一次自定义背景留下的 body background-image）。
+    1. 切主题闪屏：删除与注入拆两条消息时，中间那段窗口（远控下约一个 RTT）
+       页面没有任何主题样式 —— 闪白，或闪出当时唯一还生效的背景规则。
+    2. 连续切主题发卡：每次都重注入整套 ~200KB CSS，主线程实测阻塞 45~200ms。
+    3. 自定义背景被压掉：主题样式排在自定义背景样式之后时，自定义背景失效。
     """
 
-    def test_reload_theme_css_uses_atomic_replace(self):
+    def test_reload_theme_css_swaps_only_theme_styles_atomically(self):
         from pathlib import Path
 
         source = (
             Path(__file__).resolve().parent.parent / "module" / "webui" / "app_shell.py"
         ).read_text(encoding="utf-8")
-        self.assertIn("replace_css_files(", source)
-        # 删除动作只允许出现在 utils 的那条原子命令里，不能再由 set_theme 先删一遍
+        self.assertIn("swap_theme_css(", source)
+        self.assertIn("webui_theme_style_names(theme)", source)
+        # 自定义背景样式必须在同一条消息里保序，不能再单独发一条
+        self.assertIn('keep_last=("#alas-custom-bg-style",)', source)
+        # 删除动作只允许出现在 utils 的那条原子命令里
         self.assertNotIn('style[id^="alas-css-"]', source)
+        self.assertNotIn("alas-custom-bg-style'", source.replace(
+            'keep_last=("#alas-custom-bg-style",)', ""
+        ))
 
-    def test_replace_css_files_removes_and_inserts_in_one_command(self):
+    def test_swap_only_touches_theme_files(self):
+        from module.webui.utils import webui_style_names, webui_theme_style_names
+
+        theme_files = webui_theme_style_names("dark_advanced_material")
+        self.assertEqual(
+            theme_files,
+            ("advanced-material-alas", "dark-advanced-material-overrides-alas"),
+        )
+        all_names = webui_style_names("dark_advanced_material", is_mobile=False)
+        # 基础/组件样式在前、主题样式在后，且并集完整
+        self.assertEqual(all_names[:7][0], "alas")
+        self.assertEqual(all_names[1], "alas-pc")
+        self.assertEqual(tuple(all_names[7:]), theme_files)
+        for name in ("statistics-alas", "meow-loot-alas", "entry-alas"):
+            self.assertIn(name, all_names)
+            self.assertNotIn(name, theme_files)
+
+    def test_swap_theme_css_removes_inserts_and_reorders_in_one_command(self):
         import tempfile
         from pathlib import Path as _Path
 
         from module.webui import utils
 
         with tempfile.TemporaryDirectory() as td:
-            css = _Path(td) / "demo.css"
+            css = _Path(td) / "advanced-material-alas.css"
             css.write_text("body{color:red}", encoding="utf-8")
             # 用普通对象替身顶掉 pywebio 的 local：直接摸真的 local 会把
             # ScriptModeSession 注册进 pywebio 会话表，后续 static/remote
             # 守卫测试会集体报 "Already in script mode"。
-            fake_local = SimpleNamespace(webui_injected_styles={"/old/theme.css"})
+            fake_local = SimpleNamespace(webui_injected_styles=set())
             with (
                 patch("module.webui.utils.local", fake_local),
                 patch("module.webui.utils.run_js") as run_js,
             ):
-                utils.replace_css_files([str(css)])
+                utils.swap_theme_css([str(css)], keep_last=("#alas-custom-bg-style",))
             js = run_js.call_args[0][0]
-            # 同一条命令里：先删旧的 <style>/主题 <link>，再插入新的
+            # 一条命令里：删主题 <link>、按 id 删旧主题 <style>、插入新样式、保序
             self.assertIn("removeChild", js)
-            self.assertIn("link[href*=", js)
-            self.assertIn("alas-css-demo-css", js)
+            self.assertIn('link[href*=', js)
+            self.assertIn("alas-css-advanced-material-alas-css", js)
             self.assertIn("body{color:red}", js)
-            # 注入追踪表被重置为新的清单，避免后续 add_css_files 重复注入/漏注入
+            self.assertIn("#alas-custom-bg-style", js)
+            self.assertIn("appendChild(el)", js)
+            # 追踪表只登记新主题样式（基础样式不受影响）
             self.assertEqual(fake_local.webui_injected_styles, {str(css)})
 
 
