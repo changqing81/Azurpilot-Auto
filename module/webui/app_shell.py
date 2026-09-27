@@ -63,27 +63,20 @@ def pywebio_theme_for(theme: str) -> str:
 def _reload_theme_css(theme: str) -> None:
     """切换主题时按初始加载的顺序，用单条消息重注入整套 WebUI 样式。
 
-    旧主题的 ``<link>`` 与全部 ``<style id="alas-css-*">`` 已由 ``set_theme``
-    的第一条客户端消息删除，这里只负责清掉注入追踪记录再整批重注入——
-    顺序即优先级，主题 CSS 永远最后，才能覆盖组件样式的变量回退值。
+    ⚠️ 删除旧样式与注入新样式必须是**同一次 DOM 操作**（``replace_css_files``）：
+    拆成「先删（一条消息）→ 再注入（另一条消息）」时，中间那段窗口（远控下
+    约等于一个 RTT）页面没有任何主题样式 —— 肉眼就是切主题一瞬间闪白，或者
+    闪出当时残留的其它背景规则（例如上一次自定义背景留下的
+    ``body{background-image:url(...)}``）。
 
     ⚠️ 名单必须与 ``load_webui_styles`` 完全一致（共用 ``webui_style_names``）。
     历史实现只重注入 statistics/stat-delta/meowfficer-score/meow-loot + 主题这几
     项，alas / alas-pc(mobile) / entry-alas 被删掉后不再回来——PC 端布局规则
     （岛屿计划两列网格、参数两列）会静默丢失，切一次主题就永久失效。
     """
-    from module.webui.app_dependencies import local
-    from module.webui.utils import add_css_files, filepath_css, webui_style_names
+    from module.webui.utils import filepath_css, replace_css_files, webui_style_names
 
-    names = webui_style_names(theme)
-
-    injected_styles = getattr(local, "webui_injected_styles", None)
-    if injected_styles is not None:
-        for name in names:
-            injected_styles.discard(filepath_css(name))
-
-    # 整批样式合并为单条消息注入（远控下每次往返 = 一个 RTT）
-    add_css_files(filepath_css(name) for name in names)
+    replace_css_files(filepath_css(name) for name in webui_style_names(theme))
 
 
 class AppShellMixin(WebUIMixinBase):
@@ -408,25 +401,15 @@ class AppShellMixin(WebUIMixinBase):
 
         webconfig(theme=pywebio_theme)
 
-        # 第一条客户端消息：删掉旧主题的 link 与全部已注入 style，换 bootstrap
-        # 主题与 body class。删除必须早于 _reload_theme_css 的重注入，否则旧主题
-        # 的 !important 规则会盖住新主题。
+        # 第一条客户端消息：只换 bootstrap 主题与 body class。
+        # 旧主题样式的删除**不在这里**做：删除必须与「注入新主题样式」同一条消息
+        # （见 _reload_theme_css / replace_css_files），否则两步之间会露出一段
+        # 没有任何主题样式的窗口 —— 远控下约一个 RTT，肉眼就是切主题闪一下
+        # （闪白，或闪出当时残留的其它背景规则）。
         # （alas-theme-change 事件必须在主题 CSS 重注入之后派发——
         #   resource_delta_timeline 等监听方会在事件里重读 CSS 变量重绘，
         #   事件早于 CSS 会导致沿用旧配色，见 resource_delta_timeline.js。）
         run_js(f"""
-        document.querySelectorAll(
-            'link[href*="dark-alas"],' +
-            'link[href*="light-alas"],' +
-            'link[href*="advanced-material-alas"],' +
-            'link[href*="dark-advanced-material"],' +
-            'link[href*="transparent-alas"]'
-        ).forEach(function(e) {{
-            e.remove();
-        }});
-        document.querySelectorAll('style[id^="alas-css-"]').forEach(function(e) {{
-            e.remove();
-        }});
         (function() {{
             var link = document.querySelector('link[href*="bs-theme/"]');
             if (link) {{
@@ -441,7 +424,7 @@ class AppShellMixin(WebUIMixinBase):
         }})();
         """)
 
-        # 清空注入追踪并整批重注入当前主题的样式（单条消息）。
+        # 删旧 + 注入新，一次 DOM 操作完成（单条消息）。
         _reload_theme_css(theme)
 
         # 事件最后派发：保证监听方（时间轴重绘等）读到的已是新主题的 CSS 变量。

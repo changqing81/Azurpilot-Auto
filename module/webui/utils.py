@@ -540,6 +540,62 @@ def add_css_files(filepaths):
     injected_styles.update(loaded_paths)
 
 
+# 主题样式以 <link> 预载进初始 HTML 的文件名特征：切换主题时旧主题的这些
+# <link> 必须一并删掉，否则它们的 !important 规则会盖住新主题的 <style>。
+_THEME_LINK_HREF_PATTERNS = (
+    "dark-alas",
+    "light-alas",
+    "advanced-material-alas",
+    "dark-advanced-material",
+    "transparent-alas",
+)
+
+
+def replace_css_files(filepaths):
+    """删掉旧主题样式并注入新的一套 —— **同一条消息**内完成，不留空窗。
+
+    主题切换本来是「先删（一条消息）→ 再注入（另一条消息）」两步；两步之间
+    页面没有任何主题样式，这段窗口在远控下约等于一个 RTT，肉眼可见：
+    表现为切主题时一瞬间闪白，或者闪出当时残留的其它背景规则（例如上一次
+    自定义背景留下的 `body{background-image:url(...)}`）。
+    这里把删除与注入合并成一次 DOM 操作，浏览器只会渲染换装后的结果。
+    """
+    injected_styles = getattr(local, "webui_injected_styles", None)
+    if injected_styles is None:
+        injected_styles = set()
+        local.webui_injected_styles = injected_styles
+
+    styles = [
+        (
+            f"alas-css-{os.path.basename(filepath).replace('.', '-')}",
+            _read_css_cached(filepath),
+        )
+        for filepath in filepaths
+    ]
+
+    link_selector = ",".join(
+        f'link[href*="{pattern}"]' for pattern in _THEME_LINK_HREF_PATTERNS
+    )
+    js = (
+        "(function(styles,linkSelector){"
+        "var links=document.querySelectorAll(linkSelector);"
+        "for(var i=0;i<links.length;i++){links[i].parentNode.removeChild(links[i]);}"
+        "var old=document.querySelectorAll('style[id^=\"alas-css-\"]');"
+        "for(var i=0;i<old.length;i++){old[i].parentNode.removeChild(old[i]);}"
+        "styles.forEach(function(style){"
+        "var element=document.createElement('style');"
+        "element.type='text/css';element.id=style[0];"
+        "element.appendChild(document.createTextNode(style[1]));"
+        "document.head.appendChild(element);"
+        "});"
+        "})(%s,%s);"
+    ) % (json.dumps(styles), json.dumps(link_selector))
+    run_js(js)
+
+    injected_styles.clear()
+    injected_styles.update(filepaths)
+
+
 def add_css(filepath):
     """将 CSS 文件安全注入到文档头部。"""
     add_css_files((filepath,))

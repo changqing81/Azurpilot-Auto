@@ -525,6 +525,14 @@ class HomeMixin(WebUIMixinBase):
                     logger.info("[WebUI] 已应用自定义背景")
                 return
 
+        # 非自定义模式：清掉可能残留在页面上的自定义背景注入（<style> 与 <video>）。
+        # 残留主要出现在「切主题」那条路径上：主题切换会先把主题 CSS 整批删除再
+        # 重注入，中间那一小段窗口（远控下 ≈ 1 RTT，肉眼可见）里主题的
+        # `body{background-image: var(--alas-apple-bg-image)}` 不在 DOM 中，
+        # 残留的自定义背景规则就成了唯一生效的背景 —— 表现为「点一下主题，
+        # 一瞬间闪回旧的自定义背景图片/视频」。
+        self._clear_custom_background()
+
         def _fetch_wallpaper():
             # 全部启用的图源并发请求；首个有效候选到达立即开赛，
             # 后到的候选增量加入竞赛，避免被最慢图源的超时卡住
@@ -1533,6 +1541,10 @@ class HomeMixin(WebUIMixinBase):
         if self._load_background_mode() == "custom":
             logger.info("[WebUI] 自定义背景模式，切换主题保持原背景不重抽")
             return
+        # 清掉「上一次是自定义背景」留在页面上的注入（<style> 与 <video>）：
+        # 主题切换会先整批删掉主题 CSS 再重注入，中间那段窗口里残留的自定义
+        # 背景规则会成为唯一生效的背景 → 切主题时闪一下旧的自定义图/视频。
+        self._clear_custom_background()
         self.wallpaper_url = ""
         self._direct_wallpaper_source = None
         # 同步清空前端竞赛胜者记录，避免「下载当前背景图」读到上一张，

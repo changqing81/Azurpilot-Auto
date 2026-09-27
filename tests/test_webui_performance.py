@@ -729,6 +729,9 @@ class ThemeWallpaperTests(unittest.TestCase):
     @staticmethod
     def _bind(gui):
         gui._mark_wallpaper_reroll = lambda: HomeMixin._mark_wallpaper_reroll(gui)
+        gui._clear_custom_background = lambda: gui.__dict__.setdefault(
+            "cleared_custom_bg", []
+        ).append(True)
         return gui
 
     def test_random_mode_rerolls_wallpaper_on_theme_change(self):
@@ -741,6 +744,9 @@ class ThemeWallpaperTests(unittest.TestCase):
         self.assertEqual(gui.wallpaper_url, "")
         self.assertIsNone(gui._direct_wallpaper_source)
         self.assertIn("__alasWallpaperWinner", run_js.call_args[0][0])
+        # 非自定义模式必须先清掉上一次自定义背景的残留注入（<style>/<video>）：
+        # 它们会在主题样式被替换的那一瞬间成为唯一生效的背景，表现为闪一下旧图
+        self.assertEqual(gui.cleared_custom_bg, [True])
 
     def test_custom_mode_keeps_background_on_theme_change(self):
         gui, calls = self._gui("custom")
@@ -861,6 +867,52 @@ class LazyGroupAutoFillTests(unittest.TestCase):
             / "app_task_config.py"
         ).read_text(encoding="utf-8")
         self.assertIn("self.task_handler.add(self.alas_fill_lazy_groups", source)
+
+
+class ThemeCssSwapTests(unittest.TestCase):
+    """主题样式必须是「删旧 + 注入新」一次 DOM 操作（用户实测：切主题闪屏）。
+
+    历史实现把删除放在 set_theme 的第一条消息、注入放在第二条：两步之间页面
+    没有任何主题样式，远控下这段窗口约一个 RTT，肉眼就是闪白 / 闪出当时残留的
+    其它背景规则（例如上一次自定义背景留下的 body background-image）。
+    """
+
+    def test_reload_theme_css_uses_atomic_replace(self):
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent / "module" / "webui" / "app_shell.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("replace_css_files(", source)
+        # 删除动作只允许出现在 utils 的那条原子命令里，不能再由 set_theme 先删一遍
+        self.assertNotIn('style[id^="alas-css-"]', source)
+
+    def test_replace_css_files_removes_and_inserts_in_one_command(self):
+        import tempfile
+        from pathlib import Path as _Path
+
+        from module.webui import utils
+
+        with tempfile.TemporaryDirectory() as td:
+            css = _Path(td) / "demo.css"
+            css.write_text("body{color:red}", encoding="utf-8")
+            # 用普通对象替身顶掉 pywebio 的 local：直接摸真的 local 会把
+            # ScriptModeSession 注册进 pywebio 会话表，后续 static/remote
+            # 守卫测试会集体报 "Already in script mode"。
+            fake_local = SimpleNamespace(webui_injected_styles={"/old/theme.css"})
+            with (
+                patch("module.webui.utils.local", fake_local),
+                patch("module.webui.utils.run_js") as run_js,
+            ):
+                utils.replace_css_files([str(css)])
+            js = run_js.call_args[0][0]
+            # 同一条命令里：先删旧的 <style>/主题 <link>，再插入新的
+            self.assertIn("removeChild", js)
+            self.assertIn("link[href*=", js)
+            self.assertIn("alas-css-demo-css", js)
+            self.assertIn("body{color:red}", js)
+            # 注入追踪表被重置为新的清单，避免后续 add_css_files 重复注入/漏注入
+            self.assertEqual(fake_local.webui_injected_styles, {str(css)})
 
 
 class TestWebUIImports(unittest.TestCase):

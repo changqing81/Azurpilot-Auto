@@ -165,9 +165,10 @@ class MeowfficerScorePanelWiringTests(unittest.TestCase):
         # load_webui_styles 共用的同一份名单（webui_style_names）：
         # 逐项手写 discard 清单曾漏掉 meow-loot-alas、alas / alas-pc /
         # entry-alas，漏项会被静默丢弃（PC 端布局规则永久失效）。
+        # 而且删旧 + 注入新必须原子完成（replace_css_files 单条消息），
+        # 拆两步会在中间露出「没有主题样式」的窗口，远控下肉眼闪屏。
         self.assertIn('webui_style_names(theme)', shell)
-        self.assertIn('injected_styles.discard(filepath_css(name))', shell)
-        self.assertIn('add_css_files(filepath_css(name) for name in names)', shell)
+        self.assertIn('replace_css_files(', shell)
 
     def test_shared_style_list_covers_every_theme(self):
         """共用名单必须覆盖全部主题，且始终把主题 CSS 放在最后。"""
