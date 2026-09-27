@@ -420,9 +420,24 @@ class TaskConfigMixin(WebUIMixinBase):
         )
         lazy = total_controls > self.CONFIG_LAZY_GROUP_THRESHOLD
         self._group_render_task = task
-        self._expanded_groups = {expand_group} if expand_group else set()
 
-        first_group_done = False
+        # 只保留真正会出控件的分组：每个任务尾部都挂着一个 Storage（任务状态）
+        # 空分组（display=disabled 的空 storage），全量渲染时代会被 _build_group_content
+        # 的判空跳过。懒渲染若照单全收，会多出一个「任务状态」导航按钮，
+        # 以及一个点开后把自己清空的空壳 —— 这里按同一口径先筛掉。
+        render_groups = [
+            (group, arg_dict)
+            for group, arg_dict in deep_iter(self.ALAS_ARGS[task], depth=1)
+            if self._group_renders(task, group[0], arg_dict, config)
+        ]
+        # 初始展开的分组：搜索跳转指定的（须可渲染）优先，否则第一个可渲染分组。
+        initial_group = (
+            expand_group
+            if any(group[0] == expand_group for group, _ in render_groups)
+            else (render_groups[0][0][0] if render_groups else None)
+        )
+        self._expanded_groups = {initial_group} if initial_group else set()
+
         task_help: str = t(f"Task.{task}.help")
         if task_help:
             group_outputs.append(
@@ -438,11 +453,9 @@ class TaskConfigMixin(WebUIMixinBase):
         if task == "OpsiSimulator":
             group_outputs.append(put_scope("group_OpsiSimulatorRuntime"))
 
-        for group, arg_dict in deep_iter(self.ALAS_ARGS[task], depth=1):
-            expanded = (expand_group == group[0]) or (
-                expand_group is None and not first_group_done
-            )
-            if lazy and not expanded:
+        for group, arg_dict in render_groups:
+            group_name = group[0]
+            if lazy and group_name != initial_group:
                 group_outputs.append(
                     self._build_config_group_shell(task, group, arg_dict)
                 )
@@ -450,14 +463,13 @@ class TaskConfigMixin(WebUIMixinBase):
                 group_output, group_watcher_paths, _ = self._build_config_group(
                     group, arg_dict, config, task
                 )
-                if group_output is not None:
-                    group_outputs.append(group_output)
-                    watcher_paths.extend(group_watcher_paths)
-                    self._expanded_groups.add(group[0])
-                    # 空分组不占用「首组自动展开」的机会，让下一个非空组展开
-                    first_group_done = True
+                if group_output is None:
+                    continue
+                group_outputs.append(group_output)
+                watcher_paths.extend(group_watcher_paths)
+                self._expanded_groups.add(group_name)
             navigator_outputs.append(self._build_navigator(task, group))
-            if task == "EventGeneral" and group[0] == "EventGeneral":
+            if task == "EventGeneral" and group_name == "EventGeneral":
                 group_outputs.append(put_scope("group_EventCalculator"))
                 render_event_calculator = True
 
@@ -510,30 +522,35 @@ class TaskConfigMixin(WebUIMixinBase):
 
     def _build_config_group_shell(self, task, group, arg_dict) -> Output:
         """懒渲染分组壳：标题按钮显示组名与参数数，点击按需渲染控件。"""
-        group_name = group[0]
-        count = len(arg_dict)
         return put_scope(
-            f"group_{group_name}",
-            content=[
-                put_button(
-                    label=f"{t(f'{group_name}._info.name')}（{count}）",
-                    onclick=lambda g=group: self._expand_config_group_and_scroll(
-                        task, g
-                    ),
-                    color="menu",
-                ).style("margin: 6px 0;")
-            ],
+            f"group_{group[0]}",
+            content=[self._build_group_shell_button(task, group, arg_dict)],
         )
+
+    def _build_group_shell_button(self, task, group, arg_dict) -> Output:
+        """懒渲染分组壳的标题按钮（显示组名与参数数）。"""
+        return put_button(
+            label=f"{t(f'{group[0]}._info.name')}（{len(arg_dict)}）",
+            onclick=lambda g=group: self._expand_config_group_and_scroll(task, g),
+            color="menu",
+        ).style("margin: 6px 0;")
+
+    def _group_renders(self, task, group_name, arg_dict, config) -> bool:
+        """分组在当前服务器与配置下是否会产出控件。
+
+        与 ``_build_group_content`` 的判空口径一致（``display=hide`` 与空
+        ``storage`` 都被 ``should_render_config_argument`` 过滤掉），但不构造任何
+        Output，因此可以廉价地用来决定是否生成懒渲染分组壳。
+        """
+        for _ in self._iter_group_arguments(task, group_name, arg_dict, config):
+            return True
+        return False
 
     def _expand_config_group_and_scroll(self, task, group) -> None:
         """懒渲染分组展开 + 滚动定位（分组壳按钮与导航按钮共用）。"""
-        from module.logger import logger as _logger
-        _logger.info(f"[lazy-debug] expand called: task={task} group={group[0]}")
         if getattr(self, "_group_render_task", None) != task:
-            _logger.info("[lazy-debug] stale task, return")
             return  # 任务已切换，过期点击
         self._ensure_group_expanded(task, group)
-        _logger.info("[lazy-debug] expanded ok")
         run_js(
             f"""
             $("#pywebio-scope-groups").scrollTop(
@@ -566,14 +583,15 @@ class TaskConfigMixin(WebUIMixinBase):
             content, watcher_paths, _ = self._build_group_content(
                 group, arg_dict, config, task
             )
-            if content is not None:
+            if content is None:
+                # 兜底：壳只对可渲染分组生成（见 _group_renders），理论上不会命中。
+                # 万一命中就恢复壳按钮，避免点击后分组凭空消失。
+                self._build_group_shell_button(task, group, arg_dict).show()
+            else:
                 put_scope(f"group_{group_name}_body", content=content)
+        self._expanded_groups.add(group_name)
         for path in watcher_paths:
             self._bind_config_watcher(path)
-        self._expanded_groups.add(group_name)
-        if content is not None:
-            for path in watcher_paths:
-                self._bind_config_watcher(path)
 
     def _build_group_content(
         self,

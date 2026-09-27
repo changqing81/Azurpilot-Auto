@@ -1,4 +1,5 @@
 import asyncio
+import json
 import subprocess
 import sys
 import threading
@@ -393,6 +394,101 @@ class TestTaskConfigRendering(unittest.TestCase):
             "pywebio-scope-_groups",
             output_commands[0]["spec"]["dom_id"],
         )
+
+    def test_empty_group_is_not_rendered_as_shell_or_navigator(self):
+        """空分组（Storage / 任务状态）不产出分组壳，也不进右侧导航。
+
+        懒渲染曾照单全收 ALAS_ARGS 的每个分组：右侧会多出一个「任务状态」
+        导航按钮，另外还有一个点开后把自己清空、分组凭空消失的空壳。
+        渲染口径必须与全量渲染一致——不出控件的分组整个跳过。
+        """
+        commands = []
+        navigator_groups = []
+        closed = threading.Event()
+        previous_session_classes = pywebio_session._active_session_cls.copy()
+
+        def collect_commands(session):
+            batch = session.get_task_commands()
+            commands.extend(batch if isinstance(batch, list) else [batch])
+
+        def render_config():
+            gui = object.__new__(TaskConfigMixin)
+            local.gui = gui
+            gui.alas_name = "test"
+            # 阈值归零强制走懒渲染分支（大任务页才会自然命中）
+            gui.CONFIG_LAZY_GROUP_THRESHOLD = 0
+            gui.alas_config = SimpleNamespace(
+                read_file=lambda _: {
+                    "Alas": {"Emulator": {"PackageName": "cn"}},
+                    "Synthetic": {"Group": {"First": "a"}},
+                }
+            )
+            gui.ALAS_ARGS = {
+                "Synthetic": {
+                    "Group": {"First": {"type": "input", "value": "a"}},
+                    # 每个任务尾部都挂着一个空 storage 分组
+                    "Storage": {
+                        "Storage": {
+                            "type": "storage",
+                            "value": {},
+                            "valuetype": "ignore",
+                            "display": "disabled",
+                        }
+                    },
+                }
+            }
+            gui.init_menu = lambda name, skip_clear=False: None
+            gui.set_title = lambda text: None
+            gui._bind_config_watcher = lambda path: None
+
+            def fake_navigator(task, group):
+                navigator_groups.append(group[0])
+                return put_text(group[0])
+
+            gui._build_navigator = fake_navigator
+            gui.alas_set_group("Synthetic")
+
+        pywebio_session._active_session_cls[:] = [ThreadBasedSession]
+        try:
+            with patch(
+                "module.webui.app_task_config.t",
+                side_effect=lambda key, *args, **kwargs: (
+                    "" if key.endswith(".help") else key
+                ),
+            ):
+                ThreadBasedSession(
+                    render_config,
+                    session_info=SimpleNamespace(),
+                    on_task_command=collect_commands,
+                    on_session_close=closed.set,
+                )
+                self.assertTrue(closed.wait(timeout=2))
+        finally:
+            pywebio_session._active_session_cls[:] = previous_session_classes
+
+        self.assertEqual(["Group"], navigator_groups)
+        output_commands = [
+            command for command in commands if command.get("command") == "output"
+        ]
+        self.assertEqual(1, len(output_commands))
+        spec = output_commands[0]["spec"]
+        dom_ids: list = []
+
+        def collect_dom_ids(node):
+            if isinstance(node, dict):
+                if node.get("dom_id"):
+                    dom_ids.append(node["dom_id"])
+                for value in node.values():
+                    collect_dom_ids(value)
+            elif isinstance(node, list):
+                for value in node:
+                    collect_dom_ids(value)
+
+        collect_dom_ids(spec)
+        self.assertIn("pywebio-scope-group_Group", dom_ids)
+        # 空分组既无 scope 也无导航按钮（导航/壳里都会出现分组名 "Storage"）
+        self.assertNotIn("pywebio-scope-group_Storage", dom_ids)
+        self.assertNotIn("Storage", json.dumps(spec, ensure_ascii=False))
 
 
 class TestWebUIImports(unittest.TestCase):
