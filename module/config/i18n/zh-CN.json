@@ -953,32 +953,6 @@
       "do_not": "无操作",
       "save": "保存"
     },
-    "OpsiRecord": {
-      "name": "大世界掉落截图",
-      "help": "只在本机解析并计入统计界面的「耄耋相接收获」，不会上传任何数据",
-      "do_not": "无操作",
-      "save": "保存",
-      "local": "本地记录",
-      "save_and_local": "保存并本地记录"
-    },
-    "OpsiShopRecord": {
-      "name": "行动力箱子掉落截图",
-      "help": "明石商店出现行动力箱时，把整张商店截图存到 screenshots/opsi_shop/，便于人工核对；不会上传任何数据",
-      "do_not": "无操作",
-      "save": "保存"
-    },
-    "MeowfficerBuy": {
-      "name": "指挥喵购买截图",
-      "help": "",
-      "do_not": "无操作",
-      "save": "保存"
-    },
-    "MeowfficerTalent": {
-      "name": "指挥喵天赋截图",
-      "help": "",
-      "do_not": "无操作",
-      "save": "保存"
-    },
     "OpsiHazard1Leveling": {
       "name": "侵蚀一掉落截图",
       "help": "「上传」目前只对短猫相接生效",
@@ -1042,6 +1016,24 @@
       "save": "保存",
       "local": "local",
       "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "行动力箱子掉落截图",
+      "help": "明石商店出现行动力箱时，把整张商店截图存到 screenshots/opsi_shop/，便于人工核对；不会上传任何数据",
+      "do_not": "无操作",
+      "save": "保存"
+    },
+    "MeowfficerBuy": {
+      "name": "指挥喵购买截图",
+      "help": "",
+      "do_not": "无操作",
+      "save": "保存"
+    },
+    "MeowfficerTalent": {
+      "name": "指挥喵天赋截图",
+      "help": "",
+      "do_not": "无操作",
+      "save": "保存"
     }
   },
   "Log": {

@@ -953,32 +953,6 @@
       "do_not": "无视喵",
       "save": "保存喵"
     },
-    "OpsiRecord": {
-      "name": "大世界掉落截图",
-      "help": "只在本机解析并记进统计界面的「耄耋相接收获」喵，不会上传任何数据喵",
-      "do_not": "无视喵",
-      "save": "保存喵",
-      "local": "本地记录喵",
-      "save_and_local": "保存并本地记录喵"
-    },
-    "OpsiShopRecord": {
-      "name": "行动力箱子掉落截图",
-      "help": "明石商店出现行动力箱时存一张商店截图到 screenshots/opsi_shop/ 喵，只给自己看，不会上传喵",
-      "do_not": "无视喵",
-      "save": "保存喵"
-    },
-    "MeowfficerBuy": {
-      "name": "指挥喵购买截图",
-      "help": "",
-      "do_not": "无视喵",
-      "save": "保存喵"
-    },
-    "MeowfficerTalent": {
-      "name": "指挥喵天赋截图",
-      "help": "",
-      "do_not": "无视喵",
-      "save": "保存喵"
-    },
     "OpsiHazard1Leveling": {
       "name": "侵蚀一掉落截图喵",
       "help": "「上传」现在只管短猫相接喵~",
@@ -1042,6 +1016,24 @@
       "save": "保存喵",
       "local": "local",
       "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "行动力箱子掉落截图",
+      "help": "明石商店出现行动力箱时存一张商店截图到 screenshots/opsi_shop/ 喵，只给自己看，不会上传喵",
+      "do_not": "无视喵",
+      "save": "保存喵"
+    },
+    "MeowfficerBuy": {
+      "name": "指挥喵购买截图",
+      "help": "",
+      "do_not": "无视喵",
+      "save": "保存喵"
+    },
+    "MeowfficerTalent": {
+      "name": "指挥喵天赋截图",
+      "help": "",
+      "do_not": "无视喵",
+      "save": "保存喵"
     }
   },
   "Log": {

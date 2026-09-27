@@ -953,32 +953,6 @@
       "do_not": "No Action",
       "save": "Save"
     },
-    "OpsiRecord": {
-      "name": "OpSi Drop Screenshot",
-      "help": "Parsed and counted locally for the Meowfficer farming statistics only, nothing is uploaded",
-      "do_not": "No Action",
-      "save": "Save",
-      "local": "Local Record",
-      "save_and_local": "Save and Local Record"
-    },
-    "OpsiShopRecord": {
-      "name": "AP Box Screenshot",
-      "help": "When Action Point boxes appear in Akashi's shop, save the shop screenshot to screenshots/opsi_shop/ for manual review; nothing is uploaded",
-      "do_not": "No Action",
-      "save": "Save"
-    },
-    "MeowfficerBuy": {
-      "name": "Meowfficer Purchase Screenshot",
-      "help": "",
-      "do_not": "No Action",
-      "save": "Save"
-    },
-    "MeowfficerTalent": {
-      "name": "Meowfficer Talent Screenshot",
-      "help": "",
-      "do_not": "No Action",
-      "save": "Save"
-    },
     "OpsiHazard1Leveling": {
       "name": "Corrosion 1 drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming",
@@ -1042,6 +1016,24 @@
       "save": "Save",
       "local": "local",
       "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "AP Box Screenshot",
+      "help": "When Action Point boxes appear in Akashi's shop, save the shop screenshot to screenshots/opsi_shop/ for manual review; nothing is uploaded",
+      "do_not": "No Action",
+      "save": "Save"
+    },
+    "MeowfficerBuy": {
+      "name": "Meowfficer Purchase Screenshot",
+      "help": "",
+      "do_not": "No Action",
+      "save": "Save"
+    },
+    "MeowfficerTalent": {
+      "name": "Meowfficer Talent Screenshot",
+      "help": "",
+      "do_not": "No Action",
+      "save": "Save"
     }
   },
   "Log": {

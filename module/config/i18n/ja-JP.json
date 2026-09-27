@@ -953,32 +953,6 @@
       "do_not": "アクションなし",
       "save": "保存"
     },
-    "OpsiRecord": {
-      "name": "セイレーン作戦ドロップスクリーンショット",
-      "help": "ローカルのみで解析し、統計画面の「耄耋相接収穫」に記録します。アップロードは行いません",
-      "do_not": "アクションなし",
-      "save": "保存",
-      "local": "ローカル記録",
-      "save_and_local": "保存してローカル記録"
-    },
-    "OpsiShopRecord": {
-      "name": "行動力箱スクリーンショット",
-      "help": "明石商店に行動力箱が並んだとき、商店のスクリーンショットを screenshots/opsi_shop/ に保存します（確認用、アップロードは行いません）",
-      "do_not": "アクションなし",
-      "save": "保存"
-    },
-    "MeowfficerBuy": {
-      "name": "オフニャ購入スクリーンショット",
-      "help": "",
-      "do_not": "アクションなし",
-      "save": "保存"
-    },
-    "MeowfficerTalent": {
-      "name": "オフニャ天賦スクリーンショット",
-      "help": "",
-      "do_not": "アクションなし",
-      "save": "保存"
-    },
     "OpsiHazard1Leveling": {
       "name": "侵蝕1ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です",
@@ -1042,6 +1016,24 @@
       "save": "保存",
       "local": "local",
       "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "行動力箱スクリーンショット",
+      "help": "明石商店に行動力箱が並んだとき、商店のスクリーンショットを screenshots/opsi_shop/ に保存します（確認用、アップロードは行いません）",
+      "do_not": "アクションなし",
+      "save": "保存"
+    },
+    "MeowfficerBuy": {
+      "name": "オフニャ購入スクリーンショット",
+      "help": "",
+      "do_not": "アクションなし",
+      "save": "保存"
+    },
+    "MeowfficerTalent": {
+      "name": "オフニャ天賦スクリーンショット",
+      "help": "",
+      "do_not": "アクションなし",
+      "save": "保存"
     }
   },
   "Log": {
