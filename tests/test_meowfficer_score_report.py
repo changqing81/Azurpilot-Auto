@@ -161,10 +161,36 @@ class MeowfficerScorePanelWiringTests(unittest.TestCase):
         )
         self.assertIn('meowfficer-score-alas', self._read('module', 'webui', 'utils.py'))
         shell = self._read('module', 'webui', 'app_shell.py')
-        # 切主题会清掉所有 alas-css-* 的 <style>，必须显式重注入
-        self.assertIn('injected_styles.discard(filepath_css("meowfficer-score-alas"))', shell)
-        # 合并注入后，重注入清单里必须仍包含 meowfficer-score-alas
-        self.assertIn('"meowfficer-score-alas"', shell)
+        # 切主题会清掉所有 alas-css-* 的 <style>，重注入必须复用它与
+        # load_webui_styles 共用的同一份名单（webui_style_names）：
+        # 逐项手写 discard 清单曾漏掉 meow-loot-alas、alas / alas-pc /
+        # entry-alas，漏项会被静默丢弃（PC 端布局规则永久失效）。
+        self.assertIn('webui_style_names(theme)', shell)
+        self.assertIn('injected_styles.discard(filepath_css(name))', shell)
+        self.assertIn('add_css_files(filepath_css(name) for name in names)', shell)
+
+    def test_shared_style_list_covers_every_theme(self):
+        """共用名单必须覆盖全部主题，且始终把主题 CSS 放在最后。"""
+        from module.webui.app_shell import VALID_WEBUI_THEMES
+        from module.webui.utils import webui_style_names
+
+        base = ['alas', 'alas-pc', 'entry-alas', 'statistics-alas', 'stat-delta-alas',
+                'meowfficer-score-alas', 'meow-loot-alas']
+        theme_files = {
+            'default': ['light-alas'],
+            'light': ['light-alas'],
+            'dark': ['dark-alas'],
+            'advanced_material': ['advanced-material-alas'],
+            'dark_advanced_material': ['advanced-material-alas',
+                                       'dark-advanced-material-overrides-alas'],
+            'transparent': ['advanced-material-alas', 'transparent-alas'],
+        }
+        for theme in sorted(VALID_WEBUI_THEMES):
+            with self.subTest(theme=theme):
+                names = webui_style_names(theme, is_mobile=False)
+                self.assertEqual(names, base + theme_files[theme])
+        mobile = webui_style_names('default', is_mobile=True)
+        self.assertEqual(mobile[1], 'alas-mobile')
 
     def test_every_theme_defines_the_panel_variables(self):
         for name in ('light-alas.css', 'dark-alas.css', 'advanced-material-alas.css',

@@ -613,12 +613,20 @@ def _inject_css_watcher(fingerprint):
     run_js(js)
 
 
-def load_webui_styles(theme=None, is_mobile=None):
-    """加载 WebUI 各入口共用的基础、响应式与主题样式。
+def webui_style_names(theme=None, is_mobile=None) -> list:
+    """返回 WebUI 需要注入的 CSS 名单，顺序即加载优先级（主题 CSS 永远在最后）。
+
+    初始加载（``load_webui_styles``）与主题切换（``_reload_theme_css``）共用这份
+    名单。历史实现里主题切换只重注入少数几项，``alas`` / ``alas-pc`` /
+    ``entry-alas`` 被清理后不再回来（PC 端布局规则永久丢失），共用名单可从根上
+    消除这类名单漂移。
 
     Args:
         theme: 当前主题名称。
         is_mobile: 当前会话是否为移动端。
+
+    Returns:
+        按加载顺序排列的 CSS 名称列表（不含扩展名，交给 ``filepath_css`` 解析）。
     """
     if theme is None:
         theme = State.theme or "default"
@@ -654,8 +662,17 @@ def load_webui_styles(theme=None, is_mobile=None):
         ),
     }
     styles.extend(theme_styles.get(theme, ("light-alas",)))
+    return styles
 
-    add_css_files(filepath_css(name) for name in styles)
+
+def load_webui_styles(theme=None, is_mobile=None):
+    """加载 WebUI 各入口共用的基础、响应式与主题样式。
+
+    Args:
+        theme: 当前主题名称。
+        is_mobile: 当前会话是否为移动端。
+    """
+    add_css_files(filepath_css(name) for name in webui_style_names(theme, is_mobile))
     # 样式文件改动后自动热更新，不再需要手动刷新页面
     fingerprint, _ = gui_css_fingerprint()
     _inject_css_watcher(fingerprint)

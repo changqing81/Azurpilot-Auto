@@ -61,81 +61,29 @@ def pywebio_theme_for(theme: str) -> str:
 
 
 def _reload_theme_css(theme: str) -> None:
-    """切换主题时移除旧主题的 <link> 与 <style>，并重新注入当前主题 CSS。
+    """切换主题时按初始加载的顺序，用单条消息重注入整套 WebUI 样式。
 
-    初始 HTML 预加载的 <link> 元素（如 dark-alas.css）在切换主题后
-    仍残留在 DOM 中，其 !important 规则会覆盖新主题的 CSS。需要先
-    删除所有主题 CSS 的 <link> 和 <style>，再注入当前主题的 CSS。
+    旧主题的 ``<link>`` 与全部 ``<style id="alas-css-*">`` 已由 ``set_theme``
+    的第一条客户端消息删除，这里只负责清掉注入追踪记录再整批重注入——
+    顺序即优先级，主题 CSS 永远最后，才能覆盖组件样式的变量回退值。
+
+    ⚠️ 名单必须与 ``load_webui_styles`` 完全一致（共用 ``webui_style_names``）。
+    历史实现只重注入 statistics/stat-delta/meowfficer-score/meow-loot + 主题这几
+    项，alas / alas-pc(mobile) / entry-alas 被删掉后不再回来——PC 端布局规则
+    （岛屿计划两列网格、参数两列）会静默丢失，切一次主题就永久失效。
     """
     from module.webui.app_dependencies import local
-    from module.webui.utils import add_css_files, filepath_css
+    from module.webui.utils import add_css_files, filepath_css, webui_style_names
 
-    run_js("""
-    var links = document.querySelectorAll(
-        'link[href*="dark-alas"],' +
-        'link[href*="light-alas"],' +
-        'link[href*="advanced-material-alas"],' +
-        'link[href*="dark-advanced-material"],' +
-        'link[href*="transparent-alas"]'
-    );
-    for (var i = 0; i < links.length; i++) {
-        links[i].parentNode.removeChild(links[i]);
-    }
-    var styles = document.querySelectorAll(
-        'style[id^="alas-css-"]'
-    );
-    for (var i = 0; i < styles.length; i++) {
-        styles[i].parentNode.removeChild(styles[i]);
-    }
-    """)
+    names = webui_style_names(theme)
 
     injected_styles = getattr(local, "webui_injected_styles", None)
     if injected_styles is not None:
-        injected_styles.discard(filepath_css("statistics-alas"))
-        injected_styles.discard(filepath_css("stat-delta-alas"))
-        injected_styles.discard(filepath_css("meowfficer-score-alas"))
-        # meow-loot-alas 原先漏在清单外：上面的 JS 会按 style[id^="alas-css-"]
-        # 删除全部已注入样式，而它仍留在 injected_styles 里，
-        # 于是 add_css_files 判定「已注入」直接跳过 —— 切一次主题后
-        # 耄耋相接「收获」区块的样式就永久丢失了。
-        injected_styles.discard(filepath_css("meow-loot-alas"))
-        injected_styles.discard(filepath_css("light-alas"))
-        injected_styles.discard(filepath_css("dark-alas"))
-        injected_styles.discard(filepath_css("advanced-material-alas"))
-        injected_styles.discard(filepath_css("dark-advanced-material-overrides-alas"))
-        injected_styles.discard(filepath_css("transparent-alas"))
+        for name in names:
+            injected_styles.discard(filepath_css(name))
 
-    # 统计页分页式改版的骨架样式。只消费 --alas-entry-* 与 --rd-*，
-    # 本身不含颜色常量，但同样需要随主题重注入（上面已从 DOM 删除）。
-    # 基础组件样式与主题 CSS 合并为单条消息注入（5 条消息→1 条，
-    # 远控下每次往返 = 一个 RTT）。顺序要求：主题 CSS 在组件样式之后。
-    theme_files = {
-        "dark": ("dark-alas",),
-        "advanced_material": ("advanced-material-alas",),
-        "dark_advanced_material": (
-            "advanced-material-alas",
-            "dark-advanced-material-overrides-alas",
-        ),
-        # 透明主题：高级材质提供布局规则，透明覆盖层负责视觉
-        "transparent": (
-            "advanced-material-alas",
-            "transparent-alas",
-        ),
-    }.get(theme, ("light-alas",))
-    add_css_files(
-        tuple(
-            filepath_css(name)
-            for name in (
-                "statistics-alas",
-                # 资源增减视图 / 指挥喵评分 / 耄耋收获区块的基础组件样式：
-                # 随主题一起重注入（主题 CSS 在其后加载，变量覆盖才能生效）
-                "stat-delta-alas",
-                "meowfficer-score-alas",
-                "meow-loot-alas",
-            )
-            + theme_files
-        )
-    )
+    # 整批样式合并为单条消息注入（远控下每次往返 = 一个 RTT）
+    add_css_files(filepath_css(name) for name in names)
 
 
 class AppShellMixin(WebUIMixinBase):
@@ -460,16 +408,23 @@ class AppShellMixin(WebUIMixinBase):
 
         webconfig(theme=pywebio_theme)
 
-        # 第一条客户端消息：清理旧主题 link + 换 bootstrap 主题与 body class。
+        # 第一条客户端消息：删掉旧主题的 link 与全部已注入 style，换 bootstrap
+        # 主题与 body class。删除必须早于 _reload_theme_css 的重注入，否则旧主题
+        # 的 !important 规则会盖住新主题。
         # （alas-theme-change 事件必须在主题 CSS 重注入之后派发——
         #   resource_delta_timeline 等监听方会在事件里重读 CSS 变量重绘，
         #   事件早于 CSS 会导致沿用旧配色，见 resource_delta_timeline.js。）
         run_js(f"""
         document.querySelectorAll(
+            'link[href*="dark-alas"],' +
+            'link[href*="light-alas"],' +
             'link[href*="advanced-material-alas"],' +
-            'link[href*="dark-advanced-material-overrides-alas"],' +
+            'link[href*="dark-advanced-material"],' +
             'link[href*="transparent-alas"]'
         ).forEach(function(e) {{
+            e.remove();
+        }});
+        document.querySelectorAll('style[id^="alas-css-"]').forEach(function(e) {{
             e.remove();
         }});
         (function() {{
@@ -486,8 +441,7 @@ class AppShellMixin(WebUIMixinBase):
         }})();
         """)
 
-        # 清空会话注入追踪中的主题 CSS 记录，然后重新调用 load_webui_styles
-        # 为当前主题注入正确的 CSS。旧主题残留的 !important 规则会被新 CSS 覆盖。
+        # 清空注入追踪并整批重注入当前主题的样式（单条消息）。
         _reload_theme_css(theme)
 
         # 事件最后派发：保证监听方（时间轴重绘等）读到的已是新主题的 CSS 变量
