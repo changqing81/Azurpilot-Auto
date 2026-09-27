@@ -40,6 +40,7 @@ from module.map_detection.utils import area2corner, corner2inner
 from module.ocr.ocr import Ocr
 from module.os.assets import FLEET_EMP_DEBUFF, MAP_EXIT, MAP_GOTO_GLOBE, STRONGHOLD_PERCENTAGE, TEMPLATE_EMPTY_HP
 from module.os.camera import OSCamera
+from module.os.config import opsi_drop_record
 from module.os.map_base import OSCampaignMap
 from module.os_ash.ash import OSAsh
 from module.os_combat.combat import Combat
@@ -981,7 +982,7 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         fleets = self.parse_fleet_filter()
         with self.stat.new(
                 genre=inflection.underscore(self.config.task.command),
-                method=self.config.DropRecord_OpsiRecord
+                method=opsi_drop_record(self.config)
         ) as drop:
             for fleet in fleets:
                 logger.hr(f'回合: {fleet}', level=2)

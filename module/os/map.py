@@ -46,6 +46,7 @@ from module.handler.login import LoginHandler, MAINTENANCE_ANNOUNCE
 from module.logger import logger
 from module.map.map import Map
 from module.os.assets import FLEET_EMP_DEBUFF, MAP_GOTO_GLOBE_FOG
+from module.os.config import opsi_drop_record
 from module.handler.assets import POPUP_CONFIRM
 from module.os.fleet import OSFleet, BossFleet
 from module.os.globe_camera import GlobeCamera
@@ -1469,7 +1470,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         finished_combat = 0
         with self.stat.new(
             genre=inflection.underscore(self.config.task.command),
-            method=self.config.DropRecord_OpsiRecord,
+            method=opsi_drop_record(self.config),
         ) as drop:
             while 1:
                 combat = self.os_auto_search_run(drop, interrupt=interrupt)
@@ -1520,7 +1521,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
         with self.stat.new(
             genre=inflection.underscore(self.config.task.command),
-            method=self.config.DropRecord_OpsiRecord,
+            method=opsi_drop_record(self.config),
         ) as drop:
             try:
                 combat = self.os_auto_search_run(drop, strategic=True)
