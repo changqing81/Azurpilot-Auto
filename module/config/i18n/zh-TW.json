@@ -66,6 +66,10 @@
       "name": "主線圖-3Plus",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "作戰委託合約",
+      "help": "消耗作戰委託書，自動進行作戰委託。"
+    },
     "GemsFarming": {
       "name": "緊急委託Plus",
       "help": ""
@@ -189,10 +193,6 @@
     "Secretary": {
       "name": "秘書艦",
       "help": "自動檢測秘書艦好感度，達到 90 後自動更換秘書艦"
-    },
-    "OperationHandover": {
-      "name": "作戰委託合約",
-      "help": "消耗作戰委託書，自動進行作戰委託。"
     },
     "Daily": {
       "name": "每日任務",
@@ -374,13 +374,13 @@
       "name": "每週珍珠採購與售賣",
       "help": "僅支援minitouch。每週二 01:00 自動處理珍珠：先採購本週珍珠，再售賣已有珍珠。金幣一定要夠購買200x220個這是最低要求能一次買光本週珍珠，否則可能會報錯."
     },
-    "FleetInfo": {
-      "name": "艦隊資訊",
-      "help": "查看最近一次艦隊掃描結果"
-    },
     "FleetScan": {
       "name": "艦隊掃描",
       "help": "掃描目前編入艦隊的艦船資訊"
+    },
+    "FleetInfo": {
+      "name": "艦隊資訊",
+      "help": "查看最近一次艦隊掃描結果"
     },
     "Daemon": {
       "name": "半自動點選",
@@ -589,7 +589,6 @@
       "en-3": "[EN] Washington",
       "en-4": "[EN] Amagi",
       "en-5": "[EN] Little Enterprise",
-      "en-6": "[EN] Belfast",
       "jp-0": "[JP] ブレスト",
       "jp-1": "[JP] 横須賀",
       "jp-2": "[JP] 佐世保",
@@ -607,12 +606,7 @@
       "jp-14": "[JP] キール",
       "jp-15": "[JP] 若松",
       "jp-16": "[JP] オデッサ",
-      "jp-17": "[JP] スイートバン",
-      "tw-0": "[TW] 珍珠港",
-      "tw-1": "[TW] 珊瑚海",
-      "tw-2": "[TW] 中途島",
-      "tw-3": "[TW] 瓜達康納爾",
-      "tw-4": "[TW] 雷伊泰灣"
+      "jp-17": "[JP] スイートバン"
     },
     "ScreenshotMethod": {
       "name": "選擇截圖方案",
@@ -626,8 +620,7 @@
       "DroidCast": "DroidCast",
       "DroidCast_raw": "DroidCast_raw",
       "nemu_ipc": "nemu_ipc",
-      "ldopengl": "ldopengl",
-      "azurpilot_android": "AzurPilot Android 虛擬螢幕"
+      "ldopengl": "ldopengl"
     },
     "ControlMethod": {
       "name": "選擇控制方案",
@@ -636,9 +629,7 @@
       "uiautomator2": "uiautomator2",
       "minitouch": "minitouch",
       "Hermit": "Hermit",
-      "MaaTouch": "MaaTouch",
-      "nemu_ipc": "nemu_ipc",
-      "azurpilot_android": "AzurPilot Android 虛擬螢幕"
+      "MaaTouch": "MaaTouch"
     },
     "GameSettings": {
       "name": "自動套用建議的遊戲設定",
@@ -738,24 +729,9 @@
       "name": "敏感任務出錯時禁止重啟",
       "help": "執行敏感任務出錯時停止AzurPilot，而不是重啟遊戲\n敏感任務包含隱秘海域、深淵海域、跨月每日"
     },
-    "SaveErrorRetentionDays": {
-      "name": "錯誤日誌過期天數",
-      "help": "超過天數的錯誤現場按下面的方式處理\n0 = 不清理"
-    },
-    "SaveErrorBackUpMethod": {
-      "name": "過期錯誤日誌處理方式",
-      "help": "備份目錄為./log/error/<實例名>/bak",
-      "delete": "刪除",
-      "zip": "壓縮備份",
-      "copy": "複製備份"
-    },
-    "SaveErrorZipMethod": {
-      "name": "壓縮格式",
-      "help": "",
-      "bz2": "bz2",
-      "gzip": "gzip",
-      "xz": "xz",
-      "zip": "zip"
+    "SaveErrorCount": {
+      "name": "Error.SaveErrorCount.name",
+      "help": "Error.SaveErrorCount.help"
     },
     "OnePushConfig": {
       "name": "錯誤推送設定",
@@ -781,26 +757,6 @@
       "name": "偵測不到裝置超過 X 秒後重啟",
       "help": "連續檢測不到裝置多少次後觸發重啟。"
     },
-    "WatchdogEnable": {
-      "name": "看門狗總開關",
-      "help": "看門狗是什麼？就是後台偷偷盯著的保鏢。開著它才會去管下面那些事，關了就什麼都不管。預設關。"
-    },
-    "WatchdogTaskEnable": {
-      "name": "任務跑太久自動重啟",
-      "help": "開了之後，如果某個任務跑得太久（比如一直卡在某個劇情跳不過去、地圖走不動了），就會自動重啟模擬器把它打斷。\n得先開上面的「看門狗總開關」才管用。預設關。"
-    },
-    "WatchdogTaskTimeout": {
-      "name": "任務跑多久算卡死（分鐘）",
-      "help": "填多久。任務跑超過這個時間就當成卡死了，直接重啟模擬器。\n0 = 不管；99999 = 基本永遠不管。\n預設 120 分鐘（2 小時）。"
-    },
-    "RestartOperationTimeoutEnable": {
-      "name": "重啟遊戲逾時保護",
-      "help": "開著後，重啟遊戲時如果某一步（關遊戲/開遊戲）卡住超過下面那個時間，就直接判模擬器卡死，跳去重啟模擬器。\n關著的話就不做這個檢查。\n預設關。"
-    },
-    "RestartOperationTimeout": {
-      "name": "重啟遊戲卡多久算死（秒）",
-      "help": "重啟遊戲時，關遊戲或開遊戲這一步卡住超過這個秒數，就當模擬器卡死了，直接去重啟模擬器。\n得先開上面的「重啟遊戲逾時保護」才管用。\n預設 120 秒。"
-    },
     "LlmAnalysis": {
       "name": "啟用 LLM 錯誤分析",
       "help": "在發生無法處理的異常時，自動調用 LLM 分析錯誤原因並提供改進建議。"
@@ -818,20 +774,48 @@
       "help": "填寫已購買服務支援的模型名稱，請以 https://platform.deepseek.com/ 或 https://platform.xiaomimimo.com/ 平台展示為準。"
     }
   },
-  "DailySummary": {
+  "TaskFailureProtection": {
     "_info": {
-      "name": "每日總結",
-      "help": "每天在設定時間產生並推送執行總結。請先在除錯設定中設定 OnePush 和 LLM。"
+      "name": "TaskFailureProtection._info.name",
+      "help": "TaskFailureProtection._info.help"
     },
     "Enable": {
-      "name": "啟用每日總結",
-      "help": "啟用後，AzurPilot 會在設定時間產生並推送當日執行總結。",
-      "True": "啟用",
-      "False": "停用"
+      "name": "TaskFailureProtection.Enable.name",
+      "help": "TaskFailureProtection.Enable.help",
+      "True": "True",
+      "False": "False"
     },
-    "TriggerTime": {
-      "name": "產生時間",
-      "help": "依遊戲伺服器時區產生日報的時間，格式為 HH:MM，例如 20:00。"
+    "PushNotify": {
+      "name": "TaskFailureProtection.PushNotify.name",
+      "help": "TaskFailureProtection.PushNotify.help",
+      "True": "True",
+      "False": "False"
+    },
+    "MaxFailures": {
+      "name": "TaskFailureProtection.MaxFailures.name",
+      "help": "TaskFailureProtection.MaxFailures.help"
+    },
+    "TimeWindowHours": {
+      "name": "TaskFailureProtection.TimeWindowHours.name",
+      "help": "TaskFailureProtection.TimeWindowHours.help"
+    },
+    "WatchdogEnable": {
+      "name": "TaskFailureProtection.WatchdogEnable.name",
+      "help": "TaskFailureProtection.WatchdogEnable.help",
+      "True": "True",
+      "False": "False"
+    },
+    "WatchdogLogTimeout": {
+      "name": "TaskFailureProtection.WatchdogLogTimeout.name",
+      "help": "TaskFailureProtection.WatchdogLogTimeout.help"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "TaskFailureProtection.WatchdogTaskTimeout.name",
+      "help": "TaskFailureProtection.WatchdogTaskTimeout.help"
+    },
+    "RestartOperationTimeout": {
+      "name": "TaskFailureProtection.RestartOperationTimeout.name",
+      "help": "TaskFailureProtection.RestartOperationTimeout.help"
     }
   },
   "Optimization": {
@@ -951,55 +935,16 @@
       "name": "掉落儲存目錄",
       "help": ""
     },
-    "RetentionDays": {
-      "name": "截圖保留天數",
-      "help": "掉落記錄截圖超過該天數後按下面的方式處理\n0 = 不按天數清理（委託收益截圖仍只保留最近 50 張）"
-    },
-    "BackUpMethod": {
-      "name": "過期截圖處理方式",
-      "help": "備份目錄為儲存目錄下的 bak 資料夾（委託收益截圖為各實例目錄下的 bak）",
-      "delete": "刪除",
-      "zip": "壓縮備份",
-      "copy": "複製備份"
-    },
-    "ZipMethod": {
-      "name": "壓縮格式",
-      "help": "",
-      "bz2": "bz2",
-      "gzip": "gzip",
-      "xz": "xz",
-      "zip": "zip"
-    },
-    "AzurStatsID": {
-      "name": "AzurStat ID",
-      "help": "上傳至 https://azur-stats.lyoko.io 時，宣告的客戶端 ID\n由隨機字元組成，可隨意修改"
-    },
-    "API": {
-      "name": "上傳線路",
-      "help": "如果國內使用者無法連線到 AzurStat，可以使用\"國內反向代理\"",
-      "default": "預設 (Cloudflare)",
-      "cn_gz_reverse_proxy": "國內反向代理 (廣州)"
-    },
     "ResearchRecord": {
       "name": "科研截圖",
       "help": "",
       "do_not": "無操作",
-      "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "save": "儲存"
     },
     "CommissionRecord": {
       "name": "委託截圖",
       "help": "",
       "do_not": "無操作",
-      "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
-    },
-    "CommissionIncomeScreenshot": {
-      "name": "委託收益截圖",
-      "help": "委託結算時儲存「獲取物品」截圖，供統計頁「檢視截圖」使用\n關閉後收益資料仍然記錄，只是不再儲存圖片",
-      "do_not": "不儲存",
       "save": "儲存"
     },
     "CombatRecord": {
@@ -1013,64 +958,70 @@
       "help": "「上傳」目前只對短貓相接生效",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiMeowfficerFarming": {
       "name": "短貓掉落截圖",
       "help": "「上傳」會把掉落解析進本機統計庫，統計頁「短貓掉落」分類的收益統計依賴它",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiDaily": {
       "name": "大世界每日掉落截圖",
       "help": "「上傳」目前只對短貓相接生效\n跨月每日共用此開關",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiObscure": {
       "name": "隱秘海域掉落截圖",
       "help": "「上傳」目前只對短貓相接生效\n檔案坐標共用此開關",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiAbyssal": {
       "name": "深淵海域掉落截圖",
       "help": "「上傳」目前只對短貓相接生效\n月度Boss共用此開關",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiStronghold": {
       "name": "塞壬要塞掉落截圖",
       "help": "「上傳」目前只對短貓相接生效",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiExplore": {
       "name": "每月開荒掉落截圖",
       "help": "每月開荒Plus 自己的掉落記錄開關，不跟其它任務共用",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiOther": {
       "name": "其他大世界任務掉落截圖",
       "help": "兜底沒有單獨開關的大世界任務\n「上傳」目前只對短貓相接生效",
       "do_not": "無操作",
       "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
+      "local": "local",
+      "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "DropRecord.OpsiShopRecord.name",
+      "help": "DropRecord.OpsiShopRecord.help",
+      "do_not": "do_not",
+      "save": "save"
     },
     "MeowfficerBuy": {
       "name": "指揮喵購買截圖",
@@ -1082,31 +1033,7 @@
       "name": "指揮喵天賦截圖",
       "help": "",
       "do_not": "無操作",
-      "save": "儲存",
-      "upload": "上傳",
-      "save_and_upload": "儲存並上傳"
-    },
-    "TelemetryReport": {
-      "name": "遙測資料上報",
-      "help": "啟用後將定期向伺服器匿名上報 CL1 統計資料（戰鬥次數、明石遇見機率等匿名資料）ID生成詳見原始碼，統計資訊 https://alas.nanoda.work/"
-    },
-    "BugReport": {
-      "name": "Bug 日誌上報",
-      "help": "啟用後將在遇到異常時向伺服器匿名上報 Bug 日誌以幫助改進ID生成詳見原始碼"
-    }
-  },
-  "Backup": {
-    "_info": {
-      "name": "每日備份",
-      "help": "每天首次啟動排程器時，自動備份資料庫與使用者設定，備份檔案存放在專案根目錄的 AzurPilot_Data_Backup 資料夾。"
-    },
-    "Enable": {
-      "name": "啟用每日備份",
-      "help": "關閉後不再產生新的備份，也不會刪除既有的歷史備份。"
-    },
-    "KeepDays": {
-      "name": "備份保留天數",
-      "help": "超過此天數的歷史備份會在每次備份完成後自動刪除。例如填 7，表示只保留最近 7 天的備份。"
+      "save": "儲存"
     }
   },
   "Log": {
@@ -1367,7 +1294,7 @@
       "event_20260520_cn": "聖印前的同盟",
       "event_20260625_cn": "美夢巡演奇秒夜",
       "event_20260813_cn": "沉溺於星光之城",
-      "event_20260908_cn": "Tales of the Paranormal",
+      "event_20260908_cn": "幽影迷城",
       "raid_20200624": "特別演習埃塞克斯級(復刻)",
       "raid_20210708": "復刻穿越彼方的水線",
       "raid_20220127": "演習神秘事件調查",
@@ -1483,45 +1410,6 @@
     "UseHandoverBook": {
       "name": "使用作戰全權委託書",
       "help": "開始委託前把作戰全權委託書的投入量拉到最大"
-    },
-    "ConsumeAllBook": {
-      "name": "一鍵消耗作戰全權委託書",
-      "help": "每週定時觸發一次：作戰次數拉滿 → 使用委託書拉滿 → 依委託書數量設定作戰次數，\n把倉庫裡的作戰全權委託書一次用光。\n觸發當天會忽略「委託次數」的設定；委託次數為 0 時，本任務只在觸發時間執行",
-      "True": "已啟用",
-      "False": "關閉"
-    },
-    "ConsumeAllBookWeekday": {
-      "name": "一鍵消耗觸發日",
-      "help": "每週在這一天觸發一次",
-      "mon": "週一",
-      "tue": "週二",
-      "wed": "週三",
-      "thu": "週四",
-      "fri": "週五",
-      "sat": "週六",
-      "sun": "週日"
-    },
-    "ConsumeAllBookTime": {
-      "name": "一鍵消耗觸發時間",
-      "help": "觸發日當天到這個時間之後才會觸發，格式 HH:MM，例如 12:00"
-    },
-    "MaintainOverride": {
-      "name": "維護當天作戰委託",
-      "help": "開啟後每天查一次停服維護公告：維護就在今天且還沒開始時，本次執行會延後到維護前 10 分鐘，\n到點把作戰次數拉滿跑最後一次（受「使用作戰全權委託書」「自動補充時間」影響）。\n維護時間已經過去、或者不是今天，都照正常流程走。\n資料來自 api-blhx-maintain，依目前遊戲伺服器取對應公告，時間已換算為本機時間",
-      "True": "已啟用",
-      "False": "關閉"
-    },
-    "OilLimit": {
-      "name": "石油低於 X 後延後",
-      "help": "石油低於該數值時延後任務，石油夠了再繼續出擊\n0 表示不檢查"
-    },
-    "ConsumeAllBookRecord": {
-      "name": "上次一鍵消耗時間",
-      "help": "上一次一鍵消耗作戰全權委託書的執行時間。\n落在本週內就表示本週已經消耗過，不會再觸發；\n清空或改成上週及更早的時間，本週的一鍵消耗會重新生效"
-    },
-    "CommissionEnd": {
-      "name": "委託預計結束時間",
-      "help": "腳本開委託時記下的結束時間，用來判斷什麼時候回來領獎勵"
     }
   },
   "StopCondition": {
@@ -1533,13 +1421,13 @@
       "name": "石油低於 X 後推遲",
       "help": "石油過低時推遲任務，石油充足後繼續出擊"
     },
-    "OilLimitHardFloor": {
-      "name": "石油停止下限",
-      "help": "實際停止閾值為 max(下限, 石油上限)。500 是歷史遺留的安全網，低耗監工希望把油打到更低時可以調小，設為 0 則石油上限直接生效"
-    },
     "CoinLimit": {
       "name": "物資達到 X 後推遲",
       "help": "物資達到該數值後推遲當前任務，物資低於上限後繼續出擊\n0 表示不限制物資"
+    },
+    "CoinLimit_Enable": {
+      "name": "StopCondition.CoinLimit_Enable.name",
+      "help": "StopCondition.CoinLimit_Enable.help"
     },
     "RunCount": {
       "name": "出擊次數大於 X 後停止",
@@ -1748,10 +1636,6 @@
       "calculate": "計算心情消耗",
       "ignore": "無視紅臉出擊警告",
       "calculate_ignore": "計算心情消耗 + 無視紅臉出擊警告"
-    },
-    "IgnoreShipwreck": {
-      "name": "無視沉船心情懲罰",
-      "help": "開啟後，戰鬥中艦船沉沒（結算非 S 評價）帶來的額外 10 點心情扣減不再計入。僅在心情處理模式包含「計算心情消耗」時生效。"
     },
     "Fleet1Value": {
       "name": "一隊心情值",
@@ -2208,22 +2092,6 @@
       "help": "使用自訂過濾器需將\"活動商店過濾器\"設定為\"自訂\"，並閱讀 https://github.com/LmeSzinc/AzurLaneAutoScript/wiki/filter_string_cn"
     }
   },
-  "ShopAdvanced": {
-    "_info": {
-      "name": "進階商店策略",
-      "help": "使用受限 Lua 風格規則產生商店購買計畫。"
-    },
-    "Mode": {
-      "name": "策略模式",
-      "help": "簡單模式會繼續使用既有篩選器；進階模式使用下方策略指令碼。",
-      "legacy": "簡單模式",
-      "advanced": "進階模式"
-    },
-    "Script": {
-      "name": "策略指令碼",
-      "help": "僅支援受限 Lua 風格規則。驗證失敗時，本次執行不會購買任何物品。"
-    }
-  },
   "Commission": {
     "_info": {
       "name": "委託",
@@ -2275,13 +2143,13 @@
       "name": "做主要委託（1200油/1000油委託）",
       "help": "1200油委託現在已經過時，收益很低，建議關閉"
     },
-    "CommissionNotifyReward": {
-      "name": "委託獎勵推送通知",
-      "help": "獲得委託獎勵時推送通知（特別關注鑽石獎勵）"
+    "NotifyReward": {
+      "name": "Commission.NotifyReward.name",
+      "help": "Commission.NotifyReward.help"
     },
-    "CommissionNotifyRewardStatistics": {
-      "name": "推送包含統計資訊",
-      "help": "在通知中顯示今日/本週/本月累計鑽石數量"
+    "NotifyRewardStatistics": {
+      "name": "Commission.NotifyRewardStatistics.name",
+      "help": "Commission.NotifyRewardStatistics.help"
     },
     "DetectShipDrop": {
       "name": "偵測艦船掉落",
@@ -2303,6 +2171,10 @@
       "today": "今日",
       "week": "本週",
       "month": "本月"
+    },
+    "CommissionNotifyRewardCube": {
+      "name": "Commission.CommissionNotifyRewardCube.name",
+      "help": "Commission.CommissionNotifyRewardCube.help"
     }
   },
   "Tactical": {
@@ -2621,22 +2493,6 @@
       "help": ""
     }
   },
-  "Awaken": {
-    "_info": {
-      "name": "認知覺醒",
-      "help": "認知覺醒船塢內所有的船直到心智單元耗盡"
-    },
-    "LevelCap": {
-      "name": "覺醒至等級上限",
-      "help": "",
-      "level120": "120級",
-      "level125": "125級"
-    },
-    "Favourite": {
-      "name": "僅覺醒常用艦船",
-      "help": ""
-    }
-  },
   "Secretary": {
     "_info": {
       "name": "秘書艦設定",
@@ -2649,10 +2505,6 @@
     "LowFavorabilityPriority": {
       "name": "低好感度優先",
       "help": "將按照好感度由低到高的順序選擇"
-    },
-    "FavouriteOnly": {
-      "name": "僅從常用艦船中選取",
-      "help": "勾選後只在船塢中標記了「常用」的艦船裡挑選秘書艦，取消勾選則在全部艦船中按稀有度和好感度挑選"
     },
     "BackupEnable": {
       "name": "候補秘書艦",
@@ -2669,6 +2521,40 @@
     "OnePushConfig": {
       "name": "OnePush 推播設定",
       "help": "用於秘書艦更換通知，留空則使用全域設定"
+    }
+  },
+  "Awaken": {
+    "_info": {
+      "name": "認知覺醒",
+      "help": "認知覺醒船塢內所有的船直到心智單元耗盡"
+    },
+    "LevelCap": {
+      "name": "覺醒至等級上限",
+      "help": "",
+      "level120": "120級",
+      "level125": "125級"
+    },
+    "Favourite": {
+      "name": "僅覺醒常用艦船",
+      "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "Report._info.name",
+      "help": "Report._info.help"
+    },
+    "Enable": {
+      "name": "Report.Enable.name",
+      "help": "Report.Enable.help"
+    },
+    "TriggerTime": {
+      "name": "Report.TriggerTime.name",
+      "help": "Report.TriggerTime.help"
+    },
+    "OnePushConfig": {
+      "name": "Report.OnePushConfig.name",
+      "help": "Report.OnePushConfig.help"
     }
   },
   "GeneralShop": {
@@ -3273,6 +3159,10 @@
       "help": "",
       "1": "1",
       "2": "2"
+    },
+    "UseRecommendFleet": {
+      "name": "Hard.UseRecommendFleet.name",
+      "help": "Hard.UseRecommendFleet.help"
     }
   },
   "Exercise": {
@@ -3719,7 +3609,10 @@
     },
     "ExecuteFixedPatrolScan": {
       "name": "戰後強制移動（效率模式）",
-      "help": "開啟後，戰後遍歷 1~4 號艦隊的雷達清除剩餘問號（只切換艦隊看雷達、不挪動艦隊），找到明石/記錄塔/裝置就處理。這樣還不夠時再逐個挪動艦隊做一遍整圖重掃，落點是固定的 C1/D1/E1/F1（只適合侵蝕1 那張圖）：如果有艦隊看到了問號卻走不過去（被擋住/超出移動範圍），直接挪；只有全隊雷達都沒線索時才看介面上的當前行動力，大於 7 才挪，否則留給下一輪練級。預設關閉。短貓相接不吃這套，它只換隊掃雷達。"
+      "help": "開啟後，戰後遍歷 1~4 號艦隊的雷達清除剩餘問號（只切換艦隊看雷達、不挪動艦隊），找到明石/記錄塔/裝置就處理。這樣還不夠時再逐個挪動艦隊做一遍整圖重掃，落點是固定的 C1/D1/E1/F1（只適合侵蝕1 那張圖）：如果有艦隊看到了問號卻走不過去（被擋住/超出移動範圍），直接挪；只有全隊雷達都沒線索時才看介面上的當前行動力，大於 7 才挪，否則留給下一輪練級。預設關閉。短貓相接不吃這套，它只換隊掃雷達。",
+      "0": "0",
+      "1": "1",
+      "2": "2"
     },
     "SkipHpCheck": {
       "name": "獻祭流跳過血量檢測",
@@ -3814,6 +3707,12 @@
       "True": "開啟",
       "False": "關閉"
     },
+    "AnyShipReached": {
+      "name": "OpsiFleetAutoChange.AnyShipReached.name",
+      "help": "OpsiFleetAutoChange.AnyShipReached.help",
+      "True": "True",
+      "False": "False"
+    },
     "CooldownHours": {
       "name": "冷卻時間(小時)",
       "help": "每次自動配隊後的冷卻時間，避免頻繁觸發",
@@ -3878,10 +3777,6 @@
       "name": "補充黃幣任務優先級",
       "help": "黃幣不足時，執行補充黃幣任務的優先級順序。使用 > 分隔。"
     },
-    "ObscureAbyssalCheckDelayDays": {
-      "name": "隱秘/深淵延遲檢查天數",
-      "help": "隱秘海域和深淵坐標全部打完後，智慧排程會延遲指定天數再檢查，期間直接跳過以加快補黃幣流程。0 表示每輪都檢查。隱秘海域和深淵坐標會隨大世界每月重置重新出現，屆時照常檢查。"
-    },
     "MonthEndActionPointCleanupEnable": {
       "name": "啟用月末清理行動力",
       "help": "是否啟用月末清理行動力功能。開啟後，當距大世界重置剩餘天數小於等於「月末清理行動力天數」時，啟動月末清理模式消耗行動力。",
@@ -3901,6 +3796,21 @@
       "help": "月末清理行動力時是否執行大世界商店購買。關閉後月末清理循環將跳過商店購買步驟。",
       "True": "開啟",
       "False": "關閉"
+    },
+    "BuyActionPointMode": {
+      "name": "OpsiScheduling.BuyActionPointMode.name",
+      "help": "OpsiScheduling.BuyActionPointMode.help",
+      "off": "off",
+      "hazard1_leveling": "hazard1_leveling",
+      "meowfficer_farming": "meowfficer_farming"
+    },
+    "BuyActionPointUpperThreshold": {
+      "name": "OpsiScheduling.BuyActionPointUpperThreshold.name",
+      "help": "OpsiScheduling.BuyActionPointUpperThreshold.help"
+    },
+    "BuyActionPointLowerThreshold": {
+      "name": "OpsiScheduling.BuyActionPointLowerThreshold.name",
+      "help": "OpsiScheduling.BuyActionPointLowerThreshold.help"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -3924,6 +3834,31 @@
       "help": "防溢位任務會持續執行，直到當前行動力低於此值"
     }
   },
+  "OpsiCrossMonth": {
+    "_info": {
+      "name": "OpsiCrossMonth._info.name",
+      "help": "OpsiCrossMonth._info.help"
+    },
+    "ActionPointCleanupEnable": {
+      "name": "OpsiCrossMonth.ActionPointCleanupEnable.name",
+      "help": "OpsiCrossMonth.ActionPointCleanupEnable.help"
+    },
+    "ActionPointPreserve": {
+      "name": "OpsiCrossMonth.ActionPointPreserve.name",
+      "help": "OpsiCrossMonth.ActionPointPreserve.help"
+    },
+    "PushNotify": {
+      "name": "OpsiCrossMonth.PushNotify.name",
+      "help": "OpsiCrossMonth.PushNotify.help"
+    },
+    "RehearsalDebug": {
+      "name": "OpsiCrossMonth.RehearsalDebug.name",
+      "help": "OpsiCrossMonth.RehearsalDebug.help",
+      "off": "off",
+      "cleanup": "cleanup",
+      "full": "full"
+    }
+  },
   "IslandPlan": {
     "_info": {
       "name": "島嶼計劃全域",
@@ -3936,6 +3871,116 @@
       "summer": "夏",
       "autumn": "秋",
       "winter": "冬"
+    },
+    "IntervalHours": {
+      "name": "IslandPlan.IntervalHours.name",
+      "help": "IslandPlan.IntervalHours.help"
+    },
+    "RespectSubTaskTimes": {
+      "name": "IslandPlan.RespectSubTaskTimes.name",
+      "help": "IslandPlan.RespectSubTaskTimes.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableAirDrop": {
+      "name": "IslandPlan.EnableAirDrop.name",
+      "help": "IslandPlan.EnableAirDrop.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyGather": {
+      "name": "IslandPlan.EnableDailyGather.name",
+      "help": "IslandPlan.EnableDailyGather.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableCargoPreparation": {
+      "name": "IslandPlan.EnableCargoPreparation.name",
+      "help": "IslandPlan.EnableCargoPreparation.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyOrder": {
+      "name": "IslandPlan.EnableDailyOrder.name",
+      "help": "IslandPlan.EnableDailyOrder.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyInteract": {
+      "name": "IslandPlan.EnableDailyInteract.name",
+      "help": "IslandPlan.EnableDailyInteract.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableFarm": {
+      "name": "IslandPlan.EnableFarm.name",
+      "help": "IslandPlan.EnableFarm.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableRancher": {
+      "name": "IslandPlan.EnableRancher.name",
+      "help": "IslandPlan.EnableRancher.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableMineForest": {
+      "name": "IslandPlan.EnableMineForest.name",
+      "help": "IslandPlan.EnableMineForest.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnablePearlSell": {
+      "name": "IslandPlan.EnablePearlSell.name",
+      "help": "IslandPlan.EnablePearlSell.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableManufacture": {
+      "name": "IslandPlan.EnableManufacture.name",
+      "help": "IslandPlan.EnableManufacture.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableRestaurant": {
+      "name": "IslandPlan.EnableRestaurant.name",
+      "help": "IslandPlan.EnableRestaurant.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableTeahouse": {
+      "name": "IslandPlan.EnableTeahouse.name",
+      "help": "IslandPlan.EnableTeahouse.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableGrill": {
+      "name": "IslandPlan.EnableGrill.name",
+      "help": "IslandPlan.EnableGrill.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableJuuEatery": {
+      "name": "IslandPlan.EnableJuuEatery.name",
+      "help": "IslandPlan.EnableJuuEatery.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableJuuCoffee": {
+      "name": "IslandPlan.EnableJuuCoffee.name",
+      "help": "IslandPlan.EnableJuuCoffee.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableBusiness": {
+      "name": "IslandPlan.EnableBusiness.name",
+      "help": "IslandPlan.EnableBusiness.help",
+      "True": "True",
+      "False": "False"
+    },
+    "TaskOrder": {
+      "name": "IslandPlan.TaskOrder.name",
+      "help": "IslandPlan.TaskOrder.help"
     }
   },
   "IslandFarm": {
@@ -6342,10 +6387,6 @@
     "RestartIntervalHours": {
       "name": "多久重啟一次（小時）",
       "help": "隔幾小時重啟一次模擬器。"
-    },
-    "DeepRestartAfterFailures": {
-      "name": "深度重啟：連續失敗幾次後執行",
-      "help": "模擬器連不上、連續重啟失敗達到這個次數後，改成「深度重啟」：結束 MuMu 的全部處理程序（含背景服務與虛擬機）再重新啟動。\n用在裝置較差、反覆重啟都起不來的機器上，是最後的保底手段。\n注意：深度重啟會連帶結束該 MuMu 的所有實例，多開時其他實例會被中斷。\n0 表示停用（只重啟實例，不結束處理程序）。預設 0。"
     }
   },
   "EmulatorManager": {
@@ -6542,9 +6583,46 @@
       "DisableTranslateMode": "點選這裡關閉翻譯模式",
       "ConfigSaved": "設定已儲存",
       "AlasIsRunning": "排程器已在執行中",
-      "ClickToUpdate": "有可用更新nanoda!"
+      "ClickToUpdate": "有可用更新nanoda!",
+      "ReloadEnabled": "Gui.Toast.ReloadEnabled",
+      "AlasRestart": "Gui.Toast.AlasRestart",
+      "RestartCancelled": "Gui.Toast.RestartCancelled",
+      "NoInstance": "Gui.Toast.NoInstance",
+      "NoInstanceSimulateIcon": "Gui.Toast.NoInstanceSimulateIcon",
+      "NoInstanceClearIcon": "Gui.Toast.NoInstanceClearIcon",
+      "NoInstanceSimulateError": "Gui.Toast.NoInstanceSimulateError",
+      "NoInstanceCrossMonth": "Gui.Toast.NoInstanceCrossMonth",
+      "NoInstanceNotifyTest": "Gui.Toast.NoInstanceNotifyTest",
+      "ErrorPopupShown": "Gui.Toast.ErrorPopupShown",
+      "NotifyUpdateTestSent": "Gui.Toast.NotifyUpdateTestSent",
+      "NotifyAnnouncementTestSent": "Gui.Toast.NotifyAnnouncementTestSent",
+      "NotifyErrorTestSent": "Gui.Toast.NotifyErrorTestSent",
+      "NotifyErrorTestFailed": "Gui.Toast.NotifyErrorTestFailed",
+      "CalculatorNotReady": "Gui.Toast.CalculatorNotReady",
+      "InvalidEventEndDate": "Gui.Toast.InvalidEventEndDate",
+      "NoShopFilterItems": "Gui.Toast.NoShopFilterItems",
+      "WallpaperNameRequired": "Gui.Toast.WallpaperNameRequired",
+      "NoWallpaperSource": "Gui.Toast.NoWallpaperSource",
+      "NoRemovableWallpaperSource": "Gui.Toast.NoRemovableWallpaperSource",
+      "WallpaperSourceReset": "Gui.Toast.WallpaperSourceReset",
+      "RandomWallpaperApplied": "Gui.Toast.RandomWallpaperApplied",
+      "NoAnnouncement": "Gui.Toast.NoAnnouncement",
+      "FetchingAnnouncement": "Gui.Toast.FetchingAnnouncement",
+      "TooManyPasswordAttempts": "Gui.Toast.TooManyPasswordAttempts",
+      "PasswordWrongRemaining": "Gui.Toast.PasswordWrongRemaining",
+      "IconSimulated": "Gui.Toast.IconSimulated",
+      "IconSimulationCleared": "Gui.Toast.IconSimulationCleared",
+      "WriteRecordFailed": "Gui.Toast.WriteRecordFailed",
+      "CrossMonthRequestFailed": "Gui.Toast.CrossMonthRequestFailed",
+      "CancelRehearsalFailed": "Gui.Toast.CancelRehearsalFailed",
+      "MediaTypeSwitched": "Gui.Toast.MediaTypeSwitched",
+      "WallpaperSourceAdded": "Gui.Toast.WallpaperSourceAdded",
+      "WallpaperSourceRemoved": "Gui.Toast.WallpaperSourceRemoved",
+      "CustomWallpaperApplied": "Gui.Toast.CustomWallpaperApplied",
+      "Unnamed": "Gui.Toast.Unnamed"
     },
     "Status": {
+      "Prefix": "Gui.Status.Prefix",
       "Running": "秘書艦正在處理",
       "Inactive": "茗正在偷走你的箱子",
       "Warning": "發生錯誤",
@@ -6574,6 +6652,28 @@
       "UnderwaterFleet": "水下艦隊",
       "Fleet": "艦隊",
       "Ships": "艦船"
+    },
+    "MeowfficerScore": {
+      "Title": "Gui.MeowfficerScore.Title",
+      "Refresh": "Gui.MeowfficerScore.Refresh",
+      "Refreshing": "Gui.MeowfficerScore.Refreshing",
+      "OpenReport": "Gui.MeowfficerScore.OpenReport",
+      "EmptyTitle": "Gui.MeowfficerScore.EmptyTitle",
+      "EmptyHint": "Gui.MeowfficerScore.EmptyHint",
+      "Summary": "Gui.MeowfficerScore.Summary",
+      "Broken": "Gui.MeowfficerScore.Broken",
+      "Score": "Gui.MeowfficerScore.Score",
+      "Maxed": "Gui.MeowfficerScore.Maxed",
+      "Fixed": "Gui.MeowfficerScore.Fixed",
+      "AxisX": "Gui.MeowfficerScore.AxisX",
+      "AxisY": "Gui.MeowfficerScore.AxisY",
+      "NoHits": "Gui.MeowfficerScore.NoHits",
+      "OtherRubrics": "Gui.MeowfficerScore.OtherRubrics",
+      "Source": "Gui.MeowfficerScore.Source",
+      "Screenshot": "Gui.MeowfficerScore.Screenshot",
+      "PointsSpent": "Gui.MeowfficerScore.PointsSpent",
+      "Inferred": "Gui.MeowfficerScore.Inferred",
+      "Disclaimer": "Gui.MeowfficerScore.Disclaimer"
     },
     "MenuDevelop": {
       "HomePage": "主頁",
@@ -6611,19 +6711,7 @@
       "Pending": "佇列中",
       "Waiting": "等待中",
       "NoTask": "無任務",
-      "Stat": "統計",
-      "BackgroundCurrentDefault": "**目前使用**：網頁（預設）",
-      "BackgroundCurrentLocal": "**目前使用**：本地",
-      "BackgroundCurrentMixed": "**目前使用**：混合",
-      "BackgroundCurrentUrl": "**目前使用**：網頁",
-      "BackgroundCustomUrls": "**自訂網址**",
-      "BackgroundDirectLink": "目前圖片直鏈：",
-      "BackgroundExtractToLocal": "提取到本地",
-      "BackgroundLocalCount": "本地：{n} 張",
-      "BackgroundOpenFolder": "開啟資料夾",
-      "BackgroundOpenInNewWindow": "在新視窗開啟這張圖",
-      "BackgroundTitle": "### 背景圖",
-      "BackgroundUrlCount": "已解析連結：{n} 個"
+      "Stat": "統計"
     },
     "Dashboard": {
       "TimeError": "時間錯誤",
@@ -6699,7 +6787,11 @@
       "NewSuccess": "新增成功",
       "Name": "設定名稱",
       "Mod": "外掛",
-      "Actions": "操作"
+      "Actions": "操作",
+      "StatusRunning": "Gui.AppManage.StatusRunning",
+      "StatusStopped": "Gui.AppManage.StatusStopped",
+      "StatusError": "Gui.AppManage.StatusError",
+      "StatusUpdating": "Gui.AppManage.StatusUpdating"
     },
     "Update": {
       "UpToDate": "已是最新版本",
@@ -6718,7 +6810,10 @@
       "Time": "提交時間",
       "Message": "提交資訊",
       "DisabledWarn": "更新模組未啟用，你需要手動重啟 AzurPilot 進行更新",
-      "DetailedHistory": "詳細提交歷史"
+      "DetailedHistory": "詳細提交歷史",
+      "Changelog": "Gui.Update.Changelog",
+      "ChangelogLoading": "Gui.Update.ChangelogLoading",
+      "ChangelogEmpty": "Gui.Update.ChangelogEmpty"
     },
     "Remote": {
       "Running": "執行中",
@@ -6806,6 +6901,10 @@
       "CheckUpdateIntervalHelp": "每隔多少分鐘檢查一次更新，0 表示停用。",
       "AutoRestartTime": "定時重啟時間",
       "AutoRestartTimeHelp": "有更新時每天自動重啟的時間，留空表示停用。",
+      "HideUpdateNotice": "Gui.DeploySetting.HideUpdateNotice",
+      "HideUpdateNoticeHelp": "Gui.DeploySetting.HideUpdateNoticeHelp",
+      "HideAnnouncement": "Gui.DeploySetting.HideAnnouncement",
+      "HideAnnouncementHelp": "Gui.DeploySetting.HideAnnouncementHelp",
       "DiscordRichPresence": "Discord 富狀態",
       "DiscordRichPresenceHelp": "在 Discord 中展示 AzurPilot 執行狀態。",
       "EnableRemoteAccess": "啟用遠端存取",
@@ -6847,10 +6946,30 @@
       "WebuiSSLKey": "SSL 密鑰檔案",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密鑰路徑，需和憑證同時設定。",
       "WebuiSSLCert": "SSL 憑證檔案",
-      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 憑證路徑，需和密鑰同時設定。",
-      "DisableBranchWatermark": "關閉未經驗證版本的水印",
-      "DisableBranchWatermarkHelp": "【未勾選時正常顯示水印】\n⚠ 不瞭解 AzurPilot、或不清楚 master / dev 等分支用途的人，禁止開啟本項。\n⚠ 需要截圖回報問題、或請他人協助定位問題的人，禁止開啟本項：水印中的分支名稱、版本雜湊與提交訊息是判斷你實際執行哪一份程式的唯一線索，隱藏後將無法定位問題。\n修改後需重新啟動 AzurPilot 才會生效。",
-      "WatermarkHiddenNow": "水印已隱藏；重新開啟水印需重新整理頁面或重新啟動 AzurPilot。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 憑證路徑，需和密鑰同時設定。"
+    },
+    "LogExport": {
+      "Title": "Gui.LogExport.Title",
+      "InstanceLabel": "Gui.LogExport.InstanceLabel",
+      "RangeLabel": "Gui.LogExport.RangeLabel",
+      "RangeAll": "Gui.LogExport.RangeAll",
+      "RangeToday": "Gui.LogExport.RangeToday",
+      "RuntimeLog": "Gui.LogExport.RuntimeLog",
+      "ExportToday": "Gui.LogExport.ExportToday",
+      "Exporting": "Gui.LogExport.Exporting",
+      "ErrorLogs": "Gui.LogExport.ErrorLogs",
+      "ErrorLogsText": "Gui.LogExport.ErrorLogsText",
+      "Pending": "Gui.LogExport.Pending",
+      "Packing": "Gui.LogExport.Packing",
+      "Started": "Gui.LogExport.Started",
+      "Failed": "Gui.LogExport.Failed",
+      "NoInstance": "Gui.LogExport.NoInstance",
+      "NoRuntimeLog": "Gui.LogExport.NoRuntimeLog",
+      "Confirm": "Gui.LogExport.Confirm",
+      "ConfirmSize": "Gui.LogExport.ConfirmSize",
+      "ConfirmSizePlain": "Gui.LogExport.ConfirmSizePlain",
+      "InfoLoading": "Gui.LogExport.InfoLoading",
+      "NoFiles": "Gui.LogExport.NoFiles"
     },
     "StartupRun": {
       "Title": "啟動時自動執行",
@@ -6866,9 +6985,6 @@
       "InvalidFeedBack": "格式錯誤。 示例：{0}",
       "Clear": "清除",
       "RunNow": "立即執行",
-      "RunNowSchedulerStopped": "調度器未啟動，請先透過上方開關或總覽頁啟動",
-      "RunNowTaskDisabled": "該任務未啟用，請先勾選\"啟用調度\"再立即執行",
-      "SchedulerQuickBar": "調度器",
       "EnterPassword": "輸入密碼",
       "ChooseFile": "選擇檔案"
     },
@@ -6897,6 +7013,7 @@
       "LoadOpsiStatsFailed": "載入 OpSi 統計失敗: {e}",
       "LoadExpStatsFailed": "載入經驗統計失敗: {e}",
       "DailyExpCheckTitle": "每日經驗偵測",
+      "FoldShipDigest": "Gui.Stat.FoldShipDigest",
       "CheckTime": "偵測時間: {value}",
       "TargetLevel": "目標等級: {value}",
       "ShipSlot": "艦位",
@@ -6933,22 +7050,30 @@
       "OpsiDataCollectionTitle": "雪風大人的侵蝕一資料收集",
       "MonthlyPurchasedAP": "當月購買體力: {value}",
       "MeowDataCollectionTitle": "短貓相接資料收集",
+      "FoldMeowDigest": "Gui.Stat.FoldMeowDigest",
       "MeowRounds": "出擊輪次",
       "AvgMeowRoundTime": "平均一輪短貓時長",
-      "MeowLootTitle": "短貓相接收穫",
+      "MeowLootTitleCurrent": "Gui.Stat.MeowLootTitleCurrent",
+      "MeowLootTitleHistory": "Gui.Stat.MeowLootTitleHistory",
+      "MeowLootHeaderItem": "Gui.Stat.MeowLootHeaderItem",
+      "MeowLootHeaderTotal": "Gui.Stat.MeowLootHeaderTotal",
+      "MeowLootHazardColumn": "Gui.Stat.MeowLootHazardColumn",
+      "MeowLootItemPlate": "Gui.Stat.MeowLootItemPlate",
+      "MeowLootItemGearDesign": "Gui.Stat.MeowLootItemGearDesign",
+      "MeowLootItemOrdnance": "Gui.Stat.MeowLootItemOrdnance",
+      "MeowLootItemObscure": "Gui.Stat.MeowLootItemObscure",
+      "MeowLootItemAbyssal": "Gui.Stat.MeowLootItemAbyssal",
+      "MeowLootItemCat": "Gui.Stat.MeowLootItemCat",
+      "MeowLootViewHistory": "Gui.Stat.MeowLootViewHistory",
+      "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
+      "MeowLootPickMonthTitle": "Gui.Stat.MeowLootPickMonthTitle",
+      "MeowLootNoHistoryMonth": "Gui.Stat.MeowLootNoHistoryMonth",
+      "MeowLootCurrentMonthOption": "Gui.Stat.MeowLootCurrentMonthOption",
       "NoMeowDataNotice": "暫無本地短貓收穫資料，完成一次短貓相接後會自動生成",
       "RoundUnit": "輪",
       "SecondUnit": "秒",
       "HourUnit": "小時",
       "MinuteUnit": "分鐘",
-      "ExportModuleLoadFailed": "匯出失敗：無法載入統計模組：{e}",
-      "CsvHeaderAkashiRate": "遇見明石機率(%)",
-      "CsvHeaderLoopEfficiency": "循環效率(%)",
-      "CsvHeaderMonthlyPurchasedAP": "當月購買體力",
-      "CsvFilenameTemplate": "侵蝕1練級_{month}_詳細資料.csv",
-      "SavedToDesktop": "已儲存至桌面：{path}",
-      "SaveDesktopFailed": "儲存桌面失敗：{e}",
-      "ExportAndSaveDesktop": "匯出並儲存到桌面",
       "NoShipExpData": "暫無艦船經驗資料，請先執行\"每日經驗偵測\"任務",
       "ShipExpProgressTitle": "每日經驗偵測：識別到的艦娘等級與升級進度",
       "LastCheckTime": "上次檢查時間: {value}",
@@ -6975,57 +7100,87 @@
       "CommissionIncomeHeaderAvg": "平均/次",
       "CommissionIncomeTotalCommissions": "委託總次數: {value}",
       "CommissionIncomeRecentTitle": "最近委託記錄",
-      "ResourceChartTitle": "全資源變化趨勢",
-      "LoadResourceDataFailed": "載入資源資料失敗: {e}",
-      "NoResourceData": "暫無資源變化資料，執行腳本後將自動記錄",
-      "NoValidResourceData": "暫無有效資源資料",
-      "BackgroundBtn": "背景",
-      "ChartAp": "體力: ",
-      "ChartApLabel": "行動力",
-      "ChartAsset": "資產: ",
-      "ChartChange": "漲跌: ",
-      "ChartChangeLabel": "變化",
-      "ChartClose": "收盤: ",
-      "ChartDelta": "單次變化:",
-      "ChartDensity": "資料點密度: ",
-      "ChartDistance": "海里數: ",
-      "ChartHigh": "最高: ",
-      "ChartLow": "最低: ",
-      "ChartMa10": "  MA10(10期平均): ",
-      "ChartMa5": "  MA5(5期平均): ",
-      "ChartMaxLabel": "最高",
-      "ChartMean": "均值:",
-      "ChartMeanLabel": "均值",
-      "ChartMinLabel": "最低",
-      "ChartOpen": "開盤: ",
-      "ChartPanelTitle": "體力變化 - {view}",
-      "ChartPurple": "紫幣: ",
-      "ChartResetBtn": "重設",
-      "ChartSeriesAp": "體力",
-      "ChartSeriesAsset": "資產",
-      "ChartSeriesDistance": "海里數",
-      "ChartSeriesPurple": "紫幣",
-      "ChartSeriesYellow": "黃幣",
-      "ChartSource": "來源: ",
-      "ChartYellow": "黃幣: ",
-      "ExtractAlreadyLocal": "目前背景已經是本地圖片，無需提取。",
-      "ExtractDone": "已提取到 bg/{sub}/{name}",
-      "ExtractFailed": "提取失敗：{error}",
-      "ExtractHint": "提取只是存放，不會自動當背景；想用請移到 bg/。",
-      "ExtractNoImage": "目前沒有可提取的背景圖。",
-      "ExtractNoImageData": "沒有可提取的圖片",
-      "ExtractRunning": "正在提取…",
-      "ExtractSkipped": "這張圖之前已經提取過了：{name}",
-      "ExtractUnknownError": "未知錯誤",
-      "MaterialAdvancedOnly": "僅進階材質生效",
-      "MaterialBlur": "磨砂",
-      "MaterialCards": "卡片",
-      "MaterialReset": "重設",
-      "MaterialTiles": "貼片",
-      "MaterialTitle": "介面材質",
-      "MaterialTransparency": "透明",
-      "Readme": "把圖片放進這個資料夾即可作為 WebUI 背景。\n支援：{{exts}}\n放多張會隨機選取一張。\n\n子資料夾「{{sub}}」存放介面上點【提取】下載的圖片，\n與你手動放進來的圖片分開，頁面上會標明每張圖的來源。\n本檔案可刪除，不影響功能。\n",
-      "ScreenshotPreviewBtn": "截圖預覽"
+      "DeltaPeriodDay": "Gui.Stat.DeltaPeriodDay",
+      "DeltaPeriodWeek": "Gui.Stat.DeltaPeriodWeek",
+      "DeltaPeriodMonth": "Gui.Stat.DeltaPeriodMonth",
+      "DeltaPeriodTotal": "Gui.Stat.DeltaPeriodTotal",
+      "DeltaChartTitle": "Gui.Stat.DeltaChartTitle",
+      "DeltaSummaryTitle": "Gui.Stat.DeltaSummaryTitle",
+      "ConsumptionRankingTitle": "Gui.Stat.ConsumptionRankingTitle",
+      "DeltaResource": "Gui.Stat.DeltaResource",
+      "DeltaIncrease": "Gui.Stat.DeltaIncrease",
+      "DeltaDecrease": "Gui.Stat.DeltaDecrease",
+      "DeltaNet": "Gui.Stat.DeltaNet",
+      "DeltaTotalConsumed": "Gui.Stat.DeltaTotalConsumed",
+      "NoDeltaData": "Gui.Stat.NoDeltaData",
+      "LoadDeltaDataFailed": "Gui.Stat.LoadDeltaDataFailed",
+      "DeltaTimelineHint": "Gui.Stat.DeltaTimelineHint",
+      "DeltaTaskTimes": "Gui.Stat.DeltaTaskTimes",
+      "DeltaMore": "Gui.Stat.DeltaMore",
+      "PageTitle": "Gui.Stat.PageTitle",
+      "PageMeta": "Gui.Stat.PageMeta",
+      "SourceOk": "Gui.Stat.SourceOk",
+      "SourceStale": "Gui.Stat.SourceStale",
+      "SourceMissing": "Gui.Stat.SourceMissing",
+      "KpiCurrentAp": "Gui.Stat.KpiCurrentAp",
+      "KpiChange": "Gui.Stat.KpiChange",
+      "KpiRangeMax": "Gui.Stat.KpiRangeMax",
+      "KpiRangeMin": "Gui.Stat.KpiRangeMin",
+      "KpiAverage": "Gui.Stat.KpiAverage",
+      "ApChartTitle": "Gui.Stat.ApChartTitle",
+      "SeriesActionPoint": "Gui.Stat.SeriesActionPoint",
+      "SeriesYellowCoin": "Gui.Stat.SeriesYellowCoin",
+      "SeriesPurpleCoin": "Gui.Stat.SeriesPurpleCoin",
+      "SeriesAsset": "Gui.Stat.SeriesAsset",
+      "SeriesDistance": "Gui.Stat.SeriesDistance",
+      "MetricChange": "Gui.Stat.MetricChange",
+      "MetricMax": "Gui.Stat.MetricMax",
+      "MetricMin": "Gui.Stat.MetricMin",
+      "OpsiCardAkashi": "Gui.Stat.OpsiCardAkashi",
+      "OpsiCardCrane": "Gui.Stat.OpsiCardCrane",
+      "OpsiCardRate": "Gui.Stat.OpsiCardRate",
+      "OpsiCardBattleTime": "Gui.Stat.OpsiCardBattleTime",
+      "OpsiCardRound": "Gui.Stat.OpsiCardRound",
+      "OpsiCardNetRatio": "Gui.Stat.OpsiCardNetRatio",
+      "OpsiCardBought": "Gui.Stat.OpsiCardBought",
+      "OpsiCardSortieCost": "Gui.Stat.OpsiCardSortieCost",
+      "MeowLootYellowPerRound": "Gui.Stat.MeowLootYellowPerRound",
+      "MeowLootPlatePerRound": "Gui.Stat.MeowLootPlatePerRound",
+      "MeowLootAbyssalPerRound": "Gui.Stat.MeowLootAbyssalPerRound",
+      "MeowLootObscurePerRound": "Gui.Stat.MeowLootObscurePerRound",
+      "ShipExpAvgRound": "Gui.Stat.ShipExpAvgRound",
+      "ShipExpToday": "Gui.Stat.ShipExpToday",
+      "ShipExpTodayValue": "Gui.Stat.ShipExpTodayValue",
+      "ShipExpLastCheck": "Gui.Stat.ShipExpLastCheck",
+      "ShipExpTargetShort": "Gui.Stat.ShipExpTargetShort",
+      "ShipExpTodayShort": "Gui.Stat.ShipExpTodayShort",
+      "ShipExpSlotValue": "Gui.Stat.ShipExpSlotValue",
+      "ShipExpDone": "Gui.Stat.ShipExpDone",
+      "OpsiCardBattleUnit": "Gui.Stat.OpsiCardBattleUnit",
+      "OpsiCardCount": "Gui.Stat.OpsiCardCount",
+      "AuxFoldTitle": "Gui.Stat.AuxFoldTitle",
+      "MeowLootFoldTitle": "Gui.Stat.MeowLootFoldTitle",
+      "MeowLootFoldTitleHistory": "Gui.Stat.MeowLootFoldTitleHistory",
+      "MeowLootFoldDigest": "Gui.Stat.MeowLootFoldDigest",
+      "MeowLootDigestPart": "Gui.Stat.MeowLootDigestPart",
+      "MeowRoundDigest": "Gui.Stat.MeowRoundDigest",
+      "MeowLootEmptyNotice": "Gui.Stat.MeowLootEmptyNotice",
+      "TabOpsi": "Gui.Stat.TabOpsi",
+      "TabCommission": "Gui.Stat.TabCommission",
+      "TabResearch": "Gui.Stat.TabResearch",
+      "TabResearchBadge": "Gui.Stat.TabResearchBadge",
+      "TabResource": "Gui.Stat.TabResource",
+      "ResearchTitle": "Gui.Stat.ResearchTitle",
+      "ResearchDesc": "Gui.Stat.ResearchDesc",
+      "ResearchSlotProgress": "Gui.Stat.ResearchSlotProgress",
+      "ResearchSlotProgressDesc": "Gui.Stat.ResearchSlotProgressDesc",
+      "ResearchSlotQueue": "Gui.Stat.ResearchSlotQueue",
+      "ResearchSlotQueueDesc": "Gui.Stat.ResearchSlotQueueDesc",
+      "ResearchSlotCost": "Gui.Stat.ResearchSlotCost",
+      "ResearchSlotCostDesc": "Gui.Stat.ResearchSlotCostDesc",
+      "ResearchSlotPending": "Gui.Stat.ResearchSlotPending",
+      "ResearchEmptyTitle": "Gui.Stat.ResearchEmptyTitle",
+      "ResearchEmptyDesc": "Gui.Stat.ResearchEmptyDesc"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自動切換"

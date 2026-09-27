@@ -66,6 +66,10 @@
       "name": "Main Campaign-3 Plus",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "Operation Handover Contract",
+      "help": "Consume Handover Books to run Operation Handover automatically."
+    },
     "GemsFarming": {
       "name": "Urgent Commission Plus",
       "help": ""
@@ -189,10 +193,6 @@
     "Secretary": {
       "name": "Secretary",
       "help": "Automatically monitor the secretary ship's affinity and replace it when it reaches 90 affinity"
-    },
-    "OperationHandover": {
-      "name": "Operation Handover Contract",
-      "help": "Consume Handover Books to run Operation Handover automatically."
     },
     "Daily": {
       "name": "Daily Missions",
@@ -374,13 +374,13 @@
       "name": "Weekly Pearl Trade",
       "help": "Only supports minitouch. Process pearls every Tuesday at 01:00."
     },
-    "FleetInfo": {
-      "name": "Fleet Information",
-      "help": "View the latest fleet scan result"
-    },
     "FleetScan": {
       "name": "Fleet Scan",
       "help": "Scan ships assigned to fleets"
+    },
+    "FleetInfo": {
+      "name": "Fleet Information",
+      "help": "View the latest fleet scan result"
     },
     "Daemon": {
       "name": "Semi-Auto Click",
@@ -589,7 +589,6 @@
       "en-3": "[EN] Washington",
       "en-4": "[EN] Amagi",
       "en-5": "[EN] Little Enterprise",
-      "en-6": "[EN] Belfast",
       "jp-0": "[JP] ブレスト",
       "jp-1": "[JP] 横須賀",
       "jp-2": "[JP] 佐世保",
@@ -607,12 +606,7 @@
       "jp-14": "[JP] キール",
       "jp-15": "[JP] 若松",
       "jp-16": "[JP] オデッサ",
-      "jp-17": "[JP] スイートバン",
-      "tw-0": "[TW] 珍珠港",
-      "tw-1": "[TW] 珊瑚海",
-      "tw-2": "[TW] 中途島",
-      "tw-3": "[TW] 瓜達康納爾",
-      "tw-4": "[TW] 雷伊泰灣"
+      "jp-17": "[JP] スイートバン"
     },
     "ScreenshotMethod": {
       "name": "Select screenshot method",
@@ -626,8 +620,7 @@
       "DroidCast": "DroidCast",
       "DroidCast_raw": "DroidCast_raw",
       "nemu_ipc": "nemu_ipc",
-      "ldopengl": "ldopengl",
-      "azurpilot_android": "AzurPilot Android virtual display"
+      "ldopengl": "ldopengl"
     },
     "ControlMethod": {
       "name": "Select control method",
@@ -636,9 +629,7 @@
       "uiautomator2": "uiautomator2",
       "minitouch": "minitouch",
       "Hermit": "Hermit",
-      "MaaTouch": "MaaTouch",
-      "nemu_ipc": "nemu_ipc",
-      "azurpilot_android": "AzurPilot Android virtual display"
+      "MaaTouch": "MaaTouch"
     },
     "GameSettings": {
       "name": "Automatically apply recommended game settings",
@@ -738,24 +729,9 @@
       "name": "Prohibit restarting when errors occur in sensitive tasks",
       "help": "When an error occurs, directly terminate AzurPilot without restarting the game. Use for debugging, commission tasks, research tasks, Obscured Zones, Abyssal Zones, and other critical timing tasks"
     },
-    "SaveErrorRetentionDays": {
-      "name": "Error log expiration (days)",
-      "help": "Error scenes older than this are handled by the method below\n0 = keep everything"
-    },
-    "SaveErrorBackUpMethod": {
-      "name": "Expired error log processing method",
-      "help": "The backup directory is ./log/error/<instance>/bak",
-      "delete": "Delete",
-      "zip": "Compress backup",
-      "copy": "Copy backup"
-    },
-    "SaveErrorZipMethod": {
-      "name": "Compression format",
-      "help": "",
-      "bz2": "bz2",
-      "gzip": "gzip",
-      "xz": "xz",
-      "zip": "zip"
+    "SaveErrorCount": {
+      "name": "Error.SaveErrorCount.name",
+      "help": "Error.SaveErrorCount.help"
     },
     "OnePushConfig": {
       "name": "Error push settings",
@@ -781,26 +757,6 @@
       "name": "Restart when the device is unreachable for X seconds",
       "help": "The number of times the device cannot be detected in a row triggers a restart."
     },
-    "WatchdogEnable": {
-      "name": "Watchdog master switch",
-      "help": "What's a watchdog? It's a bodyguard running in the background. Turn it on to enable the checks below; turn it off and nothing below matters. Default off."
-    },
-    "WatchdogTaskEnable": {
-      "name": "Auto-restart if task runs too long",
-      "help": "When enabled, if a task runs too long (e.g. stuck on an unskippable story, pathfinding loop), the emulator is force-restarted to break out of it.\nRequires the master switch above to be on. Default off."
-    },
-    "WatchdogTaskTimeout": {
-      "name": "How long before a task is considered stuck (min)",
-      "help": "How many minutes a task can run before it's considered stuck. If exceeded, the emulator is force-restarted.\n0 = never trigger; 99999 = basically never.\nDefault 120 min (2 hours)."
-    },
-    "RestartOperationTimeoutEnable": {
-      "name": "Game restart timeout protection",
-      "help": "When enabled, if a step during game restart (stopping/starting the game) gets stuck for longer than the timeout below, the emulator is considered dead and gets restarted.\nWhen disabled, this check is skipped.\nDefault off."
-    },
-    "RestartOperationTimeout": {
-      "name": "How long before game restart is considered stuck (sec)",
-      "help": "During game restart, if stopping or starting the game is stuck for longer than this many seconds, the emulator is considered dead and gets restarted.\nRequires 'Game restart timeout protection' above to be on.\nDefault 120 sec."
-    },
     "LlmAnalysis": {
       "name": "Enable LLM error analysis",
       "help": "Automatically use LLM to analyze errors when they occur."
@@ -818,20 +774,48 @@
       "help": "Enter a model name supported by your purchased service, as shown on https://platform.deepseek.com/ or https://platform.xiaomimimo.com/."
     }
   },
-  "DailySummary": {
+  "TaskFailureProtection": {
     "_info": {
-      "name": "Daily summary",
-      "help": "Generate and push a daily automation summary at the configured time. Configure OnePush and LLM settings in Debug Settings first."
+      "name": "TaskFailureProtection._info.name",
+      "help": "TaskFailureProtection._info.help"
     },
     "Enable": {
-      "name": "Enable daily summary",
-      "help": "When enabled, AzurPilot generates and pushes the daily automation summary at the configured time.",
-      "True": "Enabled",
-      "False": "Disabled"
+      "name": "TaskFailureProtection.Enable.name",
+      "help": "TaskFailureProtection.Enable.help",
+      "True": "True",
+      "False": "False"
     },
-    "TriggerTime": {
-      "name": "Generation time",
-      "help": "Time to generate the report in the game server time zone. Use HH:MM, for example 20:00."
+    "PushNotify": {
+      "name": "TaskFailureProtection.PushNotify.name",
+      "help": "TaskFailureProtection.PushNotify.help",
+      "True": "True",
+      "False": "False"
+    },
+    "MaxFailures": {
+      "name": "TaskFailureProtection.MaxFailures.name",
+      "help": "TaskFailureProtection.MaxFailures.help"
+    },
+    "TimeWindowHours": {
+      "name": "TaskFailureProtection.TimeWindowHours.name",
+      "help": "TaskFailureProtection.TimeWindowHours.help"
+    },
+    "WatchdogEnable": {
+      "name": "TaskFailureProtection.WatchdogEnable.name",
+      "help": "TaskFailureProtection.WatchdogEnable.help",
+      "True": "True",
+      "False": "False"
+    },
+    "WatchdogLogTimeout": {
+      "name": "TaskFailureProtection.WatchdogLogTimeout.name",
+      "help": "TaskFailureProtection.WatchdogLogTimeout.help"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "TaskFailureProtection.WatchdogTaskTimeout.name",
+      "help": "TaskFailureProtection.WatchdogTaskTimeout.help"
+    },
+    "RestartOperationTimeout": {
+      "name": "TaskFailureProtection.RestartOperationTimeout.name",
+      "help": "TaskFailureProtection.RestartOperationTimeout.help"
     }
   },
   "Optimization": {
@@ -951,55 +935,16 @@
       "name": "Drop save directory",
       "help": ""
     },
-    "RetentionDays": {
-      "name": "Screenshot retention (days)",
-      "help": "Drop record screenshots older than this many days are handled by the method below\n0 = no day-based cleanup (commission reward screenshots still keep the latest 50 only)"
-    },
-    "BackUpMethod": {
-      "name": "Expired screenshot processing method",
-      "help": "The backup directory is the bak folder under the save directory (for commission rewards, under each instance folder)",
-      "delete": "Delete",
-      "zip": "Compress backup",
-      "copy": "Copy backup"
-    },
-    "ZipMethod": {
-      "name": "Compression format",
-      "help": "",
-      "bz2": "bz2",
-      "gzip": "gzip",
-      "xz": "xz",
-      "zip": "zip"
-    },
-    "AzurStatsID": {
-      "name": "AzurStat ID",
-      "help": "The client ID declared when uploading to https://azur-stats.lyoko.io\nComposed of random characters and can be modified at will"
-    },
-    "API": {
-      "name": "Upload route",
-      "help": "If users in China cannot connect to AzurStat, they can use \"China Reverse Proxy\"",
-      "default": "Default (Cloudflare)",
-      "cn_gz_reverse_proxy": "China Reverse Proxy (Guangzhou)"
-    },
     "ResearchRecord": {
       "name": "Research screenshot",
       "help": "",
       "do_not": "No action",
-      "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "save": "Save"
     },
     "CommissionRecord": {
       "name": "Commission screenshot",
       "help": "",
       "do_not": "No action",
-      "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
-    },
-    "CommissionIncomeScreenshot": {
-      "name": "Commission reward screenshot",
-      "help": "Save the \"GET ITEMS\" screenshot on each commission settlement for the \"View screenshot\" links on the statistics page\nWhen disabled, reward data is still recorded, only the images are skipped",
-      "do_not": "Do not save",
       "save": "Save"
     },
     "CombatRecord": {
@@ -1013,64 +958,70 @@
       "help": "Upload currently only takes effect on Meowfficer farming",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiMeowfficerFarming": {
       "name": "Meowfficer farming drop screenshot",
       "help": "Upload parses drops into the local statistics database, which the profit stats under the \"Meowfficer loot\" category rely on",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiDaily": {
       "name": "Operation Siren daily drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming\nCross-Month Daily shares this switch",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiObscure": {
       "name": "Obscured zone drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming\nArchive Coordinates shares this switch",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiAbyssal": {
       "name": "Abyssal zone drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming\nMonthly Boss shares this switch",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiStronghold": {
       "name": "Siren stronghold drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiExplore": {
       "name": "Monthly exploration drop screenshot",
       "help": "Its own switch for Monthly Exploration Plus, not shared with other tasks",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiOther": {
       "name": "Other Operation Siren drop screenshot",
       "help": "Fallback for Operation Siren tasks without a switch of their own\nUpload currently only takes effect on Meowfficer farming",
       "do_not": "No action",
       "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
+      "local": "local",
+      "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "DropRecord.OpsiShopRecord.name",
+      "help": "DropRecord.OpsiShopRecord.help",
+      "do_not": "do_not",
+      "save": "save"
     },
     "MeowfficerBuy": {
       "name": "Meowfficer purchase screenshot",
@@ -1082,31 +1033,7 @@
       "name": "Meowfficer talent screenshot",
       "help": "",
       "do_not": "No action",
-      "save": "Save",
-      "upload": "Upload",
-      "save_and_upload": "Save and upload"
-    },
-    "TelemetryReport": {
-      "name": "Telemetry data reporting",
-      "help": "After being enabled, CL1 statistics (anonymous data such as the number of battles and Akashi encounter probability) will be reported anonymously to the server on a regular basis. For details on ID generation, please see the source code. For statistical information https://alas.nanoda.work/"
-    },
-    "BugReport": {
-      "name": "Bug log reporting",
-      "help": "When enabled, bug logs will be anonymously reported to the server when an exception is encountered to help improve ID generation. See the source code for details."
-    }
-  },
-  "Backup": {
-    "_info": {
-      "name": "Daily backup",
-      "help": "Backs up the database and user configs when the scheduler starts for the first time each day. Backups are stored in the AzurPilot_Data_Backup folder inside the project directory."
-    },
-    "Enable": {
-      "name": "Enable daily backup",
-      "help": "When disabled, no new backup is created and existing backups are never deleted."
-    },
-    "KeepDays": {
-      "name": "Backup retention (days)",
-      "help": "Backups older than this many days are deleted after each backup completes. For example, 7 keeps only the most recent 7 days."
+      "save": "Save"
     }
   },
   "Log": {
@@ -1483,45 +1410,6 @@
     "UseHandoverBook": {
       "name": "Use handover book",
       "help": "Max out the invested Handover Books before starting"
-    },
-    "ConsumeAllBook": {
-      "name": "Consume all Handover Books",
-      "help": "Triggered once a week: max out Sorties → max out Handover Books → set Sorties to the number of books,\nso the whole stock of books is spent at once.\nOn the trigger day the Count option is ignored; with Count set to 0 the task only runs at the trigger time",
-      "True": "Enabled",
-      "False": "Disabled"
-    },
-    "ConsumeAllBookWeekday": {
-      "name": "Trigger day",
-      "help": "Trigger once a week on this day",
-      "mon": "Monday",
-      "tue": "Tuesday",
-      "wed": "Wednesday",
-      "thu": "Thursday",
-      "fri": "Friday",
-      "sat": "Saturday",
-      "sun": "Sunday"
-    },
-    "ConsumeAllBookTime": {
-      "name": "Trigger time",
-      "help": "Trigger at or after this time on the trigger day, format HH:MM, e.g. 12:00"
-    },
-    "MaintainOverride": {
-      "name": "Handover before maintenance",
-      "help": "Check the maintenance notice once a day. If the maintenance is today and has not started yet, this run is\npostponed to 10 minutes before it and then runs with max sorties (still respecting Use Handover Book and\nauto-supplement time). Past or non-today maintenance is ignored.\nData from api-blhx-maintain, fetched for your game server and converted to local time",
-      "True": "Enabled",
-      "False": "Disabled"
-    },
-    "OilLimit": {
-      "name": "Postpone if oil is below X",
-      "help": "Postpone the task while oil is below this value, resume when oil is enough\n0 to disable"
-    },
-    "ConsumeAllBookRecord": {
-      "name": "Last consume time",
-      "help": "When the Handover Books were last consumed.\nIf it falls in the current week, the weekly consume will not trigger again.\nClear it or set it to last week or earlier to let it run again this week"
-    },
-    "CommissionEnd": {
-      "name": "Commission end time",
-      "help": "Recorded by the script when starting a commission, used to know when to collect the reward"
     }
   },
   "StopCondition": {
@@ -1533,13 +1421,13 @@
       "name": "Delay when oil falls below X",
       "help": "Delay the task when oil is too low, continue sortie when oil is sufficient"
     },
-    "OilLimitHardFloor": {
-      "name": "Oil stop floor",
-      "help": "Actual stop threshold is max(floor, oil limit). 500 is a legacy safety net; lower it if you run low-cost maps and want to drain oil further. Set 0 to make oil limit take effect directly"
-    },
     "CoinLimit": {
       "name": "Delay when coins reach X",
       "help": "Delay the current task when coins are found to be at or above this number. The task will resume after coins drop below the limit.\n0 means no coin limit"
+    },
+    "CoinLimit_Enable": {
+      "name": "StopCondition.CoinLimit_Enable.name",
+      "help": "StopCondition.CoinLimit_Enable.help"
     },
     "RunCount": {
       "name": "Stop after sortie count exceeds X",
@@ -1748,10 +1636,6 @@
       "calculate": "Calculate morale consumption",
       "ignore": "Ignore low morale warning",
       "calculate_ignore": "Calculate morale + ignore low morale warning"
-    },
-    "IgnoreShipwreck": {
-      "name": "Ignore shipwreck morale penalty",
-      "help": "When enabled, the extra 10 morale penalty for sinking ships in battle (non-S rating) is no longer counted. Only effective when the morale mode includes \"Calculate morale consumption\"."
     },
     "Fleet1Value": {
       "name": "Fleet 1 morale value",
@@ -2208,22 +2092,6 @@
       "help": "To use a custom filter, set \"Event Shop Filter\" to \"Custom\" and read https://github.com/LmeSzinc/AzurLaneAutoScript/wiki/filter_string_cn"
     }
   },
-  "ShopAdvanced": {
-    "_info": {
-      "name": "Advanced shop strategy",
-      "help": "Generate a shop purchase plan with restricted Lua-style rules."
-    },
-    "Mode": {
-      "name": "Strategy mode",
-      "help": "Simple mode keeps the existing filter. Advanced mode uses the strategy script below.",
-      "legacy": "Simple",
-      "advanced": "Advanced"
-    },
-    "Script": {
-      "name": "Strategy script",
-      "help": "Only restricted Lua-style rules are supported. A validation error skips purchases for this run."
-    }
-  },
   "Commission": {
     "_info": {
       "name": "Commission",
@@ -2275,13 +2143,13 @@
       "name": "Run major commissions (1200/1000 oil)",
       "help": "The 1200 oil commission is now obsolete and the yield is very low. It is recommended to disable it."
     },
-    "CommissionNotifyReward": {
-      "name": "Commission reward push notification",
-      "help": "Push notification when receiving commission rewards (especially for gems)"
+    "NotifyReward": {
+      "name": "Commission.NotifyReward.name",
+      "help": "Commission.NotifyReward.help"
     },
-    "CommissionNotifyRewardStatistics": {
-      "name": "Include statistics in push",
-      "help": "Display today/week/month cumulative gem count in notification"
+    "NotifyRewardStatistics": {
+      "name": "Commission.NotifyRewardStatistics.name",
+      "help": "Commission.NotifyRewardStatistics.help"
     },
     "DetectShipDrop": {
       "name": "Detect ship drop",
@@ -2303,6 +2171,10 @@
       "today": "Today",
       "week": "This week",
       "month": "This month"
+    },
+    "CommissionNotifyRewardCube": {
+      "name": "Commission.CommissionNotifyRewardCube.name",
+      "help": "Commission.CommissionNotifyRewardCube.help"
     }
   },
   "Tactical": {
@@ -2621,22 +2493,6 @@
       "help": ""
     }
   },
-  "Awaken": {
-    "_info": {
-      "name": "Cognitive Awakening",
-      "help": "Cognitive Awaken all ships in the dock until Cognitive Chips are exhausted"
-    },
-    "LevelCap": {
-      "name": "Awaken to level cap",
-      "help": "",
-      "level120": "Level 120",
-      "level125": "Level 125"
-    },
-    "Favourite": {
-      "name": "Only awaken favorited ships",
-      "help": ""
-    }
-  },
   "Secretary": {
     "_info": {
       "name": "Secretary settings",
@@ -2649,10 +2505,6 @@
     "LowFavorabilityPriority": {
       "name": "Low favorability priority",
       "help": "Ships will be selected in ascending order of favorability"
-    },
-    "FavouriteOnly": {
-      "name": "Only pick from favorited ships",
-      "help": "When enabled, only ships marked as favourite in the dock are picked as secretary. Disable it to pick from all ships by rarity and favorability"
     },
     "BackupEnable": {
       "name": "Backup secretary",
@@ -2669,6 +2521,40 @@
     "OnePushConfig": {
       "name": "OnePush configuration",
       "help": "Notification settings for secretary replacement. Leave empty to use the global configuration"
+    }
+  },
+  "Awaken": {
+    "_info": {
+      "name": "Cognitive Awakening",
+      "help": "Cognitive Awaken all ships in the dock until Cognitive Chips are exhausted"
+    },
+    "LevelCap": {
+      "name": "Awaken to level cap",
+      "help": "",
+      "level120": "Level 120",
+      "level125": "Level 125"
+    },
+    "Favourite": {
+      "name": "Only awaken favorited ships",
+      "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "Report._info.name",
+      "help": "Report._info.help"
+    },
+    "Enable": {
+      "name": "Report.Enable.name",
+      "help": "Report.Enable.help"
+    },
+    "TriggerTime": {
+      "name": "Report.TriggerTime.name",
+      "help": "Report.TriggerTime.help"
+    },
+    "OnePushConfig": {
+      "name": "Report.OnePushConfig.name",
+      "help": "Report.OnePushConfig.help"
     }
   },
   "GeneralShop": {
@@ -3273,6 +3159,10 @@
       "help": "",
       "1": "1",
       "2": "2"
+    },
+    "UseRecommendFleet": {
+      "name": "Hard.UseRecommendFleet.name",
+      "help": "Hard.UseRecommendFleet.help"
     }
   },
   "Exercise": {
@@ -3719,7 +3609,10 @@
     },
     "ExecuteFixedPatrolScan": {
       "name": "Post-battle forced movement (efficiency mode)",
-      "help": "When enabled, after each battle ALAS cycles through fleets 1-4 and checks each radar for remaining question marks (switching fleets only, moving none), and handles Akashi / logging tower / Siren device if found. If that is not enough, it moves fleets one by one and rescans the whole map, with fixed destinations C1/D1/E1/F1 (only fit for the Hazard-1 map): if some fleet saw a question mark it could not reach (blocked / out of movement range) it moves right away; only when no fleet saw anything does it check the current action points, moving only when they are above 7, otherwise saving them for the next round. Default off. Meowfficer Farming does not use this; it only switches fleets and checks radars."
+      "help": "When enabled, after each battle ALAS cycles through fleets 1-4 and checks each radar for remaining question marks (switching fleets only, moving none), and handles Akashi / logging tower / Siren device if found. If that is not enough, it moves fleets one by one and rescans the whole map, with fixed destinations C1/D1/E1/F1 (only fit for the Hazard-1 map): if some fleet saw a question mark it could not reach (blocked / out of movement range) it moves right away; only when no fleet saw anything does it check the current action points, moving only when they are above 7, otherwise saving them for the next round. Default off. Meowfficer Farming does not use this; it only switches fleets and checks radars.",
+      "0": "0",
+      "1": "1",
+      "2": "2"
     },
     "SkipHpCheck": {
       "name": "Sacrifice run: skip HP check",
@@ -3814,6 +3707,12 @@
       "True": "Enabled",
       "False": "Disabled"
     },
+    "AnyShipReached": {
+      "name": "OpsiFleetAutoChange.AnyShipReached.name",
+      "help": "OpsiFleetAutoChange.AnyShipReached.help",
+      "True": "True",
+      "False": "False"
+    },
     "CooldownHours": {
       "name": "Cooldown hours",
       "help": "Cooldown period in hours after an auto-compose before the next one.",
@@ -3878,10 +3777,6 @@
       "name": "Replenishment task priority",
       "help": "The priority order of tasks for yellow coin replenishment when they are insufficient. Separated by >."
     },
-    "ObscureAbyssalCheckDelayDays": {
-      "name": "Obscure/Abyssal recheck delay (days)",
-      "help": "After all Obscure Zones and Abyssal Zones are cleared, Smart Scheduling delays their checks by the given number of days and skips them in the meantime to speed up coin replenishing. 0 checks every round. The Operation Siren monthly reset refreshes them, and checks resume after the reset."
-    },
     "MonthEndActionPointCleanupEnable": {
       "name": "Enable month-end action point cleanup",
       "help": "Whether to enable the month-end Action Point cleanup. When enabled, once the days remaining until the Operation Siren reset are at or below the \"Month-end Action Point Cleanup Days\" value, the month-end cleanup mode starts to consume Action Points.",
@@ -3901,6 +3796,21 @@
       "help": "Whether to buy from the Operation Siren shop during month-end Action Point cleanup. When disabled, the cleanup loop skips the shop purchase step.",
       "True": "Enabled",
       "False": "Disabled"
+    },
+    "BuyActionPointMode": {
+      "name": "OpsiScheduling.BuyActionPointMode.name",
+      "help": "OpsiScheduling.BuyActionPointMode.help",
+      "off": "off",
+      "hazard1_leveling": "hazard1_leveling",
+      "meowfficer_farming": "meowfficer_farming"
+    },
+    "BuyActionPointUpperThreshold": {
+      "name": "OpsiScheduling.BuyActionPointUpperThreshold.name",
+      "help": "OpsiScheduling.BuyActionPointUpperThreshold.help"
+    },
+    "BuyActionPointLowerThreshold": {
+      "name": "OpsiScheduling.BuyActionPointLowerThreshold.name",
+      "help": "OpsiScheduling.BuyActionPointLowerThreshold.help"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -3924,6 +3834,31 @@
       "help": "Keep running until current AP drops below this value."
     }
   },
+  "OpsiCrossMonth": {
+    "_info": {
+      "name": "OpsiCrossMonth._info.name",
+      "help": "OpsiCrossMonth._info.help"
+    },
+    "ActionPointCleanupEnable": {
+      "name": "OpsiCrossMonth.ActionPointCleanupEnable.name",
+      "help": "OpsiCrossMonth.ActionPointCleanupEnable.help"
+    },
+    "ActionPointPreserve": {
+      "name": "OpsiCrossMonth.ActionPointPreserve.name",
+      "help": "OpsiCrossMonth.ActionPointPreserve.help"
+    },
+    "PushNotify": {
+      "name": "OpsiCrossMonth.PushNotify.name",
+      "help": "OpsiCrossMonth.PushNotify.help"
+    },
+    "RehearsalDebug": {
+      "name": "OpsiCrossMonth.RehearsalDebug.name",
+      "help": "OpsiCrossMonth.RehearsalDebug.help",
+      "off": "off",
+      "cleanup": "cleanup",
+      "full": "full"
+    }
+  },
   "IslandPlan": {
     "_info": {
       "name": "Global config",
@@ -3936,6 +3871,116 @@
       "summer": "Summer",
       "autumn": "Autumn",
       "winter": "Winter"
+    },
+    "IntervalHours": {
+      "name": "IslandPlan.IntervalHours.name",
+      "help": "IslandPlan.IntervalHours.help"
+    },
+    "RespectSubTaskTimes": {
+      "name": "IslandPlan.RespectSubTaskTimes.name",
+      "help": "IslandPlan.RespectSubTaskTimes.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableAirDrop": {
+      "name": "IslandPlan.EnableAirDrop.name",
+      "help": "IslandPlan.EnableAirDrop.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyGather": {
+      "name": "IslandPlan.EnableDailyGather.name",
+      "help": "IslandPlan.EnableDailyGather.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableCargoPreparation": {
+      "name": "IslandPlan.EnableCargoPreparation.name",
+      "help": "IslandPlan.EnableCargoPreparation.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyOrder": {
+      "name": "IslandPlan.EnableDailyOrder.name",
+      "help": "IslandPlan.EnableDailyOrder.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyInteract": {
+      "name": "IslandPlan.EnableDailyInteract.name",
+      "help": "IslandPlan.EnableDailyInteract.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableFarm": {
+      "name": "IslandPlan.EnableFarm.name",
+      "help": "IslandPlan.EnableFarm.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableRancher": {
+      "name": "IslandPlan.EnableRancher.name",
+      "help": "IslandPlan.EnableRancher.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableMineForest": {
+      "name": "IslandPlan.EnableMineForest.name",
+      "help": "IslandPlan.EnableMineForest.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnablePearlSell": {
+      "name": "IslandPlan.EnablePearlSell.name",
+      "help": "IslandPlan.EnablePearlSell.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableManufacture": {
+      "name": "IslandPlan.EnableManufacture.name",
+      "help": "IslandPlan.EnableManufacture.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableRestaurant": {
+      "name": "IslandPlan.EnableRestaurant.name",
+      "help": "IslandPlan.EnableRestaurant.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableTeahouse": {
+      "name": "IslandPlan.EnableTeahouse.name",
+      "help": "IslandPlan.EnableTeahouse.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableGrill": {
+      "name": "IslandPlan.EnableGrill.name",
+      "help": "IslandPlan.EnableGrill.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableJuuEatery": {
+      "name": "IslandPlan.EnableJuuEatery.name",
+      "help": "IslandPlan.EnableJuuEatery.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableJuuCoffee": {
+      "name": "IslandPlan.EnableJuuCoffee.name",
+      "help": "IslandPlan.EnableJuuCoffee.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableBusiness": {
+      "name": "IslandPlan.EnableBusiness.name",
+      "help": "IslandPlan.EnableBusiness.help",
+      "True": "True",
+      "False": "False"
+    },
+    "TaskOrder": {
+      "name": "IslandPlan.TaskOrder.name",
+      "help": "IslandPlan.TaskOrder.help"
     }
   },
   "IslandFarm": {
@@ -6342,10 +6387,6 @@
     "RestartIntervalHours": {
       "name": "How often to restart (hours)",
       "help": "How many hours between emulator restarts."
-    },
-    "DeepRestartAfterFailures": {
-      "name": "Deep restart after N failures",
-      "help": "Once the emulator has failed to restart this many times in a row, switch to a deep restart: kill every MuMu process (including background services and the VM) and start over.\nA last-resort escape hatch for weak machines where normal restarts never come up.\nNote: a deep restart also kills any other MuMu instances you are running.\n0 disables it (restart the instance only). Default 0."
     }
   },
   "EmulatorManager": {
@@ -6542,9 +6583,46 @@
       "DisableTranslateMode": "Click here to turn off translation mode",
       "ConfigSaved": "Settings saved",
       "AlasIsRunning": "Scheduler is already running",
-      "ClickToUpdate": "Updates available!"
+      "ClickToUpdate": "Updates available!",
+      "ReloadEnabled": "Gui.Toast.ReloadEnabled",
+      "AlasRestart": "Gui.Toast.AlasRestart",
+      "RestartCancelled": "Gui.Toast.RestartCancelled",
+      "NoInstance": "Gui.Toast.NoInstance",
+      "NoInstanceSimulateIcon": "Gui.Toast.NoInstanceSimulateIcon",
+      "NoInstanceClearIcon": "Gui.Toast.NoInstanceClearIcon",
+      "NoInstanceSimulateError": "Gui.Toast.NoInstanceSimulateError",
+      "NoInstanceCrossMonth": "Gui.Toast.NoInstanceCrossMonth",
+      "NoInstanceNotifyTest": "Gui.Toast.NoInstanceNotifyTest",
+      "ErrorPopupShown": "Gui.Toast.ErrorPopupShown",
+      "NotifyUpdateTestSent": "Gui.Toast.NotifyUpdateTestSent",
+      "NotifyAnnouncementTestSent": "Gui.Toast.NotifyAnnouncementTestSent",
+      "NotifyErrorTestSent": "Gui.Toast.NotifyErrorTestSent",
+      "NotifyErrorTestFailed": "Gui.Toast.NotifyErrorTestFailed",
+      "CalculatorNotReady": "Gui.Toast.CalculatorNotReady",
+      "InvalidEventEndDate": "Gui.Toast.InvalidEventEndDate",
+      "NoShopFilterItems": "Gui.Toast.NoShopFilterItems",
+      "WallpaperNameRequired": "Gui.Toast.WallpaperNameRequired",
+      "NoWallpaperSource": "Gui.Toast.NoWallpaperSource",
+      "NoRemovableWallpaperSource": "Gui.Toast.NoRemovableWallpaperSource",
+      "WallpaperSourceReset": "Gui.Toast.WallpaperSourceReset",
+      "RandomWallpaperApplied": "Gui.Toast.RandomWallpaperApplied",
+      "NoAnnouncement": "Gui.Toast.NoAnnouncement",
+      "FetchingAnnouncement": "Gui.Toast.FetchingAnnouncement",
+      "TooManyPasswordAttempts": "Gui.Toast.TooManyPasswordAttempts",
+      "PasswordWrongRemaining": "Gui.Toast.PasswordWrongRemaining",
+      "IconSimulated": "Gui.Toast.IconSimulated",
+      "IconSimulationCleared": "Gui.Toast.IconSimulationCleared",
+      "WriteRecordFailed": "Gui.Toast.WriteRecordFailed",
+      "CrossMonthRequestFailed": "Gui.Toast.CrossMonthRequestFailed",
+      "CancelRehearsalFailed": "Gui.Toast.CancelRehearsalFailed",
+      "MediaTypeSwitched": "Gui.Toast.MediaTypeSwitched",
+      "WallpaperSourceAdded": "Gui.Toast.WallpaperSourceAdded",
+      "WallpaperSourceRemoved": "Gui.Toast.WallpaperSourceRemoved",
+      "CustomWallpaperApplied": "Gui.Toast.CustomWallpaperApplied",
+      "Unnamed": "Gui.Toast.Unnamed"
     },
     "Status": {
+      "Prefix": "Gui.Status.Prefix",
       "Running": "Secretary ship is processing",
       "Inactive": "Akashi is stealing your boxes",
       "Warning": "An error occurred",
@@ -6574,6 +6652,28 @@
       "UnderwaterFleet": "Underwater Fleets",
       "Fleet": "Fleet",
       "Ships": "Ships"
+    },
+    "MeowfficerScore": {
+      "Title": "Gui.MeowfficerScore.Title",
+      "Refresh": "Gui.MeowfficerScore.Refresh",
+      "Refreshing": "Gui.MeowfficerScore.Refreshing",
+      "OpenReport": "Gui.MeowfficerScore.OpenReport",
+      "EmptyTitle": "Gui.MeowfficerScore.EmptyTitle",
+      "EmptyHint": "Gui.MeowfficerScore.EmptyHint",
+      "Summary": "Gui.MeowfficerScore.Summary",
+      "Broken": "Gui.MeowfficerScore.Broken",
+      "Score": "Gui.MeowfficerScore.Score",
+      "Maxed": "Gui.MeowfficerScore.Maxed",
+      "Fixed": "Gui.MeowfficerScore.Fixed",
+      "AxisX": "Gui.MeowfficerScore.AxisX",
+      "AxisY": "Gui.MeowfficerScore.AxisY",
+      "NoHits": "Gui.MeowfficerScore.NoHits",
+      "OtherRubrics": "Gui.MeowfficerScore.OtherRubrics",
+      "Source": "Gui.MeowfficerScore.Source",
+      "Screenshot": "Gui.MeowfficerScore.Screenshot",
+      "PointsSpent": "Gui.MeowfficerScore.PointsSpent",
+      "Inferred": "Gui.MeowfficerScore.Inferred",
+      "Disclaimer": "Gui.MeowfficerScore.Disclaimer"
     },
     "MenuDevelop": {
       "HomePage": "Home",
@@ -6611,19 +6711,7 @@
       "Pending": "In queue",
       "Waiting": "Waiting",
       "NoTask": "No tasks",
-      "Stat": "Statistics",
-      "BackgroundCurrentDefault": "**Current**: Web (default)",
-      "BackgroundCurrentLocal": "**Current**: Local",
-      "BackgroundCurrentMixed": "**Current**: Mixed",
-      "BackgroundCurrentUrl": "**Current**: Web",
-      "BackgroundCustomUrls": "**Custom URLs**",
-      "BackgroundDirectLink": "Direct image link:",
-      "BackgroundExtractToLocal": "Extract to local",
-      "BackgroundLocalCount": "Local: {n}",
-      "BackgroundOpenFolder": "Open folder",
-      "BackgroundOpenInNewWindow": "Open this image in a new window",
-      "BackgroundTitle": "### Background Image",
-      "BackgroundUrlCount": "Resolved links: {n}"
+      "Stat": "Statistics"
     },
     "Dashboard": {
       "TimeError": "time error",
@@ -6699,7 +6787,11 @@
       "NewSuccess": "Added successfully",
       "Name": "Configuration name",
       "Mod": "Mod",
-      "Actions": "Actions"
+      "Actions": "Actions",
+      "StatusRunning": "Gui.AppManage.StatusRunning",
+      "StatusStopped": "Gui.AppManage.StatusStopped",
+      "StatusError": "Gui.AppManage.StatusError",
+      "StatusUpdating": "Gui.AppManage.StatusUpdating"
     },
     "Update": {
       "UpToDate": "Already the latest version",
@@ -6718,7 +6810,10 @@
       "Time": "Commit Time",
       "Message": "Commit Message",
       "DisabledWarn": "The update module is not enabled, you need to manually restart AzurPilot to update",
-      "DetailedHistory": "Detailed commit history"
+      "DetailedHistory": "Detailed commit history",
+      "Changelog": "Gui.Update.Changelog",
+      "ChangelogLoading": "Gui.Update.ChangelogLoading",
+      "ChangelogEmpty": "Gui.Update.ChangelogEmpty"
     },
     "Remote": {
       "Running": "Running",
@@ -6806,6 +6901,10 @@
       "CheckUpdateIntervalHelp": "Minutes between update checks. Use 0 to disable.",
       "AutoRestartTime": "Scheduled Restart Time",
       "AutoRestartTimeHelp": "Daily restart time when an update is available. Leave empty to disable.",
+      "HideUpdateNotice": "Gui.DeploySetting.HideUpdateNotice",
+      "HideUpdateNoticeHelp": "Gui.DeploySetting.HideUpdateNoticeHelp",
+      "HideAnnouncement": "Gui.DeploySetting.HideAnnouncement",
+      "HideAnnouncementHelp": "Gui.DeploySetting.HideAnnouncementHelp",
       "DiscordRichPresence": "Discord Rich Presence",
       "DiscordRichPresenceHelp": "Show AzurPilot status in Discord.",
       "EnableRemoteAccess": "Enable Remote Access",
@@ -6847,10 +6946,30 @@
       "WebuiSSLKey": "SSL Key File",
       "WebuiSSLKeyHelp": "SSL key path for WebUI HTTPS. Must be set together with the certificate.",
       "WebuiSSLCert": "SSL Certificate File",
-      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key.",
-      "DisableBranchWatermark": "Disable the unverified-build watermark",
-      "DisableBranchWatermarkHelp": "[The watermark is shown unless you tick this box]\n⚠ Do NOT enable this if you do not understand AzurPilot, or what branches such as master / dev mean.\n⚠ Do NOT enable this if you need to report a problem with screenshots or ask others for help: the watermark is the only clue telling which build you are actually running, and hiding it makes the problem impossible to locate.\nRestart AzurPilot for the change to take effect.",
-      "WatermarkHiddenNow": "Watermark hidden; refresh the page or restart AzurPilot to show it again."
+      "WebuiSSLCertHelp": "SSL certificate path for WebUI HTTPS. Must be set together with the key."
+    },
+    "LogExport": {
+      "Title": "Gui.LogExport.Title",
+      "InstanceLabel": "Gui.LogExport.InstanceLabel",
+      "RangeLabel": "Gui.LogExport.RangeLabel",
+      "RangeAll": "Gui.LogExport.RangeAll",
+      "RangeToday": "Gui.LogExport.RangeToday",
+      "RuntimeLog": "Gui.LogExport.RuntimeLog",
+      "ExportToday": "Gui.LogExport.ExportToday",
+      "Exporting": "Gui.LogExport.Exporting",
+      "ErrorLogs": "Gui.LogExport.ErrorLogs",
+      "ErrorLogsText": "Gui.LogExport.ErrorLogsText",
+      "Pending": "Gui.LogExport.Pending",
+      "Packing": "Gui.LogExport.Packing",
+      "Started": "Gui.LogExport.Started",
+      "Failed": "Gui.LogExport.Failed",
+      "NoInstance": "Gui.LogExport.NoInstance",
+      "NoRuntimeLog": "Gui.LogExport.NoRuntimeLog",
+      "Confirm": "Gui.LogExport.Confirm",
+      "ConfirmSize": "Gui.LogExport.ConfirmSize",
+      "ConfirmSizePlain": "Gui.LogExport.ConfirmSizePlain",
+      "InfoLoading": "Gui.LogExport.InfoLoading",
+      "NoFiles": "Gui.LogExport.NoFiles"
     },
     "StartupRun": {
       "Title": "Auto-run on Startup",
@@ -6866,9 +6985,6 @@
       "InvalidFeedBack": "Format error. Example: {0}",
       "Clear": "Clear",
       "RunNow": "Run Now",
-      "RunNowSchedulerStopped": "Scheduler is not running. Start it with the switch above or on the overview page.",
-      "RunNowTaskDisabled": "Task is not enabled. Turn on its scheduler before running now.",
-      "SchedulerQuickBar": "Scheduler",
       "EnterPassword": "Enter password",
       "ChooseFile": "Select file"
     },
@@ -6897,6 +7013,7 @@
       "LoadOpsiStatsFailed": "Failed to load OpSi stats: {e}",
       "LoadExpStatsFailed": "Failed to load EXP stats: {e}",
       "DailyExpCheckTitle": "Daily EXP Check",
+      "FoldShipDigest": "Gui.Stat.FoldShipDigest",
       "CheckTime": "Check time: {value}",
       "TargetLevel": "Target level: {value}",
       "ShipSlot": "Slot",
@@ -6933,22 +7050,30 @@
       "OpsiDataCollectionTitle": "Yukikaze OpSi-1 Data Collection",
       "MonthlyPurchasedAP": "Monthly purchased AP: {value}",
       "MeowDataCollectionTitle": "Meow Session Data",
+      "FoldMeowDigest": "Gui.Stat.FoldMeowDigest",
       "MeowRounds": "Meow Rounds",
       "AvgMeowRoundTime": "Avg Meow Round Time",
-      "MeowLootTitle": "Meow Session Loot",
+      "MeowLootTitleCurrent": "Gui.Stat.MeowLootTitleCurrent",
+      "MeowLootTitleHistory": "Gui.Stat.MeowLootTitleHistory",
+      "MeowLootHeaderItem": "Gui.Stat.MeowLootHeaderItem",
+      "MeowLootHeaderTotal": "Gui.Stat.MeowLootHeaderTotal",
+      "MeowLootHazardColumn": "Gui.Stat.MeowLootHazardColumn",
+      "MeowLootItemPlate": "Gui.Stat.MeowLootItemPlate",
+      "MeowLootItemGearDesign": "Gui.Stat.MeowLootItemGearDesign",
+      "MeowLootItemOrdnance": "Gui.Stat.MeowLootItemOrdnance",
+      "MeowLootItemObscure": "Gui.Stat.MeowLootItemObscure",
+      "MeowLootItemAbyssal": "Gui.Stat.MeowLootItemAbyssal",
+      "MeowLootItemCat": "Gui.Stat.MeowLootItemCat",
+      "MeowLootViewHistory": "Gui.Stat.MeowLootViewHistory",
+      "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
+      "MeowLootPickMonthTitle": "Gui.Stat.MeowLootPickMonthTitle",
+      "MeowLootNoHistoryMonth": "Gui.Stat.MeowLootNoHistoryMonth",
+      "MeowLootCurrentMonthOption": "Gui.Stat.MeowLootCurrentMonthOption",
       "NoMeowDataNotice": "No local Meowfficer farming loot data yet. It will be generated automatically after a run.",
       "RoundUnit": " rounds",
       "SecondUnit": "s",
       "HourUnit": "h",
       "MinuteUnit": "m",
-      "ExportModuleLoadFailed": "Export failed: cannot load stats module: {e}",
-      "CsvHeaderAkashiRate": "Akashi Rate (%)",
-      "CsvHeaderLoopEfficiency": "Loop Efficiency (%)",
-      "CsvHeaderMonthlyPurchasedAP": "Monthly Purchased AP",
-      "CsvFilenameTemplate": "opsi1_leveling_{month}_details.csv",
-      "SavedToDesktop": "Saved to desktop: {path}",
-      "SaveDesktopFailed": "Failed to save to desktop: {e}",
-      "ExportAndSaveDesktop": "Export and Save to Desktop",
       "NoShipExpData": "No ship EXP data. Run \"Daily EXP Check\" first.",
       "ShipExpProgressTitle": "Daily EXP Check: Detected Ship Levels and Progress",
       "LastCheckTime": "Last check time: {value}",
@@ -6975,57 +7100,87 @@
       "CommissionIncomeHeaderAvg": "Avg/Run",
       "CommissionIncomeTotalCommissions": "Total commissions: {value}",
       "CommissionIncomeRecentTitle": "Recent Commissions",
-      "ResourceChartTitle": "All Resources Trend",
-      "LoadResourceDataFailed": "Failed to load resource data: {e}",
-      "NoResourceData": "No resource data yet. It will be recorded automatically when the script runs.",
-      "NoValidResourceData": "No valid resource data",
-      "BackgroundBtn": "Background",
-      "ChartAp": "AP: ",
-      "ChartApLabel": "AP",
-      "ChartAsset": "Assets: ",
-      "ChartChange": "Change: ",
-      "ChartChangeLabel": "Change",
-      "ChartClose": "Close: ",
-      "ChartDelta": "Change: ",
-      "ChartDensity": "Point density: ",
-      "ChartDistance": "Distance: ",
-      "ChartHigh": "High: ",
-      "ChartLow": "Low: ",
-      "ChartMa10": "  MA10 (10-period avg): ",
-      "ChartMa5": "  MA5 (5-period avg): ",
-      "ChartMaxLabel": "Max",
-      "ChartMean": "Mean: ",
-      "ChartMeanLabel": "Mean",
-      "ChartMinLabel": "Min",
-      "ChartOpen": "Open: ",
-      "ChartPanelTitle": "AP Trend - {view}",
-      "ChartPurple": "Purple Coins: ",
-      "ChartResetBtn": "Reset",
-      "ChartSeriesAp": "AP",
-      "ChartSeriesAsset": "Assets",
-      "ChartSeriesDistance": "Distance",
-      "ChartSeriesPurple": "Purple Coins",
-      "ChartSeriesYellow": "Yellow Coins",
-      "ChartSource": "Source: ",
-      "ChartYellow": "Yellow Coins: ",
-      "ExtractAlreadyLocal": "The current background is already a local image; nothing to extract.",
-      "ExtractDone": "Extracted to bg/{sub}/{name}",
-      "ExtractFailed": "Extraction failed: {error}",
-      "ExtractHint": "Extraction only saves the file; it is not applied as background. Move it to bg/ to use it.",
-      "ExtractNoImage": "No background image available to extract.",
-      "ExtractNoImageData": "No image available to extract",
-      "ExtractRunning": "Extracting…",
-      "ExtractSkipped": "This image was already extracted: {name}",
-      "ExtractUnknownError": "Unknown error",
-      "MaterialAdvancedOnly": "Advanced material only",
-      "MaterialBlur": "Blur",
-      "MaterialCards": "Cards",
-      "MaterialReset": "Reset",
-      "MaterialTiles": "Tiles",
-      "MaterialTitle": "Interface Material",
-      "MaterialTransparency": "Opacity",
-      "Readme": "Put images in this folder to use them as WebUI backgrounds.\nSupported: {{exts}}\nIf there are several, one is picked at random.\n\nThe subfolder \"{{sub}}\" holds images downloaded via the Extract button in the UI.\nThey are kept separate from the images you add manually, and the UI labels the source of each image.\nThis file can be deleted; it does not affect functionality.\n",
-      "ScreenshotPreviewBtn": "Screenshot Preview"
+      "DeltaPeriodDay": "Gui.Stat.DeltaPeriodDay",
+      "DeltaPeriodWeek": "Gui.Stat.DeltaPeriodWeek",
+      "DeltaPeriodMonth": "Gui.Stat.DeltaPeriodMonth",
+      "DeltaPeriodTotal": "Gui.Stat.DeltaPeriodTotal",
+      "DeltaChartTitle": "Gui.Stat.DeltaChartTitle",
+      "DeltaSummaryTitle": "Gui.Stat.DeltaSummaryTitle",
+      "ConsumptionRankingTitle": "Gui.Stat.ConsumptionRankingTitle",
+      "DeltaResource": "Gui.Stat.DeltaResource",
+      "DeltaIncrease": "Gui.Stat.DeltaIncrease",
+      "DeltaDecrease": "Gui.Stat.DeltaDecrease",
+      "DeltaNet": "Gui.Stat.DeltaNet",
+      "DeltaTotalConsumed": "Gui.Stat.DeltaTotalConsumed",
+      "NoDeltaData": "Gui.Stat.NoDeltaData",
+      "LoadDeltaDataFailed": "Gui.Stat.LoadDeltaDataFailed",
+      "DeltaTimelineHint": "Gui.Stat.DeltaTimelineHint",
+      "DeltaTaskTimes": "Gui.Stat.DeltaTaskTimes",
+      "DeltaMore": "Gui.Stat.DeltaMore",
+      "PageTitle": "Gui.Stat.PageTitle",
+      "PageMeta": "Gui.Stat.PageMeta",
+      "SourceOk": "Gui.Stat.SourceOk",
+      "SourceStale": "Gui.Stat.SourceStale",
+      "SourceMissing": "Gui.Stat.SourceMissing",
+      "KpiCurrentAp": "Gui.Stat.KpiCurrentAp",
+      "KpiChange": "Gui.Stat.KpiChange",
+      "KpiRangeMax": "Gui.Stat.KpiRangeMax",
+      "KpiRangeMin": "Gui.Stat.KpiRangeMin",
+      "KpiAverage": "Gui.Stat.KpiAverage",
+      "ApChartTitle": "Gui.Stat.ApChartTitle",
+      "SeriesActionPoint": "Gui.Stat.SeriesActionPoint",
+      "SeriesYellowCoin": "Gui.Stat.SeriesYellowCoin",
+      "SeriesPurpleCoin": "Gui.Stat.SeriesPurpleCoin",
+      "SeriesAsset": "Gui.Stat.SeriesAsset",
+      "SeriesDistance": "Gui.Stat.SeriesDistance",
+      "MetricChange": "Gui.Stat.MetricChange",
+      "MetricMax": "Gui.Stat.MetricMax",
+      "MetricMin": "Gui.Stat.MetricMin",
+      "OpsiCardAkashi": "Gui.Stat.OpsiCardAkashi",
+      "OpsiCardCrane": "Gui.Stat.OpsiCardCrane",
+      "OpsiCardRate": "Gui.Stat.OpsiCardRate",
+      "OpsiCardBattleTime": "Gui.Stat.OpsiCardBattleTime",
+      "OpsiCardRound": "Gui.Stat.OpsiCardRound",
+      "OpsiCardNetRatio": "Gui.Stat.OpsiCardNetRatio",
+      "OpsiCardBought": "Gui.Stat.OpsiCardBought",
+      "OpsiCardSortieCost": "Gui.Stat.OpsiCardSortieCost",
+      "MeowLootYellowPerRound": "Gui.Stat.MeowLootYellowPerRound",
+      "MeowLootPlatePerRound": "Gui.Stat.MeowLootPlatePerRound",
+      "MeowLootAbyssalPerRound": "Gui.Stat.MeowLootAbyssalPerRound",
+      "MeowLootObscurePerRound": "Gui.Stat.MeowLootObscurePerRound",
+      "ShipExpAvgRound": "Gui.Stat.ShipExpAvgRound",
+      "ShipExpToday": "Gui.Stat.ShipExpToday",
+      "ShipExpTodayValue": "Gui.Stat.ShipExpTodayValue",
+      "ShipExpLastCheck": "Gui.Stat.ShipExpLastCheck",
+      "ShipExpTargetShort": "Gui.Stat.ShipExpTargetShort",
+      "ShipExpTodayShort": "Gui.Stat.ShipExpTodayShort",
+      "ShipExpSlotValue": "Gui.Stat.ShipExpSlotValue",
+      "ShipExpDone": "Gui.Stat.ShipExpDone",
+      "OpsiCardBattleUnit": "Gui.Stat.OpsiCardBattleUnit",
+      "OpsiCardCount": "Gui.Stat.OpsiCardCount",
+      "AuxFoldTitle": "Gui.Stat.AuxFoldTitle",
+      "MeowLootFoldTitle": "Gui.Stat.MeowLootFoldTitle",
+      "MeowLootFoldTitleHistory": "Gui.Stat.MeowLootFoldTitleHistory",
+      "MeowLootFoldDigest": "Gui.Stat.MeowLootFoldDigest",
+      "MeowLootDigestPart": "Gui.Stat.MeowLootDigestPart",
+      "MeowRoundDigest": "Gui.Stat.MeowRoundDigest",
+      "MeowLootEmptyNotice": "Gui.Stat.MeowLootEmptyNotice",
+      "TabOpsi": "Gui.Stat.TabOpsi",
+      "TabCommission": "Gui.Stat.TabCommission",
+      "TabResearch": "Gui.Stat.TabResearch",
+      "TabResearchBadge": "Gui.Stat.TabResearchBadge",
+      "TabResource": "Gui.Stat.TabResource",
+      "ResearchTitle": "Gui.Stat.ResearchTitle",
+      "ResearchDesc": "Gui.Stat.ResearchDesc",
+      "ResearchSlotProgress": "Gui.Stat.ResearchSlotProgress",
+      "ResearchSlotProgressDesc": "Gui.Stat.ResearchSlotProgressDesc",
+      "ResearchSlotQueue": "Gui.Stat.ResearchSlotQueue",
+      "ResearchSlotQueueDesc": "Gui.Stat.ResearchSlotQueueDesc",
+      "ResearchSlotCost": "Gui.Stat.ResearchSlotCost",
+      "ResearchSlotCostDesc": "Gui.Stat.ResearchSlotCostDesc",
+      "ResearchSlotPending": "Gui.Stat.ResearchSlotPending",
+      "ResearchEmptyTitle": "Gui.Stat.ResearchEmptyTitle",
+      "ResearchEmptyDesc": "Gui.Stat.ResearchEmptyDesc"
     },
     "Tactical": {
       "SkillAutoSwitch": "Skill Auto Switch"

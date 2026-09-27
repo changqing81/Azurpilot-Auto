@@ -66,6 +66,10 @@
       "name": "メインステージ-3Plus",
       "help": ""
     },
+    "OperationHandover": {
+      "name": "作戦委託契約",
+      "help": "作戦委託書を消費して、作戦委託を自動で行います。"
+    },
     "GemsFarming": {
       "name": "緊急委託Plus",
       "help": ""
@@ -189,10 +193,6 @@
     "Secretary": {
       "name": "秘書艦",
       "help": "秘書艦の好感度を自動で監視し、好感度が 90 に達すると自動で変更します"
-    },
-    "OperationHandover": {
-      "name": "作戦委託契約",
-      "help": "作戦委託書を消費して、作戦委託を自動で行います。"
     },
     "Daily": {
       "name": "デイリー任務",
@@ -374,13 +374,13 @@
       "name": "週間パール取引",
       "help": "minitouchのみ対応。毎週火曜日01:00にパールを自動処理：まず今週のパールを購入し、次に既存のパールを販売します。コインが200x220個分の購入に十分であることを確認してください。これが今週のパールを一括購入するための最低要件です。不足するとエラーが発生する可能性があります。"
     },
-    "FleetInfo": {
-      "name": "艦隊情報",
-      "help": "最新の艦隊スキャン結果を表示します"
-    },
     "FleetScan": {
       "name": "艦隊スキャン",
       "help": "艦隊に編成されている艦船をスキャンします"
+    },
+    "FleetInfo": {
+      "name": "艦隊情報",
+      "help": "最新の艦隊スキャン結果を表示します"
     },
     "Daemon": {
       "name": "半自動クリック",
@@ -589,7 +589,6 @@
       "en-3": "[EN] Washington",
       "en-4": "[EN] Amagi",
       "en-5": "[EN] Little Enterprise",
-      "en-6": "[EN] Belfast",
       "jp-0": "[JP] ブレスト",
       "jp-1": "[JP] 横須賀",
       "jp-2": "[JP] 佐世保",
@@ -607,12 +606,7 @@
       "jp-14": "[JP] キール",
       "jp-15": "[JP] 若松",
       "jp-16": "[JP] オデッサ",
-      "jp-17": "[JP] スイートバン",
-      "tw-0": "[TW] 珍珠港",
-      "tw-1": "[TW] 珊瑚海",
-      "tw-2": "[TW] 中途島",
-      "tw-3": "[TW] 瓜達康納爾",
-      "tw-4": "[TW] 雷伊泰灣"
+      "jp-17": "[JP] スイートバン"
     },
     "ScreenshotMethod": {
       "name": "スクリーンショット方式を選択",
@@ -626,8 +620,7 @@
       "DroidCast": "DroidCast",
       "DroidCast_raw": "DroidCast_raw",
       "nemu_ipc": "nemu_ipc",
-      "ldopengl": "ldopengl",
-      "azurpilot_android": "AzurPilot Android 仮想ディスプレイ"
+      "ldopengl": "ldopengl"
     },
     "ControlMethod": {
       "name": "コントロール方式を選択",
@@ -636,9 +629,7 @@
       "uiautomator2": "uiautomator2",
       "minitouch": "minitouch",
       "Hermit": "Hermit",
-      "MaaTouch": "MaaTouch",
-      "nemu_ipc": "nemu_ipc",
-      "azurpilot_android": "AzurPilot Android 仮想ディスプレイ"
+      "MaaTouch": "MaaTouch"
     },
     "GameSettings": {
       "name": "推奨ゲーム設定を自動適用",
@@ -738,24 +729,9 @@
       "name": "機密タスクでエラー発生時の再起動を禁止する",
       "help": "機密タスク実行中にエラーが発生した場合、ゲームを再起動せずにAzurPilotを停止します\n機密タスクには隠秘海域、深淵海域、月跨ぎデイリーなどが含まれます"
     },
-    "SaveErrorRetentionDays": {
-      "name": "エラーログの有効期限 (日)",
-      "help": "この日数を超えたエラー現場は以下の方法で処理します\n0 = 保存し続ける"
-    },
-    "SaveErrorBackUpMethod": {
-      "name": "期限切れエラーログの処理方法",
-      "help": "バックアップディレクトリは./log/error/<インスタンス名>/bakです。",
-      "delete": "消去",
-      "zip": "バックアップを圧縮する",
-      "copy": "バックアップをコピーする"
-    },
-    "SaveErrorZipMethod": {
-      "name": "圧縮形式",
-      "help": "",
-      "bz2": "BZ2",
-      "gzip": "gzip",
-      "xz": "xz",
-      "zip": "ZIP"
+    "SaveErrorCount": {
+      "name": "Error.SaveErrorCount.name",
+      "help": "Error.SaveErrorCount.help"
     },
     "OnePushConfig": {
       "name": "プッシュ通知設定",
@@ -781,26 +757,6 @@
       "name": "デバイス未検出からX秒後に再起動",
       "help": "デバイスが連続して検出できなかった回数に応じて、再起動がトリガーされます。"
     },
-    "WatchdogEnable": {
-      "name": "watchdog マスタースイッチ",
-      "help": "watchdog って何？バックグラウンドでこっそり見張ってるボディガードです。オンにすると以下のチェックが有効になり、オフにすると何もしなくなります。デフォルトはオフ。"
-    },
-    "WatchdogTaskEnable": {
-      "name": "タスクが長引いたら自動再起動",
-      "help": "オンにすると、タスクが長く動きすぎた時（スキップできないストーリーに引っかかった、地図の経路探索ループなど）、エミュレータを強制再起動して中断します。\n上のマスタースイッチをオンにする必要があります。デフォルトはオフ。"
-    },
-    "WatchdogTaskTimeout": {
-      "name": "タスクが何分でスタック判定（分）",
-      "help": "何分。タスクがこの時間を超えて動いたらスタックとみなし、エミュレータを強制再起動します。\n0 = 判定しない；99999 = ほぼ永遠に判定しない。\nデフォルト 120 分（2 時間）。"
-    },
-    "RestartOperationTimeoutEnable": {
-      "name": "ゲーム再起動タイムアウト保護",
-      "help": "オンにすると、ゲーム再起動時のあるステップ（ゲーム停止/起動）が下の時間以上に引っかかった場合、エミュレータが死んだとみなしてエミュレータを再起動します。\nオフの場合このチェックをしません。\nデフォルトはオフ。"
-    },
-    "RestartOperationTimeout": {
-      "name": "ゲーム再起動が何秒でスタック判定（秒）",
-      "help": "ゲーム再起動時、ゲーム停止や起動がこの秒数以上引っかかったら、エミュレータが死んだとみなしてエミュレータを再起動します。\n上の「ゲーム再起動タイムアウト保護」をオンにする必要があります。\nデフォルト 120 秒。"
-    },
     "LlmAnalysis": {
       "name": "LLMエラー分析を有効にする",
       "help": "未処理の例外が発生した際、LLMを使用してエラー原因を分析し改善提案を提供します。"
@@ -818,20 +774,48 @@
       "help": "購入済みサービスで利用できるモデル名を入力してください。利用可能な名称は https://platform.deepseek.com/ または https://platform.xiaomimimo.com/ の表示に従ってください。"
     }
   },
-  "DailySummary": {
+  "TaskFailureProtection": {
     "_info": {
-      "name": "日次サマリー",
-      "help": "設定した時刻に日次の実行サマリーを生成してプッシュ通知します。先にデバッグ設定で OnePush と LLM を設定してください。"
+      "name": "TaskFailureProtection._info.name",
+      "help": "TaskFailureProtection._info.help"
     },
     "Enable": {
-      "name": "日次サマリーを有効にする",
-      "help": "有効にすると、設定した時刻に AzurPilot が当日の実行サマリーを生成してプッシュ通知します。",
-      "True": "有効",
-      "False": "無効"
+      "name": "TaskFailureProtection.Enable.name",
+      "help": "TaskFailureProtection.Enable.help",
+      "True": "True",
+      "False": "False"
     },
-    "TriggerTime": {
-      "name": "生成時刻",
-      "help": "ゲームサーバーのタイムゾーンでレポートを生成する時刻です。20:00 のように HH:MM 形式で入力してください。"
+    "PushNotify": {
+      "name": "TaskFailureProtection.PushNotify.name",
+      "help": "TaskFailureProtection.PushNotify.help",
+      "True": "True",
+      "False": "False"
+    },
+    "MaxFailures": {
+      "name": "TaskFailureProtection.MaxFailures.name",
+      "help": "TaskFailureProtection.MaxFailures.help"
+    },
+    "TimeWindowHours": {
+      "name": "TaskFailureProtection.TimeWindowHours.name",
+      "help": "TaskFailureProtection.TimeWindowHours.help"
+    },
+    "WatchdogEnable": {
+      "name": "TaskFailureProtection.WatchdogEnable.name",
+      "help": "TaskFailureProtection.WatchdogEnable.help",
+      "True": "True",
+      "False": "False"
+    },
+    "WatchdogLogTimeout": {
+      "name": "TaskFailureProtection.WatchdogLogTimeout.name",
+      "help": "TaskFailureProtection.WatchdogLogTimeout.help"
+    },
+    "WatchdogTaskTimeout": {
+      "name": "TaskFailureProtection.WatchdogTaskTimeout.name",
+      "help": "TaskFailureProtection.WatchdogTaskTimeout.help"
+    },
+    "RestartOperationTimeout": {
+      "name": "TaskFailureProtection.RestartOperationTimeout.name",
+      "help": "TaskFailureProtection.RestartOperationTimeout.help"
     }
   },
   "Optimization": {
@@ -951,55 +935,16 @@
       "name": "ドロップ保存ディレクトリ",
       "help": ""
     },
-    "RetentionDays": {
-      "name": "スクリーンショット保存日数",
-      "help": "ドロップレコードのスクリーンショットがこの日数を超えると、以下の方法で処理します\n0 = 日数による処理を行わない（委託報酬のスクリーンショットは最新50枚のみ保持）"
-    },
-    "BackUpMethod": {
-      "name": "期限切れスクリーンショットの処理方法",
-      "help": "バックアップ先は保存ディレクトリ内の bak フォルダーです。",
-      "delete": "消去",
-      "zip": "バックアップを圧縮する",
-      "copy": "バックアップをコピーする"
-    },
-    "ZipMethod": {
-      "name": "圧縮形式",
-      "help": "",
-      "bz2": "BZ2",
-      "gzip": "gzip",
-      "xz": "xz",
-      "zip": "ZIP"
-    },
-    "AzurStatsID": {
-      "name": "AzurStat ID",
-      "help": "https://azur-stats.lyko.io にアップロードするときに宣言されたクライアント ID\nランダムな文字で構成され、自由に変更できます"
-    },
-    "API": {
-      "name": "アップロードライン",
-      "help": "国内ユーザーがAzurStatに接続できない場合は、「国内リバースプロキシ」を使用できます。",
-      "default": "デフォルト (Cloudflare)",
-      "cn_gz_reverse_proxy": "国内リバースプロキシ（広州）"
-    },
     "ResearchRecord": {
       "name": "科研スクリーンショット",
       "help": "",
       "do_not": "アクションなし",
-      "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "save": "保存"
     },
     "CommissionRecord": {
       "name": "委託スクリーンショット",
       "help": "",
       "do_not": "アクションなし",
-      "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
-    },
-    "CommissionIncomeScreenshot": {
-      "name": "委託報酬スクリーンショット",
-      "help": "委託精算時に「アイテム入手」のスクリーンショットを保存し、統計ページの「スクリーンショットを見る」で使用します\nオフにしても報酬データは記録され、画像のみ保存されません",
-      "do_not": "保存しない",
       "save": "保存"
     },
     "CombatRecord": {
@@ -1013,64 +958,70 @@
       "help": "「アップロード」は現在短猫相接でのみ有効です",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiMeowfficerFarming": {
       "name": "短猫相接ドロップスクリーンショット",
       "help": "「アップロード」はドロップをローカル統計データベースに解析します。統計ページ「オフニャドロップ」の収益統計はこれを利用します",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiDaily": {
       "name": "セイレーン作戦デイリードロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です\n月跨ぎデイリーがこのスイッチを共有します",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiObscure": {
       "name": "隠秘海域ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です\nアーカイブ座標がこのスイッチを共有します",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiAbyssal": {
       "name": "深淵海域ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です\nマンスリーボスがこのスイッチを共有します",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiStronghold": {
       "name": "セイレーン要塞ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiExplore": {
       "name": "月間開拓ドロップスクリーンショット",
       "help": "月間開拓Plus 専用の記録スイッチで、他のタスクとは共有しません",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
     },
     "OpsiOther": {
       "name": "その他セイレーン作戦ドロップスクリーンショット",
       "help": "専用スイッチのないタスクをまとめて扱います\n「アップロード」は現在短猫相接でのみ有効です",
       "do_not": "アクションなし",
       "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
+      "local": "local",
+      "save_and_local": "save_and_local"
+    },
+    "OpsiShopRecord": {
+      "name": "DropRecord.OpsiShopRecord.name",
+      "help": "DropRecord.OpsiShopRecord.help",
+      "do_not": "do_not",
+      "save": "save"
     },
     "MeowfficerBuy": {
       "name": "オフニャ購入スクリーンショット",
@@ -1082,31 +1033,7 @@
       "name": "オフニャ天賦スクリーンショット",
       "help": "",
       "do_not": "アクションなし",
-      "save": "保存",
-      "upload": "アップロード",
-      "save_and_upload": "保存してアップロードする"
-    },
-    "TelemetryReport": {
-      "name": "テレメトリーデータレポート",
-      "help": "有効にすると、CL1の統計情報（戦闘回数や明石遭遇確率などの匿名データ）が定期的にサーバーに匿名で報告されます。 ID生成の詳細についてはソースコードを参照してください。統計情報については https://alas.nanoda.work/"
-    },
-    "BugReport": {
-      "name": "バグログレポート",
-      "help": "有効にすると、例外が発生したときにバグ ログが匿名でサーバーに報告され、ID 生成の改善に役立ちます。詳細についてはソースコードを参照してください。"
-    }
-  },
-  "Backup": {
-    "_info": {
-      "name": "毎日バックアップ",
-      "help": "毎日最初にスケジューラを起動したとき、データベースとユーザー設定をプロジェクトのルートディレクトリにある AzurPilot_Data_Backup フォルダへ自動でバックアップします。"
-    },
-    "Enable": {
-      "name": "毎日バックアップを有効にする",
-      "help": "オフにすると新しいバックアップを作成せず、既存のバックアップも削除しません。"
-    },
-    "KeepDays": {
-      "name": "バックアップの保存日数",
-      "help": "この日数を超えたバックアップは、バックアップ完了後に自動で削除されます。例えば 7 なら直近 7 日分だけを保持します。"
+      "save": "保存"
     }
   },
   "Log": {
@@ -1483,45 +1410,6 @@
     "UseHandoverBook": {
       "name": "作戦全権委託書を使用",
       "help": "委託開始前に委託書の投入量を最大にします"
-    },
-    "ConsumeAllBook": {
-      "name": "作戦全権委託書を一括消費",
-      "help": "週に一度だけ実行：作戦回数を最大 → 委託書を最大 → 委託書の数を作戦回数に設定し、\n在庫の委託書を一度に使い切ります。\n実行日は「委託回数」の設定を無視します。委託回数が 0 のときは実行時刻にだけ動きます",
-      "True": "有効",
-      "False": "無効"
-    },
-    "ConsumeAllBookWeekday": {
-      "name": "一括消費の曜日",
-      "help": "週に一度、この曜日に実行します",
-      "mon": "月曜日",
-      "tue": "火曜日",
-      "wed": "水曜日",
-      "thu": "木曜日",
-      "fri": "金曜日",
-      "sat": "土曜日",
-      "sun": "日曜日"
-    },
-    "ConsumeAllBookTime": {
-      "name": "一括消費の時刻",
-      "help": "実行日のこの時刻以降に実行します。形式 HH:MM（例 12:00）"
-    },
-    "MaintainOverride": {
-      "name": "メンテナンス前の作戦委託",
-      "help": "毎日メンテナンス告知を確認します。今日メンテナンスがあり、まだ始まっていない場合は、\nこの実行をメンテナンス 10 分前に回し、作戦回数を最大にして最後の一回を実行します\n（「作戦全権委託書を使用」「時間の自動補充」の影響は受けます）。\n過去の日付や今日でない場合は通常どおり動作します。\nデータ元 api-blhx-maintain（プレイ中のサーバーの告知を取得し、現地時間に換算します）",
-      "True": "有効",
-      "False": "無効"
-    },
-    "OilLimit": {
-      "name": "燃料が X 未満なら延期",
-      "help": "燃料がこの値より少ない間はタスクを延期し、足りたら再開します\n0 で無効"
-    },
-    "ConsumeAllBookRecord": {
-      "name": "前回の一括消費時刻",
-      "help": "前回「作戦全権委託書」を一括消費した時刻です。\n今週内であれば今週は再実行しません。\n空にするか先週以前にすると、今週もう一度実行できます"
-    },
-    "CommissionEnd": {
-      "name": "委託の終了予定時刻",
-      "help": "委託開始時にスクリプトが記録し、報酬を受け取りに戻る時刻の判断に使います"
     }
   },
   "StopCondition": {
@@ -1533,13 +1421,13 @@
       "name": "燃料がX以下になったら延期",
       "help": "燃料が少なすぎる場合はタスクを延期し、燃料が十分になったら出撃を続行します"
     },
-    "OilLimitHardFloor": {
-      "name": "石油停止下限",
-      "help": "実際の停止しきい値は max(下限, 石油上限) です。500 は歴史的な安全網であり、低消費周回でさらに石油を使い切りたい場合は小さくしてください。0 にすると石油上限がそのまま有効になります"
-    },
     "CoinLimit": {
       "name": "物資がXに達したら延期",
       "help": "物資がこの数値以上になった場合、現在のタスクを延期します。物資が上限を下回ったら出撃を再開します。\n0は物資制限なしを意味します"
+    },
+    "CoinLimit_Enable": {
+      "name": "StopCondition.CoinLimit_Enable.name",
+      "help": "StopCondition.CoinLimit_Enable.help"
     },
     "RunCount": {
       "name": "出撃回数がXを超えると停止する",
@@ -1748,10 +1636,6 @@
       "calculate": "コンディション消費を計算する",
       "ignore": "赤顔出撃警告を無視する",
       "calculate_ignore": "コンディション消費を計算 + 赤顔出撃警告を無視"
-    },
-    "IgnoreShipwreck": {
-      "name": "轟沈コンディションペナルティを無視",
-      "help": "有効にすると、戦闘中に艦船が轟沈した場合（S 評価以外）の追加 10 コンディション減少を計上しません。「コンディション消費を計算する」が有効な場合のみ機能します。"
     },
     "Fleet1Value": {
       "name": "第一艦隊コンディション値",
@@ -2208,22 +2092,6 @@
       "help": "カスタムフィルターを使用するには「イベントショップフィルター」を「カスタム」に設定し、https://github.com/LmeSzinc/AzurLaneAutoScript/wiki/filter_string_cn を参照してください。"
     }
   },
-  "ShopAdvanced": {
-    "_info": {
-      "name": "高度なショップ戦略",
-      "help": "制限付き Lua 風ルールでショップ購入計画を作成します。"
-    },
-    "Mode": {
-      "name": "戦略モード",
-      "help": "シンプルモードは既存フィルターを使用します。高度なモードでは下の戦略スクリプトを使用します。",
-      "legacy": "シンプル",
-      "advanced": "高度"
-    },
-    "Script": {
-      "name": "戦略スクリプト",
-      "help": "制限付き Lua 風ルールのみ対応します。検証に失敗した場合、この実行では購入しません。"
-    }
-  },
   "Commission": {
     "_info": {
       "name": "軍事委託",
@@ -2275,13 +2143,13 @@
       "name": "主要委託を実行する（1200燃料/1000燃料委託）",
       "help": "1200燃料委託は現在では廃止されており、収益が非常に低いです。オフにすることをお勧めします。"
     },
-    "CommissionNotifyReward": {
-      "name": "委託報酬プッシュ通知",
-      "help": "委託報酬獲得時に通知を送信（特にダイヤ報酬）"
+    "NotifyReward": {
+      "name": "Commission.NotifyReward.name",
+      "help": "Commission.NotifyReward.help"
     },
-    "CommissionNotifyRewardStatistics": {
-      "name": "通知に統計情報を含める",
-      "help": "通知に今日/週間/月間の累積ダイヤ数を表示"
+    "NotifyRewardStatistics": {
+      "name": "Commission.NotifyRewardStatistics.name",
+      "help": "Commission.NotifyRewardStatistics.help"
     },
     "DetectShipDrop": {
       "name": "艦船ドロップを検出",
@@ -2303,6 +2171,10 @@
       "today": "本日",
       "week": "今週",
       "month": "今月"
+    },
+    "CommissionNotifyRewardCube": {
+      "name": "Commission.CommissionNotifyRewardCube.name",
+      "help": "Commission.CommissionNotifyRewardCube.help"
     }
   },
   "Tactical": {
@@ -2621,22 +2493,6 @@
       "help": ""
     }
   },
-  "Awaken": {
-    "_info": {
-      "name": "認知覚醒",
-      "help": "認知覚醒でドック内の全艦船をメンタルユニットが尽きるまで覚醒させます"
-    },
-    "LevelCap": {
-      "name": "レベル上限まで覚醒する",
-      "help": "",
-      "level120": "120レベル",
-      "level125": "125レベル"
-    },
-    "Favourite": {
-      "name": "常用艦船のみ覚醒する",
-      "help": ""
-    }
-  },
   "Secretary": {
     "_info": {
       "name": "秘書艦設定",
@@ -2649,10 +2505,6 @@
     "LowFavorabilityPriority": {
       "name": "低好感度優先",
       "help": "好感度が低い順に秘書艦を選択します"
-    },
-    "FavouriteOnly": {
-      "name": "常用艦船のみから選択",
-      "help": "有効にすると、ドックで「常用」に登録した艦船の中からのみ秘書艦を選びます。無効にすると、全ての艦船からレアリティと好感度順に選びます"
     },
     "BackupEnable": {
       "name": "予備秘書艦",
@@ -2669,6 +2521,40 @@
     "OnePushConfig": {
       "name": "OnePush 設定",
       "help": "秘書艦変更通知用の設定です。空欄の場合はグローバル設定を使用します"
+    }
+  },
+  "Awaken": {
+    "_info": {
+      "name": "認知覚醒",
+      "help": "認知覚醒でドック内の全艦船をメンタルユニットが尽きるまで覚醒させます"
+    },
+    "LevelCap": {
+      "name": "レベル上限まで覚醒する",
+      "help": "",
+      "level120": "120レベル",
+      "level125": "125レベル"
+    },
+    "Favourite": {
+      "name": "常用艦船のみ覚醒する",
+      "help": ""
+    }
+  },
+  "Report": {
+    "_info": {
+      "name": "Report._info.name",
+      "help": "Report._info.help"
+    },
+    "Enable": {
+      "name": "Report.Enable.name",
+      "help": "Report.Enable.help"
+    },
+    "TriggerTime": {
+      "name": "Report.TriggerTime.name",
+      "help": "Report.TriggerTime.help"
+    },
+    "OnePushConfig": {
+      "name": "Report.OnePushConfig.name",
+      "help": "Report.OnePushConfig.help"
     }
   },
   "GeneralShop": {
@@ -3273,6 +3159,10 @@
       "help": "",
       "1": "1",
       "2": "2"
+    },
+    "UseRecommendFleet": {
+      "name": "Hard.UseRecommendFleet.name",
+      "help": "Hard.UseRecommendFleet.help"
     }
   },
   "Exercise": {
@@ -3719,7 +3609,10 @@
     },
     "ExecuteFixedPatrolScan": {
       "name": "戦後の強制移動（効率モード）",
-      "help": "有効にすると、戦後に艦隊1〜4のレーダーを順に見て残りの「?」を探し（艦隊を切り替えるだけで、どの艦隊も動かしません）、明石/記録塔/装置が見つかればそのまま処理します。それでも足りない場合は、艦隊を1隻ずつ動かしてマップ全体を再走査します。移動先は固定の C1/D1/E1/F1 で、侵蝕1 のマップ専用です：問号が見えているのに到達できない艦隊がある場合（遮られている／移動範囲外）はそのまま動かします。全艦隊のレーダーに手がかりがない場合のみ、画面上の現在の行動力を確認し、7 より多いときだけ動かし、そうでなければ次ラウンドに残します。既定値はオフ。短猫相接はこの仕組みを使わず、艦隊を切り替えてレーダーを見るだけです。"
+      "help": "有効にすると、戦後に艦隊1〜4のレーダーを順に見て残りの「?」を探し（艦隊を切り替えるだけで、どの艦隊も動かしません）、明石/記録塔/装置が見つかればそのまま処理します。それでも足りない場合は、艦隊を1隻ずつ動かしてマップ全体を再走査します。移動先は固定の C1/D1/E1/F1 で、侵蝕1 のマップ専用です：問号が見えているのに到達できない艦隊がある場合（遮られている／移動範囲外）はそのまま動かします。全艦隊のレーダーに手がかりがない場合のみ、画面上の現在の行動力を確認し、7 より多いときだけ動かし、そうでなければ次ラウンドに残します。既定値はオフ。短猫相接はこの仕組みを使わず、艦隊を切り替えてレーダーを見るだけです。",
+      "0": "0",
+      "1": "1",
+      "2": "2"
     },
     "SkipHpCheck": {
       "name": "HPチェックをスキップ",
@@ -3814,6 +3707,12 @@
       "True": "有効",
       "False": "無効"
     },
+    "AnyShipReached": {
+      "name": "OpsiFleetAutoChange.AnyShipReached.name",
+      "help": "OpsiFleetAutoChange.AnyShipReached.help",
+      "True": "True",
+      "False": "False"
+    },
     "CooldownHours": {
       "name": "クールダウン時間（時間）",
       "help": "自動編成後のクールダウン時間。頻繁なトリガーを回避します。",
@@ -3878,10 +3777,6 @@
       "name": "作戦コイン補充優先度",
       "help": "作戦コイン（黄）が不足している場合、作戦コイン補充任務の実行優先順位。> で区切ります。"
     },
-    "ObscureAbyssalCheckDelayDays": {
-      "name": "隠秘・深淵再チェック日数",
-      "help": "隠秘海域と深淵座標を使い切った後、スマートスケジュールは指定した日数の間チェックをスキップし、補給コイン獲得の流れを速めます。0 で毎回チェック。大世界リセットで更新されるため、リセット後は通常どおりチェックします。"
-    },
     "MonthEndActionPointCleanupEnable": {
       "name": "月末の行動力クリーンアップを有効にする",
       "help": "月末の行動力クリーンアップ機能を有効にするかどうか。有効にすると、大世界リセットまでの残り日数が「月末クリーンアップ日数」以下になった時点で、月末クリーンアップモードを開始して行動力を消費します。",
@@ -3901,6 +3796,21 @@
       "help": "月末クリーンアップ時に大世界商店の購入を実行するかどうか。オフにすると、月末クリーンアップのループで商店購入ステップをスキップします。",
       "True": "オン",
       "False": "オフ"
+    },
+    "BuyActionPointMode": {
+      "name": "OpsiScheduling.BuyActionPointMode.name",
+      "help": "OpsiScheduling.BuyActionPointMode.help",
+      "off": "off",
+      "hazard1_leveling": "hazard1_leveling",
+      "meowfficer_farming": "meowfficer_farming"
+    },
+    "BuyActionPointUpperThreshold": {
+      "name": "OpsiScheduling.BuyActionPointUpperThreshold.name",
+      "help": "OpsiScheduling.BuyActionPointUpperThreshold.help"
+    },
+    "BuyActionPointLowerThreshold": {
+      "name": "OpsiScheduling.BuyActionPointLowerThreshold.name",
+      "help": "OpsiScheduling.BuyActionPointLowerThreshold.help"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -3924,6 +3834,31 @@
       "help": "現在行動力がこの値を下回るまで実行を続けます"
     }
   },
+  "OpsiCrossMonth": {
+    "_info": {
+      "name": "OpsiCrossMonth._info.name",
+      "help": "OpsiCrossMonth._info.help"
+    },
+    "ActionPointCleanupEnable": {
+      "name": "OpsiCrossMonth.ActionPointCleanupEnable.name",
+      "help": "OpsiCrossMonth.ActionPointCleanupEnable.help"
+    },
+    "ActionPointPreserve": {
+      "name": "OpsiCrossMonth.ActionPointPreserve.name",
+      "help": "OpsiCrossMonth.ActionPointPreserve.help"
+    },
+    "PushNotify": {
+      "name": "OpsiCrossMonth.PushNotify.name",
+      "help": "OpsiCrossMonth.PushNotify.help"
+    },
+    "RehearsalDebug": {
+      "name": "OpsiCrossMonth.RehearsalDebug.name",
+      "help": "OpsiCrossMonth.RehearsalDebug.help",
+      "off": "off",
+      "cleanup": "cleanup",
+      "full": "full"
+    }
+  },
   "IslandPlan": {
     "_info": {
       "name": "アイランド計画グローバル",
@@ -3936,6 +3871,116 @@
       "summer": "夏",
       "autumn": "秋",
       "winter": "冬"
+    },
+    "IntervalHours": {
+      "name": "IslandPlan.IntervalHours.name",
+      "help": "IslandPlan.IntervalHours.help"
+    },
+    "RespectSubTaskTimes": {
+      "name": "IslandPlan.RespectSubTaskTimes.name",
+      "help": "IslandPlan.RespectSubTaskTimes.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableAirDrop": {
+      "name": "IslandPlan.EnableAirDrop.name",
+      "help": "IslandPlan.EnableAirDrop.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyGather": {
+      "name": "IslandPlan.EnableDailyGather.name",
+      "help": "IslandPlan.EnableDailyGather.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableCargoPreparation": {
+      "name": "IslandPlan.EnableCargoPreparation.name",
+      "help": "IslandPlan.EnableCargoPreparation.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyOrder": {
+      "name": "IslandPlan.EnableDailyOrder.name",
+      "help": "IslandPlan.EnableDailyOrder.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableDailyInteract": {
+      "name": "IslandPlan.EnableDailyInteract.name",
+      "help": "IslandPlan.EnableDailyInteract.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableFarm": {
+      "name": "IslandPlan.EnableFarm.name",
+      "help": "IslandPlan.EnableFarm.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableRancher": {
+      "name": "IslandPlan.EnableRancher.name",
+      "help": "IslandPlan.EnableRancher.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableMineForest": {
+      "name": "IslandPlan.EnableMineForest.name",
+      "help": "IslandPlan.EnableMineForest.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnablePearlSell": {
+      "name": "IslandPlan.EnablePearlSell.name",
+      "help": "IslandPlan.EnablePearlSell.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableManufacture": {
+      "name": "IslandPlan.EnableManufacture.name",
+      "help": "IslandPlan.EnableManufacture.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableRestaurant": {
+      "name": "IslandPlan.EnableRestaurant.name",
+      "help": "IslandPlan.EnableRestaurant.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableTeahouse": {
+      "name": "IslandPlan.EnableTeahouse.name",
+      "help": "IslandPlan.EnableTeahouse.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableGrill": {
+      "name": "IslandPlan.EnableGrill.name",
+      "help": "IslandPlan.EnableGrill.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableJuuEatery": {
+      "name": "IslandPlan.EnableJuuEatery.name",
+      "help": "IslandPlan.EnableJuuEatery.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableJuuCoffee": {
+      "name": "IslandPlan.EnableJuuCoffee.name",
+      "help": "IslandPlan.EnableJuuCoffee.help",
+      "True": "True",
+      "False": "False"
+    },
+    "EnableBusiness": {
+      "name": "IslandPlan.EnableBusiness.name",
+      "help": "IslandPlan.EnableBusiness.help",
+      "True": "True",
+      "False": "False"
+    },
+    "TaskOrder": {
+      "name": "IslandPlan.TaskOrder.name",
+      "help": "IslandPlan.TaskOrder.help"
     }
   },
   "IslandFarm": {
@@ -6342,10 +6387,6 @@
     "RestartIntervalHours": {
       "name": "どれくらいの頻度で再起動（時間）",
       "help": "何時間おきにエミュレータを再起動するか。"
-    },
-    "DeepRestartAfterFailures": {
-      "name": "連続失敗後にディープ再起動",
-      "help": "エミュレーターの再起動がこの回数連続で失敗したら「ディープ再起動」に切り替えます：MuMu のすべてのプロセス（バックグラウンドサービスと仮想マシンを含む）を終了してから起動し直します。\n非力な PC で通常の再起動では復帰しないときの最後の手段です。\n注意：多重起動している他のインスタンスも終了します。\n0 で無効（インスタンスの再起動のみ）。既定値は 0。"
     }
   },
   "EmulatorManager": {
@@ -6542,9 +6583,46 @@
       "DisableTranslateMode": "翻訳モードをオフにするにはここをクリックしてください",
       "ConfigSaved": "設定が保存されました",
       "AlasIsRunning": "スケジューラはすでに実行されています",
-      "ClickToUpdate": "nanoda に利用可能なアップデートがあります!"
+      "ClickToUpdate": "nanoda に利用可能なアップデートがあります!",
+      "ReloadEnabled": "Gui.Toast.ReloadEnabled",
+      "AlasRestart": "Gui.Toast.AlasRestart",
+      "RestartCancelled": "Gui.Toast.RestartCancelled",
+      "NoInstance": "Gui.Toast.NoInstance",
+      "NoInstanceSimulateIcon": "Gui.Toast.NoInstanceSimulateIcon",
+      "NoInstanceClearIcon": "Gui.Toast.NoInstanceClearIcon",
+      "NoInstanceSimulateError": "Gui.Toast.NoInstanceSimulateError",
+      "NoInstanceCrossMonth": "Gui.Toast.NoInstanceCrossMonth",
+      "NoInstanceNotifyTest": "Gui.Toast.NoInstanceNotifyTest",
+      "ErrorPopupShown": "Gui.Toast.ErrorPopupShown",
+      "NotifyUpdateTestSent": "Gui.Toast.NotifyUpdateTestSent",
+      "NotifyAnnouncementTestSent": "Gui.Toast.NotifyAnnouncementTestSent",
+      "NotifyErrorTestSent": "Gui.Toast.NotifyErrorTestSent",
+      "NotifyErrorTestFailed": "Gui.Toast.NotifyErrorTestFailed",
+      "CalculatorNotReady": "Gui.Toast.CalculatorNotReady",
+      "InvalidEventEndDate": "Gui.Toast.InvalidEventEndDate",
+      "NoShopFilterItems": "Gui.Toast.NoShopFilterItems",
+      "WallpaperNameRequired": "Gui.Toast.WallpaperNameRequired",
+      "NoWallpaperSource": "Gui.Toast.NoWallpaperSource",
+      "NoRemovableWallpaperSource": "Gui.Toast.NoRemovableWallpaperSource",
+      "WallpaperSourceReset": "Gui.Toast.WallpaperSourceReset",
+      "RandomWallpaperApplied": "Gui.Toast.RandomWallpaperApplied",
+      "NoAnnouncement": "Gui.Toast.NoAnnouncement",
+      "FetchingAnnouncement": "Gui.Toast.FetchingAnnouncement",
+      "TooManyPasswordAttempts": "Gui.Toast.TooManyPasswordAttempts",
+      "PasswordWrongRemaining": "Gui.Toast.PasswordWrongRemaining",
+      "IconSimulated": "Gui.Toast.IconSimulated",
+      "IconSimulationCleared": "Gui.Toast.IconSimulationCleared",
+      "WriteRecordFailed": "Gui.Toast.WriteRecordFailed",
+      "CrossMonthRequestFailed": "Gui.Toast.CrossMonthRequestFailed",
+      "CancelRehearsalFailed": "Gui.Toast.CancelRehearsalFailed",
+      "MediaTypeSwitched": "Gui.Toast.MediaTypeSwitched",
+      "WallpaperSourceAdded": "Gui.Toast.WallpaperSourceAdded",
+      "WallpaperSourceRemoved": "Gui.Toast.WallpaperSourceRemoved",
+      "CustomWallpaperApplied": "Gui.Toast.CustomWallpaperApplied",
+      "Unnamed": "Gui.Toast.Unnamed"
     },
     "Status": {
+      "Prefix": "Gui.Status.Prefix",
       "Running": "秘書艦が処理中です",
       "Inactive": "ミンがあなたの箱を盗んでいます",
       "Warning": "エラーが発生しました",
@@ -6574,6 +6652,28 @@
       "UnderwaterFleet": "水中艦隊",
       "Fleet": "艦隊",
       "Ships": "艦船"
+    },
+    "MeowfficerScore": {
+      "Title": "Gui.MeowfficerScore.Title",
+      "Refresh": "Gui.MeowfficerScore.Refresh",
+      "Refreshing": "Gui.MeowfficerScore.Refreshing",
+      "OpenReport": "Gui.MeowfficerScore.OpenReport",
+      "EmptyTitle": "Gui.MeowfficerScore.EmptyTitle",
+      "EmptyHint": "Gui.MeowfficerScore.EmptyHint",
+      "Summary": "Gui.MeowfficerScore.Summary",
+      "Broken": "Gui.MeowfficerScore.Broken",
+      "Score": "Gui.MeowfficerScore.Score",
+      "Maxed": "Gui.MeowfficerScore.Maxed",
+      "Fixed": "Gui.MeowfficerScore.Fixed",
+      "AxisX": "Gui.MeowfficerScore.AxisX",
+      "AxisY": "Gui.MeowfficerScore.AxisY",
+      "NoHits": "Gui.MeowfficerScore.NoHits",
+      "OtherRubrics": "Gui.MeowfficerScore.OtherRubrics",
+      "Source": "Gui.MeowfficerScore.Source",
+      "Screenshot": "Gui.MeowfficerScore.Screenshot",
+      "PointsSpent": "Gui.MeowfficerScore.PointsSpent",
+      "Inferred": "Gui.MeowfficerScore.Inferred",
+      "Disclaimer": "Gui.MeowfficerScore.Disclaimer"
     },
     "MenuDevelop": {
       "HomePage": "ホームページ",
@@ -6611,19 +6711,7 @@
       "Pending": "キューにいます",
       "Waiting": "待っている",
       "NoTask": "タスクがありません",
-      "Stat": "統計",
-      "BackgroundCurrentDefault": "**現在使用中**：Web（既定）",
-      "BackgroundCurrentLocal": "**現在使用中**：ローカル",
-      "BackgroundCurrentMixed": "**現在使用中**：ミックス",
-      "BackgroundCurrentUrl": "**現在使用中**：Web",
-      "BackgroundCustomUrls": "**カスタム URL**",
-      "BackgroundDirectLink": "現在の画像直リンク：",
-      "BackgroundExtractToLocal": "ローカルに抽出",
-      "BackgroundLocalCount": "ローカル：{n} 枚",
-      "BackgroundOpenFolder": "フォルダを開く",
-      "BackgroundOpenInNewWindow": "この画像を新しいウィンドウで開く",
-      "BackgroundTitle": "### 背景画像",
-      "BackgroundUrlCount": "解決済みリンク：{n} 件"
+      "Stat": "統計"
     },
     "Dashboard": {
       "TimeError": "時間誤差",
@@ -6699,7 +6787,11 @@
       "NewSuccess": "正常に追加されました",
       "Name": "構成名",
       "Mod": "プラグイン",
-      "Actions": "操作する"
+      "Actions": "操作する",
+      "StatusRunning": "Gui.AppManage.StatusRunning",
+      "StatusStopped": "Gui.AppManage.StatusStopped",
+      "StatusError": "Gui.AppManage.StatusError",
+      "StatusUpdating": "Gui.AppManage.StatusUpdating"
     },
     "Update": {
       "UpToDate": "すでに最新バージョン",
@@ -6718,7 +6810,10 @@
       "Time": "コミット時間",
       "Message": "コミットメッセージ",
       "DisabledWarn": "更新モジュールが有効になっていません。更新するには手動で再起動する必要があります。",
-      "DetailedHistory": "詳細なコミット履歴"
+      "DetailedHistory": "詳細なコミット履歴",
+      "Changelog": "Gui.Update.Changelog",
+      "ChangelogLoading": "Gui.Update.ChangelogLoading",
+      "ChangelogEmpty": "Gui.Update.ChangelogEmpty"
     },
     "Remote": {
       "Running": "ランニング",
@@ -6806,6 +6901,10 @@
       "CheckUpdateIntervalHelp": "更新を確認する間隔（分）です。0 で無効になります。",
       "AutoRestartTime": "定時再起動時刻",
       "AutoRestartTimeHelp": "更新がある場合に毎日自動再起動する時刻です。空欄で無効になります。",
+      "HideUpdateNotice": "Gui.DeploySetting.HideUpdateNotice",
+      "HideUpdateNoticeHelp": "Gui.DeploySetting.HideUpdateNoticeHelp",
+      "HideAnnouncement": "Gui.DeploySetting.HideAnnouncement",
+      "HideAnnouncementHelp": "Gui.DeploySetting.HideAnnouncementHelp",
       "DiscordRichPresence": "Discord リッチプレゼンス",
       "DiscordRichPresenceHelp": "AzurPilot の実行状態を Discord に表示します。",
       "EnableRemoteAccess": "リモートアクセスを有効化",
@@ -6847,10 +6946,30 @@
       "WebuiSSLKey": "SSL キーファイル",
       "WebuiSSLKeyHelp": "WebUI HTTPS 用の SSL キーです。証明書とセットで設定してください。",
       "WebuiSSLCert": "SSL 証明書ファイル",
-      "WebuiSSLCertHelp": "WebUI HTTPS 用の SSL 証明書です。キーとセットで設定してください。",
-      "DisableBranchWatermark": "未検証バージョンの透かしを非表示にする",
-      "DisableBranchWatermarkHelp": "【チェックしない場合は透かしを表示します】\n⚠ AzurPilot や master / dev などのブランチの役割を理解していない場合は、この項目を有効にしないでください。\n⚠ スクリーンショットで問題を報告する場合や、他者に調査を依頼する場合は、この項目を有効にしないでください。透かしのバージョン情報は、実際に動作しているコードを特定する唯一の手がかりであり、隠すと問題の特定が不可能になります。\n変更後は AzurPilot の再起動が必要です。",
-      "WatermarkHiddenNow": "透かしを非表示にしました。再度表示するにはページを再読み込みするか、AzurPilot を再起動してください。"
+      "WebuiSSLCertHelp": "WebUI HTTPS 用の SSL 証明書です。キーとセットで設定してください。"
+    },
+    "LogExport": {
+      "Title": "Gui.LogExport.Title",
+      "InstanceLabel": "Gui.LogExport.InstanceLabel",
+      "RangeLabel": "Gui.LogExport.RangeLabel",
+      "RangeAll": "Gui.LogExport.RangeAll",
+      "RangeToday": "Gui.LogExport.RangeToday",
+      "RuntimeLog": "Gui.LogExport.RuntimeLog",
+      "ExportToday": "Gui.LogExport.ExportToday",
+      "Exporting": "Gui.LogExport.Exporting",
+      "ErrorLogs": "Gui.LogExport.ErrorLogs",
+      "ErrorLogsText": "Gui.LogExport.ErrorLogsText",
+      "Pending": "Gui.LogExport.Pending",
+      "Packing": "Gui.LogExport.Packing",
+      "Started": "Gui.LogExport.Started",
+      "Failed": "Gui.LogExport.Failed",
+      "NoInstance": "Gui.LogExport.NoInstance",
+      "NoRuntimeLog": "Gui.LogExport.NoRuntimeLog",
+      "Confirm": "Gui.LogExport.Confirm",
+      "ConfirmSize": "Gui.LogExport.ConfirmSize",
+      "ConfirmSizePlain": "Gui.LogExport.ConfirmSizePlain",
+      "InfoLoading": "Gui.LogExport.InfoLoading",
+      "NoFiles": "Gui.LogExport.NoFiles"
     },
     "StartupRun": {
       "Title": "起動時に自動実行",
@@ -6866,9 +6985,6 @@
       "InvalidFeedBack": "フォーマットエラー。例: {0}",
       "Clear": "クリア",
       "RunNow": "今すぐ実行",
-      "RunNowSchedulerStopped": "スケジューラーが起動していません。上部のスイッチまたは概要ページから起動してください",
-      "RunNowTaskDisabled": "このタスクは無効です。「スケジュール有効」にチェックしてから実行してください",
-      "SchedulerQuickBar": "スケジューラー",
       "EnterPassword": "パスワードを入力してください",
       "ChooseFile": "ファイルを選択"
     },
@@ -6897,6 +7013,7 @@
       "LoadOpsiStatsFailed": "OpSi統計の読み込みに失敗しました: {e}",
       "LoadExpStatsFailed": "経験値統計の読み込みに失敗しました: {e}",
       "DailyExpCheckTitle": "日次経験値チェック",
+      "FoldShipDigest": "Gui.Stat.FoldShipDigest",
       "CheckTime": "チェック時間: {value}",
       "TargetLevel": "目標レベル: {value}",
       "ShipSlot": "艦位",
@@ -6933,22 +7050,30 @@
       "OpsiDataCollectionTitle": "雪風様の侵蝕1データ収集",
       "MonthlyPurchasedAP": "今月購入AP: {value}",
       "MeowDataCollectionTitle": "短猫データ収集",
+      "FoldMeowDigest": "Gui.Stat.FoldMeowDigest",
       "MeowRounds": "短猫ラウンド数",
       "AvgMeowRoundTime": "平均短猫ラウンド時間",
-      "MeowLootTitle": "短猫収穫",
+      "MeowLootTitleCurrent": "Gui.Stat.MeowLootTitleCurrent",
+      "MeowLootTitleHistory": "Gui.Stat.MeowLootTitleHistory",
+      "MeowLootHeaderItem": "Gui.Stat.MeowLootHeaderItem",
+      "MeowLootHeaderTotal": "Gui.Stat.MeowLootHeaderTotal",
+      "MeowLootHazardColumn": "Gui.Stat.MeowLootHazardColumn",
+      "MeowLootItemPlate": "Gui.Stat.MeowLootItemPlate",
+      "MeowLootItemGearDesign": "Gui.Stat.MeowLootItemGearDesign",
+      "MeowLootItemOrdnance": "Gui.Stat.MeowLootItemOrdnance",
+      "MeowLootItemObscure": "Gui.Stat.MeowLootItemObscure",
+      "MeowLootItemAbyssal": "Gui.Stat.MeowLootItemAbyssal",
+      "MeowLootItemCat": "Gui.Stat.MeowLootItemCat",
+      "MeowLootViewHistory": "Gui.Stat.MeowLootViewHistory",
+      "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
+      "MeowLootPickMonthTitle": "Gui.Stat.MeowLootPickMonthTitle",
+      "MeowLootNoHistoryMonth": "Gui.Stat.MeowLootNoHistoryMonth",
+      "MeowLootCurrentMonthOption": "Gui.Stat.MeowLootCurrentMonthOption",
       "NoMeowDataNotice": "短猫収穫データがありません。1回実行後に自動生成されます",
       "RoundUnit": " ラウンド",
       "SecondUnit": "秒",
       "HourUnit": "時間",
       "MinuteUnit": "分",
-      "ExportModuleLoadFailed": "エクスポート失敗: 統計モジュールを読み込めません: {e}",
-      "CsvHeaderAkashiRate": "明石遭遇率(%)",
-      "CsvHeaderLoopEfficiency": "ループ効率(%)",
-      "CsvHeaderMonthlyPurchasedAP": "今月購入AP",
-      "CsvFilenameTemplate": "侵蝕1練級_{month}_詳細データ.csv",
-      "SavedToDesktop": "デスクトップに保存しました: {path}",
-      "SaveDesktopFailed": "デスクトップへの保存に失敗しました: {e}",
-      "ExportAndSaveDesktop": "デスクトップにエクスポートして保存",
       "NoShipExpData": "艦船経験値データがありません。先に「日次経験値チェック」を実行してください",
       "ShipExpProgressTitle": "日次経験値チェック: 検出された艦娘レベルと進捗",
       "LastCheckTime": "前回チェック時間: {value}",
@@ -6975,57 +7100,87 @@
       "CommissionIncomeHeaderAvg": "平均/回",
       "CommissionIncomeTotalCommissions": "委託総回数: {value}",
       "CommissionIncomeRecentTitle": "最近の委託記録",
-      "ResourceChartTitle": "全リソース推移",
-      "LoadResourceDataFailed": "リソースデータの読み込みに失敗しました: {e}",
-      "NoResourceData": "リソース変動データがありません。スクリプト実行後に自動記録されます",
-      "NoValidResourceData": "有効なリソースデータがありません",
-      "BackgroundBtn": "背景",
-      "ChartAp": "行動力: ",
-      "ChartApLabel": "行動力",
-      "ChartAsset": "資産: ",
-      "ChartChange": "騰落: ",
-      "ChartChangeLabel": "変化",
-      "ChartClose": "終値: ",
-      "ChartDelta": "変化量: ",
-      "ChartDensity": "データ点密度: ",
-      "ChartDistance": "海里数: ",
-      "ChartHigh": "高値: ",
-      "ChartLow": "安値: ",
-      "ChartMa10": "  MA10(10期間平均): ",
-      "ChartMa5": "  MA5(5期間平均): ",
-      "ChartMaxLabel": "最高",
-      "ChartMean": "平均: ",
-      "ChartMeanLabel": "平均",
-      "ChartMinLabel": "最低",
-      "ChartOpen": "始値: ",
-      "ChartPanelTitle": "行動力の推移 - {view}",
-      "ChartPurple": "紫コイン: ",
-      "ChartResetBtn": "リセット",
-      "ChartSeriesAp": "行動力",
-      "ChartSeriesAsset": "資産",
-      "ChartSeriesDistance": "海里数",
-      "ChartSeriesPurple": "紫コイン",
-      "ChartSeriesYellow": "黄コイン",
-      "ChartSource": "出典: ",
-      "ChartYellow": "黄コイン: ",
-      "ExtractAlreadyLocal": "現在の背景はすでにローカル画像のため、抽出は不要です。",
-      "ExtractDone": "bg/{sub}/{name} に抽出しました",
-      "ExtractFailed": "抽出に失敗しました：{error}",
-      "ExtractHint": "抽出は保存のみで、背景には自動適用されません。使用するには bg/ へ移動してください。",
-      "ExtractNoImage": "抽出できる背景画像がありません。",
-      "ExtractNoImageData": "抽出できる画像がありません",
-      "ExtractRunning": "抽出中…",
-      "ExtractSkipped": "この画像はすでに抽出済みです：{name}",
-      "ExtractUnknownError": "不明なエラー",
-      "MaterialAdvancedOnly": "高級マテリアルのみ有効",
-      "MaterialBlur": "ブラー",
-      "MaterialCards": "カード",
-      "MaterialReset": "リセット",
-      "MaterialTiles": "タイル",
-      "MaterialTitle": "インターフェース素材",
-      "MaterialTransparency": "透明度",
-      "Readme": "このフォルダに画像を置くと WebUI の背景として使用できます。\n対応形式：{{exts}}\n複数ある場合はランダムに 1 枚選ばれます。\n\nサブフォルダ「{{sub}}」には、画面の【抽出】ボタンでダウンロードした画像が保存されます。\n手動で追加した画像とは分けて管理され、画面に各画像の出所が表示されます。\nこのファイルは削除しても機能に影響しません。\n",
-      "ScreenshotPreviewBtn": "スクリーンショットプレビュー"
+      "DeltaPeriodDay": "Gui.Stat.DeltaPeriodDay",
+      "DeltaPeriodWeek": "Gui.Stat.DeltaPeriodWeek",
+      "DeltaPeriodMonth": "Gui.Stat.DeltaPeriodMonth",
+      "DeltaPeriodTotal": "Gui.Stat.DeltaPeriodTotal",
+      "DeltaChartTitle": "Gui.Stat.DeltaChartTitle",
+      "DeltaSummaryTitle": "Gui.Stat.DeltaSummaryTitle",
+      "ConsumptionRankingTitle": "Gui.Stat.ConsumptionRankingTitle",
+      "DeltaResource": "Gui.Stat.DeltaResource",
+      "DeltaIncrease": "Gui.Stat.DeltaIncrease",
+      "DeltaDecrease": "Gui.Stat.DeltaDecrease",
+      "DeltaNet": "Gui.Stat.DeltaNet",
+      "DeltaTotalConsumed": "Gui.Stat.DeltaTotalConsumed",
+      "NoDeltaData": "Gui.Stat.NoDeltaData",
+      "LoadDeltaDataFailed": "Gui.Stat.LoadDeltaDataFailed",
+      "DeltaTimelineHint": "Gui.Stat.DeltaTimelineHint",
+      "DeltaTaskTimes": "Gui.Stat.DeltaTaskTimes",
+      "DeltaMore": "Gui.Stat.DeltaMore",
+      "PageTitle": "Gui.Stat.PageTitle",
+      "PageMeta": "Gui.Stat.PageMeta",
+      "SourceOk": "Gui.Stat.SourceOk",
+      "SourceStale": "Gui.Stat.SourceStale",
+      "SourceMissing": "Gui.Stat.SourceMissing",
+      "KpiCurrentAp": "Gui.Stat.KpiCurrentAp",
+      "KpiChange": "Gui.Stat.KpiChange",
+      "KpiRangeMax": "Gui.Stat.KpiRangeMax",
+      "KpiRangeMin": "Gui.Stat.KpiRangeMin",
+      "KpiAverage": "Gui.Stat.KpiAverage",
+      "ApChartTitle": "Gui.Stat.ApChartTitle",
+      "SeriesActionPoint": "Gui.Stat.SeriesActionPoint",
+      "SeriesYellowCoin": "Gui.Stat.SeriesYellowCoin",
+      "SeriesPurpleCoin": "Gui.Stat.SeriesPurpleCoin",
+      "SeriesAsset": "Gui.Stat.SeriesAsset",
+      "SeriesDistance": "Gui.Stat.SeriesDistance",
+      "MetricChange": "Gui.Stat.MetricChange",
+      "MetricMax": "Gui.Stat.MetricMax",
+      "MetricMin": "Gui.Stat.MetricMin",
+      "OpsiCardAkashi": "Gui.Stat.OpsiCardAkashi",
+      "OpsiCardCrane": "Gui.Stat.OpsiCardCrane",
+      "OpsiCardRate": "Gui.Stat.OpsiCardRate",
+      "OpsiCardBattleTime": "Gui.Stat.OpsiCardBattleTime",
+      "OpsiCardRound": "Gui.Stat.OpsiCardRound",
+      "OpsiCardNetRatio": "Gui.Stat.OpsiCardNetRatio",
+      "OpsiCardBought": "Gui.Stat.OpsiCardBought",
+      "OpsiCardSortieCost": "Gui.Stat.OpsiCardSortieCost",
+      "MeowLootYellowPerRound": "Gui.Stat.MeowLootYellowPerRound",
+      "MeowLootPlatePerRound": "Gui.Stat.MeowLootPlatePerRound",
+      "MeowLootAbyssalPerRound": "Gui.Stat.MeowLootAbyssalPerRound",
+      "MeowLootObscurePerRound": "Gui.Stat.MeowLootObscurePerRound",
+      "ShipExpAvgRound": "Gui.Stat.ShipExpAvgRound",
+      "ShipExpToday": "Gui.Stat.ShipExpToday",
+      "ShipExpTodayValue": "Gui.Stat.ShipExpTodayValue",
+      "ShipExpLastCheck": "Gui.Stat.ShipExpLastCheck",
+      "ShipExpTargetShort": "Gui.Stat.ShipExpTargetShort",
+      "ShipExpTodayShort": "Gui.Stat.ShipExpTodayShort",
+      "ShipExpSlotValue": "Gui.Stat.ShipExpSlotValue",
+      "ShipExpDone": "Gui.Stat.ShipExpDone",
+      "OpsiCardBattleUnit": "Gui.Stat.OpsiCardBattleUnit",
+      "OpsiCardCount": "Gui.Stat.OpsiCardCount",
+      "AuxFoldTitle": "Gui.Stat.AuxFoldTitle",
+      "MeowLootFoldTitle": "Gui.Stat.MeowLootFoldTitle",
+      "MeowLootFoldTitleHistory": "Gui.Stat.MeowLootFoldTitleHistory",
+      "MeowLootFoldDigest": "Gui.Stat.MeowLootFoldDigest",
+      "MeowLootDigestPart": "Gui.Stat.MeowLootDigestPart",
+      "MeowRoundDigest": "Gui.Stat.MeowRoundDigest",
+      "MeowLootEmptyNotice": "Gui.Stat.MeowLootEmptyNotice",
+      "TabOpsi": "Gui.Stat.TabOpsi",
+      "TabCommission": "Gui.Stat.TabCommission",
+      "TabResearch": "Gui.Stat.TabResearch",
+      "TabResearchBadge": "Gui.Stat.TabResearchBadge",
+      "TabResource": "Gui.Stat.TabResource",
+      "ResearchTitle": "Gui.Stat.ResearchTitle",
+      "ResearchDesc": "Gui.Stat.ResearchDesc",
+      "ResearchSlotProgress": "Gui.Stat.ResearchSlotProgress",
+      "ResearchSlotProgressDesc": "Gui.Stat.ResearchSlotProgressDesc",
+      "ResearchSlotQueue": "Gui.Stat.ResearchSlotQueue",
+      "ResearchSlotQueueDesc": "Gui.Stat.ResearchSlotQueueDesc",
+      "ResearchSlotCost": "Gui.Stat.ResearchSlotCost",
+      "ResearchSlotCostDesc": "Gui.Stat.ResearchSlotCostDesc",
+      "ResearchSlotPending": "Gui.Stat.ResearchSlotPending",
+      "ResearchEmptyTitle": "Gui.Stat.ResearchEmptyTitle",
+      "ResearchEmptyDesc": "Gui.Stat.ResearchEmptyDesc"
     },
     "Tactical": {
       "SkillAutoSwitch": "スキル自動切替"
