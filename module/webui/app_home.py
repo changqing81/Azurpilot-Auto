@@ -350,7 +350,11 @@ class HomeMixin(WebUIMixinBase):
             self.set_theme(t)
             set_localstorage("aside", "Home")
             # 就地换肤：set_theme 已完整清理并重注入主题 CSS，
-            # 不再 go_app 整页重开（重开一次 = 全部页面重新渲染，主题切换卡顿的根源）
+            # 不再 go_app 整页重开（重开一次 = 全部页面重新渲染，主题切换卡顿的根源）。
+            # 但旧实现的重开顺带会重新抽一张随机背景，就地换肤后这一步没了 ——
+            # 切主题时背景纹丝不动（用户实测反馈「点了只换主题不换背景」），
+            # 这里把「换主题顺带换背景」显式补回来。
+            self._reroll_wallpaper_on_theme_change()
 
         if self.wallpaper_url:
             put_html(
@@ -1485,6 +1489,28 @@ class HomeMixin(WebUIMixinBase):
         except Exception as e:
             logger.warning(f"[WebUI] 压缩自定义背景失败，保留原图: {e}")
             return content, (ext or ".png")
+
+    def _reroll_wallpaper_on_theme_change(self) -> None:
+        """切换主题时顺带换一张随机背景；自定义背景交给 set_theme 保序，不重抽。
+
+        历史行为：主题按钮的回调里藏着 ``go_app("index")`` 整页重开，重开会重新
+        跑 ``init_wallpaper()`` 抽一张新图，所以「切主题」看起来也会换背景。
+        改成就地换肤后这一步消失，背景便不再随主题变化（用户实测反馈）。
+
+        这里显式补回来，语义与旧行为一致但代价小得多（不再重建整个页面）：
+        - 随机背景模式：清掉胜者记录后重跑图源竞赛，新图胜出即换；
+        - 自定义图片/视频模式：用户自己指定的背景不动（它是固定的一张图，
+          切主题时的显示问题由 ``set_theme`` 里「把自定义样式挪到 head 末尾」
+          解决，不需要也不会重抽）。
+        """
+        if self._load_background_mode() == "custom":
+            logger.info("[WebUI] 自定义背景模式，切换主题保持原背景不重抽")
+            return
+        self.wallpaper_url = ""
+        self._direct_wallpaper_source = None
+        # 同步清空前端竞赛胜者记录，避免「下载当前背景图」读到上一张
+        run_js("window.__alasWallpaperWinner = null;")
+        self.init_wallpaper()
 
     def _switch_to_random_background(self) -> None:
         """切换回随机背景：清理自定义背景注入并重新拉取随机壁纸。"""

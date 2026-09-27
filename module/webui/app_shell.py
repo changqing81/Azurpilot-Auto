@@ -444,8 +444,18 @@ class AppShellMixin(WebUIMixinBase):
         # 清空注入追踪并整批重注入当前主题的样式（单条消息）。
         _reload_theme_css(theme)
 
-        # 事件最后派发：保证监听方（时间轴重绘等）读到的已是新主题的 CSS 变量
+        # 事件最后派发：保证监听方（时间轴重绘等）读到的已是新主题的 CSS 变量。
+        # 同时把自定义背景样式（#alas-custom-bg-style）挪到 head 末尾：主题 CSS 是
+        # 重新 append 进 head 的，会排在更早注入的自定义背景样式之后；两边都是
+        # body 上的 `background-image: … !important`，同权重下按文档顺序由主题
+        # 胜出 —— 不挪的话切一次主题自定义背景就变成 none（用户实测）。
         run_js(f"""
+        (function () {{
+            var el = document.getElementById('alas-custom-bg-style');
+            if (el && el.parentNode) {{
+                el.parentNode.appendChild(el);
+            }}
+        }})();
         window.dispatchEvent(
             new CustomEvent(
                 "alas-theme-change",

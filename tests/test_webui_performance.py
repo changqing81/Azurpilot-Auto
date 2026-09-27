@@ -694,6 +694,57 @@ class PageRestoreTests(unittest.TestCase):
         self.assertIn("localStorage.setItem(", source)
 
 
+class ThemeWallpaperTests(unittest.TestCase):
+    """切主题与背景图的联动（2026-09-27 用户实测反馈）。
+
+    1) 主题 CSS 是重新 append 进 head 的，会排在更早注入的自定义背景样式之后；
+       两边都是 body 上的 `background-image: … !important`，同权重按文档顺序由
+       主题胜出 —— 所以切主题后必须把自定义背景样式挪回 head 末尾。
+    2) 旧实现靠 `go_app("index")` 整页重开顺带重抽一张随机背景；就地换肤后要
+       显式补上「切主题也换背景」，但自定义背景模式不能重抽（那是用户指定的）。
+    """
+
+    def test_theme_switch_moves_custom_background_style_to_head_end(self):
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent / "module" / "webui" / "app_shell.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("alas-custom-bg-style", source)
+        self.assertIn("el.parentNode.appendChild(el)", source)
+
+    def _gui(self, mode):
+        calls = []
+
+        def init_wallpaper():
+            calls.append("init_wallpaper")
+
+        return SimpleNamespace(
+            _load_background_mode=lambda: mode,
+            _direct_wallpaper_source=object(),
+            wallpaper_url="http://example.com/old.png",
+            init_wallpaper=init_wallpaper,
+        ), calls
+
+    def test_random_mode_rerolls_wallpaper_on_theme_change(self):
+        gui, calls = self._gui("random")
+        with patch("module.webui.app_home.run_js") as run_js:
+            HomeMixin._reroll_wallpaper_on_theme_change(gui)
+        self.assertEqual(calls, ["init_wallpaper"])
+        # 清空旧地址与胜者记录，否则 init_wallpaper 会提前 return / 下载旧图
+        self.assertEqual(gui.wallpaper_url, "")
+        self.assertIsNone(gui._direct_wallpaper_source)
+        self.assertIn("__alasWallpaperWinner", run_js.call_args[0][0])
+
+    def test_custom_mode_keeps_background_on_theme_change(self):
+        gui, calls = self._gui("custom")
+        with patch("module.webui.app_home.run_js") as run_js:
+            HomeMixin._reroll_wallpaper_on_theme_change(gui)
+        self.assertEqual(calls, [])
+        run_js.assert_not_called()
+        self.assertEqual(gui.wallpaper_url, "http://example.com/old.png")
+
+
 class TestWebUIImports(unittest.TestCase):
     def test_entry_does_not_eagerly_import_image_stack(self):
         result = subprocess.run(
