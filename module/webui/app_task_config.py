@@ -411,6 +411,8 @@ class TaskConfigMixin(WebUIMixinBase):
         navigator_outputs: List[Output] = []
         watcher_paths: List[List[str]] = []
         render_event_calculator = False
+        # 首屏发成「分组壳」的分组，稍后由后台任务自动补齐（见 alas_fill_lazy_groups）
+        pending_groups: List[Any] = []
 
         # 控件总数超过阈值的大任务页启用分组懒渲染：先发分组壳（标题按钮），
         # 点击/导航/搜索跳转时再按需渲染该组控件——首屏 DOM 从数百控件
@@ -459,6 +461,7 @@ class TaskConfigMixin(WebUIMixinBase):
                 group_outputs.append(
                     self._build_config_group_shell(task, group, arg_dict)
                 )
+                pending_groups.append(group)
             else:
                 group_output, group_watcher_paths, _ = self._build_config_group(
                     group, arg_dict, config, task
@@ -491,6 +494,13 @@ class TaskConfigMixin(WebUIMixinBase):
         for path in watcher_paths:
             self._bind_config_watcher(path)
 
+        # 懒渲染只影响首屏：页面落地后由后台任务逐个补齐剩余分组，用户不需要
+        # 手动点开（用户实测反馈「为什么不显示完整，非得我用手点吗」）。
+        # 首屏仍是壳（百毫秒级），补齐只花后端时间，不阻塞界面也不抢滚动位置。
+        self._lazy_pending_groups = pending_groups or None
+        if pending_groups:
+            self.task_handler.add(self.alas_fill_lazy_groups, 0.05, True)
+
         # 依赖已有 DOM scope 或需要执行脚本的特殊区域，在基础配置页落地后再初始化。
         if task == "Alas":
             with use_scope("group_StartupRun"):
@@ -500,6 +510,41 @@ class TaskConfigMixin(WebUIMixinBase):
                 self._os_simulator()
         elif render_event_calculator:
             self._render_event_calculator(config)
+
+    @render_locked
+    def alas_fill_lazy_groups(self) -> None:
+        """首屏之后逐个补齐懒渲染分组（用户不必手动点开每一个分组）。
+
+        懒渲染的收益只在**首屏**：分组壳比整页控件轻一个量级，页面能立刻出现。
+        之前的实现把「补齐」完全交给用户点击，于是宽屏用户看到一列没展开的
+        分组壳，反馈「为什么不显示完整，非得我用手点吗」。现在改成页面落地后
+        由后台任务分批补齐（每次一个分组、单条消息），首屏依旧快，用户既不用
+        点击、也不会被整批内容阻塞首屏。
+
+        守卫：用户切走页面/切换任务即停止补齐（``self.page`` 由 init_menu 设置）；
+        全部补完或页面切走时把任务自身摘掉。
+        """
+        pending = getattr(self, "_lazy_pending_groups", None)
+        if not pending:
+            self._stop_lazy_fill()
+            return
+        task = getattr(self, "_group_render_task", None)
+        if not self.visible or self.page != task:
+            self._lazy_pending_groups = None
+            self._stop_lazy_fill()
+            return
+        group = pending.pop(0)
+        if not pending:
+            self._lazy_pending_groups = None
+        self._ensure_group_expanded(task, group)
+        if not pending:
+            self._stop_lazy_fill()
+
+    def _stop_lazy_fill(self) -> None:
+        """把当前的懒渲染补齐任务从任务列表里摘掉。"""
+        task = getattr(self.task_handler, "_task", None)
+        if task is not None:
+            self.task_handler.remove_task(task, nowait=True)
 
     def _build_config_group(
         self,

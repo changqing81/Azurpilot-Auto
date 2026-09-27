@@ -745,6 +745,73 @@ class ThemeWallpaperTests(unittest.TestCase):
         self.assertEqual(gui.wallpaper_url, "http://example.com/old.png")
 
 
+class LazyGroupAutoFillTests(unittest.TestCase):
+    """首屏之后自动补齐懒渲染分组（用户反馈「非得我用手点吗」）。
+
+    懒渲染的收益只在首屏；补齐必须由后台任务完成，不能要求用户逐个点开。
+    """
+
+    class _TaskHandler:
+        def __init__(self):
+            self._task = object()
+            self.removed = []
+
+        def remove_task(self, task, nowait=False):
+            self.removed.append((task, nowait))
+
+    def _gui(self, pending=("A", "B"), page="GemsFarming"):
+        gui = SimpleNamespace(
+            _lazy_pending_groups=[(name,) for name in pending],
+            _group_render_task="GemsFarming",
+            page=page,
+            visible=True,
+            expanded=[],
+            task_handler=self._TaskHandler(),
+        )
+        gui._ensure_group_expanded = lambda task, group: gui.expanded.append(group[0])
+        gui._stop_lazy_fill = lambda: TaskConfigMixin._stop_lazy_fill(gui)
+        return gui
+
+    def test_fills_one_group_per_run_then_stops(self):
+        gui = self._gui()
+        TaskConfigMixin.alas_fill_lazy_groups(gui)
+        self.assertEqual(gui.expanded, ["A"])
+        self.assertEqual(gui.task_handler.removed, [])
+        TaskConfigMixin.alas_fill_lazy_groups(gui)
+        self.assertEqual(gui.expanded, ["A", "B"])
+        self.assertIsNone(gui._lazy_pending_groups)
+        # 补完即把任务自身摘掉，不再空转
+        self.assertEqual(len(gui.task_handler.removed), 1)
+        TaskConfigMixin.alas_fill_lazy_groups(gui)
+        self.assertEqual(gui.expanded, ["A", "B"])
+
+    def test_stops_when_user_left_the_page(self):
+        gui = self._gui(page="Overview")
+        TaskConfigMixin.alas_fill_lazy_groups(gui)
+        self.assertEqual(gui.expanded, [])
+        self.assertIsNone(gui._lazy_pending_groups)
+        self.assertEqual(len(gui.task_handler.removed), 1)
+
+    def test_stops_when_page_hidden(self):
+        gui = self._gui()
+        gui.visible = False
+        TaskConfigMixin.alas_fill_lazy_groups(gui)
+        self.assertEqual(gui.expanded, [])
+        self.assertEqual(len(gui.task_handler.removed), 1)
+
+    def test_alas_set_group_schedules_autofill(self):
+        """首屏把分组发成壳之后必须挂上补齐任务。"""
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "module"
+            / "webui"
+            / "app_task_config.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("self.task_handler.add(self.alas_fill_lazy_groups", source)
+
+
 class TestWebUIImports(unittest.TestCase):
     def test_entry_does_not_eagerly_import_image_stack(self):
         result = subprocess.run(
