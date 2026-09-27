@@ -1,15 +1,15 @@
 {
   "Menu": {
     "Alas": {
-      "name": "系统",
+      "name": "智慧港区+",
       "help": ""
     },
     "Farm": {
-      "name": "出击Plus",
+      "name": "出击+",
       "help": ""
     },
     "Event": {
-      "name": "活动Plus",
+      "name": "活动+",
       "help": ""
     },
     "EventDaily": {
@@ -25,7 +25,7 @@
       "help": ""
     },
     "Opsi": {
-      "name": "大世界Plus",
+      "name": "大世界+",
       "help": ""
     },
     "Island": {
@@ -37,13 +37,13 @@
       "help": ""
     },
     "Tool": {
-      "name": "工具Plus",
+      "name": "工具+",
       "help": ""
     }
   },
   "Task": {
     "Alas": {
-      "name": "系统设置",
+      "name": "智慧港区设置",
       "help": ""
     },
     "General": {
@@ -55,27 +55,27 @@
       "help": ""
     },
     "Main": {
-      "name": "主线图-1Plus",
+      "name": "主线图-1+",
       "help": ""
     },
     "Main2": {
-      "name": "主线图-2Plus",
+      "name": "主线图-2+",
       "help": ""
     },
     "Main3": {
-      "name": "主线图-3Plus",
+      "name": "主线图-3+",
       "help": ""
     },
     "OperationHandover": {
       "name": "作战委托",
-      "help": "消耗作战委托书，自动进行作战委托。"
+      "help": ""
     },
     "GemsFarming": {
-      "name": "紧急委托Plus",
+      "name": "紧急委托+",
       "help": ""
     },
     "ThreeOilLowCost": {
-      "name": "三油低耗Plus",
+      "name": "三油低耗+",
       "help": "使用三油低耗阵容进行战斗，在旗舰达到32级时自动更换旗舰并退役。"
     },
     "Ambush11": {
@@ -87,23 +87,23 @@
       "help": ""
     },
     "Event": {
-      "name": "活动图-1Plus",
+      "name": "活动图-1+",
       "help": ""
     },
     "Event2": {
-      "name": "活动图-2Plus",
+      "name": "活动图-2+",
       "help": ""
     },
     "Event3": {
-      "name": "活动图-3Plus",
+      "name": "活动图-3+",
       "help": ""
     },
     "Raid": {
-      "name": "共斗活动Plus",
+      "name": "共斗活动+",
       "help": ""
     },
     "RaidScuttle": {
-      "name": "共斗沉船Plus",
+      "name": "共斗沉船+",
       "help": ""
     },
     "Hospital": {
@@ -247,11 +247,11 @@
       "help": ""
     },
     "OpsiExplore": {
-      "name": "每月开荒Plus",
+      "name": "每月开荒+",
       "help": ""
     },
     "OpsiShop": {
-      "name": "大世界商店Plus",
+      "name": "大世界商店+",
       "help": ""
     },
     "OpsiVoucher": {
@@ -259,7 +259,7 @@
       "help": ""
     },
     "OpsiDaily": {
-      "name": "大世界每日Plus",
+      "name": "大世界每日+",
       "help": ""
     },
     "OpsiObscure": {
@@ -272,7 +272,7 @@
     },
     "OpsiArchive": {
       "name": "档案坐标",
-      "help": "从白票商店购买档案坐标并运行，档案海域不消耗行动力\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "help": "从白票商店购买档案坐标并运行，档案海域不消耗行动力\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "OpsiStronghold": {
       "name": "塞壬要塞",
@@ -291,8 +291,8 @@
       "help": "此功能开放了大量配置，默认配置已经可以满足大部分需求，配置前请确保你已了解侵蚀1的基础原理，后果自负"
     },
     "OpsiScheduling": {
-      "name": "智能调度Plus",
-      "help": "大世界智能调度Plus功能，开启后无需重复开启侵蚀1等任务，智能调度Plus将全部接管"
+      "name": "智能调度+",
+      "help": "大世界智能调度+功能，开启后无需重复开启侵蚀1等任务，智能调度+将全部接管"
     },
     "OpsiPreventActionPointOverflow": {
       "name": "防止行动力溢出",
@@ -300,15 +300,15 @@
     },
     "OpsiCrossMonth": {
       "name": "跨月每日",
-      "help": "    AzurPilot将在大世界跨月重置之前10分钟进入大世界，等待大世界重置但不退出大世界，然后完成新一天的大世界每日Plus、隐秘海域、深渊坐标和耄耋相接，以获得额外的金菜。运行大世界每日Plus时，按\"大世界每日Plus\"任务设置运行，其余同理。\n    重要：AzurPilot等待跨月期间，请不要操作游戏。"
+      "help": "    AzurPilot将在大世界跨月重置之前10分钟进入大世界，等待大世界重置但不退出大世界，然后完成新一天的大世界每日+、隐秘海域、深渊坐标和耄耋相接，以获得额外的金菜。运行大世界每日+时，按\"大世界每日+\"任务设置运行，其余同理。\n    重要：AzurPilot等待跨月期间，请不要操作游戏。"
     },
     "OpsiSimulator": {
       "name": "大世界模拟器 Alpha",
-      "help": "使用蒙特卡洛算法估算在当前状态下持续进行侵蚀循环一段时间后的结果，该功能不会影响AzurPilot正常运行\n模型所用参数均取自AzurPilot配置和统计，请确保正确配置了智能调度Plus等大世界设置\n目前为测试版本，结果不具备太多参考价值\n关于奸商售卖行动力的模型无足够充分的证据支撑。具体来讲，这里认为奸商卖6种行动力箱子满足超几何分布X~H(6,6,24)\n关于坠机：这里坠机是指整个模拟流程中行动力低于智能调度Plus中设置的行动力保留阈值至少一次。若低于该阈值，模拟器将停止侵蚀循环等待行动力自然回复"
+      "help": "使用蒙特卡洛算法估算在当前状态下持续进行侵蚀循环一段时间后的结果，该功能不会影响AzurPilot正常运行\n模型所用参数均取自AzurPilot配置和统计，请确保正确配置了智能调度+等大世界设置\n目前为测试版本，结果不具备太多参考价值\n关于奸商售卖行动力的模型无足够充分的证据支撑。具体来讲，这里认为奸商卖6种行动力箱子满足超几何分布X~H(6,6,24)\n关于坠机：这里坠机是指整个模拟流程中行动力低于智能调度+中设置的行动力保留阈值至少一次。若低于该阈值，模拟器将停止侵蚀循环等待行动力自然回复"
     },
     "IslandPlan": {
-      "name": "全局配置",
-      "help": "岛屿计划的全局配置，包括季节设定"
+      "name": "岛屿计划（统一调度）",
+      "help": "统一运行岛屿下的子模块：一次进岛按清单跑完所有到期任务，结束后在设定的间隔时间内不再进入岛屿。\n启用本任务后请关闭其它岛屿子任务的独立调度，避免重复进岛。"
     },
     "IslandBusiness": {
       "name": "经营模块",
@@ -372,7 +372,7 @@
     },
     "IslandPearlSell": {
       "name": "每周珍珠采购与售卖",
-      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先采购本周珍珠，再售卖已有珍珠。金币一定要够购买200x220个，这是最低要求，能一次买光本周珍珠，否则可能会报错。"
+      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先采购本周珍珠，再售卖已有珍珠。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错."
     },
     "FleetScan": {
       "name": "舰队扫描",
@@ -434,14 +434,14 @@
     },
     "Enable": {
       "name": "启用该功能",
-      "help": "将这个任务加入调度器",
-      "True": "开启",
+      "help": "将这个任务加入调度器\n委托、科研、收获任务是强制打开的",
+      "True": "已启用",
       "False": "关闭"
     },
     "PushNotification": {
       "name": "推送通知",
       "help": "启用后，任务完成时会通过 OnePush 推送成功或失败通知",
-      "True": "开启",
+      "True": "已启用",
       "False": "关闭"
     },
     "NextRun": {
@@ -467,8 +467,8 @@
     "Sensitive": {
       "name": "敏感任务",
       "help": "出错时禁止重启游戏，直接停止 AzurPilot 运行。适用于跨月每日、隐秘海域、深渊坐标等关键时刻任务。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "是",
+      "False": "否"
     }
   },
   "Restart": {
@@ -609,7 +609,7 @@
       "jp-17": "[JP] スイートバン"
     },
     "ScreenshotMethod": {
-      "name": "选择截图方案",
+      "name": "模拟器截图方案",
       "help": "使用自动选择时，将执行一次性能测试并自动更改为最快的截图方案\n一般情况下的速度: DroidCast_raw >> aScreenCap_nc > ADB_nc >>> aScreenCap > uiautomator2 ~= ADB\n运行 工具 - 性能测试 以寻找最快的方案",
       "auto": "自动选择最快的",
       "ADB": "ADB",
@@ -623,8 +623,8 @@
       "ldopengl": "ldopengl"
     },
     "ControlMethod": {
-      "name": "选择控制方案",
-      "help": "点击/滑动的注入方式。速度: minitouch ≈ MaaTouch > ADB >>> uiautomator2，推荐 MaaTouch（minitouch 在部分新安卓设备上不稳定）。\n⚠️ nemu_ipc 需与截图方式配套使用（截图选 nemu_ipc 时启动会自动联动）：其触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形，调用偶发挂死会丢失点击；滑动或拖拽异常时请改回 minitouch / MaaTouch。",
+      "name": "模拟器控制方案",
+      "help": "速度: minitouch > Hermit >>> uiautomator2 ~= ADB\n建议选minitouch，不建议选Hermit除非在vmos下",
       "ADB": "ADB",
       "uiautomator2": "uiautomator2",
       "minitouch": "minitouch",
@@ -652,7 +652,7 @@
       "help": "下列数值是根据Serial自动填充的，如果不懂请不要随意修改，修改端口即可自动启动对应实例"
     },
     "Emulator": {
-      "name": "选择模拟器类型",
+      "name": "模拟器类型",
       "help": "",
       "auto": "自动检测",
       "NoxPlayer": "夜神模拟器",
@@ -730,8 +730,8 @@
       "help": "运行敏感任务出错时停止AzurPilot，而不是重启游戏\n敏感任务包含隐秘海域、深渊坐标、跨月每日"
     },
     "SaveErrorCount": {
-      "name": "Error.SaveErrorCount.name",
-      "help": "Error.SaveErrorCount.help"
+      "name": "Error Log 保存上限",
+      "help": "超出上限的错误日志将被删除，若为0或负值则没有限制"
     },
     "OnePushConfig": {
       "name": "错误推送设置",
@@ -746,7 +746,7 @@
       "help": "在游戏连续卡死（触发GameStuckError）达到指定次数后，尝试重启模拟器。可能有助于解决模拟器假死或显存溢出等问题。"
     },
     "GameStuckThreshold": {
-      "name": "游戏卡死超过 X 秒后重启",
+      "name": "游戏卡死重启阈值",
       "help": "连续卡死多少次后触发重启。"
     },
     "AdbOfflineRestart": {
@@ -754,7 +754,7 @@
       "help": "在连续检测不到设备（ADB离线或连接失败）达到指定次数后，尝试重启模拟器。"
     },
     "AdbOfflineThreshold": {
-      "name": "检测不到设备超过 X 秒后重启",
+      "name": "检测不到设备重启阈值",
       "help": "连续检测不到设备多少次后触发重启。"
     },
     "LlmAnalysis": {
@@ -776,46 +776,46 @@
   },
   "TaskFailureProtection": {
     "_info": {
-      "name": "TaskFailureProtection._info.name",
-      "help": "TaskFailureProtection._info.help"
+      "name": "防止任务失败过多导致频繁重启",
+      "help": "当任务在设定的时间窗口内因同一错误原因连续失败达到设定次数时，自动关闭该任务，避免反复重启游戏。关闭后需手动重新启用该任务。"
     },
     "Enable": {
-      "name": "TaskFailureProtection.Enable.name",
-      "help": "TaskFailureProtection.Enable.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用失败保护",
+      "help": "开启后，任务连续失败达到设定次数时会自动关闭该任务，而非反复重启游戏。",
+      "True": "是",
+      "False": "否"
     },
     "PushNotify": {
-      "name": "TaskFailureProtection.PushNotify.name",
-      "help": "TaskFailureProtection.PushNotify.help",
-      "True": "True",
-      "False": "False"
+      "name": "推送失败通知",
+      "help": "开启后，任务被自动关闭时按照错误推送设置（Error.OnePushConfig）发送通知。",
+      "True": "是",
+      "False": "否"
     },
     "MaxFailures": {
-      "name": "TaskFailureProtection.MaxFailures.name",
-      "help": "TaskFailureProtection.MaxFailures.help"
+      "name": "最大失败次数",
+      "help": "在时间窗口内同一错误原因累计失败达到此次数后，自动关闭该任务。取值范围 1~10。"
     },
     "TimeWindowHours": {
-      "name": "TaskFailureProtection.TimeWindowHours.name",
-      "help": "TaskFailureProtection.TimeWindowHours.help"
+      "name": "累计时间窗口（小时）",
+      "help": "统计失败次数的时间范围。超过此时间后失败计数自动清零。例如设为 3，表示 3 小时内同一错误累计达到设定次数才关闭任务。取值范围 1~168。"
     },
     "WatchdogEnable": {
-      "name": "TaskFailureProtection.WatchdogEnable.name",
-      "help": "TaskFailureProtection.WatchdogEnable.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用看门狗守护",
+      "help": "开启后，看门狗线程在任务执行期间监控日志心跳和任务运行时间，检测到卡死时强制重启模拟器以解除阻塞。",
+      "True": "是",
+      "False": "否"
     },
     "WatchdogLogTimeout": {
-      "name": "TaskFailureProtection.WatchdogLogTimeout.name",
-      "help": "TaskFailureProtection.WatchdogLogTimeout.help"
+      "name": "日志心跳超时（秒）",
+      "help": "任务执行期间超过指定秒数无任何日志输出时，判定主线程卡死，强制停止模拟器以解除阻塞。\n0 表示禁用；99999 表示几乎无限制。\n默认 300 秒（5 分钟）。"
     },
     "WatchdogTaskTimeout": {
-      "name": "TaskFailureProtection.WatchdogTaskTimeout.name",
-      "help": "TaskFailureProtection.WatchdogTaskTimeout.help"
+      "name": "任务卡死保护超时（分钟）",
+      "help": "单个任务运行超过指定时间后，看门狗判定任务逻辑死循环（如剧情无法跳过、寻路死循环等），强制重启模拟器以中断任务。\n0 表示禁用；99999 表示几乎无限制。\n默认 120 分钟（2 小时）。"
     },
     "RestartOperationTimeout": {
-      "name": "TaskFailureProtection.RestartOperationTimeout.name",
-      "help": "TaskFailureProtection.RestartOperationTimeout.help"
+      "name": "重启操作超时（秒）",
+      "help": "应用停止/启动或模拟器停止/启动操作的硬超时秒数。超过此时间判定模拟器或 atx-agent 卡死，立即触发模拟器重启。\n默认 120 秒。"
     }
   },
   "Optimization": {
@@ -845,8 +845,8 @@
     "OcrWindowsMlVendorEp": {
       "name": "自动安装并使用厂商 EP",
       "help": "允许 Windows ML 通过 Windows Update 下载并使用 QNN/OpenVINO 厂商 EP。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "启用",
+      "False": "禁用"
     },
     "OcrModelVersionEnglish": {
       "name": "OCR英文模型版本",
@@ -897,8 +897,8 @@
     "CloseEmulatorDuringLongWait": {
       "name": "长时间等待时关闭模拟器",
       "help": "当下一个任务超过 3 小时后运行时，等待期间关闭模拟器以节省内存和 CPU。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "WhenTaskQueueEmpty": {
       "name": "当任务队列清空后",
@@ -918,8 +918,8 @@
     "WarmupEnable": {
       "name": "在任务开始前预热启动模拟器与游戏",
       "help": "开启后，若在等待期间关闭了模拟器/游戏（长时间等待关闭模拟器，或任务队列清空后关闭游戏），会在任务开始前提前启动模拟器与游戏并登录到主界面，任务到点即可直接执行，不再因冷启动而延误。预热开启时，不足『提前量』的短等待不会再关闭游戏。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "WarmupMinutes": {
       "name": "在任务开始前 X 分钟预热启动模拟器与游戏",
@@ -950,6 +950,32 @@
     "CombatRecord": {
       "name": "战斗掉落截图",
       "help": "启用后会放缓结算时的点击速度\n在自律寻敌下不生效",
+      "do_not": "无操作",
+      "save": "保存"
+    },
+    "OpsiRecord": {
+      "name": "大世界掉落截图",
+      "help": "只在本机解析并计入统计界面的「耄耋相接收获」，不会上传任何数据",
+      "do_not": "无操作",
+      "save": "保存",
+      "local": "本地记录",
+      "save_and_local": "保存并本地记录"
+    },
+    "OpsiShopRecord": {
+      "name": "行动力箱子掉落截图",
+      "help": "明石商店出现行动力箱时，把整张商店截图存到 screenshots/opsi_shop/，便于人工核对；不会上传任何数据",
+      "do_not": "无操作",
+      "save": "保存"
+    },
+    "MeowfficerBuy": {
+      "name": "指挥喵购买截图",
+      "help": "",
+      "do_not": "无操作",
+      "save": "保存"
+    },
+    "MeowfficerTalent": {
+      "name": "指挥喵天赋截图",
+      "help": "",
       "do_not": "无操作",
       "save": "保存"
     },
@@ -1016,24 +1042,6 @@
       "save": "保存",
       "local": "local",
       "save_and_local": "save_and_local"
-    },
-    "OpsiShopRecord": {
-      "name": "DropRecord.OpsiShopRecord.name",
-      "help": "DropRecord.OpsiShopRecord.help",
-      "do_not": "do_not",
-      "save": "save"
-    },
-    "MeowfficerBuy": {
-      "name": "指挥喵购买截图",
-      "help": "",
-      "do_not": "无操作",
-      "save": "保存"
-    },
-    "MeowfficerTalent": {
-      "name": "指挥喵天赋截图",
-      "help": "",
-      "do_not": "无操作",
-      "save": "保存"
     }
   },
   "Log": {
@@ -1067,7 +1075,7 @@
       "help": ""
     },
     "RetireMode": {
-      "name": "选择退役模式",
+      "name": "退役模式",
       "help": "若选择强化，强化材料不足时回退到一键退役",
       "one_click_retire": "一键退役",
       "enhance": "强化",
@@ -1126,7 +1134,7 @@
     },
     "TaskPriorityAdjustment": {
       "name": "任务优先级调整",
-      "help": "按从上到下的顺序填写任务名，越靠前越先执行；一行一个，也可用 > 分隔。新增任务会按照内置默认优先级自动插入到合适位置。"
+      "help": "拖动任务行调整调度优先级，越靠上越先执行。新增任务会按照内置默认优先级自动插入到合适位置。"
     }
   },
   "OneClickRetire": {
@@ -1157,7 +1165,7 @@
       "help": "格式: \"cv > bb > ...\"，\n留空则使用默认强化方式"
     },
     "CheckPerCategory": {
-      "name": "每个分类检查 X 艘",
+      "name": "每分类强化数量",
       "help": "每个舰船分类最多强化多少舰船，\n在战斗中的舰船会被跳过且不计入，\n优先判断是否有强化材料"
     }
   },
@@ -1183,7 +1191,7 @@
       "help": ""
     },
     "RetireAmount": {
-      "name": "每次退役 X 艘",
+      "name": "退役数量",
       "help": "",
       "retire_all": "退役全部",
       "retire_10": "退役10个"
@@ -1357,7 +1365,7 @@
       "war_archives_20240725_cn": "档案 幻梦间奏曲"
     },
     "Mode": {
-      "name": "选择关卡模式",
+      "name": "关卡模式",
       "help": "仅适用于主线图",
       "normal": "普通",
       "hard": "困难"
@@ -1401,7 +1409,7 @@
     },
     "Count": {
       "name": "委托次数",
-      "help": "本次作战委托要执行的关卡次数\n 如果为0还不开启“一键消耗作战全权委托书”，本任务会被直接关闭，如果想集中消耗作战委托书请设置为0"
+      "help": "本次作战委托要执行的关卡次数"
     },
     "AutoSupplementTime": {
       "name": "自动补充时间",
@@ -1426,8 +1434,8 @@
       "help": "物资达到该数值后推迟当前任务，物资低于上限后继续出击\n0 表示不限制物资"
     },
     "CoinLimit_Enable": {
-      "name": "StopCondition.CoinLimit_Enable.name",
-      "help": "StopCondition.CoinLimit_Enable.help"
+      "name": "物资上限推送通知",
+      "help": "开启后，物资达到 CoinLimit 设定值时发送推送通知\n关闭后仍会推迟任务，但不发送通知"
     },
     "RunCount": {
       "name": "出击次数大于 X 后停止",
@@ -1462,7 +1470,7 @@
       "help": ""
     },
     "DailyRunCount": {
-      "name": "每日出击 X 次",
+      "name": "每日出击次数",
       "help": "每天最多运行作战档案多少次。\n0 表示不限制。\n达到次数后会延迟到下一次服务器刷新，不会关闭任务。"
     },
     "AutoClear": {
@@ -1503,7 +1511,7 @@
       "help": ""
     },
     "Fleet1": {
-      "name": "一队使用第 X 支舰队",
+      "name": "一队编号",
       "help": "",
       "1": "1 ",
       "2": "2 ",
@@ -1520,7 +1528,7 @@
       "diamond": "轮形阵"
     },
     "Fleet1Mode": {
-      "name": "一队自律战斗模式",
+      "name": "一队自律模式",
       "help": "",
       "combat_auto": "自律战斗",
       "combat_manual": "手操",
@@ -1537,7 +1545,7 @@
       "5": "5 "
     },
     "Fleet2": {
-      "name": "二队使用第 X 支舰队",
+      "name": "二队编号",
       "help": "",
       "0": "不使用",
       "1": "1 ",
@@ -1555,7 +1563,7 @@
       "diamond": "轮形阵"
     },
     "Fleet2Mode": {
-      "name": "二队自律战斗模式",
+      "name": "二队自律模式",
       "help": "",
       "combat_auto": "自律战斗",
       "combat_manual": "手操",
@@ -1590,14 +1598,14 @@
       "help": ""
     },
     "Fleet": {
-      "name": "使用第 X 潜艇编队",
+      "name": "潜艇舰队编号",
       "help": "",
       "0": "不使用",
       "1": "1 ",
       "2": "2 "
     },
     "Mode": {
-      "name": "选择潜艇出击方案",
+      "name": "潜艇出击方案",
       "help": "仅在自律寻敌关闭的情况下生效，提醒: '狩猎及BOSS战'为'仅狩猎'与'仅BOSS战'的混合，它会在道中进行狩猎打击，并在BOSS战尝试召唤潜艇。\n注意: 在BOSS点召唤潜艇必须使用默认战斗界面主题（UI），否则无法召唤。",
       "do_not_use": "不使用",
       "hunt_only": "仅狩猎",
@@ -1607,8 +1615,8 @@
       "advanced": "高级"
     },
     "AutoSearchMode": {
-      "name": "选择潜艇自律方案",
-      "help": "自律寻敌下按此设置潜艇；手动寻敌时若为待机，进图前也会同步关闭游戏内的自动召唤（仅限已通关地图，开荒图无此设置页）",
+      "name": "潜艇自律方案",
+      "help": "仅在自律寻敌下生效",
       "sub_standby": "待机",
       "sub_auto_call": "自动召唤潜艇"
     },
@@ -1934,7 +1942,7 @@
       "help": "启用后，将于每次出击后检查物资量"
     },
     "CoinLimit": {
-      "name": "保持物资大于 X",
+      "name": "保持物资大于X",
       "help": ""
     },
     "TaskCall": {
@@ -2144,12 +2152,12 @@
       "help": "1200油委托现在已经过时，收益很低，建议关闭"
     },
     "NotifyReward": {
-      "name": "Commission.NotifyReward.name",
-      "help": "Commission.NotifyReward.help"
+      "name": "委托成功获取钻石推送",
+      "help": "注意，请开启错误推送设置并配置，否则此功能不生效"
     },
     "NotifyRewardStatistics": {
-      "name": "Commission.NotifyRewardStatistics.name",
-      "help": "Commission.NotifyRewardStatistics.help"
+      "name": "奖励推送详情",
+      "help": "开启后，AzurPilot在推送本次委托获取奖励的同时推送当日/本周/本月的累计获取数量"
     },
     "DetectShipDrop": {
       "name": "检测舰船掉落",
@@ -2173,8 +2181,8 @@
       "month": "本月"
     },
     "CommissionNotifyRewardCube": {
-      "name": "Commission.CommissionNotifyRewardCube.name",
-      "help": "Commission.CommissionNotifyRewardCube.help"
+      "name": "委托成功获取魔方推送",
+      "help": "开启后，获得魔方奖励时单独推送通知；关闭则不推送魔方（钻石推送不受影响）"
     }
   },
   "Tactical": {
@@ -2212,19 +2220,19 @@
       "help": ""
     },
     "T4Allow": {
-      "name": "允许T4技能书溢出 X 点经验",
+      "name": "允许 T4 技能书溢出 X 点经验",
       "help": ""
     },
     "T3Allow": {
-      "name": "允许T3技能书溢出 X 点经验",
+      "name": "允许 T3 技能书溢出 X 点经验",
       "help": ""
     },
     "T2Allow": {
-      "name": "允许T2技能书溢出 X 点经验",
+      "name": "允许 T2 技能书溢出 X 点经验",
       "help": ""
     },
     "T1Allow": {
-      "name": "允许T1技能书溢出 X 点经验",
+      "name": "允许 T1 技能书溢出 X 点经验",
       "help": ""
     }
   },
@@ -2389,7 +2397,7 @@
       "help": ""
     },
     "Mode": {
-      "name": "选择训练模式",
+      "name": "训练模式",
       "help": "无缝练猫将每隔 2.5 ~ 3.5 小时收取指挥喵\n每天收一只意思是每天收一只，周日收全部、强化并重新填充队列，以完成每周任务",
       "seamlessly": "无缝练猫",
       "once_a_day": "每天收一只"
@@ -2541,20 +2549,20 @@
   },
   "Report": {
     "_info": {
-      "name": "Report._info.name",
-      "help": "Report._info.help"
+      "name": "大世界日报",
+      "help": "每天定时推送大世界资源统计日报，通过企业微信机器人发送"
     },
     "Enable": {
-      "name": "Report.Enable.name",
-      "help": "Report.Enable.help"
+      "name": "启用日报",
+      "help": "开启后每天到达触发时间时自动发送大世界日报"
     },
     "TriggerTime": {
-      "name": "Report.TriggerTime.name",
-      "help": "Report.TriggerTime.help"
+      "name": "触发时间",
+      "help": "每天发送日报的时间，格式 HH:MM，例如 23:50"
     },
     "OnePushConfig": {
-      "name": "Report.OnePushConfig.name",
-      "help": "Report.OnePushConfig.help"
+      "name": "OnePush 推送配置",
+      "help": "用于日报推送的通知配置（企业微信机器人渠道）"
     }
   },
   "GeneralShop": {
@@ -2824,7 +2832,7 @@
       "6": "六期科研"
     },
     "ShipIndex": {
-      "name": "选择第 X 艘科研船",
+      "name": "舰船序号",
       "help": "从左往右数，从 1 开始",
       "0": "不购买",
       "1": "1",
@@ -2859,7 +2867,7 @@
       "6": "六期科研"
     },
     "ShipIndex": {
-      "name": "选择第 X 艘科研船",
+      "name": "舰船序号",
       "help": "从左往右数，从1开始",
       "0": "不购买",
       "1": "1",
@@ -2893,7 +2901,7 @@
       "wishing_well": "祈愿池"
     },
     "Amount": {
-      "name": "每天建造 X 次",
+      "name": "抽卡数量",
       "help": "",
       "1": "1",
       "2": "2",
@@ -3161,8 +3169,8 @@
       "2": "2"
     },
     "UseRecommendFleet": {
-      "name": "Hard.UseRecommendFleet.name",
-      "help": "Hard.UseRecommendFleet.help"
+      "name": "自动配队",
+      "help": "使用游戏内置的推荐阵容自动完成困难图配队"
     }
   },
   "Exercise": {
@@ -3213,7 +3221,7 @@
       "help": "推荐 1.0 ~ 3.0，因为人物立绘会遮挡血条，所以需要一定的时间确认血量是否真的低于阈值"
     },
     "OpponentRefreshValue": {
-      "name": "今日已刷新对手 X 次",
+      "name": "今日演习对手已刷新 X 次",
       "help": "自动更新的数值，过0点重置\n如果你手动刷新的对手，应该修改这个数值"
     },
     "OpponentRefreshRecord": {
@@ -3259,7 +3267,7 @@
       "help": "每次进入仓库的时候，使用所有的使用坐标记录仪"
     },
     "BuyActionPointLimit": {
-      "name": "购买行动力 X 次",
+      "name": "买行动力X次",
       "help": "买行动力的最大次数",
       "0": "不买",
       "1": "1次 (1000油, 100行动力)",
@@ -3286,7 +3294,7 @@
     },
     "RepairPackThresholdHazard1": {
       "name": "任意舰船血量低于 X 后，使用维修箱修理（侵蚀1）",
-      "help": "仅在开启“使用维修箱修船”时生效\n仅在“侵蚀1练级Plus”任务中尝试维修\n0.0 ~ 1.0"
+      "help": "仅在开启“使用维修箱修船”时生效\n仅在“侵蚀1练级+”任务中尝试维修\n0.0 ~ 1.0"
     },
     "DoRandomMapEvent": {
       "name": "完成地图随机事件",
@@ -3310,7 +3318,7 @@
     },
     "IndependentPush": {
       "name": "大世界信息独立推送",
-      "help": "需要同时开启“推送大世界相关信息”功能。\n关闭时使用系统设置 —> 调试设置 —> 错误推送设置，需要同时开启“错误推送”功能。\n开启时使用大世界推送设置，需要分离推送内容时请开启此功能"
+      "help": "需要同时开启“推送大世界相关信息”功能。\n关闭时使用智慧港区设置 —> 调试设置 —> 错误推送设置，需要同时开启“错误推送”功能。\n开启时使用大世界推送设置，需要分离推送内容时请开启此功能"
     },
     "OpsiOnePushConfig": {
       "name": "大世界推送设置",
@@ -3347,7 +3355,7 @@
     },
     "EnsureFullyCollected": {
       "name": "保证收集满每日200信标数据",
-      "help": "在收集满之前，暂时无视保留行动力设置，需要同时开启 \"耄耋相接\""
+      "help": "在收集满为前，暂时无视保留行动力设置，需要同时开启 \"耄耋相接\""
     },
     "AutoCollectShip": {
       "name": "自动获取新META舰船",
@@ -3384,7 +3392,7 @@
   },
   "OpsiExplore": {
     "_info": {
-      "name": "每月开荒Plus",
+      "name": "每月开荒+",
       "help": "每月月初开荒大世界的所有海域，不需要买战役信息记录仪（5000油道具）\n这个功能将每隔27分钟清理一个海域，以保证空域搜索冷却\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场"
     },
     "SpecialRadar": {
@@ -3404,18 +3412,18 @@
       "help": "开启后将不会推迟侵蚀1练级任务，慎用，没体力开荒就老实了。"
     },
     "ExploreProgress": {
-      "name": "每月开荒Plus进度",
-      "help": "显示当前每月开荒Plus的完成百分比"
+      "name": "每月开荒+进度",
+      "help": "显示当前每月开荒+的完成百分比"
     }
   },
   "OpsiShop": {
     "_info": {
-      "name": "大世界商店Plus",
-      "help": "使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）\n- 通关大世界主线后的下一个月，即港口商店变为新版商店后才可使用"
+      "name": "大世界商店+",
+      "help": "使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）\n- 通关大世界主线后的下一个月，即港口商店变为新版商店后才可使用"
     },
     "PresetFilter": {
       "name": "港口商店过滤器",
-      "help": "一般默认即可，白票溢出建议选 \"高价值物品与META材料\"，萌新建议选 \"不购买META材料\"，这会买除了META材料以外的所有东西。\n高价值物品为行动力、坐标和金或者更高级别的商品；META材料为META通用战术教材和4种强化材料。",
+      "help": "一般默认即可，白票溢出建议选 \"高价值物品与META材料\"，萌新建议选 \"不购买META材料\"，这会买除了META材料以外的所有东西。\n高价值物品为行动力、坐标和金或者更高级別的商品；META材料为META通用战术教材和4种强化材料。",
       "max_benefit": "高价值物品",
       "max_benefit_meta": "高价值物品与META材料",
       "no_meta": "不购买META材料",
@@ -3427,8 +3435,8 @@
       "help": "使用自定义过滤器需将 \"港口商店过滤器\" 设置为 \"自定义\"，并使用 https://filter.nanoda.work/ 生成过滤器，自己瞎几把设置过滤器出问题了别叫"
     },
     "DisableBeforeDate": {
-      "name": "每月 X 号前，不购买大世界商店Plus",
-      "help": "从指定日期的后一天开始，每天买一次大世界商店Plus\n0 表示不限制，每天都购买"
+      "name": "每月 X 号前，不购买大世界商店+",
+      "help": "从指定日期的后一天开始，每天买一次大世界商店+\n0 表示不限制，每天都购买"
     }
   },
   "OpsiVoucher": {
@@ -3443,11 +3451,11 @@
   },
   "OpsiDaily": {
     "_info": {
-      "name": "大世界每日Plus",
-      "help": "使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "name": "大世界每日+",
+      "help": "使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "DoMission": {
-      "name": "做大世界每日Plus",
+      "name": "做大世界每日+",
       "help": "在港口接每日，并完成所有每日"
     },
     "UseTuningSample": {
@@ -3474,7 +3482,7 @@
   "OpsiObscure": {
     "_info": {
       "name": "隐秘海域",
-      "help": "每隔27分钟清理一个隐秘海域，以保证空域搜索冷却\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "help": "每隔27分钟清理一个隐秘海域，以保证空域搜索冷却\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "SkipHazard2Obscure": {
       "name": "不清理2级坐标",
@@ -3488,7 +3496,7 @@
   "OpsiAbyssal": {
     "_info": {
       "name": "深渊坐标",
-      "help": "清理仓库中的深渊坐标\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "help": "清理仓库中的深渊坐标\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "ForceRun": {
       "name": "无视运行间隔强制运行",
@@ -3498,7 +3506,7 @@
   "OpsiStronghold": {
     "_info": {
       "name": "塞壬要塞",
-      "help": "清理每周的塞壬要塞\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "help": "清理每周的塞壬要塞\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "SubmarineEveryCombat": {
       "name": "潜艇每战出击",
@@ -3516,7 +3524,7 @@
   "OpsiMonthBoss": {
     "_info": {
       "name": "月度Boss",
-      "help": "清理（简单/困难）月度Boss，简单难度失败会继续出击直到击破，困难难度失败则直接终止任务\n使用此功能需要满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "help": "清理（简单/困难）月度Boss，简单难度失败会继续出击直到击破，困难难度失败则直接终止任务\n使用此功能需要满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "Mode": {
       "name": "清理月度Boss的难度",
@@ -3536,7 +3544,7 @@
   "OpsiMeowfficerFarming": {
     "_info": {
       "name": "耄耋相接",
-      "help": "按顺时针出击指定侵蚀等级的海域\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒Plus任务或使用战役信息记录仪（5000油道具）"
+      "help": "按顺时针出击指定侵蚀等级的海域\n使用此功能前必须满足以下条件：\n- 通关大世界主线并完成模拟战+塞壬试验场\n- 启用每月开荒+任务或使用战役信息记录仪（5000油道具）"
     },
     "ActionPointPreserve": {
       "name": "保留 X 点行动力",
@@ -3608,11 +3616,11 @@
       "help": "搏一搏，单车变摩托，雪风大人已经把幸运分给指挥官了nanoda，上吧nanoda！"
     },
     "ExecuteFixedPatrolScan": {
-      "name": "战后强制移动（效率模式）",
-      "help": "开启后，战后遍历 1~4 号舰队的雷达清剩余问号（只切换舰队看雷达、不挪动舰队），找到明石/记录塔/装置就处理。这样还不够时再逐个挪动舰队做一遍整图重扫，落点是固定的 C1/D1/E1/F1（只适合侵蚀1 那张图）：如果有舰队看到了问号却走不过去（被挡住/超出移动范围），直接挪；只有全队雷达都没线索时才看界面上的当前行动力，大于 7 才挪，否则留给下一轮练级。默认关闭。短猫相接不吃这一套，它只换队扫雷达。",
-      "0": "0",
-      "1": "1",
-      "2": "2"
+      "name": "强制移动等级",
+      "help": "明石被舰队挡住或刷新在雷达外面时，是否强制移动舰队来找明石 \n 效率模式：只切换舰队看雷达，一支都不挪动，最快 \n 保守模式：先只扫雷达（不动），扫不到再逐个挪动舰队+扫图找，更稳但会挪动、慢一点",
+      "0": "关闭",
+      "1": "效率模式",
+      "2": "保守模式"
     },
     "SkipHpCheck": {
       "name": "献祭流跳过血量检测",
@@ -3684,8 +3692,8 @@
     "EnableCustomCheck": {
       "name": "启用自定义舰船检测",
       "help": "启用后仅检测指定的舰船是否达到目标等级，而非全部舰船",
-      "True": "开启",
-      "False": "关闭"
+      "True": "已启用",
+      "False": "未启用"
     },
     "CustomCheckPositions": {
       "name": "自定义检测舰位",
@@ -3704,14 +3712,14 @@
     "Enable": {
       "name": "启用自动配队",
       "help": "开启后将自动更换已满经验的舰船",
-      "True": "开启",
-      "False": "关闭"
+      "True": "已启用",
+      "False": "未启用"
     },
     "AnyShipReached": {
-      "name": "OpsiFleetAutoChange.AnyShipReached.name",
-      "help": "OpsiFleetAutoChange.AnyShipReached.help",
-      "True": "True",
-      "False": "False"
+      "name": "任意舰船达到等级后更换",
+      "help": "启用后，当任意检测舰船达到目标等级时执行自动配队\n关闭时，需要所有检测舰船达到目标等级才执行自动配队",
+      "True": "已启用",
+      "False": "未启用"
     },
     "CooldownHours": {
       "name": "冷却时间(小时)",
@@ -3728,11 +3736,11 @@
   },
   "OpsiScheduling": {
     "_info": {
-      "name": "智能调度Plus",
-      "help": "智能调度Plus相关配置"
+      "name": "智能调度+",
+      "help": "智能调度+相关配置"
     },
     "UseSmartSchedulingOperationCoinsPreserve": {
-      "name": "保留 X 个作战补给凭证",
+      "name": "获取 X 个作战补给凭证",
       "help": "启用后将使用下方设置的 获取 X 个作战补给凭证 的配置，禁用则使用侵蚀1练级 黄币保留配置",
       "True": "开启",
       "False": "关闭"
@@ -3746,32 +3754,32 @@
       "help": "行动力低于 X 后停止，自动打开行动力箱子，X 包含箱子中的行动力，建议保留1000行动力给侵蚀1练级"
     },
     "OperationCoinsReturnThreshold": {
-      "name": "作战补给凭证低于 X 时返航",
+      "name": "获取 X 个作战补给凭证",
       "help": "在黄币获取任务时 共获取(增加) X 个作战补给凭证后返回侵蚀1练级"
     },
     "EnableMeowfficerFarming": {
       "name": "启用耄耋相接",
-      "help": "智能调度Plus中是否启用耄耋相接任务来补充黄币",
-      "True": "开启",
-      "False": "关闭"
+      "help": "智能调度+中是否启用耄耋相接任务来补充黄币",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableObscure": {
       "name": "启用隐秘海域",
-      "help": "智能调度Plus中是否启用隐秘海域任务来补充黄币",
-      "True": "开启",
-      "False": "关闭"
+      "help": "智能调度+中是否启用隐秘海域任务来补充黄币",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableAbyssal": {
       "name": "启用深渊坐标",
-      "help": "智能调度Plus中是否启用深渊坐标任务来补充黄币",
-      "True": "开启",
-      "False": "关闭"
+      "help": "智能调度+中是否启用深渊坐标任务来补充黄币",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableStronghold": {
       "name": "启用塞壬要塞",
-      "help": "智能调度Plus中是否启用塞壬要塞任务来补充黄币",
-      "True": "开启",
-      "False": "关闭"
+      "help": "智能调度+中是否启用塞壬要塞任务来补充黄币",
+      "True": "已启用",
+      "False": "未启用"
     },
     "TaskPriority": {
       "name": "补充黄币任务优先级",
@@ -3780,8 +3788,8 @@
     "MonthEndActionPointCleanupEnable": {
       "name": "启用月末清理行动力",
       "help": "是否启用月末清理行动力功能。开启后，当距大世界重置剩余天数小于等于\"月末清理行动力天数\"时，启动月末清理模式消耗行动力。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "MonthEndActionPointCleanupDays": {
       "name": "月末清理行动力天数",
@@ -3794,33 +3802,33 @@
     "MonthEndShopPurchase": {
       "name": "月末清理商店购买",
       "help": "月末清理行动力时是否执行大世界商店购买。关闭后月末清理循环将跳过商店购买步骤。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "BuyActionPointMode": {
-      "name": "OpsiScheduling.BuyActionPointMode.name",
-      "help": "OpsiScheduling.BuyActionPointMode.help",
-      "off": "off",
-      "hazard1_leveling": "hazard1_leveling",
-      "meowfficer_farming": "meowfficer_farming"
+      "name": "买行动力模式",
+      "help": "购买行动力专用模式，与现有黄币/行动力调度互斥。开启后将用石油购买行动力并执行对应任务。需先在「大世界通用设置 → 买行动力X次」设置每周购买上限。",
+      "off": "关闭",
+      "hazard1_leveling": "侵蚀1练级",
+      "meowfficer_farming": "短猫补黄币"
     },
     "BuyActionPointUpperThreshold": {
-      "name": "OpsiScheduling.BuyActionPointUpperThreshold.name",
-      "help": "OpsiScheduling.BuyActionPointUpperThreshold.help"
+      "name": "买行动力上限阈值",
+      "help": "仅「短猫补黄币」模式使用。当前真实行动力超过此值时跳过购买，直接执行海域任务。默认 200（大世界行动力自然回复上限）。"
     },
     "BuyActionPointLowerThreshold": {
-      "name": "OpsiScheduling.BuyActionPointLowerThreshold.name",
-      "help": "OpsiScheduling.BuyActionPointLowerThreshold.help"
+      "name": "买行动力下限阈值",
+      "help": "仅「短猫补黄币」模式使用。当前真实行动力低于此值时停止执行海域任务，回到购买步骤。默认 100。"
     }
   },
   "OpsiPreventActionPointOverflow": {
     "_info": {
       "name": "防止行动力溢出",
-      "help": "当前行动力达到上限时执行大世界任务消耗行动力\n选择智能调度Plus时，如果行动力和黄币都不足导致没有可运行任务，将运行耄耋相接清理当前行动力"
+      "help": "当前行动力达到上限时执行大世界任务消耗行动力\n选择智能调度+时，如果行动力和黄币都不足导致没有可运行任务，将运行耄耋相接清理当前行动力"
     },
     "Task": {
       "name": "执行任务",
-      "help": "推荐选择智能调度Plus，防止行动力溢出任务对此有专门处理",
+      "help": "推荐选择智能调度+，防止行动力溢出任务对此有专门处理",
       "OpsiScheduling": "智能调度+（推荐）",
       "OpsiHazard1Leveling": "侵蚀1练级",
       "OpsiMeowfficerFarming": "耄耋相接"
@@ -3836,33 +3844,33 @@
   },
   "OpsiCrossMonth": {
     "_info": {
-      "name": "OpsiCrossMonth._info.name",
-      "help": "OpsiCrossMonth._info.help"
+      "name": "跨月每日",
+      "help": "跨月每日相关配置：完成后清理多余行动力并推送任务信息"
     },
     "ActionPointCleanupEnable": {
-      "name": "OpsiCrossMonth.ActionPointCleanupEnable.name",
-      "help": "OpsiCrossMonth.ActionPointCleanupEnable.help"
+      "name": "清理多余行动力",
+      "help": "跨月每日完成后检查剩余行动力，自动检查塞壬要塞并循环 隐秘海域 → 深渊坐标 → 耄耋相接，直到总行动力低于保留值"
     },
     "ActionPointPreserve": {
-      "name": "OpsiCrossMonth.ActionPointPreserve.name",
-      "help": "OpsiCrossMonth.ActionPointPreserve.help"
+      "name": "清理行动力保留值",
+      "help": "总行动力（当前行动力 + 行动力箱子折算）低于该值时停止清理并结束任务"
     },
     "PushNotify": {
-      "name": "OpsiCrossMonth.PushNotify.name",
-      "help": "OpsiCrossMonth.PushNotify.help"
+      "name": "推送跨月任务信息",
+      "help": "跨月每日完成或失败时推送通知，推送渠道遵循大世界推送设置"
     },
     "RehearsalDebug": {
-      "name": "OpsiCrossMonth.RehearsalDebug.name",
-      "help": "OpsiCrossMonth.RehearsalDebug.help",
-      "off": "off",
-      "cleanup": "cleanup",
-      "full": "full"
+      "name": "预演请求（开发者工具）",
+      "help": "由开发者工具页的跨月预演按钮写入，任务读取一次后自动复位为 off，请勿手动修改",
+      "off": "关闭",
+      "cleanup": "仅清理",
+      "full": "完整流程"
     }
   },
   "IslandPlan": {
     "_info": {
       "name": "岛屿计划全局",
-      "help": "岛屿计划的全局配置，包括季节设定"
+      "help": "岛屿计划的全局配置：当前季节、运行间隔与子模块开关。\n下面的开关决定哪些模块参与岛屿计划；开启后仍需等该模块自己的「下次运行时间」到期才会执行，因此每日补给一天只会跑一次、珍珠倒卖一周只会跑一次。"
     },
     "Season": {
       "name": "当前季节",
@@ -3873,114 +3881,114 @@
       "winter": "冬季"
     },
     "IntervalHours": {
-      "name": "IslandPlan.IntervalHours.name",
-      "help": "IslandPlan.IntervalHours.help"
+      "name": "岛屿运行最长间隔（小时）",
+      "help": "一轮岛屿计划结束后，最长等该小时数才再次进入岛屿；间隔期内不会运行任何岛屿子模块。\n若某个子模块在 60 分钟以外到期（当天 18:00 的每日采集、次日 03:00 的每日订单等），会提前进岛去接那个时刻。想要严格的固定间隔，请关闭「尊重子模块到期时间」。\n自由填写 1~24 小时，超出范围会自动改为边界值。"
     },
     "RespectSubTaskTimes": {
-      "name": "IslandPlan.RespectSubTaskTimes.name",
-      "help": "IslandPlan.RespectSubTaskTimes.help",
-      "True": "True",
-      "False": "False"
+      "name": "尊重子模块到期时间",
+      "help": "开启：子模块自己的「下次运行时间」若在 60 分钟以外到期，就把下一轮进岛提前到那一刻（当天 18:00 的每日采集、次日 03:00 的每日订单因此不会被漏掉）。代价是实际间隔可能短于上面的最长间隔。\n关闭：完全按最长间隔进岛，到期但没赶上的子模块留到下一轮再跑。\n餐馆家族「开完店立刻回头补货」这类几十分钟内的重复检查，永远不算提前进岛的理由。",
+      "True": "开启",
+      "False": "关闭"
     },
     "EnableAirDrop": {
-      "name": "IslandPlan.EnableAirDrop.name",
-      "help": "IslandPlan.EnableAirDrop.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用每日补给",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableDailyGather": {
-      "name": "IslandPlan.EnableDailyGather.name",
-      "help": "IslandPlan.EnableDailyGather.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用每日采集",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableCargoPreparation": {
-      "name": "IslandPlan.EnableCargoPreparation.name",
-      "help": "IslandPlan.EnableCargoPreparation.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用货物筹备",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableDailyOrder": {
-      "name": "IslandPlan.EnableDailyOrder.name",
-      "help": "IslandPlan.EnableDailyOrder.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用每日订单",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableDailyInteract": {
-      "name": "IslandPlan.EnableDailyInteract.name",
-      "help": "IslandPlan.EnableDailyInteract.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用每日/周任务",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableFarm": {
-      "name": "IslandPlan.EnableFarm.name",
-      "help": "IslandPlan.EnableFarm.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用农田",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableRancher": {
-      "name": "IslandPlan.EnableRancher.name",
-      "help": "IslandPlan.EnableRancher.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用牧场",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableMineForest": {
-      "name": "IslandPlan.EnableMineForest.name",
-      "help": "IslandPlan.EnableMineForest.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用矿山林场",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnablePearlSell": {
-      "name": "IslandPlan.EnablePearlSell.name",
-      "help": "IslandPlan.EnablePearlSell.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用每周珍珠采购与售卖",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableManufacture": {
-      "name": "IslandPlan.EnableManufacture.name",
-      "help": "IslandPlan.EnableManufacture.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用制造业",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableRestaurant": {
-      "name": "IslandPlan.EnableRestaurant.name",
-      "help": "IslandPlan.EnableRestaurant.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用有鱼餐馆",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableTeahouse": {
-      "name": "IslandPlan.EnableTeahouse.name",
-      "help": "IslandPlan.EnableTeahouse.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用白熊饮品",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableGrill": {
-      "name": "IslandPlan.EnableGrill.name",
-      "help": "IslandPlan.EnableGrill.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用乌鱼烤肉",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableJuuEatery": {
-      "name": "IslandPlan.EnableJuuEatery.name",
-      "help": "IslandPlan.EnableJuuEatery.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用啾啾简餐",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableJuuCoffee": {
-      "name": "IslandPlan.EnableJuuCoffee.name",
-      "help": "IslandPlan.EnableJuuCoffee.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用啾咖啡",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "EnableBusiness": {
-      "name": "IslandPlan.EnableBusiness.name",
-      "help": "IslandPlan.EnableBusiness.help",
-      "True": "True",
-      "False": "False"
+      "name": "启用经营模块",
+      "help": "",
+      "True": "已启用",
+      "False": "未启用"
     },
     "TaskOrder": {
-      "name": "IslandPlan.TaskOrder.name",
-      "help": "IslandPlan.TaskOrder.help"
+      "name": "自定义执行顺序（可选）",
+      "help": "内置执行顺序，默认已填好，可直接调整。开关决定「跑不跑」，这里只决定「先跑谁」：用 > 分隔，未列出的已启用模块会排在它们之后；清空会恢复成这份默认顺序。\n可用名称：IslandAirDrop（每日补给）、IslandDailyGather（每日采集）、IslandCargoPreparation（货物筹备）、IslandDailyOrder（每日订单）、IslandDailyInteract（每日/周任务）、IslandFarm（农田）、IslandRancher（牧场）、IslandMineForest（矿山林场）、IslandPearlSell（每周珍珠采购与售卖）、IslandManufacture（制造业）、IslandRestaurant（有鱼餐馆）、IslandTeahouse（白熊饮品）、IslandGrill（乌鱼烤肉）、IslandJuuEatery（啾啾简餐）、IslandJuuCoffee（啾咖啡）、IslandBusiness（经营模块）"
     }
   },
   "IslandFarm": {
@@ -4185,7 +4193,7 @@
       "help": ""
     },
     "Positions": {
-      "name": "安排 X 个矿工岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2",
@@ -4232,7 +4240,7 @@
       "help": ""
     },
     "Positions": {
-      "name": "安排 X 个伐木工岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2",
@@ -4281,7 +4289,7 @@
       "help": "餐品会按从1~8的顺序依次生产，生产目标为餐品X数量选项，完全满足前一项后才会执行下一项，后一项在运行时不会影响之前几项任务的达成\n餐品1-8中的凉拌双笋和芦笋炒虾仁会根据当前季节自动切换为对应季节餐品"
     },
     "PostNumber": {
-      "name": "安排 X 个厨师岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2"
@@ -4297,7 +4305,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4314,13 +4322,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber1": {
-      "name": "生产餐品1至 X 份",
+      "name": "餐品1数量",
       "help": ""
     },
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4337,13 +4345,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber2": {
-      "name": "生产餐品2至 X 份",
+      "name": "餐品2数量",
       "help": ""
     },
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4360,13 +4368,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber3": {
-      "name": "生产餐品3至 X 份",
+      "name": "餐品3数量",
       "help": ""
     },
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4383,13 +4391,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber4": {
-      "name": "生产餐品4至 X 份",
+      "name": "餐品4数量",
       "help": ""
     },
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4406,13 +4414,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber5": {
-      "name": "生产餐品5至 X 份",
+      "name": "餐品5数量",
       "help": ""
     },
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4429,13 +4437,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber6": {
-      "name": "生产餐品6至 X 份",
+      "name": "餐品6数量",
       "help": ""
     },
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4452,13 +4460,13 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber7": {
-      "name": "生产餐品7至 X 份",
+      "name": "餐品7数量",
       "help": ""
     },
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4475,7 +4483,7 @@
       "persimmon_cake": "柿子饼"
     },
     "MealNumber8": {
-      "name": "生产餐品8至 X 份",
+      "name": "餐品8数量",
       "help": ""
     }
   },
@@ -4487,7 +4495,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "无",
+      "None": "None",
       "tofu": "豆腐",
       "omurice": "蛋包饭",
       "cabbage_tofu": "白菜豆腐汤",
@@ -4510,7 +4518,7 @@
       "help": "餐品会按从1~8的顺序依次生产，生产目标为餐品X数量选项，完全满足前一项后才会执行下一项，后一项在运行时不会影响之前几项任务的达成\n蜂蜜制品支持自动生产，需保证蜂蜜库存充足\n餐品中的迎春花茶和鲜榨菠萝汁会根据当前季节自动切换为对应季节餐品"
     },
     "PostNumber": {
-      "name": "安排 X 个调饮师岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2"
@@ -4526,7 +4534,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4541,13 +4549,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber1": {
-      "name": "生产餐品1至 X 份",
+      "name": "餐品1数量",
       "help": ""
     },
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4562,13 +4570,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber2": {
-      "name": "生产餐品2至 X 份",
+      "name": "餐品2数量",
       "help": ""
     },
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4583,13 +4591,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber3": {
-      "name": "生产餐品3至 X 份",
+      "name": "餐品3数量",
       "help": ""
     },
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4604,13 +4612,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber4": {
-      "name": "生产餐品4至 X 份",
+      "name": "餐品4数量",
       "help": ""
     },
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4625,13 +4633,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber5": {
-      "name": "生产餐品5至 X 份",
+      "name": "餐品5数量",
       "help": ""
     },
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4646,13 +4654,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber6": {
-      "name": "生产餐品6至 X 份",
+      "name": "餐品6数量",
       "help": ""
     },
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4667,13 +4675,13 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber7": {
-      "name": "生产餐品7至 X 份",
+      "name": "餐品7数量",
       "help": ""
     },
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4688,7 +4696,7 @@
       "carrot_pear_juice": "胡萝卜秋梨汁"
     },
     "MealNumber8": {
-      "name": "生产餐品8至 X 份",
+      "name": "餐品8数量",
       "help": ""
     }
   },
@@ -4700,7 +4708,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "无",
+      "None": "None",
       "apple_juice": "苹果汁",
       "banana_mango": "香蕉芒果汁",
       "honey_lemon": "蜂蜜柠檬水",
@@ -4721,7 +4729,7 @@
       "help": "餐品会按从1~8的顺序依次生产，生产目标为餐品X数量选项，完全满足前一项后才会执行下一项，后一项在运行时不会影响之前几项任务的达成"
     },
     "PostNumber": {
-      "name": "安排 X 个烧烤师岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2"
@@ -4733,7 +4741,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4744,13 +4752,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber1": {
-      "name": "生产餐品1至 X 份",
+      "name": "餐品1数量",
       "help": ""
     },
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4761,13 +4769,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber2": {
-      "name": "生产餐品2至 X 份",
+      "name": "餐品2数量",
       "help": ""
     },
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4778,13 +4786,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber3": {
-      "name": "生产餐品3至 X 份",
+      "name": "餐品3数量",
       "help": ""
     },
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4795,13 +4803,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber4": {
-      "name": "生产餐品4至 X 份",
+      "name": "餐品4数量",
       "help": ""
     },
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4812,13 +4820,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber5": {
-      "name": "生产餐品5至 X 份",
+      "name": "餐品5数量",
       "help": ""
     },
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4829,13 +4837,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber6": {
-      "name": "生产餐品6至 X 份",
+      "name": "餐品6数量",
       "help": ""
     },
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4846,13 +4854,13 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber7": {
-      "name": "生产餐品7至 X 份",
+      "name": "餐品7数量",
       "help": ""
     },
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4863,7 +4871,7 @@
       "double_energy": "能量双拼套餐"
     },
     "MealNumber8": {
-      "name": "生产餐品8至 X 份",
+      "name": "餐品8数量",
       "help": ""
     }
   },
@@ -4875,7 +4883,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "chicken_potato": "禽肉土豆拼盘",
       "carrot_omelette": "胡萝卜厚蛋烧",
@@ -4892,7 +4900,7 @@
       "help": "餐品会按从1~8的顺序依次生产，生产目标为餐品X数量选项，完全满足前一项后才会执行下一项，后一项在运行时不会影响之前几项任务的达成"
     },
     "PostNumber": {
-      "name": "安排 X 个简餐师岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2"
@@ -4904,7 +4912,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4917,13 +4925,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber1": {
-      "name": "生产餐品1至 X 份",
+      "name": "餐品1数量",
       "help": ""
     },
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4936,13 +4944,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber2": {
-      "name": "生产餐品2至 X 份",
+      "name": "餐品2数量",
       "help": ""
     },
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4955,13 +4963,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber3": {
-      "name": "生产餐品3至 X 份",
+      "name": "餐品3数量",
       "help": ""
     },
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4974,13 +4982,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber4": {
-      "name": "生产餐品4至 X 份",
+      "name": "餐品4数量",
       "help": ""
     },
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -4993,13 +5001,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber5": {
-      "name": "生产餐品5至 X 份",
+      "name": "餐品5数量",
       "help": ""
     },
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -5012,13 +5020,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber6": {
-      "name": "生产餐品6至 X 份",
+      "name": "餐品6数量",
       "help": ""
     },
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -5031,13 +5039,13 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber7": {
-      "name": "生产餐品7至 X 份",
+      "name": "餐品7数量",
       "help": ""
     },
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -5050,7 +5058,7 @@
       "seafood_rice": "海鲜饭"
     },
     "MealNumber8": {
-      "name": "生产餐品8至 X 份",
+      "name": "餐品8数量",
       "help": ""
     }
   },
@@ -5062,7 +5070,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "无",
+      "None": "None",
       "apple_pie": "苹果派",
       "corn_cup": "玉米杯",
       "orange_pie": "香橙派",
@@ -5081,7 +5089,7 @@
       "help": "餐品会按从1~8的顺序依次生产，生产目标为餐品X数量选项，完全满足前一项后才会执行下一项，后一项在运行时不会影响之前几项任务的达成"
     },
     "PostNumber": {
-      "name": "安排 X 个咖啡师岗位",
+      "name": "岗位数量",
       "help": "",
       "1": "1",
       "2": "2"
@@ -5097,7 +5105,7 @@
     "Meal1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5109,13 +5117,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber1": {
-      "name": "生产餐品1至 X 份",
+      "name": "餐品1数量",
       "help": ""
     },
     "Meal2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5127,13 +5135,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber2": {
-      "name": "生产餐品2至 X 份",
+      "name": "餐品2数量",
       "help": ""
     },
     "Meal3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5145,13 +5153,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber3": {
-      "name": "生产餐品3至 X 份",
+      "name": "餐品3数量",
       "help": ""
     },
     "Meal4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5163,13 +5171,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber4": {
-      "name": "生产餐品4至 X 份",
+      "name": "餐品4数量",
       "help": ""
     },
     "Meal5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5181,13 +5189,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber5": {
-      "name": "生产餐品5至 X 份",
+      "name": "餐品5数量",
       "help": ""
     },
     "Meal6": {
       "name": "餐品6",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5199,13 +5207,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber6": {
-      "name": "生产餐品6至 X 份",
+      "name": "餐品6数量",
       "help": ""
     },
     "Meal7": {
       "name": "餐品7",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5217,13 +5225,13 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber7": {
-      "name": "生产餐品7至 X 份",
+      "name": "餐品7数量",
       "help": ""
     },
     "Meal8": {
       "name": "餐品8",
       "help": "",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5235,7 +5243,7 @@
       "fruity_fruitier": "果香双杯乐"
     },
     "MealNumber8": {
-      "name": "生产餐品8至 X 份",
+      "name": "餐品8数量",
       "help": ""
     }
   },
@@ -5247,7 +5255,7 @@
     "AwayCook": {
       "name": "常驻餐品",
       "help": "以上全做完则做常驻餐品",
-      "None": "无",
+      "None": "None",
       "iced_coffee": "冰咖啡",
       "omelette": "欧姆蛋",
       "cheese": "芝士",
@@ -5358,7 +5366,7 @@
   "IslandPearlSell": {
     "_info": {
       "name": "每周珍珠采购与售卖",
-      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先按最高采购价采购本周珍珠，再按最低售卖价售卖已有珍珠。其他未完成流程会延迟到次日 01:00 重试。金币一定要够购买200x220个，这是最低要求，能一次买光本周珍珠，否则可能会报错。"
+      "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先按最高采购价采购本周珍珠，再按最低售卖价售卖已有珍珠。其他未完成流程会延迟到次日 01:00 重试。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错."
     },
     "BuyPrice": {
       "name": "最高采购价格",
@@ -5399,8 +5407,8 @@
     "BatchEnabled": {
       "name": "启用分批经营",
       "help": "将5个商店分成两批执行，避免共用经营人员的商店同批派出",
-      "True": "开启",
-      "False": "关闭"
+      "True": "启用",
+      "False": "禁用"
     },
     "Batch1Shops": {
       "name": "第一批经营商店",
@@ -5423,8 +5431,8 @@
     "SeasonalReplaceEnabled": {
       "name": "启用季节限定替换",
       "help": "季节限定商品库存不足时自动替换为备用商品",
-      "True": "开启",
-      "False": "关闭"
+      "True": "启用",
+      "False": "禁用"
     },
     "SeasonalThreshold": {
       "name": "季节限定商品数量低于 X 时替换",
@@ -5439,7 +5447,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5479,7 +5487,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5519,7 +5527,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5532,7 +5540,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5545,7 +5553,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5558,7 +5566,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5571,7 +5579,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "double_bamboo_shoots": "凉拌双笋",
       "tofu_meat": "肉末烧豆腐",
       "tofu_combo": "经典豆腐套餐",
@@ -5607,7 +5615,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5647,7 +5655,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5687,7 +5695,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5702,7 +5710,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5717,7 +5725,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5732,7 +5740,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5747,7 +5755,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5762,7 +5770,7 @@
     "SeasonalFallback": {
       "name": "季节饮品备用饮品",
       "help": "白熊饮品当前季节饮品库存不足时替换成该饮品",
-      "None": "无",
+      "None": "None",
       "spring_flower_tea": "迎春花茶",
       "strawberry_lemon": "草莓蜜沁",
       "strawberry_honey": "草莓蜂蜜冰沙",
@@ -5787,7 +5795,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5827,7 +5835,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5867,7 +5875,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5877,7 +5885,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5887,7 +5895,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5897,7 +5905,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5907,7 +5915,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "orchard_duo": "果园二重奏",
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
@@ -5927,7 +5935,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -5967,7 +5975,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -6007,7 +6015,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -6018,7 +6026,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -6029,7 +6037,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -6040,7 +6048,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -6051,7 +6059,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "roasted_skewer": "碳烤肉串",
       "stir_fried_chicken": "爆炒禽肉",
       "steak_bowl": "汉堡肉饭",
@@ -6072,7 +6080,7 @@
     "Char1": {
       "name": "角色1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -6112,7 +6120,7 @@
     "Char2": {
       "name": "角色2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "WorkerJuu": "工作啾",
       "Cheshire": "柴郡",
       "YingSwei": "应瑞",
@@ -6152,7 +6160,7 @@
     "Product1": {
       "name": "餐品1",
       "help": "",
-      "None": "无",
+      "None": "None",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6163,7 +6171,7 @@
     "Product2": {
       "name": "餐品2",
       "help": "",
-      "None": "无",
+      "None": "None",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6174,7 +6182,7 @@
     "Product3": {
       "name": "餐品3",
       "help": "",
-      "None": "无",
+      "None": "None",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6185,7 +6193,7 @@
     "Product4": {
       "name": "餐品4",
       "help": "",
-      "None": "无",
+      "None": "None",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6196,7 +6204,7 @@
     "Product5": {
       "name": "餐品5",
       "help": "",
-      "None": "无",
+      "None": "None",
       "cheese": "芝士",
       "citrus_coffee": "柑橘咖啡",
       "strawberry_milkshake": "草莓奶绿",
@@ -6255,7 +6263,7 @@
     "SkipBattle": {
       "name": "杀游戏跳过战斗",
       "help": "",
-      "True": "开启",
+      "True": "已启用",
       "False": "关闭"
     }
   },
@@ -6295,38 +6303,38 @@
       "help": "当前版本搭建点击流程：船坞、第一艘、快速更换、装备中、占位换装逻辑、下一艘。"
     },
     "ShipLimit": {
-      "name": "处理前 X 艘舰船",
+      "name": "处理舰船上限",
       "help": "0 表示一直处理到无法切换下一艘；调试时可设置为 1 或其他较小数量。"
     },
     "EnableSlot1": {
       "name": "更换第 1 个装备",
       "help": "启用后，仅当第 1 个装备位为空时尝试自动装备。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "EnableSlot2": {
       "name": "更换第 2 个装备",
       "help": "启用后，仅当第 2 个装备位为空时尝试自动装备。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "EnableSlot3": {
       "name": "更换第 3 个装备",
       "help": "启用后，仅当第 3 个装备位为空时尝试自动装备。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "EnableSlot4": {
       "name": "更换第 4 个装备",
       "help": "启用后，仅当第 4 个装备位为空时尝试自动装备。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     },
     "EnableSlot5": {
       "name": "更换第 5 个装备",
       "help": "启用后，仅当第 5 个装备位为空时尝试自动装备。",
-      "True": "开启",
-      "False": "关闭"
+      "True": "True",
+      "False": "False"
     }
   },
   "Benchmark": {
@@ -6335,7 +6343,7 @@
       "help": "测试哪个截图方案和控制方案速度更快，速度因模拟器和电脑配置而异\n测试完成后，在 \"AzurPilot\" - \"模拟器设置\" 内选择最快的截图和控制方案"
     },
     "DeviceType": {
-      "name": "选择设备类型",
+      "name": "设备类型",
       "help": "",
       "emulator": "模拟器",
       "plone_cloud_with_adb": "云手机 有公网ADB",
@@ -6378,11 +6386,11 @@
     },
     "ScheduledEmulatorRestart": {
       "name": "定时重启模拟器",
-      "help": "每隔一段时间自动重启模拟器，免得跑久了变卡或漏内存。\n注意：默认是等当前任务跑完才重启。"
+      "help": "启用后，每隔指定时间自动重启模拟器，避免长时间运行导致的内存泄漏或卡顿问题。重启会等当前任务完成后再执行。"
     },
     "ForceScheduledRestart": {
-      "name": "强制定时重启（不等任务）",
-      "help": "开了后，到点就直接重启模拟器，不等当前任务跑完。\n不过如果当前正在跑重要任务（敏感任务），还是会等它跑完再重启。\n得先开上面的「定时重启模拟器」才管用。默认关。"
+      "name": "强制定时重启",
+      "help": "启用后，到达重启间隔时即使当前正在运行非敏感任务也会强制重启模拟器，保证准点维护。敏感任务不会被中断。需同时开启“定时重启模拟器”。"
     },
     "RestartIntervalHours": {
       "name": "重启间隔（小时）",
@@ -6584,47 +6592,47 @@
       "ConfigSaved": "设置已保存",
       "AlasIsRunning": "调度器已在运行中",
       "ClickToUpdate": "有可用更新nanoda!",
-      "ReloadEnabled": "Gui.Toast.ReloadEnabled",
-      "AlasRestart": "Gui.Toast.AlasRestart",
-      "RestartCancelled": "Gui.Toast.RestartCancelled",
-      "NoInstance": "Gui.Toast.NoInstance",
-      "NoInstanceSimulateIcon": "Gui.Toast.NoInstanceSimulateIcon",
-      "NoInstanceClearIcon": "Gui.Toast.NoInstanceClearIcon",
-      "NoInstanceSimulateError": "Gui.Toast.NoInstanceSimulateError",
-      "NoInstanceCrossMonth": "Gui.Toast.NoInstanceCrossMonth",
-      "NoInstanceNotifyTest": "Gui.Toast.NoInstanceNotifyTest",
-      "ErrorPopupShown": "Gui.Toast.ErrorPopupShown",
-      "NotifyUpdateTestSent": "Gui.Toast.NotifyUpdateTestSent",
-      "NotifyAnnouncementTestSent": "Gui.Toast.NotifyAnnouncementTestSent",
-      "NotifyErrorTestSent": "Gui.Toast.NotifyErrorTestSent",
-      "NotifyErrorTestFailed": "Gui.Toast.NotifyErrorTestFailed",
-      "CalculatorNotReady": "Gui.Toast.CalculatorNotReady",
-      "InvalidEventEndDate": "Gui.Toast.InvalidEventEndDate",
-      "NoShopFilterItems": "Gui.Toast.NoShopFilterItems",
-      "WallpaperNameRequired": "Gui.Toast.WallpaperNameRequired",
-      "NoWallpaperSource": "Gui.Toast.NoWallpaperSource",
-      "NoRemovableWallpaperSource": "Gui.Toast.NoRemovableWallpaperSource",
-      "WallpaperSourceReset": "Gui.Toast.WallpaperSourceReset",
-      "RandomWallpaperApplied": "Gui.Toast.RandomWallpaperApplied",
-      "NoAnnouncement": "Gui.Toast.NoAnnouncement",
-      "FetchingAnnouncement": "Gui.Toast.FetchingAnnouncement",
-      "TooManyPasswordAttempts": "Gui.Toast.TooManyPasswordAttempts",
-      "PasswordWrongRemaining": "Gui.Toast.PasswordWrongRemaining",
-      "IconSimulated": "Gui.Toast.IconSimulated",
-      "IconSimulationCleared": "Gui.Toast.IconSimulationCleared",
-      "WriteRecordFailed": "Gui.Toast.WriteRecordFailed",
-      "CrossMonthRequestFailed": "Gui.Toast.CrossMonthRequestFailed",
-      "CancelRehearsalFailed": "Gui.Toast.CancelRehearsalFailed",
-      "MediaTypeSwitched": "Gui.Toast.MediaTypeSwitched",
-      "WallpaperSourceAdded": "Gui.Toast.WallpaperSourceAdded",
-      "WallpaperSourceRemoved": "Gui.Toast.WallpaperSourceRemoved",
-      "CustomWallpaperApplied": "Gui.Toast.CustomWallpaperApplied",
-      "Unnamed": "Gui.Toast.Unnamed"
+      "ReloadEnabled": "已启用自动重载，进程无需重启",
+      "AlasRestart": "正在重启 Alas，请稍候…",
+      "RestartCancelled": "自动更新正在进行或无法保存运行实例，已取消重启",
+      "NoInstance": "未找到可用实例",
+      "NoInstanceSimulateIcon": "未找到可用实例，无法模拟图标状态",
+      "NoInstanceClearIcon": "未找到可用实例，无法清除模拟状态",
+      "NoInstanceSimulateError": "未找到可用实例，无法模拟错误弹窗",
+      "NoInstanceCrossMonth": "未找到可用实例，无法发起跨月预演",
+      "NoInstanceNotifyTest": "未找到可用实例，无法发送错误推送测试",
+      "ErrorPopupShown": "模拟错误弹窗已弹出",
+      "NotifyUpdateTestSent": "已发送更新测试通知",
+      "NotifyAnnouncementTestSent": "已发送公告测试通知",
+      "NotifyErrorTestSent": "已发送错误推送测试",
+      "NotifyErrorTestFailed": "错误推送测试发送失败，请检查错误推送设置",
+      "CalculatorNotReady": "活动计算器还没有加载完成",
+      "InvalidEventEndDate": "活动结束日期无效",
+      "NoShopFilterItems": "没有可写入的商店过滤器项目",
+      "WallpaperNameRequired": "名称和 API 地址不能为空",
+      "NoWallpaperSource": "暂无图源",
+      "NoRemovableWallpaperSource": "没有可删除的自定义图源（内置源不可删除，可禁用）",
+      "WallpaperSourceReset": "已恢复默认图源设置",
+      "RandomWallpaperApplied": "已切换为随机背景",
+      "NoAnnouncement": "暂无公告",
+      "FetchingAnnouncement": "正在获取公告...",
+      "TooManyPasswordAttempts": "密码错误次数过多，请重启后再试。",
+      "PasswordWrongRemaining": "密码错误，还剩 {remaining} 次机会。",
+      "IconSimulated": "已为 {target} 模拟状态 {state}（{seconds}s）",
+      "IconSimulationCleared": "已清除 {target} 的图标状态模拟",
+      "WriteRecordFailed": "写入记录失败：{e}",
+      "CrossMonthRequestFailed": "写入跨月预演请求失败：{e}",
+      "CancelRehearsalFailed": "取消预演请求失败：{e}",
+      "MediaTypeSwitched": "背景媒体类型已切换: {label}",
+      "WallpaperSourceAdded": "已添加图源: {name}",
+      "WallpaperSourceRemoved": "已删除图源: {name}",
+      "CustomWallpaperApplied": "自定义背景已应用: {path}",
+      "Unnamed": "未命名"
     },
     "Status": {
-      "Prefix": "Gui.Status.Prefix",
-      "Running": "秘书舰正在处理",
-      "Inactive": "茗正在偷走你的箱子",
+      "Prefix": "待到山花烂漫时，她在丛中笑",
+      "Running": "",
+      "Inactive": "",
       "Warning": "发生错误",
       "Updating": "等待更新"
     },
@@ -6654,26 +6662,26 @@
       "Ships": "舰娘"
     },
     "MeowfficerScore": {
-      "Title": "Gui.MeowfficerScore.Title",
-      "Refresh": "Gui.MeowfficerScore.Refresh",
-      "Refreshing": "Gui.MeowfficerScore.Refreshing",
-      "OpenReport": "Gui.MeowfficerScore.OpenReport",
-      "EmptyTitle": "Gui.MeowfficerScore.EmptyTitle",
-      "EmptyHint": "Gui.MeowfficerScore.EmptyHint",
-      "Summary": "Gui.MeowfficerScore.Summary",
-      "Broken": "Gui.MeowfficerScore.Broken",
-      "Score": "Gui.MeowfficerScore.Score",
-      "Maxed": "Gui.MeowfficerScore.Maxed",
-      "Fixed": "Gui.MeowfficerScore.Fixed",
-      "AxisX": "Gui.MeowfficerScore.AxisX",
-      "AxisY": "Gui.MeowfficerScore.AxisY",
-      "NoHits": "Gui.MeowfficerScore.NoHits",
-      "OtherRubrics": "Gui.MeowfficerScore.OtherRubrics",
-      "Source": "Gui.MeowfficerScore.Source",
-      "Screenshot": "Gui.MeowfficerScore.Screenshot",
-      "PointsSpent": "Gui.MeowfficerScore.PointsSpent",
-      "Inferred": "Gui.MeowfficerScore.Inferred",
-      "Disclaimer": "Gui.MeowfficerScore.Disclaimer"
+      "Title": "指挥喵评分报告",
+      "Refresh": "刷新",
+      "Refreshing": "正在刷新…",
+      "OpenReport": "查看完整报告",
+      "EmptyTitle": "还没跑过评分任务",
+      "EmptyHint": "在「工具+ → 指挥喵评分」运行一次任务，完成后回到这里刷新即可看到评分结果。",
+      "Summary": "共 {count} 只 · 生成时间 {time}",
+      "Broken": "评分报告无法解析",
+      "Score": "参考分",
+      "Maxed": "已满级",
+      "Fixed": "已指定",
+      "AxisX": "X（彩天赋）",
+      "AxisY": "Y（有用普通）",
+      "NoHits": "无命中",
+      "OtherRubrics": "其他口径（{count}）",
+      "Source": "依据：{source}",
+      "Screenshot": "来源截图：{name}",
+      "PointsSpent": "消耗 {count} 点",
+      "Inferred": "推断条目，请核对",
+      "Disclaimer": "评分口径来自公开攻略（28法则执行篇 / 详细上手攻略），非游戏官方数值"
     },
     "MenuDevelop": {
       "HomePage": "主页",
@@ -6711,7 +6719,7 @@
       "Pending": "队列中",
       "Waiting": "等待中",
       "NoTask": "无任务",
-      "Stat": "统计界面"
+      "Stat": "统计"
     },
     "Dashboard": {
       "TimeError": "时间错误",
@@ -6788,10 +6796,10 @@
       "Name": "配置名称",
       "Mod": "插件",
       "Actions": "操作",
-      "StatusRunning": "Gui.AppManage.StatusRunning",
-      "StatusStopped": "Gui.AppManage.StatusStopped",
-      "StatusError": "Gui.AppManage.StatusError",
-      "StatusUpdating": "Gui.AppManage.StatusUpdating"
+      "StatusRunning": "运行中",
+      "StatusStopped": "待命中",
+      "StatusError": "需要处理",
+      "StatusUpdating": "更新中"
     },
     "Update": {
       "UpToDate": "已是最新版本",
@@ -6811,9 +6819,9 @@
       "Message": "提交信息",
       "DisabledWarn": "更新模块未启用，你需要手动重启 AzurPilot 进行更新",
       "DetailedHistory": "详细提交历史",
-      "Changelog": "Gui.Update.Changelog",
-      "ChangelogLoading": "Gui.Update.ChangelogLoading",
-      "ChangelogEmpty": "Gui.Update.ChangelogEmpty"
+      "Changelog": "更新日志",
+      "ChangelogLoading": "正在获取更新日志…",
+      "ChangelogEmpty": "暂无更新日志"
     },
     "Remote": {
       "Running": "运行中",
@@ -6901,10 +6909,10 @@
       "CheckUpdateIntervalHelp": "每隔多少分钟检查一次更新，0 表示禁用。",
       "AutoRestartTime": "定时重启时间",
       "AutoRestartTimeHelp": "有更新时每天自动重启的时间，留空表示禁用。",
-      "HideUpdateNotice": "Gui.DeploySetting.HideUpdateNotice",
-      "HideUpdateNoticeHelp": "Gui.DeploySetting.HideUpdateNoticeHelp",
-      "HideAnnouncement": "Gui.DeploySetting.HideAnnouncement",
-      "HideAnnouncementHelp": "Gui.DeploySetting.HideAnnouncementHelp",
+      "HideUpdateNotice": "隐藏更新提示",
+      "HideUpdateNoticeHelp": "开启后检测到新版本时不再弹出更新提示，仍可在开发工具中手动检查更新。",
+      "HideAnnouncement": "隐藏公告弹窗",
+      "HideAnnouncementHelp": "开启后WebUI不再自动弹出公告，仍可在开发工具菜单中手动查看。",
       "DiscordRichPresence": "Discord 富状态",
       "DiscordRichPresenceHelp": "在 Discord 中展示 AzurPilot 运行状态。",
       "EnableRemoteAccess": "启用远程访问",
@@ -6949,27 +6957,27 @@
       "WebuiSSLCertHelp": "WebUI HTTPS 使用的 SSL 证书路径，需和密钥同时设置。"
     },
     "LogExport": {
-      "Title": "Gui.LogExport.Title",
-      "InstanceLabel": "Gui.LogExport.InstanceLabel",
-      "RangeLabel": "Gui.LogExport.RangeLabel",
-      "RangeAll": "Gui.LogExport.RangeAll",
-      "RangeToday": "Gui.LogExport.RangeToday",
-      "RuntimeLog": "Gui.LogExport.RuntimeLog",
-      "ExportToday": "Gui.LogExport.ExportToday",
-      "Exporting": "Gui.LogExport.Exporting",
-      "ErrorLogs": "Gui.LogExport.ErrorLogs",
-      "ErrorLogsText": "Gui.LogExport.ErrorLogsText",
-      "Pending": "Gui.LogExport.Pending",
-      "Packing": "Gui.LogExport.Packing",
-      "Started": "Gui.LogExport.Started",
-      "Failed": "Gui.LogExport.Failed",
-      "NoInstance": "Gui.LogExport.NoInstance",
-      "NoRuntimeLog": "Gui.LogExport.NoRuntimeLog",
-      "Confirm": "Gui.LogExport.Confirm",
-      "ConfirmSize": "Gui.LogExport.ConfirmSize",
-      "ConfirmSizePlain": "Gui.LogExport.ConfirmSizePlain",
-      "InfoLoading": "Gui.LogExport.InfoLoading",
-      "NoFiles": "Gui.LogExport.NoFiles"
+      "Title": "日志导出",
+      "InstanceLabel": "实例",
+      "RangeLabel": "日期",
+      "RangeAll": "全部（含历史，合并）",
+      "RangeToday": "今天",
+      "RuntimeLog": "导出运行日志",
+      "ExportToday": "导出今日日志",
+      "Exporting": "导出中…",
+      "ErrorLogs": "导出错误日志目录（含截图）",
+      "ErrorLogsText": "仅导出日志文本（不含截图）",
+      "Pending": "正在导出，请稍候…",
+      "Packing": "正在打包错误日志，请稍候…",
+      "Started": "已开始下载",
+      "Failed": "导出失败",
+      "NoInstance": "未找到可用实例",
+      "NoRuntimeLog": "该实例没有可导出的运行日志",
+      "Confirm": "确认开始导出？",
+      "ConfirmSize": "共 {{files}} 个文件、约 {{size}}，压缩后约 {{zip}}。远控下传输较慢，确认开始导出？",
+      "ConfirmSizePlain": "共 {{files}} 个文件、约 {{size}}。远控下传输较慢，确认开始导出？",
+      "InfoLoading": "正在统计体积…",
+      "NoFiles": "错误日志目录为空"
     },
     "StartupRun": {
       "Title": "启动时自动运行",
@@ -7003,9 +7011,9 @@
       "CandlesCount": "共 {count} 根K线",
       "ViewLabel": "📊 视图:",
       "DetailLabel": "📈 详情:",
-      "ViewLineButton": "分时(详细波动)",
-      "ViewDayButton": "天视图(小时K)",
-      "ViewMonthButton": "月视图(日K)",
+      "ViewLineButton": "折线",
+      "ViewDayButton": "按日",
+      "ViewMonthButton": "按月",
       "DetailChartTitle": "单日体力波动详情 (24小时)",
       "ToggleDetailChart": "详情图",
       "DetailChartOn": "✓ 开启",
@@ -7013,7 +7021,7 @@
       "LoadOpsiStatsFailed": "加载 OpSi 统计失败: {e}",
       "LoadExpStatsFailed": "加载经验统计失败: {e}",
       "DailyExpCheckTitle": "每日经验检测",
-      "FoldShipDigest": "Gui.Stat.FoldShipDigest",
+      "FoldShipDigest": "共 {n} 艘",
       "CheckTime": "检测时间: {value}",
       "TargetLevel": "目标等级: {value}",
       "ShipSlot": "舰位",
@@ -7050,32 +7058,32 @@
       "OpsiDataCollectionTitle": "雪风大人的侵蚀一数据收集",
       "MonthlyPurchasedAP": "当月购买体力: {value}",
       "MeowDataCollectionTitle": "耄耋相接数据收集",
-      "FoldMeowDigest": "Gui.Stat.FoldMeowDigest",
+      "FoldMeowDigest": "共 {n} 条",
       "MeowRounds": "出击轮次",
       "AvgMeowRoundTime": "平均一轮耄耋相接时长",
-      "MeowLootTitleCurrent": "Gui.Stat.MeowLootTitleCurrent",
-      "MeowLootTitleHistory": "Gui.Stat.MeowLootTitleHistory",
-      "MeowLootHeaderItem": "Gui.Stat.MeowLootHeaderItem",
-      "MeowLootHeaderTotal": "Gui.Stat.MeowLootHeaderTotal",
-      "MeowLootHazardColumn": "Gui.Stat.MeowLootHazardColumn",
-      "MeowLootItemPlate": "Gui.Stat.MeowLootItemPlate",
-      "MeowLootItemGearDesign": "Gui.Stat.MeowLootItemGearDesign",
-      "MeowLootItemOrdnance": "Gui.Stat.MeowLootItemOrdnance",
-      "MeowLootItemObscure": "Gui.Stat.MeowLootItemObscure",
-      "MeowLootItemAbyssal": "Gui.Stat.MeowLootItemAbyssal",
-      "MeowLootItemCat": "Gui.Stat.MeowLootItemCat",
-      "MeowLootViewHistory": "Gui.Stat.MeowLootViewHistory",
-      "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
-      "MeowLootPickMonthTitle": "Gui.Stat.MeowLootPickMonthTitle",
-      "MeowLootNoHistoryMonth": "Gui.Stat.MeowLootNoHistoryMonth",
-      "MeowLootCurrentMonthOption": "Gui.Stat.MeowLootCurrentMonthOption",
+      "MeowLootTitleCurrent": "本月耄耋相接收获",
+      "MeowLootTitleHistory": "历史耄耋相接收获（{month}）",
+      "MeowLootHeaderItem": "物品",
+      "MeowLootHeaderTotal": "合计",
+      "MeowLootHazardColumn": "侵蚀 {level}",
+      "MeowLootItemPlate": "金菜",
+      "MeowLootItemGearDesign": "彩图纸",
+      "MeowLootItemOrdnance": "金机密",
+      "MeowLootItemObscure": "隐蔽海域",
+      "MeowLootItemAbyssal": "深渊海域",
+      "MeowLootItemCat": "金猫箱",
+      "MeowLootViewHistory": "查看历史月份",
+      "MeowLootBackToCurrent": "回到本月",
+      "MeowLootPickMonthTitle": "选择查看月份",
+      "MeowLootNoHistoryMonth": "暂无历史月份数据",
+      "MeowLootCurrentMonthOption": "本月（{month}）",
       "NoMeowDataNotice": "暂无本地耄耋相接收获数据，完成一次耄耋相接后会自动生成",
       "RoundUnit": "轮",
       "SecondUnit": "秒",
       "HourUnit": "小时",
       "MinuteUnit": "分钟",
       "NoShipExpData": "暂无舰船经验数据，请先运行\"每日经验检测\"任务",
-      "ShipExpProgressTitle": "每日经验检测：识别到的舰娘等级与升级进度",
+      "ShipExpProgressTitle": "舰船经验进度",
       "LastCheckTime": "上次检查时间: {value}",
       "AvgOpsiRoundTime": "平均一轮侵蚀1时长: {value}{unit}",
       "TodayBattleUnit": "场",
@@ -7100,87 +7108,87 @@
       "CommissionIncomeHeaderAvg": "平均/次",
       "CommissionIncomeTotalCommissions": "委托总次数: {value}",
       "CommissionIncomeRecentTitle": "最近委托记录",
-      "DeltaPeriodDay": "Gui.Stat.DeltaPeriodDay",
-      "DeltaPeriodWeek": "Gui.Stat.DeltaPeriodWeek",
-      "DeltaPeriodMonth": "Gui.Stat.DeltaPeriodMonth",
-      "DeltaPeriodTotal": "Gui.Stat.DeltaPeriodTotal",
-      "DeltaChartTitle": "Gui.Stat.DeltaChartTitle",
-      "DeltaSummaryTitle": "Gui.Stat.DeltaSummaryTitle",
-      "ConsumptionRankingTitle": "Gui.Stat.ConsumptionRankingTitle",
-      "DeltaResource": "Gui.Stat.DeltaResource",
-      "DeltaIncrease": "Gui.Stat.DeltaIncrease",
-      "DeltaDecrease": "Gui.Stat.DeltaDecrease",
-      "DeltaNet": "Gui.Stat.DeltaNet",
-      "DeltaTotalConsumed": "Gui.Stat.DeltaTotalConsumed",
-      "NoDeltaData": "Gui.Stat.NoDeltaData",
-      "LoadDeltaDataFailed": "Gui.Stat.LoadDeltaDataFailed",
-      "DeltaTimelineHint": "Gui.Stat.DeltaTimelineHint",
-      "DeltaTaskTimes": "Gui.Stat.DeltaTaskTimes",
-      "DeltaMore": "Gui.Stat.DeltaMore",
-      "PageTitle": "Gui.Stat.PageTitle",
-      "PageMeta": "Gui.Stat.PageMeta",
-      "SourceOk": "Gui.Stat.SourceOk",
-      "SourceStale": "Gui.Stat.SourceStale",
-      "SourceMissing": "Gui.Stat.SourceMissing",
-      "KpiCurrentAp": "Gui.Stat.KpiCurrentAp",
-      "KpiChange": "Gui.Stat.KpiChange",
-      "KpiRangeMax": "Gui.Stat.KpiRangeMax",
-      "KpiRangeMin": "Gui.Stat.KpiRangeMin",
-      "KpiAverage": "Gui.Stat.KpiAverage",
-      "ApChartTitle": "Gui.Stat.ApChartTitle",
-      "SeriesActionPoint": "Gui.Stat.SeriesActionPoint",
-      "SeriesYellowCoin": "Gui.Stat.SeriesYellowCoin",
-      "SeriesPurpleCoin": "Gui.Stat.SeriesPurpleCoin",
-      "SeriesAsset": "Gui.Stat.SeriesAsset",
-      "SeriesDistance": "Gui.Stat.SeriesDistance",
-      "MetricChange": "Gui.Stat.MetricChange",
-      "MetricMax": "Gui.Stat.MetricMax",
-      "MetricMin": "Gui.Stat.MetricMin",
-      "OpsiCardAkashi": "Gui.Stat.OpsiCardAkashi",
-      "OpsiCardCrane": "Gui.Stat.OpsiCardCrane",
-      "OpsiCardRate": "Gui.Stat.OpsiCardRate",
-      "OpsiCardBattleTime": "Gui.Stat.OpsiCardBattleTime",
-      "OpsiCardRound": "Gui.Stat.OpsiCardRound",
-      "OpsiCardNetRatio": "Gui.Stat.OpsiCardNetRatio",
-      "OpsiCardBought": "Gui.Stat.OpsiCardBought",
-      "OpsiCardSortieCost": "Gui.Stat.OpsiCardSortieCost",
-      "MeowLootYellowPerRound": "Gui.Stat.MeowLootYellowPerRound",
-      "MeowLootPlatePerRound": "Gui.Stat.MeowLootPlatePerRound",
-      "MeowLootAbyssalPerRound": "Gui.Stat.MeowLootAbyssalPerRound",
-      "MeowLootObscurePerRound": "Gui.Stat.MeowLootObscurePerRound",
-      "ShipExpAvgRound": "Gui.Stat.ShipExpAvgRound",
-      "ShipExpToday": "Gui.Stat.ShipExpToday",
-      "ShipExpTodayValue": "Gui.Stat.ShipExpTodayValue",
-      "ShipExpLastCheck": "Gui.Stat.ShipExpLastCheck",
-      "ShipExpTargetShort": "Gui.Stat.ShipExpTargetShort",
-      "ShipExpTodayShort": "Gui.Stat.ShipExpTodayShort",
-      "ShipExpSlotValue": "Gui.Stat.ShipExpSlotValue",
-      "ShipExpDone": "Gui.Stat.ShipExpDone",
-      "OpsiCardBattleUnit": "Gui.Stat.OpsiCardBattleUnit",
-      "OpsiCardCount": "Gui.Stat.OpsiCardCount",
-      "AuxFoldTitle": "Gui.Stat.AuxFoldTitle",
-      "MeowLootFoldTitle": "Gui.Stat.MeowLootFoldTitle",
-      "MeowLootFoldTitleHistory": "Gui.Stat.MeowLootFoldTitleHistory",
-      "MeowLootFoldDigest": "Gui.Stat.MeowLootFoldDigest",
-      "MeowLootDigestPart": "Gui.Stat.MeowLootDigestPart",
-      "MeowRoundDigest": "Gui.Stat.MeowRoundDigest",
-      "MeowLootEmptyNotice": "Gui.Stat.MeowLootEmptyNotice",
-      "TabOpsi": "Gui.Stat.TabOpsi",
-      "TabCommission": "Gui.Stat.TabCommission",
-      "TabResearch": "Gui.Stat.TabResearch",
-      "TabResearchBadge": "Gui.Stat.TabResearchBadge",
-      "TabResource": "Gui.Stat.TabResource",
-      "ResearchTitle": "Gui.Stat.ResearchTitle",
-      "ResearchDesc": "Gui.Stat.ResearchDesc",
-      "ResearchSlotProgress": "Gui.Stat.ResearchSlotProgress",
-      "ResearchSlotProgressDesc": "Gui.Stat.ResearchSlotProgressDesc",
-      "ResearchSlotQueue": "Gui.Stat.ResearchSlotQueue",
-      "ResearchSlotQueueDesc": "Gui.Stat.ResearchSlotQueueDesc",
-      "ResearchSlotCost": "Gui.Stat.ResearchSlotCost",
-      "ResearchSlotCostDesc": "Gui.Stat.ResearchSlotCostDesc",
-      "ResearchSlotPending": "Gui.Stat.ResearchSlotPending",
-      "ResearchEmptyTitle": "Gui.Stat.ResearchEmptyTitle",
-      "ResearchEmptyDesc": "Gui.Stat.ResearchEmptyDesc"
+      "DeltaPeriodDay": "日",
+      "DeltaPeriodWeek": "周",
+      "DeltaPeriodMonth": "月",
+      "DeltaPeriodTotal": "总",
+      "DeltaChartTitle": "资源增减趋势",
+      "DeltaSummaryTitle": "增减汇总",
+      "ConsumptionRankingTitle": "消耗排行榜",
+      "DeltaResource": "资源",
+      "DeltaIncrease": "增加",
+      "DeltaDecrease": "消耗",
+      "DeltaNet": "净变化",
+      "DeltaTotalConsumed": "总消耗 {total}",
+      "NoDeltaData": "暂无资源增减数据，脚本运行后将自动记录",
+      "LoadDeltaDataFailed": "加载资源增减数据失败: {e}",
+      "DeltaTimelineHint": "任务按时间排列，节点上方为增加、下方为消耗",
+      "DeltaTaskTimes": "运行 {n} 次",
+      "DeltaMore": "+{n} 项",
+      "PageTitle": "统计",
+      "PageMeta": "数据截至 {time} · 实例 {instance}",
+      "SourceOk": "数据源正常",
+      "SourceStale": "数据源长期未更新",
+      "SourceMissing": "暂无数据源",
+      "KpiCurrentAp": "当前行动力",
+      "KpiChange": "区间变化",
+      "KpiRangeMax": "区间最高",
+      "KpiRangeMin": "区间最低",
+      "KpiAverage": "区间平均",
+      "ApChartTitle": "体力变化",
+      "SeriesActionPoint": "体力",
+      "SeriesYellowCoin": "黄币",
+      "SeriesPurpleCoin": "紫币",
+      "SeriesAsset": "资产",
+      "SeriesDistance": "海里数",
+      "MetricChange": "变化",
+      "MetricMax": "最高",
+      "MetricMin": "最低",
+      "OpsiCardAkashi": "遇见明石",
+      "OpsiCardCrane": "吊机",
+      "OpsiCardRate": "概率",
+      "OpsiCardBattleTime": "战斗时长",
+      "OpsiCardRound": "一轮",
+      "OpsiCardNetRatio": "净赚 / 购买",
+      "OpsiCardBought": "当月购买",
+      "OpsiCardSortieCost": "出击消耗",
+      "MeowLootYellowPerRound": "平均黄币/轮",
+      "MeowLootPlatePerRound": "平均金菜/轮",
+      "MeowLootAbyssalPerRound": "平均深渊/轮",
+      "MeowLootObscurePerRound": "平均隐秘/轮",
+      "ShipExpAvgRound": "平均一轮",
+      "ShipExpToday": "今日",
+      "ShipExpTodayValue": "{battles} 场 / {exp} 经验 / {run} 分钟",
+      "ShipExpLastCheck": "上次检查",
+      "ShipExpTargetShort": "目标 {level} 级",
+      "ShipExpTodayShort": "今日 {n} 场",
+      "ShipExpSlotValue": "{slot} 号位",
+      "ShipExpDone": "已完成",
+      "OpsiCardBattleUnit": "场",
+      "OpsiCardCount": "次",
+      "AuxFoldTitle": "资源明细",
+      "MeowLootFoldTitle": "本月收获",
+      "MeowLootFoldTitleHistory": "{month} 收获",
+      "MeowLootFoldDigest": "共 {n} 件",
+      "MeowLootDigestPart": "本月 {n} 件",
+      "MeowRoundDigest": "侵{level}：{rounds} 轮",
+      "MeowLootEmptyNotice": "本月暂无耄耋相接收获",
+      "TabOpsi": "大世界",
+      "TabCommission": "委托",
+      "TabResearch": "科研",
+      "TabResearchBadge": "规划中",
+      "TabResource": "资源",
+      "ResearchTitle": "科研统计",
+      "ResearchDesc": "功能规划中。下方三个槽位已划好边界与数据契约，开发时只需填入渲染逻辑，不影响其他页签。",
+      "ResearchSlotProgress": "当前研究进度",
+      "ResearchSlotProgressDesc": "数据契约：项目 / 层级 / 进度 / 剩余时间",
+      "ResearchSlotQueue": "研究队列",
+      "ResearchSlotQueueDesc": "数据契约：槽位 / 名称 / 预计完成，最多 5 项",
+      "ResearchSlotCost": "图纸与物资收支",
+      "ResearchSlotCostDesc": "数据契约：图纸 / 资源 / 净变化",
+      "ResearchSlotPending": "待接入",
+      "ResearchEmptyTitle": "科研统计尚未启用",
+      "ResearchEmptyDesc": "该页签为后续开发预留。启用后三个槽位会自动填充，其余页签不受影响。"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自动切换"
