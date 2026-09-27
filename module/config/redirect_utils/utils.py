@@ -233,4 +233,5 @@ def opsi_record_redirect(value):
     旧的单一开关同时管着所有大世界任务，拆分后旧值原样铺给每一个开关，
     升级后各任务的截图行为与升级前一致，不会突然多出或丢掉截图。
     """
-    return [value] * len(OPSI_RECORD_ARGS)
+    # 本地为本地档位体系：旧值若带 upload 档，先转成本地档再铺给 8 个开关。
+    return [drop_record_local_redirect(value)] * len(OPSI_RECORD_ARGS)

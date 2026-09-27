@@ -18,6 +18,7 @@ from module.config.deep import deep_get
 from module.config.redirect_utils.utils import (
     drop_record_local_redirect,
     drop_record_save_only_redirect,
+    OPSI_RECORD_ARGS,
 )
 from module.statistics.azurstats import AzurStats
 
@@ -62,11 +63,14 @@ class TestDropRecordConfigRedirect(unittest.TestCase):
         return deep_get(new, keys=key)
 
     def test_opsi_record_values_migrated(self):
-        self.assertEqual('local', self._redirect('Alas.DropRecord.OpsiRecord', 'upload'))
-        self.assertEqual(
-            'save_and_local',
-            self._redirect('Alas.DropRecord.OpsiRecord', 'save_and_upload'),
-        )
+        updater = ConfigUpdater.__new__(ConfigUpdater)
+        old = {'Alas': {'DropRecord': {'OpsiRecord': 'upload'}}}
+        new = updater.config_redirect(
+            old, {'Alas': {'DropRecord': {'OpsiRecord': 'upload'}}})
+        for arg in OPSI_RECORD_ARGS:
+            with self.subTest(arg=arg):
+                self.assertEqual(
+                    'local', deep_get(new, keys=f'Alas.DropRecord.{arg}'))
 
     def test_save_only_records_migrated(self):
         for key in (
@@ -139,10 +143,13 @@ class TestDropRecordOptionsMatchCode(unittest.TestCase):
         cls.args = json.loads(ARGS_FILE.read_text(encoding='utf-8'))
 
     def test_opsi_record_options_cover_code_methods(self):
-        options = self.args['Alas']['DropRecord']['OpsiRecord']['option']
-        for method in AzurStats.SAVE_METHODS | AzurStats.LOCAL_METHODS:
-            self.assertIn(method, options)
-        self.assertEqual(['do_not', 'save', 'local', 'save_and_local'], options)
+        from module.config.redirect_utils.utils import OPSI_RECORD_ARGS as _ARGS
+        for arg in _ARGS:
+            with self.subTest(arg=arg):
+                options = self.args['Alas']['DropRecord'][arg]['option']
+                for method in AzurStats.SAVE_METHODS | AzurStats.LOCAL_METHODS:
+                    self.assertIn(method, options)
+                self.assertEqual(['do_not', 'save', 'local', 'save_and_local'], options)
 
     def test_no_upload_option_left_in_drop_record(self):
         for arg, definition in self.args['Alas']['DropRecord'].items():

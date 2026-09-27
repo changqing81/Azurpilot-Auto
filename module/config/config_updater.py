@@ -677,7 +677,7 @@ class ConfigUpdater:
     # 掉落记录不再有"上传"档位：upload/save_and_upload 改成 local/save_and_local；
     # 其余档位（科研、委托、行动力箱子、指挥喵天赋）没有本地解析，回归 do_not/save。
     redirection += [
-        ('Alas.DropRecord.OpsiRecord', 'Alas.DropRecord.OpsiRecord', drop_record_local_redirect),
+        ('Alas.DropRecord.OpsiRecord', tuple(f'Alas.DropRecord.{arg}' for arg in OPSI_RECORD_ARGS), opsi_record_redirect),
         ('Alas.DropRecord.OpsiShopRecord', 'Alas.DropRecord.OpsiShopRecord', drop_record_save_only_redirect),
         ('Alas.DropRecord.ResearchRecord', 'Alas.DropRecord.ResearchRecord', drop_record_save_only_redirect),
         ('Alas.DropRecord.CommissionRecord', 'Alas.DropRecord.CommissionRecord', drop_record_save_only_redirect),

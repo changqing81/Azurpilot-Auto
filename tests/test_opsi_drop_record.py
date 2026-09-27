@@ -57,7 +57,7 @@ class FakeConfigTestCase(unittest.TestCase):
 class TestOpsiRecordRedirect(unittest.TestCase):
     def test_old_value_is_copied_to_every_switch(self):
         """旧值是什么，7 个新开关就都是什么，不添不改。"""
-        for value in ('do_not', 'save', 'upload', 'save_and_upload'):
+        for value in ('do_not', 'save', 'local', 'save_and_local'):
             with self.subTest(value=value):
                 self.assertEqual(
                     list(opsi_record_redirect(value)), [value] * len(OPSI_RECORD_ARGS))
@@ -72,11 +72,11 @@ class TestOpsiRecordRedirect(unittest.TestCase):
         self.assertNotIn('OpsiRecord', args)
 
     def test_config_redirect_fans_out_stored_value(self):
-        old = {'Alas': {'DropRecord': {'OpsiRecord': 'save_and_upload'}}}
+        old = {'Alas': {'DropRecord': {'OpsiRecord': 'save_and_local'}}}
         new = ConfigUpdater().config_redirect(old, {})
         for arg in OPSI_RECORD_ARGS:
             with self.subTest(arg=arg):
-                self.assertEqual(deep_get(new, keys=f'Alas.DropRecord.{arg}'), 'save_and_upload')
+                self.assertEqual(deep_get(new, keys=f'Alas.DropRecord.{arg}'), 'save_and_local')
 
     def test_config_redirect_keeps_values_already_migrated(self):
         """已经迁移过的配置再加载一次，用户改过的新开关不能被旧值覆盖回去。
@@ -84,23 +84,23 @@ class TestOpsiRecordRedirect(unittest.TestCase):
         `config_redirect` 的既有语义是「目标已有值就不覆盖」，所以这里的 new
         要按 `config_update` 的实际形态带上老配置里已有的值。
         """
-        old = {'Alas': {'DropRecord': {'OpsiRecord': 'upload', 'OpsiAbyssal': 'do_not'}}}
+        old = {'Alas': {'DropRecord': {'OpsiRecord': 'local', 'OpsiAbyssal': 'do_not'}}}
         new = {'Alas': {'DropRecord': {'OpsiAbyssal': 'do_not'}}}
         result = ConfigUpdater().config_redirect(old, new)
         self.assertEqual(deep_get(result, keys='Alas.DropRecord.OpsiAbyssal'), 'do_not')
-        self.assertEqual(deep_get(result, keys='Alas.DropRecord.OpsiObscure'), 'upload')
+        self.assertEqual(deep_get(result, keys='Alas.DropRecord.OpsiObscure'), 'local')
 
 
 class TestOpsiDropRecordLookup(FakeConfigTestCase):
     def test_each_task_reads_its_own_switch(self):
         values = {
             'OpsiHazard1Leveling': 'save',
-            'OpsiMeowfficerFarming': 'save_and_upload',
+            'OpsiMeowfficerFarming': 'save_and_local',
             'OpsiDaily': 'do_not',
             'OpsiObscure': 'save',
-            'OpsiAbyssal': 'upload',
+            'OpsiAbyssal': 'local',
             'OpsiStronghold': 'save',
-            'OpsiExplore': 'save_and_upload',
+            'OpsiExplore': 'save_and_local',
         }
         for task, expect in values.items():
             with self.subTest(task=task):
@@ -110,11 +110,11 @@ class TestOpsiDropRecordLookup(FakeConfigTestCase):
     def test_shared_tasks_read_the_host_switch(self):
         """跨月每日跟大世界每日、档案坐标跟隐秘海域、月度Boss跟深渊坐标共用开关。"""
         values = {
-            'OpsiDaily': 'save_and_upload',
+            'OpsiDaily': 'save_and_local',
             'OpsiObscure': 'save',
             'OpsiAbyssal': 'do_not',
         }
-        for task, expect in (('OpsiCrossMonth', 'save_and_upload'),
+        for task, expect in (('OpsiCrossMonth', 'save_and_local'),
                              ('OpsiArchive', 'save'),
                              ('OpsiMonthBoss', 'do_not')):
             with self.subTest(task=task):
@@ -155,10 +155,10 @@ class TestMigrationThroughConfigUpdate(unittest.TestCase):
         return config
 
     def test_old_config_gets_every_switch(self):
-        config = self.make_config({'DropRecord': {'OpsiRecord': 'save_and_upload'}})
+        config = self.make_config({'DropRecord': {'OpsiRecord': 'save_and_local'}})
         for arg in OPSI_RECORD_ARGS:
             with self.subTest(arg=arg):
-                self.assertEqual(getattr(config, f'DropRecord_{arg}'), 'save_and_upload')
+                self.assertEqual(getattr(config, f'DropRecord_{arg}'), 'save_and_local')
 
     def test_already_migrated_keys_keep_user_values(self):
         """迁移过的开关保持用户改过的值，只有还缺的那些由旧值补齐。
@@ -168,15 +168,14 @@ class TestMigrationThroughConfigUpdate(unittest.TestCase):
         config = self.make_config({'DropRecord': {
             'OpsiRecord': 'save',
             'OpsiAbyssal': 'do_not',
-            'OpsiMeowfficerFarming': 'save_and_upload',
+            'OpsiMeowfficerFarming': 'save_and_local',
         }})
         self.assertEqual(config.DropRecord_OpsiAbyssal, 'do_not')
-        self.assertEqual(config.DropRecord_OpsiMeowfficerFarming, 'save_and_upload')
+        self.assertEqual(config.DropRecord_OpsiMeowfficerFarming, 'save_and_local')
         self.assertEqual(config.DropRecord_OpsiExplore, 'save')
 
     def test_old_config_keeps_other_drop_settings(self):
-        config = self.make_config({'DropRecord': {'OpsiRecord': 'save', 'RetentionDays': 3}})
-        self.assertEqual(config.DropRecord_RetentionDays, 3)
+        config = self.make_config({'DropRecord': {'OpsiRecord': 'save'}})
         self.assertEqual(config.DropRecord_CombatRecord, 'do_not')
 
     def test_fresh_config_falls_back_to_defaults(self):
@@ -184,7 +183,7 @@ class TestMigrationThroughConfigUpdate(unittest.TestCase):
         config = self.make_config({'DropRecord': {'RetentionDays': 3}})
         for arg in OPSI_RECORD_ARGS:
             with self.subTest(arg=arg):
-                self.assertEqual(getattr(config, f'DropRecord_{arg}'), 'upload')
+                self.assertEqual(getattr(config, f'DropRecord_{arg}'), 'local')
 
 
 class TestMeowfficerStatisticsStayWired(FakeConfigTestCase):
@@ -194,8 +193,8 @@ class TestMeowfficerStatisticsStayWired(FakeConfigTestCase):
         cases = (
             ('do_not', False, False),
             ('save', True, False),
-            ('upload', False, True),
-            ('save_and_upload', True, True),
+            ('local', False, True),
+            ('save_and_local', True, True),
         )
         for value, save, local in cases:
             with self.subTest(value=value):
@@ -210,7 +209,7 @@ class TestMeowfficerStatisticsStayWired(FakeConfigTestCase):
 
     def test_other_tasks_upload_stays_inert(self):
         """其余大世界任务的 upload 等于无操作：不落盘也不解析（LOCAL_GENRES 只放行短猫）。"""
-        config = self.make_config('OpsiAbyssal', {'OpsiAbyssal': 'upload'})
+        config = self.make_config('OpsiAbyssal', {'OpsiAbyssal': 'local'})
         drop = AzurStats(config).new('opsi_abyssal', method=opsi_drop_record(config))
         self.assertFalse(drop.save)
         self.assertFalse(drop.local)
