@@ -18,6 +18,7 @@ from starlette.websockets import WebSocketState
 from module.webui.app_home import HomeMixin
 from module.webui.app_shell import AppShellMixin
 from module.webui.app_task_config import TaskConfigMixin
+from module.webui.base import Frame
 from module.webui.fastapi import (
     SafeWebSocketConnection,
     WEBSOCKET_MAX_PENDING_MESSAGES,
@@ -276,7 +277,10 @@ class TestInitialRendering(unittest.TestCase):
             HomeMixin.run(gui)
 
         self.assertEqual(
-            ["shell", ("localstorage", ("clarity_notice_shown", "aside"))],
+            [
+                "shell",
+                ("localstorage", ("clarity_notice_shown", "aside", "alas_last_page")),
+            ],
             events,
         )
 
@@ -606,6 +610,88 @@ class PageScopeDecoratorTests(unittest.TestCase):
         self.assertNotIn("content.innerHTML = '<div class=\"alas-skeleton\">", source)
         self.assertIn("alas-page-skeleton", source)
         self.assertIn("MutationObserver", source)
+
+
+class PageRestoreTests(unittest.TestCase):
+    """远控兜底刷新（整页重载）后回到离开时的页面，而不是一律回总览。
+
+    `init_menu` 把页面名写进 localStorage（`Frame.LAST_PAGE_KEY`），新会话在
+    `app_home.run()` 里按它恢复；页面名 → 渲染函数的映射就是 `Frame.page_renderer`。
+    """
+
+    def _gui(self):
+        calls = []
+
+        def rec(name):
+            def _call(*args, **kwargs):
+                calls.append(name)
+                return name
+
+            return _call
+
+        gui = SimpleNamespace(
+            ALAS_MENU={
+                "Farm": {"menu": "collapse", "tasks": ["GemsFarming"]},
+                "Tools": {"page": "tool", "tasks": ["Meowfficer"]},
+            },
+            alas_overview=rec("Overview"),
+            alas_set_stat=rec("Stat"),
+            show_home=rec("HomePage"),
+            dev_set_menu=rec("Develop"),
+            dev_setting=rec("Setting"),
+            dev_utils=rec("Utils"),
+            dev_update=rec("Update"),
+            dev_remote=rec("Remote"),
+            fleet_scan_page=rec("FleetScan"),
+            fleet_info_page=rec("FleetInfo"),
+            alas_set_group=rec("Group"),
+            alas_daemon_overview=rec("Daemon"),
+        )
+        return gui, calls
+
+    def test_key_is_stable(self):
+        """localStorage 键名与 app.py 的读取保持一致。"""
+        self.assertEqual(Frame.LAST_PAGE_KEY, "alas_last_page")
+
+    def test_named_pages_map_to_renderers(self):
+        from module.webui.base import Frame
+
+        for page in ("Overview", "Stat", "HomePage", "Setting", "Utils",
+                     "Update", "Remote", "FleetScan", "FleetInfo", "Develop"):
+            with self.subTest(page=page):
+                gui, calls = self._gui()
+                renderer = Frame.page_renderer(gui, page)
+                self.assertIsNotNone(renderer, page)
+                renderer()
+                self.assertEqual(calls, [page])
+
+    def test_task_page_follows_menu_page_type(self):
+        from module.webui.base import Frame
+
+        gui, calls = self._gui()
+        Frame.page_renderer(gui, "GemsFarming")()
+        self.assertEqual(calls, ["Group"])
+        gui, calls = self._gui()
+        Frame.page_renderer(gui, "Meowfficer")()
+        self.assertEqual(calls, ["Daemon"])
+
+    def test_unknown_page_and_empty_name_return_none(self):
+        from module.webui.base import Frame
+
+        gui, _ = self._gui()
+        self.assertIsNone(Frame.page_renderer(gui, "NotAPage"))
+        self.assertIsNone(Frame.page_renderer(gui, ""))
+        self.assertIsNone(Frame.page_renderer(gui, None))
+
+    def test_init_menu_persists_page_name(self):
+        """导航时必须把页面名写进 localStorage（搭在既有 JS 批次里，零额外往返）。"""
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent / "module" / "webui" / "base.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("self.LAST_PAGE_KEY", source)
+        self.assertIn("localStorage.setItem(", source)
 
 
 class TestWebUIImports(unittest.TestCase):

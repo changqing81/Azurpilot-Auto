@@ -48,7 +48,7 @@ from module.webui.app_dependencies import (
 
 
 from module.webui.app_types import WebUIMixinBase
-from module.webui.base import render_locked
+from module.webui.base import Frame, render_locked
 
 
 # Pixiv 图片反代域名列表，用于壁纸加载时并发测速，选中其中可访问且时延最低的
@@ -1864,7 +1864,9 @@ class HomeMixin(WebUIMixinBase):
             )
 
         if localstorage is None:
-            localstorage = get_localstorage_values(("clarity_notice_shown", "aside"))
+            localstorage = get_localstorage_values(
+                ("clarity_notice_shown", "aside", Frame.LAST_PAGE_KEY)
+            )
         aside = localstorage.get("aside")
         self._stored_aside = aside
         show_clarity_notice = localstorage.get("clarity_notice_shown") != "1"
@@ -1984,6 +1986,20 @@ class HomeMixin(WebUIMixinBase):
 
         if restore_instance:
             self.ui_alas(aside)
+            # 远控抖动走到兜底刷新时会整页重载、新开一个会话：默认落回总览会
+            # 把用户从他正看的页面「刷」走。这里按 init_menu 记下的页面名恢复；
+            # 总览已由 ui_alas 渲染过、不认识的名字也回退总览（不重复渲染）。
+            last_page = localstorage.get(Frame.LAST_PAGE_KEY)
+            if last_page and last_page != "Overview":
+                renderer = self.page_renderer(last_page)
+                if renderer is not None:
+                    try:
+                        renderer()
+                    except Exception:
+                        logger.exception(
+                            f"[WebUI] 恢复页面 {last_page} 失败，回退总览"
+                        )
+                        self.alas_overview()
 
         if show_clarity_notice:
             set_localstorage("clarity_notice_shown", "1")

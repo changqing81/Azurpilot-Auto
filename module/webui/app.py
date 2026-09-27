@@ -610,8 +610,10 @@ def app():
             return
         localstorage = None
         if is_webui_password_set(key):
+            from module.webui.base import Frame
+
             localstorage = get_localstorage_values(
-                ("password", "clarity_notice_shown", "aside")
+                ("password", "clarity_notice_shown", "aside", Frame.LAST_PAGE_KEY)
             )
         if is_webui_password_set(key) and not login(
             key, stored_password=localstorage.get("password")

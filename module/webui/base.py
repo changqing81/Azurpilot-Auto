@@ -70,6 +70,9 @@ class Base:
 class Frame(Base):
     """WebUI 页面框架，管理侧边栏、菜单和内容区域的切换与导航。"""
 
+    # 当前页面名（localStorage）：整页重载后据此回到离开时的页面
+    LAST_PAGE_KEY = "alas_last_page"
+
     def __init__(self) -> None:
         super().__init__()
         self.page = "Home"
@@ -232,6 +235,19 @@ class Frame(Base):
                 "})();\n"
             )
 
+            # 记住当前页面：远控抖动触发兜底刷新（整页重载）后回到离开时那一页，
+            # 而不是一律回到总览。搭在同一批 JS 里发送，不额外增加往返。
+            if name:
+                js_parts.append(
+                    "(function () {\n"
+                    "  try { localStorage.setItem("
+                    + json.dumps(self.LAST_PAGE_KEY)
+                    + ", "
+                    + json.dumps(name)
+                    + "); } catch (e) {}\n"
+                    "})();\n"
+                )
+
             if js_parts:
                 run_js("".join(js_parts))
 
@@ -241,6 +257,43 @@ class Frame(Base):
                 clear("content")
 
         self.set_statistics_content_visible(name == "Stat")
+
+    def page_renderer(self, name: str):
+        """把页面名映射回渲染函数；不认识的名字返回 None（调用方自行回退）。
+
+        用途：远控断线走到兜底刷新时会整页重载、新开一个会话，此时若一律渲染
+        总览，用户就会被从他正看的页面「刷」走。``init_menu`` 在每次导航时把
+        页面名写进 localStorage，新会话据此恢复。
+
+        任务页只在它确实出现在任务菜单里时才恢复（并且按菜单的 page 类型走
+        对应的入口：``tool`` 页走 ``alas_daemon_overview``），避免把非页面条目
+        当成任务配置页渲染。
+        """
+        if not name:
+            return None
+        named = {
+            "Overview": self.alas_overview,
+            "Stat": self.alas_set_stat,
+            "HomePage": self.show_home,
+            "Develop": self.dev_set_menu,
+            "Setting": self.dev_setting,
+            "Utils": self.dev_utils,
+            "Update": self.dev_update,
+            "Remote": self.dev_remote,
+            "FleetScan": self.fleet_scan_page,
+            "FleetInfo": self.fleet_info_page,
+        }
+        if name in named:
+            return named[name]
+        for task_data in (getattr(self, "ALAS_MENU", None) or {}).values():
+            if not isinstance(task_data, dict):
+                continue
+            if name not in (task_data.get("tasks") or []):
+                continue
+            if task_data.get("page") == "tool":
+                return lambda task=name: self.alas_daemon_overview(task)
+            return lambda task=name: self.alas_set_group(task)
+        return None
 
     @staticmethod
     def set_statistics_content_visible(visible: bool) -> None:
