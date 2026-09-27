@@ -696,6 +696,30 @@ class HomeMixin(WebUIMixinBase):
             logger.info(f"[WebUI] imgapi.lie.moe 获取图源失败: {e}")
             return None
 
+    def _race_payload(self, image_url, source=None) -> dict:
+        """构造交给前端竞赛的候选对象。
+
+        「重抽」时必须给 URL 带上 cache-buster：直链图源的 API 地址是常量
+        （如 api.yppp.net/api.php，每次请求返回不同的随机图，但地址一模一样），
+        沿用同一地址时浏览器会命中缓存 / 认为 `--alas-apple-bg-image` 没变化，
+        背景于是「点了也不换」。令牌只在显式重抽（切主题 / 随机背景按钮）时下发，
+        首屏加载保持原样、不牺牲缓存。
+        """
+        token = getattr(self, "_wallpaper_reroll_token", None)
+        if token:
+            separator = "&" if "?" in image_url else "?"
+            image_url = f"{image_url}{separator}_alas={token}"
+        return {
+            "url": image_url,
+            "name": (source or {}).get("name", "内置图源"),
+            "direct": bool(source and source.get("direct")),
+            "video": bool(_VIDEO_URL_RE.search(image_url)),
+        }
+
+    def _mark_wallpaper_reroll(self) -> None:
+        """把本轮图源抓取标记为「重抽」，让候选 URL 带上一次性的 cache-buster。"""
+        self._wallpaper_reroll_token = int(time.time() * 1000)
+
     def _race_wallpaper(self, image_url, source=None):
         """用首个候选开启前端图片竞赛，实际下载最快的图成为背景。
 
@@ -713,23 +737,26 @@ class HomeMixin(WebUIMixinBase):
         )
         logger.info(f"[WebUI] 首个候选背景图就绪，开启前端竞赛: {image_url}")
 
+        payload = self._race_payload(image_url, source)
         # 幂等注入竞赛脚本后触发竞赛（消息按序执行，脚本必然先于调用就绪）
         run_js(_WALLPAPER_RACE_JS)
-        self._append_race_candidate(image_url, source)
+        # ⚠️ 必须调 alasWallpaperRace() 开一轮**新**竞赛：它会重置 done/timer/images。
+        #    只调 alasWallpaperRaceAppend() 的话，上一轮决出胜者后 done 恒为 True，
+        #    后续候选会被静默丢弃 —— 于是「重抽背景」整条路径（随机背景按钮、
+        #    切主题换背景）都不换图。历史实现里 alasWallpaperRace 从未被调用过，
+        #    只有 append 在用，首屏能出图是因为 done 初值为 false，之后再也不会变。
+        run_js(
+            "window.alasWallpaperRace && "
+            f"window.alasWallpaperRace([{json.dumps(payload)}]);"
+        )
 
     def _append_race_candidate(self, image_url, source=None):
         """把单个候选加入尚未决出胜负的前端竞赛（已决出则忽略）。"""
         if not image_url:
             return
-        payload = {
-            "url": image_url,
-            "name": (source or {}).get("name", "内置图源"),
-            "direct": bool(source and source.get("direct")),
-            "video": bool(_VIDEO_URL_RE.search(image_url)),
-        }
         run_js(
             "window.alasWallpaperRaceAppend && "
-            f"window.alasWallpaperRaceAppend({json.dumps(payload)});"
+            f"window.alasWallpaperRaceAppend({json.dumps(self._race_payload(image_url, source))});"
         )
 
     # ---------- 图源管理 ----------
@@ -1508,7 +1535,9 @@ class HomeMixin(WebUIMixinBase):
             return
         self.wallpaper_url = ""
         self._direct_wallpaper_source = None
-        # 同步清空前端竞赛胜者记录，避免「下载当前背景图」读到上一张
+        # 同步清空前端竞赛胜者记录，避免「下载当前背景图」读到上一张，
+        # 并给候选 URL 打上一次性令牌强制重新拉取（见 _race_payload）。
+        self._mark_wallpaper_reroll()
         run_js("window.__alasWallpaperWinner = null;")
         self.init_wallpaper()
 
@@ -1519,7 +1548,9 @@ class HomeMixin(WebUIMixinBase):
         # 重置后重新触发随机图源加载
         self.wallpaper_url = ""
         self._direct_wallpaper_source = None
-        # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图
+        # 同步清空前端竞赛胜者记录，避免下载功能读到上一次的旧图；
+        # 并打上一次性令牌，否则直链图源沿用同一地址会被浏览器缓存住不换图。
+        self._mark_wallpaper_reroll()
         run_js("window.__alasWallpaperWinner = null;")
         self.init_wallpaper()
         toast(t("Gui.Toast.RandomWallpaperApplied"), color="success")

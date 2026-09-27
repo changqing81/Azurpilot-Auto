@@ -726,8 +726,14 @@ class ThemeWallpaperTests(unittest.TestCase):
             init_wallpaper=init_wallpaper,
         ), calls
 
+    @staticmethod
+    def _bind(gui):
+        gui._mark_wallpaper_reroll = lambda: HomeMixin._mark_wallpaper_reroll(gui)
+        return gui
+
     def test_random_mode_rerolls_wallpaper_on_theme_change(self):
         gui, calls = self._gui("random")
+        self._bind(gui)
         with patch("module.webui.app_home.run_js") as run_js:
             HomeMixin._reroll_wallpaper_on_theme_change(gui)
         self.assertEqual(calls, ["init_wallpaper"])
@@ -743,6 +749,51 @@ class ThemeWallpaperTests(unittest.TestCase):
         self.assertEqual(calls, [])
         run_js.assert_not_called()
         self.assertEqual(gui.wallpaper_url, "http://example.com/old.png")
+
+    def test_reroll_marks_cache_buster_token(self):
+        """重抽必须打上一次性令牌，否则直链图源沿用同址会被浏览器缓存住不换图。"""
+        gui, _ = self._gui("random")
+        self._bind(gui)
+        self.assertIsNone(getattr(gui, "_wallpaper_reroll_token", None))
+        with patch("module.webui.app_home.run_js"):
+            HomeMixin._reroll_wallpaper_on_theme_change(gui)
+        self.assertIsInstance(gui._wallpaper_reroll_token, int)
+
+    def test_race_payload_appends_buster_only_when_marked(self):
+        gui, _ = self._gui("random")
+        plain = HomeMixin._race_payload(gui, "https://api.example.com/random")
+        self.assertEqual(plain["url"], "https://api.example.com/random")
+        gui._wallpaper_reroll_token = 1758000000000
+        busted = HomeMixin._race_payload(gui, "https://api.example.com/random")
+        self.assertEqual(
+            busted["url"], "https://api.example.com/random?_alas=1758000000000"
+        )
+        # 已有查询串时用 & 追加
+        with_query = HomeMixin._race_payload(
+            gui, "https://api.example.com/random?tag=x"
+        )
+        self.assertEqual(
+            with_query["url"],
+            "https://api.example.com/random?tag=x&_alas=1758000000000",
+        )
+
+    def test_wallpaper_race_entrypoint_is_actually_called(self):
+        """`_race_wallpaper` 必须调 alasWallpaperRace 开新一轮，不能只 append。
+
+        `alasWallpaperRaceAppend` 里有 `if (!done) startOne(c)`：上一轮决出胜者后
+        done 恒为 True，只 append 的话候选被静默丢弃 —— 历史实现里
+        `window.alasWallpaperRace` 定义了却从未被调用，于是「重抽背景」整条路径
+        （随机背景按钮 / 切主题换背景）都不换图。
+        """
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent / "module" / "webui" / "app_home.py"
+        ).read_text(encoding="utf-8")
+        # 服务端确实调用了竞赛入口（而不是只 append）
+        self.assertIn("window.alasWallpaperRace([", source)
+        # 竞赛脚本里 done 只在 alasWallpaperRace 内重置，append 会被它拦住
+        self.assertIn("if (!done) startOne(c);", source)
 
 
 class LazyGroupAutoFillTests(unittest.TestCase):
