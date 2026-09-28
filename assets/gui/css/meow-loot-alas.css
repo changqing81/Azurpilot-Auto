@@ -5,8 +5,10 @@
    - 合计条 meow-loot-strip-*：标题 + 类别图标合计，单行；
    - 等级卡 opsi-meow-*：见 statistics-alas.css，本文件不动；
    - 明细表 meow-drop-*：物品 / 类别 / 总量 / 次数 / 均值 / 等级 的网格表；
-   - 掉落明细折叠块：put_collapse 产出的是裸 <details>（没有 .fold class），
-     这里补一套与统计页 .fold 同款的样式。
+   - 外层「大世界收获」折叠块：put_collapse 产出的是裸 <details>（没有
+     .fold class），挂在 opsi_stats 作用域下（meow_loot_scope 的父级），
+     这里补一套与统计页 .fold 同款的样式；
+   - meow-drop-detail-label：掉落明细常驻区的小标签（结算数/件数摘要）。
    卡片/条自身的小样式内联在 HTML 里（见 app_stat_opsi_export），本文件只负责
    作用域宽度兜底、左栏与明细表。
    ⚠️ 不要照抄委托收益统计那条 `> div { display: block !important }`：
@@ -226,12 +228,17 @@
 	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
 }
 
-/* 「其余 N 项 / 收起」按钮居中。Bootstrap 的 .btn-group 是 inline-flex，
-   只写 justify-content 不生效，必须显式改成块级 flex。 */
-#pywebio-scope-meow_loot_scope details .btn-group {
-	display: flex;
-	justify-content: center;
-	margin-top: 6px;
+/* 「其余 N 项 / 收起」按钮的居中改由 Output.style() 内联在按钮输出上：
+   本区块里还有筛选/月份按钮的 .btn-group，宽泛的 class 选择器会误伤，
+   且明细常驻化后已没有 details 祖先可挂选择器。 */
+
+/* 掉落明细常驻区的小标签（明细名 + 结算数/件数摘要） */
+#pywebio-scope-meow_loot_scope .meow-drop-detail-label {
+	font-size: 0.78rem;
+	font-weight: 600;
+	letter-spacing: -0.1px;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+	margin: 2px 0 8px;
 }
 
 /* 单元格 */
@@ -303,14 +310,16 @@
 	white-space: nowrap;
 }
 
-/* ---------- 掉落明细折叠块（put_collapse 的裸 <details>） ---------- */
+/* ---------- 外层「大世界收获」折叠块（put_collapse 的裸 <details>） ----------
+   折叠块挂在 opsi_stats 作用域下（meow_loot_scope 的父级），且整个统计页里
+   只有这一个 details，用后代选择器以兼容 PyWebIO 的输出包装层。 */
 
-#pywebio-scope-meow_loot_scope details {
+#pywebio-scope-opsi_stats details {
 	border: 0;
 	margin-top: 4px;
 }
 
-#pywebio-scope-meow_loot_scope details > summary {
+#pywebio-scope-opsi_stats details > summary {
 	display: flex;
 	align-items: center;
 	gap: 10px;
@@ -323,11 +332,11 @@
 	color: var(--st-text, inherit);
 }
 
-#pywebio-scope-meow_loot_scope details > summary::-webkit-details-marker {
+#pywebio-scope-opsi_stats details > summary::-webkit-details-marker {
 	display: none;
 }
 
-#pywebio-scope-meow_loot_scope details > summary::before {
+#pywebio-scope-opsi_stats details > summary::before {
 	content: "\25B8";
 	flex: none;
 	font-size: 0.8rem;
@@ -335,7 +344,7 @@
 	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
 }
 
-#pywebio-scope-meow_loot_scope details[open] > summary::before {
+#pywebio-scope-opsi_stats details[open] > summary::before {
 	content: "\25BE";
 }
 

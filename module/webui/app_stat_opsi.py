@@ -4,6 +4,7 @@ from html import escape as html_escape
 
 from module.webui.app_dependencies import (
     current_time,
+    put_collapse,
     put_html,
     put_scope,
     put_text,
@@ -558,14 +559,26 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             )
         return "".join(cards)
 
+    @render_locked
     def _render_opsi_summary(self, net, cards, meow_rows):
+        # 与 _render_meowofficer_farming 共用 render_lock：本函数会清空
+        # opsi_stats（连带里面的 meow_loot_scope），必须和区块自身的重绘
+        # 互斥，否则「清空 → 输出」两阶段会交错出重复控件。
         with use_scope("opsi_stats", clear=True):
             put_html(build_title_block(t("Gui.Stat.OpsiDataCollectionTitle")))
             put_html(self._build_opsi_summary_html(net, cards))
 
             # 大世界收获：左栏任务筛选 + 右栏（合计条 / 侵蚀等级卡 / 物品明细表）。
-            # 整块挂在 meow_loot_scope 下，月份切换与任务筛选都在块内重绘。
-            put_scope("meow_loot_scope")
+            # 外层折叠块在这里只建一次、包住 meow_loot_scope；任务筛选、月份切换、
+            # 「其余 N 项」回调都只 clear meow_loot_scope 本身 —— 用户展开一次后
+            # 任意切换都不会被折回去（折叠块随回调重建会回到默认收起态，实测
+            # 用户裁定不可接受）。标题保持纯文字：折叠不随回调重建，摘要数字
+            # 会 stale，数据以块内合计条为准。
+            put_collapse(
+                t("Gui.Stat.OpsiDropTitle"),
+                [put_scope("meow_loot_scope")],
+                open=False,
+            ).style("width:100%")
             self._render_meowofficer_farming(meow_rows=meow_rows)
 
             meow_refresh_token = int(time.time() * 1000)

@@ -4,8 +4,10 @@
 - 页头：OS 徽标 + 「大世界收获 / Operation Siren Drop Statistics」+ 实例胶囊，
   月份胶囊是按钮（点开历史月份选择器）；
 - 左栏「掉落任务筛选」：DropRecord 的 8 个开关 + 「全部任务」，点选按任务过滤明细；
-- 右栏：收获合计条（折叠外）→「掉落明细」折叠块（侵蚀等级卡 + 物品掉落明细表，
-  表内可「其余 N 项」展开）。折叠块默认收起。
+- 右栏：收获合计条 →「掉落明细」常驻区（侵蚀等级卡 + 物品掉落明细表，表内可
+  「其余 N 项」展开）。明细常驻显示、不再折叠；唯一的外层「大世界收获」折叠块
+  在 ``_render_opsi_summary`` 里只建一次，展开一次后任意切换筛选/月份都不会
+  被折回去（折叠块若随回调重建，会回到默认收起态，实测用户不可接受）。
 
 合计条与明细表的数据来自 ``AzurStats.get_opsi_drop_summary``（opsi_items 表，
 凡大世界任务都算，侵蚀1练级除外）；等级卡的数据来自 cl1_data.db 与本地累积
@@ -39,7 +41,6 @@ from module.webui.app_dependencies import (
     current_time,
     popup,
     put_buttons,
-    put_collapse,
     put_column,
     put_html,
     put_row,
@@ -201,58 +202,39 @@ class OpsiExportMixin(WebUIMixinBase):
         if drop is None:
             drop = self._load_opsi_drop_view()
 
-        # 整个「大世界收获」模块默认折叠（用户裁定）：收起时只显示折叠标题行，
-        # 展开后才是 页头 + 左栏筛选 + 合计条 + 明细。fold 摘要带实例/月份/结算数。
-        digest = (
-            f'{getattr(self, "alas_name", "") or "alas"} · '
-            f'{view["year"]:04d}-{view["month"]:02d} · '
-            + t(
-                "Gui.Stat.OpsiDropFoldDigest",
-                n=int(drop.get("records") or 0),
-                total=f"{int(drop.get('grand_total') or 0):,}",
-            )
-        )
+        # 外层「大世界收获」折叠块由 _render_opsi_summary 创建（只建一次，包住
+        # 本 scope），本函数只重绘折叠内的内容。任务筛选、月份切换、「其余 N 项」
+        # 等按钮回调都走这里 —— 折叠块若写在本函数里，每次回调 clear 都会把
+        # <details> 重建回默认收起态，用户展开一次后点任何按钮都会被折回去。
         with use_scope("meow_loot_scope", clear=True):
-            put_collapse(
-                t("Gui.Stat.OpsiDropTitle"),
+            put_row(
                 [
-                    put_row(
-                        [
-                            put_html(self._build_meow_header_html()),
-                            put_buttons(
-                                self._meow_month_buttons(view),
-                                onclick=self._on_meow_loot_month_click,
-                                small=True,
-                            ),
-                        ],
-                        size="1fr auto",
-                    ).style(
-                        "align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px"
+                    put_html(self._build_meow_header_html()),
+                    put_buttons(
+                        self._meow_month_buttons(view),
+                        onclick=self._on_meow_loot_month_click,
+                        small=True,
                     ),
-                    put_row(
-                        [
-                            # size="auto" 是必须的：put_column 默认给每行 1fr，会把左栏的
-                            # 标题/按钮/提示三行拉成等高，按钮被顶到整栏正中（实测踩过）。
-                            put_column(
-                                self._meow_filter_placeables(drop), size="auto"
-                            ),
-                            put_column(
-                                [
-                                    put_html(
-                                        self._build_meow_loot_strip_html(view, drop)
-                                    ),
-                                    self._meow_drop_fold_placeable(
-                                        meow_rows, drop
-                                    ),
-                                ],
-                                size="auto",
-                            ),
-                        ],
-                        size="168px minmax(0, 1fr)",
-                    ).style("align-items:start; gap:14px"),
                 ],
-                open=False,
-            ).style("width:100%")
+                size="1fr auto",
+            ).style("align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px")
+            put_row(
+                [
+                    # size="auto" 是必须的：put_column 默认给每行 1fr，会把左栏的
+                    # 标题/按钮/提示三行拉成等高，按钮被顶到整栏正中（实测踩过）。
+                    put_column(
+                        self._meow_filter_placeables(drop), size="auto"
+                    ),
+                    put_column(
+                        [
+                            put_html(self._build_meow_loot_strip_html(view, drop)),
+                            *self._meow_drop_detail_placeables(meow_rows, drop),
+                        ],
+                        size="auto",
+                    ),
+                ],
+                size="168px minmax(0, 1fr)",
+            ).style("align-items:start; gap:14px")
 
     def _load_meow_loot_view(self):
         """加载月份视图数据（合计条与明细表共用）。
@@ -476,25 +458,35 @@ class OpsiExportMixin(WebUIMixinBase):
 
     # ---------- 右栏：掉落明细折叠块 ----------
 
-    def _meow_drop_fold_placeable(self, meow_rows, drop):
-        """「掉落明细」折叠块：侵蚀等级卡 + 物品明细表 + 「其余 N 项」。
+    def _meow_drop_detail_placeables(self, meow_rows, drop):
+        """「掉落明细」常驻输出列表：明细标签 + 侵蚀等级卡 + 物品明细表。
 
-        这里用 ``put_collapse`` 而不是 ``build_fold_block``：后者只吃 HTML 串，
-        而「其余 N 项」必须是 PyWebIO 按钮（独立 DOM 节点）才能挂回调，
-        塞不进 HTML 串里。折叠块默认收起（用户定稿），展开时连带展开明细表。
+        用户定稿：明细常驻显示，不再包折叠块 —— 外层「大世界收获」展开后直接
+        可见，任务筛选 / 月份切换也不会把它折回去。明细表默认只列前
+        ``OPSI_DROP_TABLE_PREVIEW`` 行，长表靠「其余 N 项」按钮按需展开
+        （状态存 ``_meow_drop_expanded``，切换筛选/月份时刻意不重置，省得
+        用户反复点开）。
+
+        这里必须返回 PyWebIO Output 列表而不是 HTML 串：「其余 N 项」是挂了
+        回调的按钮（独立 DOM 节点），塞不进 HTML 串里。
         """
-        expanded = bool(getattr(self, "_meow_drop_expanded", False))
         digest = t(
             "Gui.Stat.OpsiDropFoldDigest",
             n=int(drop.get("records") or 0),
             total=f"{int(drop.get('grand_total') or 0):,}",
         )
-        content = [
+        label = (
+            '<div class="meow-drop-detail-label">'
+            f'{html_escape(t("Gui.Stat.OpsiDropFoldTitle"))} · {html_escape(digest)}'
+            "</div>"
+        )
+        placeables = [
+            put_html(label),
             put_html(self._build_meow_cards_html(meow_rows)),
             put_html(self._build_opsi_drop_table_html(drop)),
         ]
         hidden = self._opsi_drop_hidden_rows(drop)
-        if expanded:
+        if getattr(self, "_meow_drop_expanded", False):
             more_button = {
                 "label": t("Gui.Stat.OpsiDropCollapse"),
                 "value": "less",
@@ -509,17 +501,19 @@ class OpsiExportMixin(WebUIMixinBase):
         else:
             more_button = None
         if more_button is not None:
-            content.append(
+            placeables.append(
                 put_buttons(
                     [more_button],
                     onclick=self._on_meow_drop_more_click,
                     small=True,
                     link_style=True,
-                )
+                    # 居中只能内联：put_collapse 时代靠
+                    # `#pywebio-scope-meow_loot_scope details .btn-group` 选中，
+                    # 明细不再折叠后没有 details 祖先可挂选择器，而本区块里还有
+                    # 筛选/月份按钮的 .btn-group，宽泛选中会误伤。
+                ).style("display:flex; justify-content:center; margin-top:6px")
             )
-        return put_collapse(
-            f'{t("Gui.Stat.OpsiDropFoldTitle")} · {digest}', content, open=expanded
-        )
+        return placeables
 
     @staticmethod
     def _opsi_drop_hidden_rows(drop):
@@ -597,7 +591,7 @@ class OpsiExportMixin(WebUIMixinBase):
 
         行按总量降序平铺（与参考图版1 一致），类别单独成列而不是分组标题行。
         默认只列前 ``OPSI_DROP_TABLE_PREVIEW`` 行，其余交给「其余 N 项」按钮
-        展开（见 ``_meow_drop_fold_placeable``）。
+        展开（见 ``_meow_drop_detail_placeables``）。
         """
         items = drop.get("items") or []
         if not items:
@@ -693,7 +687,7 @@ class OpsiExportMixin(WebUIMixinBase):
             self._meow_task_filter = None
         else:
             self._meow_task_filter = value
-        self._meow_drop_expanded = False
+        # 刻意不重置 _meow_drop_expanded：用户展开过的明细表不因切换筛选被折回
         self._render_meowofficer_farming()
 
     @render_locked
@@ -733,18 +727,21 @@ class OpsiExportMixin(WebUIMixinBase):
 
     @render_locked
     def _set_meow_loot_month(self, value):
-        """设置要查看的月份并重绘大世界统计分区。value 为 None 表示本月。"""
+        """设置要查看的月份并重绘收获区块。value 为 None 表示本月。
+
+        只重绘 meow_loot_scope（不整块 _render_opsi_stats）：外层「大世界收获」
+        折叠的开合状态因此不被重置；侵蚀卡数据（``_build_meow_rows``）固定按
+        当前月构建、与查看月份无关，沿用缓存即可。
+        """
         close_popup()
         self._meow_loot_month = value
-        self._meow_drop_expanded = False
-        self._render_opsi_stats()
+        self._render_meowofficer_farming()
 
     @render_locked
     def _reset_meow_loot_month(self):
-        """回到本月视图。"""
+        """回到本月视图。只重绘收获区块，理由同 ``_set_meow_loot_month``。"""
         self._meow_loot_month = None
-        self._meow_drop_expanded = False
-        self._render_opsi_stats()
+        self._render_meowofficer_farming()
 
     # ---------- HTML 构造 ----------
 
