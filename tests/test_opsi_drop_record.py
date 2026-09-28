@@ -6,8 +6,8 @@
 档案坐标跟隐秘海域、月度Boss跟深渊海域共用开关，共用只影响存图与否，掉落统计
 仍按各自的 genre 归类。这里锁定四件事：旧配置迁移时旧值被铺给每个新开关、
 运行期按当前任务取到该读的开关（含共用）、没列出的任务落到 `OpsiOther`、
-共用任务不占独立开关。耄耋相接的开关还必须在 `upload` 档位继续打开本地解析
-——统计页的短猫收益靠它。
+共用任务不占独立开关。8 个大世界任务在「本地」档位都要打开本地解析
+（侵蚀1练级除外）——统计页的大世界收获靠它。
 """
 
 import unittest
@@ -187,7 +187,7 @@ class TestMigrationThroughConfigUpdate(unittest.TestCase):
 
 
 class TestMeowfficerStatisticsStayWired(FakeConfigTestCase):
-    """短猫掉落截图这个开关就是统计页短猫收益的数据源，档位语义不能漂移。"""
+    """掉落档位语义不能漂移：8 个大世界任务都入库，侵蚀1练级除外。"""
 
     def test_method_matrix_drives_save_and_local(self):
         cases = (
@@ -207,10 +207,20 @@ class TestMeowfficerStatisticsStayWired(FakeConfigTestCase):
                 self.assertIs(drop.local, local)
                 self.assertIs(bool(drop), save or local)
 
-    def test_other_tasks_upload_stays_inert(self):
-        """其余大世界任务的 upload 等于无操作：不落盘也不解析（LOCAL_GENRES 只放行短猫）。"""
+    def test_other_opsi_tasks_parse_local_too(self):
+        """8 个大世界任务都走本地解析：深渊的「本地」档位同样入库。"""
         config = self.make_config('OpsiAbyssal', {'OpsiAbyssal': 'local'})
         drop = AzurStats(config).new('opsi_abyssal', method=opsi_drop_record(config))
+        self.assertFalse(drop.save)
+        self.assertTrue(drop.local)
+        self.assertTrue(bool(drop))
+
+    def test_hazard1_leveling_stays_inert(self):
+        """侵蚀1练级不统计：掉落只有黄币与低级材料，另有「大世界总结」页看战斗。"""
+        config = self.make_config(
+            'OpsiHazard1Leveling', {'OpsiHazard1Leveling': 'local'})
+        drop = AzurStats(config).new(
+            'opsi_hazard1_leveling', method=opsi_drop_record(config))
         self.assertFalse(drop.save)
         self.assertFalse(drop.local)
         self.assertFalse(bool(drop))

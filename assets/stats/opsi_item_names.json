@@ -1,0 +1,284 @@
+{
+ "PlateGeneralT4": {
+  "zh": "通用部件T4",
+  "en": "T4 General Part",
+  "rarity": 4,
+  "category": "plate"
+ },
+ "PlateGunT4": {
+  "zh": "主炮部件T4",
+  "en": "T4 Main Gun Part",
+  "rarity": 4,
+  "category": "plate"
+ },
+ "PlateTorpedoT4": {
+  "zh": "鱼雷部件T4",
+  "en": "T4 Torpedo Part",
+  "rarity": 4,
+  "category": "plate"
+ },
+ "PlateAntiAirT4": {
+  "zh": "防空炮部件T4",
+  "en": "T4 Anti-Air Gun Part",
+  "rarity": 4,
+  "category": "plate"
+ },
+ "PlatePlaneT4": {
+  "zh": "舰载机部件T4",
+  "en": "T4 Aircraft Part",
+  "rarity": 4,
+  "category": "plate"
+ },
+ "GearDesignPlanGunT4": {
+  "zh": "舰炮研发图纸SSR型",
+  "en": "SR Main Gun Design Plans",
+  "rarity": 4,
+  "category": "design"
+ },
+ "GearDesignPlanGunT5": {
+  "zh": "舰炮研发图纸UR型",
+  "en": "UR Main Gun Design Plans",
+  "rarity": 5,
+  "category": "design"
+ },
+ "GearDesignPlanTorpedoT4": {
+  "zh": "鱼雷研发图纸SSR型",
+  "en": "SR Torpedo Design Plans",
+  "rarity": 4,
+  "category": "design"
+ },
+ "GearDesignPlanTorpedoT5": {
+  "zh": "鱼雷研发图纸UR型",
+  "en": "UR Torpedo Design Plans",
+  "rarity": 5,
+  "category": "design"
+ },
+ "GearDesignPlanAntiAirT4": {
+  "zh": "防空炮研发图纸SSR型",
+  "en": "SR Anti-Air Gun Design Plans",
+  "rarity": 4,
+  "category": "design"
+ },
+ "GearDesignPlanAntiAirT5": {
+  "zh": "防空炮研发图纸UR型",
+  "en": "UR Anti-Air Gun Design Plans",
+  "rarity": 5,
+  "category": "design"
+ },
+ "GearDesignPlanPlaneT4": {
+  "zh": "舰载机研发图纸SSR型",
+  "en": "SR Aircraft Design Plans",
+  "rarity": 4,
+  "category": "design"
+ },
+ "GearDesignPlanPlaneT5": {
+  "zh": "舰载机研发图纸UR型",
+  "en": "UR Aircraft Design Plans",
+  "rarity": 5,
+  "category": "design"
+ },
+ "OrdnanceTestingReportT1": {
+  "zh": "军械测试报告T1",
+  "en": "T1 Ordnance Testing Report",
+  "rarity": 1,
+  "category": "report"
+ },
+ "OrdnanceTestingReportT2": {
+  "zh": "军械测试报告T2",
+  "en": "T2 Ordnance Testing Report",
+  "rarity": 2,
+  "category": "report"
+ },
+ "OrdnanceTestingReportT3": {
+  "zh": "军械测试报告T3",
+  "en": "T3 Ordnance Testing Report",
+  "rarity": 3,
+  "category": "report"
+ },
+ "OrdnanceTestingReportT4": {
+  "zh": "军械测试报告T4",
+  "en": "T4 Ordnance Testing Report",
+  "rarity": 4,
+  "category": "report"
+ },
+ "Lightweight_Alloys": {
+  "zh": "轻质合金",
+  "en": "Lightweight Alloys",
+  "rarity": 2,
+  "category": "material"
+ },
+ "Corrosion_Resistant_Alloys": {
+  "zh": "耐腐蚀合金",
+  "en": "Corrosion Resistant Alloys",
+  "rarity": 3,
+  "category": "material"
+ },
+ "Conductive_Metals": {
+  "zh": "导电金属",
+  "en": "Conductive Metals",
+  "rarity": 3,
+  "category": "material"
+ },
+ "Refined_Metals": {
+  "zh": "精炼金属",
+  "en": "Refined Metals",
+  "rarity": 3,
+  "category": "material"
+ },
+ "Specially_Smelted_Metals": {
+  "zh": "特种熔炼金属",
+  "en": "Specially Smelted Metals",
+  "rarity": 4,
+  "category": "material"
+ },
+ "Superconductive_Metals": {
+  "zh": "超导金属",
+  "en": "Superconductive Metals",
+  "rarity": 4,
+  "category": "material"
+ },
+ "Ultra_High_Purity_Metals": {
+  "zh": "超高纯度金属",
+  "en": "Ultra High Purity Metals",
+  "rarity": 4,
+  "category": "material"
+ },
+ "Natural_Rubber": {
+  "zh": "天然橡胶",
+  "en": "Natural Rubber",
+  "rarity": 2,
+  "category": "material"
+ },
+ "Synthetic_Elastic_Materials": {
+  "zh": "合成弹性材料",
+  "en": "Synthetic Elastic Materials",
+  "rarity": 3,
+  "category": "material"
+ },
+ "High_Durability_Elastomers": {
+  "zh": "高耐久弹性体",
+  "en": "High Durability Elastomers",
+  "rarity": 4,
+  "category": "material"
+ },
+ "Unbranded_Gunpowder": {
+  "zh": "无牌火药",
+  "en": "Unbranded Gunpowder",
+  "rarity": 2,
+  "category": "material"
+ },
+ "Poudre_B_Gunpowder": {
+  "zh": "B型火药",
+  "en": "Poudre B Gunpowder",
+  "rarity": 2,
+  "category": "material"
+ },
+ "HBX_Blend_Gunpowder": {
+  "zh": "HBX混合火药",
+  "en": "HBX Blend Gunpowder",
+  "rarity": 4,
+  "category": "material"
+ },
+ "Consumer_Grade_Electronic_Components": {
+  "zh": "民用电子元件",
+  "en": "Consumer Grade Electronic Components",
+  "rarity": 2,
+  "category": "material"
+ },
+ "Industrial_Grade_Electronic_Components": {
+  "zh": "工业电子元件",
+  "en": "Industrial Grade Electronic Components",
+  "rarity": 3,
+  "category": "material"
+ },
+ "Military_Grade_Electronic_Components": {
+  "zh": "军用电子元件",
+  "en": "Military Grade Electronic Components",
+  "rarity": 4,
+  "category": "material"
+ },
+ "EnergyStorageDevice": {
+  "zh": "储能装置",
+  "en": "Energy Storage Device",
+  "rarity": 4,
+  "category": "material"
+ },
+ "EmergencyRepairPack": {
+  "zh": "应急修理箱",
+  "en": "Emergency Repair Pack",
+  "rarity": 3,
+  "category": "material"
+ },
+ "OperationCoin": {
+  "zh": "作战补给凭证",
+  "en": "Operation Supply Voucher",
+  "rarity": 4,
+  "category": "currency"
+ },
+ "Coins": {
+  "zh": "金币",
+  "en": "Coins",
+  "rarity": 3,
+  "category": "currency"
+ },
+ "SpecialItemTokens": {
+  "zh": "特殊物品凭证",
+  "en": "Special Item Tokens",
+  "rarity": 4,
+  "category": "currency"
+ },
+ "CatT2": {
+  "zh": "猫箱T2",
+  "en": "T2 Meowfficer Box",
+  "rarity": 2,
+  "category": "cat"
+ },
+ "CatT3": {
+  "zh": "猫箱T3",
+  "en": "T3 Meowfficer Box",
+  "rarity": 3,
+  "category": "cat"
+ },
+ "CoordinateObscure": {
+  "zh": "隐秘海域坐标",
+  "en": "Obscure Zone Coordinate",
+  "rarity": 4,
+  "category": "coordinate"
+ },
+ "CoordinateAbyssal": {
+  "zh": "深渊海域坐标",
+  "en": "Abyssal Zone Coordinate",
+  "rarity": 4,
+  "category": "coordinate"
+ },
+ "MetaData": {
+  "zh": "元数据",
+  "en": "Meta Data",
+  "rarity": 4,
+  "category": "other"
+ },
+ "MetaDataDossier": {
+  "zh": "元数据档案",
+  "en": "Meta Data Dossier",
+  "rarity": 5,
+  "category": "other"
+ },
+ "PrototypeGearPartsT4": {
+  "zh": "试作装备零件T4",
+  "en": "T4 Prototype Gear Parts",
+  "rarity": 4,
+  "category": "other"
+ },
+ "ActionPoint20": {
+  "zh": "行动力20",
+  "en": "Action Point x20",
+  "rarity": 3,
+  "category": "other"
+ },
+ "ActionPoint50": {
+  "zh": "行动力50",
+  "en": "Action Point x50",
+  "rarity": 4,
+  "category": "other"
+ }
+}

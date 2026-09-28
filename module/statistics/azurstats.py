@@ -26,6 +26,29 @@ from module.statistics.utils import pack
 from module.base.device_id import get_device_id
 
 
+# 大世界掉落解析的适用范围：凡属大世界任务都解析入库，只有侵蚀1练级除外 ——
+# 它的掉落只有黄币与低级材料，且另有「大世界总结」页看战斗与行动力，
+# 再入库只会让掉落明细被它刷满。判定用前缀而不是逐个列举任务名，
+# 将来新出的大世界任务自动纳入。
+OPSI_DROP_GENRE_PREFIX = 'opsi_'
+OPSI_DROP_GENRE_EXCLUDE = frozenset({'opsi_hazard1_leveling'})
+
+
+def is_opsi_drop_genre(genre) -> bool:
+    """判断某个掉落分类是否属于要解析的大世界任务。
+
+    Args:
+        genre (str): 掉落记录的分类标识，取自当前任务名（如 'opsi_abyssal'）。
+
+    Returns:
+        bool: 是否需要解析入库。
+    """
+    genre = str(genre or '')
+    if not genre.startswith(OPSI_DROP_GENRE_PREFIX):
+        return False
+    return genre not in OPSI_DROP_GENRE_EXCLUDE
+
+
 class DropImage:
     """掉落截图上下文管理器，用于收集截图并在退出时统一提交。
 
@@ -129,7 +152,6 @@ class AzurStats:
         TIMEOUT (int): 请求超时时间（秒）。
         LOCAL_DB (str): 本地 SQLite 数据库路径。
         LOCAL_MEOW_CSV (str): 指挥喵 farming 统计 CSV 路径。
-        LOCAL_GENRES (set): 需要本地处理的记录分类集合。
 
     Examples:
         >>> stats = AzurStats(config)
@@ -141,7 +163,7 @@ class AzurStats:
     TIMEOUT = 20
     LOCAL_DB = './config/azurstats_local.db'
     LOCAL_MEOW_CSV = './log/azurstat_meowofficer_farming.csv'
-    LOCAL_GENRES = {'opsi_meowfficer_farming'}
+    # 哪些 genre 走本地解析由 is_opsi_drop_genre() 判定，不再维护白名单集合。
     # 掉落记录档位（对应 DropRecord_* 配置的取值）
     SAVE_METHODS = {'save', 'save_and_local'}
     LOCAL_METHODS = {'local', 'save_and_local'}
@@ -315,24 +337,78 @@ class AzurStats:
         logger.info('[Statistics] 本地统计数据更新成功: azurstat_meowofficer_farming.csv')
 
     @staticmethod
-    def get_meow_loot_monthly_totals(device_id=None, year=None, month=None):
-        """按侵蚀等级汇总指定月份（默认本月）的耄耋相接掉落总数。
+    def get_opsi_drop_rows(device_id=None, start=None, end=None, genre=None):
+        """读取大世界掉落明细，供统计页按时间窗口汇总。
 
-        从本地掉落明细库 opsi_items 汇总，供统计页
-        「本月/历史耄耋相接收获」表格使用。分类口径：
-        Plate 为金菜（装备强化板）、GearDesignPlan*T5 为彩图纸、
-        OrdnanceTestingReport*T4 为金机密、CoordinateObscure 为隐秘、
-        CoordinateAbyssal 为深渊、CatT3 为金猫箱。
+        只取需要解析的大世界任务（见 is_opsi_drop_genre），侵蚀1练级的历史行
+        即使存在也不会被算进来。查询条件里的任务范围直接由那套常量生成，
+        避免在 SQL 里再抄一份规则。
 
         Args:
-            device_id: 设备标识，默认当前设备。
-            year: 年份，默认当前年。
-            month: 月份（1-12），默认当前月。
+            device_id (str): 设备标识，默认当前设备。
+            start (int): 起始时间戳（含，秒）；None 表示不限。
+            end (int): 结束时间戳（不含，秒）；None 表示不限。
+            genre (str): 只看某个大世界任务（genre，如 'opsi_abyssal'）；None 表示全部。
 
         Returns:
-            dict[int, dict[str, int]]: 侵蚀等级(1-6) → 分类计数字典，
-                键为 Plate / GearDesignPlanT5 / OrdnanceTestingReportT4 /
-                CoordinateObscure / CoordinateAbyssal / CatT3。
+            list[dict]: opsi_items 明细行，按记录时间升序。
+        """
+        if device_id is None:
+            device_id = get_device_id()
+        AzurStats._ensure_local_db()
+        pattern = OPSI_DROP_GENRE_PREFIX.replace('_', r'\_') + '%'
+        query = (
+            "SELECT * FROM opsi_items"
+            " WHERE device_id = ? AND genre LIKE ? ESCAPE '\\'"
+        )
+        params = [device_id, pattern]
+        for excluded in sorted(OPSI_DROP_GENRE_EXCLUDE):
+            query += ' AND genre <> ?'
+            params.append(excluded)
+        if genre:
+            query += ' AND genre = ?'
+            params.append(str(genre))
+        if start is not None:
+            query += ' AND created_at >= ?'
+            params.append(int(start))
+        if end is not None:
+            query += ' AND created_at < ?'
+            params.append(int(end))
+        query += ' ORDER BY created_at ASC, id ASC'
+        try:
+            with sqlite3.connect(AzurStats.LOCAL_DB) as conn:
+                conn.row_factory = sqlite3.Row
+                return [dict(row) for row in conn.execute(query, params).fetchall()]
+        except sqlite3.Error:
+            logger.warning('[Statistics] 读取大世界掉落明细失败', exc_info=True)
+            return []
+
+    @staticmethod
+    def get_opsi_drop_summary(device_id=None, year=None, month=None, genre=None):
+        """按物品汇总指定月份（默认本月）的大世界掉落。
+
+        从本地掉落明细库 opsi_items 汇总，供统计页「大世界收获」明细表使用。
+        口径是「识别出什么就统计什么」，不筛物品清单 —— 图纸、材料、黄币、
+        猫箱、机密报告都会进表；上游只固定显示金菜与彩图纸，本地不跟。
+
+        出现次数按**记录**（一次结算截图 = 一个 imgid）计，同一条记录里同一
+        物品掉落多次只算一次出现，数量照实累加。
+
+        Args:
+            device_id (str): 设备标识，默认当前设备。
+            year (int): 年份，默认当前年。
+            month (int): 月份（1-12），默认当前月。
+            genre (str): 只看某个大世界任务；None 表示全部。
+
+        Returns:
+            dict: {
+                'items': [{'name', 'amount', 'count', 'avg', 'levels'}, ...]
+                    按总量降序；levels 是「侵蚀等级 -> 出现次数」，
+                'records': 有掉落的记录条数,
+                'tasks': {'genre': 记录条数}（供任务筛选）,
+                'grand_total': 各物品数量之和,
+                'unknown': 含未识别物品的记录条数,
+            }
         """
         if year is None or month is None:
             now = datetime.now()
@@ -342,67 +418,80 @@ class AzurStats:
             month_end = int(datetime(year + 1, 1, 1).timestamp())
         else:
             month_end = int(datetime(year, month + 1, 1).timestamp())
-        if device_id is None:
-            device_id = get_device_id()
-        AzurStats._ensure_local_db()
 
-        # 分类规则：前缀 + 可选等级后缀（彩图纸只取 T5、金机密只取 T4）
-        def classify(name: str):
-            if name.startswith("CatT3"):
-                return "CatT3"
-            if name.startswith("GearDesignPlan") and name.endswith("T5"):
-                return "GearDesignPlanT5"
-            if name.startswith("OrdnanceTestingReport") and name.endswith("T4"):
-                return "OrdnanceTestingReportT4"
-            if name.startswith("CoordinateObscure"):
-                return "CoordinateObscure"
-            if name.startswith("CoordinateAbyssal"):
-                return "CoordinateAbyssal"
-            if name.startswith("Plate"):
-                return "Plate"
-            return None
+        rows = AzurStats.get_opsi_drop_rows(
+            device_id=device_id, start=month_start, end=month_end, genre=genre)
 
-        keys = (
-            "Plate",
-            "GearDesignPlanT5",
-            "OrdnanceTestingReportT4",
-            "CoordinateObscure",
-            "CoordinateAbyssal",
-            "CatT3",
-        )
-        totals = {h: {k: 0 for k in keys} for h in range(1, 7)}
-        try:
-            with sqlite3.connect(AzurStats.LOCAL_DB) as conn:
-                rows = conn.execute(
-                    "SELECT hazard_level, item, SUM(amount) FROM ("
-                    " SELECT DISTINCT imgid, item, amount, hazard_level"
-                    " FROM opsi_items"
-                    " WHERE genre='opsi_meowfficer_farming' AND created_at >= ? AND created_at < ?"
-                    " AND device_id = ?"
-                    ") GROUP BY hazard_level, item",
-                    (month_start, month_end, device_id),
-                ).fetchall()
-            for h_raw, item, total in rows:
-                try:
-                    h = int(h_raw)
-                except (TypeError, ValueError):
-                    continue
-                if h not in totals or not total:
-                    continue
-                key = classify(str(item or ""))
-                if key is None:
-                    continue
-                try:
-                    totals[h][key] += int(total)
-                except (TypeError, ValueError):
-                    pass
-        except Exception:
-            logger.warning('[Statistics] 查询耄耋相接掉落总数失败', exc_info=True)
-        return totals
+        # 先按记录（imgid）归组：一条记录内的同物品数量相加、只记一次出现
+        records = {}
+        for row in rows:
+            imgid = str(row.get('imgid') or '')
+            record = records.get(imgid)
+            if record is None:
+                record = {
+                    'genre': str(row.get('genre') or ''),
+                    'hazard_level': row.get('hazard_level'),
+                    'items': {},
+                    'unknown': False,
+                }
+                records[imgid] = record
+            name = str(row.get('item') or '')
+            # 纯数字的物品名是模板匹配失败的代号，只记「未知留证」，不进明细
+            if not name or name.isdigit():
+                record['unknown'] = True
+                continue
+            try:
+                amount = int(row.get('amount') or 0)
+            except (TypeError, ValueError):
+                amount = 0
+            record['items'][name] = record['items'].get(name, 0) + amount
+
+        amount_by_item = {}
+        count_by_item = {}
+        levels_by_item = {}
+        task_counts = {}
+        unknown = 0
+        for record in records.values():
+            task = record['genre']
+            task_counts[task] = task_counts.get(task, 0) + 1
+            if record['unknown']:
+                unknown += 1
+            try:
+                level = int(record['hazard_level'])
+            except (TypeError, ValueError):
+                level = None
+            for name, amount in record['items'].items():
+                amount_by_item[name] = amount_by_item.get(name, 0) + amount
+                count_by_item[name] = count_by_item.get(name, 0) + 1
+                if level is not None:
+                    levels = levels_by_item.setdefault(name, {})
+                    levels[level] = levels.get(level, 0) + 1
+
+        items = []
+        for name, amount in amount_by_item.items():
+            count = count_by_item.get(name, 0)
+            items.append({
+                'name': name,
+                'amount': amount,
+                'count': count,
+                'avg': round(amount / count, 1) if count else 0,
+                'levels': levels_by_item.get(name, {}),
+            })
+        items.sort(key=lambda item: (-item['amount'], item['name']))
+
+        return {
+            'items': items,
+            'records': len(records),
+            'tasks': task_counts,
+            'grand_total': sum(item['amount'] for item in items),
+            'unknown': unknown,
+        }
 
     @staticmethod
-    def get_meow_loot_available_months(device_id=None, limit=24):
-        """返回掉落明细库中存在耄耋相接数据的月份列表（从新到旧）。
+    def get_opsi_drop_available_months(device_id=None, limit=24):
+        """返回掉落明细库中存在大世界掉落数据的月份列表（从新到旧）。
+
+        口径与 get_opsi_drop_rows 一致：凡属大世界任务（除侵蚀1练级）都算。
 
         Args:
             device_id: 设备标识，默认当前设备。
@@ -414,16 +503,22 @@ class AzurStats:
         if device_id is None:
             device_id = get_device_id()
         AzurStats._ensure_local_db()
+        pattern = OPSI_DROP_GENRE_PREFIX.replace('_', r'\_') + '%'
+        query = (
+            "SELECT DISTINCT strftime('%Y-%m', created_at, 'unixepoch') AS ym "
+            "FROM opsi_items WHERE device_id = ? AND genre LIKE ? ESCAPE '\\'"
+        )
+        params = [device_id, pattern]
+        for excluded in sorted(OPSI_DROP_GENRE_EXCLUDE):
+            query += ' AND genre <> ?'
+            params.append(excluded)
+        query += ' ORDER BY ym DESC LIMIT ?'
+        params.append(limit)
         try:
             with sqlite3.connect(AzurStats.LOCAL_DB) as conn:
-                rows = conn.execute(
-                    "SELECT DISTINCT strftime('%Y-%m', created_at, 'unixepoch') AS ym "
-                    "FROM opsi_items WHERE genre='opsi_meowfficer_farming' AND device_id = ? "
-                    "ORDER BY ym DESC LIMIT ?",
-                    (device_id, limit),
-                ).fetchall()
+                rows = conn.execute(query, params).fetchall()
         except Exception:
-            logger.warning('[Statistics] 查询耄耋相接掉落月份列表失败', exc_info=True)
+            logger.warning('[Statistics] 查询大世界掉落月份列表失败', exc_info=True)
             return []
         months = []
         for (ym,) in rows:
@@ -551,7 +646,7 @@ class AzurStats:
             logger.info(f'发现未识别物品，截图已保存: {", ".join(saved)}')
 
     def _record_local(self, image, genre, filename, combat_count):
-        if genre not in ['opsi_meowfficer_farming']:
+        if not is_opsi_drop_genre(genre):
             return False
 
         imgid = f"{os.path.splitext(os.path.basename(filename))[0][:8]}{uuid.uuid4().hex[:8]}"
@@ -562,7 +657,10 @@ class AzurStats:
                 logger.warning('本地碧蓝统计解析跳过, no opsi item rows extracted')
                 return False
             inserted = self._insert_local_opsi_items(rows)
-            self.get_meowofficer_farming()
+            # 短猫的收益汇总只认自己那一类记录，其他大世界任务入库时不重算，
+            # 免得每来一条要塞/每日记录都把整表重跑一遍。
+            if genre == 'opsi_meowfficer_farming':
+                self.get_meowofficer_farming()
             logger.info(f'本地碧蓝统计解析成功，行数={inserted}')
             return True
         except Exception as e:
@@ -650,8 +748,14 @@ class AzurStats:
             method_value = str(method)
             save = save or method_value in self.SAVE_METHODS
         if local is None:
-            if method_value is None:
-                local = genre in self.LOCAL_GENRES
+            if is_opsi_drop_genre(genre):
+                # 大世界掉落：凡大世界任务（除侵蚀1练级）都解析入库。
+                # 「保存」只落盘截图、「本地」只入库、「保存并本地」两者都做，
+                # 只有「不记录」才不统计。侵蚀1练级不适用（见 is_opsi_drop_genre）。
+                if method_value is None:
+                    local = True
+                else:
+                    local = method_value in self.LOCAL_METHODS
             else:
-                local = method_value in self.LOCAL_METHODS and genre in self.LOCAL_GENRES
+                local = False
         return DropImage(stat=self, genre=genre, save=save, local=local, info=info)
