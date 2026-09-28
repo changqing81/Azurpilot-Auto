@@ -505,19 +505,29 @@ Stat:
   MeowLootItemObscure:
   MeowLootItemAbyssal:
   MeowLootItemCat:
-  MeowLootViewHistory:
   MeowLootBackToCurrent:
   MeowLootPickMonthTitle:
   MeowLootNoHistoryMonth:
   MeowLootCurrentMonthOption:
   OpsiDropTitle:
+  OpsiDropSubtitle:
   OpsiDropInstanceLabel:
+  OpsiDropInstanceDefault:
   OpsiDropFilterTitle:
   OpsiDropFilterHint:
   OpsiDropFilterAll:
-  OpsiDropFilterEmpty:
+  OpsiDropFilterDisabled:
   OpsiDropSharedNote:
+  OpsiDropTaskMeowfficerFarming:
+  OpsiDropTaskAbyssal:
+  OpsiDropTaskObscure:
+  OpsiDropTaskStronghold:
+  OpsiDropTaskDaily:
+  OpsiDropTaskExplore:
+  OpsiDropTaskHazard1Leveling:
+  OpsiDropTaskOther:
   OpsiDropItemHeader:
+  OpsiDropCategoryHeader:
   OpsiDropAmountHeader:
   OpsiDropCountHeader:
   OpsiDropAvgHeader:
@@ -526,6 +536,10 @@ Stat:
   OpsiDropEmptyNotice:
   OpsiDropFoldTitle:
   OpsiDropFoldDigest:
+  OpsiDropMoreItems:
+  OpsiDropCollapse:
+  OpsiDropPrefsHint:
+  OpsiDropSourceNote:
   OpsiDropCategoryPlate:
   OpsiDropCategoryDesign:
   OpsiDropCategoryReport:

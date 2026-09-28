@@ -337,6 +337,28 @@ class AzurStats:
         logger.info('[Statistics] 本地统计数据更新成功: azurstat_meowofficer_farming.csv')
 
     @staticmethod
+    def _opsi_genre_filter(genre):
+        """把 genre 参数规整成列表。
+
+        统计页左栏的一个开关可能对应多个识别 genre（跨月每日跟大世界每日、
+        档案坐标跟隐秘海域、月度Boss跟深渊坐标共用一项），所以筛选参数既
+        接受单个字符串，也接受字符串序列。
+
+        Args:
+            genre (str | Iterable[str] | None): 任务标识，None 表示全部。
+
+        Returns:
+            list[str]: 需要过滤的 genre；空列表表示不过滤。
+        """
+        if genre is None:
+            return []
+        if isinstance(genre, str):
+            candidates = [genre]
+        else:
+            candidates = list(genre)
+        return [str(item) for item in candidates if item]
+
+    @staticmethod
     def get_opsi_drop_rows(device_id=None, start=None, end=None, genre=None):
         """读取大世界掉落明细，供统计页按时间窗口汇总。
 
@@ -348,7 +370,8 @@ class AzurStats:
             device_id (str): 设备标识，默认当前设备。
             start (int): 起始时间戳（含，秒）；None 表示不限。
             end (int): 结束时间戳（不含，秒）；None 表示不限。
-            genre (str): 只看某个大世界任务（genre，如 'opsi_abyssal'）；None 表示全部。
+            genre (str | Iterable[str]): 只看某个（或某几个）大世界任务
+                （genre，如 'opsi_abyssal'）；None 表示全部。
 
         Returns:
             list[dict]: opsi_items 明细行，按记录时间升序。
@@ -365,9 +388,11 @@ class AzurStats:
         for excluded in sorted(OPSI_DROP_GENRE_EXCLUDE):
             query += ' AND genre <> ?'
             params.append(excluded)
-        if genre:
-            query += ' AND genre = ?'
-            params.append(str(genre))
+        genres = AzurStats._opsi_genre_filter(genre)
+        if genres:
+            placeholders = ', '.join('?' * len(genres))
+            query += f' AND genre IN ({placeholders})'
+            params.extend(genres)
         if start is not None:
             query += ' AND created_at >= ?'
             params.append(int(start))
@@ -398,14 +423,16 @@ class AzurStats:
             device_id (str): 设备标识，默认当前设备。
             year (int): 年份，默认当前年。
             month (int): 月份（1-12），默认当前月。
-            genre (str): 只看某个大世界任务；None 表示全部。
+            genre (str | Iterable[str]): 只看某个（或某几个）大世界任务；
+                None 表示全部。
 
         Returns:
             dict: {
                 'items': [{'name', 'amount', 'count', 'avg', 'levels'}, ...]
                     按总量降序；levels 是「侵蚀等级 -> 出现次数」，
                 'records': 有掉落的记录条数,
-                'tasks': {'genre': 记录条数}（供任务筛选）,
+                'tasks': {'genre': 记录条数}（供任务筛选；**始终是全月全任务**，
+                    不受 genre 参数影响）,
                 'grand_total': 各物品数量之和,
                 'unknown': 含未识别物品的记录条数,
             }
@@ -421,6 +448,13 @@ class AzurStats:
 
         rows = AzurStats.get_opsi_drop_rows(
             device_id=device_id, start=month_start, end=month_end, genre=genre)
+        # 任务计数始终按全月全任务算：左栏筛选器要显示每个任务的状态与条数，
+        # 不能因为当前选中了某个任务就把其它任务的计数抹掉。
+        if AzurStats._opsi_genre_filter(genre):
+            task_rows = AzurStats.get_opsi_drop_rows(
+                device_id=device_id, start=month_start, end=month_end)
+        else:
+            task_rows = rows
 
         # 先按记录（imgid）归组：一条记录内的同物品数量相加、只记一次出现
         records = {}
@@ -449,11 +483,8 @@ class AzurStats:
         amount_by_item = {}
         count_by_item = {}
         levels_by_item = {}
-        task_counts = {}
         unknown = 0
         for record in records.values():
-            task = record['genre']
-            task_counts[task] = task_counts.get(task, 0) + 1
             if record['unknown']:
                 unknown += 1
             try:
@@ -478,6 +509,13 @@ class AzurStats:
                 'levels': levels_by_item.get(name, {}),
             })
         items.sort(key=lambda item: (-item['amount'], item['name']))
+
+        # 任务计数按记录（imgid）去重：同一条结算里同一任务的多行只算一次
+        seen_by_task = {}
+        for row in task_rows:
+            task = str(row.get('genre') or '')
+            seen_by_task.setdefault(task, set()).add(str(row.get('imgid') or ''))
+        task_counts = {task: len(ids) for task, ids in seen_by_task.items()}
 
         return {
             'items': items,

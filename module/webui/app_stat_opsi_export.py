@@ -1,10 +1,11 @@
 """WebUI 大世界收获统计视图。
 
-版式是左栏筛选 + 右栏内容：
-- 左栏「掉落任务筛选」：按识别 genre 列出有记录的大世界任务，点选过滤明细；
-- 右栏：合计条（折叠外，按类别汇总）→ 侵蚀等级卡（本地 ``opsi_meow_card.html``
-  的卡片语言）→ 物品掉落明细表（数据驱动，识别出什么显示什么，含图标、
-  类别、总量、出现次数、单次均值、侵蚀等级徽标）。
+版式对齐参考图版1（左栏筛选 + 右栏内容）：
+- 页头：OS 徽标 + 「大世界收获 / Operation Siren Drop Statistics」+ 实例胶囊，
+  月份胶囊是按钮（点开历史月份选择器）；
+- 左栏「掉落任务筛选」：DropRecord 的 8 个开关 + 「全部任务」，点选按任务过滤明细；
+- 右栏：收获合计条（折叠外）→「掉落明细」折叠块（侵蚀等级卡 + 物品掉落明细表，
+  表内可「其余 N 项」展开）。折叠块默认收起。
 
 合计条与明细表的数据来自 ``AzurStats.get_opsi_drop_summary``（opsi_items 表，
 凡大世界任务都算，侵蚀1练级除外）；等级卡的数据来自 cl1_data.db 与本地累积
@@ -38,6 +39,8 @@ from module.webui.app_dependencies import (
     current_time,
     popup,
     put_buttons,
+    put_collapse,
+    put_column,
     put_html,
     put_row,
     t,
@@ -45,9 +48,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_helpers import (
-    build_fold_block,
     build_muted_notice,
-    build_title_block,
 )
 from module.webui.app_types import WebUIMixinBase
 
@@ -76,6 +77,14 @@ MEOW_LOOT_CATEGORIES = (
     (CATEGORY_OTHER, "Other", None, "#B4B2A9"),
 )
 
+# 类别 -> 主题色 / i18n 键后缀（明细表「类别」列用，从上面那张表派生）
+_MEOW_CATEGORY_COLORS = {
+    key: color for key, _suffix, _icon, color in MEOW_LOOT_CATEGORIES
+}
+_MEOW_CATEGORY_SUFFIX = {
+    key: suffix for key, suffix, _icon, _color in MEOW_LOOT_CATEGORIES
+}
+
 # 侵蚀 1~6 全套配色：3=蓝、5=红 沿用数据收集卡徽标的既定色，其余等级补齐
 MEOW_HAZARD_COLORS = {
     1: "#14A08C",
@@ -85,6 +94,29 @@ MEOW_HAZARD_COLORS = {
     5: "#E24B4A",
     6: "#C4588C",
 }
+
+# 左栏「掉落任务筛选」的 8 个开关，顺序对齐参考图版1 与配置页 DropRecord 分组。
+# (i18n 键后缀, 归属 genre 元组, 是否计入统计)
+# genre 归属与 argument.yaml 的注释一致：跨月每日跟大世界每日、档案坐标跟隐秘
+# 海域、月度Boss跟深渊坐标共用一项；None 表示兜底（其余所有 opsi_* 任务）。
+OPSI_DROP_TASKS = (
+    ("MeowfficerFarming", ("opsi_meowfficer_farming",), True),
+    ("Abyssal", ("opsi_abyssal", "opsi_month_boss"), True),
+    ("Obscure", ("opsi_obscure", "opsi_archive"), True),
+    ("Stronghold", ("opsi_stronghold",), True),
+    ("Daily", ("opsi_daily", "opsi_cross_month"), True),
+    ("Explore", ("opsi_explore",), True),
+    ("Hazard1Leveling", ("opsi_hazard1_leveling",), False),
+    ("Other", None, True),
+)
+
+# 「全部任务」按钮的取值：与任务后缀区分开，避免和某个任务名撞车
+OPSI_DROP_FILTER_ALL = "__all__"
+# 兜底开关的后缀（genre 集合要按本月实际数据算补集）
+OPSI_DROP_FILTER_OTHER = "Other"
+
+# 明细表默认只列前几行，其余收进「其余 N 项」按钮
+OPSI_DROP_TABLE_PREVIEW = 5
 
 # 图标外框尺寸：(外框边长, 内图边长, 圆角)，按用途分三档
 _ICON_BOX = {"card": (30, 24, "7"), "strip": (24, 19, "6"), "row": (22, 17, "5")}
@@ -147,31 +179,46 @@ class OpsiExportMixin(WebUIMixinBase):
         Args:
             view (dict): 月份视图（见 ``_load_meow_loot_view``）；None 时自取。
             drop (dict): 掉落汇总（见 ``_load_opsi_drop_view``）；None 时自取。
-            meow_rows (list): 侵蚀等级卡的数据行；None 时按空列表渲染。
+            meow_rows (list): 侵蚀等级卡的数据行；None 时沿用上一次渲染的缓存
+                —— 任务筛选、月份切换、「其余 N 项」这类按钮回调只重绘本区块，
+                不必重建 cl1 数据。
         """
+        if meow_rows is None:
+            meow_rows = getattr(self, "_meow_loot_cards", None) or []
+        else:
+            self._meow_loot_cards = meow_rows
         if view is None:
             view = self._load_meow_loot_view()
         if drop is None:
             drop = self._load_opsi_drop_view()
-        if meow_rows is None:
-            meow_rows = []
 
         with use_scope("meow_loot_scope", clear=True):
-            put_html(build_title_block(t("Gui.Stat.OpsiDropTitle")))
-            put_html(self._build_meow_instance_html())
-            self._render_meow_loot_strip(view, drop)
-            put_html(
-                build_fold_block(
-                    t("Gui.Stat.OpsiDropFoldTitle"),
-                    self._build_meow_cards_html(meow_rows)
-                    + self._build_opsi_drop_table_html(drop),
-                    digest=t(
-                        "Gui.Stat.OpsiDropFoldDigest",
-                        n=int(drop.get("records") or 0),
-                        total=f"{int(drop.get('grand_total') or 0):,}",
+            put_row(
+                [
+                    put_html(self._build_meow_header_html()),
+                    put_buttons(
+                        self._meow_month_buttons(view),
+                        onclick=self._on_meow_loot_month_click,
+                        small=True,
                     ),
-                )
-            )
+                ],
+                size="1fr auto",
+            ).style("align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px")
+            put_row(
+                [
+                    # size="auto" 是必须的：put_column 默认给每行 1fr，会把左栏的
+                    # 标题/按钮/提示三行拉成等高，按钮被顶到整栏正中（实测踩过）。
+                    put_column(self._meow_filter_placeables(drop), size="auto"),
+                    put_column(
+                        [
+                            put_html(self._build_meow_loot_strip_html(view, drop)),
+                            self._meow_drop_fold_placeable(meow_rows, drop),
+                        ],
+                        size="auto",
+                    ),
+                ],
+                size="168px minmax(0, 1fr)",
+            ).style("align-items:start; gap:14px")
 
     def _load_meow_loot_view(self):
         """加载月份视图数据（合计条与明细表共用）。
@@ -194,16 +241,40 @@ class OpsiExportMixin(WebUIMixinBase):
 
         Returns:
             dict: 见 ``AzurStats.get_opsi_drop_summary``，另加 year / month /
-                is_current（月份视图）与 genre（当前筛选的任务，None 表示全部）。
+                is_current（月份视图）与 genre（当前筛选的开关键，
+                ``OPSI_DROP_FILTER_ALL`` 或 None 表示全部）。
         """
         from module.statistics.azurstats import AzurStats
 
         view = self._load_meow_loot_view()
-        genre = getattr(self, "_meow_task_filter", None)
+        filter_key = getattr(self, "_meow_task_filter", None)
+        if filter_key == OPSI_DROP_FILTER_ALL:
+            filter_key = None
         try:
-            drop = AzurStats.get_opsi_drop_summary(
-                year=view["year"], month=view["month"], genre=genre
-            )
+            if filter_key == OPSI_DROP_FILTER_OTHER:
+                # 兜底开关 = 其余所有大世界任务，集合只能从本月实际数据里算补集
+                full = AzurStats.get_opsi_drop_summary(
+                    year=view["year"], month=view["month"]
+                )
+                named = {
+                    genre
+                    for _suffix, genres, _counted in OPSI_DROP_TASKS
+                    if genres
+                    for genre in genres
+                }
+                genres = [g for g in (full.get("tasks") or {}) if g not in named]
+                if genres:
+                    drop = AzurStats.get_opsi_drop_summary(
+                        year=view["year"], month=view["month"], genre=genres
+                    )
+                else:
+                    drop = dict(full, items=[], records=0, grand_total=0, unknown=0)
+            else:
+                drop = AzurStats.get_opsi_drop_summary(
+                    year=view["year"],
+                    month=view["month"],
+                    genre=self._opsi_task_genres(filter_key),
+                )
         except Exception:
             logger.warning('[Statistics] 汇总大世界掉落失败', exc_info=True)
             drop = {
@@ -214,37 +285,82 @@ class OpsiExportMixin(WebUIMixinBase):
                 "unknown": 0,
             }
         drop.update(view)
-        drop["genre"] = genre
+        drop["genre"] = filter_key
         return drop
 
-    def _build_meow_instance_html(self):
-        """当前实例名（固定显示，不做选择器）。
+    @staticmethod
+    def _opsi_task_genres(filter_key):
+        """把左栏开关键翻成要过滤的 genre 列表；None 表示不过滤（全部任务）。
+
+        兜底开关（``OPSI_DROP_FILTER_OTHER``）要按数据算补集，这里返回 None
+        交给 ``_load_opsi_drop_view`` 处理。
+        """
+        for suffix, genres, _counted in OPSI_DROP_TASKS:
+            if suffix == filter_key:
+                return genres
+        return None
+
+    @staticmethod
+    def _opsi_task_record_count(genres, tasks):
+        """某个开关名下的记录条数（供左栏按钮显示）。
+
+        Args:
+            genres (tuple | None): 该开关归属的 genre；None 表示兜底。
+            tasks (dict): ``get_opsi_drop_summary`` 的 tasks（全月全任务）。
+
+        Returns:
+            int: 记录条数合计。
+        """
+        if genres is None:
+            named = {
+                genre
+                for _suffix, group, _counted in OPSI_DROP_TASKS
+                if group
+                for genre in group
+            }
+            return sum(
+                int(count or 0)
+                for genre, count in tasks.items()
+                if genre not in named
+            )
+        return sum(int(tasks.get(genre, 0) or 0) for genre in genres)
+
+    def _build_meow_header_html(self):
+        """页头左侧：OS 徽标 + 中英标题 + 实例胶囊。
 
         统计口径按设备（device_id）隔离，实例名只作展示 —— 用户要求这里
-        固定显示正在跑的实例，不提供切换。
+        固定显示正在跑的实例，不提供切换；月份胶囊是右侧的按钮，见
+        ``_meow_month_buttons``。
         """
+        from module.config.utils import alas_instance
+
+        all_instances = alas_instance()
         instance = getattr(self, "alas_name", None)
         if not instance:
-            from module.config.utils import alas_instance
-
-            all_instances = alas_instance()
             instance = all_instances[0] if all_instances else "default"
+        label = html_escape(str(instance))
+        if all_instances and instance == all_instances[0]:
+            label += t("Gui.Stat.OpsiDropInstanceDefault")
         return (
-            '<div class="meow-loot-instance">'
-            f'<span class="meow-loot-instance-label">'
-            f'{t("Gui.Stat.OpsiDropInstanceLabel")}</span>'
-            f'<span class="meow-loot-instance-value">'
-            f'{html_escape(str(instance))}</span>'
+            '<div class="meow-loot-head">'
+            '<span class="meow-loot-badge">OS</span>'
+            '<div class="meow-loot-head-text">'
+            f'<div class="meow-loot-head-title">{t("Gui.Stat.OpsiDropTitle")}</div>'
+            f'<div class="meow-loot-head-subtitle">'
+            f'{t("Gui.Stat.OpsiDropSubtitle")}</div>'
+            "</div>"
+            f'<span class="meow-loot-pill" title="'
+            f'{html_escape(t("Gui.Stat.OpsiDropInstanceLabel"))}">{label}</span>'
             "</div>"
         )
 
-    # ---------- 总览条 ----------
+    # ---------- 页头 ----------
 
     def _meow_month_buttons(self, view):
-        """合计条右侧的月份切换按钮。"""
+        """页头右侧的月份胶囊：点开历史月份选择器。"""
         buttons = [
             {
-                "label": t("Gui.Stat.MeowLootViewHistory"),
+                "label": f"{view['year']:04d}-{view['month']:02d}",
                 "value": "history",
                 "color": "secondary",
             }
@@ -259,21 +375,128 @@ class OpsiExportMixin(WebUIMixinBase):
             )
         return buttons
 
-    def _render_meow_loot_strip(self, view, drop):
-        """总览条：标题 + 六项图标合计 + 月份切换，整条只占一行。"""
-        put_row(
-            [
-                put_html(self._build_meow_loot_strip_html(view, drop)),
-                put_buttons(
-                    self._meow_month_buttons(view),
-                    onclick=self._on_meow_loot_month_click,
-                    small=True,
-                ),
-            ],
-            size="auto 1fr",
-        ).style(
-            "align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px"
+    # ---------- 左栏：掉落任务筛选 ----------
+
+    def _meow_filter_placeables(self, drop):
+        """左栏「掉落任务筛选」：全部任务 + 8 个开关 + 共用映射提示。
+
+        按钮文案是「任务名 · 本月记录数」，选中态用按钮主色表示 —— PyWebIO
+        的按钮标签是纯文本（会转义），塞不进参考图那种右对齐的「已选/未选」
+        芯片，所以状态改由按钮配色承担。侵蚀1练级不进统计，单独标注且置灰。
+        """
+        placeables = [
+            put_html(
+                '<div class="meow-loot-filter-head">'
+                f'<div class="meow-loot-filter-title">'
+                f'{t("Gui.Stat.OpsiDropFilterTitle")}</div>'
+                f'<div class="meow-loot-filter-hint">'
+                f'{t("Gui.Stat.OpsiDropFilterHint")}</div>'
+                "</div>"
+            )
+        ]
+        current = drop.get("genre")
+        tasks = drop.get("tasks") or {}
+        buttons = [
+            {
+                "label": t("Gui.Stat.OpsiDropFilterAll"),
+                "value": OPSI_DROP_FILTER_ALL,
+                "color": "primary" if current is None else "secondary",
+            }
+        ]
+        for suffix, genres, counted in OPSI_DROP_TASKS:
+            label = t(f"Gui.Stat.OpsiDropTask{suffix}")
+            if not counted:
+                buttons.append(
+                    {
+                        "label": f"{label} · {t('Gui.Stat.OpsiDropFilterDisabled')}",
+                        "value": suffix,
+                        "color": "light",
+                    }
+                )
+                continue
+            count = self._opsi_task_record_count(genres, tasks)
+            buttons.append(
+                {
+                    "label": f"{label} · {count:,}",
+                    "value": suffix,
+                    "color": "primary" if current == suffix else "secondary",
+                }
+            )
+        placeables.append(
+            put_buttons(
+                buttons,
+                onclick=self._on_meow_task_click,
+                small=True,
+                # 不能用 link_style=True：PyWebIO 在 link 模式下会**忽略 color**，
+                # 8 个开关会全部渲染成同一个蓝色链接，选中态直接丢失。
+                # 保留普通按钮，用 primary / secondary / light 三档表示
+                # 已选 / 未选 / 不统计。
+            ).style(
+                # PyWebIO 的 put_column/put_row 产出的是无 class 的 grid div，
+                # 左栏按钮没法用 CSS 选中，只能就地内联成竖排。
+                "display:flex; flex-direction:column; align-items:stretch; gap:2px"
+            )
         )
+        placeables.append(
+            put_html(
+                f'<div class="meow-loot-filter-note">'
+                f'{t("Gui.Stat.OpsiDropSharedNote")}</div>'
+            )
+        )
+        return placeables
+
+    # ---------- 右栏：掉落明细折叠块 ----------
+
+    def _meow_drop_fold_placeable(self, meow_rows, drop):
+        """「掉落明细」折叠块：侵蚀等级卡 + 物品明细表 + 「其余 N 项」。
+
+        这里用 ``put_collapse`` 而不是 ``build_fold_block``：后者只吃 HTML 串，
+        而「其余 N 项」必须是 PyWebIO 按钮（独立 DOM 节点）才能挂回调，
+        塞不进 HTML 串里。折叠块默认收起（用户定稿），展开时连带展开明细表。
+        """
+        expanded = bool(getattr(self, "_meow_drop_expanded", False))
+        digest = t(
+            "Gui.Stat.OpsiDropFoldDigest",
+            n=int(drop.get("records") or 0),
+            total=f"{int(drop.get('grand_total') or 0):,}",
+        )
+        content = [
+            put_html(self._build_meow_cards_html(meow_rows)),
+            put_html(self._build_opsi_drop_table_html(drop)),
+        ]
+        hidden = self._opsi_drop_hidden_rows(drop)
+        if expanded:
+            more_button = {
+                "label": t("Gui.Stat.OpsiDropCollapse"),
+                "value": "less",
+                "color": "secondary",
+            }
+        elif hidden:
+            more_button = {
+                "label": t("Gui.Stat.OpsiDropMoreItems", n=hidden),
+                "value": "more",
+                "color": "secondary",
+            }
+        else:
+            more_button = None
+        if more_button is not None:
+            content.append(
+                put_buttons(
+                    [more_button],
+                    onclick=self._on_meow_drop_more_click,
+                    small=True,
+                    link_style=True,
+                )
+            )
+        return put_collapse(
+            f'{t("Gui.Stat.OpsiDropFoldTitle")} · {digest}', content, open=expanded
+        )
+
+    @staticmethod
+    def _opsi_drop_hidden_rows(drop):
+        """明细表被折叠掉的行数（展开状态见 ``_meow_drop_expanded``）。"""
+        total = len(drop.get("items") or [])
+        return max(0, total - OPSI_DROP_TABLE_PREVIEW)
 
     def _build_meow_loot_strip_html(self, view, drop):
         """合计条左侧：标题 + 各类别合计（跨任务求和）；全 0 时显示占位提示。"""
@@ -341,23 +564,27 @@ class OpsiExportMixin(WebUIMixinBase):
     # ---------- 右栏：物品明细表 ----------
 
     def _build_opsi_drop_table_html(self, drop):
-        """物品掉落明细表：图标 + 名称 + 总量 + 次数 + 均值 + 等级徽标。
+        """物品掉落明细表：图标 + 名称 + 类别 + 总量 + 次数 + 均值 + 等级徽标。
 
-        行按类别分组（顺序见 MEOW_LOOT_CATEGORIES），组内按总量降序 ——
-        类别做组标题行而不是列，物品名就有整行宽度，长名字不会挤成两行。
+        行按总量降序平铺（与参考图版1 一致），类别单独成列而不是分组标题行。
+        默认只列前 ``OPSI_DROP_TABLE_PREVIEW`` 行，其余交给「其余 N 项」按钮
+        展开（见 ``_meow_drop_fold_placeable``）。
         """
         items = drop.get("items") or []
         if not items:
             return build_muted_notice(t("Gui.Stat.OpsiDropEmptyNotice"))
 
-        grouped = {}
-        for item in items:
-            grouped.setdefault(category_of(item.get("name")), []).append(item)
+        expanded = bool(getattr(self, "_meow_drop_expanded", False))
+        shown = items if expanded else items[:OPSI_DROP_TABLE_PREVIEW]
 
         head = (
             '<div class="meow-drop-table">'
+            f'<div class="meow-drop-table-hint">'
+            f'{t("Gui.Stat.OpsiDropPrefsHint")}</div>'
             '<div class="meow-drop-table-head">'
             f'<span class="meow-drop-cell-name">{t("Gui.Stat.OpsiDropItemHeader")}</span>'
+            f'<span class="meow-drop-cell-cat">'
+            f'{t("Gui.Stat.OpsiDropCategoryHeader")}</span>'
             f'<span class="meow-drop-cell-amount">'
             f'{t("Gui.Stat.OpsiDropAmountHeader")}</span>'
             f'<span class="meow-drop-cell-count">'
@@ -367,26 +594,16 @@ class OpsiExportMixin(WebUIMixinBase):
             f'{t("Gui.Stat.OpsiDropLevelHeader")}</span>'
             "</div>"
         )
-        body = ""
-        for key, suffix, _icon, color in MEOW_LOOT_CATEGORIES:
-            rows = grouped.get(key)
-            if not rows:
-                continue
-            total = sum(int(row.get("amount") or 0) for row in rows)
-            body += (
-                '<div class="meow-drop-group">'
-                f'<span class="meow-drop-group-dot" style="background: {color};"></span>'
-                f'<span class="meow-drop-group-name">'
-                f'{t(f"Gui.Stat.OpsiDropCategory{suffix}")}</span>'
-                f'<span class="meow-drop-group-total">{total:,}</span>'
-                "</div>"
-            )
-            for row in rows:
-                body += self._build_opsi_drop_row_html(row, color)
+        body = "".join(self._build_opsi_drop_row_html(row) for row in shown)
+        return (
+            head
+            + body
+            + f'<div class="meow-drop-source">'
+            f'{t("Gui.Stat.OpsiDropSourceNote")}</div>'
+            "</div>"
+        )
 
-        return head + body + "</div>"
-
-    def _build_opsi_drop_row_html(self, row, color):
+    def _build_opsi_drop_row_html(self, row):
         """明细表的一行。"""
         name = str(row.get("name") or "")
         info = item_info(name)
@@ -394,6 +611,11 @@ class OpsiExportMixin(WebUIMixinBase):
         count = int(row.get("count") or 0)
         avg = row.get("avg") or 0
         levels = row.get("levels") or {}
+        category = category_of(name)
+        color = _MEOW_CATEGORY_COLORS.get(category, "#888780")
+        cat_label = t(
+            f"Gui.Stat.OpsiDropCategory{_MEOW_CATEGORY_SUFFIX.get(category, 'Other')}"
+        )
         badges = "".join(
             f'<span class="meow-drop-badge" '
             f'style="background: {MEOW_HAZARD_COLORS.get(level, "#888780")}1a; '
@@ -409,6 +631,10 @@ class OpsiExportMixin(WebUIMixinBase):
             f"{self._opsi_item_icon_html(name, color)}"
             f'<span class="meow-drop-item-name">{html_escape(str(info["zh"]))}</span>'
             "</span>"
+            '<span class="meow-drop-cell-cat">'
+            f'<span class="meow-drop-cat-dot" style="background: {color};"></span>'
+            f"{cat_label}"
+            "</span>"
             f'<span class="meow-drop-cell-amount">{amount:,}</span>'
             f'<span class="meow-drop-cell-count">{count:,}</span>'
             f'<span class="meow-drop-cell-avg">{avg_text}</span>'
@@ -416,14 +642,33 @@ class OpsiExportMixin(WebUIMixinBase):
             "</div>"
         )
 
-    # ---------- 月份切换交互 ----------
+    # ---------- 交互 ----------
 
     def _on_meow_loot_month_click(self, value):
-        """月份切换按钮回调：history 打开历史月份选择器，current 回到本月。"""
+        """月份胶囊回调：history 打开历史月份选择器，current 回到本月。"""
         if value == "history":
             self._show_meow_loot_month_picker()
         else:
             self._reset_meow_loot_month()
+
+    def _on_meow_task_click(self, value):
+        """左栏任务筛选回调：value 是开关键，``OPSI_DROP_FILTER_ALL`` 表示全部。
+
+        再点一次已选中的任务等于取消筛选，避免用户找不到回「全部」的路。
+        """
+        if value == OPSI_DROP_FILTER_ALL:
+            self._meow_task_filter = None
+        elif getattr(self, "_meow_task_filter", None) == value:
+            self._meow_task_filter = None
+        else:
+            self._meow_task_filter = value
+        self._meow_drop_expanded = False
+        self._render_meowofficer_farming()
+
+    def _on_meow_drop_more_click(self, value):
+        """「其余 N 项 / 收起」回调：切换明细表的展开状态。"""
+        self._meow_drop_expanded = value == "more"
+        self._render_meowofficer_farming()
 
     def _show_meow_loot_month_picker(self):
         """弹出历史月份选择器。"""
@@ -457,11 +702,13 @@ class OpsiExportMixin(WebUIMixinBase):
         """设置要查看的月份并重绘大世界统计分区。value 为 None 表示本月。"""
         close_popup()
         self._meow_loot_month = value
+        self._meow_drop_expanded = False
         self._render_opsi_stats()
 
     def _reset_meow_loot_month(self):
         """回到本月视图。"""
         self._meow_loot_month = None
+        self._meow_drop_expanded = False
         self._render_opsi_stats()
 
     # ---------- HTML 构造 ----------
