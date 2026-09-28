@@ -499,6 +499,12 @@ Stat:
   MeowLootTitleCurrent:
   MeowLootTitleHistory:
   MeowLootHazardColumn:
+  MeowLootItemPlate:
+  MeowLootItemGearDesign:
+  MeowLootItemOrdnance:
+  MeowLootItemObscure:
+  MeowLootItemAbyssal:
+  MeowLootItemCat:
   MeowLootViewHistory:
   MeowLootBackToCurrent:
   MeowLootPickMonthTitle:
@@ -518,6 +524,8 @@ Stat:
   OpsiDropLevelHeader:
   OpsiDropLevelBadge:
   OpsiDropEmptyNotice:
+  OpsiDropFoldTitle:
+  OpsiDropFoldDigest:
   OpsiDropCategoryPlate:
   OpsiDropCategoryDesign:
   OpsiDropCategoryReport:

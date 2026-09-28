@@ -38,7 +38,6 @@ from module.webui.app_dependencies import (
     current_time,
     popup,
     put_buttons,
-    put_column,
     put_html,
     put_row,
     t,
@@ -46,10 +45,22 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_helpers import (
+    build_fold_block,
     build_muted_notice,
     build_title_block,
 )
 from module.webui.app_types import WebUIMixinBase
+
+# 总览条固定的六项（保持旧版那一行不变，0 也占位显示）。
+# (统计分类键, i18n 键后缀, 图标文件名, 主题色)
+MEOW_LOOT_ITEMS = (
+    ("Plate", "Plate", "meow_plate.png", "#BA7517"),
+    ("GearDesignPlanT5", "GearDesign", "meow_gear_design.png", "#7F77DD"),
+    ("OrdnanceTestingReportT4", "Ordnance", "meow_ordnance.png", "#C9A227"),
+    ("CoordinateObscure", "Obscure", "meow_obscure.png", "#378ADD"),
+    ("CoordinateAbyssal", "Abyssal", "meow_abyssal.png", "#E24B4A"),
+    ("CatT3", "Cat", "meow_cat.png", "#D4537E"),
+)
 
 # 合计条与明细表的类别顺序：贵重物在前、材料与货币在后。
 # (类别键, i18n 键后缀, 图标文件名或 None, 主题色)；没有专属图标的类别
@@ -148,34 +159,19 @@ class OpsiExportMixin(WebUIMixinBase):
         with use_scope("meow_loot_scope", clear=True):
             put_html(build_title_block(t("Gui.Stat.OpsiDropTitle")))
             put_html(self._build_meow_instance_html())
-            put_row(
-                [
-                    put_column(self._meow_filter_placeables(drop)),
-                    put_column(
-                        [
-                            put_row(
-                                [
-                                    put_html(
-                                        self._build_meow_loot_strip_html(view, drop)
-                                    ),
-                                    put_buttons(
-                                        self._meow_month_buttons(view),
-                                        onclick=self._on_meow_loot_month_click,
-                                        small=True,
-                                    ),
-                                ],
-                                size="auto 1fr",
-                            ).style(
-                                "align-items:center; gap:10px; flex-wrap:wrap; "
-                                "margin-bottom:10px"
-                            ),
-                            put_html(self._build_meow_cards_html(meow_rows)),
-                            put_html(self._build_opsi_drop_table_html(drop)),
-                        ]
+            self._render_meow_loot_strip(view, drop)
+            put_html(
+                build_fold_block(
+                    t("Gui.Stat.OpsiDropFoldTitle"),
+                    self._build_meow_cards_html(meow_rows)
+                    + self._build_opsi_drop_table_html(drop),
+                    digest=t(
+                        "Gui.Stat.OpsiDropFoldDigest",
+                        n=int(drop.get("records") or 0),
+                        total=f"{int(drop.get('grand_total') or 0):,}",
                     ),
-                ],
-                size="156px minmax(0, 1fr)",
-            ).style("align-items:start; gap:14px")
+                )
+            )
 
     def _load_meow_loot_view(self):
         """加载月份视图数据（合计条与明细表共用）。
@@ -242,88 +238,7 @@ class OpsiExportMixin(WebUIMixinBase):
             "</div>"
         )
 
-    # ---------- 左栏：掉落任务筛选 ----------
-
-    def _meow_filter_placeables(self, drop):
-        """左栏任务筛选栏：标题 + 任务清单 + 共用映射提示。
-
-        筛选项按数据里实际出现的 genre 生成 —— 本地识别层按当前任务名归类，
-        没跑过的任务不会出现在清单里，比铺一排全 0 的开关更好用。
-        """
-        placeables = [
-            put_html(
-                '<div class="meow-loot-filter-head">'
-                f'<div class="meow-loot-filter-title">'
-                f'{t("Gui.Stat.OpsiDropFilterTitle")}</div>'
-                f'<div class="meow-loot-filter-hint">'
-                f'{t("Gui.Stat.OpsiDropFilterHint")}</div>'
-                "</div>"
-            )
-        ]
-        tasks = sorted(
-            (drop.get("tasks") or {}).items(),
-            key=lambda item: (-item[1], item[0]),
-        )
-        if not tasks:
-            placeables.append(
-                put_html(
-                    f'<div class="meow-loot-filter-empty">'
-                    f'{t("Gui.Stat.OpsiDropFilterEmpty")}</div>'
-                )
-            )
-        else:
-            current = drop.get("genre")
-            buttons = [
-                {
-                    "label": t("Gui.Stat.OpsiDropFilterAll"),
-                    "value": None,
-                    "color": "primary" if current is None else "secondary",
-                }
-            ]
-            buttons += [
-                {
-                    "label": f"{self._opsi_task_label(genre)} · {int(count):,}",
-                    "value": genre,
-                    "color": "primary" if current == genre else "secondary",
-                }
-                for genre, count in tasks
-            ]
-            placeables.append(
-                put_buttons(
-                    buttons,
-                    onclick=self._on_meow_task_click,
-                    small=True,
-                    link_style=True,
-                )
-            )
-        placeables.append(
-            put_html(
-                f'<div class="meow-loot-filter-note">'
-                f'{t("Gui.Stat.OpsiDropSharedNote")}</div>'
-            )
-        )
-        return placeables
-
-    @staticmethod
-    def _opsi_task_label(genre):
-        """把识别 genre（如 ``opsi_meowfficer_farming``）翻成任务中文名。
-
-        取配置项的既有文案 ``DropRecord.<驼峰任务名>.name``（配置页那个开关的名字）。
-        ⚠️ 配置项文案挂在 i18n **顶层**，不带 ``Gui.`` 前缀 —— 写成
-        ``Gui.DropRecord.*`` 会一条都查不到，界面直接退回显示英文 genre。
-        查不到（如跨月每日这类没有独立开关的任务）时原样返回 genre。
-        """
-        parts = [part for part in str(genre or "").split("_") if part]
-        if parts and parts[0] == "opsi":
-            parts = parts[1:]
-        if not parts:
-            return str(genre or "")
-        camel = "".join(part[:1].upper() + part[1:] for part in parts)
-        key = f"DropRecord.{camel}.name"
-        label = t(key)
-        return str(genre) if label == key else label
-
-    # ---------- 右栏：合计条 ----------
+    # ---------- 总览条 ----------
 
     def _meow_month_buttons(self, view):
         """合计条右侧的月份切换按钮。"""
@@ -344,6 +259,22 @@ class OpsiExportMixin(WebUIMixinBase):
             )
         return buttons
 
+    def _render_meow_loot_strip(self, view, drop):
+        """总览条：标题 + 六项图标合计 + 月份切换，整条只占一行。"""
+        put_row(
+            [
+                put_html(self._build_meow_loot_strip_html(view, drop)),
+                put_buttons(
+                    self._meow_month_buttons(view),
+                    onclick=self._on_meow_loot_month_click,
+                    small=True,
+                ),
+            ],
+            size="auto 1fr",
+        ).style(
+            "align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px"
+        )
+
     def _build_meow_loot_strip_html(self, view, drop):
         """合计条左侧：标题 + 各类别合计（跨任务求和）；全 0 时显示占位提示。"""
         if view["is_current"]:
@@ -357,43 +288,54 @@ class OpsiExportMixin(WebUIMixinBase):
             '<div class="meow-loot-strip">'
             f'<span class="meow-loot-strip-title">{html_escape(title)}</span>'
         )
-        totals = self._opsi_category_totals(drop.get("items") or [])
-        if not any(totals.values()):
+        totals = self._opsi_strip_totals(drop.get("items") or [])
+        for key, suffix, icon_name, color in MEOW_LOOT_ITEMS:
+            total = totals.get(key, 0)
+            name = t(f"Gui.Stat.MeowLootItem{suffix}")
             html += (
-                f'<span class="meow-loot-strip-empty">'
-                f'{t("Gui.Stat.MeowLootEmptyNotice")}</span>'
+                '<span class="meow-loot-strip-item" '
+                f'title="{html_escape(str(name))}">'
+                f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
+                f"{self._meow_loot_icon_html(icon_name, color, 'strip')}"
+                "</span>"
+                f"<b>{int(total):,}</b>"
+                "</span>"
             )
-        else:
-            for key, suffix, icon_name, color in MEOW_LOOT_CATEGORIES:
-                total = totals.get(key, 0)
-                if not total:
-                    continue
-                name = t(f"Gui.Stat.OpsiDropCategory{suffix}")
-                html += (
-                    '<span class="meow-loot-strip-item" '
-                    f'title="{html_escape(str(name))}">'
-                    f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
-                    f"{self._meow_loot_icon_html(icon_name, color, 'strip')}"
-                    "</span>"
-                    f"<b>{int(total):,}</b>"
-                    "</span>"
-                )
         return html + "</div>"
 
     @staticmethod
-    def _opsi_category_totals(items):
-        """把物品汇总按类别加总。
+    def _opsi_strip_totals(items):
+        """总览条六项的合计。
+
+        口径与旧版一致：金菜取 ``Plate*``、彩图纸只取 ``GearDesignPlan*T5``、
+        金机密只取 ``OrdnanceTestingReport*T4``、金猫箱只取 ``CatT3``。明细表
+        按类别全量显示，总览条只挑这六项贵重掉落，保持用户熟悉的那一行不变。
 
         Args:
             items (list[dict]): ``get_opsi_drop_summary`` 的 items。
 
         Returns:
-            dict[str, int]: 类别键 -> 数量合计。
+            dict[str, int]: 统计分类键 -> 数量合计；六项都会出现，没掉过为 0。
         """
-        totals = {}
+        totals = {key: 0 for key, *_ in MEOW_LOOT_ITEMS}
         for item in items:
-            key = category_of(item.get("name"))
-            totals[key] = totals.get(key, 0) + int(item.get("amount") or 0)
+            name = str(item.get("name") or "")
+            amount = int(item.get("amount") or 0)
+            for key in totals:
+                if key == "Plate":
+                    matched = name.startswith("Plate")
+                elif key == "GearDesignPlanT5":
+                    matched = name.startswith("GearDesignPlan") and name.endswith("T5")
+                elif key == "OrdnanceTestingReportT4":
+                    matched = (
+                        name.startswith("OrdnanceTestingReport")
+                        and name.endswith("T4")
+                    )
+                else:
+                    matched = name.startswith(key)
+                if matched:
+                    totals[key] += amount
+                    break
         return totals
 
     # ---------- 右栏：物品明细表 ----------
@@ -474,12 +416,7 @@ class OpsiExportMixin(WebUIMixinBase):
             "</div>"
         )
 
-    # ---------- 月份与任务筛选交互 ----------
-
-    def _on_meow_task_click(self, value):
-        """左栏任务筛选回调：value 为 genre，None 表示全部任务。"""
-        self._meow_task_filter = value
-        self._render_opsi_stats()
+    # ---------- 月份切换交互 ----------
 
     def _on_meow_loot_month_click(self, value):
         """月份切换按钮回调：history 打开历史月份选择器，current 回到本月。"""
