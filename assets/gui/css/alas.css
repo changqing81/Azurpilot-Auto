@@ -624,6 +624,30 @@ pre.rich-traceback-code {
     margin: 0;
 }
 
+/* 手机/窄屏页眉：诗句列（auto）不收缩，安卓系统字体放大后总宽爆掉，
+   1fr 标题列被压到一个字宽 → 页标题「统计」竖排（远控真机实测）。
+   诗句列改成可收缩轨道 + 省略号截断，标题列恒为单行。
+   注意诗句/标题的 <p> 带 put_text 内联 white-space: pre-wrap，
+   覆盖它必须 !important。 */
+@media (max-width: 760px) {
+    #pywebio-scope-header {
+        grid-template-columns: 3.5rem minmax(0, 1fr) auto auto !important;
+    }
+
+    *[style*="--header-text--"] {
+        min-width: 0;
+        max-width: 100%;
+        font-size: 0.9rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap !important;
+    }
+
+    #pywebio-scope-header_title > p {
+        white-space: nowrap !important;
+    }
+}
+
 .anim-rotate {
     animation: rotate-keyframes 0.4s linear infinite
 }
