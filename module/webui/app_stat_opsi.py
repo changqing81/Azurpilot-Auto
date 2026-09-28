@@ -13,7 +13,6 @@ from module.webui.app_dependencies import (
 )
 
 from module.webui.app_helpers import (
-    build_fold_block,
     build_muted_notice,
     build_title_block,
     read_webapp_template,
@@ -564,20 +563,11 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             put_html(build_title_block(t("Gui.Stat.OpsiDataCollectionTitle")))
             put_html(self._build_opsi_summary_html(net, cards))
 
-            # 方案 F：收获总览条（meow_loot_scope）在 fold 之前，只占一行；
-            # 明细表收进下方 fold 体内的次级折叠，默认不占高度。
-            view = self._load_meow_loot_view()
+            # 大世界收获：左栏任务筛选 + 右栏（合计条 / 侵蚀等级卡 / 物品明细表）。
+            # 整块挂在 meow_loot_scope 下，月份切换与任务筛选都在块内重绘。
             put_scope("meow_loot_scope")
-            self._render_meowofficer_farming(view)
+            self._render_meowofficer_farming(meow_rows=meow_rows)
 
             meow_refresh_token = int(time.time() * 1000)
 
             put_html(f"<!-- meow-stats-refresh-token:{meow_refresh_token} -->")
-            put_html(
-                build_fold_block(
-                    t("Gui.Stat.MeowDataCollectionTitle"),
-                    self._build_meow_cards_html(meow_rows)
-                    + self._build_meow_loot_fold_html(view),
-                    digest=self._build_meow_fold_digest(meow_rows, view),
-                )
-            )

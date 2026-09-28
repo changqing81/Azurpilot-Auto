@@ -494,26 +494,38 @@ Stat:
   TodayRunHeader:
   OpsiDataCollectionTitle:
   MonthlyPurchasedAP:
-  MeowDataCollectionTitle:
-  FoldMeowDigest:
   MeowRounds:
   AvgMeowRoundTime:
   MeowLootTitleCurrent:
   MeowLootTitleHistory:
-  MeowLootHeaderItem:
-  MeowLootHeaderTotal:
   MeowLootHazardColumn:
-  MeowLootItemPlate:
-  MeowLootItemGearDesign:
-  MeowLootItemOrdnance:
-  MeowLootItemObscure:
-  MeowLootItemAbyssal:
-  MeowLootItemCat:
   MeowLootViewHistory:
   MeowLootBackToCurrent:
   MeowLootPickMonthTitle:
   MeowLootNoHistoryMonth:
   MeowLootCurrentMonthOption:
+  OpsiDropTitle:
+  OpsiDropInstanceLabel:
+  OpsiDropFilterTitle:
+  OpsiDropFilterHint:
+  OpsiDropFilterAll:
+  OpsiDropFilterEmpty:
+  OpsiDropSharedNote:
+  OpsiDropItemHeader:
+  OpsiDropAmountHeader:
+  OpsiDropCountHeader:
+  OpsiDropAvgHeader:
+  OpsiDropLevelHeader:
+  OpsiDropLevelBadge:
+  OpsiDropEmptyNotice:
+  OpsiDropCategoryPlate:
+  OpsiDropCategoryDesign:
+  OpsiDropCategoryReport:
+  OpsiDropCategoryCat:
+  OpsiDropCategoryCoordinate:
+  OpsiDropCategoryMaterial:
+  OpsiDropCategoryCurrency:
+  OpsiDropCategoryOther:
   NoMeowDataNotice:
   RoundUnit:
   SecondUnit:
@@ -604,11 +616,6 @@ Stat:
   OpsiCardBattleUnit:
   OpsiCardCount:
   AuxFoldTitle:
-  MeowLootFoldTitle:
-  MeowLootFoldTitleHistory:
-  MeowLootFoldDigest:
-  MeowLootDigestPart:
-  MeowRoundDigest:
   MeowLootEmptyNotice:
   TabOpsi:
   TabCommission:

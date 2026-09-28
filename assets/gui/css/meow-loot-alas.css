@@ -1,9 +1,10 @@
-/* 耄耋相接「收获」（方案 F）：
-   - 总览条在 meow_loot_scope（标题 + 物品图标合计 + 月份切换，单行）；
-   - 明细表收进「耄耋相接数据收集」fold 体内的次级折叠，默认收起。
+/* 大世界收获（左栏筛选 + 合计条 + 等级卡 + 物品明细表）：
+   - 左栏 meow-loot-filter-*：掉落任务筛选，按钮纵向排列；
+   - 合计条 meow-loot-strip-*：标题 + 类别图标合计 + 月份切换，单行；
+   - 等级卡 opsi-meow-*：见 statistics-alas.css，本文件不动；
+   - 明细表 meow-drop-*：按类别分组的网格表（物品 / 总量 / 次数 / 均值 / 等级）。
    卡片/条自身的小样式内联在 HTML 里（见 app_stat_opsi_export），本文件只负责
-   作用域宽度兜底与明细表 —— 明细表现在挂在 opsi_stats 树的 fold 内，
-   所以表规则的前缀是 opsi_stats（meow_loot_scope 也在同一棵树内，两种位置都覆盖）。
+   作用域宽度兜底、左栏与明细表。
    ⚠️ 不要照抄委托收益统计那条 `> div { display: block !important }`：
    外部 !important 优先级高于内联样式，会把自带 display 的元素静默改成块级
    （2026-09-22 卡片栅格被压成竖排的旧坑）。 */
@@ -21,7 +22,81 @@
 	box-sizing: border-box;
 }
 
-/* ---------- 总览条 ---------- */
+/* 左栏与右栏都是 put_column，宽度交给 put_row 的 size 控制 */
+#pywebio-scope-meow_loot_scope .pywebio-column {
+	min-width: 0;
+	box-sizing: border-box;
+}
+
+/* ---------- 实例标签（固定显示，不做选择器） ---------- */
+
+#pywebio-scope-meow_loot_scope .meow-loot-instance {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: -4px 0 10px;
+	font-size: 0.72rem;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+}
+
+#pywebio-scope-meow_loot_scope .meow-loot-instance-value {
+	padding: 1px 8px;
+	border-radius: 6px;
+	border: 1px solid var(--st-border, rgba(128, 128, 128, 0.3));
+	color: var(--st-text, inherit);
+}
+
+/* ---------- 左栏：掉落任务筛选 ---------- */
+
+#pywebio-scope-meow_loot_scope .meow-loot-filter-head {
+	margin-bottom: 8px;
+}
+
+#pywebio-scope-meow_loot_scope .meow-loot-filter-title {
+	font-weight: 700;
+	font-size: 0.85rem;
+	color: var(--st-text, inherit);
+}
+
+#pywebio-scope-meow_loot_scope .meow-loot-filter-hint {
+	margin-top: 3px;
+	font-size: 0.7rem;
+	line-height: 1.5;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+}
+
+#pywebio-scope-meow_loot_scope .meow-loot-filter-empty {
+	font-size: 0.75rem;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+}
+
+/* 任务按钮走 link_style，纵向堆叠成一列；压掉链接按钮的下划线与内边距 */
+#pywebio-scope-meow_loot_scope .meow-loot-filter-list .btn-group,
+#pywebio-scope-meow_loot_scope .pywebio-column > .btn-group {
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 2px;
+}
+
+#pywebio-scope-meow_loot_scope .pywebio-column > .btn-group .btn {
+	text-align: left;
+	padding: 3px 6px;
+	font-size: 0.75rem;
+	border-radius: 6px;
+}
+
+#pywebio-scope-meow_loot_scope .meow-loot-filter-note {
+	margin-top: 9px;
+	padding: 6px 8px;
+	border-radius: 6px;
+	background: var(--st-surface-muted, rgba(128, 128, 128, 0.08));
+	font-size: 0.7rem;
+	line-height: 1.5;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+}
+
+/* ---------- 合计条 ---------- */
 
 #pywebio-scope-meow_loot_scope .meow-loot-strip {
 	display: flex;
@@ -56,71 +131,150 @@
 	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
 }
 
-/* ---------- 明细表（次级折叠体内） ---------- */
+/* 类别图标外框（内联给尺寸与底色，这里只补布局） */
+#pywebio-scope-meow_loot_scope .meow-loot-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+}
 
-#pywebio-scope-opsi_stats .meow-loot-table-wrap {
+/* ---------- 右栏：物品掉落明细表 ---------- */
+
+#pywebio-scope-meow_loot_scope .meow-drop-table {
+	display: block;
 	width: 100% !important;
 	max-width: 100% !important;
-	display: block !important;
 	box-sizing: border-box;
 	margin-top: 4px;
+	font-size: 0.8rem;
+	color: var(--st-text, inherit);
 }
 
-#pywebio-scope-opsi_stats table.meow-loot-table {
-	/* 统计页某个祖先带 .markdown-body 类，其 `.markdown-body table` 规则会把本表
-	   display 改成 block —— block 化的表格会生成收缩到内容宽的匿名表格盒，
-	   表格只剩 1/4 宽。这里必须显式顶回 display: table。 */
-	display: table !important;
-	width: 100% !important;
-	max-width: 100% !important;
-	margin: 0 !important;
-	border-collapse: collapse !important;
-	border-spacing: 0 !important;
-	table-layout: fixed !important;
-	font-size: 0.85rem;
+#pywebio-scope-meow_loot_scope .meow-drop-table-head,
+#pywebio-scope-meow_loot_scope .meow-drop-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 92px 56px 78px 148px;
+	gap: 8px;
+	align-items: center;
 }
 
-/* 主题 CSS 里有一条 `#pywebio-scope-opsi_stats th/td { … !important }`，
-   要压过它必须同时满足「带 !important」和「特异性更高」，所以这里保留
-   opsi_stats 前缀 + .meow-loot-table 双重限定。 */
-#pywebio-scope-opsi_stats .meow-loot-table th,
-#pywebio-scope-opsi_stats .meow-loot-table td {
-	padding: 7px 10px !important;
-	text-align: right !important;
-	border: none !important;
-	border-bottom: 1px solid rgba(128, 128, 128, 0.12) !important;
-	background-color: transparent !important;
-	color: inherit !important;
+#pywebio-scope-meow_loot_scope .meow-drop-table-head {
+	padding: 5px 8px;
+	font-size: 0.72rem;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+	border-bottom: 1px solid var(--st-divider, rgba(128, 128, 128, 0.2));
 }
 
-#pywebio-scope-opsi_stats .meow-loot-table th {
-	font-size: 0.78rem !important;
-	font-weight: 500 !important;
-	text-transform: none !important;
-	letter-spacing: 0 !important;
-	opacity: 1;
-	background-color: rgba(128, 128, 128, 0.09) !important;
-	border-bottom-color: rgba(128, 128, 128, 0.2) !important;
+#pywebio-scope-meow_loot_scope .meow-drop-row {
+	padding: 5px 8px;
+	border-bottom: 1px solid var(--st-divider, rgba(128, 128, 128, 0.12));
 }
 
-#pywebio-scope-opsi_stats .meow-loot-table th .meow-loot-th-hz {
-	font-weight: 600;
-	opacity: 0.85;
-}
-
-#pywebio-scope-opsi_stats .meow-loot-table td.meow-loot-cell-value {
-	font-family: var(--font-mono, monospace);
-}
-
-#pywebio-scope-opsi_stats .meow-loot-table th.meow-loot-cell-name,
-#pywebio-scope-opsi_stats .meow-loot-table td.meow-loot-cell-name {
-	text-align: left !important;
-}
-
-/* 表格里「图标 + 物品名」横排 */
-#pywebio-scope-opsi_stats .meow-loot-name-cell {
+/* 类别分组标题行 */
+#pywebio-scope-meow_loot_scope .meow-drop-group {
 	display: flex;
 	align-items: center;
 	gap: 6px;
+	margin-top: 10px;
+	padding: 4px 8px;
+	background: var(--st-surface-muted, rgba(128, 128, 128, 0.08));
+	border-radius: 6px;
+	font-size: 0.75rem;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-group-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 2px;
+	flex: 0 0 auto;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-group-name {
+	font-weight: 600;
+	color: var(--st-text, inherit);
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-group-total {
+	margin-left: auto;
+	font-variant-numeric: tabular-nums;
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+}
+
+/* 单元格 */
+#pywebio-scope-meow_loot_scope .meow-drop-cell-name {
+	display: flex;
+	align-items: center;
+	gap: 7px;
 	min-width: 0;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-item-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-item-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-cell-amount,
+#pywebio-scope-meow_loot_scope .meow-drop-cell-count,
+#pywebio-scope-meow_loot_scope .meow-drop-cell-avg {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-cell-amount {
+	font-weight: 600;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-cell-count,
+#pywebio-scope-meow_loot_scope .meow-drop-cell-avg {
+	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-cell-level {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-badge {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 4px;
+	font-size: 0.7rem;
+	line-height: 1.5;
+	white-space: nowrap;
+}
+
+/* ---------- 窄屏 ---------- */
+
+@media (max-width: 900px) {
+	#pywebio-scope-meow_loot_scope .meow-drop-table-head,
+	#pywebio-scope-meow_loot_scope .meow-drop-row {
+		grid-template-columns: minmax(0, 1fr) 76px 48px 66px;
+	}
+
+	/* 等级徽标换到第二行，避免窄屏把物品名压没 */
+	#pywebio-scope-meow_loot_scope .meow-drop-cell-level {
+		grid-column: 1 / -1;
+		justify-content: flex-start;
+	}
+}
+
+@media (max-width: 560px) {
+	#pywebio-scope-meow_loot_scope .meow-drop-table-head,
+	#pywebio-scope-meow_loot_scope .meow-drop-row {
+		grid-template-columns: minmax(0, 1fr) 70px 60px;
+	}
+
+	#pywebio-scope-meow_loot_scope .meow-drop-cell-avg {
+		display: none;
+	}
 }
