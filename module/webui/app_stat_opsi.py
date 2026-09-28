@@ -4,10 +4,11 @@ from html import escape as html_escape
 
 from module.webui.app_dependencies import (
     current_time,
-    put_collapse,
     put_html,
+    put_row,
     put_scope,
     put_text,
+    put_widget,
     t,
     time,
     use_scope,
@@ -26,6 +27,18 @@ from module.webui.base import render_locked
 
 class OpsiStatisticsMixin(WebUIMixinBase):
     """WebUI 大世界统计视图。"""
+
+    # 「大世界收获」折叠块的自定义模板。不能用 put_collapse：它的标题槽位是
+    # mustache 转义输出（{{title}}），只能放纯文本；而折叠标题行里要挂动态的
+    # 「收获合计」条（meow_strip_scope，随筛选/切月重绘，收起状态也可见）。
+    # 这里借 put_widget 自带模板，标题槽位改走 {{#title}} + pywebio_output_parse
+    # （与 contents 同款的前端渲染助手，字符串与 Output 都能渲染）。
+    MEOW_COLLAPSE_TPL = """<details {{#open}}open{{/open}}>
+        <summary>{{#title}}{{& pywebio_output_parse}}{{/title}}</summary>
+        {{#contents}}
+            {{& pywebio_output_parse}}
+        {{/contents}}
+    </details>"""
 
     @render_locked
     def _render_opsi_stats(self):
@@ -570,14 +583,27 @@ class OpsiStatisticsMixin(WebUIMixinBase):
 
             # 大世界收获：左栏任务筛选 + 右栏（合计条 / 侵蚀等级卡 / 物品明细表）。
             # 外层折叠块在这里只建一次、包住 meow_loot_scope；任务筛选、月份切换、
-            # 「其余 N 项」回调都只 clear meow_loot_scope 本身 —— 用户展开一次后
-            # 任意切换都不会被折回去（折叠块随回调重建会回到默认收起态，实测
-            # 用户裁定不可接受）。标题保持纯文字：折叠不随回调重建，摘要数字
-            # 会 stale，数据以块内合计条为准。
-            put_collapse(
-                t("Gui.Stat.OpsiDropTitle"),
-                [put_scope("meow_loot_scope")],
-                open=False,
+            # 「其余 N 项」回调都只 clear 内容 scope 本身 —— 用户展开一次后任意
+            # 切换都不会被折回去（折叠块随回调重建会回到默认收起态，实测
+            # 用户裁定不可接受）。
+            # 「收获合计」条挂在折叠标题行（meow_strip_scope）：收起状态也能看到
+            # 合计（用户裁定）；标题行随内容回调一起重绘，数字不会 stale。
+            put_widget(
+                self.MEOW_COLLAPSE_TPL,
+                dict(
+                    title=put_row(
+                        [
+                            put_html(
+                                '<div class="meow-collapse-title">'
+                                f'{html_escape(t("Gui.Stat.OpsiDropTitle"))}</div>'
+                            ),
+                            put_scope("meow_strip_scope"),
+                        ],
+                        size="auto minmax(0, 1fr)",
+                    ).style("width:100%; align-items:center; gap:12px"),
+                    contents=[put_scope("meow_loot_scope")],
+                    open=False,
+                ),
             ).style("width:100%")
             self._render_meowofficer_farming(meow_rows=meow_rows)
 

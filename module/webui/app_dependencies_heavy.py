@@ -50,6 +50,7 @@ from pywebio.output import (
     put_table,
     put_text,
     put_warning,
+    put_widget,
     toast,
     use_scope,
 )

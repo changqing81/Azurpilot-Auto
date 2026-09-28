@@ -2,7 +2,8 @@
    - 页头 meow-loot-head-* / meow-loot-pill：OS 徽标 + 中英标题 + 实例胶囊，
      月份胶囊是 put_buttons 产出的 .btn-group；
    - 左栏 meow-loot-filter-*：掉落任务筛选，按钮纵向排列；
-   - 合计条 meow-loot-strip-*：标题 + 类别图标合计，单行；
+   - 合计条 meow-loot-strip-*：标题 + 类别图标合计，挂在折叠标题行的
+     meow_strip_scope 里（收起状态也可见），选择器挂在 opsi_stats 作用域；
    - 等级卡 opsi-meow-*：见 statistics-alas.css，本文件不动；
    - 明细表 meow-drop-*：物品 / 类别 / 总量 / 次数 / 均值 / 等级 的网格表；
    - 外层「大世界收获」折叠块：put_collapse 产出的是裸 <details>（没有
@@ -141,9 +142,14 @@
 	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
 }
 
-/* ---------- 合计条 ---------- */
+/* ---------- 合计条（挂在折叠标题行的 meow_strip_scope 里） ---------- */
 
-#pywebio-scope-meow_loot_scope .meow-loot-strip {
+#pywebio-scope-meow_strip_scope {
+	width: 100%;
+	min-width: 0;
+}
+
+#pywebio-scope-opsi_stats .meow-loot-strip {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -151,13 +157,13 @@
 	min-width: 0;
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-strip-title {
+#pywebio-scope-opsi_stats .meow-loot-strip-title {
 	font-weight: 700;
 	font-size: 0.95rem;
 	color: var(--st-text, inherit);
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-strip-item {
+#pywebio-scope-opsi_stats .meow-loot-strip-item {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
@@ -167,12 +173,12 @@
 	cursor: default;
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-strip-item b {
+#pywebio-scope-opsi_stats .meow-loot-strip-item b {
 	font-weight: 700;
 }
 
 /* 类别图标外框（内联给尺寸与底色，这里只补布局） */
-#pywebio-scope-meow_loot_scope .meow-loot-icon {
+#pywebio-scope-opsi_stats .meow-loot-icon {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -336,6 +342,17 @@
 	display: none;
 }
 
+/* 折叠标题行是 put_row（标题文字 + 合计条 scope），撑满 summary 剩余宽度 */
+#pywebio-scope-opsi_stats details > summary > div {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+#pywebio-scope-opsi_stats .meow-collapse-title {
+	color: var(--st-text, inherit);
+	white-space: nowrap;
+}
+
 #pywebio-scope-opsi_stats details > summary::before {
 	content: "\25B8";
 	flex: none;
@@ -349,6 +366,48 @@
 }
 
 /* ---------- 窄屏 ---------- */
+
+/* 远控手机小屏（≤760px）：两行 put_row 都是「1fr/168px + auto」的网格，
+   窄屏下 auto 列（月份胶囊、筛选列）吃掉宽度，1fr 列被挤到一字一行
+   （实测症状：页头「大世界收获/Operation Siren…」竖排字母汤）。
+   内联 grid 模板只能用 !important 覆盖，靠 style 属性原文锚定选择器
+   （该字符串由 Python 端确定性拼出，浏览器不改写未触碰的内联样式）。 */
+@media (max-width: 760px) {
+	#pywebio-scope-meow_loot_scope > div[style*="grid-template-columns: 1fr auto"] {
+		grid-auto-flow: row !important;
+		grid-template-columns: minmax(0, 1fr) !important;
+		gap: 8px !important;
+	}
+
+	#pywebio-scope-meow_loot_scope
+		> div[style*="grid-template-columns: 168px minmax(0, 1fr)"] {
+		grid-auto-flow: row !important;
+		grid-template-columns: minmax(0, 1fr) !important;
+	}
+
+	/* 英文副标题在小屏是纯占位的字母汤（用户裁定可删），直接隐藏 */
+	#pywebio-scope-meow_loot_scope .meow-loot-head-subtitle {
+		display: none;
+	}
+
+	/* 筛选按钮组换行铺开，不再挤成一列细条 */
+	#pywebio-scope-meow_loot_scope .btn-group {
+		flex-wrap: wrap !important;
+	}
+
+	/* 折叠标题行允许换行，合计条在窄屏折到标题下一行 */
+	#pywebio-scope-opsi_stats details > summary {
+		flex-wrap: wrap;
+	}
+
+	/* 标题行自身也纵向堆叠：标题一行、合计条一行，避免左右互挤 */
+	#pywebio-scope-opsi_stats
+		details > summary > div[style*="grid-template-columns: auto minmax(0, 1fr)"] {
+		grid-auto-flow: row !important;
+		grid-template-columns: minmax(0, 1fr) !important;
+		gap: 4px !important;
+	}
+}
 
 @media (max-width: 900px) {
 	#pywebio-scope-meow_loot_scope .meow-drop-table-head,

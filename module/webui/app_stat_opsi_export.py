@@ -4,11 +4,12 @@
 - 页头：OS 徽标 + 「大世界收获 / Operation Siren Drop Statistics」+ 实例胶囊，
   月份胶囊是按钮（点开历史月份选择器）；
 - 左栏「掉落任务筛选」：DropRecord 的 8 个开关 + 「全部任务」，点选按任务过滤明细；
-- 右栏：收获合计条 →「掉落明细」常驻区（侵蚀等级卡 + 物品掉落明细表，表内可
-  「其余 N 项」展开）。明细常驻显示、不再折叠；侵蚀等级卡是短猫相接的数据
-  收集口径，只在「全部任务」与「短猫相接」筛选下出现。唯一的外层「大世界收获」
-  折叠块在 ``_render_opsi_summary`` 里只建一次，展开一次后任意切换筛选/月份
-  都不会被折回去（折叠块若随回调重建，会回到默认收起态，实测用户不可接受）。
+- 右栏：「掉落明细」常驻区（侵蚀等级卡 + 物品掉落明细表，表内可「其余 N 项」
+  展开）；「收获合计」条挂在折叠标题行（meow_strip_scope），收起状态也可见。
+  明细常驻显示、不再折叠；侵蚀等级卡是短猫相接的数据收集口径，只在
+  「全部任务」与「短猫相接」筛选下出现。唯一的外层「大世界收获」折叠块在
+  ``_render_opsi_summary`` 里只建一次，展开一次后任意切换筛选/月份都不会
+  被折回去（折叠块若随回调重建，会回到默认收起态，实测用户不可接受）。
 
 合计条与明细表的数据来自 ``AzurStats.get_opsi_drop_summary``（opsi_items 表，
 凡大世界任务都算，侵蚀1练级除外）；等级卡的数据来自 cl1_data.db 与本地累积
@@ -207,6 +208,10 @@ class OpsiExportMixin(WebUIMixinBase):
         if drop is None:
             drop = self._load_opsi_drop_view()
 
+        # 「收获合计」条挂在折叠标题行的 meow_strip_scope 里（收起也可见），
+        # 与内容同批重绘，筛选/切月后数字不会 stale
+        with use_scope("meow_strip_scope", clear=True):
+            put_html(self._build_meow_loot_strip_html(view, drop))
         # 外层「大世界收获」折叠块由 _render_opsi_summary 创建（只建一次，包住
         # 本 scope），本函数只重绘折叠内的内容。任务筛选、月份切换、「其余 N 项」
         # 等按钮回调都走这里 —— 折叠块若写在本函数里，每次回调 clear 都会把
@@ -231,10 +236,7 @@ class OpsiExportMixin(WebUIMixinBase):
                         self._meow_filter_placeables(drop), size="auto"
                     ),
                     put_column(
-                        [
-                            put_html(self._build_meow_loot_strip_html(view, drop)),
-                            *self._meow_drop_detail_placeables(meow_rows, drop),
-                        ],
+                        self._meow_drop_detail_placeables(meow_rows, drop),
                         size="auto",
                     ),
                 ],

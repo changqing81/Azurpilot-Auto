@@ -58,6 +58,7 @@ _HEAVY_SYMBOLS = {
     "put_button",
     "put_buttons",
     "put_collapse",
+    "put_widget",
     "put_column",
     "put_error",
     "put_html",

@@ -601,9 +601,9 @@
    -------------------------------------------------------------------------- */
 #pywebio-scope-statistics-content .opsi-meow-card {
     display: grid;
-    grid-template-columns: 158px minmax(0, 1fr);
-    gap: 10px;
-    padding: 10px 12px;
+    grid-template-columns: 148px minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 10px;
     border: 1px solid var(--st-border);
     border-radius: 12px;
     background: var(--st-surface-muted);
@@ -655,8 +655,8 @@
 /* 场次 / 轮次是这块最重要的规模数据，给到 1.375rem 并加粗 */
 #pywebio-scope-statistics-content .opsi-meow-scale {
     display: flex;
-    gap: 14px;
-    margin-top: 8px;
+    gap: 10px;
+    margin-top: 6px;
 }
 
 #pywebio-scope-statistics-content .opsi-meow-scale-label {
@@ -668,7 +668,7 @@
 
 #pywebio-scope-statistics-content .opsi-meow-scale-value {
     color: var(--st-text);
-    font-size: 1.375rem;
+    font-size: 1.2rem;
     font-weight: 600;
     line-height: 1.1;
     font-variant-numeric: tabular-nums;
@@ -677,14 +677,29 @@
 #pywebio-scope-statistics-content .opsi-meow-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 6px;
+    gap: 5px;
     align-content: start;
 }
 
-/* 卡片里复用 .opsi-card，但内边距收紧、底色换成实底 */
+/* 卡片里复用 .opsi-card，但内边距收紧、底色换成实底；
+   字号一并下调（用户 2026-09-28：格子缩小点）—— 只作用于侵蚀卡内的
+   指标格，总览块的 .opsi-card 保持原尺寸 */
 #pywebio-scope-statistics-content .opsi-meow-grid .opsi-card {
-    padding: 6px 8px;
+    padding: 3px 7px;
     background: var(--st-surface);
+}
+
+#pywebio-scope-statistics-content .opsi-meow-grid .opsi-card-label {
+    margin-bottom: 1px;
+    font-size: .64rem;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-grid .opsi-card-value {
+    font-size: .88rem;
+}
+
+#pywebio-scope-statistics-content .opsi-meow-grid .opsi-card-sub {
+    font-size: .64rem;
 }
 
 /* 收益类（本地累积口径）统一借黄币色，与战斗数据分开 */
