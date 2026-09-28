@@ -5,9 +5,10 @@
   月份胶囊是按钮（点开历史月份选择器）；
 - 左栏「掉落任务筛选」：DropRecord 的 8 个开关 + 「全部任务」，点选按任务过滤明细；
 - 右栏：收获合计条 →「掉落明细」常驻区（侵蚀等级卡 + 物品掉落明细表，表内可
-  「其余 N 项」展开）。明细常驻显示、不再折叠；唯一的外层「大世界收获」折叠块
-  在 ``_render_opsi_summary`` 里只建一次，展开一次后任意切换筛选/月份都不会
-  被折回去（折叠块若随回调重建，会回到默认收起态，实测用户不可接受）。
+  「其余 N 项」展开）。明细常驻显示、不再折叠；侵蚀等级卡是短猫相接的数据
+  收集口径，只在「全部任务」与「短猫相接」筛选下出现。唯一的外层「大世界收获」
+  折叠块在 ``_render_opsi_summary`` 里只建一次，展开一次后任意切换筛选/月份
+  都不会被折回去（折叠块若随回调重建，会回到默认收起态，实测用户不可接受）。
 
 合计条与明细表的数据来自 ``AzurStats.get_opsi_drop_summary``（opsi_items 表，
 凡大世界任务都算，侵蚀1练级除外）；等级卡的数据来自 cl1_data.db 与本地累积
@@ -116,6 +117,10 @@ OPSI_DROP_TASKS = (
 OPSI_DROP_FILTER_ALL = "__all__"
 # 兜底开关的后缀（genre 集合要按本月实际数据算补集）
 OPSI_DROP_FILTER_OTHER = "Other"
+# 侵蚀等级卡的归属筛选：卡内是耄耋相接（短猫相接）的数据收集口径——
+# 战斗场次/平均黄币等只对短猫相接有意义，挂在其他任务筛选下会被误读成
+# 那个任务的收益，因此只在「全部任务」与本筛选下渲染（用户裁定 2026-09-28）
+MEOW_CARDS_FILTER = "MeowfficerFarming"
 
 # 明细表默认只列前几行，其余收进「其余 N 项」按钮
 OPSI_DROP_TABLE_PREVIEW = 5
@@ -459,13 +464,14 @@ class OpsiExportMixin(WebUIMixinBase):
     # ---------- 右栏：掉落明细折叠块 ----------
 
     def _meow_drop_detail_placeables(self, meow_rows, drop):
-        """「掉落明细」常驻输出列表：明细标签 + 侵蚀等级卡 + 物品明细表。
+        """「掉落明细」常驻输出列表：明细标签 + 侵蚀等级卡（按筛选） + 明细表。
 
         用户定稿：明细常驻显示，不再包折叠块 —— 外层「大世界收获」展开后直接
         可见，任务筛选 / 月份切换也不会把它折回去。明细表默认只列前
         ``OPSI_DROP_TABLE_PREVIEW`` 行，长表靠「其余 N 项」按钮按需展开
         （状态存 ``_meow_drop_expanded``，切换筛选/月份时刻意不重置，省得
-        用户反复点开）。
+        用户反复点开）。侵蚀等级卡只在「全部任务」与「短猫相接」筛选下出现
+        （见 ``MEOW_CARDS_FILTER``）。
 
         这里必须返回 PyWebIO Output 列表而不是 HTML 串：「其余 N 项」是挂了
         回调的按钮（独立 DOM 节点），塞不进 HTML 串里。
@@ -480,11 +486,10 @@ class OpsiExportMixin(WebUIMixinBase):
             f'{html_escape(t("Gui.Stat.OpsiDropFoldTitle"))} · {html_escape(digest)}'
             "</div>"
         )
-        placeables = [
-            put_html(label),
-            put_html(self._build_meow_cards_html(meow_rows)),
-            put_html(self._build_opsi_drop_table_html(drop)),
-        ]
+        placeables = [put_html(label)]
+        if getattr(self, "_meow_task_filter", None) in (None, MEOW_CARDS_FILTER):
+            placeables.append(put_html(self._build_meow_cards_html(meow_rows)))
+        placeables.append(put_html(self._build_opsi_drop_table_html(drop)))
         hidden = self._opsi_drop_hidden_rows(drop)
         if getattr(self, "_meow_drop_expanded", False):
             more_button = {
