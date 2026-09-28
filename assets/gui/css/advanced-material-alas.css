@@ -1066,14 +1066,19 @@ details[open]>summary::after {
    9. 表格样式
    ========================================== */
 
-/* 统计板块容器 */
+/* 统计板块容器
+   ⚠️ 性能：PyWebIO 每次 use_scope(clear=True) 都强制同步布局，
+   blur(16px)+saturate(180%) 让每次样式重算贵 ~2.2×（CDP 实测
+   RecalcStyleDuration 434ms vs 201ms），统计页清空频繁时整页卡顿。
+   降级为 blur(6px)（视觉几乎无损），并加 contain 限制重算范围。 */
 #pywebio-scope-opsi_stats,
 #pywebio-scope-ap_chart,
 #pywebio-scope-ship_exp_table,
 #pywebio-scope-commission_income {
 	background-color: var(--alas-apple-card-bg) !important;
-	backdrop-filter: blur(16px) saturate(180%);
-	-webkit-backdrop-filter: blur(16px) saturate(180%);
+	backdrop-filter: blur(6px) saturate(150%);
+	-webkit-backdrop-filter: blur(6px) saturate(150%);
+	contain: layout style;
 	border-radius: var(--radius-lg) !important;
 	border: 1px solid var(--alas-apple-glass-border) !important;
 	box-shadow: var(--alas-apple-shadow) !important;

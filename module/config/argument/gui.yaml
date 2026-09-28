@@ -516,7 +516,6 @@ Stat:
   OpsiDropFilterTitle:
   OpsiDropFilterHint:
   OpsiDropFilterAll:
-  OpsiDropFilterDisabled:
   OpsiDropSharedNote:
   OpsiDropTaskMeowfficerFarming:
   OpsiDropTaskAbyssal:
@@ -524,7 +523,6 @@ Stat:
   OpsiDropTaskStronghold:
   OpsiDropTaskDaily:
   OpsiDropTaskExplore:
-  OpsiDropTaskHazard1Leveling:
   OpsiDropTaskOther:
   OpsiDropItemHeader:
   OpsiDropCategoryHeader:

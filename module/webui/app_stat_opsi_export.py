@@ -51,6 +51,7 @@ from module.webui.app_helpers import (
     build_muted_notice,
 )
 from module.webui.app_types import WebUIMixinBase
+from module.webui.base import render_locked
 
 # 总览条固定的六项（保持旧版那一行不变，0 也占位显示）。
 # (统计分类键, i18n 键后缀, 图标文件名, 主题色)
@@ -173,8 +174,16 @@ def _opsi_item_icon_data_uri(item_name: str):
 class OpsiExportMixin(WebUIMixinBase):
     """WebUI 大世界收获统计视图（左栏筛选 + 合计条 + 等级卡 + 物品明细表）。"""
 
+    @render_locked
     def _render_meowofficer_farming(self, view=None, drop=None, meow_rows=None):
         """渲染 meow_loot_scope：「大世界收获」区块。
+
+        ``@render_locked`` 是必需的：``use_scope(..., clear=True)`` 与紧随其后的
+        第一次输出之间存在窗口（要跑 ``_build_meow_header_html`` 等），而本区块
+        同时被 PyWebIO 按钮回调线程、页面的 ``_render_opsi_stats`` 和后台刷新
+        任务调用。窗口内若另一个线程也清了同一个 scope，两次清空互相抵消，
+        内容就会整块翻倍（实测症状：页头出现两个）。会话级可重入锁把
+        「清空 → 输出」串起来，从根上消掉这类重复。
 
         Args:
             view (dict): 月份视图（见 ``_load_meow_loot_view``）；None 时自取。
@@ -192,33 +201,58 @@ class OpsiExportMixin(WebUIMixinBase):
         if drop is None:
             drop = self._load_opsi_drop_view()
 
+        # 整个「大世界收获」模块默认折叠（用户裁定）：收起时只显示折叠标题行，
+        # 展开后才是 页头 + 左栏筛选 + 合计条 + 明细。fold 摘要带实例/月份/结算数。
+        digest = (
+            f'{getattr(self, "alas_name", "") or "alas"} · '
+            f'{view["year"]:04d}-{view["month"]:02d} · '
+            + t(
+                "Gui.Stat.OpsiDropFoldDigest",
+                n=int(drop.get("records") or 0),
+                total=f"{int(drop.get('grand_total') or 0):,}",
+            )
+        )
         with use_scope("meow_loot_scope", clear=True):
-            put_row(
+            put_collapse(
+                t("Gui.Stat.OpsiDropTitle"),
                 [
-                    put_html(self._build_meow_header_html()),
-                    put_buttons(
-                        self._meow_month_buttons(view),
-                        onclick=self._on_meow_loot_month_click,
-                        small=True,
-                    ),
-                ],
-                size="1fr auto",
-            ).style("align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px")
-            put_row(
-                [
-                    # size="auto" 是必须的：put_column 默认给每行 1fr，会把左栏的
-                    # 标题/按钮/提示三行拉成等高，按钮被顶到整栏正中（实测踩过）。
-                    put_column(self._meow_filter_placeables(drop), size="auto"),
-                    put_column(
+                    put_row(
                         [
-                            put_html(self._build_meow_loot_strip_html(view, drop)),
-                            self._meow_drop_fold_placeable(meow_rows, drop),
+                            put_html(self._build_meow_header_html()),
+                            put_buttons(
+                                self._meow_month_buttons(view),
+                                onclick=self._on_meow_loot_month_click,
+                                small=True,
+                            ),
                         ],
-                        size="auto",
+                        size="1fr auto",
+                    ).style(
+                        "align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px"
                     ),
+                    put_row(
+                        [
+                            # size="auto" 是必须的：put_column 默认给每行 1fr，会把左栏的
+                            # 标题/按钮/提示三行拉成等高，按钮被顶到整栏正中（实测踩过）。
+                            put_column(
+                                self._meow_filter_placeables(drop), size="auto"
+                            ),
+                            put_column(
+                                [
+                                    put_html(
+                                        self._build_meow_loot_strip_html(view, drop)
+                                    ),
+                                    self._meow_drop_fold_placeable(
+                                        meow_rows, drop
+                                    ),
+                                ],
+                                size="auto",
+                            ),
+                        ],
+                        size="168px minmax(0, 1fr)",
+                    ).style("align-items:start; gap:14px"),
                 ],
-                size="168px minmax(0, 1fr)",
-            ).style("align-items:start; gap:14px")
+                open=False,
+            ).style("width:100%")
 
     def _load_meow_loot_view(self):
         """加载月份视图数据（合计条与明细表共用）。
@@ -404,16 +438,11 @@ class OpsiExportMixin(WebUIMixinBase):
             }
         ]
         for suffix, genres, counted in OPSI_DROP_TASKS:
-            label = t(f"Gui.Stat.OpsiDropTask{suffix}")
             if not counted:
-                buttons.append(
-                    {
-                        "label": f"{label} · {t('Gui.Stat.OpsiDropFilterDisabled')}",
-                        "value": suffix,
-                        "color": "light",
-                    }
-                )
+                # 侵蚀1练级不进统计（genre 被数据层排除），记录数恒为 0，
+                # 筛选按钮没有意义 —— 用户裁定直接移除
                 continue
+            label = t(f"Gui.Stat.OpsiDropTask{suffix}")
             count = self._opsi_task_record_count(genres, tasks)
             buttons.append(
                 {
@@ -644,6 +673,7 @@ class OpsiExportMixin(WebUIMixinBase):
 
     # ---------- 交互 ----------
 
+    @render_locked
     def _on_meow_loot_month_click(self, value):
         """月份胶囊回调：history 打开历史月份选择器，current 回到本月。"""
         if value == "history":
@@ -651,6 +681,7 @@ class OpsiExportMixin(WebUIMixinBase):
         else:
             self._reset_meow_loot_month()
 
+    @render_locked
     def _on_meow_task_click(self, value):
         """左栏任务筛选回调：value 是开关键，``OPSI_DROP_FILTER_ALL`` 表示全部。
 
@@ -665,11 +696,13 @@ class OpsiExportMixin(WebUIMixinBase):
         self._meow_drop_expanded = False
         self._render_meowofficer_farming()
 
+    @render_locked
     def _on_meow_drop_more_click(self, value):
         """「其余 N 项 / 收起」回调：切换明细表的展开状态。"""
         self._meow_drop_expanded = value == "more"
         self._render_meowofficer_farming()
 
+    @render_locked
     def _show_meow_loot_month_picker(self):
         """弹出历史月份选择器。"""
         from module.statistics.azurstats import AzurStats
@@ -698,6 +731,7 @@ class OpsiExportMixin(WebUIMixinBase):
         with popup(t("Gui.Stat.MeowLootPickMonthTitle")):
             put_buttons(buttons, onclick=lambda v: self._set_meow_loot_month(v))
 
+    @render_locked
     def _set_meow_loot_month(self, value):
         """设置要查看的月份并重绘大世界统计分区。value 为 None 表示本月。"""
         close_popup()
@@ -705,6 +739,7 @@ class OpsiExportMixin(WebUIMixinBase):
         self._meow_drop_expanded = False
         self._render_opsi_stats()
 
+    @render_locked
     def _reset_meow_loot_month(self):
         """回到本月视图。"""
         self._meow_loot_month = None

@@ -16,6 +16,9 @@
 #pywebio-scope-meow_loot_scope {
 	width: 100% !important;
 	max-width: 100% !important;
+	/* 性能：本区块由按钮回调/后台刷新频繁整块重绘（use_scope clear），
+	   contain 把样式/布局重算限制在容器内，避免整页参与重算 */
+	contain: layout style;
 }
 
 /* PyWebIO 会给 scope 里每段输出各包一层 div，那层不是全宽；不显式拉满，
