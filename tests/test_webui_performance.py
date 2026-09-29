@@ -808,6 +808,96 @@ class ThemeWallpaperTests(unittest.TestCase):
         self.assertIn("if (!done) startOne(c);", source)
 
 
+class WallpaperBuiltinSourceTests(unittest.TestCase):
+    """内置默认图源列表的行为约束。
+
+    随代码分发的直链图源（type=custom + direct=True）与 lolicon/imgapi 并列，
+    必须同样受「恢复默认」与「不可删除」保护，否则升级后用户配置里
+    会出现同名重复项，或把内置源当自定义源删掉后无法找回。
+    """
+
+    def _gui(self, sources):
+        gui = SimpleNamespace()
+        gui._load_sources = lambda: [dict(s) for s in sources]
+        gui._save_sources = lambda s: setattr(gui, "saved", s)
+        gui._refresh_random_wallpaper = lambda: None
+        gui._default_sources = HomeMixin._default_sources
+        return gui
+
+    def test_direct_builtin_sources_are_marked_builtin_by_key(self):
+        """直链内置源 type 是 custom，内置判定必须走 key 而非 type。"""
+        from module.webui import app_home
+
+        direct = [s for s in app_home._BUILTIN_SOURCES if s.get("direct")]
+        self.assertTrue(direct, "应至少有一个直链内置源")
+        for source in direct:
+            self.assertEqual(source["type"], "custom")
+            self.assertIn(source["key"], app_home._BUILTIN_KEYS)
+            self.assertTrue(source["enabled"])
+
+    def test_reset_reuses_existing_custom_source_with_same_url(self):
+        """用户手工添加过同地址自定义源时，恢复默认应就地升级而非追加重复项。"""
+        from module.webui import app_home
+
+        custom = {
+            "type": "custom",
+            "name": "夜轻",
+            "url": app_home._YEELIGHT_API,
+            "params": {},
+            "image_path": "data[0].url",
+            "direct": False,
+            "enabled": False,
+        }
+        gui = self._gui([custom])
+        with patch("module.webui.app_home.toast"), patch(
+            "module.webui.app_home.logger"
+        ):
+            HomeMixin._reset_default_sources(gui)
+
+        saved = gui.saved
+        # 4 个内置源齐备，且同地址自定义源被就地升级成内置项而非追加第二条
+        self.assertEqual(len(saved), len(app_home._BUILTIN_SOURCES))
+        self.assertEqual(
+            [s for s in saved if s.get("url") == app_home._YEELIGHT_API],
+            [
+                {
+                    "key": "yeelight",
+                    "type": "custom",
+                    "name": "夜轻",
+                    "url": app_home._YEELIGHT_API,
+                    "params": {},
+                    "image_path": "data[0].url",
+                    "direct": True,
+                    "enabled": True,
+                }
+            ],
+        )
+
+    def test_reset_keeps_unrelated_custom_sources(self):
+        """恢复默认只动内置源，用户自己的其它自定义源必须原样保留。"""
+        from module.webui import app_home
+
+        mine = {
+            "type": "custom",
+            "name": "我的图源",
+            "url": "https://example.com/api",
+            "params": {},
+            "image_path": "data[0].url",
+            "direct": False,
+            "enabled": True,
+        }
+        gui = self._gui([mine])
+        with patch("module.webui.app_home.toast"), patch(
+            "module.webui.app_home.logger"
+        ):
+            HomeMixin._reset_default_sources(gui)
+
+        saved = gui.saved
+        self.assertIn("我的图源", [s.get("name") for s in saved])
+        for key in app_home._BUILTIN_KEYS:
+            self.assertIn(key, [s.get("key") for s in saved])
+
+
 class LazyGroupAutoFillTests(unittest.TestCase):
     """首屏之后自动补齐懒渲染分组（用户反馈「非得我用手点吗」）。
 
