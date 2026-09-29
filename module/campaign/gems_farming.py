@@ -1165,9 +1165,12 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
                     self._trigger_emotion = False
                     self.campaign.ensure_auto_search_exit()
                     self.config.task_stop()
+                # 换旗舰失败：默认保留原旗舰继续刷（旧行为）。
+                # 是否改为推迟 60 分钟由 GemsFarming_DelayTaskIFNoFlagship 控制。
+                # 不设强制推迟——低级 CV 池耗尽时，原旗舰仍可正常出击，
+                # 且失败时未换船（无补位舰），不存在高等级舰直接出击的风险。
                 elif not success and (self.config.GemsFarming_DelayTaskIFNoFlagship \
-                        or self._trigger_emotion
-                        or (self.change_flagship and not self.config.GemsFarming_AllowHighFlagshipLevel)):
+                        or self._trigger_emotion):
                     self._trigger_emotion = False
                     self.campaign.ensure_auto_search_exit()
                     self.config.task_delay(minute=60)
