@@ -68,10 +68,21 @@ _PIXIV_PROXY_DOMAINS = [
 _LOLICON_API = "https://api.lolicon.app/setu/v2"
 # imgapi.lie.moe 图源接口：通用 JSON 随机图，返回 {"pic": [url, ...]}
 _IMGAPI_LIEMOE_API = "https://imgapi.lie.moe/random"
+# 夜轻图源接口：直链型，响应本体即为图片二进制
+_YEELIGHT_API = "https://api.yppp.net/api.php"
+# mukyu 图源接口：直链型，按标签/浏览量等条件返回随机原图
+_MUKYU_API = (
+    "https://i.mukyu.ru/random"
+    "?included_tags=%E7%A2%A7%E8%93%9D%E8%88%AA%E7%BA%BF%7Cazurlane"
+    "%7C%E3%82%A2%E3%82%BA%E3%83%BC%E3%83%AB%E3%83%AC%E3%83%BC%E3%83%B3"
+    "&min_views=50&min_bookmarks=5&min_comments=1"
+)
 
 # 内置默认图源列表：首次使用或“恢复默认”时以此为准。
 # - type=lolicon 走专用反代测速逻辑（tag 等参数保持代码默认，不开放修改）
 # - type=imgapi 走通用 JSON 提取逻辑
+# - type=custom 走通用自定义逻辑；direct=True 时跳过服务端探测，
+#   直接把 API 地址交给浏览器加载（适配对非浏览器请求拖延响应、必然超时的站点）
 # - enabled 状态会在配置文件中持久化，用户可禁用/启用
 _BUILTIN_SOURCES = [
     {
@@ -90,9 +101,29 @@ _BUILTIN_SOURCES = [
         "image_path": "pic[0]",
         "enabled": True,
     },
+    {
+        "key": "yeelight",
+        "type": "custom",
+        "name": "夜轻",
+        "url": _YEELIGHT_API,
+        "params": {},
+        "image_path": "data[0].url",
+        "direct": True,
+        "enabled": True,
+    },
+    {
+        "key": "mukyu",
+        "type": "custom",
+        "name": "mukyu",
+        "url": _MUKYU_API,
+        "params": {},
+        "image_path": "data[0].url",
+        "direct": True,
+        "enabled": True,
+    },
 ]
-# 内置源专属类型标记；恢复默认仅作用于这些源
-_BUILTIN_TYPES = {"lolicon", "imgapi"}
+# 内置源标识：按 key 判定（内置源中含 type=custom 的直链源，不能只看 type）
+_BUILTIN_KEYS = {"lolicon", "imgapi", "yeelight", "mukyu"}
 
 # 图源配置文件相关
 # 配置文件存于 wallpapers/ 目录（已被 .gitignore 忽略，且不会被当成 Alas 配置识别）
@@ -1167,7 +1198,7 @@ class HomeMixin(WebUIMixinBase):
         """弹窗列出可删除的自定义图源并选择删除（内置默认源不可删除）。"""
         sources = self._load_sources()
         removable = [
-            s for s in sources if s.get("type") not in _BUILTIN_TYPES
+            s for s in sources if s.get("key") not in _BUILTIN_KEYS
         ]
         if not removable:
             toast(t("Gui.Toast.NoRemovableWallpaperSource"), color="warning")
@@ -1227,22 +1258,24 @@ class HomeMixin(WebUIMixinBase):
         sources = self._load_sources()
         defaults = self._default_sources()
         for default_entry in defaults:
-            found = False
-            for entry in sources:
-                if entry.get("key") == default_entry["key"]:
-                    entry.update(
-                        {
-                            "type": default_entry["type"],
-                            "name": default_entry["name"],
-                            "url": default_entry["url"],
-                            "image_path": default_entry["image_path"],
-                            "enabled": True,
-                        }
-                    )
-                    found = True
-                    break
-            if not found:
+            # 按 key 或 URL 匹配：用户此前手工添加过同地址的自定义源时
+            # （自定义源无 key），若只按 key 匹配会追加出一条重复项
+            index = next(
+                (
+                    i
+                    for i, entry in enumerate(sources)
+                    if entry.get("key") == default_entry["key"]
+                    or entry.get("url") == default_entry["url"]
+                ),
+                None,
+            )
+            if index is None:
                 sources.append(default_entry)
+                continue
+            # 整体覆盖：直链源还带 params / direct 等字段，
+            # 逐字段挑选会漏掉它们，导致恢复默认后行为仍与代码默认不一致
+            sources[index].clear()
+            sources[index].update(default_entry)
         self._save_sources(sources)
         toast(t("Gui.Toast.WallpaperSourceReset"), color="success")
         logger.info("[WebUI] 已恢复默认图源设置")
