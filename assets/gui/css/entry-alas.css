@@ -768,20 +768,33 @@
     border-radius: 6px;
 }
 
-body.alas-manage-active #input-container .btn-primary {
+#input-container .btn-primary {
     color: var(--alas-entry-on-accent) !important;
     background: var(--alas-entry-accent) !important;
     border: 1px solid var(--alas-entry-accent) !important;
 }
 
-body.alas-manage-active #input-container .btn-light {
+#input-container .btn-light {
     color: var(--alas-entry-text) !important;
     background: var(--alas-entry-surface) !important;
     border: 1px solid var(--alas-entry-border) !important;
 }
 
-/* PyWebIO 输入组默认固定在页面底部，管理页统一为居中表单。 */
-body.alas-manage-active #input-container.fixed {
+/* --------------------------------------------------------------------------
+   PyWebIO 输入组弹窗（input_group）：全站统一为居中卡片
+   --------------------------------------------------------------------------
+   真实 DOM（不是 Bootstrap 的 .modal）：
+     #input-container.fixed > #input-cards.container
+       > .card > h5.card-header + .card-body
+   PyWebIO 默认把弹窗做成贴在页面底部的一层（#input-container.fixed，
+   inline height:300px），深色主题下会凭空多出一段不属于主题的空白，
+   弹窗也跟着页面滚。这里统一成「全屏半透明遮罩 + 居中卡片」。
+
+   原先这套规则只挂在 body.alas-manage-active（管理页）下，主页等页面漏了，
+   现提升为全站通用。选择器带 .fixed —— PyWebIO 只在弹出 input_group 时
+   才加这个类，登录页的 #input-container 没有它，不会被改坏。
+   配色一律走 --alas-entry-* 变量，四个主题（含透明）自动跟随。 */
+#input-container.fixed {
     position: fixed !important;
     inset: 0 !important;
     z-index: 1100 !important;
@@ -799,14 +812,14 @@ body.alas-manage-active #input-container.fixed {
     -webkit-backdrop-filter: blur(8px);
 }
 
-body.alas-manage-active #input-cards {
+#input-cards {
     width: min(560px, 100%);
     max-width: 560px;
     margin: auto;
     padding: 0;
 }
 
-body.alas-manage-active #input-cards > .card {
+#input-cards > .card {
     width: 100% !important;
     max-height: calc(100dvh - 48px);
     overflow-y: auto;
@@ -817,7 +830,7 @@ body.alas-manage-active #input-cards > .card {
     box-shadow: var(--alas-entry-shadow) !important;
 }
 
-body.alas-manage-active #input-container h5.card-header {
+#input-container h5.card-header {
     padding: 18px 20px !important;
     color: var(--alas-entry-text) !important;
     background: var(--alas-entry-surface-muted) !important;
@@ -826,26 +839,26 @@ body.alas-manage-active #input-container h5.card-header {
     font-weight: 700;
 }
 
-body.alas-manage-active #input-container .card-body {
+#input-container .card-body {
     padding: 20px !important;
     color: var(--alas-entry-text) !important;
     background: transparent !important;
 }
 
-body.alas-manage-active #input-container .form-group {
+#input-container .form-group {
     margin-bottom: 16px;
 }
 
-body.alas-manage-active #input-container label {
+#input-container label {
     margin-bottom: 6px;
     color: var(--alas-entry-text) !important;
     font-size: .875rem;
     font-weight: 600;
 }
 
-body.alas-manage-active #input-container .form-control,
-body.alas-manage-active #input-container .custom-file-label,
-body.alas-manage-active #input-container .bootstrap-select > .dropdown-toggle {
+#input-container .form-control,
+#input-container .custom-file-label,
+#input-container .bootstrap-select > .dropdown-toggle {
     min-height: 44px;
     color: var(--alas-entry-text) !important;
     background: var(--alas-entry-surface-muted) !important;
@@ -854,25 +867,32 @@ body.alas-manage-active #input-container .bootstrap-select > .dropdown-toggle {
     box-shadow: none !important;
 }
 
-body.alas-manage-active #input-container .form-control:focus,
-body.alas-manage-active #input-container .bootstrap-select.show > .dropdown-toggle {
+#input-container .form-control:focus,
+#input-container .bootstrap-select.show > .dropdown-toggle {
     border-color: var(--alas-entry-accent) !important;
     box-shadow: 0 0 0 3px var(--alas-entry-accent-soft) !important;
 }
 
-body.alas-manage-active #input-container .custom-file-label::after {
+#input-container .custom-file-label::after {
     min-height: 42px;
     color: var(--alas-entry-text) !important;
     background: var(--alas-entry-surface) !important;
     border-left: 1px solid var(--alas-entry-border) !important;
 }
 
-body.alas-manage-active #input-container .form-text {
+/* 文件控件的焦点态：Bootstrap 默认的蓝色高亮在暗色下偏刺眼，统一成主题强调色。
+   注意 .custom-file-input 是 opacity:0 的透明覆盖层，只能改颜色，不能给背景。 */
+#input-container .custom-file-input:focus ~ .custom-file-label {
+    border-color: var(--alas-entry-accent) !important;
+    box-shadow: 0 0 0 3px var(--alas-entry-accent-soft) !important;
+}
+
+#input-container .form-text {
     color: var(--alas-entry-muted) !important;
 }
 
-body.alas-manage-active #input-container .input-container .btn-group,
-body.alas-manage-active #input-container .ws-form-submit-btns {
+#input-container .input-container .btn-group,
+#input-container .ws-form-submit-btns {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
@@ -880,8 +900,8 @@ body.alas-manage-active #input-container .ws-form-submit-btns {
     margin-top: 20px;
 }
 
-body.alas-manage-active #input-container .input-container .btn,
-body.alas-manage-active #input-container .ws-form-submit-btns .btn {
+#input-container .input-container .btn,
+#input-container .ws-form-submit-btns .btn {
     min-width: 96px;
     min-height: 44px;
     margin: 0 !important;
@@ -993,12 +1013,12 @@ body.alas-manage-active #input-container .ws-form-submit-btns .btn {
         width: 100%;
     }
 
-    body.alas-manage-active #input-container.fixed {
+    #input-container.fixed {
         align-items: flex-start;
         padding: 12px !important;
     }
 
-    body.alas-manage-active #input-cards > .card {
+    #input-cards > .card {
         max-height: calc(100dvh - 24px);
     }
 }

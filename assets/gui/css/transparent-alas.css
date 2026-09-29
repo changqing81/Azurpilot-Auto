@@ -489,3 +489,43 @@ select.form-control,
 	--meow-unsuitable: #e0858a;
 	--meow-thunder: #6cc5e8;
 }
+
+/* ==========================================
+   PyWebIO 弹窗（input_group）在透明主题下的可读性
+   ==========================================
+   弹窗的布局与配色由 entry-alas.css 的全站规则统一负责，取色走 --alas-entry-*。
+   但透明主题把 --alas-entry-surface 设成了 transparent、surface-muted 也只有
+   0.32 的透明度，长内容（图源 URL 列表、表单）直接压在壁纸+模糊遮罩上读不出来。
+   这里给弹窗卡片一个足够实的高透明白底，风格与透明主题的「白色玻璃」一致。 */
+
+#input-cards > .card {
+	color: rgba(32, 33, 36, 0.92) !important;
+	background: rgba(255, 255, 255, 0.92) !important;
+	border: 1px solid rgba(255, 255, 255, 0.75) !important;
+	box-shadow: 0 18px 48px rgba(15, 23, 42, 0.3) !important;
+}
+
+#input-container h5.card-header {
+	color: rgba(32, 33, 36, 0.94) !important;
+	background: rgba(255, 255, 255, 0.96) !important;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+#input-container .card-body,
+#input-container label,
+#input-container .form-check-label {
+	color: rgba(32, 33, 36, 0.92) !important;
+}
+
+#input-container .form-control,
+#input-container .custom-file-label,
+#input-container .bootstrap-select > .dropdown-toggle {
+	color: rgba(32, 33, 36, 0.92) !important;
+	background: rgba(255, 255, 255, 0.94) !important;
+	border: 1px solid rgba(0, 0, 0, 0.14) !important;
+}
+
+#input-container .form-text,
+#input-container .text-muted {
+	color: rgba(32, 33, 36, 0.62) !important;
+}

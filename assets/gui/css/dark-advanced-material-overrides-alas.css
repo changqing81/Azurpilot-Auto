@@ -428,3 +428,29 @@ select option {
 	border-color: rgba(96, 165, 250, 0.45);
 	color: #dbeafe;
 }
+
+/* ==========================================
+   统计页资源增减（「资源」页）：增减汇总表白底
+   ==========================================
+   PyWebIO 自带的 markdown.min.css（GitHub 风格）里有：
+     .markdown-body table tr               { background-color: #fff; border-top: 1px solid #c6cbd1 }
+     .markdown-body table tr:nth-child(2n) { background-color: #f6f8fa }
+     .markdown-body table td,
+     .markdown-body table th               { border: 1px solid #dfe2e5 }
+   统计页的祖先带 .markdown-body，于是增减汇总表（<table class="rd-table">）
+   每一行被强制白底、每格套上浅灰线 —— 暗色主题下就是深色面板里一块白表。
+
+   本文件上面已经为 opsi_stats / ship_exp_table / commission_income 三处
+   做过 tr 透明处理，唯独漏了资源增减视图，这里补上；同时清掉 markdown 的
+   格子线，分隔线交回 stat-delta-alas.css 的 --rd-table-border。 */
+
+#pywebio-scope-statistics-content .rd-table tr,
+#pywebio-scope-statistics-content .rd-table th,
+#pywebio-scope-statistics-content .rd-table td {
+	background-color: transparent !important;
+	border: 0 !important;
+}
+
+#pywebio-scope-statistics-content .rd-table tbody tr {
+	border-top: 1px solid var(--rd-table-border) !important;
+}
