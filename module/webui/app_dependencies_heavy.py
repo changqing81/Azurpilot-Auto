@@ -27,6 +27,7 @@ import pywebio.pin as pywebio_pin
 from pywebio import config as _webconfig
 from pywebio.input import (
     actions,
+    checkbox as _checkbox,
     file_upload as _file_upload,
     input as _input,
     input_group,
@@ -146,6 +147,7 @@ pin_on_change: Callable[..., Any] = cast(
     Callable[..., Any], getattr(pywebio_pin, "pin_on_change")
 )
 eval_js: Callable[..., Any] = cast(Callable[..., Any], _eval_js)
+checkbox: Callable[..., Any] = cast(Callable[..., Any], _checkbox)
 file_upload: Callable[..., Any] = cast(Callable[..., Any], _file_upload)
 input: Callable[..., Any] = cast(Callable[..., Any], _input)
 put_button: Callable[..., Any] = cast(Callable[..., Any], _put_button)

@@ -48,6 +48,7 @@ _HEAVY_SYMBOLS = {
     "pywebio_pin",
     "webconfig",
     "actions",
+    "checkbox",
     "file_upload",
     "input",
     "input_group",

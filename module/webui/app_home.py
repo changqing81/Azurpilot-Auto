@@ -13,6 +13,7 @@ from module.webui.app_dependencies import (
     Switch,
     _t,
     actions,
+    checkbox as _p_checkbox,
     file_upload,
     input as _p_input,
     input_group,
@@ -1136,7 +1137,12 @@ class HomeMixin(WebUIMixinBase):
         self._refresh_random_wallpaper()
 
     def _toggle_source_dialog(self) -> None:
-        """弹窗列出全部图源并选择切换启用/禁用状态。"""
+        """弹窗列出全部图源，用开关多选直接设定各自的启用状态，一次保存。
+
+        开关的勾选态**就等于「已启用」**（不是「勾选=取反」），提交后按勾选
+        结果整体落盘。这样一屏就能把 N 个图源改完，也避免「开关是关的、
+        但这个图源其实是启用的」这种反直觉语义。
+        """
         sources = self._load_sources()
         if not sources:
             toast(t("Gui.Toast.NoWallpaperSource"), color="warning")
@@ -1144,22 +1150,26 @@ class HomeMixin(WebUIMixinBase):
         resp = input_group(
             "启用/禁用图源",
             [
-                _p_radio(
-                    label="选择图源（括号内为当前状态）",
-                    name="index",
+                _p_checkbox(
+                    label="勾选=启用该图源，取消勾选=禁用（可多选）",
+                    name="enabled",
                     options=[
-                        f"{i + 1}. {s.get('name', '未命名')} - "
-                        f"{'已启用' if s.get('enabled', True) else '已禁用'} "
-                        f"({s.get('url', '')})"
+                        {
+                            "label": (
+                                f"{i + 1}. {s.get('name', '未命名')} "
+                                f"({s.get('url', '')})"
+                            ),
+                            "value": str(i),
+                            "selected": bool(s.get("enabled", True)),
+                        }
                         for i, s in enumerate(sources)
                     ],
-                    required=True,
                 ),
                 actions(
                     name="cmd",
                     buttons=[
                         {
-                            "label": "切换",
+                            "label": "保存",
                             "value": "ok",
                             "type": "submit",
                             "color": "primary",
@@ -1175,24 +1185,40 @@ class HomeMixin(WebUIMixinBase):
         )
         if not resp:
             return
-        index = resp["index"].split(".")[0].strip()
-        if not index.isdigit():
+        selected = resp["enabled"] or []
+        # checkbox 正常返回 list；只选一项时个别前端版本会给字符串，兜一下
+        if isinstance(selected, str):
+            selected = [selected]
+        selected = {str(value) for value in selected}
+
+        changed = []
+        for index, source in enumerate(sources):
+            new_state = str(index) in selected
+            old_state = bool(source.get("enabled", True))
+            if new_state == old_state:
+                continue
+            source["enabled"] = new_state
+            changed.append(
+                (source.get("name", "未命名"), "已启用" if new_state else "已禁用")
+            )
+        if not changed:
+            toast("图源状态没有变化", color="info")
             return
-        index = int(index) - 1
-        if 0 <= index < len(sources):
-            current = sources[index].get("enabled", True)
-            sources[index]["enabled"] = not current
-            self._save_sources(sources)
-            toast(
-                f"图源 [{sources[index].get('name', '未命名')}] "
-                f"{'已禁用' if current else '已启用'}",
-                color="success",
-            )
-            logger.info(
-                f"[WebUI] 图源 [{sources[index].get('name')}] -> "
-                f"{'禁用' if current else '启用'}"
-            )
-            self._refresh_random_wallpaper()
+
+        self._save_sources(sources)
+        if len(changed) == 1:
+            name, state = changed[0]
+            message = f"图源 [{name}] {state}"
+        else:
+            head = "、".join(f"{name} {state}" for name, state in changed[:3])
+            more = f" 等 {len(changed)} 个" if len(changed) > 3 else ""
+            message = f"已更新 {len(changed)} 个图源：{head}{more}"
+        toast(message, color="success")
+        logger.info(
+            "[WebUI] 图源启用状态批量更新: "
+            + ", ".join(f"{name} -> {state}" for name, state in changed)
+        )
+        self._refresh_random_wallpaper()
 
     def _remove_source_dialog(self) -> None:
         """弹窗列出可删除的自定义图源并选择删除（内置默认源不可删除）。"""
@@ -1424,6 +1450,12 @@ class HomeMixin(WebUIMixinBase):
         run_js(
             """
             (function () {
+                // 从「视频背景」换成「图片背景」时，置顶的 video 元素必须一并移除：
+                // 它是 position:fixed + z-index:-1 的铺满层，只替换 <style> 不会
+                // 动它，于是旧视频继续解码播放、新图片又是 body 背景 —— 页面变成
+                // 「上面一层是旧的、下面一层是新的」，像凭空多出一张图。
+                var old = document.getElementById('alas-bg-video');
+                if (old) { old.parentNode.removeChild(old); }
                 var css = 'body{'
                     + 'background-image:url("%s") !important;'
                     + 'background-repeat:no-repeat !important;'
