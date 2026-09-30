@@ -17,11 +17,13 @@
 - FleetEquipment：装备管理
 - EquipmentCodeHandler：装备码导入导出
 - Retirement：退役与船坞管理
+- FleetMemoryMixin：舰队等级跨进程记忆，避免打断/重启后重复初始换船检查
 """
 
 from module.base.decorator import cached_property
 from module.campaign.assets import CHAPTER_NEXT, CHAPTER_PREV
 from module.campaign.campaign_base import CampaignBase
+from module.campaign.fleet_memory import FleetMemoryMixin
 from module.campaign.run import CampaignRun
 from module.combat.assets import BATTLE_PREPARATION, EXP_INFO_C, EXP_INFO_D, OPTS_INFO_D
 from module.combat.emotion import Emotion
@@ -246,7 +248,7 @@ class GemsEquipmentHandler(EquipmentCodeHandler):
         return success
 
 
-class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement):
+class GemsFarming(FleetMemoryMixin, CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement):
     """钻石 farming 任务主类。
 
     组合战役运行、装备管理、装备码处理和退役管理的能力，
@@ -260,7 +262,8 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
     5. 通过装备码自动装卸旗舰/先锋装备
 
     Attributes:
-        _initial_flagship_check_done (bool): 是否已完成初始旗舰等级检查。
+        _memory_flagship_lv (Optional[int]): 换船流程记下的旗舰精确等级（舰队记忆）。
+        _memory_vanguard_lv (Optional[int]): 换船流程记下的先锋精确等级（舰队记忆）。
         _trigger_lv32 (bool): 是否触发了等级 32 限制。
         _trigger_emotion (bool): 是否触发了情绪限制。
         hard_mode (bool): 是否处于困难模式（影响舰队进入方式）。
@@ -270,7 +273,6 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
         fleet_enter_flagship (Button): 从船坞进入旗舰位的按钮。
         fleet_enter (Button): 从船坞进入先锋位的按钮。
     """
-    _initial_flagship_check_done = False
 
     def hard_mode_override(self):
         """根据当前战役模式切换舰队进入方式。
@@ -950,6 +952,8 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
         elif self.config.GemsFarming_AllowHighFlagshipLevel:
             self.set_emotion(target_ship.emotion)
         self._ship_change_confirm(target_ship.button)
+        # 确认完成后才记入舰队记忆，中途异常不算换船成功
+        self._memory_flagship_lv = target_ship.level
 
     def flagship_change_execute(self):
         """
@@ -999,6 +1003,8 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
         if self.change_vanguard:
             self.set_emotion(target_ship.emotion)
         self._ship_change_confirm(target_ship.button)
+        # 确认完成后才记入舰队记忆，中途异常不算换船成功
+        self._memory_vanguard_lv = target_ship.level
 
     def vanguard_change_execute(self):
         """
@@ -1088,21 +1094,37 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
         """
         运行钻石 farming 任务。
 
+        开局读取舰队记忆（FleetMemoryMixin）决定是否做初始换船检查：
+        记忆显示旗舰等级合格则直接出击；显示已达到换船等级则立即换船；
+        无有效记忆才进船坞实地核查一次（旧行为）。
+        无论以何种方式退出（被其他任务打断 / 异常 / 正常结束），
+        都会把最后已知的舰队等级写回记忆，
+        下次恢复时据此跳过重复的换船检查。
+
         Args:
             name (str): .py 文件名称。
             folder (str): campaign 下的文件夹名称。
             mode (str): `normal` 或 `hard`。
             total (int): 总运行次数限制。
         """
+        initial_check = self._init_fleet_memory()
+        try:
+            self._run(name=name, folder=folder, mode=mode, total=total, initial_check=initial_check)
+        finally:
+            self._save_fleet_memory()
+
+    def _run(self, name, folder='campaign_main', mode='normal', total=0, initial_check=False):
+        """
+        钻石 farming 主循环。
+
+        Args:
+            name (str): .py 文件名称。
+            folder (str): campaign 下的文件夹名称。
+            mode (str): `normal` 或 `hard`。
+            total (int): 总运行次数限制。
+            initial_check (bool): 首轮是否强制触发换船块（初始旗舰等级检查）。
+        """
         self.config.STOP_IF_REACH_LV32 = self.change_flagship and not self.config.GemsFarming_AllowHighFlagshipLevel
-        # 初始检查旗舰等级。
-        # 如果启用了旗舰更换，在开始时强制更换旗舰。
-        # 解决脚本以 32 级旗舰启动但未退役的问题。
-        initial_check = (
-            self.change_flagship
-            and not self.config.GemsFarming_AllowHighFlagshipLevel
-            and not self._initial_flagship_check_done
-        )
         while 1:
             self._trigger_lv32 = initial_check
             initial_check = False
@@ -1125,8 +1147,6 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
                 self.hard_mode_override()
                 vanguard_success = self.vanguard_change()
                 flagship_success = self.flagship_change()
-                if not self.config.GemsFarming_AllowHighFlagshipLevel:
-                    GemsFarming._initial_flagship_check_done = flagship_success
                 if not (vanguard_success and flagship_success):
                     self.campaign.ensure_auto_search_exit()
                     self.config.task_delay(minute=60)
@@ -1143,12 +1163,12 @@ class GemsFarming(CampaignRun, FleetEquipment, GemsEquipmentHandler, Retirement)
                     vanguard_success = self.vanguard_change()
                 if self.change_flagship and (vanguard_success or self._trigger_lv32):
                     flagship_success = self.flagship_change()
-                    # 失败后下次调度必须重新检查，不能让补位的高等级舰船直接出击。
-                    if not self.config.GemsFarming_AllowHighFlagshipLevel:
-                        GemsFarming._initial_flagship_check_done = flagship_success
                     if not flagship_success and self.config.GemsFarming_AllowHighFlagshipLevel:
                         self.set_emotion(emotion)
                 success = vanguard_success and flagship_success
+                # 旗舰换船失败时不写成功等级，记忆仍保留 ≥32 级（或最后 OCR 值），
+                # 下次调度读到后会在出击前重试换船，不会让补位的高等级舰船直接出击。
+                # 任务退出时由 run() 的 finally 统一把最后已知等级写回舰队记忆。
 
                 if is_limit and self.config.StopCondition_RunCount <= 0:
                     logger.hr('触发停止条件: 运行次数')

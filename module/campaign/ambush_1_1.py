@@ -3,12 +3,14 @@
 独立实现，不依赖 module.campaign.gems_farming 的 GemsFarming 类。
 框架能力（船坞、装备码、退役、装备、UI、地图）通过继承链获得：
 CampaignRun（战役运行框架）、FleetEquipment（舰队装备管理）、
-Retirement（退役与船坞管理，其 MRO 链包含 Dock/Equipment/EquipmentCodeHandler）。
+Retirement（退役与船坞管理，其 MRO 链包含 Dock/Equipment/EquipmentCodeHandler）、
+FleetMemoryMixin（舰队等级跨进程记忆，避免打断/重启后重复初始换船检查）。
 
 覆写 GemsFarming 的换船逻辑以支持编队中主舰队三个槽位的自动填充与更换。"""
 
 from module.base.decorator import cached_property
 from module.campaign.campaign_base import CampaignBase
+from module.campaign.fleet_memory import FleetMemoryMixin
 from module.campaign.run import CampaignRun
 from module.combat.assets import BATTLE_PREPARATION, EXP_INFO_C, EXP_INFO_D, OPTS_INFO_D
 from module.combat.emotion import Emotion
@@ -140,7 +142,7 @@ class AmbushCampaignOverride(CampaignBase):
         return False
 
 
-class Ambush11(CampaignRun, FleetEquipment, Retirement):
+class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
     """1-1 伏击刷关任务主类。
 
     组合战役运行、舰队装备管理、退役与船坞管理能力，
@@ -154,7 +156,8 @@ class Ambush11(CampaignRun, FleetEquipment, Retirement):
     5. 通过装备码自动装卸旗舰/先锋装备
 
     Attributes:
-        _initial_flagship_check_done (bool): 是否已完成初始旗舰等级检查。
+        _memory_flagship_lv (Optional[int]): 换船流程记下的旗舰精确等级（舰队记忆）。
+        _memory_vanguard_lv (Optional[int]): 换船流程记下的先锋精确等级（舰队记忆）。
         _trigger_lv32 (bool): 是否触发了等级 32 限制。
         _trigger_emotion (bool): 是否触发了情绪限制。
         hard_mode (bool): 是否处于困难模式（影响舰队进入方式）。
@@ -164,7 +167,6 @@ class Ambush11(CampaignRun, FleetEquipment, Retirement):
         fleet_enter_flagship (Button): 从船坞进入旗舰位的按钮。
         fleet_enter (Button): 从船坞进入先锋位的按钮。
     """
-    _initial_flagship_check_done = False
     _trigger_lv32 = False
     _trigger_emotion = False
 
@@ -520,6 +522,8 @@ class Ambush11(CampaignRun, FleetEquipment, Retirement):
         elif self.config.GemsFarming_AllowHighFlagshipLevel:
             self.set_emotion(target_ship.emotion)
         self._ship_change_confirm(target_ship.button)
+        # 确认完成后才记入舰队记忆，中途异常不算换船成功
+        self._memory_flagship_lv = target_ship.level
 
     def vanguard_change_with_emotion(self, ship):
         """更换先锋并计算情绪值。"""
@@ -527,6 +531,8 @@ class Ambush11(CampaignRun, FleetEquipment, Retirement):
         if self.change_vanguard:
             self.set_emotion(target_ship.emotion)
         self._ship_change_confirm(target_ship.button)
+        # 确认完成后才记入舰队记忆，中途异常不算换船成功
+        self._memory_vanguard_lv = target_ship.level
 
     def flagship_change_execute(self):
         """
@@ -993,10 +999,29 @@ class Ambush11(CampaignRun, FleetEquipment, Retirement):
     # ==================== 运行器 ====================
 
     def run(self, name='campaign_1_1_f', folder='campaign_main', mode='normal', total=0):
+        """1-1 伏击运行入口。
+
+        开局读取舰队记忆（FleetMemoryMixin）决定是否做初始换船检查：
+        记忆显示旗舰等级合格则直接出击；显示已达到换船等级则立即换船；
+        无有效记忆才进船坞实地核查一次（旧行为）。
+        无论以何种方式退出（被其他任务打断 / 异常 / 正常结束），
+        都会把最后已知的舰队等级写回记忆，下次恢复时不再重复换船检查。
         """
-        Specialized runner for 1-1 Ambush.
-        Forces auto-search and clear mode off, then uses the ship
-        switching logic before executing the map script.
+        initial_check = self._init_fleet_memory()
+        try:
+            self._run(name=name, folder=folder, mode=mode, total=total, initial_check=initial_check)
+        finally:
+            self._save_fleet_memory()
+
+    def _run(self, name='campaign_1_1_f', folder='campaign_main', mode='normal', total=0, initial_check=False):
+        """1-1 伏击主循环。
+
+        Args:
+            name (str): .py 文件名称。
+            folder (str): campaign 下的文件夹名称。
+            mode (str): `normal` 或 `hard`。
+            total (int): 总运行次数限制。
+            initial_check (bool): 首轮是否强制触发换船块（初始旗舰等级检查）。
         """
         logger.hr('1-1伏击运行器', level=1)
 
@@ -1011,12 +1036,6 @@ class Ambush11(CampaignRun, FleetEquipment, Retirement):
         self.run_limit = self.config.StopCondition_RunCount
 
         self.config.STOP_IF_REACH_LV32 = self.change_flagship and not self.config.GemsFarming_AllowHighFlagshipLevel
-        initial_check = (
-            self.change_flagship
-            and not self.config.GemsFarming_AllowHighFlagshipLevel
-            and not self._initial_flagship_check_done
-        )
-        self._initial_flagship_check_done = True
 
         while 1:
             self._trigger_lv32 = initial_check
