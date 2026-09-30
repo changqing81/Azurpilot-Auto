@@ -2252,7 +2252,7 @@
       "help": "When filters work with other settings, AzurPilot looks for items that satisfy all user settings simultaneously.\nFor example, if you set the research filter to `H1 > D2.5 > shortest` (including research that consumes cubes), but also set it not to allow cube consumption, the final result is that AzurPilot will not select research that consumes cubes. When you suddenly want to use cubes, you only need to enable cube consumption without modifying the filter, which is more convenient."
     },
     "BatchMode": {
-      "name": "Batch Research",
+      "name": "Batch Research (Experimental)",
       "help": "Wait until ALL research projects complete, then claim all rewards at once and refill 6 projects in one go. When disabled, finished projects are claimed and refilled immediately."
     },
     "UseCube": {
