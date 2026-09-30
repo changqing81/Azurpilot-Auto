@@ -1340,6 +1340,25 @@ class Cl1Database:
         data = self.get_stats(instance, month_key)
         return data.get("commission_income_entries", [])
 
+    def list_commission_months(self, instance: str) -> List[str]:
+        """列出存在委托收益条目的月份键（"YYYY-MM"，升序）
+
+        用于 WebUI 委托收益统计的历史月份选择。空月份不计入，
+        用户选不到一片空白的月份。注意每次调用会反序列化该实例
+        每个月份的整包数据，仅在打开月份选择面板时调用。
+
+        Args:
+            instance: 实例名称
+
+        Returns:
+            月份键列表，如 ['2026-08', '2026-09']
+        """
+        months = []
+        for _row_instance, month in self._list_stats_rows(instance=instance):
+            if self.get_stats(instance, month).get("commission_income_entries"):
+                months.append(month)
+        return months
+
     def get_commission_reward_stats(self, instance: str):
         """
         获取委托奖励统计

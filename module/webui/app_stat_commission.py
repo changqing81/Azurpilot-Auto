@@ -1,9 +1,12 @@
 """WebUI 委托收益统计视图。"""
 
+from datetime import datetime
 from html import escape
 
 from module.webui.app_dependencies import (
+    close_popup,
     logger,
+    popup,
     put_button,
     put_buttons,
     put_html,
@@ -19,7 +22,48 @@ from module.webui.base import render_locked
 
 
 _COMMISSION_RECENT_PAGE_SIZE = 10
-_COMMISSION_RECENT_TOTAL = 50
+# 年月翻页下限，与月份选择面板的合理年代一致，防止一直 ◀ 翻到无意义年份
+_COMMISSION_MONTH_FLOOR = (2020, 1)
+
+
+def _shift_commission_month(year: int, month: int, delta: int):
+    """年月步进：delta 为 -1 表示上个月，+1 表示下个月，自动跨年进位。
+
+    Args:
+        year: 年份
+        month: 月份（1-12）
+        delta: 步进量，可为任意整数
+
+    Returns:
+        (year, month) 元组
+    """
+    total = year * 12 + (month - 1) + delta
+    return total // 12, total % 12 + 1
+
+
+def _effective_commission_period(
+    period: str, year: int, month: int, now: datetime = None
+) -> str:
+    """口径收敛：历史月份只支持整月口径。
+
+    今日/本周锚定的是当前日期，套在历史月份上恒为空（全部条目
+    都会被时间过滤掉），因此非当前月一律按整月聚合，按钮高亮
+    也跟随收敛后的口径。
+
+    Args:
+        period: 用户选择的口径 'day' | 'week' | 'month'
+        year: 所选年份
+        month: 所选月份
+        now: 参考时间，默认当前时间
+
+    Returns:
+        收敛后的口径
+    """
+    if now is None:
+        now = datetime.now()
+    if (year, month) == (now.year, now.month):
+        return period
+    return "month"
 
 
 class CommissionIncomeStatisticsMixin(WebUIMixinBase):
@@ -40,8 +84,7 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                 summary_html,
                 table_html,
                 recent_html,
-                income_data["period"],
-                len(income_data["recent"]),
+                income_data,
             )
         except Exception as e:
             with use_scope("commission_income", clear=True):
@@ -49,10 +92,9 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                 logger.warning(f"[WebUI-统计] 委托收入渲染失败: {e}")
 
     def _load_commission_income_data(self):
-        from datetime import datetime
+        from module.statistics.cl1_database import db as cl1_db
         from module.statistics.commission_income_stats import (
             get_commission_income_summary,
-            get_recent_commission_entries,
             COMMISSION_ITEM_META,
             COMMISSION_ITEM_NAME_MAP,
             COMMISSION_TRACKED_ITEMS,
@@ -81,14 +123,33 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
             "Oil": "static/assets/gui/icon/icon_4.png",
             "Coin": "static/assets/gui/icon/icon_5.png",
         }
-        period = self._commission_income_period
+        now = datetime.now()
+        year = getattr(self, "_commission_income_year", None)
+        month = getattr(self, "_commission_income_month", None)
+        if year is None or month is None:
+            year, month = now.year, now.month
+
+        # 历史月份只支持整月口径，今日/本周在历史月下恒为空
+        period = _effective_commission_period(self._commission_income_period, year, month)
+
+        is_current_month = (year, month) == (now.year, now.month)
+
+        # 明细列表跟随所选月份查询，与汇总口径保持一致；
+        # 无数据的月份返回空列表，页面复用既有空态展示
+        recent_entries = cl1_db.get_commission_income(instance_name, year, month)
+        recent_entries.sort(key=lambda entry: entry.get("ts", ""), reverse=True)
 
         return {
             "period": period,
-            "summary": get_commission_income_summary(instance_name, period=period),
-            "recent": get_recent_commission_entries(
-                instance_name, limit=_COMMISSION_RECENT_TOTAL
+            "selected_year": year,
+            "selected_month": month,
+            "is_current_month": is_current_month,
+            # 历史月份下明细标题追加月份标识，当前月保持原样
+            "month_suffix": "" if is_current_month else f" · {year}-{month:02d}",
+            "summary": get_commission_income_summary(
+                instance_name, period=period, year=year, month=month
             ),
+            "recent": recent_entries,
             "item_name_map": item_name_map,
             "item_icon_map": item_icon_map,
             "datetime": datetime,
@@ -120,6 +181,7 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                 income_data["item_meta"],
                 income_data["item_name_lookup"],
                 income_data["tracked_items"],
+                income_data["month_suffix"],
             ),
         )
 
@@ -221,6 +283,7 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
         item_meta,
         item_name_lookup,
         tracked_items,
+        month_suffix="",
     ):
         # 最近委托记录分页：仅渲染当前页的 10 条
         total_pages = (
@@ -238,7 +301,7 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
         html = '<div class="commission-income-recent" style="width: 100% !important; max-width: none !important; display: block !important; box-sizing: border-box;">'
         if recent_page:
             html += f'<div style="height: 1px; background: rgba(128, 128, 128, 0.2); margin: 24px 0;"></div>'
-            html += f'<div style="font-size: 0.9rem; font-weight: 500; color: inherit; margin-bottom: 10px;">{t("Gui.Stat.CommissionIncomeRecentTitle")}</div>'
+            html += f'<div style="font-size: 0.9rem; font-weight: 500; color: inherit; margin-bottom: 10px;">{t("Gui.Stat.CommissionIncomeRecentTitle")}{escape(month_suffix)}</div>'
             html += '<div style="font-size: 13px; width: 100%;">'
             for entry in recent_page:
                 ts = entry.get("ts", "")
@@ -309,8 +372,10 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
         return html + "</div>"
 
     def _output_commission_income(
-        self, summary_html, table_html, recent_html, period, recent_count
+        self, summary_html, table_html, recent_html, income_data
     ):
+        period = income_data["period"]
+        is_current_month = income_data["is_current_month"]
         with use_scope("commission_income", clear=True):
             put_html(summary_html)
 
@@ -319,17 +384,20 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                 self._commission_recent_page = 0
                 self._render_commission_income()
 
+            # 历史月份下今日/本周恒为空，直接禁用，避免点了没反馈
             put_buttons(
                 [
                     {
                         "label": t("Gui.Stat.CommissionIncomeDay"),
                         "value": "day",
                         "color": "primary" if period == "day" else "secondary",
+                        "disabled": not is_current_month,
                     },
                     {
                         "label": t("Gui.Stat.CommissionIncomeWeek"),
                         "value": "week",
                         "color": "primary" if period == "week" else "secondary",
+                        "disabled": not is_current_month,
                     },
                     {
                         "label": t("Gui.Stat.CommissionIncomeMonth"),
@@ -341,10 +409,126 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                 small=True,
                 scope="commission_income",
             )
+            self._output_commission_month_switch(income_data)
             put_html(table_html, scope="commission_income")
             put_html(recent_html, scope="commission_income")
-            if recent_count > _COMMISSION_RECENT_PAGE_SIZE:
-                self._output_recent_pagination(recent_count)
+            if len(income_data["recent"]) > _COMMISSION_RECENT_PAGE_SIZE:
+                self._output_recent_pagination(len(income_data["recent"]))
+
+    def _commission_jump_month(self, year, month):
+        """生成跳转到指定年月的回调，翻页与面板选择共用。"""
+
+        def _jump():
+            self._commission_income_year = year
+            self._commission_income_month = month
+            self._commission_recent_page = 0
+            self._render_commission_income()
+
+        return _jump
+
+    def _output_commission_month_switch(self, income_data):
+        """渲染年月翻页控件：◀ 2026-09（点击弹出选择面板）▶。
+
+        ◀ ▶ 逐月翻页，跨年自动进位；已到当前月时 ▶ 禁用，
+        未来月份没有数据也不允许翻入。
+        """
+        year = income_data["selected_year"]
+        month = income_data["selected_month"]
+        is_current_month = income_data["is_current_month"]
+        prev_year, prev_month = _shift_commission_month(year, month, -1)
+        next_year, next_month = _shift_commission_month(year, month, 1)
+
+        put_buttons(
+            [
+                {
+                    "label": "◀",
+                    "value": "prev",
+                    "color": "secondary",
+                    "disabled": (year, month) <= _COMMISSION_MONTH_FLOOR,
+                },
+                {
+                    "label": f"{year}-{month:02d}",
+                    "value": "picker",
+                    "color": "primary",
+                },
+                {
+                    "label": "▶",
+                    "value": "next",
+                    "color": "secondary",
+                    "disabled": is_current_month,
+                },
+            ],
+            # onclick 只支持 callable / list：list 与按钮一一对应且无参调用
+            onclick=[
+                self._commission_jump_month(prev_year, prev_month),
+                self._open_commission_month_picker,
+                self._commission_jump_month(next_year, next_month),
+            ],
+            small=True,
+            scope="commission_income",
+        )
+
+    def _open_commission_month_picker(self, year=None):
+        """弹出年月选择面板：年份一行 + 12 个月份网格。
+
+        年份来自实际有委托收益记录的月份，并合并当前年；未来
+        月份禁用。无数据的月份仍可点选，显示空统计即可。
+        """
+        from module.statistics.cl1_database import db as cl1_db
+
+        now = datetime.now()
+        instance_name = getattr(self, "alas_name", None)
+        months_with_data = []
+        if instance_name:
+            months_with_data = cl1_db.list_commission_months(instance_name)
+        if year is None:
+            year = getattr(self, "_commission_income_year", now.year)
+        selected_year = getattr(self, "_commission_income_year", now.year)
+        selected_month = getattr(self, "_commission_income_month", now.month)
+        years = sorted({int(item[:4]) for item in months_with_data} | {now.year}, reverse=True)
+
+        def on_year_click(clicked_year):
+            # 年份切换在面板内完成：关掉当前面板换新年份重开
+            close_popup()
+            self._open_commission_month_picker(year=clicked_year)
+
+        year_buttons = [
+            {
+                "label": str(item),
+                "value": item,
+                "color": "primary" if item == selected_year else "secondary",
+            }
+            for item in years
+        ]
+
+        def on_month_click(clicked_month):
+            close_popup()
+            self._commission_jump_month(year, clicked_month)()
+
+        month_buttons = []
+        for item in range(1, 13):
+            is_future = (year, item) > (now.year, now.month)
+            month_buttons.append(
+                {
+                    "label": str(item),
+                    "value": item,
+                    "color": (
+                        "primary"
+                        if (year, item) == (selected_year, selected_month)
+                        else "secondary"
+                    ),
+                    "disabled": is_future,
+                }
+            )
+
+        popup(
+            t("Gui.Stat.CommissionIncomeMonthPicker"),
+            [
+                put_buttons(year_buttons, onclick=on_year_click, small=True),
+                put_buttons(month_buttons, onclick=on_month_click, small=True),
+            ],
+            size="small",
+        )
 
     def _output_recent_pagination(self, recent_count):
         """渲染最近委托记录的分页控件。"""

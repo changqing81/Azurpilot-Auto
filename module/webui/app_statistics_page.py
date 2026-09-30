@@ -84,6 +84,12 @@ class StatisticsPageMixin(WebUIMixinBase):
             self._ap_chart_view = "line"
         if not hasattr(self, "_commission_income_period"):
             self._commission_income_period = "month"
+        if not hasattr(self, "_commission_income_year") or not hasattr(
+            self, "_commission_income_month"
+        ):
+            now = datetime.now()
+            self._commission_income_year = now.year
+            self._commission_income_month = now.month
 
         cache_key = self._get_statistics_cache_key()
         cached_key = getattr(self, "_statistics_cache_key", None)

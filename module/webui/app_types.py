@@ -34,6 +34,8 @@ class WebUIMixinBase:
         _overview_log_config_name: str | None
         _ap_chart_view: str
         _commission_income_period: str
+        _commission_income_year: int
+        _commission_income_month: int
         _statistics_cache_key: Any
         _statistics_source_signature: Any
         _statistics_refresh_pending: bool
