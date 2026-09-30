@@ -529,3 +529,29 @@ select.form-control,
 #input-container .text-muted {
 	color: rgba(32, 33, 36, 0.62) !important;
 }
+
+/* ==========================================
+   PyWebIO popup() 弹窗（.modal）在透明主题下的可读性
+   ==========================================
+   弹窗配色由 entry-alas.css 的全站规则统一负责（取色走 --alas-entry-*），
+   但透明主题把 --alas-entry-surface 设成了 transparent：弹窗会直接透出
+   壁纸与遮罩，长内容读不出来。这里与上面的 #input-cards > .card 同款，
+   给弹窗一个足够实的高透明白底。 */
+
+.modal-content {
+	color: rgba(32, 33, 36, 0.92) !important;
+	background: rgba(255, 255, 255, 0.92) !important;
+	border: 1px solid rgba(255, 255, 255, 0.75) !important;
+	box-shadow: 0 18px 48px rgba(15, 23, 42, 0.3) !important;
+}
+
+.modal-header,
+.modal-footer {
+	border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.modal-title,
+.modal-body,
+.modal-header .close {
+	color: rgba(32, 33, 36, 0.92) !important;
+}

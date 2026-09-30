@@ -1022,3 +1022,57 @@
         max-height: calc(100dvh - 24px);
     }
 }
+
+/* --------------------------------------------------------------------------
+   PyWebIO popup() 弹窗（.modal）：全站按主题配色
+   --------------------------------------------------------------------------
+   真实 DOM（pywebio.min.js 的 modal 模板，与上面的 input_group 不是同一套）：
+     .modal.fade > .modal-dialog > .modal-content
+       > .modal-header > h5.modal-title + button.close
+       > .modal-body [> .modal-footer]
+   PyWebIO 自带的 Bootstrap 样式把 .modal-content 写死成白底，而主题 CSS 此前
+   只覆盖到 #input-container。「高级材质暗色 / 透明」下弹窗因此仍是白底，
+   标题与关闭按钮却已经跟着主题变成浅色文字 ⇒ 白底白字看不见
+   （2026-09-30 用户截图：体力图的月份选择器、委托页年月选择器）。
+   这里只改配色（背景 / 文字 / 描边 / 遮罩），不动尺寸与留白；取色一律走
+   --alas-entry-*，四个主题自动跟随。透明主题需要「实底玻璃」，
+   覆盖规则在 transparent-alas.css 末尾单独给。 */
+
+.modal-content {
+    color: var(--alas-entry-text) !important;
+    background: var(--alas-entry-surface) !important;
+    border-color: var(--alas-entry-border) !important;
+}
+
+.modal-header,
+.modal-footer {
+    border-color: var(--alas-entry-border) !important;
+}
+
+.modal-title,
+.modal-body {
+    color: var(--alas-entry-text) !important;
+}
+
+/* 卡片本身已经带底色，body 再铺一层会在透明主题下叠出双色 */
+.modal-body {
+    background: transparent !important;
+}
+
+/* 关闭按钮：Bootstrap 默认是深灰 × + 白描边，深色底上几乎看不见 */
+.modal-header .close {
+    color: var(--alas-entry-text) !important;
+    opacity: .55;
+    text-shadow: none !important;
+}
+
+.modal-header .close:hover,
+.modal-header .close:focus {
+    opacity: .9;
+}
+
+/* 遮罩：与 #input-container.fixed 的遮罩同色；Bootstrap 默认 .5 透明度会偏淡 */
+.modal-backdrop {
+    background: rgba(15, 18, 24, .48);
+    opacity: 1 !important;
+}
