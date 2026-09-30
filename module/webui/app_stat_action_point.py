@@ -101,7 +101,12 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         )
 
     def _load_ap_chart_timelines(self):
-        """读取当前实例的行动力、凭证和资产时间线。"""
+        """读取当前实例、当前查看月份的行动力、凭证和资产时间线。
+
+        月份取自统计页的共用状态（``_stat_month_pair``，见
+        ``app_statistics_page.py``）：默认本月，用户选过历史月份后三块统计
+        一起跟随。
+        """
         from module.statistics.opsi_month import (
             get_ap_timeline,
             get_asset_timeline,
@@ -114,9 +119,16 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
 
             all_instances = alas_instance()
             instance_name = all_instances[0] if all_instances else None
-        timeline = get_ap_timeline(instance_name=instance_name)
-        coins_timeline = get_coins_timeline(instance_name=instance_name)
-        asset_timeline = get_asset_timeline(instance_name=instance_name)
+        year, month = self._stat_month_pair()
+        timeline = get_ap_timeline(
+            year=year, month=month, instance_name=instance_name
+        )
+        coins_timeline = get_coins_timeline(
+            year=year, month=month, instance_name=instance_name
+        )
+        asset_timeline = get_asset_timeline(
+            year=year, month=month, instance_name=instance_name
+        )
         return timeline, coins_timeline, asset_timeline
 
     def _load_ap_chart_dataset(self, reuse: bool = False):
@@ -125,20 +137,28 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         切换视图（折线 / 按日 / 按月）只改变聚合口径，原始快照完全一样，
         因此 ``reuse=True`` 时直接复用上一次的结果，跳过三个数据源的
         文件读取与逐点时间解析——这是「切视图要等」的主要来源。
-        刷新 / 首次进入页面走 ``reuse=False``，保证拿到最新数据。
+        刷新 / 首次进入页面 / 切换查看月份走 ``reuse=False``，保证拿到最新数据。
+
+        复用带月份校验：缓存按读取时的月份记账，选中的月份一变（用户点了
+        月份胶囊）旧数据集立刻失效，不会把上个月的曲线画成本月的。
 
         Returns:
             tuple: (raw_points, timeline, coins_timeline, asset_timeline)
         """
+        month_key = self._stat_month_key()
         if reuse:
             cached = getattr(self, "_ap_chart_dataset", None)
-            if cached is not None:
+            if (
+                cached is not None
+                and getattr(self, "_ap_chart_dataset_month", None) == month_key
+            ):
                 return cached
 
         timeline, coins_timeline, asset_timeline = self._load_ap_chart_timelines()
         raw_points = self._normalize_ap_chart_points(timeline)
         dataset = (raw_points, timeline, coins_timeline, asset_timeline)
         self._ap_chart_dataset = dataset
+        self._ap_chart_dataset_month = month_key
         return dataset
 
     @render_locked
@@ -795,16 +815,31 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
             run_js(js_code)
 
     def _render_ap_chart_view_switcher(self, view_title, current_view):
-        """标题行：左侧标题，右侧视图切换分段控件。
+        """标题行：左侧标题，右侧月份胶囊 + 视图切换分段控件。
 
         布局对齐 statistics-v2 的卡片头部（标题在左、粒度切换在右），
         控件外观由 statistics-alas.css 的 .btn-group 规则给定。
+
+        月份胶囊显示的就是当前查看的月份（默认本月），点开统计页共用的
+        月份选择器（``_open_stat_month_picker``）——「看历史月份的体力」
+        从这里进。
         """
         labels = {
             "line": t("Gui.Stat.ViewLineButton"),
             "day": t("Gui.Stat.ViewDayButton"),
             "month": t("Gui.Stat.ViewMonthButton"),
         }
+        month_group = put_buttons(
+            [
+                {
+                    "label": self._stat_month_key(),
+                    "value": "month",
+                    "color": "secondary",
+                }
+            ],
+            onclick=self._open_ap_month_picker,
+            group=True,
+        )
         put_row(
             [
                 put_html(
@@ -812,6 +847,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     f'{t("Gui.Stat.ApChartTitle")} - {view_title}</div>'
                 ),
                 None,
+                month_group,
                 put_buttons(
                     [
                         {
@@ -825,8 +861,13 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                     group=True,
                 ),
             ],
-            size="auto 1fr auto",
+            size="auto 1fr auto auto",
         ).style("align-items:center;margin-top:16px;margin-bottom:8px;")
+
+    @render_locked
+    def _open_ap_month_picker(self, _value=None) -> None:
+        """体力图标题行月份胶囊的回调：打开统计页共用的月份选择器。"""
+        self._open_stat_month_picker()
 
     @render_locked
     def _switch_ap_chart_view(self, view) -> None:

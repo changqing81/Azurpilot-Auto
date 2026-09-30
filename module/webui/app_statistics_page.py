@@ -19,12 +19,18 @@ from html import escape as html_escape
 from pathlib import Path
 
 import module.webui.lang as lang
+from module.logger import logger
 from module.webui.app_dependencies import (
+    close_popup,
+    current_time,
+    popup,
     put_button,
+    put_buttons,
     put_html,
     put_scope,
     run_js,
     t,
+    toast,
     use_scope,
 )
 from module.webui.app_types import WebUIMixinBase
@@ -82,6 +88,10 @@ class StatisticsPageMixin(WebUIMixinBase):
         self.set_title(t("Gui.Overview.Stat"))
         if not hasattr(self, "_ap_chart_view"):
             self._ap_chart_view = "line"
+        # 查看月份：None = 本月。体力图、侵蚀一卡片与大世界收获共用（见本文件
+        # 「查看月份」一节），资源消耗 / 舰船经验 / 委托收益各有自己的口径。
+        if not hasattr(self, "_stat_view_month"):
+            self._stat_view_month = None
         if not hasattr(self, "_commission_income_period"):
             self._commission_income_period = "month"
         if not hasattr(self, "_commission_income_year") or not hasattr(
@@ -502,6 +512,129 @@ class StatisticsPageMixin(WebUIMixinBase):
         self._render_resource_delta()
         self._render_ship_exp()
         self._render_commission_income()
+
+    # ------------------------------------------------------------------
+    # 查看月份：体力图 / 侵蚀一卡片 / 大世界收获 三处共用
+    # ------------------------------------------------------------------
+    def _stat_selected_month(self):
+        """用户显式选中的月份 ``(year, month)``；``None`` 表示本月。"""
+        value = getattr(self, "_stat_view_month", None)
+        if isinstance(value, (tuple, list)) and len(value) == 2:
+            try:
+                year, month = int(value[0]), int(value[1])
+            except (TypeError, ValueError):
+                return None
+            if 1 <= month <= 12:
+                return year, month
+        return None
+
+    def _stat_month_pair(self):
+        """当前查看月份 ``(year, month)``；未选中时取当前月。
+
+        用 ``current_time()`` 而不是 ``datetime.now()``：与三块面板取数时的
+        时间口径保持一致（用户可以配置时间源）。
+        """
+        selected = self._stat_selected_month()
+        if selected is not None:
+            return selected
+        now = current_time()
+        return now.year, now.month
+
+    def _stat_month_key(self):
+        """当前查看月份键，形如 ``"2026-09"``。"""
+        year, month = self._stat_month_pair()
+        return f"{year:04d}-{month:02d}"
+
+    def _stat_month_is_current(self):
+        """当前查看的是否是本月。"""
+        now = current_time()
+        return self._stat_month_pair() == (now.year, now.month)
+
+    def _stat_available_months(self):
+        """可选月份（新→旧）：cl1 库 ∪ 大世界掉落库 ∪ 当前月。
+
+        两个库的覆盖范围不同（体力图与侵蚀卡片在 ``cl1_data.db``，大世界收获
+        另有 ``azurstats_local.db``），取并集后任一库有记录即可选。单个数据源
+        读取失败只记日志并跳过，不影响另一侧 —— 用户至少还能回到本月。
+        """
+        from module.statistics.azurstats import AzurStats
+        from module.statistics.opsi_month import get_available_months
+
+        instance_name = self._statistics_instance_name()
+        months = set()
+        sources = (
+            ("cl1_data.db", lambda: get_available_months(instance_name)),
+            ("azurstats_local.db", AzurStats.get_opsi_drop_available_months),
+        )
+        for label, loader in sources:
+            try:
+                months |= {(int(year), int(month)) for year, month in loader()}
+            except Exception:
+                logger.warning(
+                    f"[Statistics] 读取 {label} 的可用月份失败", exc_info=True
+                )
+        now = current_time()
+        months.add((now.year, now.month))
+        return sorted(months, reverse=True)
+
+    @render_locked
+    def _open_stat_month_picker(self) -> None:
+        """弹出月份选择器（本月 + 有记录的历史月份）。
+
+        按钮文案沿用大世界收获那套 ``Gui.Stat.MeowLoot*`` 键（本月 / 选择查看
+        月份 / 暂无历史月份），避免维护两套等价键。
+        """
+        selected = self._stat_selected_month()
+        now = current_time()
+        buttons = [
+            {
+                "label": t(
+                    "Gui.Stat.MeowLootCurrentMonthOption",
+                    month=f"{now.year:04d}-{now.month:02d}",
+                ),
+                "value": None,
+                "color": "primary" if selected is None else "secondary",
+            }
+        ]
+        buttons += [
+            {
+                "label": f"{year:04d}-{month:02d}",
+                "value": (year, month),
+                "color": "primary" if selected == (year, month) else "secondary",
+            }
+            for year, month in self._stat_available_months()
+            if (year, month) != (now.year, now.month)
+        ]
+        if len(buttons) == 1:
+            toast(t("Gui.Stat.MeowLootNoHistoryMonth"))
+            return
+
+        with popup(t("Gui.Stat.MeowLootPickMonthTitle")):
+            put_buttons(buttons, onclick=self._set_stat_month)
+
+    @render_locked
+    def _set_stat_month(self, value) -> None:
+        """切换查看月份并重绘受影响的区块（``None`` = 回到本月）。"""
+        close_popup()
+        if not isinstance(value, (tuple, list)) or len(value) != 2:
+            value = None
+        self._stat_view_month = value
+        self._render_stat_month_sections()
+
+    @render_locked
+    def _render_stat_month_sections(self) -> None:
+        """只重绘跟随查看月份的区块。
+
+        资源消耗（最近 7 天）、舰船经验（当前练级周期）与委托收益（自带选月）
+        与这个月份无关，不必跟着重建 —— 少发一屏输出，切月才不会发卡。
+        """
+        with self._page_lock:
+            if getattr(self, "page", None) != "Stat":
+                return
+            if getattr(self, "_statistics_cache_key", None) is None:
+                return
+            self._render_ap_chart()
+            self._render_opsi_month_view()
 
     def _get_statistics_cache_key(self):
         """返回会影响统计页文案与数据归属的键。"""

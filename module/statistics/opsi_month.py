@@ -174,6 +174,29 @@ def get_ap_timeline(
     return snapshots_sorted
 
 
+def get_available_months(instance_name: str | None = None) -> list[tuple[int, int]]:
+    """列出该实例在 cl1 库里留有记录的月份（新→旧）。
+
+    供 WebUI 统计页的历史月份选择器使用：只判断「该月有记录」，不检查具体
+    指标 —— 体力图与侵蚀一卡片同源 cl1_data.db，而「大世界收获」另有
+    azurstats_local.db，调用方负责与各自的可用月份取并集。
+
+    Args:
+        instance_name: 实例名称
+
+    Returns:
+        list[tuple[int, int]]: [(year, month), ...]，从新到旧。
+    """
+    months: list[tuple[int, int]] = []
+    for month in cl1_db.list_months(instance_name or "default"):
+        try:
+            months.append((int(month[:4]), int(month[5:7])))
+        except ValueError:
+            continue
+    months.sort(reverse=True)
+    return months
+
+
 def get_coins_timeline(
     year: int | None = None, month: int | None = None, instance_name: str | None = None
 ) -> list:
@@ -219,6 +242,7 @@ __all__ = [
     "OpsiMonthStats",
     "compute_monthly_cl1_akashi_ap",
     "get_ap_timeline",
+    "get_available_months",
     "get_coins_timeline",
     "get_asset_timeline",
 ]

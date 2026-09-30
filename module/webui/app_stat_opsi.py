@@ -3,7 +3,6 @@
 from html import escape as html_escape
 
 from module.webui.app_dependencies import (
-    current_time,
     put_html,
     put_row,
     put_scope,
@@ -42,9 +41,41 @@ class OpsiStatisticsMixin(WebUIMixinBase):
 
     @render_locked
     def _render_opsi_stats(self):
+        payload = self._build_opsi_month_cards()
+        if payload is None:
+            return
+        net, cards, instance_name, cl1_db = payload
+        meow_rows = self._build_meow_rows(cl1_db, instance_name)
+        self._render_opsi_summary(net, cards, meow_rows)
+
+    @render_locked
+    def _render_opsi_month_view(self):
+        """按当前查看月份重绘侵蚀一卡片与大世界收获。
+
+        刻意不重建 ``opsi_stats``：外层「大世界收获」折叠块在
+        ``_render_opsi_summary`` 里只建一次、包住 ``meow_loot_scope``，
+        重建会把它折回默认收起态（用户裁定不可接受）。切月份只落在
+        ``opsi_summary_cards`` / ``meow_strip_scope`` / ``meow_loot_scope``
+        三个子 scope 上，与任务筛选等回调走同一条路径。
+        """
+        payload = self._build_opsi_month_cards()
+        if payload is None:
+            return
+        net, cards, instance_name, cl1_db = payload
+        self._render_opsi_summary_cards(net, cards)
+        self._render_meowofficer_farming(
+            meow_rows=self._build_meow_rows(cl1_db, instance_name)
+        )
+
+    def _build_opsi_month_cards(self):
+        """按当前查看月份装配侵蚀一的净赚卡与 12 张指标卡。
+
+        Returns:
+            tuple | None: (net, cards, instance_name, cl1_db)；数据源不可用时 None。
+        """
         dependencies = self._load_opsi_stats_dependencies()
         if dependencies is None:
-            return
+            return None
 
         (
             instance_name,
@@ -59,8 +90,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             compute_monthly_cl1_akashi_ap,
             get_ship_exp_stats,
         )
-        meow_rows = self._build_meow_rows(cl1_db, instance_name)
-        self._render_opsi_summary(net, cards, meow_rows)
+        return net, cards, instance_name, cl1_db
 
     def _load_opsi_stats_dependencies(self):
         try:
@@ -77,7 +107,10 @@ class OpsiStatisticsMixin(WebUIMixinBase):
 
                 all_instances = alas_instance()
                 instance_name = all_instances[0] if all_instances else None
-            summary = get_opsi_stats(instance_name=instance_name).summary()
+            year, month = self._stat_month_pair()
+            summary = get_opsi_stats(instance_name=instance_name).summary(
+                year=year, month=month
+            )
         except Exception as e:
             with use_scope("opsi_stats", clear=True):
                 put_text(t("Gui.Stat.LoadOpsiStatsFailed", e=e))
@@ -181,7 +214,11 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             siren_research_rate = "-"
 
         try:
-            ap_bought = compute_monthly_cl1_akashi_ap(instance_name=instance_name)
+            # 跟随统计页的查看月份（``month`` 是上面那个展示用的月份键，别混）
+            stat_year, stat_month = self._stat_month_pair()
+            ap_bought = compute_monthly_cl1_akashi_ap(
+                year=stat_year, month=stat_month, instance_name=instance_name
+            )
         except Exception:
             ap_bought = "-"
 
@@ -241,6 +278,13 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             avg_cl1_round_time = "-"
             exp_per_hour = "-"
             today_battles = 0
+            today_exp_str = "-"
+            today_run_time = "-"
+
+        # 「今日战斗 / 今日经验 / 今日运行」只有本月视图才有意义：看历史月份时
+        # 留着当天的数字会被读成那个月的产出，直接置空。
+        if not self._stat_month_is_current():
+            today_battles = "-"
             today_exp_str = "-"
             today_run_time = "-"
 
@@ -376,7 +420,9 @@ class OpsiStatisticsMixin(WebUIMixinBase):
 
         meow_rows = []
         try:
-            now = current_time()
+            # 跟随统计页的查看月份；历史月份下 persist=False，浏览不改历史数据。
+            view_year, view_month = self._stat_month_pair()
+            is_current_month = self._stat_month_is_current()
             # 侵蚀等级 1~6 都查一遍：3 / 5 是耄耋相接的常驻刷取等级，总是占位显示；
             # 其余等级只有真跑过、或本地累积有收益时才生成卡片（见下面的过滤）。
             # ⚠️ 分等级数据必须读 ``by_hazard`` 桶：get_meow_stats 只为 3/5 构建
@@ -385,9 +431,10 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             for hazard_level in range(1, 7):
                 meow_data = cl1_db.get_meow_stats(
                     instance_name or "default",
-                    now.year,
-                    now.month,
+                    view_year,
+                    view_month,
                     hazard_level=hazard_level,
+                    persist=is_current_month,
                 )
                 bucket = (meow_data.get("by_hazard") or {}).get(
                     str(hazard_level), {}
@@ -579,7 +626,10 @@ class OpsiStatisticsMixin(WebUIMixinBase):
         # 互斥，否则「清空 → 输出」两阶段会交错出重复控件。
         with use_scope("opsi_stats", clear=True):
             put_html(build_title_block(t("Gui.Stat.OpsiDataCollectionTitle")))
-            put_html(self._build_opsi_summary_html(net, cards))
+            # 侵蚀一的净赚卡与 12 张指标卡单独成 scope：切月份只重绘这一块
+            # （见 _render_opsi_month_view），外层折叠块与「大世界收获」都不重建。
+            put_scope("opsi_summary_cards")
+            self._render_opsi_summary_cards(net, cards)
 
             # 大世界收获：左栏任务筛选 + 右栏（合计条 / 侵蚀等级卡 / 物品明细表）。
             # 外层折叠块在这里只建一次、包住 meow_loot_scope；任务筛选、月份切换、
@@ -610,3 +660,9 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             meow_refresh_token = int(time.time() * 1000)
 
             put_html(f"<!-- meow-stats-refresh-token:{meow_refresh_token} -->")
+
+    @render_locked
+    def _render_opsi_summary_cards(self, net, cards):
+        """侵蚀一的净赚卡与 12 张指标卡（供整块重绘与切月份复用）。"""
+        with use_scope("opsi_summary_cards", clear=True):
+            put_html(self._build_opsi_summary_html(net, cards))

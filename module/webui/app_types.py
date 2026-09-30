@@ -33,6 +33,7 @@ class WebUIMixinBase:
         _overview_log: Any
         _overview_log_config_name: str | None
         _ap_chart_view: str
+        _stat_view_month: Any
         _commission_income_period: str
         _commission_income_year: int
         _commission_income_month: int

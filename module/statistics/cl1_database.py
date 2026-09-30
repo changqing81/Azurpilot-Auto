@@ -993,7 +993,7 @@ class Cl1Database:
 
     def get_meow_stats(
         self, instance: str, year: int = None, month: int = None,
-        hazard_level: int = None,
+        hazard_level: int = None, persist: bool = True,
     ) -> Dict[str, Any]:
         """获取耄耋相接统计数据
 
@@ -1002,6 +1002,9 @@ class Cl1Database:
             year: 年份，默认当前年
             month: 月份，默认当前月
             hazard_level: 侵蚀等级，传入时只返回对应等级的数据
+            persist: 是否把 reconcile 的结果落盘。看历史月份时传 False ——
+                浏览不该改动历史数据（口径对齐 ``backfill_meow_stats`` 的
+                「只在主动调用时落盘」）。
 
         Returns:
             耄耋相接统计数据字典
@@ -1026,7 +1029,7 @@ class Cl1Database:
             battle_times=battle_times,
             instance=instance,
             month_key=key,
-            persist=True,
+            persist=persist,
         )
 
         round_durations = [entry["duration"] for entry in normalized_round_times]
@@ -1358,6 +1361,26 @@ class Cl1Database:
             if self.get_stats(instance, month).get("commission_income_entries"):
                 months.append(month)
         return months
+
+    def list_months(self, instance: str) -> List[str]:
+        """列出该实例在库里留有记录的月份键（"YYYY-MM"，升序）。
+
+        用于 WebUI 统计页的历史月份选择：只要该月写过任意统计数据就返回，
+        因而体力和侵蚀数据都能覆盖到。刻意只读 ``cl1_data`` 的键、不反序列化
+        每月整包 JSON —— 体力快照可能上万条，逐月解析会让按钮回调明显卡顿。
+
+        Args:
+            instance: 实例名称
+
+        Returns:
+            月份键列表，如 ['2026-08', '2026-09']
+        """
+        rows = self._list_stats_rows(instance=instance)
+        return [
+            month
+            for _row_instance, month in rows
+            if len(month) == 7 and month[4] == "-"
+        ]
 
     def get_commission_reward_stats(self, instance: str):
         """

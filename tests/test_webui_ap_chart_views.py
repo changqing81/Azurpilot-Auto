@@ -6,6 +6,10 @@
 - 日/月聚合的 OHLC 口径
 - 按钮组只渲染三个视图，并与标题同排（标题在左、切换在右）
 - 切视图复用已读数据集，不重复读数据源
+
+另覆盖 2026-09-30 加的历史月份：
+- 标题行多一个月份胶囊（显示统计页当前查看的月份，点开共用月份选择器）
+- 数据集缓存带月份校验，切了月份就不许复用上个月的快照
 """
 
 import unittest
@@ -13,6 +17,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 from module.webui.app_stat_action_point import ActionPointStatisticsMixin
+from module.webui.app_statistics_page import StatisticsPageMixin
 
 
 def _points():
@@ -32,8 +37,12 @@ def _points():
     ]
 
 
-class _ChartHarness(ActionPointStatisticsMixin):
-    """只保留图表装配所需状态的测试替身。"""
+class _ChartHarness(ActionPointStatisticsMixin, StatisticsPageMixin):
+    """只保留图表装配所需状态的测试替身。
+
+    带上 ``StatisticsPageMixin`` 是为了拿到真实的查看月份解析
+    （``_stat_month_key`` 等）——月份状态本就是统计页级别的共用状态。
+    """
 
     def __init__(self, view="line"):
         self.alas_name = "alas"
@@ -53,6 +62,11 @@ class _ApChartTestCase(unittest.TestCase):
             ),
             patch(
                 "module.webui.app_stat_action_point.current_time",
+                return_value=datetime(2026, 9, 20, 16, 0),
+            ),
+            # 月份解析走统计页那份实现，两处都要钉住时钟才是确定性的
+            patch(
+                "module.webui.app_statistics_page.current_time",
                 return_value=datetime(2026, 9, 20, 16, 0),
             ),
         )
@@ -140,14 +154,22 @@ class _OutputStub:
 
 
 class TestApChartViewSwitcher(_ApChartTestCase):
-    def _render(self, view="month", title="按月"):
-        captured = {}
+    def _render(self, view="month", title="按月", view_month=None):
+        captured = {"button_groups": [], "onclicks": []}
+
+        def fake_put_buttons(buttons, onclick=None, **kwargs):
+            captured["button_groups"].append(buttons)
+            captured["onclicks"].append(onclick)
+            # 视图按钮组是最后一次调用，保持 captured["buttons"] 的旧语义
+            return _OutputStub(captured, buttons=buttons)
+
+        harness = _ChartHarness(view)
+        if view_month is not None:
+            harness._stat_view_month = view_month
         with (
             patch(
                 "module.webui.app_stat_action_point.put_buttons",
-                side_effect=lambda buttons, onclick=None, **kwargs: _OutputStub(
-                    captured, buttons=buttons
-                ),
+                side_effect=fake_put_buttons,
             ),
             patch(
                 "module.webui.app_stat_action_point.put_html",
@@ -160,7 +182,7 @@ class TestApChartViewSwitcher(_ApChartTestCase):
                 ),
             ),
         ):
-            _ChartHarness(view)._render_ap_chart_view_switcher(title, view)
+            harness._render_ap_chart_view_switcher(title, view)
         return captured
 
     def test_switcher_renders_three_buttons(self):
@@ -174,11 +196,30 @@ class TestApChartViewSwitcher(_ApChartTestCase):
         self.assertEqual("off", colors["line"])
 
     def test_title_row_keeps_title_left_and_switcher_right(self):
-        """对齐 statistics-v2 的卡片头部：标题在左、粒度切换在右。"""
+        """对齐 statistics-v2 的卡片头部：标题在左、月份胶囊与粒度切换在右。"""
         captured = self._render()
-        self.assertEqual("auto 1fr auto", captured["row_size"])
+        self.assertEqual("auto 1fr auto auto", captured["row_size"])
         self.assertIn("按月", captured["title_html"])
         self.assertIn("align-items:center", captured["style"])
+
+    def test_month_capsule_shows_view_month_and_opens_picker(self):
+        """月份胶囊显示当前查看月份，回调指向统计页共用的月份选择器。"""
+        captured = self._render()
+        month_buttons = captured["button_groups"][0]
+        self.assertEqual(1, len(month_buttons))
+        self.assertEqual("2026-09", month_buttons[0]["label"])
+        self.assertEqual("month", month_buttons[0]["value"])
+
+        harness = _ChartHarness("line")
+        opened = []
+        harness._open_stat_month_picker = lambda: opened.append(1)
+        harness._open_ap_month_picker("month")
+        self.assertEqual([1], opened)
+
+    def test_month_capsule_follows_selected_history_month(self):
+        captured = self._render(view_month=(2026, 8))
+        month_buttons = captured["button_groups"][0]
+        self.assertEqual("2026-08", month_buttons[0]["label"])
 
 
 class TestApChartDatasetReuse(_ApChartTestCase):
@@ -211,6 +252,25 @@ class TestApChartDatasetReuse(_ApChartTestCase):
     def test_without_cache_reuse_still_loads(self):
         gui, calls = self._harness_with_counter()
 
+        gui._load_ap_chart_dataset(reuse=True)
+
+        self.assertEqual(1, len(calls))
+
+    def test_month_change_invalidates_cached_dataset(self):
+        """切了查看月份就不许复用上个月的快照。"""
+        gui, calls = self._harness_with_counter()
+
+        gui._load_ap_chart_dataset()
+        gui._stat_view_month = (2026, 8)
+        gui._load_ap_chart_dataset(reuse=True)
+
+        self.assertEqual(2, len(calls))
+
+    def test_same_month_keeps_reusing_dataset(self):
+        gui, calls = self._harness_with_counter()
+
+        gui._load_ap_chart_dataset()
+        gui._stat_view_month = (2026, 9)
         gui._load_ap_chart_dataset(reuse=True)
 
         self.assertEqual(1, len(calls))

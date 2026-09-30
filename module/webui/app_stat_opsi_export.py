@@ -39,15 +39,12 @@ from module.statistics.opsi_item_names import (
 )
 from module.webui.app_dependencies import (
     Path,
-    close_popup,
     current_time,
-    popup,
     put_buttons,
     put_column,
     put_html,
     put_row,
     t,
-    toast,
     use_scope,
 )
 from module.webui.app_helpers import (
@@ -246,10 +243,14 @@ class OpsiExportMixin(WebUIMixinBase):
     def _load_meow_loot_view(self):
         """加载月份视图数据（合计条与明细表共用）。
 
+        月份取自统计页的共用状态（``_stat_selected_month``，见
+        ``app_statistics_page.py``）：体力图、侵蚀一卡片与这里始终看同一个月，
+        切月份也只重绘本区块 + 侵蚀一卡片。
+
         Returns:
             dict: year / month（当前查看的月份）、is_current（是否本月）。
         """
-        view_month = getattr(self, "_meow_loot_month", None)
+        view_month = self._stat_selected_month()
         now = current_time()
         if view_month is None:
             year, month = now.year, now.month
@@ -676,11 +677,15 @@ class OpsiExportMixin(WebUIMixinBase):
 
     @render_locked
     def _on_meow_loot_month_click(self, value):
-        """月份胶囊回调：history 打开历史月份选择器，current 回到本月。"""
+        """月份胶囊回调：history 打开月份选择器，current 回到本月。
+
+        选择器与体力图的月份胶囊共用（``_open_stat_month_picker`` /
+        ``_set_stat_month``），选完同一个月对体力图、侵蚀一卡片一起生效。
+        """
         if value == "history":
-            self._show_meow_loot_month_picker()
+            self._open_stat_month_picker()
         else:
-            self._reset_meow_loot_month()
+            self._set_stat_month(None)
 
     @render_locked
     def _on_meow_task_click(self, value):
@@ -701,53 +706,6 @@ class OpsiExportMixin(WebUIMixinBase):
     def _on_meow_drop_more_click(self, value):
         """「其余 N 项 / 收起」回调：切换明细表的展开状态。"""
         self._meow_drop_expanded = value == "more"
-        self._render_meowofficer_farming()
-
-    @render_locked
-    def _show_meow_loot_month_picker(self):
-        """弹出历史月份选择器。"""
-        from module.statistics.azurstats import AzurStats
-
-        now = current_time()
-        months = AzurStats.get_opsi_drop_available_months()
-        buttons = [
-            {
-                "label": t(
-                    "Gui.Stat.MeowLootCurrentMonthOption",
-                    month=f"{now.year:04d}-{now.month:02d}",
-                ),
-                "value": None,
-                "color": "primary",
-            }
-        ]
-        buttons += [
-            {"label": f"{y:04d}-{m:02d}", "value": (y, m), "color": "secondary"}
-            for y, m in months
-            if (y, m) != (now.year, now.month)
-        ]
-        if len(buttons) == 1:
-            toast(t("Gui.Stat.MeowLootNoHistoryMonth"))
-            return
-
-        with popup(t("Gui.Stat.MeowLootPickMonthTitle")):
-            put_buttons(buttons, onclick=lambda v: self._set_meow_loot_month(v))
-
-    @render_locked
-    def _set_meow_loot_month(self, value):
-        """设置要查看的月份并重绘收获区块。value 为 None 表示本月。
-
-        只重绘 meow_loot_scope（不整块 _render_opsi_stats）：外层「大世界收获」
-        折叠的开合状态因此不被重置；侵蚀卡数据（``_build_meow_rows``）固定按
-        当前月构建、与查看月份无关，沿用缓存即可。
-        """
-        close_popup()
-        self._meow_loot_month = value
-        self._render_meowofficer_farming()
-
-    @render_locked
-    def _reset_meow_loot_month(self):
-        """回到本月视图。只重绘收获区块，理由同 ``_set_meow_loot_month``。"""
-        self._meow_loot_month = None
         self._render_meowofficer_farming()
 
     # ---------- HTML 构造 ----------
