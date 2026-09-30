@@ -898,6 +898,47 @@ class WallpaperBuiltinSourceTests(unittest.TestCase):
             self.assertIn(key, [s.get("key") for s in saved])
 
 
+class ThemeToggleCascadeHardeningTests(unittest.TestCase):
+    """高级材质开关的几何规则必须带 .form-check 前缀的高特异性副本。
+
+    基础 alas.css 也用裸 `input[type=checkbox]` 把 checkbox 定成
+    1.25rem（同特异性 0,1,1）。一旦基础样式因会话重建/重注入落到主题
+    样式之后，同特异性「后者为准」，主题的 50x25 轨道在 width/height
+    上被 20px 覆盖，而 appearance/圆角/旋钮/translateX 仍来自主题 ——
+    表现为轨道塌成小圆、旋钮平移到轨道外，暗色/透明高级材质均复现。
+    主题侧并列 .form-check 前缀副本（0,2,1）后，注入顺序不再影响结果。
+    """
+
+    @staticmethod
+    def _css(name: str) -> str:
+        from pathlib import Path
+
+        path = (
+            Path(__file__).resolve().parent.parent
+            / "assets"
+            / "gui"
+            / "css"
+            / name
+        )
+        return path.read_text(encoding="utf-8")
+
+    def test_advanced_material_toggle_has_high_specificity_rules(self):
+        css = self._css("advanced-material-alas.css")
+        for rule in (
+            '.form-check input[type="checkbox"]',
+            '.form-check input[type="checkbox"]::before',
+            '.form-check input[type="checkbox"]:checked',
+            '.form-check input[type="checkbox"]:checked::before',
+        ):
+            self.assertIn(rule, css, f"缺少高特异性开关规则：{rule}")
+
+    def test_dark_overrides_knob_color_keeps_winning(self):
+        """暗色覆盖层的旋钮色规则必须与主题侧同步提升，否则被白色反超。"""
+        css = self._css("dark-advanced-material-overrides-alas.css")
+        self.assertIn('.form-check input[type="checkbox"]::before', css)
+        self.assertIn("#dbeafe", css)
+
+
 class WallpaperSourceOptionLabelTests(unittest.TestCase):
     """图源弹窗的选项标签不得包含完整 URL。
 
@@ -935,9 +976,21 @@ class WallpaperSourceOptionLabelTests(unittest.TestCase):
             ]
             return None  # 模拟用户取消
 
-        with patch("module.webui.app_home.input_group", fake_input_group), patch(
-            "module.webui.app_home.toast"
-        ):
+        # 弹窗方法会真实调用 pywebio 的 checkbox/radio/actions 构造器，其内部
+        # 走 get_session_implement()：无会话上下文时会把进程级全局表
+        # _active_session_cls 永久锁死为 ScriptModeSession，还会创建全局唯一的
+        # ScriptModeSession 实例（pywebio/session/__init__.py），后续所有
+        # asgi_app / tornado 类测试全部炸出「Already in script mode」或
+        # 「ScriptModeSession can only be created once」。
+        # 预置一个正式会话实现让列表非空，激活分支整体不走，测试退出后
+        # patch 自动还原原列表，污染不外泄。
+        from pywebio.session import ThreadBasedSession as _ThreadSession
+
+        with patch(
+            "pywebio.session._active_session_cls", [_ThreadSession]
+        ), patch(
+            "module.webui.app_home.input_group", fake_input_group
+        ), patch("module.webui.app_home.toast"):
             getattr(HomeMixin, method)(gui)
         return captured["inputs"]
 

@@ -177,7 +177,11 @@ select.form-control:focus,
 	background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2393c5fd' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") !important;
 }
 
-input[type="checkbox"]::before {
+/* 与主题侧同步并列 .form-check 前缀副本：主题的 ::before 白色旋钮已
+   提升到 0,2,1，这条暗色旋钮色若停留在裸选择器（0,1,1）会被反超，
+   暗色主题的开关旋钮会错回白色。 */
+input[type="checkbox"]::before,
+.form-check input[type="checkbox"]::before {
 	background-color: #dbeafe;
 }
 

@@ -785,7 +785,15 @@ select.form-control:focus,
 }
 
 /* --- 7.3 复选框（iOS 开关样式）--- */
-input[type="checkbox"] {
+/* 每条几何规则并列一条 .form-check 前缀副本（特异性 0,2,1）：基础
+   alas.css 用裸选择器把 checkbox 定成 1.25rem，一旦基础样式因会话
+   重建/重注入落到主题样式之后，同特异性「后者为准」，轨道会塌成
+   20px 圆、旋钮 translateX(25px) 平移到轨道外（暗色/透明高级材质
+   均复现）。前缀副本保证无论注入顺序如何，主题几何都压过基础规则；
+   不在 .form-check 里的自定义 checkbox 仍走原裸选择器，行为不变。 */
+input[type="checkbox"],
+.form-check input[type="checkbox"] {
+	flex-shrink: 0;
 	width: 50px;
 	height: 25px;
 	appearance: none;
@@ -805,7 +813,8 @@ input[type="checkbox"]:active {
 	transform: scale(0.98);
 }
 
-input[type="checkbox"]::before {
+input[type="checkbox"]::before,
+.form-check input[type="checkbox"]::before {
 	content: "";
 	position: absolute;
 	top: 2px;
@@ -818,11 +827,13 @@ input[type="checkbox"]::before {
 	transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-input[type="checkbox"]:checked {
+input[type="checkbox"]:checked,
+.form-check input[type="checkbox"]:checked {
 	background-color: var(--alas-toggle-bg-on);
 }
 
-input[type="checkbox"]:checked::before {
+input[type="checkbox"]:checked::before,
+.form-check input[type="checkbox"]:checked::before {
 	transform: translateX(25px);
 }
 
