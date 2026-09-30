@@ -35,12 +35,14 @@ from module.webui.app_dependencies import (
     put_error,
     put_html,
     put_input,
+    put_markdown,
     put_row,
     put_scope,
     put_select,
     put_text,
     put_warning,
     read_file,
+    run_js,
     t,
     task_priority_from_config,
     toast,
@@ -495,6 +497,149 @@ def app_manage(gui: "AlasGUI") -> None:
                     color="on",
                 )
 
+    @use_scope("content", clear=True)
+    def _show_export_data():
+        """管理菜单：导出数据（统计库 + 掉落记录，单个 zip）。
+
+        下载走 fetch → Blob → <a download>，与开发者工具页的日志导出同一模式：
+        PyWebIO 的 download() 会把文件字节塞进 UI 的 WebSocket，几十 MB 的统计
+        数据包在远控（P2P/SSH 隧道共享通道）下会撑爆积压上限被断连；走 HTTP
+        路由则与主会话解耦，远控下同样可用（鉴权沿用登录与隧道口令）。
+        """
+        with gui.render_lock:
+            gui.init_menu(name="ManageExportData", skip_clear=True)
+            gui.set_title(t("Gui.AppManage.ExportDataTitle"))
+            put_scope("manage_export_panel")
+            with use_scope("manage_export_panel"):
+                put_html(
+                    '<h2 class="alas-develop-section-title">'
+                    f"{t('Gui.AppManage.ExportDataTitle')}</h2>"
+                )
+                put_markdown(
+                    f"{t('Gui.AppManage.ExportDataHint')}\n\n"
+                    f"{t('Gui.AppManage.ExportDataContent')}\n\n"
+                    f"{t('Gui.AppManage.ExportDataRemote')}"
+                )
+                put_html(
+                    '<div class="log-export-panel"><div class="log-export-row">'
+                    f'<span id="data-export-size" class="deploy-setting-status">'
+                    f"{escape(t('Gui.AppManage.ExportDataChecking'))}</span>"
+                    '<button id="data-export-start" class="deploy-setting-button primary"'
+                    f' type="button">{escape(t("Gui.AppManage.ExportDataStart"))}</button>'
+                    "</div>"
+                    '<div id="data-export-status" class="deploy-setting-status"></div>'
+                    "</div>"
+                )
+                # 面板脚本不用 f-string：JS 的花括号很多，文案统一从 run_js kwargs 传入
+                run_js(
+                    r"""
+                (function(){
+                    var btn = document.getElementById('data-export-start');
+                    var sizeEl = document.getElementById('data-export-size');
+                    var statusEl = document.getElementById('data-export-status');
+                    if (!btn || !sizeEl || !statusEl) return;
+
+                    // 远控入口路径形如 /<8位以上小写字母数字>/...，与服务端 WebSocket
+                    // 采用同款前缀启发式（见开发者工具页日志导出的 apiCandidates）：
+                    // 带前缀优先，再退回根相对，两种部署都能命中
+                    function apiCandidates(path) {
+                        var list = [path];
+                        var parts = location.pathname.split('/').filter(Boolean);
+                        var first = parts.length ? parts[0] : '';
+                        if (/^[a-z0-9]{8,}$/.test(first)) list.unshift('/' + first + path);
+                        return list;
+                    }
+
+                    // 逐个候选尝试，取第一个 200；全失败时返回最后一个响应，
+                    // 交给调用方展示服务端返回的错误文案
+                    async function fetchFirst(path) {
+                        var lastResponse = null, lastError = null;
+                        var urls = apiCandidates(path);
+                        for (var i = 0; i < urls.length; i++) {
+                            try {
+                                var resp = await fetch(urls[i], {cache: 'no-store'});
+                                if (resp.ok) return resp;
+                                lastResponse = resp;
+                            } catch (err) { lastError = err; }
+                        }
+                        if (lastResponse) return lastResponse;
+                        throw lastError || new Error('network error');
+                    }
+
+                    function readError(resp) {
+                        return resp.json().then(function (data) {
+                            return data && data.error ? data.error : '';
+                        }).catch(function () { return ''; });
+                    }
+
+                    function rearm() { btn.disabled = false; }
+
+                    fetchFirst('/api/data/export/info').then(function (resp) {
+                        return resp.json();
+                    }).then(function (result) {
+                        if (result && result.success && result.data && result.data.files) {
+                            sizeEl.textContent = sizeText
+                                .replace('{files}', result.data.files)
+                                .replace('{size}', result.data.human_bytes);
+                        } else if (result && result.success && result.data) {
+                            btn.disabled = true;
+                            sizeEl.textContent = noFilesText;
+                        } else {
+                            sizeEl.textContent = infoFailedText;
+                        }
+                    }).catch(function (err) {
+                        sizeEl.textContent = infoFailedText + ' (' + err.message + ')';
+                    });
+
+                    btn.addEventListener('click', function () {
+                        btn.disabled = true;
+                        statusEl.textContent = packingText;
+                        fetchFirst('/api/data/export').then(function (resp) {
+                            if (!resp.ok) {
+                                return readError(resp).then(function (msg) {
+                                    statusEl.textContent = failedText + (msg ? msg : '(' + resp.status + ')');
+                                    rearm();
+                                });
+                            }
+                            return resp.blob().then(function (blob) {
+                                // 服务端给的文件名带日期；解析失败时退回固定名
+                                var name = 'AzurPilot-data.zip';
+                                var header = resp.headers.get('Content-Disposition');
+                                if (header) {
+                                    var star = header.match(/filename\*=(?:utf-8|UTF-8)''([^;]+)/);
+                                    if (star) {
+                                        try { name = decodeURIComponent(star[1]); }
+                                        catch (e) { name = star[1]; }
+                                    } else {
+                                        var plain = header.match(/filename="?([^";]+)"?/);
+                                        if (plain) name = plain[1];
+                                    }
+                                }
+                                var link = document.createElement('a');
+                                link.href = URL.createObjectURL(blob);
+                                link.download = name;
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                                setTimeout(function () { URL.revokeObjectURL(link.href); }, 60000);
+                                statusEl.textContent = startedText;
+                                rearm();
+                            });
+                        }).catch(function (err) {
+                            statusEl.textContent = failedText + err.message;
+                            rearm();
+                        });
+                    });
+                })();
+                """,
+                    sizeText=t("Gui.AppManage.ExportDataSize"),
+                    noFilesText=t("Gui.AppManage.ExportDataNoFiles"),
+                    infoFailedText=t("Gui.AppManage.ExportDataInfoFailed"),
+                    packingText=t("Gui.AppManage.ExportDataPacking"),
+                    startedText=t("Gui.AppManage.ExportDataStarted"),
+                    failedText=t("Gui.AppManage.ExportDataFailed"),
+                )
+
     with use_scope("menu", clear=True):
         put_button(
             t("Gui.AppManage.Name"),
@@ -517,6 +662,11 @@ def app_manage(gui: "AlasGUI") -> None:
             onclick=gui.ui_import_legacy,
             color="menu",
         ).style("--menu-ManageImportLegacy--")
+        put_button(
+            t("Gui.AppManage.ExportData"),
+            onclick=_show_export_data,
+            color="menu",
+        ).style("--menu-ManageExportData--")
 
     _show_legacy_import_result()
     _show_list()

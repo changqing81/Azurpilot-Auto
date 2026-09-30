@@ -44,6 +44,7 @@ from module.webui.deploy_settings import (
     save_deploy_settings,
     set_startup_run,
 )
+from module.webui.data_export import build_data_zip, describe_data_files
 from module.webui.launcher import is_local_request, launcher_control
 from module.webui.lang import t
 from module.webui.log_export import (
@@ -1908,6 +1909,46 @@ async def api_log_error_archive(request):
         )
 
 
+# 数据导出（统计库+掉落记录）当前约 30MB 原始体积，串行化避免远控并发重复打包
+_data_export_lock = asyncio.Lock()
+
+
+async def api_data_export_info(request):
+    """GET /api/data/export/info — 导出前统计数据体积，供界面展示真实大小。
+
+    与错误日志的 info 同一用意：远控下几十 MB 要传很久，先让用户看到
+    "有多少文件、多大"再决定。纯 path 无参数，远控代理剥 query 也不受影响。
+    """
+    data = await asyncio.to_thread(describe_data_files)
+    return JSONResponse({"success": True, "data": data})
+
+
+async def api_data_export(request):
+    """GET /api/data/export — 把统计数据（config/*.db、log/cl1、指挥喵 csv）打包成 zip 下载。
+
+    刻意不加 is_local_request 门禁：远控经 P2P/SSH 代理到 127.0.0.1，请求本就
+    "看似本地"，且备份/取走数据是远控刚需；鉴权沿用 WebUI 登录与隧道口令。
+    """
+    async with _data_export_lock:
+        try:
+            zip_path = await asyncio.to_thread(build_data_zip)
+        except FileNotFoundError as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=404)
+        except OSError as e:
+            logger.error(f"[WebUI] 打包数据失败: {e}")
+            return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+        logger.info(f"[WebUI] 数据已打包: {zip_path} ({format_bytes(zip_path.stat().st_size)})")
+        # 临时文件在响应发送完成后删除，不落在项目目录里
+        return FileResponse(
+            zip_path,
+            filename=f"AzurPilot-data-{today_str()}.zip",
+            media_type="application/zip",
+            headers={"Cache-Control": "no-store"},
+            background=BackgroundTask(zip_path.unlink, missing_ok=True),
+        )
+
+
 async def api_meowfficer_report(request):
     """GET /api/reports/meowfficer[?instance=] 或 /api/reports/meowfficer/<instance>
     打开「指挥喵评分」任务产出的 HTML 报告。
@@ -1995,6 +2036,9 @@ api_routes = [
     Route("/api/log/error/info", api_log_error_info),
     Route("/api/log/error/info/{scope}", api_log_error_info),
     Route("/api/log/error/{scope}", api_log_error_archive),
+    # 数据导出（统计库+掉落记录）：纯 path 无参数，远控代理剥掉 query 也不受影响
+    Route("/api/data/export/info", api_data_export_info),
+    Route("/api/data/export", api_data_export),
     # CSS 热更新指纹：供前端轮询，样式文件改动后原地刷新，无需手动刷新页面
     Route("/api/css-fingerprint", api_css_fingerprint),
     # 指挥喵评分 HTML 报告：同样给 path 形式，远控代理剥掉 query 也能打开

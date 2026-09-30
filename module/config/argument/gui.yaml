@@ -237,6 +237,19 @@ AppManage:
   StatusStopped:
   StatusError:
   StatusUpdating:
+  ExportData:
+  ExportDataTitle:
+  ExportDataHint:
+  ExportDataContent:
+  ExportDataRemote:
+  ExportDataChecking:
+  ExportDataSize:
+  ExportDataStart:
+  ExportDataPacking:
+  ExportDataStarted:
+  ExportDataNoFiles:
+  ExportDataInfoFailed:
+  ExportDataFailed:
 
 Update:
   UpToDate:
@@ -577,6 +590,7 @@ Stat:
   CommissionIncomeHeaderAvg:
   CommissionIncomeTotalCommissions:
   CommissionIncomeRecentTitle:
+  CommissionIncomeMonthPicker:
   DeltaPeriodDay:
   DeltaPeriodWeek:
   DeltaPeriodMonth:
