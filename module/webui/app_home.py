@@ -1142,6 +1142,10 @@ class HomeMixin(WebUIMixinBase):
         开关的勾选态**就等于「已启用」**（不是「勾选=取反」），提交后按勾选
         结果整体落盘。这样一屏就能把 N 个图源改完，也避免「开关是关的、
         但这个图源其实是启用的」这种反直觉语义。
+
+        选项里只列源名、不列 URL：URL 常含未编码的中文与 `|`，标签一长
+        前端就截断（历史故障为提交时整组 checkbox 丢失，pywebio 侧直接
+        KeyError），且源名已足够识别。
         """
         sources = self._load_sources()
         if not sources:
@@ -1155,10 +1159,7 @@ class HomeMixin(WebUIMixinBase):
                     name="enabled",
                     options=[
                         {
-                            "label": (
-                                f"{i + 1}. {s.get('name', '未命名')} "
-                                f"({s.get('url', '')})"
-                            ),
+                            "label": f"{i + 1}. {s.get('name') or '未命名'}",
                             "value": str(i),
                             "selected": bool(s.get("enabled", True)),
                         }
@@ -1235,8 +1236,9 @@ class HomeMixin(WebUIMixinBase):
                 _p_radio(
                     label="选择要删除的自定义图源",
                     name="index",
+                    # 同样只列源名：URL 过长会让选项文本被截断
                     options=[
-                        f"{i + 1}. {s.get('name', '未命名')} ({s.get('url', '')})"
+                        f"{i + 1}. {s.get('name') or '未命名'}"
                         for i, s in enumerate(removable)
                     ],
                     required=True,

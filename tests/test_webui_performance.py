@@ -898,6 +898,91 @@ class WallpaperBuiltinSourceTests(unittest.TestCase):
             self.assertIn(key, [s.get("key") for s in saved])
 
 
+class WallpaperSourceOptionLabelTests(unittest.TestCase):
+    """图源弹窗的选项标签不得包含完整 URL。
+
+    pywebio 的 checkbox/radio 选项文本过长会被前端截断，截断后勾选状态
+    无法回传，提交时整组字段缺失，pywebio 的 `input_event_handle` 用裸
+    下标 `event_data[name]` 取值直接抛 KeyError，整个「启用/禁用图源」
+    弹窗不可用。URL 里常含未编码中文与 `|`，是最常见的超长来源。
+    """
+
+    SOURCES = [
+        {
+            "type": "custom",
+            "name": "https://i.mukyu.ru/docs",
+            "url": "https://i.mukyu.ru/random?included_tags= 碧蓝航线|azurlane"
+            "&min_views=50&min_bookmarks=5&min_comments=1",
+            "params": {},
+            "image_path": "data[0].url",
+            "direct": True,
+            "enabled": True,
+        },
+        {"type": "custom", "url": "https://example.com/api", "enabled": False},
+    ]
+
+    def _capture_options(self, method, sources):
+        gui = SimpleNamespace()
+        gui._load_sources = lambda: [dict(s) for s in sources]
+        gui._refresh_random_wallpaper = lambda: None
+        captured = {}
+
+        def fake_input_group(label, inputs, **kwargs):
+            # pywebio 的 checkbox/radio 已是构造好的 dict，spec 藏在 item_spec 里
+            captured["inputs"] = [
+                i["item_spec"] if isinstance(i, dict) and "item_spec" in i else i
+                for i in inputs
+            ]
+            return None  # 模拟用户取消
+
+        with patch("module.webui.app_home.input_group", fake_input_group), patch(
+            "module.webui.app_home.toast"
+        ):
+            getattr(HomeMixin, method)(gui)
+        return captured["inputs"]
+
+    def test_toggle_options_exclude_url(self):
+        checkbox_spec = self._capture_options(
+            "_toggle_source_dialog", self.SOURCES
+        )[0]
+        self.assertEqual(checkbox_spec["name"], "enabled")
+        self.assertEqual(checkbox_spec["type"], "checkbox")
+        options = checkbox_spec["options"]
+        labels = [o["label"] for o in options]
+        self.assertEqual(labels, ["1. https://i.mukyu.ru/docs", "2. 未命名"])
+        for label in labels:
+            self.assertNotIn("i.mukyu.ru/random", label)
+            self.assertLess(len(label), 40)
+        # 勾选态必须等于「已启用」，而不是「勾选=取反」
+        self.assertEqual([o["selected"] for o in options], [True, False])
+
+    def test_remove_options_exclude_url(self):
+        radio_spec = self._capture_options(
+            "_remove_source_dialog", [dict(s) for s in self.SOURCES]
+        )[0]
+        self.assertEqual(radio_spec["type"], "radio")
+        options = radio_spec["options"]
+        labels = [o["label"] for o in options]
+        self.assertEqual(len(labels), len(self.SOURCES))
+        for label in labels:
+            self.assertNotIn("example.com", label)
+            self.assertLess(len(label), 40)
+
+    def test_builtin_source_urls_are_ascii_encoded(self):
+        """内置直链源 URL 必须是纯 ASCII：中文标签参数须百分号编码。
+
+        未编码的中文与 `|` 既是超长标签的来源，也会让部分反代/网关拒绝
+        解析该查询串。
+        """
+        from module.webui import app_home
+
+        for source in app_home._BUILTIN_SOURCES:
+            url = source["url"]
+            self.assertTrue(url.isascii(), f"{source['key']} 的 URL 含非 ASCII 字符")
+            # 裸 | 会被当作查询串分隔符，标签多值应编码为 %7C
+            self.assertNotIn("|", url)
+
+
 class LazyGroupAutoFillTests(unittest.TestCase):
     """首屏之后自动补齐懒渲染分组（用户反馈「非得我用手点吗」）。
 
