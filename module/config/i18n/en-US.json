@@ -3855,6 +3855,10 @@
       "name": "Push Cross-Month Daily Info",
       "help": "Push notifications when the cross-month daily finishes or fails, channels follow Opsi push settings."
     },
+    "StopAfterComplete": {
+      "name": "Stop After Complete",
+      "help": "Stop AzurPilot after the monthly cross-month daily task truly finishes (both daily missions and action point cleanup), so you can verify the game state before starting it manually. On failure it only stops for errors that need human handling (controlled by the Sensitive switch); disconnections, stuck screens and emulator offline are left to the scheduler to recover."
+    },
     "RehearsalDebug": {
       "name": "Rehearsal Request (Dev Tools)",
       "help": "Written by the cross-month rehearsal button on the developer tools page, reset to off after one run. Do not edit manually.",

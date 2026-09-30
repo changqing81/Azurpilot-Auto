@@ -4,7 +4,9 @@
 - 重置时间检测和倒计时管理
 - 重置前 10 分钟内的紧急操作
 - 跨月后复用月末清理循环消耗多余行动力（含塞壬要塞检查）
-- 失败时推送并自动交接，不再卡死等待人工
+- 完成后可选停止 AzurPilot 调度（StopAfterComplete），等待人工确认
+- 失败时按异常类型分流：环境类（掉线/卡死/模拟器离线）交给调度器自愈，
+  需要人工的错误按敏感任务开关决定停止调度还是自动交接
 
 继承自 OpsiScheduling：
 - 复用月末清理行动力循环（_run_month_end_cleanup_loop）
@@ -18,16 +20,77 @@ from datetime import timedelta
 from module.config.config import TaskEnd
 from module.config.time_source import now as current_time
 from module.config.utils import get_os_next_reset
-from module.exception import RequestHumanTakeover, ScriptEnd, ScriptError
+from module.exception import (EmulatorNotRunningError, GameBugError,
+                             GameNotRunningError, GamePageUnknownError,
+                             GameStuckError, GameTooManyClickError,
+                             RequestHumanTakeover, ScriptEnd, ScriptError)
 from module.logger import logger
+from module.notify import handle_notify, notify_webui
 from module.os_handler.action_point import ActionPointLimit
 from module.os.tasks.scheduling import OpsiScheduling
 
+# 环境类异常：被踢出游戏、掉线回登录页、画面卡死、模拟器离线、客户端 bug。
+# 这些调度器本来就能自愈（重开游戏 / 重启模拟器），跨月期间遇到不停止 AzurPilot。
+ENVIRONMENT_ERRORS = (
+    GameNotRunningError,
+    GamePageUnknownError,
+    GameStuckError,
+    GameTooManyClickError,
+    GameBugError,
+    EmulatorNotRunningError,
+)
+
 
 class OpsiCrossMonth(OpsiScheduling):
-    def os_cross_month_end(self):
+    def os_cross_month_end(self, halt=False):
+        """结束跨月每日任务：规划下次运行时间，可选在完成后停止调度器。
+
+        Args:
+            halt (bool): True 表示本次是真正跑完跨月每日，按
+                `StopAfterComplete` 开关停止 AzurPilot 等待人工确认。
+        """
         self.config.task_delay(target=get_os_next_reset() - timedelta(minutes=10))
+        if halt:
+            self._halt_scheduler(
+                title='[AzurPilot] 跨月每日完成，已停止运行',
+                content=(
+                    '跨月每日已完成（每日+ 与行动力清理均结束），按「完成后停止运行」开关停止 AzurPilot\n'
+                    f'下次计划运行时间: {get_os_next_reset() - timedelta(minutes=10)}\n'
+                    '请人工确认游戏状态与行动力消耗后手动启动。'
+                ),
+            )
         self.config.task_stop()
+
+    def _halt_scheduler(self, title, content):
+        """停止 AzurPilot 调度，与敏感任务失败时同一套收尾。
+
+        推送（首选项通道 + WebUI 弹窗）后直接结束进程，不做重启与恢复。
+        调度计划已由 `os_cross_month_end` 的 task_delay 落盘，重启后仍是下月重置前 10 分钟。
+        """
+        logger.error_context(
+            title=title,
+            reason='跨月每日任务按配置要求停止调度器，等待人工介入。',
+            impact='AzurPilot 将停止运行，不再执行后续任务，需要手动启动。',
+            action='确认游戏大世界状态与剩余行动力无误后，手动启动 AzurPilot。',
+            level=30,
+        )
+        try:
+            handle_notify(
+                self.config.Error_OnePushConfig,
+                title=title,
+                content=f"<{getattr(self.config, 'config_name', 'AzurPilot')}> {content}",
+            )
+        except Exception as e:
+            logger.warning(f'[跨月每日] 停止前推送异常: {e}')
+        try:
+            notify_webui(
+                getattr(self.config, 'config_name', 'AzurPilot'),
+                title='跨月每日已停止喵，请人工确认！',
+                content=content,
+            )
+        except Exception as e:
+            logger.warning(f'[跨月每日] 停止前 WebUI 通知异常: {e}')
+        exit(1)
 
     @contextmanager
     def _os_cross_month_guard(self):
@@ -103,24 +166,42 @@ class OpsiCrossMonth(OpsiScheduling):
             # 需要人工接管 / 开发期中断，保持原有语义
             raise
         except Exception as e:
-            # 跨月失败：推送并自动交接，不让异常触发 Sensitive 退出整个调度器
+            # 环境类异常（被踢出游戏 / 掉线 / 卡死 / 模拟器离线 / 客户端 bug）交给调度器自愈，
+            # 只有真正需要人工的错误才按敏感任务开关停止调度器
             logger.exception(e)
+            if (self._config_enabled(keys='OpsiCrossMonth.Scheduler.Sensitive')
+                    and not isinstance(e, ENVIRONMENT_ERRORS)):
+                # 先按失败交接口径规划下次运行时间再停止，避免重启后立刻重跑
+                self._delay_after_cross_month_failure()
+                self._halt_scheduler(
+                    title='[AzurPilot] 跨月每日失败，已停止运行',
+                    content=(
+                        '跨月每日执行出错，且该任务开启了敏感任务保护\n'
+                        f'原因: {type(e).__name__}: {e}\n'
+                        '请人工检查游戏状态后手动启动。'
+                    ),
+                )
             self._notify_cross_month_failed(e)
             self._cross_month_fail_handover()
 
     def _cross_month_fail_handover(self):
         """跨月失败后的交接：规划下次运行时间并结束本任务，交给调度器继续。"""
+        self._delay_after_cross_month_failure()
+        self.config.task_stop()
+
+    def _delay_after_cross_month_failure(self):
+        """按失败交接的口径规划下次跨月每日的运行时间。
+
+        已过重置（距下次重置超过 3 天）就排到下月重置前 10 分钟；
+        仍在等待窗口则推迟到重置后，由「超过 3 天」分支在下次执行时重新规划。
+        """
         next_reset = get_os_next_reset()
-        now = current_time()
-        if next_reset - now > timedelta(days=3):
-            # 重置已过，本次跨月已结束，直接规划到下月
+        if next_reset - current_time() > timedelta(days=3):
             logger.info('跨月每日失败交接：本次重置已过，规划到下月重置前 10 分钟')
-            self.os_cross_month_end()
+            self.config.task_delay(target=next_reset - timedelta(minutes=10))
         else:
-            # 仍在重置前等待窗口：推迟到重置后，由既有的"超过 3 天"分支规划到下月
             logger.info('跨月每日失败交接：仍在等待窗口，推迟到重置后再规划')
             self.config.task_delay(target=next_reset + timedelta(minutes=10))
-            self.config.task_stop()
 
     def os_cross_month_debug(self, skip_daily=False):
         """调试预演入口（由 module.debug.cross_month_debug 调用）。
@@ -222,7 +303,8 @@ class OpsiCrossMonth(OpsiScheduling):
 
         # 跨月每日完成后，清理多余行动力
         self._os_cross_month_clear_action_point()
-        self.os_cross_month_end()
+        halt = self._config_enabled(keys='OpsiCrossMonth.OpsiCrossMonth.StopAfterComplete')
+        self.os_cross_month_end(halt=halt)
 
     def _os_cross_month_clear_action_point(self, force=False):
         """跨月每日完成后，检查并清理多余行动力。

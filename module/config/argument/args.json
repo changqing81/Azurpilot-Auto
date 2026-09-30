@@ -14997,6 +14997,10 @@
         "type": "checkbox",
         "value": true
       },
+      "StopAfterComplete": {
+        "type": "checkbox",
+        "value": false
+      },
       "RehearsalDebug": {
         "type": "select",
         "value": "off",
