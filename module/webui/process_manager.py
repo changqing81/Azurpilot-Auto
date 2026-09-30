@@ -736,19 +736,28 @@ class ProcessManager:
             if ("Reason: Manual stop" in s) or ("原因: 手动停止" in s) or ("原因：手动停止" in s):
                 result = 2
             else:
+                # worker 退出日志存在全角（"原因：完成"，webui 版 run_process 打印）
+                # 与半角（"原因: 更新 | Reason: Update"，alas.py 打印）两种冒号写法，
+                # 判定必须同时覆盖，否则自然完成的实例全部误判为报错。
                 update_marker_hit = (
                     ("Reason: Update" in s)
                     or ("原因: 更新" in s)
+                    or ("原因：更新" in s)
                     or ("检测到更新事件" in s)
                 )
                 update_tail_hit = (
                     ("Reason: Update" in tail_text)
                     or ("原因: 更新" in tail_text)
+                    or ("原因：更新" in tail_text)
                     or ("检测到更新事件" in tail_text)
                 )
                 if update_marker_hit:
                     result = 4
-                elif ("Reason: Finish" in s) or ("原因: 完成" in s):
+                elif (
+                    ("Reason: Finish" in s)
+                    or ("原因: 完成" in s)
+                    or ("原因：完成" in s)
+                ):
                     # 在更新流程中，部分代码路径可能会在更新退出日志之后追加 "Finish"。
                     if update_tail_hit:
                         result = 4

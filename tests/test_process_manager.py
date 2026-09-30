@@ -559,3 +559,70 @@ class TestProcessManagerRegistry(unittest.TestCase):
                 thread.join(timeout=5)
 
         terminate.assert_called_once_with(process)
+
+
+class TestProcessManagerExitState(unittest.TestCase):
+    """_compute_state 依据尾部日志判定退出原因。
+
+    worker 退出日志存在全角（"原因：完成"，webui 版 run_process）与
+    半角（"原因: 更新 | Reason: Update"，alas.py 更新流程）两种冒号写法，
+    判定必须同时覆盖，否则自然完成的实例显示报错图标。
+    """
+
+    def setUp(self):
+        self.original_manager = State.manager
+        self.original_processes = ProcessManager._processes
+        State.manager = Mock()
+        State.manager.Queue.return_value = Mock()
+        ProcessManager._processes = {}
+
+    def tearDown(self):
+        State.manager = self.original_manager
+        ProcessManager._processes = self.original_processes
+
+    def _make_manager(self, tail_text):
+        from rich.text import Text
+
+        manager = ProcessManager.get_manager("alas")
+        manager._state_override = None
+        manager._state_override_deadline = None
+        manager._state_cache = None
+        manager._state_renderables_key = None
+        manager._state_renderables_value = 0
+        manager.renderables = [Text(tail_text)]
+        return manager
+
+    def _compute_state_with_dead_worker(self, tail_text):
+        manager = self._make_manager(tail_text)
+        with patch.object(
+            ProcessManager, "alive", new_callable=PropertyMock, return_value=False
+        ):
+            return manager._compute_state()
+
+    def test_fullwidth_finish_marker_is_not_error(self):
+        state = self._compute_state_with_dead_worker("[alas] 已退出。原因：完成")
+        self.assertEqual(state, 2)
+
+    def test_english_finish_marker_is_not_error(self):
+        state = self._compute_state_with_dead_worker("[alas] exited. Reason: Finish")
+        self.assertEqual(state, 2)
+
+    def test_manual_stop_marker_is_not_error(self):
+        state = self._compute_state_with_dead_worker(
+            "[alas] exited. Reason: Manual stop"
+        )
+        self.assertEqual(state, 2)
+
+    def test_fullwidth_update_marker_is_update(self):
+        state = self._compute_state_with_dead_worker("[alas] 已退出。原因：更新")
+        self.assertEqual(state, 4)
+
+    def test_bilingual_update_marker_is_update(self):
+        state = self._compute_state_with_dead_worker(
+            "[alas] [alas] 已退出。原因: 更新 | Reason: Update"
+        )
+        self.assertEqual(state, 4)
+
+    def test_unrecognized_tail_is_error(self):
+        state = self._compute_state_with_dead_worker("[alas] Traceback ...")
+        self.assertEqual(state, 3)
