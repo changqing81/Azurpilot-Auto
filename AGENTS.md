@@ -557,6 +557,20 @@ server.server = 'en'
 
 ---
 
+## frontend/（上游 React 前端，本地不使用）
+
+`frontend/`（React + TS，含其配套的 `module/api/`、`deploy/frontend.py`、
+`tests/serve_frontend.py`、`tests/test_api.py`）是**从上游 fork 拉取提交时附带
+下来的**，本地**没有任何功能依赖它**（2026-09-30 用户定调）：
+
+- 本地 GUI 一律是 `gui.py` + `module/webui/` 的 **PyWebIO 版**；修改 GUI / WebUI
+  相关功能时，**只改 PyWebIO 版**，不要在 `frontend/` 里写代码
+- 从上游 cherry-pick GUI 相关提交时，其改动对象是上游的 React 前端，对本地
+  完全无用——相关 hunk 一律不搬；上游修的 GUI bug 若本地同样存在，在
+  PyWebIO 侧单独实现同效修复（详见 `.agent/COMMIT-PROTOCOL.md` §1.2）
+
+---
+
 ## 测试
 
 - **单元测试**：`tests/` 目录，285 个测试，全量运行约 7-10 秒：
