@@ -267,6 +267,12 @@ class TestDataExportApi(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name)
+        # 实例白名单来自开发机 config/*.json；CI 干净环境没有 alas.json，
+        # "alas" 会被 validate_instance 拒成 400。固定为测试实例消除环境差异
+        # （validate_instance 对 alas_instance 是惰性导入，patch 即生效）
+        instance_patcher = patch("module.config.utils.alas_instance", return_value=["alas"])
+        instance_patcher.start()
+        self.addCleanup(instance_patcher.stop)
         self.client = TestClient(build_data_app())
 
     def tearDown(self):
