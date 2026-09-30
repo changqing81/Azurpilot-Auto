@@ -37,7 +37,13 @@ class _PageHarness(StatisticsPageMixin):
 
 class _StatMonthTestCase(unittest.TestCase):
     def setUp(self):
+        # close_popup 必须打桩：它是 pywebio 的会话指令，没有活动会话时
+        # 会抛 SessionNotFoundException（全量 discover 下必然复现，
+        # 单独跑一个文件反而可能被别的测试残留的会话掩盖）。
+        self.close_popup = patch("module.webui.app_statistics_page.close_popup")
+        self.close_popup_mock = self.close_popup.start()
         self.patches = (
+            self.close_popup,
             patch(
                 "module.webui.app_statistics_page.current_time",
                 return_value=NOW,
@@ -47,7 +53,7 @@ class _StatMonthTestCase(unittest.TestCase):
                 side_effect=lambda key, **kwargs: key,
             ),
         )
-        for active_patch in self.patches:
+        for active_patch in self.patches[1:]:
             active_patch.start()
 
     def tearDown(self):
@@ -185,6 +191,8 @@ class TestStatMonthSwitch(_StatMonthTestCase):
         self.assertEqual(
             [("ap_chart", False), ("opsi_month_view", None)], gui.rendered
         )
+        # 选完要关掉选择器弹窗，否则它会一直挂在页面上
+        self.assertEqual(1, self.close_popup_mock.call_count)
 
     def test_back_to_current_month(self):
         gui = _PageHarness()
