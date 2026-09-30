@@ -6798,13 +6798,16 @@
       "ExportDataContent": "**匯出內容**\n\n- `config/` 下的統計資料庫（AzurStats、資源增減、每日總結等）\n- `log/cl1/` 下各實例的掉落記錄\n- `log/azurstat_meowofficer_farming.csv`（指揮喵養成統計）\n\n> 配置檔案不在此包內：請在實例卡片上點「匯出」單獨下載。",
       "ExportDataRemote": "> 遠控（P2P/SSH 隧道）下同樣可以下載；鏈路頻寬較低時傳輸較慢，但下載走獨立通道，不會卡住頁面。",
       "ExportDataChecking": "正在統計資料體積…",
-      "ExportDataSize": "共 {files} 個檔案，原始大小約 {size}（壓縮後會更小）",
+      "ExportDataSize": "共 {{files}} 個檔案，原始大小約 {{size}}（壓縮後會更小）",
       "ExportDataStart": "打包並下載",
       "ExportDataPacking": "正在打包…",
       "ExportDataStarted": "已開始下載",
       "ExportDataNoFiles": "沒有可匯出的資料",
       "ExportDataInfoFailed": "無法統計資料體積",
-      "ExportDataFailed": "匯出失敗："
+      "ExportDataFailed": "匯出失敗：",
+      "ExportDataScopeLabel": "匯出範圍",
+      "ExportDataScopeAll": "全部資料（可被「匯入舊資料」還原）",
+      "ExportDataFilteredHint": "選擇單一實例時，只打包該實例的掉落記錄與統計資料庫中該實例的記錄（無實例維度的全域表除外），包體更小；全部資料則與「匯入舊資料」的格式完全對應。"
     },
     "Update": {
       "UpToDate": "已是最新版本",

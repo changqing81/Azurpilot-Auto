@@ -6798,13 +6798,16 @@
       "ExportDataContent": "**Contents**\n\n- Statistics databases under `config/` (AzurStats, resource delta, daily summary, etc.)\n- Drop records of each instance under `log/cl1/`\n- `log/azurstat_meowofficer_farming.csv` (meowfficer farming statistics)\n\n> Configuration files are not included: use the \"Export\" button on each instance card instead.",
       "ExportDataRemote": "> Also available through remote access (P2P/SSH tunnel); transfers may be slow on low-bandwidth links, but the download runs on a separate channel and never blocks the page.",
       "ExportDataChecking": "Measuring data size…",
-      "ExportDataSize": "{files} files, about {size} raw (smaller after compression)",
+      "ExportDataSize": "{{files}} files, about {{size}} raw (smaller after compression)",
       "ExportDataStart": "Pack and download",
       "ExportDataPacking": "Packing…",
       "ExportDataStarted": "Download started",
       "ExportDataNoFiles": "No data to export",
       "ExportDataInfoFailed": "Unable to measure data size",
-      "ExportDataFailed": "Export failed: "
+      "ExportDataFailed": "Export failed: ",
+      "ExportDataScopeLabel": "Scope",
+      "ExportDataScopeAll": "All data (restorable via \"Import old data\")",
+      "ExportDataFilteredHint": "For a single instance, only its drop records and its rows in the statistics databases are packed (global tables without an instance column are kept as-is), so the archive is much smaller. \"All data\" matches the \"Import old data\" layout exactly."
     },
     "Update": {
       "UpToDate": "Already the latest version",

@@ -6798,13 +6798,16 @@
       "ExportDataContent": "**导出内容**\n\n- `config/` 下的统计数据库（AzurStats、资源增减、每日总结等）\n- `log/cl1/` 下各实例的掉落记录\n- `log/azurstat_meowofficer_farming.csv`（指挥喵养成统计）\n\n> 配置文件不在此包内：请在实例卡片上点「导出」单独下载。",
       "ExportDataRemote": "> 远控（P2P/SSH 隧道）下同样可以下载；链路带宽较低时传输较慢，但下载走独立通道，不会卡住页面。",
       "ExportDataChecking": "正在统计数据体积…",
-      "ExportDataSize": "共 {files} 个文件，原始大小约 {size}（压缩后会更小）",
+      "ExportDataSize": "共 {{files}} 个文件，原始大小约 {{size}}（压缩后会更小）",
       "ExportDataStart": "打包并下载",
       "ExportDataPacking": "正在打包…",
       "ExportDataStarted": "已开始下载",
       "ExportDataNoFiles": "没有可导出的数据",
       "ExportDataInfoFailed": "无法统计数据体积",
-      "ExportDataFailed": "导出失败："
+      "ExportDataFailed": "导出失败：",
+      "ExportDataScopeLabel": "导出范围",
+      "ExportDataScopeAll": "全部数据（可被「导入旧数据」还原）",
+      "ExportDataFilteredHint": "选择单个实例时，只打包该实例的掉落记录与统计库中该实例的记录（无实例维度的全局表除外），包体更小；全部数据则与「导入旧数据」的格式完全对应。"
     },
     "Update": {
       "UpToDate": "已是最新版本",

@@ -6798,13 +6798,16 @@
       "ExportDataContent": "**エクスポート内容**\n\n- `config/` の統計データベース（AzurStats、資源増減、デイリーまとめなど）\n- `log/cl1/` の各インスタンスのドロップ記録\n- `log/azurstat_meowofficer_farming.csv`（指揮喵育成統計）\n\n> 設定ファイルは含まれません。インスタンスカードの「エクスポート」から個別にダウンロードしてください。",
       "ExportDataRemote": "> リモートアクセス（P2P/SSH トンネル）でもダウンロードできます。回線が遅いと時間がかかりますが、ダウンロードは独立したチャンネルを使うためページは固まりません。",
       "ExportDataChecking": "データサイズを計測中…",
-      "ExportDataSize": "{files} ファイル、容量約 {size}（圧縮後はさらに小さくなります）",
+      "ExportDataSize": "{{files}} ファイル、容量約 {{size}}（圧縮後はさらに小さくなります）",
       "ExportDataStart": "まとめてダウンロード",
       "ExportDataPacking": "パック中…",
       "ExportDataStarted": "ダウンロードを開始しました",
       "ExportDataNoFiles": "エクスポートできるデータがありません",
       "ExportDataInfoFailed": "データサイズを計測できません",
-      "ExportDataFailed": "エクスポート失敗："
+      "ExportDataFailed": "エクスポート失敗：",
+      "ExportDataScopeLabel": "エクスポート範囲",
+      "ExportDataScopeAll": "全部データ（「旧データをインポート」で復元可能）",
+      "ExportDataFilteredHint": "単一インスタンスを選ぶと、そのインスタンスのドロップ記録と統計データベース内の該当レコードだけをパックします（instance 列のないグローバルテーブルはそのまま）。「全部データ」は「旧データをインポート」の形式と完全に対応します。"
     },
     "Update": {
       "UpToDate": "すでに最新バージョン",

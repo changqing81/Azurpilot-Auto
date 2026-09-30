@@ -499,12 +499,13 @@ def app_manage(gui: "AlasGUI") -> None:
 
     @use_scope("content", clear=True)
     def _show_export_data():
-        """管理菜单：导出数据（统计库 + 掉落记录，单个 zip）。
+        """管理菜单：导出数据（统计库 + 掉落记录，单个 zip，可选全部或单实例）。
 
         下载走 fetch → Blob → <a download>，与开发者工具页的日志导出同一模式：
         PyWebIO 的 download() 会把文件字节塞进 UI 的 WebSocket，几十 MB 的统计
         数据包在远控（P2P/SSH 隧道共享通道）下会撑爆积压上限被断连；走 HTTP
         路由则与主会话解耦，远控下同样可用（鉴权沿用登录与隧道口令）。
+        导出范围（全部 / 单实例）只放 path（P2P 代理会剥 query string）。
         """
         with gui.render_lock:
             gui.init_menu(name="ManageExportData", skip_clear=True)
@@ -518,10 +519,20 @@ def app_manage(gui: "AlasGUI") -> None:
                 put_markdown(
                     f"{t('Gui.AppManage.ExportDataHint')}\n\n"
                     f"{t('Gui.AppManage.ExportDataContent')}\n\n"
+                    f"{t('Gui.AppManage.ExportDataFilteredHint')}\n\n"
                     f"{t('Gui.AppManage.ExportDataRemote')}"
+                )
+                # 导出范围下拉：服务端按当前实例列表渲染（all + 各实例）
+                instance_options = "".join(
+                    f'<option value="{escape(name)}">{escape(name)}</option>'
+                    for name in alas_instance()
                 )
                 put_html(
                     '<div class="log-export-panel"><div class="log-export-row">'
+                    f'<label class="log-export-instance">{escape(t("Gui.AppManage.ExportDataScopeLabel"))}'
+                    '<select id="data-export-instance" class="deploy-setting-select">'
+                    f'<option value="all" selected>{escape(t("Gui.AppManage.ExportDataScopeAll"))}</option>'
+                    f"{instance_options}</select></label>"
                     f'<span id="data-export-size" class="deploy-setting-status">'
                     f"{escape(t('Gui.AppManage.ExportDataChecking'))}</span>"
                     '<button id="data-export-start" class="deploy-setting-button primary"'
@@ -537,7 +548,8 @@ def app_manage(gui: "AlasGUI") -> None:
                     var btn = document.getElementById('data-export-start');
                     var sizeEl = document.getElementById('data-export-size');
                     var statusEl = document.getElementById('data-export-status');
-                    if (!btn || !sizeEl || !statusEl) return;
+                    var sel = document.getElementById('data-export-instance');
+                    if (!btn || !sizeEl || !statusEl || !sel) return;
 
                     // 远控入口路径形如 /<8位以上小写字母数字>/...，与服务端 WebSocket
                     // 采用同款前缀启发式（见开发者工具页日志导出的 apiCandidates）：
@@ -574,27 +586,38 @@ def app_manage(gui: "AlasGUI") -> None:
 
                     function rearm() { btn.disabled = false; }
 
-                    fetchFirst('/api/data/export/info').then(function (resp) {
-                        return resp.json();
-                    }).then(function (result) {
-                        if (result && result.success && result.data && result.data.files) {
-                            sizeEl.textContent = sizeText
-                                .replace('{files}', result.data.files)
-                                .replace('{size}', result.data.human_bytes);
-                        } else if (result && result.success && result.data) {
-                            btn.disabled = true;
-                            sizeEl.textContent = noFilesText;
-                        } else {
-                            sizeEl.textContent = infoFailedText;
-                        }
-                    }).catch(function (err) {
-                        sizeEl.textContent = infoFailedText + ' (' + err.message + ')';
-                    });
+                    // 导出范围只放 path（远控代理剥 query string）；all 与实例名同形
+                    function scopeUrl(suffix) {
+                        return '/api/data/export/' + encodeURIComponent(sel.value) + suffix;
+                    }
+
+                    function loadInfo() {
+                        fetchFirst(scopeUrl('/info')).then(function (resp) {
+                            return resp.json();
+                        }).then(function (result) {
+                            if (result && result.success && result.data && result.data.files) {
+                                sizeEl.textContent = sizeText
+                                    .replace('{files}', result.data.files)
+                                    .replace('{size}', result.data.human_bytes);
+                                btn.disabled = false;
+                            } else if (result && result.success && result.data) {
+                                btn.disabled = true;
+                                sizeEl.textContent = noFilesText;
+                            } else {
+                                sizeEl.textContent = infoFailedText;
+                            }
+                        }).catch(function (err) {
+                            sizeEl.textContent = infoFailedText + ' (' + err.message + ')';
+                        });
+                    }
+
+                    sel.addEventListener('change', loadInfo);
+                    loadInfo();
 
                     btn.addEventListener('click', function () {
                         btn.disabled = true;
                         statusEl.textContent = packingText;
-                        fetchFirst('/api/data/export').then(function (resp) {
+                        fetchFirst(scopeUrl('')).then(function (resp) {
                             if (!resp.ok) {
                                 return readError(resp).then(function (msg) {
                                     statusEl.textContent = failedText + (msg ? msg : '(' + resp.status + ')');
@@ -602,7 +625,7 @@ def app_manage(gui: "AlasGUI") -> None:
                                 });
                             }
                             return resp.blob().then(function (blob) {
-                                // 服务端给的文件名带日期；解析失败时退回固定名
+                                // 服务端给的文件名带日期与范围；解析失败时退回固定名
                                 var name = 'AzurPilot-data.zip';
                                 var header = resp.headers.get('Content-Disposition');
                                 if (header) {

@@ -250,6 +250,9 @@ AppManage:
   ExportDataNoFiles:
   ExportDataInfoFailed:
   ExportDataFailed:
+  ExportDataScopeLabel:
+  ExportDataScopeAll:
+  ExportDataFilteredHint:
 
 Update:
   UpToDate:
