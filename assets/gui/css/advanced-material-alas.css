@@ -1654,6 +1654,15 @@ button[style*="--menu-Overview--"] {
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 	}
+
+	/* 加载圈豁免：上方通配规则会把页眉运行状态圈压成 0.01ms × 1 次，
+	   动画瞬间播完停在最终帧，视觉上是一个静止圆环，运行中状态无法辨识。
+	   对齐 Bootstrap 自带 reduced-motion 行为（减速到 1.5s，不禁用）。 */
+	.spinner-border,
+	.spinner-grow {
+		animation-duration: 1.5s !important;
+		animation-iteration-count: infinite !important;
+	}
 }
 
 /* --- 统计页资源增减视图（--rd-*）：跟随高级材质卡片，暗色由覆盖层变量自动生效 --- */
