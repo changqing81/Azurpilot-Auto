@@ -2121,6 +2121,7 @@
       "Sensitive": false
     },
     "Research": {
+      "BatchMode": false,
       "UseCube": "only_05_hour",
       "UseCoin": "always_use",
       "UsePart": "always_use",

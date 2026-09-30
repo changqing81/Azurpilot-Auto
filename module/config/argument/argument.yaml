@@ -830,6 +830,7 @@ AddNewStudent:
   Favorite: false
   MinLevel: 50
 Research:
+  BatchMode: false
   UseCube:
     value: only_05_hour
     option: [always_use, only_05_hour, only_no_project, do_not_use]

@@ -27,17 +27,64 @@ from module.base.utils import rgb2gray
 from module.config.time_source import now as current_time
 from module.exception import GameTooManyClickError
 from module.logger import logger
-from module.ocr.ocr import Duration
+from module.ocr.ocr import Ocr
 from module.research.assets import *
 from module.research.project import get_research_finished
-from module.research.rqueue import ResearchQueue
+from module.research.rqueue import ResearchQueue, parse_display_time
 from module.research.selector import RESEARCH_ENTRANCE, ResearchSelector
 from module.storage.storage import StorageHandler
 from module.ui.assets import RESEARCH_CHECK
 from module.ui.page import page_research
 
-OCR_DURATION = Duration(RESEARCH_LAB_DURATION_REMAIN, letter=(255, 255, 255), threshold=64,
-                        name='RESEARCH_LAB_DURATION_REMAIN')
+# 第 6 个项目（队列外，主页面中位卡片）的显示时长，双通道识别，原理同 OCR_QUEUE_TIME_*
+OCR_SIXTH_TIME_BRIGHT = Ocr(RESEARCH_LAB_DURATION_REMAIN, letter=(255, 255, 255), threshold=128,
+                            alphabet='0123456789:IDSB', name='OCR_SIXTH_TIME_BRIGHT')
+OCR_SIXTH_TIME_DIM = Ocr(RESEARCH_LAB_DURATION_REMAIN, letter=(255, 255, 255), threshold=280,
+                         alphabet='0123456789:IDSB', name='OCR_SIXTH_TIME_DIM')
+
+
+def batch_all_completed(times, sixth):
+    """
+    判断批量模式的收获时机是否到来。
+
+    Args:
+        times (list[timedelta | None]): 队列 5 槽的显示时长（get_queue_display_times 的返回值）。
+        sixth (timedelta | None): 第 6 个项目的显示时长（get_sixth_display_time 的返回值）。
+
+    Returns:
+        bool: True 表示全部完成（无任何正时长），可以一次性收取。
+    """
+    for time in times:
+        if time is not None and time.total_seconds() > 0:
+            return False
+    if sixth is not None and sixth.total_seconds() > 0:
+        return False
+    return True
+
+
+def batch_total_remaining(times, sixth):
+    """
+    计算批量模式距全部完成的剩余总时长。
+
+    队列按 FIFO 顺序执行：队首显示剩余倒计时，等待槽显示项目总时长，
+    已完成槽显示 0，非空值相加恰为管线剩余总时长，与槽位顺序无关；
+    第 6 个项目排在队尾（等待队列腾出后补位），其显示时长同样累加。
+    若游戏实际并行执行导致估计偏差，下一轮调度重新快照即可自愈。
+
+    Args:
+        times (list[timedelta | None]): 队列 5 槽的显示时长，None 为空槽。
+        sixth (timedelta | None): 第 6 个项目的显示时长，None 为不存在。
+
+    Returns:
+        timedelta: 剩余总时长（可能为 0）。
+    """
+    total = timedelta()
+    for time in times:
+        if time is not None:
+            total += time
+    if sixth is not None:
+        total += sixth
+    return total
 
 
 class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
@@ -56,6 +103,11 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
     4. 领取第 6 个（队列外）项目的奖励
     5. 循环填充队列直到 5 个槽位用满
     6. 计算下次调度时间
+
+    批量模式（Research_BatchMode）下流程改为：
+    全部科研项目完成后才一次性收取（队列 5 槽 + 第 6 个），
+    再一次性填满 6 个；NextRun 由逐槽显示时长求和精确推算，
+    过渡态（用户手动加入/收取项目）下逐轮重新快照自然收敛。
 
     Attributes:
         _research_project_offset (int): 项目列表在屏幕上的偏移量，
@@ -557,9 +609,14 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         else:
             return False
 
-    def research_fill_queue(self):
+    def research_fill_queue(self, include_sixth=True):
         """
         持续选择科研项目直到队列填满。
+
+        Args:
+            include_sixth (bool): 是否处理第 6 个项目（队列外）。
+                批量模式过渡态（未全部完成时的补位）必须为 False，
+                避免在已完成未收取的第 6 个项目上覆盖启动新项目。
 
         Returns:
             int: 加入队列的科研项目数量
@@ -584,12 +641,15 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
                     break
 
             # 运行第 6 个项目
-            status = self.get_research_status(self.device.image)
-            if 'waiting' not in status:
-                logger.info('[科研-第6个] 选择第6个科研')
-                self.research_queue_append(drop=drop, add_queue=False)
+            if include_sixth:
+                status = self.get_research_status(self.device.image)
+                if 'waiting' not in status:
+                    logger.info('[科研-第6个] 选择第6个科研')
+                    self.research_queue_append(drop=drop, add_queue=False)
+                else:
+                    logger.info('[科研-第6个] 第6个科研已在等待中')
             else:
-                logger.info('[科研-第6个] 第6个科研已在等待中')
+                logger.info('[科研-队列] 跳过第 6 个项目（批量模式过渡态）')
 
             logger.info(f'[科研-队列] 科研队列已填满，已添加: {total}')
             return total
@@ -683,6 +743,100 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         logger.info('[科研-T系列] T类科研正在队列外运行')
         return False
 
+    def get_sixth_display_time(self):
+        """
+        识别第 6 个项目（队列外，主页面中位卡片）的显示时长。
+
+        存在性由模板状态判定（等待/运行中）或完成状态灯判定，
+        避免 5 张卡片全是研发选项时误读选项卡的时长。
+
+        Returns:
+            timedelta | None: 等待中=项目总时长，进行中=剩余倒计时，已完成=0；
+                无第 6 个项目（或识别失败）返回 None。
+                识别失败按不存在处理，下一轮调度重新快照即可自愈。
+
+        Pages:
+            in: is_in_research
+        """
+        status = self.get_research_status(self.device.image)
+        if 'waiting' in status or 'running' in status:
+            time = parse_display_time(OCR_SIXTH_TIME_BRIGHT.ocr(self.device.image))
+            if time is None:
+                time = parse_display_time(OCR_SIXTH_TIME_DIM.ocr(self.device.image))
+            return time
+        if self.research_has_finished():
+            return timedelta(0)
+        return None
+
+    def _batch_ready(self):
+        """
+        判断批量模式的收获时机是否到来。
+
+        Returns:
+            bool: True 表示队列 5 槽与第 6 个项目全部完成（或空置）。
+
+        Pages:
+            in: is_in_research
+        """
+        self.queue_enter()
+        times = self.get_queue_display_times()
+        self.queue_quit()
+        sixth = self.get_sixth_display_time()
+        ready = batch_all_completed(times, sixth)
+        logger.attr('科研-批量收获时机', ready)
+        return ready
+
+    def _batch_schedule(self):
+        """
+        批量模式调度：NextRun = 全部完成的预计时间 + 3 分钟余量。
+
+        队列与第 6 个全空（填充失败、无可用项目等）时推迟到服务器刷新。
+
+        Pages:
+            in: is_in_research
+        """
+        self.queue_enter()
+        times = self.get_queue_display_times()
+        self.queue_quit()
+        sixth = self.get_sixth_display_time()
+        total = batch_total_remaining(times, sixth)
+        logger.attr('科研-批量剩余总时长', total)
+        if total > timedelta(0):
+            self.config.task_delay(target=current_time() + total + timedelta(minutes=3))
+        else:
+            self.config.task_delay(server_update=True)
+
+    def _run_batch(self):
+        """
+        批量模式主流程：全部科研完成后一次性收取，再一次性填满 6 个。
+
+        收获时机由逐槽显示时长判定（不依赖项目身份），
+        用户手动加入项目、手动收取部分项目均可在下一轮快照中自然收敛。
+
+        Pages:
+            in: page_research
+            out: page_research
+        """
+        logger.hr('科研批量模式', level=1)
+        # research_delay_check 在填充过程中可能访问 end_time，批量模式未经过
+        # 单槽调度赋值，这里置为当前时间以保证资源不足延迟判断可用
+        self.end_time = current_time()
+
+        if self._batch_ready():
+            # 全部完成：一次性收光，再一次性填满
+            self.queue_enter()
+            self.queue_receive()
+            self.queue_quit()
+            if self.handle_pending_t_research():
+                self.receive_6th_research()
+                self.research_fill_queue()
+        else:
+            # 未全部完成：不收取（保证一次性收完），仅补满空槽；
+            # 第 6 个槽留待批量收取，避免覆盖已完成未收的项目
+            self.research_fill_queue(include_sixth=False)
+
+        self._batch_schedule()
+
     def run(self):
         """
         Pages:
@@ -691,6 +845,10 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
                     or page_main
         """
         self.ui_ensure(page_research)
+
+        if self.config.Research_BatchMode:
+            self._run_batch()
+            return
 
         # 检查队列
         self.queue_enter()

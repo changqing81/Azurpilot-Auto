@@ -406,6 +406,7 @@ class GeneratedConfig:
     AddNewStudent_MinLevel = 50
 
     # 配置组 `Research`
+    Research_BatchMode = False
     Research_UseCube = 'only_05_hour'  # always_use, only_05_hour, only_no_project, do_not_use
     Research_UseCoin = 'always_use'  # always_use, only_05_hour, only_no_project, do_not_use
     Research_UsePart = 'always_use'  # always_use, only_05_hour, only_no_project, do_not_use

@@ -3,7 +3,7 @@
 
 本模块管理科研系统的队列功能，包括：
 - 将已启动的科研项目添加到队列
-- 检测队列中各槽位的状态（已完成/运行中/等待中/空）
+- 逐槽识别队列页卡片的显示时长（批量模式的基础原语）
 - 领取队列中已完成项目的奖励
 - 获取队列中第一个项目的剩余时间和预计完成时间
 
@@ -12,19 +12,52 @@
 
 术语对照：
     科研队列(Research Queue): 最多容纳 5 个排队项目的队列
-    槽位(Slot): 队列中的位置，从下到上编号 0-4
+    卡片(Card): 队列页从左到右排列的 5 张项目卡片，左起第 1 张为队首
 """
+import re
+from datetime import timedelta
+
 from module.base.button import ButtonGrid
 from module.base.decorator import cached_property, Config
 from module.base.utils import get_color
 from module.config.time_source import now as current_time
 from module.exception import GameBugError
 from module.logger import logger
-from module.ocr.ocr import Duration
+from module.ocr.ocr import Duration, Ocr
 from module.research.assets import *
 from module.research.ui import ResearchUI
 
 OCR_QUEUE_REMAIN = Duration(QUEUE_REMAIN, letter=(255, 255, 255), threshold=128, name='OCR_QUEUE_REMAIN')
+
+# 队列页逐槽显示时长，双通道识别：
+# 进行中/已完成卡片的数字为亮白色（亮通道 threshold=128 即可提取），
+# 等待中卡片的数字被 50% 黑色遮罩压暗（min 通道恒为 127），需要暗通道（threshold=280）提取。
+# 单一阈值在数学上无解：亮卡片的背景会混入暗通道，暗数字会漏出亮通道。
+OCR_QUEUE_TIME_BRIGHT = Ocr([QUEUE_TIME_1, QUEUE_TIME_2, QUEUE_TIME_3, QUEUE_TIME_4, QUEUE_TIME_5],
+                            letter=(255, 255, 255), threshold=128, alphabet='0123456789:IDSB',
+                            name='OCR_QUEUE_TIME_BRIGHT')
+OCR_QUEUE_TIME_DIM = Ocr([QUEUE_TIME_1, QUEUE_TIME_2, QUEUE_TIME_3, QUEUE_TIME_4, QUEUE_TIME_5],
+                         letter=(255, 255, 255), threshold=280, alphabet='0123456789:IDSB',
+                         name='OCR_QUEUE_TIME_DIM')
+
+
+def parse_display_time(text):
+    """
+    解析卡片显示的时长文本（如 `02:25:57`）。
+
+    Args:
+        text (str): OCR 原始文本，可能为空串或噪声。
+
+    Returns:
+        timedelta | None: 解析成功返回时长；空槽或无法解析的噪声返回 None。
+    """
+    text = text.replace('I', '1').replace('D', '0').replace('S', '5').replace('B', '8')
+    result = re.search(r'(\d{1,2}):(\d{2}):(\d{2})', text)
+    if result:
+        hour, minute, second = [int(v) for v in result.groups()]
+        if minute < 60 and second < 60:
+            return timedelta(hours=hour, minutes=minute, seconds=second)
+    return None
 
 
 class ResearchQueue(ResearchUI):
@@ -198,3 +231,29 @@ class ResearchQueue(ResearchUI):
         end_time = current_time() + OCR_QUEUE_REMAIN.ocr(self.device.image)
         logger.info(f'[科研-队列] 第一个科研结束时间: {end_time}')
         return end_time
+
+    def get_queue_display_times(self):
+        """
+        逐槽识别队列页 5 张卡片的显示时长。
+
+        每个槽位独立跑亮、暗两个 OCR 通道并取先读到合法时长者，
+        不依赖卡片明暗判断状态，因此用户手动加入/收取造成明暗混合时同样可读。
+
+        Returns:
+            list[timedelta | None]: 长度 5，从队首到队尾（卡片从左到右）。
+                进行中=剩余倒计时，等待中=项目总时长（静态），已完成=0，空槽=None。
+                非空值相加即为队列全部完成的剩余总时长（FIFO 顺序执行）。
+
+        Pages:
+            in: is_in_queue
+        """
+        bright = OCR_QUEUE_TIME_BRIGHT.ocr(self.device.image)
+        dim = OCR_QUEUE_TIME_DIM.ocr(self.device.image)
+        times = []
+        for text_bright, text_dim in zip(bright, dim):
+            time = parse_display_time(text_bright)
+            if time is None:
+                time = parse_display_time(text_dim)
+            times.append(time)
+        logger.attr('科研-队列显示时长', times)
+        return times
