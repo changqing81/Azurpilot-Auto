@@ -1195,6 +1195,11 @@ OpsiGeneral:
   AutoSearchTimeLimit:
     value: 5
     validate: [1, 240]
+  # 计划作战滑动检查跳过：侵蚀一/短猫相接循环刷取同一海域时，打开
+  # 「计划作战」面板后不再滑动检查各选项，直接确认开始。需要面板选项
+  # 已在游戏内配置好（区域模式：重复、遭遇商人/装置：停止、自动提交：开启），
+  # 让任务正常跑过一次或手动配置一次后即可开启。
+  SkipStrategicSearchCheck: false
 OpsiAshBeacon:
   AttackMode:
     value: current

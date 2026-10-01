@@ -2566,7 +2566,8 @@
       "LauncherPush": true,
       "IndependentPush": false,
       "OpsiOnePushConfig": "provider: null",
-      "AutoSearchTimeLimit": 5
+      "AutoSearchTimeLimit": 5,
+      "SkipStrategicSearchCheck": false
     },
     "Storage": {
       "Storage": {}
