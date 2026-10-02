@@ -15,13 +15,21 @@ import unittest
 from unittest.mock import Mock, call, patch
 
 from alas import RESTART_OPERATION_TIMEOUT, AzurLaneAutoScript
-from module.device.platform import platform_windows
-from module.device.platform.platform_windows import (
-    EMULATOR_START_WATCH_TIMEOUTS,
-    MUMU12_STOP_WAIT_TIMEOUT,
-    PlatformWindows,
-)
+from module.device.env import IS_WINDOWS
+
+if IS_WINDOWS:
+    # platform_windows 顶层依赖 winreg，非 Windows 导入即失败；该模块本身也只会在
+    # Windows 被 platform/__init__ 选用，故这里连测试一起按平台门控
+    from module.device.platform import platform_windows
+    from module.device.platform.platform_windows import (
+        EMULATOR_START_WATCH_TIMEOUTS,
+        MUMU12_STOP_WAIT_TIMEOUT,
+        PlatformWindows,
+    )
+
 from module.exception import EmulatorNotRunningError, EmulatorOpBusy
+
+WINDOWS_ONLY = unittest.skipUnless(IS_WINDOWS, 'platform_windows 依赖 winreg，仅 Windows 可测')
 
 
 def make_platform():
@@ -39,6 +47,7 @@ def make_platform():
     return platform
 
 
+@WINDOWS_ONLY
 class TestEmulatorOpExclusive(unittest.TestCase):
     def tearDown(self):
         # 兜底：任何测试把锁漏掉都会让后续测试全红，这里主动回收
@@ -132,6 +141,7 @@ def mumu_info(*players):
     return json.dumps(data, ensure_ascii=False)
 
 
+@WINDOWS_ONLY
 class TestMumu12StateQuery(unittest.TestCase):
     """MuMuManager info 查询：按实例精确判断状态，替代靠进程名猜测。"""
 
@@ -260,6 +270,7 @@ class TestMumu12StateQuery(unittest.TestCase):
             self.assertTrue(platform._mumu12_wait_stopped('F:/mumu/shell/MuMuPlayer.exe', 0))
 
 
+@WINDOWS_ONLY
 class TestMumu12InstanceIdGuard(unittest.TestCase):
     """实例号解析失败时必须拒绝启停命令。
 
@@ -314,6 +325,7 @@ class TestMumu12InstanceIdGuard(unittest.TestCase):
         platform.execute.assert_not_called()
 
 
+@WINDOWS_ONLY
 class TestRestartTimeoutBudget(unittest.TestCase):
     def test_outer_timeout_covers_the_whole_platform_budget(self):
         """外层硬超时必须 ≥ 平台层 emulator_start() 的完整预算。
