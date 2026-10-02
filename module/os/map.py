@@ -1497,10 +1497,16 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             # 仅在清理问号或重扫地图时出现。
             self._solved_map_event = set()
             self._solved_fleet_mechanism = False
+            self._fleet_mechanism_second_fleet = None
             if question:
                 self.clear_question(drop=drop)
             if rescan:
                 self.map_rescan(rescan_mode=rescan, drop=drop)
+            if self.is_in_task_explore:
+                # 每月开荒以 question=False 进入，雷达问号路径整条缺失，
+                # 而明石等事件常以雷达问号形式出现且远离出击舰队。
+                # 补一遍遍历舰队雷达清近距离问号：只换队扫描，不强制移动。
+                self.clear_question_any_fleet(drop=drop)
 
             if drop.count <= 1:
                 drop.clear()
@@ -1509,6 +1515,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
     _solved_map_event = set()
     _solved_fleet_mechanism = 0
+    # 双舰队机关第一踩成功后钉住的第二踩舰队编号，None 表示没有待办的第二踩
+    _fleet_mechanism_second_fleet = None
 
     def run_strategic_search(self):
         """
@@ -1768,21 +1776,79 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         ):
             grid = grids[0]
             logger.info(f"[大世界-搜索] 在 {grid} 找到舰队机关")
+            pressed = self._press_fleet_mechanism(grid, drop=drop)
+
+            if self._solved_fleet_mechanism:
+                if pressed:
+                    logger.info("[大世界-搜索] 所有舰队机关已解决")
+                    self.os_auto_search_run(drop=drop)
+                    self._solved_map_event.add("is_fleet_mechanism")
+                    self._fleet_mechanism_second_fleet = None
+                else:
+                    logger.warning(
+                        "[大世界-搜索] 第二支舰队未确认踩上机关"
+                        "（可能被路径阻挡或停在机关旁遮挡识别），保留机关状态待后续重扫重试"
+                    )
+                return True
+            if pressed:
+                logger.info("[大世界-搜索] 一个舰队机关已解决")
+                self._solved_fleet_mechanism = True
+                self._fleet_mechanism_second_fleet = self.get_second_fleet()
+            else:
+                logger.warning(
+                    "[大世界-搜索] 第一支舰队未确认踩上机关"
+                    "（可能被路径阻挡或停在机关旁遮挡识别），保留机关状态待后续重扫重试"
+                )
+            return True
+
+        logger.info("[大世界-事件] 无地图事件")
+        return False
+
+    def _press_fleet_mechanism(self, grid, drop=None):
+        """
+        点击舰队机关并验证舰队确实踩上机关格。
+
+        机关格的识别依赖上边缘的青色描边（predict_fleet_mechanism），
+        舰队停在机关上或机关上方都会打断描边，导致"视野里没有机关"，
+        因此不能以机关是否可见来判断解锁与否。这里以舰队落点为准：
+        点击后等待移动稳定，将当前舰队所在格子与被点击的机关格比对；
+        未踩上时按记住的坐标原地重试——舰队通常就停在机关旁，
+        再点一次即一步踩上，最多尝试 3 次。
+
+        Args:
+            grid: 机关所在的格子。
+            drop: 掉落记录对象。
+
+        Returns:
+            bool: 舰队是否踩上机关格。
+        """
+        target_loc = grid.location
+        for attempt in range(1, 4):
+            logger.info(f"[大世界-搜索] 点击舰队机关 {grid} (第 {attempt}/3 次)")
             self.device.click(grid)
             self.wait_until_walk_stable(
                 drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4)
             )
-
-            if self._solved_fleet_mechanism:
-                logger.info("[大世界-搜索] 所有舰队机关已解决")
-                self.os_auto_search_run(drop=drop)
-                self._solved_map_event.add("is_fleet_mechanism")
+            try:
+                fleet = self.convert_radar_to_local((0, 0))
+            except KeyError:
+                fleet = None
+            if fleet is not None and fleet.location == target_loc:
                 return True
-            logger.info("[大世界-搜索] 一个舰队机关已解决")
-            self._solved_fleet_mechanism = True
-            return True
-
-        logger.info("[大世界-事件] 无地图事件")
+            # 未踩上：机关格可能被舰队遮挡而从视野中消失，按坐标找回后继续点
+            self.device.screenshot()
+            self.update_os()
+            self.view.predict()
+            same = [
+                g for g in self.view.select(is_fleet_mechanism=True)
+                if g.location == target_loc
+            ]
+            if not same:
+                same = self.view.select(location=target_loc)
+            if not same:
+                logger.warning(f"[大世界-搜索] 机关 {target_loc} 不在当前视野，停止重试")
+                break
+            grid = same[0]
         return False
 
     def map_rescan_once(self, rescan_mode="full", drop=None):
@@ -1859,7 +1925,11 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             if not self._solved_fleet_mechanism:
                 self.fleet_set(self.config.OpsiFleet_Fleet)
             else:
-                self.fleet_set(self.get_second_fleet())
+                # 钉住第二踩舰队：中途穿插其他事件重扫时，若按当前舰队交替换队，
+                # 会轮回到第一队去踩第二脚，第一队离开机关格导致前功尽弃
+                self.fleet_set(
+                    self._fleet_mechanism_second_fleet or self.get_second_fleet()
+                )
             if not self.is_in_task_explore and len(self._solved_map_event):
                 logger.info("[大世界-扫描] 解决了地图事件且不在大世界探索中，停止重新扫描")
                 logger.attr("已解决地图事件", self._solved_map_event)
