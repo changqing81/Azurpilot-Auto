@@ -26,7 +26,7 @@ OpsiScheduling - 智能调度+模块
 """
 import re
 from contextlib import contextmanager
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from module.config.config import Function, name_to_function
 from module.config.deep import deep_get
@@ -84,6 +84,8 @@ class CoinTaskMixin:
     # 值为服务器日期字符串（如 "2026-09-09"），与当前服务器日期比较，
     # 不匹配时视为过期（次日服务器刷新后自动失效）。
     STATE_KEY_STRONGHOLD_NOT_FOUND_DATE = 'StrongholdNotFoundDate'
+    STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL = 'StrongholdCooldownUntil'  # 上次清理塞壬要塞后的冷却截止时间（ISO 字符串）
+    STRONGHOLD_COOLDOWN_MINUTES = 27  # 游戏内塞壬要塞清理后的重置间隔（分钟）
     SCHEDULING_MODE_COIN_TARGET = 'coin_target'
     SCHEDULING_MODE_ACTION_POINT = 'action_point'
     SCHEDULING_MODE_MONTH_END_CLEANUP = 'month_end_cleanup'
@@ -664,6 +666,47 @@ class CoinTaskMixin:
             self.STATE_KEY_STRONGHOLD_NOT_FOUND_DATE
         )
 
+    def _set_stronghold_cooldown(self):
+        """打完一个塞壬要塞后设置冷却（游戏内要塞重置间隔 27 分钟）。"""
+        until = current_time() + timedelta(minutes=self.STRONGHOLD_COOLDOWN_MINUTES)
+        self._set_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL,
+            until.isoformat(),
+        )
+        logger.info(
+            f'[大世界-塞壬要塞] 设置冷却至 {until.strftime("%H:%M:%S")}'
+            f'（打完一个要塞后需间隔 {self.STRONGHOLD_COOLDOWN_MINUTES} 分钟）'
+        )
+
+    def _get_stronghold_cooldown_remain_minutes(self):
+        """
+        获取塞壬要塞冷却剩余分钟数。
+
+        未在冷却中返回 0；标记损坏（无法解析）时自动清除并返回 0。
+        """
+        until_str = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL
+        )
+        if until_str is None:
+            return 0
+        try:
+            until = datetime.fromisoformat(until_str)
+        except (TypeError, ValueError):
+            logger.warning(
+                f'[大世界-塞壬要塞] 冷却标记损坏（{until_str!r}），清除'
+            )
+            self._clear_smart_scheduling_state_value(
+                self.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL
+            )
+            return 0
+        remain = (until - current_time()).total_seconds()
+        if remain <= 0:
+            self._clear_smart_scheduling_state_value(
+                self.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL
+            )
+            return 0
+        return int(remain // 60) + 1
+
     def _coin_task_precheck_skipped(self, task_name):
         """
         黄币补充任务“当日必跳过”的前置条件检查。
@@ -678,7 +721,9 @@ class CoinTaskMixin:
         Returns:
             bool: True 表示任务今日必跳过，调用方应直接跳过该任务。
         """
-        if task_name == self.TASK_NAME_STRONGHOLD and self._is_stronghold_not_found_today():
+        if task_name == self.TASK_NAME_STRONGHOLD and (
+                self._is_stronghold_not_found_today()
+                or self._get_stronghold_cooldown_remain_minutes() > 0):
             return True
         return False
 
