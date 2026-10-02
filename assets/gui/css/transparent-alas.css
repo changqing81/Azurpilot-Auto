@@ -146,6 +146,72 @@ html:root {
 	border-bottom-color: rgba(32, 33, 36, 0.12);
 }
 
+/* ==========================================
+   统计页胶囊 / 指标卡：补背景模糊
+   ==========================================
+   透明主题刻意去掉了全部毛玻璃（滚动性能），统计页的胶囊直接压在
+   壁纸上，壁纸一花字就读不出来（用户反馈）。这里只给统计页这一块
+   把模糊加回到高级材质面板同级之上 —— 用户实测 blur(20px) 在高对比
+   花壁纸上仍不够（2026-10-02 二次反馈），透明主题下翻倍到 40px；
+   底色、边框、文字全部维持透明主题原样；其余页面保持全透明不动。
+   注意不能并进上面那些 none !important 的通用规则里 —— 统计页是
+   用户点名要模糊的唯一例外。!important 同时压过热切换路径下
+   主题 <style> 排在骨架之前的注入顺序问题。
+   指标卡的卡底另行处理（见下一节暗色玻璃），不在此列。 */
+
+body #pywebio-scope-statistics-content .st-head-meta,
+body #pywebio-scope-statistics-content .st-tab,
+body #pywebio-scope-statistics-content .st-source,
+body #pywebio-scope-statistics-content .opsi-net,
+body #pywebio-scope-statistics-content .btn {
+	backdrop-filter: blur(40px) saturate(180%) !important;
+	-webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+}
+
+/* ==========================================
+   统计页指标卡：卡底
+   ==========================================
+   透明主题没有实底卡片，0.32 的淡白底在花壁纸上立不住（用户实测
+   「跟没改一样」「没有底下那卡片渲染」）。按用户拍板：
+   - 指标卡换白色玻璃卡底，透明度对齐页头胶囊的 0.62 —— 深色卡内
+     文字直接可读，卡内文字无需任何改动；
+   - 净赚主卡保留绿色身份，把 8% 的淡绿加深到 35%，深度以卡内深色
+     文字仍可读为准（用户明确「别改成白色」）。
+   卡片轮廓压在壁纸上立得住；tone 卡的语义色（明石金/吊机紫/涨跌色）
+   特异度更高，保持原样。 */
+
+body #pywebio-scope-statistics-content .opsi-card,
+body #pywebio-scope-statistics-content .metric,
+body #pywebio-scope-statistics-content .kpi,
+body #pywebio-scope-statistics-content .rd-stats-item,
+body #pywebio-scope-statistics-content .commission-income-metric-card {
+	background-color: rgba(255, 255, 255, 0.62) !important;
+	border-color: rgba(255, 255, 255, 0.75) !important;
+	backdrop-filter: blur(40px) saturate(180%) !important;
+	-webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+}
+
+body #pywebio-scope-statistics-content .opsi-net {
+	background-color: rgba(255, 255, 255, 0.62) !important;
+	/* 白卡打底后再罩一层浅绿（用户拍板：底下垫白色半透明卡片），
+	   绿罩回调到骨架原值 8%，保住净赚卡的绿色身份又不抢眼 */
+	background-image: linear-gradient(
+			rgba(14, 147, 132, 0.08),
+			rgba(14, 147, 132, 0.08)
+		) !important;
+	border-color: rgba(255, 255, 255, 0.75) !important;
+}
+
+/* 掉落明细表：底下垫白色半透明卡片（用户拍板），否则行直接压在壁纸上 */
+body #pywebio-scope-statistics-content .meow-drop-table {
+	background-color: rgba(255, 255, 255, 0.62) !important;
+	backdrop-filter: blur(40px) saturate(180%) !important;
+	-webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+	border: 1px solid rgba(255, 255, 255, 0.75) !important;
+	border-radius: 12px !important;
+	padding: 6px 10px !important;
+}
+
 /* 分隔线统一为半透明白，匹配透明主题观感 */
 #pywebio-scope-content hr.hr-group {
 	border-top: 1px solid rgba(255, 255, 255, 0.55) !important;

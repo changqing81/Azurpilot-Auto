@@ -229,7 +229,28 @@ input[type="checkbox"]::before,
 	border-color: rgba(148, 163, 184, 0.24) !important;
 }
 
-#pywebio-scope-commission_income .commission-income-metric-card,
+/* 委托收益的 5 张资源胶囊卡：同档对齐 tone 卡的半透明（模糊保留），
+   表格/行仍走下面与后文的实底规则 */
+#pywebio-scope-commission_income .commission-income-metric-card {
+	background-color: rgba(255, 255, 255, 0.05) !important;
+	backdrop-filter: blur(20px) saturate(180%) !important;
+	-webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+}
+
+/* 暗色高级材质恢复体力图工具栏的深色盒：用户只要求去掉高级材质/
+   透明下的「包装盒」，暗色侧的深玻璃盒与面板语言一致，维持原样
+   （取值与 app_stat_action_point_toolbar.py 的 dark 分支一致）。 */
+body #pywebio-scope-ap_chart [style*="--ap-chart-md3-toolbar-"] {
+	background: rgba(15, 23, 42, 0.78) !important;
+	border-color: rgba(96, 165, 250, 0.28) !important;
+	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32) !important;
+}
+
+body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
+	background: rgba(15, 23, 42, 0.72) !important;
+	border-color: rgba(148, 163, 184, 0.34) !important;
+}
+
 #pywebio-scope-commission_income .commission-income-table,
 #pywebio-scope-commission_income .commission-income-table td,
 #pywebio-scope-commission_income .commission-income-recent-row {
@@ -431,6 +452,35 @@ select option {
 	background: rgba(96, 165, 250, 0.24);
 	border-color: rgba(96, 165, 250, 0.45);
 	color: #dbeafe;
+}
+
+/* ==========================================
+   统计页指标卡：对齐 tone 卡的半透明 + 背景模糊
+   ==========================================
+   与浅色侧（advanced-material-alas.css §2.2）同一条用户拍板：
+   无语义色的白卡对齐遇见明石那类 tone 卡的半透明档 —— 壁纸透出来，
+   背景模糊保留（暗色侧 tone 卡与白卡共用的观感，用户最喜欢）；
+   文字配色不动。tone 卡着色特异度更高，不受影响。
+   选择器带 body 前缀抬高一级特异度，热切换路径下主题 <style>
+   排在骨架之前时也能稳赢骨架的 var() 底色。 */
+
+body #pywebio-scope-statistics-content .opsi-card,
+body #pywebio-scope-statistics-content .opsi-net,
+body #pywebio-scope-statistics-content .metric,
+body #pywebio-scope-statistics-content .kpi,
+body #pywebio-scope-statistics-content .rd-stats-item {
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* 无语义色的白卡：对齐 tone 卡的半透明档（5% 级极淡底），壁纸透出，
+   轮廓交给描边；背景模糊保留 —— 这是暗色侧 tone 卡与白卡共用的观感 */
+body #pywebio-scope-statistics-content .opsi-card,
+body #pywebio-scope-statistics-content .metric,
+body #pywebio-scope-statistics-content .kpi,
+body #pywebio-scope-statistics-content .rd-stats-item {
+	background: rgba(255, 255, 255, 0.05);
+	border-color: rgba(148, 163, 184, 0.35);
 }
 
 /* ==========================================

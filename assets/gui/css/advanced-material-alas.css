@@ -186,6 +186,53 @@ body *:not(#pywebio-scope-log):not(#pywebio-scope-log *) {
 }
 
 /* ==========================================
+   2.2 统计页指标卡：对齐语义 tone 卡的半透明底
+   ==========================================
+   用户拍板（2026-10-02 二次确认）：无语义色的白卡（战斗场次等）与
+   遇见明石/吊机那类 tone 卡并排时是近实底（0.82），观感割裂；对齐成
+   tone 卡同档的半透明 —— 只留 5% 级别的极淡底，壁纸从卡里透出来，
+   轮廓交给描边、可读性交给文字本身，卡内文字一律不动。
+   tone 卡着色特异度更高，不受影响；透明主题在其后加载
+   transparent-alas.css，用 !important 的白玻璃卡底继续覆盖；
+   暗色高级材质由 dark-advanced-material-overrides-alas.css 覆盖。
+   选择器带 body 前缀抬高一级特异度：会话走热切换路径时主题 <style>
+   会被注到骨架 statistics-alas.css 之前，同特异度会输给骨架的
+   var(--st-surface-muted) 底色（真机 2026-10-02 实测踩坑）。 */
+
+body #pywebio-scope-statistics-content .opsi-card,
+body #pywebio-scope-statistics-content .metric,
+body #pywebio-scope-statistics-content .kpi,
+body #pywebio-scope-statistics-content .rd-stats-item {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+/* 委托收益的 5 张资源胶囊卡同档对齐（底色写死在行内 style，需 !important） */
+#pywebio-scope-commission_income .commission-income-metric-card {
+	background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ==========================================
+   2.3 体力图工具栏：去掉「包装盒」
+   ==========================================
+   用户拍板（2026-10-02）：高级材质/透明下，视图切换工具栏的容器盒
+   （toolbar_bg + 描边 + 阴影）和分段按钮组的外框让按钮像被包起来一样，
+   很难看 —— 这两个主题下全部拆掉，按钮直接坐在壁纸上，只保留按钮
+   自身的细描边与悬浮态。模块内嵌样式（app_stat_action_point_toolbar.py）
+   也是 !important，这里用更高特异度压过它。
+   暗色高级材质的深色盒在 dark-advanced-material-overrides 里恢复。 */
+
+body #pywebio-scope-ap_chart [style*="--ap-chart-md3-toolbar-"] {
+	background: transparent !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+}
+
+body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
+	background: transparent !important;
+	border-color: transparent !important;
+}
+
+/* ==========================================
    3. 滚动条样式
    ========================================== */
 
