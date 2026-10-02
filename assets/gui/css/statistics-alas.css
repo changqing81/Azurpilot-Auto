@@ -1332,6 +1332,26 @@
     }
 }
 
+/* 远控手机小屏（≤760px）：体力图标题行是「auto 1fr auto auto」的网格，
+   窄屏下四列放不下时 grid 把 auto 列压到 min-content —— 中文标题的
+   min-content 就是单字宽，会被挤成一列竖字（实测 44×105px）。
+   内联 grid 模板只能用 !important 覆盖，靠 style 属性原文锚定选择器
+   （与 meow-loot-alas.css 的小屏适配同款写法）。 */
+@media (max-width: 760px) {
+    #pywebio-scope-statistics-content
+        #pywebio-scope-ap_chart > div[style*="grid-template-columns: auto 1fr auto auto"] {
+        grid-auto-flow: row !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    /* 单列会把按钮组拉成整行宽，收回自然宽度（第 2 个孩子是占位的空 div） */
+    #pywebio-scope-statistics-content
+        #pywebio-scope-ap_chart > div[style*="grid-template-columns: auto 1fr auto auto"] > div + div {
+        justify-self: start;
+    }
+}
+
 @media (max-width: 720px) {
     #pywebio-scope-statistics-content .st-head h1 {
         font-size: 1.16rem;
