@@ -214,12 +214,20 @@ body #pywebio-scope-statistics-content .rd-stats-item {
 /* ==========================================
    2.3 体力图工具栏：去掉「包装盒」
    ==========================================
-   用户拍板（2026-10-02）：高级材质/透明下，视图切换工具栏的容器盒
-   （toolbar_bg + 描边 + 阴影）和分段按钮组的外框让按钮像被包起来一样，
-   很难看 —— 这两个主题下全部拆掉，按钮直接坐在壁纸上，只保留按钮
-   自身的细描边与悬浮态。模块内嵌样式（app_stat_action_point_toolbar.py）
-   也是 !important，这里用更高特异度压过它。
-   暗色高级材质的深色盒在 dark-advanced-material-overrides 里恢复。 */
+   用户拍板（2026-10-02）：三个材质主题下，视图按钮各自已是玻璃胶囊，
+   外面又包一层 .btn-group 底+描边（statistics-alas.css 的 .seg 外观，
+   底色走 --st-surface-muted），按钮像被包了两层 —— 把外层包装全部
+   拆掉，按钮直接坐在壁纸上。真机上按钮组不一定带 md3 style 标记，
+   所以两条路都堵：类名选择器打骨架的 .seg 规则，属性选择器打模块
+   内嵌样式（app_stat_action_point_toolbar.py，同为 !important）；
+   本文件对三个材质主题都生效。 */
+
+body #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group {
+	background: transparent !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+	padding: 0 !important;
+}
 
 body #pywebio-scope-ap_chart [style*="--ap-chart-md3-toolbar-"] {
 	background: transparent !important;

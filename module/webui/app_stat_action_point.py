@@ -726,27 +726,31 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
 
         # 黄币 / 紫币 / 资产 统计行 + 图例收进默认折叠的 details（用户拍板），
         # 摘要行保留各序列当前值，收起时信息不丢。
-        aux_fold_html = (
-            '<details class="ap-aux-fold">'
-            "<summary>"
-            f'<span class="ap-aux-title">{t("Gui.Stat.AuxFoldTitle")}</span>'
-            f'<span class="ap-aux-digest">{auxiliary_data["aux_digest"]}</span>'
-            "</summary>"
-            '<div class="ap-aux-body">'
-            + auxiliary_data["coins_stats_html"]
-            + '<div id="'
-            + chart_id
-            + '_legend" style="display:flex; flex-wrap:wrap; gap:12px; '
-            'margin-top:10px; font-size:12px; color:#888;">'
-            + self._build_ap_legend_item(
-                0,
-                self.AP_SERIES_COLORS["ap"],
-                t("Gui.Stat.SeriesActionPoint"),
+        # 资源明细只在折线/详细波动这类分时视图渲染（用户拍板 2026-10-02）：
+        # 按日/按月是聚合 K 线视图，分时序列折叠块不适用。
+        aux_fold_html = ""
+        if current_view in self.AP_LINE_VIEWS:
+            aux_fold_html = (
+                '<details class="ap-aux-fold">'
+                "<summary>"
+                f'<span class="ap-aux-title">{t("Gui.Stat.AuxFoldTitle")}</span>'
+                f'<span class="ap-aux-digest">{auxiliary_data["aux_digest"]}</span>'
+                "</summary>"
+                '<div class="ap-aux-body">'
+                + auxiliary_data["coins_stats_html"]
+                + '<div id="'
+                + chart_id
+                + '_legend" style="display:flex; flex-wrap:wrap; gap:12px; '
+                'margin-top:10px; font-size:12px; color:#888;">'
+                + self._build_ap_legend_item(
+                    0,
+                    self.AP_SERIES_COLORS["ap"],
+                    t("Gui.Stat.SeriesActionPoint"),
+                )
+                + auxiliary_data["coins_legend_html"]
+                + "</div>"
+                + "</div></details>"
             )
-            + auxiliary_data["coins_legend_html"]
-            + "</div>"
-            + "</div></details>"
-        )
 
         html = html_tpl.format(
             chart_id=chart_id,
