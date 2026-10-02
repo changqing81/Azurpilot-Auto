@@ -423,6 +423,15 @@ class StrongholdNotFoundHarness:
     _coin_task_precheck_skipped = (
         CoinTaskMixin._coin_task_precheck_skipped
     )
+    # precheck 里的第二道判定：打完一个要塞后的 27 分钟冷却
+    _set_stronghold_cooldown = CoinTaskMixin._set_stronghold_cooldown
+    _get_stronghold_cooldown_remain_minutes = (
+        CoinTaskMixin._get_stronghold_cooldown_remain_minutes
+    )
+    STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL = (
+        CoinTaskMixin.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL
+    )
+    STRONGHOLD_COOLDOWN_MINUTES = CoinTaskMixin.STRONGHOLD_COOLDOWN_MINUTES
     TASK_NAME_STRONGHOLD = CoinTaskMixin.TASK_NAME_STRONGHOLD
 
     # --- _handle_coin_task_no_content 桩 ---
@@ -490,3 +499,37 @@ class TestStrongholdNotFoundSkip(unittest.TestCase):
 
         self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
         self.assertIsNone(harness._get_stronghold_not_found_date())
+
+    def test_precheck_skips_stronghold_during_cooldown(self):
+        """打完一个要塞后的冷却期内也拦截，过期后恢复并清除坏标记。"""
+        harness = StrongholdNotFoundHarness()
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
+
+        harness._set_stronghold_cooldown()
+        remain = harness._get_stronghold_cooldown_remain_minutes()
+        self.assertGreater(remain, 0)
+        self.assertLessEqual(remain, harness.STRONGHOLD_COOLDOWN_MINUTES)
+        self.assertTrue(harness._coin_task_precheck_skipped('OpsiStronghold'))
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiObscure'))
+
+        # 冷却已过期：不再拦截，且顺手清掉过期标记
+        harness._set_smart_scheduling_state_value(
+            harness.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL, '2020-01-01T00:00:00'
+        )
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
+        self.assertIsNone(
+            harness._get_smart_scheduling_state_value(
+                harness.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL
+            )
+        )
+
+    def test_cooldown_corrupted_mark_returns_zero(self):
+        """冷却标记损坏时不抛异常，清除并视为无冷却。"""
+        harness = StrongholdNotFoundHarness()
+        harness._set_smart_scheduling_state_value(
+            harness.STATE_KEY_STRONGHOLD_COOLDOWN_UNTIL, 'not-a-date'
+        )
+
+        self.assertEqual(harness._get_stronghold_cooldown_remain_minutes(), 0)
+        self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
+
