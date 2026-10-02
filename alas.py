@@ -157,6 +157,11 @@ class AzurLaneAutoScript:
                 )
                 logger.info('[Alas] 模拟器重启完成')
 
+                # 重启成功即视为设备已恢复，立刻归零离线计数：
+                # 否则后续任务哪怕只是短暂异常，计数也会继续累积，
+                # 过早撞上 Error_AdbOfflineThreshold 上限而停止自动恢复。
+                self.consecutive_adb_offline = 0
+
                 # 清除 device 缓存，下次访问时重新建立连接
                 if 'device' in self.__dict__:
                     del_cached_property(self, 'device')
