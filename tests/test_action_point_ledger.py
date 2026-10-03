@@ -258,5 +258,55 @@ class TestConstantsSingleSource(unittest.TestCase):
         self.assertEqual(NATURAL_ACTION_POINT_LIMIT, 200)
 
 
+class TestHandlerNeedPopup(unittest.TestCase):
+    """handler 级 need_action_point_popup 开关语义（SimpleNamespace 桩，不连游戏）。"""
+
+    def make_handler(self, decide=True, confirm_limit=3, state=None):
+        from types import SimpleNamespace
+
+        from module.os_handler.action_point import ActionPointHandler
+
+        handler = ActionPointHandler.__new__(ActionPointHandler)
+        handler.config = SimpleNamespace(
+            OpsiGeneral_ActionPointLedgerEnabled=True,
+            OpsiGeneral_ActionPointLedgerDecide=decide,
+            OpsiGeneral_ActionPointLedgerConfirmLimit=confirm_limit,
+            data={'OpsiScheduling': {'Storage': {'Storage': state or {}}}},
+        )
+        return handler
+
+    def test_decide_off_always_popup(self):
+        handler = self.make_handler(decide=False)
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+
+    def test_decide_on_ledger_enough_skips_popup(self):
+        handler = self.make_handler()
+        handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+
+    def test_decide_on_insufficient_pops(self):
+        handler = self.make_handler()
+        handler._get_ap_ledger().observe(100, 300, source='popup', at=T0)
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+
+    def test_suspect_pending_triggers_verify_then_skips(self):
+        handler = self.make_handler()
+        handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
+        handler.__dict__['_ap_suspect_pending'] = True
+        verified = []
+        handler._ap_verify_by_popup = lambda: verified.append(1) or True
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertTrue(verified, 'suspect 标记应触发一次复核')
+        self.assertNotIn('_ap_suspect_pending', handler.__dict__, '复核成功后标记应清除')
+
+    def test_verify_quota_exhausted_falls_back_to_projection(self):
+        handler = self.make_handler(confirm_limit=0)
+        handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
+        handler.__dict__['_ap_suspect_pending'] = True
+        # 额度为 0：不复核，直接按推演判定（推演值够 → 跳过弹窗）
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertIn('_ap_suspect_pending', handler.__dict__, '复核未成功时标记保留')
+
+
 if __name__ == '__main__':
     unittest.main()
