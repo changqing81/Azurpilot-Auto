@@ -7,6 +7,7 @@
 # 此文件用于管理大世界（Operation Siren）模式下的状态信息。
 # 负责海域代币（黄币/紫币）的数值追踪、任务类型识别以及子任务冷却（CD）状态的实时计算。
 import threading
+import time
 import typing as t
 from datetime import timedelta
 
@@ -121,11 +122,30 @@ class OSStatus(UI):
         else:
             return 35000
 
-    def get_yellow_coins(self) -> int:
+    def get_yellow_coins(self, use_cache=True) -> int:
+        """读取黄币数量。
+
+        Args:
+            use_cache: 是否允许使用 30 秒短缓存。商店记账等必须读新鲜值
+                的调用方传 False；购买完成点负责清除缓存。
+
+        Returns:
+            int: 黄币数量。
+        """
+        # 30 秒短 TTL 缓存：一轮结束流程会连续读 3 次黄币（调度决策读 /
+        # 资源检查 / 月度统计），期间没有购买行为，每次 ~1s 的双读验证
+        # 纯属重复。购买完成点（os_shop_buy）负责清除缓存。
+        if use_cache:
+            cache = getattr(self.config, '_yellow_coins_cache', None)
+            if cache is not None:
+                value, cached_at = cache
+                if time.time() - cached_at < 30:
+                    logger.info(f'[大世界处理-状态] 黄币(缓存): {value}')
+                    return value
         yellow_coins = 0
         timeout = Timer(5, count=10).start()  # 增加超时时间和重试次数
         last_valid_value = None
-        
+
         for _ in self.loop():
             # End
             if self.appear_then_click(GET_ITEMS_1, offset=True, interval=1):
@@ -159,13 +179,16 @@ class OSStatus(UI):
                 else:
                     last_valid_value = current_value
                     self.device.sleep(0.2)
-        
+
         # 如果最终仍未获取到有效数值，使用上次缓存的值（线程安全）
         with self._cache_lock:
             if yellow_coins == 0:
                 logger.info(f'[大世界处理-状态] 使用缓存的黄币值: {self._last_yellow_coins}')
                 yellow_coins = self._last_yellow_coins
-            
+            else:
+                # 新读到真值才写 30s TTL 缓存（降级旧值不代表当前余额）
+                self.config._yellow_coins_cache = (yellow_coins, time.time())
+
             # 缓存当前值用于降级
             self._last_yellow_coins = yellow_coins
         
@@ -183,7 +206,9 @@ class OSStatus(UI):
         return purple_coins
 
     def os_shop_get_coins(self):
-        self._shop_yellow_coins = self.get_yellow_coins()
+        # 商店记账必须用新鲜值（购买后余额已变），绕过黄币 30s TTL 缓存；
+        # 读到的新鲜值会顺带刷新缓存
+        self._shop_yellow_coins = self.get_yellow_coins(use_cache=False)
         self._shop_purple_coins = self.get_purple_coins()
         logger.info(f'[大世界处理-状态] 黄币: {self._shop_yellow_coins}, 紫币: {self._shop_purple_coins}')
 

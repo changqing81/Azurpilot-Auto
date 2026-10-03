@@ -143,6 +143,9 @@ class OSShop(PortShop, AkashiShop):
                 return count
             else:
                 self.os_shop_buy_execute(button)
+                # 购买会改变黄币余额，清除 30s TTL 缓存，
+                # 保证商店会话外的后续读数（调度决策读等）新鲜
+                self.config._yellow_coins_cache = None
                 try:
                     if not getattr(self, 'is_running_cl1_leveling', False) \
                             and not getattr(self, '_meow_searching_active', False):
