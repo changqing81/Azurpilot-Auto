@@ -68,6 +68,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
             OpsiGeneral_ActionPointLedgerEnabled=enabled,
             config_name='ap_ledger_test_nonexistent',
             data={'OpsiScheduling': {'Storage': {'Storage': {}}}},
+            modified={},
         )
         handler.device = SimpleNamespace(image='img')
         handler.is_in_map = lambda: True
@@ -103,6 +104,18 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         self.assertEqual(ledger.source, SOURCE_MAP_BAR)
         # 账本从没弹过窗：总行动力保持未知
         self.assertIsNone(ledger.total_with_box)
+
+    def test_map_bar_syncs_dashboard(self):
+        # 顶栏读数同步总览显示（Dashboard.ActionPoint 的当前值/总行动力/时间戳），
+        # 但不写 LogRes（行动力趋势快照与统计不混入顶栏读数）
+        handler, ap_module = self.make_handler()
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
+            handler.ap_observe_from_map_bar()
+        modified = handler.config.modified
+        self.assertEqual(modified['Dashboard.ActionPoint.Value'], 158)
+        self.assertEqual(modified['Dashboard.ActionPoint.Total'], 844)
+        self.assertIn('Dashboard.ActionPoint.Record', modified)
 
     def test_unknown_total_with_preserve_forces_popup(self):
         # 场景还原（2026-10-03 18:46 真机）：账本空、顶栏读到 171——

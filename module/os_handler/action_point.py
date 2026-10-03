@@ -6,7 +6,7 @@
 """
 # 此文件处理大世界（Operation Siren）模式下的行动力（Action Point, AP）管理。
 # 包含行动力数值 OCR 识别、药剂（AP Box）库存解析以及自动购买或使用补给的交互逻辑。
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import module.config.server as server
 from module.base.button import ButtonGrid
@@ -373,7 +373,9 @@ class ActionPointHandler(UI, MapEventHandler):
         顶栏读数只做 OCR 合法性门（位数门/非数字拒绝），通过即记录——
         读到的真值就是账本的新记录，不与旧记录比对。
 
-        任何情况下都不写 LogRes/统计快照。
+        同时同步总览显示（Dashboard.ActionPoint 的当前值/总行动力/时间戳，
+        总行动力未知时保持原值）。不写 LogRes/统计快照——行动力趋势与
+        资源增减事件不混入顶栏读数。
 
         Args:
             image: 截图（默认用当前设备画面）。
@@ -400,6 +402,14 @@ class ActionPointHandler(UI, MapEventHandler):
             return None
         try:
             ledger.observe(value, source=SOURCE_MAP_BAR)
+            # 同步总览显示（Dashboard.ActionPoint，与弹窗口径一致）。
+            # 直接写显示键而非 LogRes：行动力趋势快照与统计不混入顶栏读数
+            self.config.modified['Dashboard.ActionPoint.Value'] = int(value)
+            self.config.modified['Dashboard.ActionPoint.Record'] = \
+                datetime.now().replace(microsecond=0)
+            if ledger.total_with_box is not None:
+                self.config.modified['Dashboard.ActionPoint.Total'] = \
+                    int(ledger.total_with_box)
             self._save_ap_ledger_state()
         except Exception:
             logger.exception('[AP账本] 顶栏记录失败')
