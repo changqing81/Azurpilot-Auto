@@ -14,6 +14,7 @@ from module.base.timer import Timer
 from module.base.utils import *
 from module.config.time_source import now as current_time
 from module.config.utils import get_server_next_update, server_time_offset
+from module.config.deep import deep_get
 from module.logger import logger
 from module.ocr.ocr import Digit, DigitCounter, Ocr
 from module.os_handler.assets import *
@@ -271,6 +272,11 @@ class ActionPointHandler(UI, MapEventHandler):
     # ==================== 行动力账本（AP Ledger） ====================
 
     AP_LEDGER_STATE_PATH = 'OpsiScheduling.Storage.Storage'
+    # 状态实体在 Storage.Storage 之下的 ApLedgerState 子键。
+    # 读取必须取到这一层：取到上层包装字典 {'ApLedgerState': {...}} 会让
+    # from_state 找不到 current 字段而总是返回空账本（2026-10-03 真机日志定位，
+    # 该 bug 使持久化自上线起从未生效，每次任务重开都按空账本弹读数窗）。
+    AP_LEDGER_STATE_KEY = 'OpsiScheduling.Storage.Storage.ApLedgerState'
 
     def _ap_ledger_enabled(self):
         return bool(getattr(self.config, 'OpsiGeneral_ActionPointLedgerEnabled', False))
@@ -284,14 +290,14 @@ class ActionPointHandler(UI, MapEventHandler):
         return ledger
 
     def _load_ap_ledger_state(self):
-        """读取账本状态；内存 data 缺键（多进程整档保存覆盖）时回退磁盘实例配置。"""
+        """读取账本状态；内存 data 缺键时回退磁盘实例配置（跨进程兜底）。"""
         try:
-            state = deep_get(self.config.data, keys=self.AP_LEDGER_STATE_PATH, default={})
+            state = deep_get(self.config.data, keys=self.AP_LEDGER_STATE_KEY, default={})
         except Exception:
             state = {}
         if not isinstance(state, dict):
             state = {}
-        # 无条件与磁盘合并，防止其他状态键（BuyActionPointCount 等）被覆盖丢失
+        # 无条件与磁盘合并，防内存侧丢键（磁盘同名键优先级低于内存）
         disk = self._read_disk_storage_state()
         if disk:
             merged = dict(disk)
@@ -300,7 +306,7 @@ class ActionPointHandler(UI, MapEventHandler):
         return state or {}
 
     def _read_disk_storage_state(self):
-        """从磁盘实例配置读 OpsiScheduling.Storage.Storage（跨进程覆盖兜底）。"""
+        """从磁盘实例配置读 OpsiScheduling.Storage.Storage.ApLedgerState（跨进程覆盖兜底）。"""
         try:
             from module.config.utils import filepath_config
 
@@ -308,7 +314,7 @@ class ActionPointHandler(UI, MapEventHandler):
             import json as _json
             with open(path, encoding='utf-8') as f:
                 data = _json.load(f)
-            state = deep_get(data, keys=self.AP_LEDGER_STATE_PATH, default={})
+            state = deep_get(data, keys=self.AP_LEDGER_STATE_KEY, default={})
             return state if isinstance(state, dict) else {}
         except Exception:
             return {}

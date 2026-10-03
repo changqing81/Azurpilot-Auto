@@ -132,6 +132,24 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         self.assertEqual(ledger.total_with_box, 784)
         self.assertEqual(ledger.box_value, 686)
 
+    def test_persisted_state_loaded_from_wrapper(self):
+        # 回归（2026-10-03 真机日志定位）：持久化键在 Storage.Storage 之下的
+        # ApLedgerState 子键。读取曾错误地取上层包装字典，from_state 找不到
+        # current 字段永远返回空账本 → 持久化从未生效，每次任务重开都弹读数窗
+        handler, _ = self.make_handler()
+        handler.config.data = {'OpsiScheduling': {'Storage': {'Storage': {
+            'ApLedgerState': {
+                'v': 1, 'current': 158, 'total': 1158,
+                'at': '2026-10-03 18:08:19', 'source': 'popup',
+            },
+            'BuyActionPointCount': 5,
+        }}}}
+        state = handler._load_ap_ledger_state()
+        self.assertEqual(state.get('current'), 158)
+        ledger = handler._get_ap_ledger()
+        self.assertEqual(ledger.current, 158)
+        self.assertEqual(ledger.total_with_box, 1158)
+
 
 class TestSampleImages(unittest.TestCase):
     """真实截图样张回归：样张目录由环境变量 AP_MAPBAR_SAMPLES 指定，
