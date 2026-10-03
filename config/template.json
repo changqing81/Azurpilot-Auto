@@ -2569,8 +2569,6 @@
       "AutoSearchTimeLimit": 5,
       "SkipStrategicSearchCheck": false,
       "ActionPointLedgerEnabled": true,
-      "ActionPointLedgerDecide": true,
-      "ActionPointLedgerMapBarOcr": true,
       "ActionPointLedgerTopUpCeiling": 320
     },
     "Storage": {

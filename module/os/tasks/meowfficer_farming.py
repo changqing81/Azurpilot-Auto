@@ -236,7 +236,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         # 智能调度+上下文：外层分发前已集中补足会话预算（耄耋相接预算 120）时跳过冗余弹窗；
         # 月末清理/防溢出等消耗型上下文以消耗行动力为目标，同样跳过；
         # 其余情况保留会话预算检查，防止行动力不足时进图断粮。
-        # 账本预判（ActionPointLedgerDecide 开启时）在弹窗前先判一次，
+        # 账本预判（账本开启时）在弹窗前先判一次，
         # 够开工就跳过；关闭开关时恒为 True，行为与现状一致。
         # 注意预判放在各分支内部按需调用：budgeted/burn_context 命中时
         # 本来就不弹窗，避免无谓的顶栏读数。

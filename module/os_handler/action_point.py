@@ -370,8 +370,6 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         if not self._ap_ledger_enabled():
             return None
-        if not getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
-            return None
         is_in_map = getattr(self, 'is_in_map', None)
         if not callable(is_in_map) or not is_in_map():
             return None
@@ -397,7 +395,7 @@ class ActionPointHandler(UI, MapEventHandler):
     def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None):
         """判定是否需要打开行动力弹窗。
 
-        - `ActionPointLedgerDecide` 关闭时恒返回 True，行为与现状完全一致；
+        - 账本关闭时恒返回 True，行为与现状完全一致；
         - 开启时：先读一次顶栏真值记录进账本（在海域内时），再用账本记录值
           与任务所需比较——当前行动力低于所需、总行动力会被保留值拦截、
           或账本还没有任何记录 → 弹窗。
@@ -407,11 +405,8 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         if not self._ap_ledger_enabled():
             return True
-        if not getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
-            return True
         # 判定前先读一次顶栏真值并记录（在海域内时），判定永远基于最新记录
-        if getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
-            self.ap_observe_from_map_bar()
+        self.ap_observe_from_map_bar()
         ledger = self._get_ap_ledger()
         if ledger is None:
             return True

@@ -623,8 +623,6 @@ class GeneratedConfig:
     OpsiGeneral_AutoSearchTimeLimit = 5
     OpsiGeneral_SkipStrategicSearchCheck = False
     OpsiGeneral_ActionPointLedgerEnabled = True
-    OpsiGeneral_ActionPointLedgerDecide = True
-    OpsiGeneral_ActionPointLedgerMapBarOcr = True
     OpsiGeneral_ActionPointLedgerTopUpCeiling = 320
 
     # 配置组 `OpsiAshBeacon`

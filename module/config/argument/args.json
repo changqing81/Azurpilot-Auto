@@ -13400,14 +13400,6 @@
         "type": "checkbox",
         "value": true
       },
-      "ActionPointLedgerDecide": {
-        "type": "checkbox",
-        "value": true
-      },
-      "ActionPointLedgerMapBarOcr": {
-        "type": "checkbox",
-        "value": true
-      },
       "ActionPointLedgerTopUpCeiling": {
         "type": "input",
         "value": 320

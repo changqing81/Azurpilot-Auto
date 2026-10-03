@@ -57,7 +57,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
     config_name 指向不存在的配置文件，磁盘回退读到空，保证用例不依赖本机 config。
     """
 
-    def make_handler(self, decide=True, map_bar_enabled=True):
+    def make_handler(self, enabled=True):
         from types import SimpleNamespace
 
         from module.os_handler import action_point as ap_module
@@ -65,9 +65,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
 
         handler = ActionPointHandler.__new__(ActionPointHandler)
         handler.config = SimpleNamespace(
-            OpsiGeneral_ActionPointLedgerEnabled=True,
-            OpsiGeneral_ActionPointLedgerDecide=decide,
-            OpsiGeneral_ActionPointLedgerMapBarOcr=map_bar_enabled,
+            OpsiGeneral_ActionPointLedgerEnabled=enabled,
             config_name='ap_ledger_test_nonexistent',
             data={'OpsiScheduling': {'Storage': {'Storage': {}}}},
         )
@@ -75,9 +73,11 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         handler.is_in_map = lambda: True
         return handler, ap_module
 
-    def test_decide_off_always_popup(self):
-        handler, _ = self.make_handler(decide=False)
+    def test_ledger_disabled_always_popup(self):
+        # 回退语义：账本关闭时不读顶栏、不做预判，恒弹窗（旧行为）
+        handler, _ = self.make_handler(enabled=False)
         self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertIsNone(handler.ap_observe_from_map_bar())
 
     def test_recorded_enough_skips_popup(self):
         handler, ap_module = self.make_handler()
