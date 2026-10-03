@@ -13398,7 +13398,7 @@
       },
       "ActionPointLedgerEnabled": {
         "type": "checkbox",
-        "value": true
+        "value": false
       },
       "ActionPointLedgerTopUpCeiling": {
         "type": "input",

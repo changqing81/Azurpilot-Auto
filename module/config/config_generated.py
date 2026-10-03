@@ -622,7 +622,7 @@ class GeneratedConfig:
     OpsiGeneral_OpsiOnePushConfig = 'provider: null'
     OpsiGeneral_AutoSearchTimeLimit = 5
     OpsiGeneral_SkipStrategicSearchCheck = False
-    OpsiGeneral_ActionPointLedgerEnabled = True
+    OpsiGeneral_ActionPointLedgerEnabled = False
     OpsiGeneral_ActionPointLedgerTopUpCeiling = 320
 
     # 配置组 `OpsiAshBeacon`

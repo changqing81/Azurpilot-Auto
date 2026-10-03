@@ -2568,7 +2568,7 @@
       "OpsiOnePushConfig": "provider: null",
       "AutoSearchTimeLimit": 5,
       "SkipStrategicSearchCheck": false,
-      "ActionPointLedgerEnabled": true,
+      "ActionPointLedgerEnabled": false,
       "ActionPointLedgerTopUpCeiling": 320
     },
     "Storage": {
