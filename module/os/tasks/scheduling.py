@@ -1848,6 +1848,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 if est.confidence != 'low' and est.total_with_box is not None:
                     total_ap, current_ap = int(est.total_with_box), int(est.current)
                     self._ap_cache = (total_ap, current_ap, current_time())
+                    # 注：快速路径不触发 check_and_notify_action_point_threshold()
+                    # （行动力阈值推送），该通知以下一次真值读数为准
                     logger.info(
                         f'[AP账本] 决策读走推演: 总={total_ap} 当前={current_ap}, '
                         f'置信={est.confidence}, 距上次校准 {est.age:.0f}s'

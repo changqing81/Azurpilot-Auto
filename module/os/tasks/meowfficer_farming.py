@@ -238,17 +238,20 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         # 其余情况保留会话预算检查，防止行动力不足时进图断粮。
         # 账本预判（ActionPointLedgerDecide 开启时）在弹窗前先判一次，
         # 够开工就跳过；关闭开关时恒为 True，行为与现状一致。
-        popup_needed = self.need_action_point_popup(
-            cost=120, preserve=self.config.OS_ACTION_POINT_PRESERVE)
+        # 注意预判放在各分支内部按需调用：budgeted/burn_context 命中时
+        # 本来就不弹窗，避免白耗复核额度。
         if not self.is_running_smart_scheduling_task():
-            if popup_needed:
+            if self.need_action_point_popup(
+                    cost=120, preserve=self.config.OS_ACTION_POINT_PRESERVE):
                 self.action_point_set(cost=120, keep_current_ap=True, check_rest_ap=True)
         else:
             budgeted = bool(getattr(self, '_coin_task_ap_budgeted', False))
             burn_context = bool(getattr(self, '_month_end_cleanup_running', False)) \
                 or self.is_running_prevent_action_point_overflow_task()
-            if not budgeted and not burn_context and popup_needed:
-                self.action_point_set(cost=120, keep_current_ap=True, check_rest_ap=True)
+            if not budgeted and not burn_context:
+                if self.need_action_point_popup(
+                        cost=120, preserve=self.config.OS_ACTION_POINT_PRESERVE):
+                    self.action_point_set(cost=120, keep_current_ap=True, check_rest_ap=True)
         self.fleet_set(self.config.OpsiFleet_Fleet)
         self.os_order_execute(recon_scan=False, submarine_call=self.config.OpsiFleet_Submarine)
 
