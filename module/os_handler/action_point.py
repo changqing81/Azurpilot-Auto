@@ -284,8 +284,26 @@ class ActionPointHandler(UI, MapEventHandler):
         return ledger
 
     def _load_ap_ledger_state(self):
+        """读取账本状态；内存 data 缺键（多进程整档保存覆盖）时回退磁盘实例配置。"""
         try:
-            return deep_get(self.config.data, keys=self.AP_LEDGER_STATE_PATH, default={}) or {}
+            state = deep_get(self.config.data, keys=self.AP_LEDGER_STATE_PATH, default={})
+        except Exception:
+            state = {}
+        if not isinstance(state, dict) or not state:
+            state = self._read_disk_storage_state()
+        return state or {}
+
+    def _read_disk_storage_state(self):
+        """从磁盘实例配置读 OpsiScheduling.Storage.Storage（跨进程覆盖兜底）。"""
+        try:
+            from module.config.utils import filepath_config
+
+            path = filepath_config(getattr(self.config, 'config_name', 'alas'))
+            import json as _json
+            with open(path, encoding='utf-8') as f:
+                data = _json.load(f)
+            state = deep_get(data, keys=self.AP_LEDGER_STATE_PATH, default={})
+            return state if isinstance(state, dict) else {}
         except Exception:
             return {}
 

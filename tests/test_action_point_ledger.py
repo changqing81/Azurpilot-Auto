@@ -318,5 +318,45 @@ class TestHandlerNeedPopup(unittest.TestCase):
         self.assertIn('_ap_suspect_pending', handler.__dict__)
 
 
+class TestSyncBuyApShortCircuit(unittest.TestCase):
+    """买行动力模式：本周已购满时同步弹窗短路（不再 action_point_enter）。"""
+
+    def make_scheduler(self, count, week_id):
+        from types import SimpleNamespace
+
+        from module.os.tasks.scheduling import OpsiScheduling
+
+        state = {'BuyActionPointCount': count, 'BuyActionPointWeekId': week_id}
+        s = OpsiScheduling.__new__(OpsiScheduling)
+        s.config = SimpleNamespace(
+            cross_get=lambda keys, default=None: state if keys == 'OpsiScheduling.Storage.Storage' else default,
+            cross_set=lambda keys, value: None,
+            modified={},
+            save=lambda: None,
+            config_name='alas',
+        )
+        entered = []
+        s.action_point_enter = lambda: entered.append(1)
+        s.action_point_safe_get = lambda: None
+        s.action_point_quit = lambda: None
+        s.action_point_set_button = lambda index: None
+        return s, entered
+
+    def test_weekly_limit_reached_skips_popup(self):
+        s, entered = self.make_scheduler(count=5, week_id=None)  # week_id 缺失模拟被覆盖
+        result = s._sync_buy_action_point_count_with_game()
+        self.assertEqual(result, 5)
+        self.assertEqual(entered, [], '已购满时不应再进弹窗')
+
+    def test_not_reached_still_syncs(self):
+        s, entered = self.make_scheduler(count=2, week_id=None)
+        # 走真值同步路径：会进弹窗（这里桩掉 OCR 链路，仅验证不短路）
+        s.action_point_get_buy_remain = lambda: 3
+        s._is_buy_action_point_ocr_valid = lambda: True
+        result = s._sync_buy_action_point_count_with_game()
+        self.assertEqual(result, 2)  # 5 - 3
+        self.assertEqual(entered, [1])
+
+
 if __name__ == '__main__':
     unittest.main()

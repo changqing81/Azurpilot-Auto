@@ -24,6 +24,7 @@ OpsiScheduling - 智能调度+模块
     - OpsiScheduling: 智能调度+任务主类
     - CoinTaskMixin: 黄币补充任务的通用 Mixin 类（供其他任务继承使用）
 """
+import json
 import re
 from contextlib import contextmanager
 from datetime import datetime, timedelta
@@ -76,6 +77,8 @@ class CoinTaskMixin:
     CONFIG_PATH_MONTH_END_CLEANUP_DAYS = 'OpsiScheduling.OpsiScheduling.MonthEndActionPointCleanupDays'
     CONFIG_PATH_MONTH_END_AP_PRESERVE = 'OpsiScheduling.OpsiScheduling.MonthEndActionPointPreserve'
     CONFIG_PATH_MONTH_END_SHOP_PURCHASE = 'OpsiScheduling.OpsiScheduling.MonthEndShopPurchase'
+    # 每周购买行动力上限（游戏每周 5 次）
+    BUY_AP_WEEKLY_LIMIT = 5
     STATE_KEY_COIN_REPLENISH_START = 'CoinReplenishStart'
     STATE_KEY_AP_REPLENISH_ACTIVE = 'ApReplenishActive'
     STATE_KEY_SCHEDULING_MODE = 'SchedulingMode'
@@ -581,14 +584,38 @@ class CoinTaskMixin:
         return max(threshold, 0)
 
     def _get_smart_scheduling_state(self):
-        """读取智能调度+持久化运行状态。"""
+        """读取智能调度+持久化运行状态。
+
+        多进程场景（GUI 主进程与任务进程各持一份 data）下，其他进程的整档保存
+        可能把本进程刚写入的键覆盖掉，导致读到空/缺键。此时回退读磁盘实例配置
+        并合并（内存优先、磁盘补缺），避免 BuyActionPointWeekId 等键反复丢失
+        造成跨周误判。
+        """
         state = self.config.cross_get(
             keys=self.CONFIG_PATH_SMART_STATE,
             default={},
         )
         if not isinstance(state, dict):
+            state = {}
+        disk = self._read_disk_smart_scheduling_state()
+        if disk:
+            merged = dict(disk)
+            merged.update(state)
+            state = merged
+        return state
+
+    def _read_disk_smart_scheduling_state(self):
+        """从磁盘实例配置读取状态（跨进程覆盖时的兜底数据源）。"""
+        try:
+            from module.config.utils import filepath_config
+
+            path = filepath_config(getattr(self.config, 'config_name', 'alas'))
+            with open(path, encoding='utf-8') as f:
+                data = json.load(f)
+            state = deep_get(data, keys=self.CONFIG_PATH_SMART_STATE, default={})
+            return state if isinstance(state, dict) else {}
+        except Exception:
             return {}
-        return dict(state)
 
     def _get_smart_scheduling_state_value(self, key, default=None):
         """读取单个智能调度+运行状态。"""
@@ -1092,6 +1119,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         进入买行动力模式时调用，确保持久化计数器与游戏一致。
         游戏显示"剩余购买次数"，反推已购买次数 = 5 - remain。
 
+        短路：持久化计数已达每周上限时直接返回，**不再进弹窗同步**
+        （同周内本地计数可信；跨周重置在 _reset_buy_action_point_count_if_new_week 处理）。
+
         OCR 失败保护：如果 OCR 区域没有提取到文字像素，
         则认为 OCR 未成功识别（返回的 0 是失败回退值），
         保留持久化计数器的值，不覆盖。
@@ -1099,6 +1129,15 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         Returns:
             int: 同步后的已购买次数
         """
+        self._reset_buy_action_point_count_if_new_week()
+        stored = self._get_buy_action_point_count()
+        if stored >= self.BUY_AP_WEEKLY_LIMIT:
+            logger.info(
+                f'[大世界-买行动力] 本周已购满 {stored}/{self.BUY_AP_WEEKLY_LIMIT} 次，'
+                f'跳过同步弹窗，买行动力模式结束'
+            )
+            return stored
+
         self.action_point_enter()
         self.action_point_safe_get()
         # 必须选中石油按钮，否则 OCR 区域读到的是药箱数量而非购买剩余次数
@@ -1118,7 +1157,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             return stored_count
 
         self._reset_buy_action_point_count_if_new_week()
-        actual_count = max(0, 5 - remain)
+        actual_count = max(0, self.BUY_AP_WEEKLY_LIMIT - remain)
         self._set_buy_action_point_count(actual_count)
 
         # 同步更新行动力缓存，后续 _get_scheduling_action_point 无需重复弹窗
