@@ -1871,14 +1871,16 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             return cached_total, cached_current
 
         # 决策读优先走顶栏 OCR 真值（ActionPointLedgerMapBarOcr 开启时生效）：
-        # 每轮决策（含跨任务边界）都读一次顶栏并记录进账本
+        # 每轮决策（含跨任务边界）都读一次顶栏并记录进账本。
+        # 仅当账本已建立含箱总量时才免弹窗——总量未知时保留值判定会低估
+        # （171 冒充总行动力 vs 保留 200 → 误推迟），必须先弹一次窗建立总量。
         if self._ap_ledger_enabled() and \
                 getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
             ledger = self._get_ap_ledger()
             if ledger is not None:
                 value = self.ap_observe_from_map_bar()
-                if value is not None:
-                    total_ap = int(ledger.total_with_box or value)
+                if value is not None and ledger.total_with_box is not None:
+                    total_ap = int(ledger.total_with_box)
                     current_ap = int(value)
                     self._ap_cache = (total_ap, current_ap, current_time())
                     logger.info(
@@ -1887,15 +1889,17 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     return total_ap, current_ap
 
         # 账本记录兜底（ActionPointLedgerDecide 开启时生效）：
-        # 顶栏读不到（不在海域内/OCR 失败）时用账本最近一次记录，省掉决策弹窗
+        # 顶栏读不到（不在海域内/OCR 失败）时用账本最近一次记录，省掉决策弹窗；
+        # 总行动力未知时同样落回弹窗建立总量
         if (
             not force_refresh
             and self._ap_ledger_enabled()
             and getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False)
         ):
             ledger = self._get_ap_ledger()
-            if ledger is not None and ledger.current is not None:
-                total_ap = int(ledger.total_with_box or ledger.current)
+            if ledger is not None and ledger.current is not None \
+                    and ledger.total_with_box is not None:
+                total_ap = int(ledger.total_with_box)
                 current_ap = int(ledger.current)
                 self._ap_cache = (total_ap, current_ap, current_time())
                 # 注：账本记录路径不触发 check_and_notify_action_point_threshold()

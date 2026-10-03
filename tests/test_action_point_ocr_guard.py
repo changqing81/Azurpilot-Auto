@@ -101,6 +101,19 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         ledger = handler._get_ap_ledger()
         self.assertEqual(ledger.current, 158)
         self.assertEqual(ledger.source, SOURCE_MAP_BAR)
+        # 账本从没弹过窗：总行动力保持未知
+        self.assertIsNone(ledger.total_with_box)
+
+    def test_unknown_total_with_preserve_forces_popup(self):
+        # 场景还原（2026-10-03 18:46 真机）：账本空、顶栏读到 171——
+        # 当前值够开工（171>=120），但保留值需要含箱总量，未知 → 弹一次窗建立；
+        # 若拿 171 冒充总行动力，171 <= CL1保留 200 会误判行动力不足而推迟到明天
+        handler, ap_module = self.make_handler()
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=171):
+            handler.ap_observe_from_map_bar()
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+        # 余烬信标未收满等场景保留值为 0：不需要总量，直接按当前值放行
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=0))
 
     def test_garbage_reading_not_recorded(self):
         handler, ap_module = self.make_handler()

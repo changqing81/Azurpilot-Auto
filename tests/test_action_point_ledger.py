@@ -55,10 +55,15 @@ class TestObserve(unittest.TestCase):
         self.assertEqual(self.ledger.box_value, 200)
 
     def test_map_bar_without_prior_total(self):
-        # 从未弹窗过：顶栏读数只记录当前值，总行动力等于当前值
+        # 从未弹窗过：顶栏读数只记录当前值，总行动力保持未知（None）——
+        # 不能拿当前值冒充总行动力，否则保留值判定低估会误推迟
         self.ledger.observe(158, source=SOURCE_MAP_BAR, at=T0)
         self.assertEqual(self.ledger.current, 158)
-        self.assertEqual(self.ledger.total_with_box, 158)
+        self.assertIsNone(self.ledger.total_with_box)
+        # 无保留值诉求时按当前值判定即可
+        self.assertFalse(self.ledger.need_popup(cost=120, preserve=0))
+        # 涉及保留值判定而总量未知 → 弹窗（顺带建立含箱总量记录）
+        self.assertTrue(self.ledger.need_popup(cost=120, preserve=200))
 
     def test_invalid_reading_ignored(self):
         self.assertFalse(self.ledger.observe(None, source=SOURCE_MAP_BAR, at=T0))
@@ -137,9 +142,20 @@ class TestStateRoundTrip(unittest.TestCase):
         # 时间字段解析失败 → 整体回空账本（调用方自动走旧路径弹窗）
         self.assertIsNone(ActionPointLedger.from_state({'current': '154', 'at': 'not-a-date'}).current)
 
-    def test_total_below_current_is_clamped(self):
+    def test_total_invalid_stays_unknown(self):
+        # 状态里的总行动力非法（<当前值）→ 保持未知，由后续弹窗重建
         ledger = ActionPointLedger.from_state({'current': 200, 'total': 100, 'at': T0.isoformat()})
-        self.assertEqual(ledger.total_with_box, 200)
+        self.assertEqual(ledger.current, 200)
+        self.assertIsNone(ledger.total_with_box)
+        self.assertTrue(ledger.need_popup(cost=120, preserve=200))
+
+    def test_round_trip_with_unknown_total(self):
+        # 只有顶栏记录（总量未知）也能持久化与恢复
+        ledger = ActionPointLedger()
+        ledger.observe(158, source=SOURCE_MAP_BAR, at=T0)
+        restored = ActionPointLedger.from_state(ledger.to_state())
+        self.assertEqual(restored.current, 158)
+        self.assertIsNone(restored.total_with_box)
 
 
 class TestConstantsSingleSource(unittest.TestCase):

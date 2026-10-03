@@ -79,10 +79,13 @@ class ActionPointLedger:
             # 顶栏只记录当前值：总行动力跟随修正（箱子价值保持不变），
             # 避免 total_with_box - current 的口径漂移
             self.total_with_box = max(current, self.total_with_box - (previous_current - current))
-        if self.total_with_box is None or self.total_with_box < current:
-            # 没有可用的总行动力读数时，至少保证不低于当前值
+        if self.total_with_box is not None and self.total_with_box < current:
+            # 当前值超过了记录的总行动力（脚本外开箱/买油）：总量至少跟随到当前值
             self.total_with_box = current
-        self.box_value = max(0, self.total_with_box - self.current)
+        # 注意：账本还没有含箱总量记录（从没弹过窗）时，total_with_box 保持 None——
+        # 顶栏读不到箱子，不能拿当前值冒充总行动力，否则保留值判定会低估而误推迟。
+        # 此时由 need_popup/决策读安排一次弹窗建立总量。
+        self.box_value = max(0, (self.total_with_box or 0) - self.current)
         self.box = tuple(box) if box is not None else self.box
         self.recorded_at = at
         self.source = source
@@ -110,6 +113,10 @@ class ActionPointLedger:
             # 账本还没有任何记录，无从判定
             return True
         if self.current < cost:
+            return True
+        if preserve > 0 and self.total_with_box is None:
+            # 总行动力（含箱）未知：保留值无法判定，老实弹窗读真值
+            # （顺带建立含箱总量记录，之后顶栏快路径即可接管）
             return True
         if self.total_with_box is not None and self.total_with_box <= preserve:
             # 保留值守卫：总行动力会被保留值拦截时，老实弹窗（走 ActionPointLimit 正常延后）
@@ -167,7 +174,9 @@ class ActionPointLedger:
                 return ledger
             ledger.current = current
             total = cls._clean_value(state.get('total'))
-            ledger.total_with_box = total if (total is not None and total >= current) else current
+            # 总行动力缺失或非法时保持 None（未知）：由后续弹窗建立，
+            # 不拿当前值冒充总行动力（会让保留值判定低估而误推迟）
+            ledger.total_with_box = total if (total is not None and total >= current) else None
             at = state.get('at')
             if at:
                 ledger.recorded_at = datetime.fromisoformat(str(at))
