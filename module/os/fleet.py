@@ -424,6 +424,11 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         logger.hr('等待移动稳定')
         record = None
         enemy_searching_appear = False
+        # 零位移快速通道状态：位置逐像素不变且持续 1.5 秒以上时提前确认稳定
+        # （覆盖明石商店等"原地事件"后的场景——位置从第一次扫描起就不动，
+        # 保守计时器 Timer(3, count=4) 会白等数秒）
+        zero_streak = 0
+        zero_timer = None
         self.device.screenshot_interval_set(0.35)
         if confirm_timer is None:
             confirm_timer = Timer(0.8, count=2)
@@ -564,13 +569,30 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                 logger.attr('单应位置', current)
                 # 已知最大距离为 4.48px，homo_loca 在 (56, 60) 和 (52, 58) 之间
                 if record is None or (current is not None and np.linalg.norm(np.subtract(current, record)) < 5.5):
+                    # 零位移快速通道：连续 3 次扫描位置逐像素相同且持续 1.5 秒，
+                    # 提前确认稳定。任何位移都会清零重新累计；界面遮挡导致
+                    # IN_MAP 匹配失败的迭代同样清零（走不到这里）
+                    if current is not None and record is not None \
+                            and np.array_equal(current, record):
+                        if zero_timer is None:
+                            zero_timer = Timer(1.5).start()
+                        zero_streak += 1
+                        if zero_streak >= 2 and zero_timer.reached():
+                            break
+                    else:
+                        zero_streak = 0
+                        zero_timer = None
                     if confirm_timer.reached():
                         break
                 else:
                     confirm_timer.reset()
+                    zero_streak = 0
+                    zero_timer = None
                 record = current
             else:
                 confirm_timer.reset()
+                zero_streak = 0
+                zero_timer = None
 
         result = '_'.join(result)
         logger.info(f'[大世界-移动] 移动已稳定, 结果: {result}')
