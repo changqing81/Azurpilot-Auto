@@ -360,5 +360,41 @@ class TestSyncBuyApShortCircuit(unittest.TestCase):
         self.assertEqual(entered, [1])
 
 
+class TestMapBarTruthDriven(unittest.TestCase):
+    """真值驱动判定：顶栏读到低值时，即使推演偏高也必须弹窗补充。"""
+
+    def make_handler(self, map_bar_value):
+        from types import SimpleNamespace
+
+        from module.os_handler.action_point import ActionPointHandler
+
+        handler = ActionPointHandler.__new__(ActionPointHandler)
+        handler.config = SimpleNamespace(
+            OpsiGeneral_ActionPointLedgerEnabled=True,
+            OpsiGeneral_ActionPointLedgerDecide=True,
+            OpsiGeneral_ActionPointLedgerMapBarOcr=True,
+            OpsiGeneral_ActionPointLedgerConfirmLimit=3,
+            data={'OpsiScheduling': {'Storage': {'Storage': {}}}},
+        )
+        handler.device = SimpleNamespace(image='img')
+        handler.is_in_map = lambda: True
+        # 弹窗基线：当前 198、含箱总量 884（箱子价值 686）
+        handler._get_ap_ledger().observe(198, 884, source='popup')
+        handler.ap_observe_from_map_bar = lambda image=None, force_accept=False: (
+            handler._get_ap_ledger().observe(map_bar_value, source='map_bar') or map_bar_value
+        )
+        return handler
+
+    def test_low_truth_forces_popup_despite_high_projection(self):
+        # 场景还原：推演 198（偏高），顶栏真值 98（战斗消耗未逐场记账）→ 必须弹窗
+        handler = self.make_handler(map_bar_value=98)
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+
+    def test_high_truth_skips_popup(self):
+        # 真值 184 ≥ 120 且总量够 → 不弹窗
+        handler = self.make_handler(map_bar_value=184)
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+
+
 if __name__ == '__main__':
     unittest.main()

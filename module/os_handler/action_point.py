@@ -359,13 +359,16 @@ class ActionPointHandler(UI, MapEventHandler):
             self._save_ap_ledger_state()
         return ok
 
-    def ap_observe_from_map_bar(self, image=None):
-        """顶栏行动力影子读数（仅海域内）：五道门校验后**只记日志**。
+    def ap_observe_from_map_bar(self, image=None, force_accept=False):
+        """读顶栏行动力真值（仅海域内），过门后校准账本当前值。
 
-        影子阶段（ActionPointLedgerMapBarOcr）不写账本、不写 LogRes/统计，
-        用于积累「读数 vs 推演」比对数据；影子期确认误读率后再切换为账本校准源。
-        读数与推演差超 ±2（suspect）时标记待复核，由 need_action_point_popup
-        在额度内安排弹窗校准，不打断当前流程。
+        Args:
+            image: 截图（默认用当前设备画面）。
+            force_accept (bool): 强制采信读数——用于进图/任务切换/开工检查等
+                关键时机，此时读数与推演的大幅偏差（drift）多为真实的战斗/进场
+                消耗而非 OCR 误读，跳过变化率门直接采纳（位数/范围门仍生效）。
+
+        任何情况下都不写 LogRes/统计快照。
         """
         if not self._ap_ledger_enabled():
             return None
@@ -385,15 +388,26 @@ class ActionPointHandler(UI, MapEventHandler):
         est = ledger.estimate()
         last = self.__dict__.get('_ap_mapbar_last')
         verdict, value, reason = ActionPointLedger.judge_map_bar_reading(raw, est, last_value=last)
+        if force_accept and verdict == 'suspect':
+            # 强制时机：大幅 drift 视为真实消耗，采信 OCR 读数（OCR 已实测准确）
+            verdict, reason = 'ok', f'force-accept {reason}'
         self.__dict__['_ap_mapbar_last'] = value if verdict in ('ok', 'pending') else None
         if verdict == 'suspect':
             # 可疑读数：标记待复核（额度内由 need_action_point_popup 安排弹窗校准）
             self.__dict__['_ap_suspect_pending'] = True
         logger.info(
-            f'[AP账本] shadow source=map_bar 读数={value if value is not None else raw} '
+            f'[AP账本] source=map_bar 读数={value if value is not None else raw} '
             f'推演={est.current} verdict={verdict} reason={reason}'
         )
-        return value if verdict == 'ok' else None
+        if verdict != 'ok' or value is None:
+            return None
+        # 采纳读数：只校准账本当前值（总量跟随修正），绝不写 LogRes/统计
+        try:
+            ledger.observe(value, source=SOURCE_MAP_BAR)
+            self._save_ap_ledger_state()
+        except Exception:
+            logger.exception('[AP账本] 顶栏校准失败')
+        return value
 
     def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None, now=None):
         """预判是否需要打开行动力弹窗（P2 决策入口）。
@@ -413,6 +427,12 @@ class ActionPointHandler(UI, MapEventHandler):
         ledger = self._get_ap_ledger()
         if ledger is None:
             return True
+        # 真值优先：开工检查等判定前先读一次顶栏 OCR（每次进图/任务切换时机），
+        # 读到的真值直接作为判定基准，推演只作读不到时的兜底
+        if getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
+            is_in_map = getattr(self, 'is_in_map', None)
+            if callable(is_in_map) and is_in_map():
+                self.ap_observe_from_map_bar(force_accept=True)
         if self.__dict__.get('_ap_suspect_pending'):
             if self._ap_verify_by_popup():
                 self.__dict__.pop('_ap_suspect_pending', None)

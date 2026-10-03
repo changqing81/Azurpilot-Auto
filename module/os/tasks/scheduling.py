@@ -1875,9 +1875,25 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         ):
             return cached_total, cached_current
 
-        # 账本快速路径（ActionPointLedgerDecide 开启时生效）：
-        # 推演置信度足够（非 low）时直接用推演值，省掉每轮决策的行动力弹窗；
-        # force_refresh（跨任务边界）仍强制弹窗读真值。
+        # 决策读优先走顶栏 OCR 真值（ActionPointLedgerMapBarOcr 开启时生效）：
+        # 每轮决策（含跨任务边界）都读一次顶栏，推演只在读不到时兜底
+        if self._ap_ledger_enabled() and \
+                getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
+            ledger = self._get_ap_ledger()
+            if ledger is not None:
+                value = self.ap_observe_from_map_bar(force_accept=True)
+                if value is not None:
+                    est = ledger.estimate()
+                    total_ap = int(est.total_with_box or value)
+                    current_ap = int(value)
+                    self._ap_cache = (total_ap, current_ap, current_time())
+                    logger.info(
+                        f'[AP账本] 决策读走顶栏真值: 总={total_ap} 当前={current_ap}'
+                    )
+                    return total_ap, current_ap
+
+        # 账本推演兜底（ActionPointLedgerDecide 开启时生效）：
+        # 顶栏读不到（不在海域内/OCR 失败）时用推演值，省掉决策弹窗
         if (
             not force_refresh
             and self._ap_ledger_enabled()
@@ -1889,7 +1905,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 if est.confidence != 'low' and est.total_with_box is not None:
                     total_ap, current_ap = int(est.total_with_box), int(est.current)
                     self._ap_cache = (total_ap, current_ap, current_time())
-                    # 注：快速路径不触发 check_and_notify_action_point_threshold()
+                    # 注：推演路径不触发 check_and_notify_action_point_threshold()
                     # （行动力阈值推送），该通知以下一次真值读数为准
                     logger.info(
                         f'[AP账本] 决策读走推演: 总={total_ap} 当前={current_ap}, '
