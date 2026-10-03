@@ -307,6 +307,16 @@ class TestHandlerNeedPopup(unittest.TestCase):
         self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
         self.assertIn('_ap_suspect_pending', handler.__dict__, '复核未成功时标记保留')
 
+    def test_verify_skipped_without_device_context(self):
+        # 页面护栏：无设备上下文（如纯桩环境）时复核直接放弃，
+        # 绝不调用 action_point_enter 空转；按推演判定兜底
+        handler = self.make_handler()
+        handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
+        handler.__dict__['_ap_suspect_pending'] = True
+        self.assertFalse(handler._ap_verify_by_popup())
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertIn('_ap_suspect_pending', handler.__dict__)
+
 
 if __name__ == '__main__':
     unittest.main()

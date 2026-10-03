@@ -443,6 +443,14 @@ class ActionPointHandler(UI, MapEventHandler):
         if not quota.allow():
             logger.info('[AP账本] 复核额度已用尽，跳过弹窗校准')
             return False
+        # 页面护栏：复核弹窗只允许发生在大世界界面，
+        # 其他页面（或无设备上下文）直接放弃，避免 action_point_enter 空转
+        if getattr(self, 'device', None) is None:
+            logger.info('[AP账本] 无设备上下文，跳过复核弹窗')
+            return False
+        if not self.appear(OS_CHECK, offset=(20, 20)):
+            logger.info('[AP账本] 当前不在大世界界面，跳过复核弹窗')
+            return False
         quota.record()
         try:
             # 纯读取：进弹窗 → OCR（action_point_update 内会自动校准账本）→ 退出
