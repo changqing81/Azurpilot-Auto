@@ -220,11 +220,26 @@ class ActionPointHandler(UI, MapEventHandler):
         return self.match_template_color(CURRENT_AP_CHECK, offset=(40, 5), threshold=15)
 
     def action_point_use(self):
+        """使用当前选中的行动力储备，直到当前行动力高于进入时的值。
+
+        弹窗显示的数字会滞后于实际消耗（2026-10-03 日志实测：点击后约
+        5~8 秒才显示新值，期间读数停在旧值），因此重点间隔必须是 10 秒：
+        用 3 秒间隔会把滞后值当成"未生效"而重复点击，一次补箱开成两个
+        （84 → 实际 284，显示只见 184）。"""
         prev = self._action_point_current
         self.interval_clear(ACTION_POINT_USE)
-        for _ in self.loop():
+        timeout = Timer(24).start()
+        while 1:
+            if self._action_point_current > prev:
+                break
+            if timeout.reached():
+                logger.warning(
+                    f'[大世界-行动点] 使用行动力储备后数值未变化（当前={prev}），放弃等待'
+                )
+                break
 
-            if self.appear_then_click(ACTION_POINT_USE, offset=(20, 20), interval=3):
+            # 弹窗数字刷新有滞后，10 秒无变化才允许重点一次
+            if self.appear_then_click(ACTION_POINT_USE, offset=(20, 20), interval=10):
                 self.device.sleep(0.3)
                 continue
 
@@ -232,8 +247,6 @@ class ActionPointHandler(UI, MapEventHandler):
                 continue
 
             self.action_point_safe_get()
-            if self._action_point_current > prev:
-                break
 
     def action_point_update(self):
         """
