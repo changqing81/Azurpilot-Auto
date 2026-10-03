@@ -7,6 +7,8 @@
 # 此文件处理大世界（Operation Siren）模式下的行动力（Action Point, AP）管理。
 # 包含行动力数值 OCR 识别、药剂（AP Box）库存解析以及自动购买或使用补给的交互逻辑。
 from datetime import datetime, timedelta
+import json
+import os
 
 import module.config.server as server
 from module.base.button import ButtonGrid
@@ -15,6 +17,7 @@ from module.base.utils import *
 from module.config.time_source import now as current_time
 from module.config.utils import get_server_next_update, server_time_offset
 from module.config.deep import deep_get
+from module.exception import RequestHumanTakeover
 from module.logger import logger
 from module.ocr.ocr import Digit, DigitCounter, Ocr
 from module.os_handler.assets import *
@@ -219,34 +222,111 @@ class ActionPointHandler(UI, MapEventHandler):
     def is_current_ap_visible(self):
         return self.match_template_color(CURRENT_AP_CHECK, offset=(40, 5), threshold=15)
 
-    def action_point_use(self):
-        """使用当前选中的行动力储备，直到当前行动力高于进入时的值。
+    _ap_use_blocked = False
 
-        弹窗显示的数字会滞后于实际消耗（2026-10-03 日志实测：点击后约
-        5~8 秒才显示新值，期间读数停在旧值），因此重点间隔必须是 10 秒：
-        用 3 秒间隔会把滞后值当成"未生效"而重复点击，一次补箱开成两个
-        （84 → 实际 284，显示只见 184）。"""
-        prev = self._action_point_current
-        self.interval_clear(ACTION_POINT_USE)
+    def _ap_use_pending_path(self):
+        from module.config.utils import filepath_config
+
+        # 独立于实例 JSON：GUI 进程整档保存不能覆盖尚未确认的 USE 哨兵；
+        # 扩展名不能是 .json，否则会被模组实例枚举器误识别为新实例。
+        return filepath_config(self.config.config_name) + '.ap-use-pending'
+
+    def _load_ap_use_pending(self):
+        try:
+            with open(self._ap_use_pending_path(), encoding='utf-8') as f:
+                pending = json.load(f)
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError) as exc:
+            raise RequestHumanTakeover('行动力 USE 保护文件不可读，禁止再次补充') from exc
+        # 文件存在就代表可能已经点过 USE；空文件/损坏内容绝不能当作无记录。
+        if not isinstance(pending, dict) or not pending:
+            raise RequestHumanTakeover('行动力 USE 保护文件内容无效，禁止再次补充')
+        return pending
+
+    def _save_ap_use_pending(self, pending):
+        path = self._ap_use_pending_path()
+        try:
+            if pending is None:
+                os.unlink(path)
+                return
+            # 排他创建 + 刷盘：点击前先记录意图，无法持久化则绝不点 USE。
+            with open(path, 'x', encoding='utf-8') as f:
+                json.dump(pending, f, ensure_ascii=False)
+                f.flush()
+                os.fsync(f.fileno())
+        except OSError as exc:
+            raise RequestHumanTakeover(f'行动力 USE 保护文件写入失败: {path}') from exc
+        if self._load_ap_use_pending() != pending:
+            raise RequestHumanTakeover('行动力 USE 保护文件校验失败，禁止继续补充')
+
+    def action_point_use(self, selected_index):
+        """每次最多点一次 USE；对应库存减少才算确认。
+
+        弹窗可能十几秒不刷新。旧逻辑每 10 秒再点一次，23:13:32/43/54
+        连续开了三个 100 箱；超时还会回到外层循环继续尝试。
+        未确认时保留独立保护文件并请求人工介入，禁止任务重启后再点。
+        """
+        if self._ap_use_blocked:
+            raise RequestHumanTakeover('本轮 USE 结果未确认，禁止再次点击')
+        pending = self._load_ap_use_pending()
+        if pending:
+            self._ap_use_blocked = True
+            raise RequestHumanTakeover(
+                '行动力 USE 尚未确认，禁止再次补充；请手动核实当前值和对应库存，'
+                f'确认安全后删除 {self._ap_use_pending_path()}'
+            )
+
+        if selected_index not in ACTION_POINT_BOX:
+            raise RequestHumanTakeover(f'行动力补充选项无效: {selected_index}')
+        prev = int(self._action_point_current)
+        stock = int(self._action_point_box[selected_index])
+        if stock <= 0:
+            raise RequestHumanTakeover(f'行动力补充库存未读到有效值: {selected_index}={stock}')
+
+        if not self.appear(ACTION_POINT_USE, offset=(20, 20)):
+            raise RequestHumanTakeover('行动力 USE 按钮未出现，未执行补充')
+        self._ap_use_blocked = True
+        self._save_ap_use_pending({
+            'index': selected_index, 'current': prev, 'stock': stock,
+            'at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        })
+        # 不走 interval 重点：每次调用只允许一次实际点击；下次必须重新读数。
+        self.device.click(ACTION_POINT_USE)
+        self.device.sleep(0.3)
+
         timeout = Timer(24).start()
-        while 1:
-            if self._action_point_current > prev:
-                break
-            if timeout.reached():
-                logger.warning(
-                    f'[大世界-行动点] 使用行动力储备后数值未变化（当前={prev}），放弃等待'
-                )
-                break
-
-            # 弹窗数字刷新有滞后，10 秒无变化才允许重点一次
-            if self.appear_then_click(ACTION_POINT_USE, offset=(20, 20), interval=10):
-                self.device.sleep(0.3)
-                continue
-
+        while not timeout.reached():
+            self.device.screenshot()
             if self.handle_popup_confirm('ACTION_POINT_USE'):
                 continue
+            if not self.is_current_ap_visible():
+                continue
+            self.action_point_update()
+            # 当前值和库存必须同时更新；箱子只允许减少一个，防 OCR 噪声蒙混过关。
+            # 石油购买不是按 1 扣库存，因此只检查石油减少及行动力上升。
+            gained = self._action_point_current - prev
+            stock_change = stock - self._action_point_box[selected_index]
+            confirmed = (stock_change > 0 and gained > 0) if selected_index == 0 else (
+                stock_change == 1 and gained >= ACTION_POINT_BOX[selected_index]
+            )
+            if confirmed:
+                logger.info(
+                    f'[大世界-行动点] USE 已确认：库存[{selected_index}] '
+                    f'{stock}->{self._action_point_box[selected_index]}，'
+                    f'当前={prev}->{self._action_point_current}'
+                )
+                self._save_ap_use_pending(None)
+                self._ap_use_blocked = False
+                return True
 
-            self.action_point_safe_get()
+        logger.error(
+            f'[大世界-行动点] USE 已点一次但 24 秒内未确认：'
+            f'当前={prev}->{self._action_point_current}，'
+            f'库存[{selected_index}]={stock}->{self._action_point_box[selected_index]}；'
+            '禁止重复点击，请人工检查'
+        )
+        raise RequestHumanTakeover('行动力补充结果未确认，已暂停自动补充，请人工检查')
 
     def action_point_update(self):
         """
@@ -597,7 +677,10 @@ class ActionPointHandler(UI, MapEventHandler):
         Pages:
             in: ACTION_POINT_USE
         """
-        self.action_point_set_button(0)
+        if self._load_ap_use_pending() or self._ap_use_blocked:
+            raise RequestHumanTakeover('存在未确认的行动力 USE，禁止购买')
+        if not self.action_point_set_button(0):
+            raise RequestHumanTakeover('无法选择石油购买行动力，禁止点击 USE')
         current = self.action_point_get_buy_remain()
         buy_max = 5  # 当前版本中，玩家每周可购买 5 次行动力
         buy_count = buy_max - current
@@ -614,7 +697,7 @@ class ActionPointHandler(UI, MapEventHandler):
         oil = self._action_point_box[0]
         logger.info(f'[大世界-行动点] 购买行动点将消耗 {cost}, 当前石油: {oil}, 保留: {preserve}')
         if oil >= cost + preserve:
-            self.action_point_use()
+            self.action_point_use(selected_index=0)
             return True
         else:
             logger.info('[大世界-行动点] 石油不足无法购买')
@@ -664,6 +747,8 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         if not self._is_in_action_point():
             return False
+        if self._load_ap_use_pending() or self._ap_use_blocked:
+            raise RequestHumanTakeover('存在未确认的行动力 USE，禁止自动补充；请人工核对')
 
         # 行动力药剂有显示动画
         self.action_point_safe_get()
@@ -729,8 +814,11 @@ class ActionPointHandler(UI, MapEventHandler):
             # 使用行动力药剂
             if len(box):
                 if self._action_point_total > self.config.OS_ACTION_POINT_PRESERVE:
-                    self.action_point_set_button(box[0])
-                    self.action_point_use()
+                    if not self.action_point_set_button(box[0]):
+                        raise RequestHumanTakeover('无法选择行动力药剂，禁止点击 USE')
+                    self.action_point_use(selected_index=box[0])
+                    # action_point_use 已在确认 USE 时重读当前值与库存；
+                    # 不再额外重读一次，避免动画滞后的旧帧覆盖已确认真值。
                     continue
                 else:
                     logger.info(f'[大世界-行动点] 达到行动点上限, 保留={self.config.OS_ACTION_POINT_PRESERVE}')

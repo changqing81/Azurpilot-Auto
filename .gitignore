@@ -9,6 +9,7 @@ config/*.yaml
 !config/deploy.*.yaml
 config/*.json
 config/*.db
+config/*.ap-use-pending
 config/tmp*
 !config/template*.json
 *.pyw

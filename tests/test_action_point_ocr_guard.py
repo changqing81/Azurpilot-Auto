@@ -164,6 +164,273 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         self.assertEqual(ledger.total_with_box, 1158)
 
 
+class TestActionPointUseGuard(unittest.TestCase):
+    """USE 只点一次；弹窗 OCR 滞后、仅单项变化及任务重入均不得连点。"""
+
+    def make_handler(self, readings=()):
+        from types import SimpleNamespace
+        from module.os_handler.action_point import ActionPointHandler
+
+        handler = ActionPointHandler.__new__(ActionPointHandler)
+        handler.config = SimpleNamespace(data={}, modified={}, config_name='ap_use_test_nonexistent')
+        clicks = []
+        handler.device = SimpleNamespace(
+            image='img', screenshot=lambda: None, sleep=lambda _: None,
+            click=lambda button: clicks.append(button),
+        )
+        handler._action_point_current = 97
+        handler._action_point_box = [11026, 0, 0, 12]
+        handler._ap_use_blocked = False
+        handler._pending = None
+        handler._load_ap_use_pending = lambda: handler._pending
+
+        def save_pending(value):
+            handler._pending = value
+        handler._save_ap_use_pending = save_pending
+        handler.appear = lambda *args, **kwargs: True
+        handler.handle_popup_confirm = lambda *args, **kwargs: False
+        handler.is_current_ap_visible = lambda: True
+        iterator = iter(readings)
+
+        def update():
+            current, stock = next(iterator, (handler._action_point_current, handler._action_point_box[3]))
+            handler._action_point_current = current
+            handler._action_point_box[3] = stock
+        handler.action_point_update = update
+        return handler, clicks
+
+    def test_stale_ocr_never_clicks_twice_and_leaves_pending(self):
+        from module.exception import RequestHumanTakeover
+        from module.os_handler import action_point as ap_module
+
+        handler, clicks = self.make_handler([(97, 12)] * 4)
+
+        class ShortTimer:
+            def __init__(self, *args):
+                self.calls = 0
+            def start(self):
+                return self
+            def reached(self):
+                self.calls += 1
+                return self.calls > 4
+
+        with patch.object(ap_module, 'Timer', ShortTimer):
+            with self.assertRaisesRegex(RequestHumanTakeover, '未确认'):
+                handler.action_point_use(selected_index=3)
+        self.assertEqual(len(clicks), 1)
+        self.assertEqual(handler._pending['current'], 97)
+        self.assertEqual(handler._pending['stock'], 12)
+        with self.assertRaises(RequestHumanTakeover):
+            handler.action_point_use(selected_index=3)
+        self.assertEqual(len(clicks), 1)
+
+    def test_only_one_signal_changes_does_not_confirm(self):
+        from module.exception import RequestHumanTakeover
+        from module.os_handler import action_point as ap_module
+
+        handler, clicks = self.make_handler([(197, 12), (97, 11)])
+
+        class ShortTimer:
+            def __init__(self, *args):
+                self.calls = 0
+            def start(self):
+                return self
+            def reached(self):
+                self.calls += 1
+                return self.calls > 2
+
+        with patch.object(ap_module, 'Timer', ShortTimer):
+            with self.assertRaises(RequestHumanTakeover):
+                handler.action_point_use(selected_index=3)
+        self.assertEqual(len(clicks), 1)
+        self.assertIsNotNone(handler._pending)
+
+    def test_confirmed_ocr_and_stock_allow_next_box(self):
+        from module.os_handler import action_point as ap_module
+
+        handler, clicks = self.make_handler([(97, 12), (197, 11)])
+
+        class ShortTimer:
+            def __init__(self, *args):
+                self.calls = 0
+            def start(self):
+                return self
+            def reached(self):
+                self.calls += 1
+                return self.calls > 3
+
+        with patch.object(ap_module, 'Timer', ShortTimer):
+            self.assertTrue(handler.action_point_use(selected_index=3))
+        self.assertEqual(len(clicks), 1)
+        self.assertIsNone(handler._pending)
+        self.assertFalse(handler._ap_use_blocked)
+
+    def test_unwritable_guard_never_clicks_use(self):
+        from module.exception import RequestHumanTakeover
+
+        handler, clicks = self.make_handler()
+        handler._save_ap_use_pending = lambda value: (_ for _ in ()).throw(
+            RequestHumanTakeover('保护文件不可写'))
+        with self.assertRaisesRegex(RequestHumanTakeover, '不可写'):
+            handler.action_point_use(selected_index=3)
+        self.assertEqual(clicks, [])
+
+    def test_buy_path_checks_pending_before_switching_tab(self):
+        from module.exception import RequestHumanTakeover
+
+        handler, clicks = self.make_handler()
+        handler._pending = {'index': 3, 'current': 97, 'stock': 12}
+        handler.action_point_set_button = lambda index: self.fail('不应切换到购买页签')
+        with self.assertRaises(RequestHumanTakeover):
+            handler.action_point_buy()
+        self.assertEqual(clicks, [])
+
+    def test_pending_from_previous_run_blocks_before_click(self):
+        from module.exception import RequestHumanTakeover
+
+        handler, clicks = self.make_handler()
+        handler._pending = {'index': 3, 'current': 97, 'stock': 12}
+        with self.assertRaisesRegex(RequestHumanTakeover, '尚未确认'):
+            handler.action_point_use(selected_index=3)
+        self.assertEqual(clicks, [])
+
+    def test_pending_is_persisted_and_blocks_new_handler(self):
+        import tempfile
+        from pathlib import Path
+        from module.exception import RequestHumanTakeover
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'ap_use_test.json.ap-use-pending'
+            handler, clicks = self.make_handler()
+            del handler._save_ap_use_pending
+            del handler._load_ap_use_pending
+            handler._ap_use_pending_path = lambda: str(path)
+            handler._save_ap_use_pending({
+                'index': 3, 'current': 97, 'stock': 12,
+            })
+            self.assertEqual(handler._load_ap_use_pending()['stock'], 12)
+            self.assertNotEqual(path.suffix, '.json')  # 不会被配置实例枚举器当作模组实例
+            new_handler, new_clicks = self.make_handler()
+            del new_handler._load_ap_use_pending
+            new_handler._ap_use_pending_path = lambda: str(path)
+            with self.assertRaisesRegex(RequestHumanTakeover, '尚未确认'):
+                new_handler.action_point_use(selected_index=3)
+            self.assertEqual(clicks, [])
+            self.assertEqual(new_clicks, [])
+            # 确认已刷新后由程序自动清除；没有强制让用户手改实例配置。
+            handler._save_ap_use_pending(None)
+            self.assertFalse(path.exists())
+
+    def test_invalid_guard_file_never_allows_another_click(self):
+        import tempfile
+        from pathlib import Path
+        from module.exception import RequestHumanTakeover
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'ap-use-pending.json'
+            for content in ('', '{}', 'null', '[]', '{broken'):
+                with self.subTest(content=content):
+                    path.write_text(content, encoding='utf-8')
+                    handler, clicks = self.make_handler()
+                    del handler._load_ap_use_pending
+                    handler._ap_use_pending_path = lambda: str(path)
+                    with self.assertRaises(RequestHumanTakeover):
+                        handler.action_point_use(selected_index=3)
+                    self.assertEqual(clicks, [])
+
+    def test_handle_action_point_does_not_retry_after_timeout(self):
+        from types import SimpleNamespace
+        from module.exception import RequestHumanTakeover
+
+        handler, clicks = self.make_handler()
+        handler._is_in_action_point = lambda: True
+        handler.action_point_safe_get = lambda: None
+        handler.action_point_set_button = lambda index: True
+        handler.action_point_buy = lambda **kwargs: False
+        handler.config.OS_ACTION_POINT_PRESERVE = 200
+        handler.config.OpsiGeneral_BuyActionPointLimit = 0
+        handler._action_point_total = 1297
+        handler._action_point_box = [11026, 0, 0, 12]
+        handler.action_point_use = lambda **kwargs: (_ for _ in ()).throw(
+            RequestHumanTakeover('USE 未确认'))
+        with self.assertRaises(RequestHumanTakeover):
+            handler.handle_action_point(
+                zone=SimpleNamespace(hazard_level=1, is_port=False),
+                pinned='DANGEROUS', cost=120,
+            )
+        self.assertEqual(clicks, [])
+
+    def test_oil_purchase_confirms_by_oil_decrease_and_ap_increase(self):
+        from module.os_handler import action_point as ap_module
+
+        handler, clicks = self.make_handler()
+        handler.action_point_update = lambda: (
+            setattr(handler, '_action_point_current', 197),
+            handler._action_point_box.__setitem__(0, 7026),
+        )
+
+        class ShortTimer:
+            def __init__(self, *args):
+                self.calls = 0
+            def start(self):
+                return self
+            def reached(self):
+                self.calls += 1
+                return self.calls > 2
+
+        with patch.object(ap_module, 'Timer', ShortTimer):
+            self.assertTrue(handler.action_point_use(selected_index=0))
+        self.assertEqual(len(clicks), 1)
+        self.assertIsNone(handler._pending)
+
+    def test_one_confirmed_box_reaches_target_without_repeating_read(self):
+        from types import SimpleNamespace
+
+        handler, _ = self.make_handler()
+        handler._is_in_action_point = lambda: True
+        reads = []
+        handler.action_point_safe_get = lambda: reads.append('read')
+        handler.action_point_set_button = lambda index: True
+        handler.action_point_quit = lambda: None
+        handler.config.OS_ACTION_POINT_PRESERVE = 200
+        handler.config.OpsiGeneral_BuyActionPointLimit = 0
+        handler._action_point_total = 1297
+        used = []
+
+        def use_once(selected_index):
+            used.append(selected_index)
+            handler._action_point_current = 197
+            handler._action_point_box[3] -= 1
+        handler.action_point_use = use_once
+        self.assertTrue(handler.handle_action_point(
+            zone=SimpleNamespace(hazard_level=1, is_port=False),
+            pinned='DANGEROUS', cost=120,
+        ))
+        self.assertEqual(used, [3])
+        self.assertEqual(reads, ['read'])
+
+    def test_one_click_cannot_confirm_two_boxes(self):
+        from module.exception import RequestHumanTakeover
+        from module.os_handler import action_point as ap_module
+
+        handler, clicks = self.make_handler([(297, 10)])
+
+        class ShortTimer:
+            def __init__(self, *args):
+                self.calls = 0
+            def start(self):
+                return self
+            def reached(self):
+                self.calls += 1
+                return self.calls > 1
+
+        with patch.object(ap_module, 'Timer', ShortTimer):
+            with self.assertRaises(RequestHumanTakeover):
+                handler.action_point_use(selected_index=3)
+        self.assertEqual(len(clicks), 1)
+        self.assertIsNotNone(handler._pending)
+
+
 class TestSampleImages(unittest.TestCase):
     """真实截图样张回归：样张目录由环境变量 AP_MAPBAR_SAMPLES 指定，
     文件名以 ap<期望值>_ 开头（如 ap154_zone22.png）。目录不存在时跳过。"""
