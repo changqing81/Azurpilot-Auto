@@ -1514,6 +1514,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             if drop.count <= 1:
                 drop.clear()
 
+        # 自动搜索完成后海域内顶栏可见：读一次顶栏行动力校准账本
+        # （战斗本身不消耗，但一轮内可能重复进场/发生脚本外变动，用真值吸收误差）
+        self.ap_observe_from_map_bar()
         return finished_combat
 
     _solved_map_event = set()
@@ -1540,6 +1543,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 drop.add(self.device.image)
                 self.hp_reset()
                 self.hp_get()
+                # 策略搜索完成后海域内顶栏可见：读一次顶栏行动力校准账本
+                self.ap_observe_from_map_bar()
                 return True
             except (
                 TaskEnd,
