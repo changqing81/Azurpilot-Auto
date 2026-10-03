@@ -623,8 +623,8 @@ class GeneratedConfig:
     OpsiGeneral_AutoSearchTimeLimit = 5
     OpsiGeneral_SkipStrategicSearchCheck = False
     OpsiGeneral_ActionPointLedgerEnabled = True
-    OpsiGeneral_ActionPointLedgerDecide = False
-    OpsiGeneral_ActionPointLedgerMapBarOcr = False
+    OpsiGeneral_ActionPointLedgerDecide = True
+    OpsiGeneral_ActionPointLedgerMapBarOcr = True
     OpsiGeneral_ActionPointLedgerConfirmLimit = 3
     OpsiGeneral_ActionPointLedgerTopUpCeiling = 320
 

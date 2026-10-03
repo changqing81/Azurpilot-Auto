@@ -1205,10 +1205,10 @@ OpsiGeneral:
   ActionPointLedgerEnabled: true
   # 由账本预判行动力是否够开工，够则跳过开工检查弹窗。建议影子模式运行
   # 一段时间、确认推演误差可接受后再开启。
-  ActionPointLedgerDecide: false
+  ActionPointLedgerDecide: true
   # 顶栏行动力影子读数：在大世界海域内读取顶部行动力数字，与账本推演比对
   # 并记录日志，用于验证 OCR 准确率。不写入账本与统计。
-  ActionPointLedgerMapBarOcr: false
+  ActionPointLedgerMapBarOcr: true
   # 每小时允许"因读数存疑而弹窗复核"的次数上限（0 表示从不复核）。
   # 补充行动力、买油开箱等正常弹窗不受此限制。
   ActionPointLedgerConfirmLimit: 3

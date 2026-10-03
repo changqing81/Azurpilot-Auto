@@ -13402,11 +13402,11 @@
       },
       "ActionPointLedgerDecide": {
         "type": "checkbox",
-        "value": false
+        "value": true
       },
       "ActionPointLedgerMapBarOcr": {
         "type": "checkbox",
-        "value": false
+        "value": true
       },
       "ActionPointLedgerConfirmLimit": {
         "type": "input",
