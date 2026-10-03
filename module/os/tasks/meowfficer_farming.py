@@ -239,7 +239,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         # 账本预判（ActionPointLedgerDecide 开启时）在弹窗前先判一次，
         # 够开工就跳过；关闭开关时恒为 True，行为与现状一致。
         # 注意预判放在各分支内部按需调用：budgeted/burn_context 命中时
-        # 本来就不弹窗，避免白耗复核额度。
+        # 本来就不弹窗，避免无谓的顶栏读数。
         if not self.is_running_smart_scheduling_task():
             if self.need_action_point_popup(
                     cost=120, preserve=self.config.OS_ACTION_POINT_PRESERVE):

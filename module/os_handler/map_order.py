@@ -76,12 +76,8 @@ class MapOrderHandler(MapOperation, ActionPointHandler, MapEventHandler, ZoneMan
             # End
             if self.is_in_map():
                 if confirm_timer.reached():
-                    # 指令执行成功：侦察/潜艇按进场费用表（OBSCURE 口径）记账
-                    self.ap_spend(
-                        self.action_point_get_cost(assume_zone, 'OBSCURE'),
-                        reason=f'order_{button.name}',
-                        persist=True,
-                    )
+                    # 指令扣费不记账（账本只记录读数，不模拟消耗），
+                    # 行动力真值由后续顶栏读数记录进账本
                     return True
             else:
                 confirm_timer.reset()

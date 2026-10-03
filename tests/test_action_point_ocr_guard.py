@@ -1,7 +1,7 @@
-"""顶栏行动力 OCR 的门禁测试（MapActionPointDigit），不连接游戏。
+"""顶栏行动力 OCR 的门禁与账本记录链路测试（MapActionPointDigit + handler），不连接游戏。
 
-覆盖：位数门（≤4 位合法、≥5 位丢弃）、范围门、变化率门、连续一致门、
-复核额度（HourlyQuota）耗尽后不再弹窗。
+覆盖：位数门（≤4 位合法、≥5 位丢弃）、非数字拒绝、
+顶栏读数→账本记录→弹窗判定的 handler 级链路、开关语义。
 真实截图样张回归：设置环境变量 AP_MAPBAR_SAMPLES 指向样张目录
 （文件名以 ap<期望值>_ 开头，如 ap154_zone22.png），目录不存在时自动跳过；
 代码中不含任何本机路径。
@@ -9,13 +9,11 @@
 
 import os
 import unittest
-from datetime import datetime, timedelta
 from glob import glob
+from unittest.mock import patch
 
 from module.os_handler.action_point import MAP_ACTION_POINT_DIGIT
-from module.os_handler.action_point_ledger import ActionPointLedger, ApEstimate, HourlyQuota
-
-T0 = datetime(2026, 10, 3, 12, 0, 0)
+from module.os_handler.action_point_ledger import SOURCE_MAP_BAR, SOURCE_POPUP
 
 
 class TestMapActionPointDigitGates(unittest.TestCase):
@@ -53,69 +51,73 @@ class TestMapActionPointDigitGates(unittest.TestCase):
         self.assertEqual(MAP_ACTION_POINT_DIGIT.invalid_reason, 'non-digit')
 
 
-class TestJudgeChain(unittest.TestCase):
-    def setUp(self):
-        self.est = ApEstimate(152, 352, 60, 'medium')
+class TestHandlerRecordAndDecide(unittest.TestCase):
+    """handler 级：顶栏读数 → 账本记录 → 弹窗判定（SimpleNamespace 桩，不连游戏）。
 
-    def test_ok_within_tolerance(self):
-        self.assertEqual(ActionPointLedger.judge_map_bar_reading(154, self.est)[0], 'ok')
-        self.assertEqual(ActionPointLedger.judge_map_bar_reading(150, self.est)[0], 'ok')
+    config_name 指向不存在的配置文件，磁盘回退读到空，保证用例不依赖本机 config。
+    """
 
-    def test_suspect_beyond_tolerance(self):
-        verdict, value, reason = ActionPointLedger.judge_map_bar_reading(100, self.est)
-        self.assertEqual(verdict, 'suspect')
-        self.assertEqual(value, 100)
-        self.assertEqual(reason, 'drift=-52')
+    def make_handler(self, decide=True, map_bar_enabled=True):
+        from types import SimpleNamespace
 
-    def test_reject_sentinel(self):
-        verdict, value, reason = ActionPointLedger.judge_map_bar_reading(-1, self.est)
-        self.assertEqual(verdict, 'reject')
-        self.assertEqual(reason, 'negative')
+        from module.os_handler import action_point as ap_module
+        from module.os_handler.action_point import ActionPointHandler
 
+        handler = ActionPointHandler.__new__(ActionPointHandler)
+        handler.config = SimpleNamespace(
+            OpsiGeneral_ActionPointLedgerEnabled=True,
+            OpsiGeneral_ActionPointLedgerDecide=decide,
+            OpsiGeneral_ActionPointLedgerMapBarOcr=map_bar_enabled,
+            config_name='ap_ledger_test_nonexistent',
+            data={'OpsiScheduling': {'Storage': {'Storage': {}}}},
+        )
+        handler.device = SimpleNamespace(image='img')
+        handler.is_in_map = lambda: True
+        return handler, ap_module
 
-class TestVerifyQuota(unittest.TestCase):
-    """复核额度：只有"读数存疑"的复核受限制，且额度耗尽后不再复核。"""
+    def test_decide_off_always_popup(self):
+        handler, _ = self.make_handler(decide=False)
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
 
-    def make_ledger(self):
-        ledger = ActionPointLedger()
-        ledger.observe(154, 354, source='popup', at=T0)
-        return ledger
+    def test_recorded_enough_skips_popup(self):
+        handler, ap_module = self.make_handler()
+        handler._get_ap_ledger().observe(154, 354, source=SOURCE_POPUP)
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=154):
+            self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
 
-    def test_ok_reading_does_not_consume_quota(self):
-        quota = HourlyQuota(3)
-        ledger = self.make_ledger()
-        est = ledger.estimate(now=T0)
-        verdict, _, _ = ActionPointLedger.judge_map_bar_reading(154, est)
-        self.assertEqual(verdict, 'ok')
-        # ok 读数不需要复核，额度不动
-        self.assertTrue(quota.allow(now=T0))
-        self.assertEqual(quota.events, [])
+    def test_low_map_bar_truth_forces_popup(self):
+        # 场景还原（2026-10-03 真机）：弹窗记录 198，一轮战斗后顶栏真值 98 → 必须弹窗
+        handler, ap_module = self.make_handler()
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=98):
+            self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertEqual(handler._get_ap_ledger().current, 98)
 
-    def test_suspect_consumes_quota_until_exhausted(self):
-        quota = HourlyQuota(3)
-        ledger = self.make_ledger()
-        t = T0
-        for i in range(3):
-            est = ledger.estimate(now=t)
-            verdict, _, _ = ActionPointLedger.judge_map_bar_reading(100, est)
-            self.assertEqual(verdict, 'suspect')
-            self.assertTrue(quota.allow(now=t), f'第 {i + 1} 次复核应有额度')
-            quota.record(now=t)
-            # 复核后弹窗校准回真值
-            ledger.observe(154, 354, source='popup', at=t)
-        self.assertFalse(quota.allow(now=t), '额度耗尽后不再复核')
+    def test_map_bar_reading_is_recorded(self):
+        handler, ap_module = self.make_handler()
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
+            value = handler.ap_observe_from_map_bar()
+        self.assertEqual(value, 158)
+        ledger = handler._get_ap_ledger()
+        self.assertEqual(ledger.current, 158)
+        self.assertEqual(ledger.source, SOURCE_MAP_BAR)
 
-    def test_exhausted_quota_falls_back_to_projection(self):
-        quota = HourlyQuota(3)
-        ledger = self.make_ledger()
-        for _ in range(3):
-            quota.record(now=T0)
-        est = ledger.estimate(now=T0)
-        verdict, _, _ = ActionPointLedger.judge_map_bar_reading(100, est)
-        self.assertEqual(verdict, 'suspect')
-        # 额度耗尽：不弹窗，继续用推演值
-        self.assertFalse(quota.allow(now=T0))
-        self.assertEqual(ledger.estimate(now=T0).current, 154)
+    def test_garbage_reading_not_recorded(self):
+        handler, ap_module = self.make_handler()
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=-1):
+            self.assertIsNone(handler.ap_observe_from_map_bar())
+        self.assertIsNone(handler._get_ap_ledger().current)
+
+    def test_total_follows_from_last_popup(self):
+        # 弹窗记录 198/884（箱子 686），顶栏真值 98 → 总行动力跟随修正为 784，箱子价值不变
+        handler, ap_module = self.make_handler()
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=98):
+            handler.ap_observe_from_map_bar()
+        ledger = handler._get_ap_ledger()
+        self.assertEqual(ledger.current, 98)
+        self.assertEqual(ledger.total_with_box, 784)
+        self.assertEqual(ledger.box_value, 686)
 
 
 class TestSampleImages(unittest.TestCase):
@@ -132,8 +134,6 @@ class TestSampleImages(unittest.TestCase):
             self.skipTest('样张目录为空，跳过')
 
     def test_samples_read_expected_value(self):
-        from PIL import Image
-
         for path in self.files:
             name = os.path.basename(path)
             expected = int(name.split('_')[0][2:])

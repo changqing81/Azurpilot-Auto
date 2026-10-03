@@ -27,7 +27,6 @@ from module.os_handler.action_point_ledger import (
     SOURCE_MAP_BAR,
     SOURCE_POPUP,
     ActionPointLedger,
-    HourlyQuota,
 )
 
 OCR_ACTION_POINT_REMAIN = Digit(ACTION_POINT_REMAIN, letter=(255, 219, 66), name='OCR_ACTION_POINT_REMAIN')
@@ -41,10 +40,10 @@ class MapActionPointDigit(Digit):
     与弹窗内 OCR（OCR_ACTION_POINT_REMAIN，黄字）不同：
     - 顶栏数字为白色，沿用 ACTION_POINT_REMAIN_OS 资产的 letter/threshold；
     - 必须做位数门（≤4 位，防 OCR 把相邻元素拼进来，如行动力 154 与舰船等级 Lv.60 → 60154），
-      非法读数返回 -1，由账本判定链（judge_map_bar_reading）拒绝。
+      非法读数返回 -1，账本记录前直接丢弃。
 
     区域标定（2026-10-03 双截图离线实测）：现有资产区 (878,28,928,46) 与收紧框
-    (894,26,934,48) 均稳定读出 154；先用现有资产，影子期发现误读再收紧。
+    (894,26,934,48) 均稳定读出 154；先用现有资产，误读率异常时再收紧。
     """
 
     def __init__(self, buttons, name=None):
@@ -333,9 +332,9 @@ class ActionPointHandler(UI, MapEventHandler):
             logger.warning('[AP账本] 状态持久化失败', exc_info=True)
 
     def ap_observe_from_popup(self):
-        """弹窗校准：action_point_update() 末尾调用，是最精确的校准点。
+        """弹窗记录：action_point_update() 末尾调用，是最精确的记录点。
 
-        同时更新 current 与 total_with_box；写入账本状态但**不动任何统计快照**。
+        同时记录 current 与 total_with_box（含箱子明细）；写入账本状态但**不动任何统计快照**。
         """
         if not self._ap_ledger_enabled():
             return
@@ -347,34 +346,21 @@ class ActionPointHandler(UI, MapEventHandler):
             if ledger.observe(self._action_point_current, total, source=SOURCE_POPUP, box=self._action_point_box):
                 self._save_ap_ledger_state()
         except Exception:
-            logger.exception('[AP账本] 弹窗校准失败')
+            logger.exception('[AP账本] 弹窗记录失败')
 
-    def ap_spend(self, cost, reason='', persist=False):
-        """记一笔行动力增减（进图/指令等）。persist=True 时立即落盘。"""
-        if not self._ap_ledger_enabled():
-            return False
-        ledger = self._get_ap_ledger()
-        if ledger is None:
-            return False
-        try:
-            ok = ledger.spend(cost, reason=reason)
-        except Exception:
-            logger.exception('[AP账本] 记账失败')
-            return False
-        if ok and persist:
-            self._save_ap_ledger_state()
-        return ok
+    def ap_observe_from_map_bar(self, image=None):
+        """读顶栏行动力真值（仅海域内）并记录进账本。
 
-    def ap_observe_from_map_bar(self, image=None, force_accept=False):
-        """读顶栏行动力真值（仅海域内），过门后校准账本当前值。
+        顶栏读数只做 OCR 合法性门（位数门/非数字拒绝），通过即记录——
+        读到的真值就是账本的新记录，不与旧记录比对。
+
+        任何情况下都不写 LogRes/统计快照。
 
         Args:
             image: 截图（默认用当前设备画面）。
-            force_accept (bool): 强制采信读数——用于进图/任务切换/开工检查等
-                关键时机，此时读数与推演的大幅偏差（drift）多为真实的战斗/进场
-                消耗而非 OCR 误读，跳过变化率门直接采纳（位数/范围门仍生效）。
 
-        任何情况下都不写 LogRes/统计快照。
+        Returns:
+            int | None: 记录成功返回读数，否则 None。
         """
         if not self._ap_ledger_enabled():
             return None
@@ -391,101 +377,39 @@ class ActionPointHandler(UI, MapEventHandler):
         except Exception as e:
             logger.warning(f'[AP账本] 顶栏读数 OCR 失败: {type(e).__name__}: {e}')
             return None
-        est = ledger.estimate()
-        last = self.__dict__.get('_ap_mapbar_last')
-        verdict, value, reason = ActionPointLedger.judge_map_bar_reading(raw, est, last_value=last)
-        if force_accept and verdict == 'suspect':
-            # 强制时机：大幅 drift 视为真实消耗，采信 OCR 读数（OCR 已实测准确）
-            verdict, reason = 'ok', f'force-accept {reason}'
-        self.__dict__['_ap_mapbar_last'] = value if verdict in ('ok', 'pending') else None
-        if verdict == 'suspect':
-            # 可疑读数：标记待复核（额度内由 need_action_point_popup 安排弹窗校准）
-            self.__dict__['_ap_suspect_pending'] = True
-        logger.info(
-            f'[AP账本] source=map_bar 读数={value if value is not None else raw} '
-            f'推演={est.current} verdict={verdict} reason={reason}'
-        )
-        if verdict != 'ok' or value is None:
+        value, reason = ActionPointLedger.sanitize_map_bar_value(raw)
+        if value is None:
+            logger.info(f'[AP账本] source=map_bar 读数={raw} 已丢弃({reason})')
             return None
-        # 采纳读数：只校准账本当前值（总量跟随修正），绝不写 LogRes/统计
         try:
             ledger.observe(value, source=SOURCE_MAP_BAR)
             self._save_ap_ledger_state()
         except Exception:
-            logger.exception('[AP账本] 顶栏校准失败')
+            logger.exception('[AP账本] 顶栏记录失败')
         return value
 
-    def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None, now=None):
-        """预判是否需要打开行动力弹窗（P2 决策入口）。
+    def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None):
+        """判定是否需要打开行动力弹窗。
 
         - `ActionPointLedgerDecide` 关闭时恒返回 True，行为与现状完全一致；
-        - 开启时由账本推演判定：当前值够开工且总行动力高于保留值 → 跳过弹窗；
-        - 此前存在可疑读数（suspect）时，先在复核额度内弹一次窗读真值校准，
-          再按校准后的账本判定；额度耗尽则按推演判定。
+        - 开启时：先读一次顶栏真值记录进账本（在海域内时），再用账本记录值
+          与任务所需比较——当前行动力低于所需、总行动力会被保留值拦截、
+          或账本还没有任何记录 → 弹窗。
 
         Returns:
-            bool: True = 需要弹窗（校准或补充）；False = 账本够用，直接开工。
+            bool: True = 需要弹窗（读真值或补充）；False = 账本记录够用，直接开工。
         """
         if not self._ap_ledger_enabled():
             return True
         if not getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
             return True
+        # 判定前先读一次顶栏真值并记录（在海域内时），判定永远基于最新记录
+        if getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
+            self.ap_observe_from_map_bar()
         ledger = self._get_ap_ledger()
         if ledger is None:
             return True
-        # 真值优先：开工检查等判定前先读一次顶栏 OCR（每次进图/任务切换时机），
-        # 读到的真值直接作为判定基准，推演只作读不到时的兜底
-        if getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
-            is_in_map = getattr(self, 'is_in_map', None)
-            if callable(is_in_map) and is_in_map():
-                self.ap_observe_from_map_bar(force_accept=True)
-        if self.__dict__.get('_ap_suspect_pending'):
-            if self._ap_verify_by_popup():
-                self.__dict__.pop('_ap_suspect_pending', None)
-                logger.info('[AP账本] 可疑读数已复核校准')
-            # 复核失败（额度耗尽/弹窗失败）时保留标记，下一个决策点再试（仍受额度限制）
-        return ledger.need_popup(cost, preserve=preserve, top_up_ceiling=top_up_ceiling, now=now)
-
-    def _get_verify_quota(self):
-        """复核额度：上限取 OpsiGeneral_ActionPointLedgerConfirmLimit（0=永不复核）。"""
-        quota = self.__dict__.get('_ap_verify_quota')
-        if quota is None:
-            try:
-                limit = int(getattr(self.config, 'OpsiGeneral_ActionPointLedgerConfirmLimit', 3))
-            except (TypeError, ValueError):
-                limit = 3
-            quota = HourlyQuota(limit)
-            self.__dict__['_ap_verify_quota'] = quota
-        return quota
-
-    def _ap_verify_by_popup(self):
-        """开一次行动力弹窗读真值并校准账本（受每小时复核额度限制）。
-
-        Returns:
-            bool: 是否完成了校准。
-        """
-        quota = self._get_verify_quota()
-        if not quota.allow():
-            logger.info('[AP账本] 复核额度已用尽，跳过弹窗校准')
-            return False
-        # 页面护栏：复核弹窗只允许发生在大世界界面，
-        # 其他页面（或无设备上下文）直接放弃，避免 action_point_enter 空转
-        if getattr(self, 'device', None) is None:
-            logger.info('[AP账本] 无设备上下文，跳过复核弹窗')
-            return False
-        if not self.appear(OS_CHECK, offset=(20, 20)):
-            logger.info('[AP账本] 当前不在大世界界面，跳过复核弹窗')
-            return False
-        quota.record()
-        try:
-            # 纯读取：进弹窗 → OCR（action_point_update 内会自动校准账本）→ 退出
-            self.action_point_enter()
-            self.action_point_safe_get()
-            self.action_point_quit()
-        except Exception:
-            logger.exception('[AP账本] 复核弹窗失败')
-            return False
-        return True
+        return ledger.need_popup(cost, preserve=preserve, top_up_ceiling=top_up_ceiling)
 
     def action_point_safe_get(self):
         """

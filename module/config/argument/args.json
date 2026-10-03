@@ -13408,10 +13408,6 @@
         "type": "checkbox",
         "value": true
       },
-      "ActionPointLedgerConfirmLimit": {
-        "type": "input",
-        "value": 3
-      },
       "ActionPointLedgerTopUpCeiling": {
         "type": "input",
         "value": 320

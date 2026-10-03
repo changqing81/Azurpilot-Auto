@@ -468,16 +468,8 @@ class GlobeOperation(ActionPointHandler):
             if self.is_in_map():
                 if click_count > 0:
                     time.sleep(1)
-                    # 进入海域成功：进场即扣行动力（侵蚀1=5、隐秘/深渊按表、要塞200、
-                    # DANGEROUS 双倍、港口 0 自动跳过）。海域内的战斗不再消耗
-                    # （2026-10-03 日志实证：进场校准 138 → 打 2 场 → 仍为 138），
-                    # 战斗期不做任何记账。
-                    self.ap_spend(
-                        self.action_point_get_cost(zone, pinned),
-                        reason=f'enter_{pinned or "zone"}',
-                        persist=True,
-                    )
-                    # 进场后读一次顶栏真值校准账本，吸收模型误差
+                    # 进场扣费不记账（账本只记录读数，不模拟消耗），
+                    # 进场后读一次顶栏真值，把扣费后的行动力记录进账本
                     self.ap_observe_from_map_bar()
                 break
 

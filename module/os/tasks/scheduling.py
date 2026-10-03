@@ -1815,25 +1815,16 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             f'[大世界-智能调度+] 集中补足会话行动力: {task_display}预算 {budget}, '
             f'保留值 {ap_preserve}'
         )
-        # 账本快速路径（ActionPointLedgerDecide 开启时生效）：
-        # 推演当前值已达预算、且总行动力高于保留值 → 零弹窗通过
-        if self._ap_ledger_enabled() and \
-                getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
-            ledger = self._get_ap_ledger()
-            if ledger is not None:
-                est = ledger.estimate()
-                if (
-                    est.confidence != 'low'
-                    and est.current is not None
-                    and est.current >= budget
-                    and (est.total_with_box is None or est.total_with_box > (ap_preserve or 0))
-                ):
-                    logger.info(
-                        f'[AP账本] 会话预算检查通过（推演）: '
-                        f'当前行动力 {est.current} >= {task_display}预算 {budget}'
-                    )
-                    self._coin_task_ap_budgeted = True
-                    return
+        # 账本快速路径：判定前先读顶栏真值并记录（在海域内时），
+        # 记录值已达预算、且总行动力高于保留值 → 零弹窗通过；
+        # Decide 关闭或账本关闭时恒为需要弹窗，走原路径
+        if not self.need_action_point_popup(cost=budget, preserve=int(ap_preserve or 0)):
+            logger.info(
+                f'[AP账本] 会话预算检查通过（账本记录）: '
+                f'当前行动力 >= {task_display}预算 {budget}'
+            )
+            self._coin_task_ap_budgeted = True
+            return
         previous_preserve = self.config.OS_ACTION_POINT_PRESERVE
         self.config.OS_ACTION_POINT_PRESERVE = int(ap_preserve or 0)
         try:
@@ -1880,15 +1871,14 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             return cached_total, cached_current
 
         # 决策读优先走顶栏 OCR 真值（ActionPointLedgerMapBarOcr 开启时生效）：
-        # 每轮决策（含跨任务边界）都读一次顶栏，推演只在读不到时兜底
+        # 每轮决策（含跨任务边界）都读一次顶栏并记录进账本
         if self._ap_ledger_enabled() and \
                 getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
             ledger = self._get_ap_ledger()
             if ledger is not None:
-                value = self.ap_observe_from_map_bar(force_accept=True)
+                value = self.ap_observe_from_map_bar()
                 if value is not None:
-                    est = ledger.estimate()
-                    total_ap = int(est.total_with_box or value)
+                    total_ap = int(ledger.total_with_box or value)
                     current_ap = int(value)
                     self._ap_cache = (total_ap, current_ap, current_time())
                     logger.info(
@@ -1896,26 +1886,25 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                     )
                     return total_ap, current_ap
 
-        # 账本推演兜底（ActionPointLedgerDecide 开启时生效）：
-        # 顶栏读不到（不在海域内/OCR 失败）时用推演值，省掉决策弹窗
+        # 账本记录兜底（ActionPointLedgerDecide 开启时生效）：
+        # 顶栏读不到（不在海域内/OCR 失败）时用账本最近一次记录，省掉决策弹窗
         if (
             not force_refresh
             and self._ap_ledger_enabled()
             and getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False)
         ):
             ledger = self._get_ap_ledger()
-            if ledger is not None:
-                est = ledger.estimate()
-                if est.confidence != 'low' and est.total_with_box is not None:
-                    total_ap, current_ap = int(est.total_with_box), int(est.current)
-                    self._ap_cache = (total_ap, current_ap, current_time())
-                    # 注：推演路径不触发 check_and_notify_action_point_threshold()
-                    # （行动力阈值推送），该通知以下一次真值读数为准
-                    logger.info(
-                        f'[AP账本] 决策读走推演: 总={total_ap} 当前={current_ap}, '
-                        f'置信={est.confidence}, 距上次校准 {est.age:.0f}s'
-                    )
-                    return total_ap, current_ap
+            if ledger is not None and ledger.current is not None:
+                total_ap = int(ledger.total_with_box or ledger.current)
+                current_ap = int(ledger.current)
+                self._ap_cache = (total_ap, current_ap, current_time())
+                # 注：账本记录路径不触发 check_and_notify_action_point_threshold()
+                # （行动力阈值推送），该通知以下一次真值读数为准
+                logger.info(
+                    f'[AP账本] 决策读走账本记录: 总={total_ap} 当前={current_ap}, '
+                    f'记录于 {ledger.recorded_at}'
+                )
+                return total_ap, current_ap
 
         self.action_point_enter()
         self.action_point_safe_get()
@@ -2025,7 +2014,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         logger.info('[大世界-智能调度+] 执行一轮侵蚀 1 练级')
         self.handle_first_auto_search(run=False)
 
-        # 账本预判（ActionPointLedgerDecide 开启时生效）：推演当前值 >= 120 且
+        # 账本预判（ActionPointLedgerDecide 开启时生效）：记录的当前值 >= 120 且
         # 总行动力高于保留值 → 跳过开工检查弹窗；否则回退 60 秒缓存判定
         ap_checked = False
         if self._ap_ledger_enabled() and \
@@ -2117,21 +2106,16 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         """
         因行动力不足推迟智能调度+。
         """
-        # 二次确认（ActionPointLedgerDecide 开启时生效）：推迟到次日是破坏性动作。
-        # 账本置信度不足（medium/low）时先弹窗读真值校准一次（受复核额度限制），
-        # 校准后总行动力其实高于保留值 → 放弃推迟，任务继续。
+        # 二次确认：推迟到次日是破坏性动作。账本开启时先读一次顶栏真值
+        # （在海域内时）并记录，读到的总行动力其实高于保留值 → 放弃推迟。
         if self._ap_ledger_enabled() and \
-                getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
-            ledger = self._get_ap_ledger()
-            if ledger is not None:
-                est = ledger.estimate()
-                if est.confidence != 'high' and est.total_with_box is not None:
-                    logger.info('[AP账本] 推迟前复核：账本置信度不足，先弹窗读真值')
-                    self._ap_verify_by_popup()
-                    est = ledger.estimate()
-                if est.total_with_box is not None and est.total_with_box > min_ap_reserve:
+                getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
+            if self.ap_observe_from_map_bar() is not None:
+                ledger = self._get_ap_ledger()
+                if ledger is not None and ledger.total_with_box is not None \
+                        and ledger.total_with_box > min_ap_reserve:
                     logger.info(
-                        f'[AP账本] 推迟前复核通过: 总行动力 {est.total_with_box} '
+                        f'[AP账本] 推迟前复核通过: 总行动力 {ledger.total_with_box} '
                         f'> 保留值 {min_ap_reserve}，放弃推迟'
                     )
                     return

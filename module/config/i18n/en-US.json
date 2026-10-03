@@ -3340,10 +3340,6 @@
       "name": "Top-bar AP reading",
       "help": "Reads the action point number on the top bar inside Operation Siren zones (below the zone name, next to MAX), calibrates the ledger current value when valid, and logs the difference against the projection. Not written to statistics."
     },
-    "ActionPointLedgerConfirmLimit": {
-      "name": "Hourly verify limit",
-      "help": "When a top-bar reading differs from the projection by more than ±2, how many times per hour the popup may be opened for verification. Normal popups (replenishing, buying oil/boxes) are not limited. 0 disables verification."
-    },
     "ActionPointLedgerTopUpCeiling": {
       "name": "Stronghold top-up ceiling",
       "help": "When replenishing before a Siren Stronghold, total action points (including boxes) are topped up to at most this value. Only applies to strongholds."

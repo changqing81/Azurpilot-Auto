@@ -625,7 +625,6 @@ class GeneratedConfig:
     OpsiGeneral_ActionPointLedgerEnabled = True
     OpsiGeneral_ActionPointLedgerDecide = True
     OpsiGeneral_ActionPointLedgerMapBarOcr = True
-    OpsiGeneral_ActionPointLedgerConfirmLimit = 3
     OpsiGeneral_ActionPointLedgerTopUpCeiling = 320
 
     # 配置组 `OpsiAshBeacon`
