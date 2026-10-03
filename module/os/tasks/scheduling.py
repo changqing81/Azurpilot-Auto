@@ -597,6 +597,8 @@ class CoinTaskMixin:
         )
         if not isinstance(state, dict):
             state = {}
+        # 无条件与磁盘合并：其他键（如 BuyActionPointWeekId）可能已被
+        # 跨进程整档保存覆盖掉，仅凭"state 非空"判断会漏补
         disk = self._read_disk_smart_scheduling_state()
         if disk:
             merged = dict(disk)

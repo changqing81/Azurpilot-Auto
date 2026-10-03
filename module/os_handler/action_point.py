@@ -289,8 +289,14 @@ class ActionPointHandler(UI, MapEventHandler):
             state = deep_get(self.config.data, keys=self.AP_LEDGER_STATE_PATH, default={})
         except Exception:
             state = {}
-        if not isinstance(state, dict) or not state:
-            state = self._read_disk_storage_state()
+        if not isinstance(state, dict):
+            state = {}
+        # 无条件与磁盘合并，防止其他状态键（BuyActionPointCount 等）被覆盖丢失
+        disk = self._read_disk_storage_state()
+        if disk:
+            merged = dict(disk)
+            merged.update(state)
+            state = merged
         return state or {}
 
     def _read_disk_storage_state(self):
