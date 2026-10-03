@@ -624,12 +624,15 @@ class CoinTaskMixin:
         return self._get_smart_scheduling_state().get(key, default)
 
     def _set_smart_scheduling_state_value(self, key, value):
-        """写入单个智能调度+运行状态并立即持久化。"""
+        """写入单个智能调度+运行状态并立即持久化。
+
+        按子键深路径写入：只动本键，不覆盖 Storage.Storage 下
+        其他状态键（账本/买行动力计数高频写，整 dict 覆盖会互相冲掉）。
+        """
         state = self._get_smart_scheduling_state()
         if state.get(key) == value:
             return
-        state[key] = value
-        self.config.modified[self.CONFIG_PATH_SMART_STATE] = state
+        self.config.modified[f'{self.CONFIG_PATH_SMART_STATE}.{key}'] = value
         self.config.save()
 
     def _clear_smart_scheduling_state_value(self, key):
@@ -638,6 +641,7 @@ class CoinTaskMixin:
         if key not in state:
             return
         state.pop(key, None)
+        # 清理键频率低，且 state 已含全部最新键，整 dict 写回安全
         self.config.modified[self.CONFIG_PATH_SMART_STATE] = state
         self.config.save()
 

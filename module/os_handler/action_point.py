@@ -315,14 +315,19 @@ class ActionPointHandler(UI, MapEventHandler):
             return {}
 
     def _save_ap_ledger_state(self):
-        """把账本写回 OpsiScheduling.Storage.Storage（与智能调度+ 状态同一持久化位置）。"""
+        """把账本写回 OpsiScheduling.Storage.Storage.ApLedgerState。
+
+        按子键深路径写入，只动 ApLedgerState，不覆盖同组下
+        买行动力计数等其他状态键（读-改-写整个 dict 在多进程下会互相覆盖）。
+        """
         ledger = self.__dict__.get('_ap_ledger_instance')
         if ledger is None:
             return
         try:
-            state = self._load_ap_ledger_state()
-            state['ApLedgerState'] = ledger.to_state()
-            self.config.modified[self.AP_LEDGER_STATE_PATH] = state
+            state = ledger.to_state()
+            if not state:
+                return
+            self.config.modified[self.AP_LEDGER_STATE_PATH + '.ApLedgerState'] = state
             self.config.save()
         except Exception:
             logger.warning('[AP账本] 状态持久化失败', exc_info=True)
