@@ -3337,7 +3337,7 @@
       "help": "Let the ledger predict whether action points are sufficient and skip the pre-battle check popup when they are; when a reading deviates from the projection by more than ±2, a verification popup is opened within the hourly quota first. Turn this off together with top-bar reading if misjudgement occurs."
     },
     "ActionPointLedgerMapBarOcr": {
-      "name": "Top-bar AP reading (shadow)",
+      "name": "Top-bar AP reading",
       "help": "Reads the action point number on the top bar inside Operation Siren zones (below the zone name, next to MAX), calibrates the ledger current value when valid, and logs the difference against the projection. Not written to statistics."
     },
     "ActionPointLedgerConfirmLimit": {
