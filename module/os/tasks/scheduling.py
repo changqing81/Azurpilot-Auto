@@ -1770,6 +1770,25 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             f'[大世界-智能调度+] 集中补足会话行动力: {task_display}预算 {budget}, '
             f'保留值 {ap_preserve}'
         )
+        # 账本快速路径（ActionPointLedgerDecide 开启时生效）：
+        # 推演当前值已达预算、且总行动力高于保留值 → 零弹窗通过
+        if self._ap_ledger_enabled() and \
+                getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
+            ledger = self._get_ap_ledger()
+            if ledger is not None:
+                est = ledger.estimate()
+                if (
+                    est.confidence != 'low'
+                    and est.current is not None
+                    and est.current >= budget
+                    and (est.total_with_box is None or est.total_with_box > (ap_preserve or 0))
+                ):
+                    logger.info(
+                        f'[AP账本] 会话预算检查通过（推演）: '
+                        f'当前行动力 {est.current} >= {task_display}预算 {budget}'
+                    )
+                    self._coin_task_ap_budgeted = True
+                    return
         previous_preserve = self.config.OS_ACTION_POINT_PRESERVE
         self.config.OS_ACTION_POINT_PRESERVE = int(ap_preserve or 0)
         try:
@@ -1814,6 +1833,26 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             and (current_time() - cached_at).total_seconds() < cache_ttl_seconds
         ):
             return cached_total, cached_current
+
+        # 账本快速路径（ActionPointLedgerDecide 开启时生效）：
+        # 推演置信度足够（非 low）时直接用推演值，省掉每轮决策的行动力弹窗；
+        # force_refresh（跨任务边界）仍强制弹窗读真值。
+        if (
+            not force_refresh
+            and self._ap_ledger_enabled()
+            and getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False)
+        ):
+            ledger = self._get_ap_ledger()
+            if ledger is not None:
+                est = ledger.estimate()
+                if est.confidence != 'low' and est.total_with_box is not None:
+                    total_ap, current_ap = int(est.total_with_box), int(est.current)
+                    self._ap_cache = (total_ap, current_ap, current_time())
+                    logger.info(
+                        f'[AP账本] 决策读走推演: 总={total_ap} 当前={current_ap}, '
+                        f'置信={est.confidence}, 距上次校准 {est.age:.0f}s'
+                    )
+                    return total_ap, current_ap
 
         self.action_point_enter()
         self.action_point_safe_get()
@@ -1923,15 +1962,26 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         logger.info('[大世界-智能调度+] 执行一轮侵蚀 1 练级')
         self.handle_first_auto_search(run=False)
 
-        # 检查缓存行动力是否充足（>=120 且缓存 < 60 秒）
-        cached = getattr(self, '_ap_cache', (None, None, None))
-        _, cached_current, cached_at = cached
-        ap_checked = (
-            cached_at is not None
-            and cached_current is not None
-            and cached_current >= 120
-            and (current_time() - cached_at).total_seconds() < 60
-        )
+        # 账本预判（ActionPointLedgerDecide 开启时生效）：推演当前值 >= 120 且
+        # 总行动力高于保留值 → 跳过开工检查弹窗；否则回退 60 秒缓存判定
+        ap_checked = False
+        if self._ap_ledger_enabled() and \
+                getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
+            ledger = self._get_ap_ledger()
+            if ledger is not None:
+                ap_checked = not ledger.need_popup(
+                    cost=120, preserve=int(ap_preserve or 0))
+                logger.info(f'[AP账本] 侵蚀1开工预判: ap_checked={ap_checked}')
+        if not ap_checked:
+            # 检查缓存行动力是否充足（>=120 且缓存 < 60 秒）
+            cached = getattr(self, '_ap_cache', (None, None, None))
+            _, cached_current, cached_at = cached
+            ap_checked = (
+                cached_at is not None
+                and cached_current is not None
+                and cached_current >= 120
+                and (current_time() - cached_at).total_seconds() < 60
+            )
 
         if hasattr(self, 'os_check_leveling'):
             self._run_with_opsi_task_context(
@@ -2004,6 +2054,24 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         """
         因行动力不足推迟智能调度+。
         """
+        # 二次确认（ActionPointLedgerDecide 开启时生效）：推迟到次日是破坏性动作。
+        # 账本置信度不足（medium/low）时先弹窗读真值校准一次（受复核额度限制），
+        # 校准后总行动力其实高于保留值 → 放弃推迟，任务继续。
+        if self._ap_ledger_enabled() and \
+                getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
+            ledger = self._get_ap_ledger()
+            if ledger is not None:
+                est = ledger.estimate()
+                if est.confidence != 'high' and est.total_with_box is not None:
+                    logger.info('[AP账本] 推迟前复核：账本置信度不足，先弹窗读真值')
+                    self._ap_verify_by_popup()
+                    est = ledger.estimate()
+                if est.total_with_box is not None and est.total_with_box > min_ap_reserve:
+                    logger.info(
+                        f'[AP账本] 推迟前复核通过: 总行动力 {est.total_with_box} '
+                        f'> 保留值 {min_ap_reserve}，放弃推迟'
+                    )
+                    return
         logger.warning(f'[大世界-智能调度+] 行动力达到最低保留 ({total_ap} <= {min_ap_reserve})')
         self._notify_ap_insufficient(total_ap, min_ap_reserve)
         self._delay_smart_scheduling_to_server_update('行动力不足')

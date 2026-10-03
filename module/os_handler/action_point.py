@@ -22,7 +22,12 @@ from module.statistics.item import Item, ItemGrid
 from module.ui.assets import OS_CHECK
 from module.ui.ui import UI
 from module.log_res import LogRes
-from module.os_handler.action_point_ledger import SOURCE_POPUP, ActionPointLedger
+from module.os_handler.action_point_ledger import (
+    NATURAL_ACTION_POINT_LIMIT,
+    SOURCE_POPUP,
+    ActionPointLedger,
+    HourlyQuota,
+)
 
 OCR_ACTION_POINT_REMAIN = Digit(ACTION_POINT_REMAIN, letter=(255, 219, 66), name='OCR_ACTION_POINT_REMAIN')
 OCR_ACTION_POINT_REMAIN_OS = Digit(ACTION_POINT_REMAIN_OS, letter=(239, 239, 239),
@@ -360,6 +365,8 @@ class ActionPointHandler(UI, MapEventHandler):
 
         影子阶段（ActionPointLedgerMapBarOcr）不写账本、不写 LogRes/统计，
         用于积累「读数 vs 推演」比对数据；影子期确认误读率后再切换为账本校准源。
+        读数与推演差超 ±2（suspect）时标记待复核，由 need_action_point_popup
+        在额度内安排弹窗校准，不打断当前流程。
         """
         if not self._ap_ledger_enabled():
             return None
@@ -380,11 +387,72 @@ class ActionPointHandler(UI, MapEventHandler):
         last = self.__dict__.get('_ap_mapbar_last')
         verdict, value, reason = ActionPointLedger.judge_map_bar_reading(raw, est, last_value=last)
         self.__dict__['_ap_mapbar_last'] = value if verdict in ('ok', 'pending') else None
+        if verdict == 'suspect':
+            # 可疑读数：标记待复核（额度内由 need_action_point_popup 安排弹窗校准）
+            self.__dict__['_ap_suspect_pending'] = True
         logger.info(
             f'[AP账本] shadow source=map_bar 读数={value if value is not None else raw} '
             f'推演={est.current} verdict={verdict} reason={reason}'
         )
         return value if verdict == 'ok' else None
+
+    def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None):
+        """预判是否需要打开行动力弹窗（P2 决策入口）。
+
+        - `ActionPointLedgerDecide` 关闭时恒返回 True，行为与现状完全一致；
+        - 开启时由账本推演判定：当前值够开工且总行动力高于保留值 → 跳过弹窗；
+        - 此前存在可疑读数（suspect）时，先在复核额度内弹一次窗读真值校准，
+          再按校准后的账本判定；额度耗尽则按推演判定。
+
+        Returns:
+            bool: True = 需要弹窗（校准或补充）；False = 账本够用，直接开工。
+        """
+        if not self._ap_ledger_enabled():
+            return True
+        if not getattr(self.config, 'OpsiGeneral_ActionPointLedgerDecide', False):
+            return True
+        ledger = self._get_ap_ledger()
+        if ledger is None:
+            return True
+        if self.__dict__.get('_ap_suspect_pending'):
+            if self._ap_verify_by_popup():
+                self.__dict__.pop('_ap_suspect_pending', None)
+                logger.info('[AP账本] 可疑读数已复核校准')
+            # 复核失败（额度耗尽/弹窗失败）时保留标记，下一个决策点再试（仍受额度限制）
+        return ledger.need_popup(cost, preserve=preserve, top_up_ceiling=top_up_ceiling)
+
+    def _get_verify_quota(self):
+        """复核额度：上限取 OpsiGeneral_ActionPointLedgerConfirmLimit（0=永不复核）。"""
+        quota = self.__dict__.get('_ap_verify_quota')
+        if quota is None:
+            try:
+                limit = int(getattr(self.config, 'OpsiGeneral_ActionPointLedgerConfirmLimit', 3))
+            except (TypeError, ValueError):
+                limit = 3
+            quota = HourlyQuota(limit)
+            self.__dict__['_ap_verify_quota'] = quota
+        return quota
+
+    def _ap_verify_by_popup(self):
+        """开一次行动力弹窗读真值并校准账本（受每小时复核额度限制）。
+
+        Returns:
+            bool: 是否完成了校准。
+        """
+        quota = self._get_verify_quota()
+        if not quota.allow():
+            logger.info('[AP账本] 复核额度已用尽，跳过弹窗校准')
+            return False
+        quota.record()
+        try:
+            # 纯读取：进弹窗 → OCR（action_point_update 内会自动校准账本）→ 退出
+            self.action_point_enter()
+            self.action_point_safe_get()
+            self.action_point_quit()
+        except Exception:
+            logger.exception('[AP账本] 复核弹窗失败')
+            return False
+        return True
 
     def action_point_safe_get(self):
         """
@@ -626,7 +694,7 @@ class ActionPointHandler(UI, MapEventHandler):
         if check_rest_ap:
             diff = get_server_next_update('00:00') - current_time()
             today_rest = int(diff.total_seconds() // 600)
-            if self._action_point_current + today_rest >= 200:
+            if self._action_point_current + today_rest >= NATURAL_ACTION_POINT_LIMIT:
                 logger.info('[大世界处理-行动力] 当前行动力与今日可获得的剩余行动力之和超过 200，跳过行动力检查')
                 logger.info(f'[大世界-行动点] 当前={self._action_point_current}  今日剩余={today_rest}')
                 keep_current_ap = False
@@ -672,7 +740,7 @@ class ActionPointHandler(UI, MapEventHandler):
             box = []
             for index in [3, 2, 1]:
                 if self._action_point_box[index] > 0:
-                    if self._action_point_current + ACTION_POINT_BOX[index] >= 200:
+                    if self._action_point_current + ACTION_POINT_BOX[index] >= NATURAL_ACTION_POINT_LIMIT:
                         box.append(index)
                     else:
                         box.insert(0, index)
