@@ -13395,6 +13395,26 @@
       "SkipStrategicSearchCheck": {
         "type": "checkbox",
         "value": false
+      },
+      "ActionPointLedgerEnabled": {
+        "type": "checkbox",
+        "value": true
+      },
+      "ActionPointLedgerDecide": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ActionPointLedgerMapBarOcr": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ActionPointLedgerConfirmLimit": {
+        "type": "input",
+        "value": 3
+      },
+      "ActionPointLedgerTopUpCeiling": {
+        "type": "input",
+        "value": 320
       }
     },
     "Storage": {

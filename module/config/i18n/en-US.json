@@ -3327,6 +3327,26 @@
     "SkipStrategicSearchCheck": {
       "name": "Skip plan battle option checks",
       "help": "When looping a single zone (Corrosion 1 leveling / Meowfficer farming), open the plan battle panel and confirm directly without scroll-checking every option. The panel options must already be configured in-game (zone mode: repeat, stop on merchant/device, auto-submit missions); let the task run once normally, or configure them manually first."
+    },
+    "ActionPointLedgerEnabled": {
+      "name": "Action point ledger",
+      "help": "Records the last calibrated action point and projects the current value by natural recovery (+1 per 10 minutes, cap 200). Only bookkeeping and logging; no behavior change."
+    },
+    "ActionPointLedgerDecide": {
+      "name": "Ledger decides popups",
+      "help": "Let the ledger predict whether action points are sufficient and skip the pre-battle check popup when they are. Run the shadow mode for a while and confirm the projection error before enabling."
+    },
+    "ActionPointLedgerMapBarOcr": {
+      "name": "Top-bar AP reading (shadow)",
+      "help": "Reads the action point number on the top bar inside Operation Siren zones and logs the difference against the ledger projection, to verify OCR accuracy. Never written to the ledger or statistics."
+    },
+    "ActionPointLedgerConfirmLimit": {
+      "name": "Hourly verify limit",
+      "help": "When a top-bar reading differs from the projection by more than ±2, how many times per hour the popup may be opened for verification. Normal popups (replenishing, buying oil/boxes) are not limited. 0 disables verification."
+    },
+    "ActionPointLedgerTopUpCeiling": {
+      "name": "Stronghold top-up ceiling",
+      "help": "When replenishing before a Siren Stronghold, total action points (including boxes) are topped up to at most this value. Only applies to strongholds."
     }
   },
   "OpsiAshBeacon": {
@@ -7189,7 +7209,7 @@
       "KpiRangeMin": "Period min",
       "KpiAverage": "Period avg",
       "ApChartTitle": "Action Point Trend",
-      "SeriesActionPoint": "Action Points",
+      "SeriesActionPoint": "Total AP",
       "SeriesYellowCoin": "Yellow Coin",
       "SeriesPurpleCoin": "Purple Coin",
       "SeriesAsset": "Assets",

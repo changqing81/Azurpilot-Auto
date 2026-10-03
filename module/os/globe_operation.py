@@ -460,6 +460,9 @@ class GlobeOperation(ActionPointHandler):
         click_timer = Timer(10)
         click_count = 0
         pinned = None
+        # 记录最近一次进场对应的海域类型，供战斗期记账区分口径
+        # （隐秘/深渊/要塞进场即结算；SAFE/DANGEROUS 按场计费）
+        self._ap_last_entry_pinned = ''
         for _ in self.loop():
             if pinned is None:
                 pinned = self.get_zone_pinned_name()
@@ -468,6 +471,17 @@ class GlobeOperation(ActionPointHandler):
             if self.is_in_map():
                 if click_count > 0:
                     time.sleep(1)
+                    self._ap_last_entry_pinned = pinned or ''
+                    # 进入海域成功。隐秘/深渊/要塞是进场即结算的单场高额费用，直接记账；
+                    # 普通海域（SAFE/DANGEROUS）按场计费，由战斗期记账覆盖，这里不重复计。
+                    if pinned in ('OBSCURE', 'ABYSSAL', 'STRONGHOLD'):
+                        self.ap_spend(
+                            self.action_point_get_cost(zone, pinned),
+                            reason=f'enter_{pinned}',
+                            persist=True,
+                        )
+                    # 顶栏影子读数（仅海域内生效，只记日志，不写账本/统计）
+                    self.ap_observe_from_map_bar()
                 break
 
             if self.is_zone_pinned():

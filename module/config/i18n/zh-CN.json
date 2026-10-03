@@ -3327,6 +3327,26 @@
     "SkipStrategicSearchCheck": {
       "name": "跳过计划作战滑动检查",
       "help": "侵蚀1练级与耄耋相接循环刷取同一海域时，打开「计划作战」面板后不再滑动检查各选项，直接确认开始。需要面板选项已在游戏内配置好（区域模式：重复、遭遇商人/装置：停止、自动提交：开启），让任务正常跑过一次或手动配置一次后即可开启。"
+    },
+    "ActionPointLedgerEnabled": {
+      "name": "行动力账本",
+      "help": "记录最近一次校准的行动力，并按自然恢复（每10分钟+1，上限200）推演当前值。开启后只记账与写日志，不改变任何行为。"
+    },
+    "ActionPointLedgerDecide": {
+      "name": "账本决定是否弹窗",
+      "help": "由账本预判行动力是否够开工，够则跳过开工检查弹窗。建议先让影子读数运行一段时间、确认推演误差可接受后再开启。"
+    },
+    "ActionPointLedgerMapBarOcr": {
+      "name": "顶栏行动力读数（影子）",
+      "help": "在大世界海域内读取顶部行动力数字，与账本推演比对并记录日志，用于验证OCR准确率。不写入账本与统计。"
+    },
+    "ActionPointLedgerConfirmLimit": {
+      "name": "每小时复核上限",
+      "help": "顶栏读数与推演差异超过±2时，允许主动打开行动力弹窗校准的每小时次数上限。补充行动力、买油开箱等正常弹窗不受此限制。设为0表示从不复核。"
+    },
+    "ActionPointLedgerTopUpCeiling": {
+      "name": "要塞补充上限",
+      "help": "进攻塞壬要塞前补充行动力时，总行动力（含箱）最多补充到该值，防止无意义开箱。仅对要塞生效。"
     }
   },
   "OpsiAshBeacon": {
@@ -7189,7 +7209,7 @@
       "KpiRangeMin": "区间最低",
       "KpiAverage": "区间平均",
       "ApChartTitle": "体力变化",
-      "SeriesActionPoint": "体力",
+      "SeriesActionPoint": "总行动力",
       "SeriesYellowCoin": "黄币",
       "SeriesPurpleCoin": "紫币",
       "SeriesAsset": "资产",

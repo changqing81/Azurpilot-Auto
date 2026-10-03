@@ -2567,7 +2567,12 @@
       "IndependentPush": false,
       "OpsiOnePushConfig": "provider: null",
       "AutoSearchTimeLimit": 5,
-      "SkipStrategicSearchCheck": false
+      "SkipStrategicSearchCheck": false,
+      "ActionPointLedgerEnabled": true,
+      "ActionPointLedgerDecide": false,
+      "ActionPointLedgerMapBarOcr": false,
+      "ActionPointLedgerConfirmLimit": 3,
+      "ActionPointLedgerTopUpCeiling": 320
     },
     "Storage": {
       "Storage": {}

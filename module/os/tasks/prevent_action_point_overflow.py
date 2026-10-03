@@ -13,12 +13,10 @@ from module.config.config import TaskEnd
 from module.logger import logger
 from module.os.tasks.scheduling import OpsiScheduling
 from module.os_handler.action_point import ActionPointLimit
+from module.os_handler.action_point_ledger import ACTION_POINT_RECOVER_SECONDS, NATURAL_ACTION_POINT_LIMIT
 
-
-# 大世界行动力每 10 分钟自然回复 1 点。
-ACTION_POINT_RECOVER_SECONDS = 600
-# 大世界当前行动力自然上限。
-NATURAL_ACTION_POINT_LIMIT = 200
+# 大世界行动力每 10 分钟自然回复 1 点、当前行动力自然上限 200：
+# 常量唯一定义在行动力账本模块（action_point_ledger），此处按原名引用保持兼容。
 
 
 class OpsiPreventActionPointOverflow(OpsiScheduling):

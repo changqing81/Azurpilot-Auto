@@ -3327,6 +3327,26 @@
     "SkipStrategicSearchCheck": {
       "name": "跳过计划作战滑动检查喵~",
       "help": "侵蚀1练级和短猫相接循环刷取同一片海域的时候，打开「计划作战」面板后就不滑动检查各选项啦，直接确认开始喵~需要面板选项已经在游戏里配置好（区域模式：重复、遭遇商人/装置：停止、自动提交：开启），让任务正常跑过一次或者手动配置一次后就能开喵~"
+    },
+    "ActionPointLedgerEnabled": {
+      "name": "行动力账本喵",
+      "help": "记录最近一次校准的行动力，并按自然恢复（每10分钟+1，上限200）推演当前值喵~开启后只记账与写日志，不改变任何行为喵~"
+    },
+    "ActionPointLedgerDecide": {
+      "name": "账本决定是否弹窗",
+      "help": "由账本预判行动力够不够开工，够就不弹开工检查的窗喵~建议先让影子读数跑一段时间，确认推演误差可以接受再开喵~"
+    },
+    "ActionPointLedgerMapBarOcr": {
+      "name": "顶栏行动力读数（影子）",
+      "help": "在大世界海域里读顶部的行动力数字，和账本推演比对后写日志，用来验证OCR准不准喵~不会写进账本和统计喵~"
+    },
+    "ActionPointLedgerConfirmLimit": {
+      "name": "每小时复核上限",
+      "help": "顶栏读数和推演差超过±2时，每小时允许主动弹窗校准的次数上限喵~补充行动力、买油开箱这些正常弹窗不受影响喵~设成0就从不复核喵~"
+    },
+    "ActionPointLedgerTopUpCeiling": {
+      "name": "要塞补充上限",
+      "help": "打塞壬要塞前补行动力时，总行动力（含箱）最多补到这个数，免得白开箱喵~只对要塞生效喵~"
     }
   },
   "OpsiAshBeacon": {
@@ -7189,7 +7209,7 @@
       "KpiRangeMin": "区间最低喵",
       "KpiAverage": "区间平均喵",
       "ApChartTitle": "体力变化喵",
-      "SeriesActionPoint": "体力喵",
+      "SeriesActionPoint": "总行动力喵",
       "SeriesYellowCoin": "黄币喵",
       "SeriesPurpleCoin": "紫币喵",
       "SeriesAsset": "资产喵",

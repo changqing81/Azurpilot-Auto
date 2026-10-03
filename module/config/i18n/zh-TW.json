@@ -3327,6 +3327,26 @@
     "SkipStrategicSearchCheck": {
       "name": "跳過計畫作戰滑動檢查",
       "help": "侵蝕1練級與短貓相接循環刷取同一海域時，開啟「計畫作戰」面板後不再滑動檢查各選項，直接確認開始。需要面板選項已在遊戲內設定好（區域模式：重複、遭遇商人/裝置：停止、自動提交：開啟），讓任務正常跑過一次或手動設定一次後即可開啟。"
+    },
+    "ActionPointLedgerEnabled": {
+      "name": "行動力帳本",
+      "help": "記錄最近一次校準的行動力，並按自然恢復（每10分鐘+1，上限200）推演當前值。開啟後只記帳與寫日誌，不改變任何行為。"
+    },
+    "ActionPointLedgerDecide": {
+      "name": "帳本決定是否彈窗",
+      "help": "由帳本預判行動力是否夠開工，夠則跳過開工檢查彈窗。建議先讓影子讀數運行一段時間、確認推演誤差可接受後再開啟。"
+    },
+    "ActionPointLedgerMapBarOcr": {
+      "name": "頂欄行動力讀數（影子）",
+      "help": "在大世界海域內讀取頂部行動力數字，與帳本推演比對並記錄日誌，用於驗證OCR準確率。不寫入帳本與統計。"
+    },
+    "ActionPointLedgerConfirmLimit": {
+      "name": "每小時複核上限",
+      "help": "頂欄讀數與推演差異超過±2時，允許主動打開行動力彈窗校準的每小時次數上限。補充行動力、買油開箱等正常彈窗不受此限制。設為0表示從不複核。"
+    },
+    "ActionPointLedgerTopUpCeiling": {
+      "name": "要塞補充上限",
+      "help": "進攻塞壬要塞前補充行動力時，總行動力（含箱）最多補充到該值，防止無意義開箱。僅對要塞生效。"
     }
   },
   "OpsiAshBeacon": {
@@ -7189,7 +7209,7 @@
       "KpiRangeMin": "區間最低",
       "KpiAverage": "區間平均",
       "ApChartTitle": "體力變化",
-      "SeriesActionPoint": "體力",
+      "SeriesActionPoint": "總行動力",
       "SeriesYellowCoin": "黃幣",
       "SeriesPurpleCoin": "紫幣",
       "SeriesAsset": "資產",

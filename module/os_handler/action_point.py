@@ -15,17 +15,49 @@ from module.base.utils import *
 from module.config.time_source import now as current_time
 from module.config.utils import get_server_next_update, server_time_offset
 from module.logger import logger
-from module.ocr.ocr import Digit, DigitCounter
+from module.ocr.ocr import Digit, DigitCounter, Ocr
 from module.os_handler.assets import *
 from module.os_handler.map_event import MapEventHandler
 from module.statistics.item import Item, ItemGrid
 from module.ui.assets import OS_CHECK
 from module.ui.ui import UI
 from module.log_res import LogRes
+from module.os_handler.action_point_ledger import SOURCE_POPUP, ActionPointLedger
 
 OCR_ACTION_POINT_REMAIN = Digit(ACTION_POINT_REMAIN, letter=(255, 219, 66), name='OCR_ACTION_POINT_REMAIN')
 OCR_ACTION_POINT_REMAIN_OS = Digit(ACTION_POINT_REMAIN_OS, letter=(239, 239, 239),
                                    threshold=160, name='OCR_SHOP_YELLOW_COINS_OS')
+
+
+class MapActionPointDigit(Digit):
+    """大世界地图顶栏行动力数字 OCR（海域内顶栏，白色数字）。
+
+    与弹窗内 OCR（OCR_ACTION_POINT_REMAIN，黄字）不同：
+    - 顶栏数字为白色，沿用 ACTION_POINT_REMAIN_OS 资产的 letter/threshold；
+    - 必须做位数门（≤4 位，防 OCR 把相邻元素拼进来，如行动力 154 与舰船等级 Lv.60 → 60154），
+      非法读数返回 -1，由账本判定链（judge_map_bar_reading）拒绝。
+
+    区域标定（2026-10-03 双截图离线实测）：现有资产区 (878,28,928,46) 与收紧框
+    (894,26,934,48) 均稳定读出 154；先用现有资产，影子期发现误读再收紧。
+    """
+
+    def __init__(self, buttons, name=None):
+        super().__init__(buttons, letter=(239, 239, 239), threshold=160, name=name)
+        self.invalid_reason = None
+
+    def after_process(self, result):
+        # 跳过 Digit 的 I/D/S/B 宽容纠错：顶栏读数只接受纯数字串，
+        # 混入任何非数字字符（如 Lv 等级连读）都按误读拒绝，位数门在这里执行
+        result = Ocr.after_process(self, result)
+        text = str(result).strip()
+        if not text.isdigit() or len(text) > 4:
+            self.invalid_reason = 'empty' if not text else ('len>4' if len(text) > 4 else 'non-digit')
+            return -1
+        self.invalid_reason = None
+        return int(text)
+
+
+MAP_ACTION_POINT_DIGIT = MapActionPointDigit(ACTION_POINT_REMAIN_OS, name='MAP_ACTION_POINT_DIGIT')
 
 OCR_OS_ADAPTABILITY = Digit([
     OS_ADAPTABILITY_ATTACK,
@@ -228,6 +260,131 @@ class ActionPointHandler(UI, MapEventHandler):
         # 处理超出上限的情况
         if total > 3000:
             self.config.override(OpsiGeneral_DoRandomMapEvent=False)
+        # 行动力账本：弹窗是唯一精确校准点（同时拿到当前值与箱子明细）
+        self.ap_observe_from_popup()
+
+    # ==================== 行动力账本（AP Ledger） ====================
+
+    AP_LEDGER_STATE_PATH = 'OpsiScheduling.Storage.Storage'
+
+    def _ap_ledger_enabled(self):
+        return bool(getattr(self.config, 'OpsiGeneral_ActionPointLedgerEnabled', False))
+
+    def _get_ap_ledger(self):
+        """惰性获取账本实例；首次从配置状态恢复，之后复用内存对象。"""
+        ledger = self.__dict__.get('_ap_ledger_instance')
+        if ledger is None:
+            ledger = ActionPointLedger.from_state(self._load_ap_ledger_state())
+            self.__dict__['_ap_ledger_instance'] = ledger
+        return ledger
+
+    def _load_ap_ledger_state(self):
+        try:
+            return deep_get(self.config.data, keys=self.AP_LEDGER_STATE_PATH, default={}) or {}
+        except Exception:
+            return {}
+
+    def _save_ap_ledger_state(self):
+        """把账本写回 OpsiScheduling.Storage.Storage（与智能调度+ 状态同一持久化位置）。"""
+        ledger = self.__dict__.get('_ap_ledger_instance')
+        if ledger is None:
+            return
+        try:
+            state = self._load_ap_ledger_state()
+            state['ApLedgerState'] = ledger.to_state()
+            self.config.modified[self.AP_LEDGER_STATE_PATH] = state
+            self.config.save()
+        except Exception:
+            logger.warning('[AP账本] 状态持久化失败', exc_info=True)
+
+    def ap_observe_from_popup(self):
+        """弹窗校准：action_point_update() 末尾调用，是最精确的校准点。
+
+        同时更新 current 与 total_with_box；写入账本状态但**不动任何统计快照**。
+        """
+        if not self._ap_ledger_enabled():
+            return
+        ledger = self._get_ap_ledger()
+        if ledger is None:
+            return
+        try:
+            total = getattr(self, '_action_point_total_with_box', None)
+            if ledger.observe(self._action_point_current, total, source=SOURCE_POPUP, box=self._action_point_box):
+                self._save_ap_ledger_state()
+        except Exception:
+            logger.exception('[AP账本] 弹窗校准失败')
+
+    def ap_spend(self, cost, reason='', persist=False):
+        """记一笔行动力增减（进图/指令等）。persist=True 时立即落盘。"""
+        if not self._ap_ledger_enabled():
+            return False
+        ledger = self._get_ap_ledger()
+        if ledger is None:
+            return False
+        try:
+            ok = ledger.spend(cost, reason=reason)
+        except Exception:
+            logger.exception('[AP账本] 记账失败')
+            return False
+        if ok and persist:
+            self._save_ap_ledger_state()
+        return ok
+
+    def ap_spend_battle(self):
+        """战斗期估扣：每完成一场战斗，按当前海域的单场费用记账（P0 影子阶段）。
+
+        - 隐秘/深渊/要塞：进场时已按单场高额费用记账，这里跳过避免重复计；
+        - 普通海域：SAFE 按基础费、DANGEROUS 按 2 倍（与 action_point_get_cost 同表）；
+        - 港口（is_port）不消耗，跳过；
+        - 记账只进内存，随下一次弹窗校准/进场记账落盘，避免每场战斗写一次配置文件。
+        """
+        if not self._ap_ledger_enabled():
+            return
+        zone = getattr(self, 'zone', None)
+        if zone is None or getattr(zone, 'is_port', False):
+            return
+        pinned = getattr(self, '_ap_last_entry_pinned', '') or ''
+        if pinned in ('OBSCURE', 'ABYSSAL', 'STRONGHOLD'):
+            return
+        try:
+            cost = self.action_point_get_cost(zone, 'DANGEROUS' if pinned == 'DANGEROUS' else 'SAFE')
+        except Exception:
+            logger.warning('[AP账本] 无法获取当前海域单场费用，跳过战斗记账', exc_info=True)
+            return
+        if cost <= 0:
+            return
+        self.ap_spend(cost, reason=f'battle_{getattr(zone, "zone_id", "?")}', persist=False)
+
+    def ap_observe_from_map_bar(self, image=None):
+        """顶栏行动力影子读数（仅海域内）：五道门校验后**只记日志**。
+
+        影子阶段（ActionPointLedgerMapBarOcr）不写账本、不写 LogRes/统计，
+        用于积累「读数 vs 推演」比对数据；影子期确认误读率后再切换为账本校准源。
+        """
+        if not self._ap_ledger_enabled():
+            return None
+        if not getattr(self.config, 'OpsiGeneral_ActionPointLedgerMapBarOcr', False):
+            return None
+        is_in_map = getattr(self, 'is_in_map', None)
+        if not callable(is_in_map) or not is_in_map():
+            return None
+        ledger = self._get_ap_ledger()
+        if ledger is None:
+            return None
+        try:
+            raw = MAP_ACTION_POINT_DIGIT.ocr(image or self.device.image)
+        except Exception as e:
+            logger.warning(f'[AP账本] 顶栏读数 OCR 失败: {type(e).__name__}: {e}')
+            return None
+        est = ledger.estimate()
+        last = self.__dict__.get('_ap_mapbar_last')
+        verdict, value, reason = ActionPointLedger.judge_map_bar_reading(raw, est, last_value=last)
+        self.__dict__['_ap_mapbar_last'] = value if verdict in ('ok', 'pending') else None
+        logger.info(
+            f'[AP账本] shadow source=map_bar 读数={value if value is not None else raw} '
+            f'推演={est.current} verdict={verdict} reason={reason}'
+        )
+        return value if verdict == 'ok' else None
 
     def action_point_safe_get(self):
         """
