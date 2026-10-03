@@ -136,7 +136,7 @@ class ActionPointLedger:
         if self.total_with_box is not None:
             self.total_with_box = self.current + self.box_value
         logger.info(
-            f'[AP账本] 记账 {reason or "spend"}: {cost:+d} '
+            f'[AP账本] 记账 {reason or "spend"}: 变动 {-cost:+d} '
             f'→ 当前={self.current} 总(含箱)={self.total_with_box}'
         )
         return True

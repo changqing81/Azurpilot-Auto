@@ -335,31 +335,6 @@ class ActionPointHandler(UI, MapEventHandler):
             self._save_ap_ledger_state()
         return ok
 
-    def ap_spend_battle(self):
-        """战斗期估扣：每完成一场战斗，按当前海域的单场费用记账（P0 影子阶段）。
-
-        - 隐秘/深渊/要塞：进场时已按单场高额费用记账，这里跳过避免重复计；
-        - 普通海域：SAFE 按基础费、DANGEROUS 按 2 倍（与 action_point_get_cost 同表）；
-        - 港口（is_port）不消耗，跳过；
-        - 记账只进内存，随下一次弹窗校准/进场记账落盘，避免每场战斗写一次配置文件。
-        """
-        if not self._ap_ledger_enabled():
-            return
-        zone = getattr(self, 'zone', None)
-        if zone is None or getattr(zone, 'is_port', False):
-            return
-        pinned = getattr(self, '_ap_last_entry_pinned', '') or ''
-        if pinned in ('OBSCURE', 'ABYSSAL', 'STRONGHOLD'):
-            return
-        try:
-            cost = self.action_point_get_cost(zone, 'DANGEROUS' if pinned == 'DANGEROUS' else 'SAFE')
-        except Exception:
-            logger.warning('[AP账本] 无法获取当前海域单场费用，跳过战斗记账', exc_info=True)
-            return
-        if cost <= 0:
-            return
-        self.ap_spend(cost, reason=f'battle_{getattr(zone, "zone_id", "?")}', persist=False)
-
     def ap_observe_from_map_bar(self, image=None):
         """顶栏行动力影子读数（仅海域内）：五道门校验后**只记日志**。
 

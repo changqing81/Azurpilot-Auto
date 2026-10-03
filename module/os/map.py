@@ -831,9 +831,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     def on_auto_search_battle_count_add(self):
         self._auto_search_battle_count += 1
         logger.attr("战斗计数", self._auto_search_battle_count)
-        # 行动力账本：普通海域按场计费（SAFE=基础费、DANGEROUS=2倍），
-        # 隐秘/深渊/要塞在进场时已按单场高额费用记账，此处跳过避免重复计
-        self.ap_spend_battle()
+        # 行动力账本：战斗期不做逐场记账——实测存在免费战斗（余烬信标/首战优惠，
+        # 2026-10-03 日志：开箱 138 后两场战斗真值仍 138）且末战不进计数，
+        # 逐场估扣两头都歪；改由自动搜索完成后的顶栏真值校准吸收消耗。
         if getattr(self, "is_running_cl1_leveling", False):
             try:
                 self._cl1_auto_search_battle_count += 1

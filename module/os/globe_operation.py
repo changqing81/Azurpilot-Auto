@@ -460,9 +460,6 @@ class GlobeOperation(ActionPointHandler):
         click_timer = Timer(10)
         click_count = 0
         pinned = None
-        # 记录最近一次进场对应的海域类型，供战斗期记账区分口径
-        # （隐秘/深渊/要塞进场即结算；SAFE/DANGEROUS 按场计费）
-        self._ap_last_entry_pinned = ''
         for _ in self.loop():
             if pinned is None:
                 pinned = self.get_zone_pinned_name()
@@ -471,16 +468,16 @@ class GlobeOperation(ActionPointHandler):
             if self.is_in_map():
                 if click_count > 0:
                     time.sleep(1)
-                    self._ap_last_entry_pinned = pinned or ''
-                    # 进入海域成功。隐秘/深渊/要塞是进场即结算的单场高额费用，直接记账；
-                    # 普通海域（SAFE/DANGEROUS）按场计费，由战斗期记账覆盖，这里不重复计。
-                    if pinned in ('OBSCURE', 'ABYSSAL', 'STRONGHOLD'):
-                        self.ap_spend(
-                            self.action_point_get_cost(zone, pinned),
-                            reason=f'enter_{pinned}',
-                            persist=True,
-                        )
-                    # 顶栏影子读数（仅海域内生效，只记日志，不写账本/统计）
+                    # 进入海域成功：进场即扣行动力（侵蚀1=5、隐秘/深渊按表、要塞200、
+                    # DANGEROUS 双倍、港口 0 自动跳过）。海域内的战斗不再消耗
+                    # （2026-10-03 日志实证：进场校准 138 → 打 2 场 → 仍为 138），
+                    # 战斗期不做任何记账。
+                    self.ap_spend(
+                        self.action_point_get_cost(zone, pinned),
+                        reason=f'enter_{pinned or "zone"}',
+                        persist=True,
+                    )
+                    # 进场后读一次顶栏真值校准账本，吸收模型误差
                     self.ap_observe_from_map_bar()
                 break
 
