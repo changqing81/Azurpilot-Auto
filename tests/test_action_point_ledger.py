@@ -31,7 +31,7 @@ class TestObserveAndEstimate(unittest.TestCase):
         est = self.ledger.estimate(now=T0)
         self.assertIsNone(est.current)
         self.assertEqual(est.confidence, 'low')
-        self.assertTrue(self.ledger.need_popup(cost=120, preserve=200))
+        self.assertTrue(self.ledger.need_popup(cost=120, preserve=200, now=T0))
 
     def test_popup_observe_is_high_confidence(self):
         self.ledger.observe(154, 354, source='popup', at=T0)
@@ -120,33 +120,33 @@ class TestNeedPopup(unittest.TestCase):
 
     def test_need_popup_when_current_below_cost(self):
         ledger = self.make(100, 300)
-        self.assertTrue(ledger.need_popup(cost=120, preserve=200))
+        self.assertTrue(ledger.need_popup(cost=120, preserve=200, now=T0))
 
     def test_skip_popup_when_enough(self):
         ledger = self.make(154, 354)
-        self.assertFalse(ledger.need_popup(cost=120, preserve=200))
+        self.assertFalse(ledger.need_popup(cost=120, preserve=200, now=T0))
 
     def test_preserve_guard_catches_total_gap(self):
         # 修复的缺口：total ∈ [cost, preserve] 时，即使当前值够开工也要弹窗
         # （现状 ap_checked 只看 current>=120，会跳过本该抛 ActionPointLimit 的弹窗）
         ledger = self.make(150, 150)
-        self.assertTrue(ledger.need_popup(cost=120, preserve=200))
+        self.assertTrue(ledger.need_popup(cost=120, preserve=200, now=T0))
 
     def test_need_popup_on_low_confidence(self):
         ledger = ActionPointLedger()
-        self.assertTrue(ledger.need_popup(cost=120, preserve=200))
+        self.assertTrue(ledger.need_popup(cost=120, preserve=200, now=T0))
 
     def test_fortress_cost(self):
         ledger = self.make(180, 400)
-        self.assertTrue(ledger.need_popup(cost=200, preserve=200))
+        self.assertTrue(ledger.need_popup(cost=200, preserve=200, now=T0))
         ledger2 = self.make(200, 400)
-        self.assertFalse(ledger2.need_popup(cost=200, preserve=200))
+        self.assertFalse(ledger2.need_popup(cost=200, preserve=200, now=T0))
 
     def test_top_up_ceiling_does_not_change_decision(self):
         ledger = self.make(154, 354)
-        self.assertFalse(ledger.need_popup(cost=120, preserve=200, top_up_ceiling=320))
+        self.assertFalse(ledger.need_popup(cost=120, preserve=200, top_up_ceiling=320, now=T0))
         # 开工线超过补充上限时按弹窗处理并告警
-        self.assertTrue(ledger.need_popup(cost=400, preserve=200, top_up_ceiling=320))
+        self.assertTrue(ledger.need_popup(cost=400, preserve=200, top_up_ceiling=320, now=T0))
 
 
 class TestMapBarGates(unittest.TestCase):
@@ -217,7 +217,7 @@ class TestStateRoundTrip(unittest.TestCase):
     def test_corrupted_state_gives_empty_ledger(self):
         ledger = ActionPointLedger.from_state({'current': 'abc', 'at': 'not-a-date'})
         self.assertIsNone(ledger.current)
-        self.assertTrue(ledger.need_popup(cost=120, preserve=200))
+        self.assertTrue(ledger.need_popup(cost=120, preserve=200, now=T0))
 
     def test_total_below_current_is_clamped(self):
         ledger = ActionPointLedger.from_state({'current': 154, 'total': 100, 'at': T0.isoformat()})
@@ -277,17 +277,17 @@ class TestHandlerNeedPopup(unittest.TestCase):
 
     def test_decide_off_always_popup(self):
         handler = self.make_handler(decide=False)
-        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200, now=T0))
 
     def test_decide_on_ledger_enough_skips_popup(self):
         handler = self.make_handler()
         handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
-        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200, now=T0))
 
     def test_decide_on_insufficient_pops(self):
         handler = self.make_handler()
         handler._get_ap_ledger().observe(100, 300, source='popup', at=T0)
-        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200, now=T0))
 
     def test_suspect_pending_triggers_verify_then_skips(self):
         handler = self.make_handler()
@@ -295,7 +295,7 @@ class TestHandlerNeedPopup(unittest.TestCase):
         handler.__dict__['_ap_suspect_pending'] = True
         verified = []
         handler._ap_verify_by_popup = lambda: verified.append(1) or True
-        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200, now=T0))
         self.assertTrue(verified, 'suspect 标记应触发一次复核')
         self.assertNotIn('_ap_suspect_pending', handler.__dict__, '复核成功后标记应清除')
 
@@ -304,7 +304,7 @@ class TestHandlerNeedPopup(unittest.TestCase):
         handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
         handler.__dict__['_ap_suspect_pending'] = True
         # 额度为 0：不复核，直接按推演判定（推演值够 → 跳过弹窗）
-        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200, now=T0))
         self.assertIn('_ap_suspect_pending', handler.__dict__, '复核未成功时标记保留')
 
     def test_verify_skipped_without_device_context(self):
@@ -314,18 +314,20 @@ class TestHandlerNeedPopup(unittest.TestCase):
         handler._get_ap_ledger().observe(154, 354, source='popup', at=T0)
         handler.__dict__['_ap_suspect_pending'] = True
         self.assertFalse(handler._ap_verify_by_popup())
-        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200))
+        self.assertFalse(handler.need_action_point_popup(cost=120, preserve=200, now=T0))
         self.assertIn('_ap_suspect_pending', handler.__dict__)
 
 
 class TestSyncBuyApShortCircuit(unittest.TestCase):
     """买行动力模式：本周已购满时同步弹窗短路（不再 action_point_enter）。"""
 
-    def make_scheduler(self, count, week_id):
+    def make_scheduler(self, count):
         from types import SimpleNamespace
 
         from module.os.tasks.scheduling import OpsiScheduling
 
+        # 周标识取当前周：跨平台稳定，避免测试依赖本机 config 文件
+        week_id = OpsiScheduling._get_current_purchase_week_id(SimpleNamespace())
         state = {'BuyActionPointCount': count, 'BuyActionPointWeekId': week_id}
         s = OpsiScheduling.__new__(OpsiScheduling)
         s.config = SimpleNamespace(
@@ -343,13 +345,13 @@ class TestSyncBuyApShortCircuit(unittest.TestCase):
         return s, entered
 
     def test_weekly_limit_reached_skips_popup(self):
-        s, entered = self.make_scheduler(count=5, week_id=None)  # week_id 缺失模拟被覆盖
+        s, entered = self.make_scheduler(count=5)
         result = s._sync_buy_action_point_count_with_game()
         self.assertEqual(result, 5)
         self.assertEqual(entered, [], '已购满时不应再进弹窗')
 
     def test_not_reached_still_syncs(self):
-        s, entered = self.make_scheduler(count=2, week_id=None)
+        s, entered = self.make_scheduler(count=2)
         # 走真值同步路径：会进弹窗（这里桩掉 OCR 链路，仅验证不短路）
         s.action_point_get_buy_remain = lambda: 3
         s._is_buy_action_point_ocr_valid = lambda: True

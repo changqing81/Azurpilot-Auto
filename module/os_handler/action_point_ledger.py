@@ -182,7 +182,7 @@ class ActionPointLedger:
 
     # -------------------- 预判 --------------------
 
-    def need_popup(self, cost, preserve=0, top_up_ceiling=None):
+    def need_popup(self, cost, preserve=0, top_up_ceiling=None, now=None):
         """预判是否需要打开行动力弹窗。
 
         Args:
@@ -194,7 +194,7 @@ class ActionPointLedger:
         Returns:
             bool: True = 需要弹窗（校准或补充）；False = 账本够用，直接开工。
         """
-        est = self.estimate()
+        est = self.estimate(now=now)
         if est.confidence == 'low' or est.current is None:
             return True
         if top_up_ceiling is not None and cost > top_up_ceiling:

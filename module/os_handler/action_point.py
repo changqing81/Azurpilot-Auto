@@ -389,7 +389,7 @@ class ActionPointHandler(UI, MapEventHandler):
         )
         return value if verdict == 'ok' else None
 
-    def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None):
+    def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None, now=None):
         """预判是否需要打开行动力弹窗（P2 决策入口）。
 
         - `ActionPointLedgerDecide` 关闭时恒返回 True，行为与现状完全一致；
@@ -412,7 +412,7 @@ class ActionPointHandler(UI, MapEventHandler):
                 self.__dict__.pop('_ap_suspect_pending', None)
                 logger.info('[AP账本] 可疑读数已复核校准')
             # 复核失败（额度耗尽/弹窗失败）时保留标记，下一个决策点再试（仍受额度限制）
-        return ledger.need_popup(cost, preserve=preserve, top_up_ceiling=top_up_ceiling)
+        return ledger.need_popup(cost, preserve=preserve, top_up_ceiling=top_up_ceiling, now=now)
 
     def _get_verify_quota(self):
         """复核额度：上限取 OpsiGeneral_ActionPointLedgerConfirmLimit（0=永不复核）。"""
