@@ -409,6 +409,27 @@ class TestActionPointUseGuard(unittest.TestCase):
         self.assertEqual(used, [3])
         self.assertEqual(reads, ['read'])
 
+    def test_buy_success_skips_extra_read(self):
+        from types import SimpleNamespace
+
+        handler, _ = self.make_handler()
+        handler._is_in_action_point = lambda: True
+        reads = []
+        handler.action_point_safe_get = lambda: reads.append('read')
+        handler.action_point_quit = lambda: None
+        handler.action_point_buy = lambda **kwargs: True
+        handler.config.OS_ACTION_POINT_PRESERVE = 200
+        handler.config.OpsiGeneral_BuyActionPointLimit = 5
+        handler._action_point_current = 197
+        handler._action_point_total = 1297
+        handler._action_point_box = [11026, 0, 0, 12]
+        self.assertTrue(handler.handle_action_point(
+            zone=SimpleNamespace(hazard_level=1, is_port=False),
+            pinned='DANGEROUS', cost=120,
+        ))
+        # 买油成功后 action_point_buy 内部已双重确认并重读，不得再 safe_get 一次
+        self.assertEqual(reads, ['read'])
+
     def test_one_click_cannot_confirm_two_boxes(self):
         from module.exception import RequestHumanTakeover
         from module.os_handler import action_point as ap_module

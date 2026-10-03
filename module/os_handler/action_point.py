@@ -786,7 +786,9 @@ class ActionPointHandler(UI, MapEventHandler):
             # 购买行动力
             if self.config.OpsiGeneral_BuyActionPointLimit > 0 and not buy_checked:
                 if self.action_point_buy(preserve=self.config.OpsiGeneral_OilLimit):
-                    self.action_point_safe_get()
+                    # action_point_buy 内部的 action_point_use 已双重确认并重读
+                    # 当前值与库存；不再 safe_get 重读，避免动画滞后的旧帧
+                    # 覆盖已确认真值（与下方盒路径同一处理）。
                     continue
                 else:
                     buy_checked = True
