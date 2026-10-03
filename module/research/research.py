@@ -749,16 +749,26 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
 
         存在性由模板状态判定（等待/运行中）或完成状态灯判定，
         避免 5 张卡片全是研发选项时误读选项卡的时长。
+        queue_quit 返回时切页动画可能未结束（状态全 unknown，实测
+        出现在返回后 0.3-0.9 秒内），先等状态稳定再判定；超时按
+        当前画面判定，下一轮调度重新快照即可自愈。
 
         Returns:
             timedelta | None: 等待中=项目总时长，进行中=剩余倒计时，已完成=0；
                 无第 6 个项目（或识别失败）返回 None。
-                识别失败按不存在处理，下一轮调度重新快照即可自愈。
 
         Pages:
             in: is_in_research
         """
-        status = self.get_research_status(self.device.image)
+        timeout = Timer(5, count=10).start()
+        while 1:
+            status = self.get_research_status(self.device.image)
+            if 'unknown' not in status:
+                break
+            if timeout.reached():
+                logger.warning('[科研-第6个] 卡片状态识别超时，按当前画面判定')
+                break
+            self.device.screenshot()
         if 'waiting' in status or 'running' in status:
             time = parse_display_time(OCR_SIXTH_TIME_BRIGHT.ocr(self.device.image))
             if time is None:
@@ -767,6 +777,23 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         if self.research_has_finished():
             return timedelta(0)
         return None
+
+    def _batch_snapshot(self):
+        """
+        拍取一次批量模式快照：队列 5 槽显示时长 + 第 6 个项目显示时长。
+
+        Returns:
+            tuple[list, timedelta | None]: get_queue_display_times 与
+                get_sixth_display_time 的返回值。
+
+        Pages:
+            in: is_in_research
+        """
+        self.queue_enter()
+        times = self.get_queue_display_times()
+        self.queue_quit()
+        sixth = self.get_sixth_display_time()
+        return times, sixth
 
     def _batch_ready(self):
         """
@@ -778,10 +805,7 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         Pages:
             in: is_in_research
         """
-        self.queue_enter()
-        times = self.get_queue_display_times()
-        self.queue_quit()
-        sixth = self.get_sixth_display_time()
+        times, sixth = self._batch_snapshot()
         ready = batch_all_completed(times, sixth)
         logger.attr('科研-批量收获时机', ready)
         return ready
@@ -790,16 +814,18 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         """
         批量模式调度：NextRun = 全部完成的预计时间 + 3 分钟余量。
 
-        队列与第 6 个全空（填充失败、无可用项目等）时推迟到服务器刷新。
+        快照读出剩余总时长为 0 时重拍一次再判定：切页/加载动画期间
+        逐槽 OCR 可能整体读空（实测会把正在运行的队列误判为全空，
+        一路推迟到服务器刷新）；重拍仍为 0 才是真正的全空，推迟到
+        服务器刷新。
 
         Pages:
             in: is_in_research
         """
-        self.queue_enter()
-        times = self.get_queue_display_times()
-        self.queue_quit()
-        sixth = self.get_sixth_display_time()
-        total = batch_total_remaining(times, sixth)
+        total = batch_total_remaining(*self._batch_snapshot())
+        if total == timedelta(0):
+            logger.info('[科研-批量] 剩余总时长为 0，重拍一次快照再判定')
+            total = batch_total_remaining(*self._batch_snapshot())
         logger.attr('科研-批量剩余总时长', total)
         if total > timedelta(0):
             self.config.task_delay(target=current_time() + total + timedelta(minutes=3))
