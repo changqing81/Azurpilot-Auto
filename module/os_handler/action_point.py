@@ -24,6 +24,7 @@ from module.ui.ui import UI
 from module.log_res import LogRes
 from module.os_handler.action_point_ledger import (
     NATURAL_ACTION_POINT_LIMIT,
+    SOURCE_MAP_BAR,
     SOURCE_POPUP,
     ActionPointLedger,
     HourlyQuota,
