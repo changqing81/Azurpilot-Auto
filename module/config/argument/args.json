@@ -13399,6 +13399,10 @@
       "ActionPointLedgerEnabled": {
         "type": "checkbox",
         "value": false
+      },
+      "ActionPointBigBoxFirst": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {

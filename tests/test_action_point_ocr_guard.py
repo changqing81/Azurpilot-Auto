@@ -469,6 +469,67 @@ class TestActionPointUseGuard(unittest.TestCase):
         self.assertEqual(len(clicks), 1)
         self.assertIsNotNone(handler._pending)
 
+    def test_big_box_first_off_keeps_small_first(self):
+        from types import SimpleNamespace
+        from module.os_handler import action_point as ap_module
+
+        handler, _ = self.make_handler()
+        handler._is_in_action_point = lambda: True
+        handler.action_point_safe_get = lambda: None
+        handler.action_point_set_button = lambda index: True
+        handler.action_point_quit = lambda: None
+        handler.config.OS_ACTION_POINT_PRESERVE = 200
+        handler.config.OpsiGeneral_BuyActionPointLimit = 0
+        handler.config.OpsiGeneral_ActionPointBigBoxFirst = False
+        handler._action_point_current = 100
+        handler._action_point_total = 1297
+        handler._action_point_box = [11026, 3, 3, 3]
+        used = []
+
+        def use_once(selected_index):
+            used.append(selected_index)
+            handler._action_point_current += ap_module.ACTION_POINT_BOX[selected_index]
+            handler._action_point_box[selected_index] -= 1
+
+        handler.action_point_use = use_once
+        self.assertTrue(handler.handle_action_point(
+            zone=SimpleNamespace(hazard_level=1, is_port=False),
+            pinned='DANGEROUS', cost=210,
+        ))
+        # 默认关闭：维持上游小箱优先（不顶破 200 的先用，攒大箱应急）
+        self.assertEqual(used, [1, 1, 1, 3])
+
+    def test_big_box_first_reduces_confirmations(self):
+        from types import SimpleNamespace
+
+        handler, _ = self.make_handler()
+        handler._is_in_action_point = lambda: True
+        handler.action_point_safe_get = lambda: None
+        handler.action_point_set_button = lambda index: True
+        handler.action_point_quit = lambda: None
+        handler.config.OS_ACTION_POINT_PRESERVE = 200
+        handler.config.OpsiGeneral_BuyActionPointLimit = 0
+        handler.config.OpsiGeneral_ActionPointBigBoxFirst = True
+        handler._action_point_current = 100
+        handler._action_point_total = 1297
+        handler._action_point_box = [11026, 3, 3, 3]
+        used = []
+
+        def use_once(selected_index):
+            from module.os_handler import action_point as ap_module
+            used.append(selected_index)
+            handler._action_point_current += ap_module.ACTION_POINT_BOX[selected_index]
+            handler._action_point_box[selected_index] -= 1
+
+        handler.action_point_use = use_once
+        self.assertTrue(handler.handle_action_point(
+            zone=SimpleNamespace(hazard_level=1, is_port=False),
+            pinned='DANGEROUS', cost=210,
+        ))
+        # 缺口 110 >= 100：先 100 箱（100→200），此后全部箱子都顶破上限，
+        # 溢出档仍大→小 → 再用 100 箱到 300；2 次确认搞定，不再 4 次
+        self.assertEqual(used, [3, 3])
+
 
 class TestSampleImages(unittest.TestCase):
     """真实截图样张回归：样张目录由环境变量 AP_MAPBAR_SAMPLES 指定，

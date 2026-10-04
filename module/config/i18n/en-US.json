@@ -3331,6 +3331,10 @@
     "ActionPointLedgerEnabled": {
       "name": "Action point ledger",
       "help": "Automatically reads the top-bar action points (next to MAX) inside Operation Siren zones and records the current AP and total AP (incl. boxes). Tasks read the ledger directly instead of repeatedly opening the AP popup; the refill popup only appears when the recorded AP falls below the requirement. When disabled, falls back to the old behavior: every decision read and start check opens the AP popup to read the real value."
+    },
+    "ActionPointBigBoxFirst": {
+      "name": "Big box first",
+      "help": "When restocking Action Points, once the shortage reaches 100 prefer large boxes (100→50→20) to reduce per-box confirmation waits (each confirmation waits about 5~8s for the popup number to refresh). When disabled, keeps small-box-first (upstream behavior)."
     }
   },
   "OpsiAshBeacon": {

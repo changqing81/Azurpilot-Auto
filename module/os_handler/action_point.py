@@ -818,14 +818,25 @@ class ActionPointHandler(UI, MapEventHandler):
                     cost=cost,
                 )
 
-            # 排序行动力药剂
-            box = []
-            for index in [3, 2, 1]:
-                if self._action_point_box[index] > 0:
-                    if self._action_point_current + ACTION_POINT_BOX[index] >= NATURAL_ACTION_POINT_LIMIT:
-                        box.append(index)
-                    else:
-                        box.insert(0, index)
+            # 排序行动力药剂。默认（关闭）＝上游行为：不顶破自然上限（200）的
+            # 箱子先用、档内小→大，防溢出、攒大箱应急。
+            # 大箱优先开关开启且缺口 >= 100 时，改为纯大→小（100→50→20），
+            # 减少开箱确认次数（每次确认需等弹窗数字刷新 5~8 秒）；
+            # 总行动力守恒，越过 200 只损失极短时间的自然回复，不浪费箱值。
+            big_first = (
+                getattr(self.config, 'OpsiGeneral_ActionPointBigBoxFirst', False)
+                and cost - self._action_point_current >= 100
+            )
+            if big_first:
+                box = [index for index in [3, 2, 1] if self._action_point_box[index] > 0]
+            else:
+                box = []
+                for index in [3, 2, 1]:
+                    if self._action_point_box[index] > 0:
+                        if self._action_point_current + ACTION_POINT_BOX[index] >= NATURAL_ACTION_POINT_LIMIT:
+                            box.append(index)
+                        else:
+                            box.insert(0, index)
 
             # 使用行动力药剂
             if len(box):
