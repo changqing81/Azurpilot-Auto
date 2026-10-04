@@ -248,7 +248,12 @@ class ActionPointHandler(UI, MapEventHandler):
         path = self._ap_use_pending_path()
         try:
             if pending is None:
-                os.unlink(path)
+                # 清除时文件可能已被人工删掉（用户按日志提示核实后手动清理）：
+                # 确认已完成的前提下，文件不存在就等于清理成功，不算失败。
+                try:
+                    os.unlink(path)
+                except FileNotFoundError:
+                    pass
                 return
             # 排他创建 + 刷盘：点击前先记录意图，无法持久化则绝不点 USE。
             with open(path, 'x', encoding='utf-8') as f:
@@ -326,7 +331,10 @@ class ActionPointHandler(UI, MapEventHandler):
             f'库存[{selected_index}]={stock}->{self._action_point_box[selected_index]}；'
             '禁止重复点击，请人工检查'
         )
-        raise RequestHumanTakeover('行动力补充结果未确认，已暂停自动补充，请人工检查')
+        raise RequestHumanTakeover(
+            '行动力补充结果未确认，已暂停自动补充，请人工检查；'
+            f'核实无误后删除 {self._ap_use_pending_path()} 再继续'
+        )
 
     def action_point_update(self):
         """
@@ -678,7 +686,10 @@ class ActionPointHandler(UI, MapEventHandler):
             in: ACTION_POINT_USE
         """
         if self._load_ap_use_pending() or self._ap_use_blocked:
-            raise RequestHumanTakeover('存在未确认的行动力 USE，禁止购买')
+            raise RequestHumanTakeover(
+                '存在未确认的行动力 USE，禁止购买；'
+                f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
+            )
         if not self.action_point_set_button(0):
             raise RequestHumanTakeover('无法选择石油购买行动力，禁止点击 USE')
         current = self.action_point_get_buy_remain()
@@ -748,7 +759,10 @@ class ActionPointHandler(UI, MapEventHandler):
         if not self._is_in_action_point():
             return False
         if self._load_ap_use_pending() or self._ap_use_blocked:
-            raise RequestHumanTakeover('存在未确认的行动力 USE，禁止自动补充；请人工核对')
+            raise RequestHumanTakeover(
+                '存在未确认的行动力 USE，禁止自动补充；'
+                f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
+            )
 
         # 行动力药剂有显示动画
         self.action_point_safe_get()

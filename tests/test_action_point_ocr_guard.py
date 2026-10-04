@@ -281,7 +281,8 @@ class TestActionPointUseGuard(unittest.TestCase):
         handler, clicks = self.make_handler()
         handler._pending = {'index': 3, 'current': 97, 'stock': 12}
         handler.action_point_set_button = lambda index: self.fail('不应切换到购买页签')
-        with self.assertRaises(RequestHumanTakeover):
+        # 报错必须带哨兵文件路径，否则用户不知道删哪个文件
+        with self.assertRaisesRegex(RequestHumanTakeover, 'ap-use-pending'):
             handler.action_point_buy()
         self.assertEqual(clicks, [])
 
@@ -320,6 +321,23 @@ class TestActionPointUseGuard(unittest.TestCase):
             # 确认已刷新后由程序自动清除；没有强制让用户手改实例配置。
             handler._save_ap_use_pending(None)
             self.assertFalse(path.exists())
+
+    def test_cleanup_after_manual_delete_is_success(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'ap_use_test.json.ap-use-pending'
+            handler, clicks = self.make_handler()
+            del handler._save_ap_use_pending
+            del handler._load_ap_use_pending
+            handler._ap_use_pending_path = lambda: str(path)
+            handler._save_ap_use_pending({'index': 3, 'current': 97, 'stock': 12})
+            path.unlink()  # 用户在等待确认期间已按日志提示手动删除
+            # USE 已确认，清除哨兵时文件不存在应视为清理成功，不得抛人工接管
+            handler._save_ap_use_pending(None)
+            self.assertFalse(path.exists())
+            self.assertEqual(clicks, [])
 
     def test_invalid_guard_file_never_allows_another_click(self):
         import tempfile
