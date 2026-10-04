@@ -2296,7 +2296,7 @@
     },
     "MaintainFill": {
       "name": "Run Research Before Maintenance",
-      "help": "Requires Research Batch Mode (experimental). Once enabled, the script checks the server maintenance notice once a day: if maintenance starts today and hasn't begun, this run is postponed to 60 minutes before it, claiming all finished research projects and filling the research queue (including the 6th slot). If maintenance is already over or falls on another day, the normal schedule applies. Data from api-blhx-maintain, matched to the current game server, times converted to local time"
+      "help": "Requires Research Batch Mode (experimental). Once enabled, the script checks the server maintenance notice once a day: on maintenance day research runs as usual, but a forced run is guaranteed 60 minutes before maintenance, claiming all finished research projects and checking whether the research queue (including the 6th slot) is full; if not full, it runs again every 15 minutes until full. If maintenance is already over or falls on another day, the normal schedule applies. Data from api-blhx-maintain, matched to the current game server, times converted to local time"
     },
     "UseCube": {
       "name": "Use Cubes",
