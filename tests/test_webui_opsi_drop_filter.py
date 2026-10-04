@@ -165,8 +165,12 @@ class OpsiDropFilterTest(unittest.TestCase):
         info = item_info("44")
         self.assertEqual(info["zh"], "未知物品 #44")
         self.assertEqual(info["category"], "other")
-        # 已翻译的正常物品不受影响
-        self.assertEqual(item_info("SpecialGearPrototype")["zh"], "特殊装备原型")
+        # 已翻译的正常物品不受影响（译名经用户截图核对，2026-10-04）
+        self.assertEqual(item_info("SpecialGearPrototype")["zh"], "特装原型")
+        self.assertEqual(item_info("TripleEmergencyRepairPack")["zh"], "豪华应急维修箱")
+        self.assertEqual(item_info("Complete RepairPack")["zh"], "应急维修箱")
+        self.assertEqual(item_info("PrototypeGearPartsT5")["zh"], "特装型突破部件")
+        self.assertEqual(item_info("PrototypeGearPartsT4")["zh"], "试作型突破部件")
 
     def test_strip_click_toggles_filter(self):
         """点击合计项设置筛选，再点同一个取消；期间整块重绘一次。"""
