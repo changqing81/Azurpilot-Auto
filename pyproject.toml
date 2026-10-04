@@ -62,8 +62,14 @@ dev = [
 ]
 
 [tool.uv]
-# 仅保留官方 PyPI：uv 会向 index 列表里的每个索引发起解析请求，
-# 任何一个不可达（境外 CI 环境连不上国内镜像）都会让 uv sync 整体失败。
+index = [
+    # 云厂商镜像
+    { url = "https://mirrors.aliyun.com/pypi/simple/" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/simple/" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/simple/" },
+    # 教育网镜像
+    { url = "https://mirrors.cernet.edu.cn/pypi/web/simple/" }, # CERNET 校园网联合镜像站
+]
 index-url = "https://pypi.org/simple/"
 package = false
 index-strategy = "unsafe-best-match"
