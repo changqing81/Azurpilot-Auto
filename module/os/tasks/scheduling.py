@@ -32,37 +32,10 @@ from datetime import datetime, timedelta
 from module.config.config import Function, name_to_function
 from module.config.deep import deep_get
 from module.config.time_source import now as current_time
-from module.config.utils import DEFAULT_TIME, get_os_next_reset, get_os_reset_remain, server_time_offset
-from module.exception import GameStuckError
+from module.config.utils import get_os_reset_remain, server_time_offset
 from module.logger import logger
 from module.os.map import OSMap
 from module.os_handler.action_point import ACTION_POINTS_COST, ActionPointLimit
-
-
-# 月度港口行动力购买开关的配置路径（对应 WebUI「大世界商店」页的开关）
-CONFIG_PATH_BUY_PORT_ACTION_POINT = 'OpsiShop.OpsiShop.BuyActionPoint'
-# 本月港口行动力购买状态键（持久化到智能调度+ Storage.Storage）
-STATE_KEY_ACTION_POINT_PURCHASE = 'ActionPointPurchase'
-
-
-def monthly_explore_complete(config):
-    """判断本月每月开荒是否已完成 100%。
-
-    ExploreProgress 自身不带月份标记：完成时写入「已完成百分之100.00」，
-    下月开荒任务重新运行时才归零。这里再用开荒任务的 Scheduler.NextRun 兜底：
-    开荒完成会把 NextRun 推到下次大世界重置，因此 NextRun >= 下次重置
-    即说明本月开荒已经跑完；跨月后 NextRun 落后于新的重置时间，判定自动失效。
-
-    Args:
-        config: 配置对象。
-
-    Returns:
-        bool: 本月每月开荒已完成返回 True。
-    """
-    if config.cross_get('OpsiExplore.OpsiExplore.ExploreProgress', default='') != '已完成百分之100.00':
-        return False
-    next_run = config.cross_get('OpsiExplore.Scheduler.NextRun', default=DEFAULT_TIME)
-    return next_run >= get_os_next_reset()
 
 
 class CoinTaskMixin:
@@ -191,39 +164,6 @@ class CoinTaskMixin:
             getattr(self, '_prevent_action_point_overflow_context', False)
             or getattr(self.config, '_prevent_action_point_overflow_context', False)
         )
-
-    def _try_scheduling_action_point_purchase(self):
-        """本月仅执行一轮大世界港口商店行动力购买；正常走完流程即标记完成，中断后可续购。
-
-        仅本月每月开荒达到 100% 后才允许购买。这里买的是港口商店里的行动力箱，
-        不调用耗油的每日行动力购买。购买流程内部只挑行动力商品，不复扫其他商品。
-
-        Returns:
-            bool: 本轮已执行购买返回 True，未触发返回 False。
-        """
-        if self.is_running_prevent_action_point_overflow_task():
-            return False
-        if not self._config_enabled(CONFIG_PATH_BUY_PORT_ACTION_POINT):
-            return False
-        if not monthly_explore_complete(self.config):
-            return False
-        reset = get_os_next_reset().isoformat()
-        state = self._get_smart_scheduling_state_value(STATE_KEY_ACTION_POINT_PURCHASE)
-        if isinstance(state, dict) and state.get('reset') == reset and state.get('phase') == 'done':
-            return False
-        # 旧版「全商店复扫核验」的误报会留下 attempts 计数，不能再用它阻止本月续购。
-        # 实际导航或购买异常仍由上层统一恢复；只在正常退出港口后记为完成。
-        state = dict(reset=reset, phase='buying')
-        self._set_smart_scheduling_state_value(STATE_KEY_ACTION_POINT_PURCHASE, state)
-        logger.hr('智能调度：本月一次性购买大世界港口商店行动力', level=1)
-        self.handle_first_auto_search(run=False)
-        self._run_with_opsi_task_context(
-            'OpsiShop', self.perform_port_shop_purchase, action_point_only=True,
-        )
-        if reset != get_os_next_reset().isoformat():
-            raise GameStuckError('购买行动力期间跨月，停止旧月份流程')
-        self._set_smart_scheduling_state_value(STATE_KEY_ACTION_POINT_PURCHASE, dict(state, phase='done'))
-        return True
 
     def delay_opsi_active_task(self, *args, **kwargs):
         """
@@ -2211,19 +2151,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         yellow_coins = self.get_yellow_coins()
         total_ap, current_ap = self._get_scheduling_action_point()
 
-        # 月度港口行动力购买：先续购被中断的购买，避免库存没买完就恢复练级。
-        purchase = self._get_smart_scheduling_state_value(STATE_KEY_ACTION_POINT_PURCHASE)
-        if (
-            isinstance(purchase, dict)
-            and purchase.get('reset') == get_os_next_reset().isoformat()
-            and purchase.get('phase') == 'buying'
-            and self._try_scheduling_action_point_purchase()
-        ):
-            return
-        # 行动力不足以练级时，先尝试本月一次性的港口商店行动力购买。
-        if total_ap <= self._get_effective_cl1_ap_preserve() and self._try_scheduling_action_point_purchase():
-            return
-
         # 月末清理行动力检查（优先级最高，先于黄币和侵蚀1调度）
         self._reset_month_end_cleanup_first_run_if_new_month()
         if self._is_month_end_cleanup_active():
@@ -2353,8 +2280,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             self._execute_hazard1_leveling(yellow_coins, total_ap)
         except ActionPointLimit as e:
             logger.warning(f'[大世界-智能调度+] 智能调度+执行子任务时行动力不足: {e}')
-            if self._try_scheduling_action_point_purchase():
-                return
             preserve = getattr(e, 'preserve', None) or cl1_ap_preserve
             current = getattr(e, 'total', None) or getattr(e, 'current', None) or total_ap
             self._delay_smart_scheduling_for_ap_limit(current, preserve)

@@ -3470,7 +3470,7 @@
     },
     "BuyActionPoint": {
       "name": "Buy Operation Siren port-shop AP",
-      "help": "Allowed only after monthly exploration reaches 100% this month. The exploration task does not need to stay enabled. Once per month, buy all port-shop AP boxes in one go without spending oil; may spend coins reserved for leveling. Triggers when AP is insufficient for leveling or a subtask runs out of AP. Sufficient currency is required; the monthly purchase is recorded when the buying flow finishes, without rescanning other goods. Interrupted purchases can resume; having no AP stock left also completes the flow."
+      "help": "Allowed only after monthly exploration reaches 100% this month. The exploration task does not need to stay enabled. Triggered together with the OpsiShop task, once per month: buy all port-shop AP boxes in one go without spending oil; may spend coins reserved for leveling. The monthly purchase is recorded when the buying flow finishes, without rescanning other goods. Interrupted purchases can resume; having no AP stock left also completes the flow."
     },
     "PresetFilter": {
       "name": "Port Shop filter",
