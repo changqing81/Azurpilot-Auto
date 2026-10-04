@@ -94,6 +94,8 @@ _MEOW_CATEGORY_SUFFIX = {
 # 口径，不必与行数求和一致；隐蔽/深渊坐标与金猫箱是单一物品家族，类别列会把
 # 隐蔽+深渊、猫箱T2+T3 合并到一起，所以按模板名前缀过滤（与 _opsi_strip_totals
 # 对这几项的合计口径一致）。
+# "Other" 是六项之外的补集（货币/材料/其他/猫箱T2 等未归入贵重六项的掉落），
+# 合计条上不显示数字（用户裁定 2026-10-04）。
 MEOW_STRIP_FILTERS = {
     "Plate": ("category", CATEGORY_PLATE),
     "GearDesignPlanT5": ("category", CATEGORY_DESIGN),
@@ -101,7 +103,22 @@ MEOW_STRIP_FILTERS = {
     "CoordinateObscure": ("name", "CoordinateObscure"),
     "CoordinateAbyssal": ("name", "CoordinateAbyssal"),
     "CatT3": ("name", "CatT3"),
+    "Other": ("complement", None),
 }
+
+
+def _opsi_item_matches_filter(name, key):
+    """单个物品是否命中某个合计口径；"Other" 表示六项之外的补集。"""
+    if key == "Other":
+        return not any(
+            _opsi_item_matches_filter(name, other_key)
+            for other_key in MEOW_STRIP_FILTERS
+            if other_key != "Other"
+        )
+    dimension, value = MEOW_STRIP_FILTERS[key]
+    if dimension == "category":
+        return category_of(name) == value
+    return name.startswith(value)
 
 # 侵蚀 1~6 全套配色：3=蓝、5=红 沿用数据收集卡徽标的既定色，其余等级补齐
 MEOW_HAZARD_COLORS = {
@@ -560,12 +577,13 @@ class OpsiExportMixin(WebUIMixinBase):
         return max(0, total - OPSI_DROP_TABLE_PREVIEW)
 
     def _render_meow_loot_strip(self, view, drop):
-        """合计条：标题 + 六个可点击的类别合计（跨任务求和）；全 0 也占位显示。
+        """合计条：标题 + 六个可点击的类别合计（跨任务求和）+ 「其他」项。
 
         点击某个合计项联动下方明细表按该口径过滤（``MEOW_STRIP_FILTERS``），
         再点一次取消；选中态用该项主题色的描边 + 浅底内联标注（各项目色不同，
         写不进公共 CSS）。合计数字永远按全量 items 计算，不受自身点击产生的
-        筛选影响 —— 否则筛完别项就看不见、没法点回来了。
+        筛选影响 —— 否则筛完别项就看不见、没法点回来了。「其他」项不显示
+        合计数字（用户裁定），只显示类别名，点击筛出六项之外的掉落。
         """
         if view["is_current"]:
             title = t("Gui.Stat.MeowLootTitleCurrent")
@@ -580,33 +598,56 @@ class OpsiExportMixin(WebUIMixinBase):
         for key, suffix, icon_name, color in MEOW_LOOT_ITEMS:
             total = totals.get(key, 0)
             name = t(f"Gui.Stat.MeowLootItem{suffix}")
-            if key == active:
-                hint = t("Gui.Stat.MeowLootStripActiveHint")
-                state_style = (
-                    f"background: {color}14; "
-                    f"box-shadow: inset 0 0 0 1.5px {color};"
-                )
-            else:
-                hint = t("Gui.Stat.MeowLootStripClickHint")
-                state_style = ""
-            style = f' style="{state_style}"' if state_style else ""
-            # 根元素必须是 <button> 而不是 <span>：合计条挂在折叠块的
-            # <summary> 行里，span 的点击会冒泡触发 summary 激活行为（整块
-            # 折叠/展开）；浏览器对 summary 内的交互元素（button 等）豁免
-            # 切换。type="button" 防止表单提交语义。
-            chip = (
-                f'<button type="button" class="meow-loot-strip-item" '
-                f'title="{html_escape(f"{name} · {hint}")}"{style}>'
-                f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
-                f"{self._meow_loot_icon_html(icon_name, color, 'strip')}"
-                "</span>"
-                f"<b>{int(total):,}</b>"
-                "</button>"
-            )
             chips.append(
-                put_html(chip).onclick(partial(self._on_meow_strip_click, key=key))
+                put_html(
+                    self._meow_strip_chip_html(
+                        key, name, color, icon_name, f"<b>{int(total):,}</b>"
+                    )
+                ).onclick(partial(self._on_meow_strip_click, key=key))
             )
+        # 「其他」：六项贵重物之外的掉落（货币/材料/未知物品等），没有合计数字
+        other_label = t("Gui.Stat.OpsiDropCategoryOther")
+        other_color = _MEOW_CATEGORY_COLORS.get(CATEGORY_OTHER, "#888780")
+        chips.append(
+            put_html(
+                self._meow_strip_chip_html(
+                    "Other",
+                    other_label,
+                    other_color,
+                    None,
+                    f"<b>{html_escape(other_label)}</b>",
+                )
+            ).onclick(partial(self._on_meow_strip_click, key="Other"))
+        )
         put_widget(self.MEOW_STRIP_TPL, dict(title=title, chips=chips))
+
+    def _meow_strip_chip_html(self, key, name, color, icon_name, inner):
+        """合计条单个 chip：button 包图标 + 内容（数量或类别名）。
+
+        根元素必须是 <button> 而不是 <span>：合计条挂在折叠块的 <summary>
+        行里，span 的点击会冒泡触发 summary 激活行为（整块折叠/展开）；浏览
+        器对 summary 内的交互元素（button 等）豁免切换。type="button" 防止
+        表单提交语义。
+        """
+        if getattr(self, "_meow_item_filter", None) == key:
+            hint = t("Gui.Stat.MeowLootStripActiveHint")
+            state_style = (
+                f"background: {color}14; "
+                f"box-shadow: inset 0 0 0 1.5px {color};"
+            )
+        else:
+            hint = t("Gui.Stat.MeowLootStripClickHint")
+            state_style = ""
+        style = f' style="{state_style}"' if state_style else ""
+        return (
+            f'<button type="button" class="meow-loot-strip-item" '
+            f'title="{html_escape(f"{name} · {hint}")}"{style}>'
+            f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
+            f"{self._meow_loot_icon_html(icon_name, color, 'strip')}"
+            "</span>"
+            f"{inner}"
+            "</button>"
+        )
 
     @staticmethod
     def _opsi_strip_totals(items):
@@ -649,6 +690,8 @@ class OpsiExportMixin(WebUIMixinBase):
         """按合计条选中项过滤明细行；未选中返回原列表。
 
         只作用于明细表：合计条数字、掉落明细标签里的结算/件数摘要仍按全量算。
+        「其他」（"Other"）是六项贵重物口径的补集：货币/材料/其他类别与
+        猫箱T2、数字编号的未知物品都会落在这一档。
 
         Args:
             drop (dict): ``get_opsi_drop_summary`` 的汇总。
@@ -660,15 +703,12 @@ class OpsiExportMixin(WebUIMixinBase):
         key = getattr(self, "_meow_item_filter", None)
         if key is None:
             return items
-        dimension, value = MEOW_STRIP_FILTERS.get(key, ("category", None))
-        if dimension == "category":
-            return [
-                item
-                for item in items
-                if category_of(str(item.get("name") or "")) == value
-            ]
+        if key not in MEOW_STRIP_FILTERS:
+            return items
         return [
-            item for item in items if str(item.get("name") or "").startswith(value)
+            item
+            for item in items
+            if _opsi_item_matches_filter(str(item.get("name") or ""), key)
         ]
 
     def _build_opsi_drop_table_html(self, drop):

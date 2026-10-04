@@ -1,11 +1,13 @@
 """大世界收获「合计条点击联动明细表」的回归测试。
 
 覆盖 2026-10-04 用户裁定的联动行为：
-- 合计条六个合计项可点击，点击后明细表只显示对应口径的行，再点一次取消
+- 合计条六个贵重物合计项可点击，点击后明细表只显示对应口径的行，再点一次取消
 - 金菜/彩图纸/金机密联动**类别列**：彩图纸给全部图纸（SSR T4 + UR T5）、
   金机密给全部机密报告（T1~T4）——合计数字是头部口径，不必与行求和一致
 - 隐蔽/深渊坐标与金猫箱是单一物品家族，按模板名前缀过滤（类别列会把
   隐蔽+深渊、猫箱T2+T3 合并到一起）
+- 「其他」项不显示合计数字，点击筛出六项贵重物口径之外的掉落
+  （货币/材料/其他类别、猫箱T2、数字编号的未知物品）
 - 合计数字永远按全量 items 计算，不受点击筛选影响
 - 筛选后无行的空态提示与「其余 N 项」计数都按筛选后的列表算
 """
@@ -13,6 +15,7 @@
 import unittest
 from unittest.mock import patch
 
+from module.statistics.opsi_item_names import item_info
 from module.webui.app_stat_opsi_export import (
     MEOW_LOOT_ITEMS,
     MEOW_STRIP_FILTERS,
@@ -34,6 +37,8 @@ def _items():
         {"name": "CatT2", "amount": 1, "count": 1, "avg": 1.0},
         {"name": "CatT3", "amount": 1, "count": 1, "avg": 1.0},
         {"name": "OperationCoin", "amount": 170221, "count": 29, "avg": 5869.7},
+        {"name": "SpecialGearPrototype", "amount": 530, "count": 32, "avg": 16.6},
+        {"name": "44", "amount": 156, "count": 7, "avg": 22.3},
     ]
 
 
@@ -74,10 +79,26 @@ class OpsiDropFilterTest(unittest.TestCase):
         ]
 
     def test_filter_map_covers_strip_items(self):
-        """筛选映射表必须与合计条六项一一对应，防止键名手误。"""
+        """筛选映射表必须覆盖合计条六项 + 「其他」，防止键名手误。"""
         self.assertEqual(
             set(MEOW_STRIP_FILTERS),
-            {key for key, *_ in MEOW_LOOT_ITEMS},
+            {key for key, *_ in MEOW_LOOT_ITEMS} | {"Other"},
+        )
+
+    def test_other_filter_is_complement_of_six(self):
+        """「其他」= 六项贵重物口径之外的掉落：货币/材料/其他/猫箱T2/数字未知物品。
+
+        贵重六项已覆盖的（含类别口径下的全部图纸/机密、两个坐标、金猫箱）不出现。
+        """
+        names = self._filtered_names("Other")
+        self.assertEqual(
+            names,
+            [
+                "CatT2",
+                "OperationCoin",
+                "SpecialGearPrototype",
+                "44",
+            ],
         )
 
     def test_no_filter_returns_all(self):
@@ -139,6 +160,14 @@ class OpsiDropFilterTest(unittest.TestCase):
             len(_items()) - 5,
         )
 
+    def test_numeric_item_shows_as_unknown(self):
+        """数字编号的脏数据物品显示成「未知物品 #编号」，归其他类别。"""
+        info = item_info("44")
+        self.assertEqual(info["zh"], "未知物品 #44")
+        self.assertEqual(info["category"], "other")
+        # 已翻译的正常物品不受影响
+        self.assertEqual(item_info("SpecialGearPrototype")["zh"], "特殊装备原型")
+
     def test_strip_click_toggles_filter(self):
         """点击合计项设置筛选，再点同一个取消；期间整块重绘一次。"""
         self.harness._on_meow_strip_click("Plate")
@@ -150,7 +179,7 @@ class OpsiDropFilterTest(unittest.TestCase):
         self.assertEqual(self.harness._meow_item_filter, "CatT3")
 
     def test_strip_chips_clickable_and_active_marked(self):
-        """合计条渲染出六个带点击回调的合计项，选中项有主题色描边标记。"""
+        """合计条渲染出七个带点击回调的合计项，选中项有主题色描边标记。"""
         harness = _OpsiDropHarness(item_filter="Plate")
         with patch("module.webui.app_stat_opsi_export.put_html",
                    side_effect=lambda html: _FakeChip(html)), \
@@ -162,13 +191,14 @@ class OpsiDropFilterTest(unittest.TestCase):
             )
         template, data = put_widget.call_args[0]
         chips = data["chips"]
-        self.assertEqual(len(chips), 6)
+        self.assertEqual(len(chips), 7)
         for chip in chips:
             self.assertIsNotNone(chip.click_callback)
         # 选中项（金菜）内联主题色描边 + 提示换成「再点一次取消」；其余项是
         # 「点击筛选」提示且无内联标记
-        plate_chip = next(c for c in chips if "PlateGeneralT4" not in c.html
-                          and "Gui.Stat.MeowLootItemPlate" in c.html)
+        plate_chip = next(
+            c for c in chips if "Gui.Stat.MeowLootItemPlate" in c.html
+        )
         self.assertIn("box-shadow", plate_chip.html)
         self.assertIn("Gui.Stat.MeowLootStripActiveHint", plate_chip.html)
         other_chip = next(c for c in chips
@@ -185,6 +215,14 @@ class OpsiDropFilterTest(unittest.TestCase):
             c.html for c in chips if "Gui.Stat.MeowLootItemPlate" in c.html
         )
         self.assertIn("<b>60</b>", plate_chip_html)
+        # 「其他」chip 显示类别名而不是合计数字
+        other_chip = next(
+            c for c in chips if "Gui.Stat.OpsiDropCategoryOther" in c.html
+        )
+        self.assertIn("<b>Gui.Stat.OpsiDropCategoryOther</b>", other_chip.html)
+        # 点「其他」chip 切到补集筛选
+        other_chip.click_callback()
+        self.assertEqual(harness._meow_item_filter, "Other")
 
     def test_strip_renders_via_widget_template(self):
         """合计条走 put_widget 模板渲染（chips 必须是独立 Output 才能挂回调）。"""
@@ -200,7 +238,7 @@ class OpsiDropFilterTest(unittest.TestCase):
         self.assertIn("meow-loot-strip", template)
         self.assertIn("pywebio_output_parse", template)
         self.assertEqual(data["title"], "Gui.Stat.MeowLootTitleHistory")
-        self.assertEqual(len(data["chips"]), 6)
+        self.assertEqual(len(data["chips"]), 7)
 
 
 if __name__ == "__main__":
