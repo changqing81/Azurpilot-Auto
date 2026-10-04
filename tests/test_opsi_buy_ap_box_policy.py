@@ -134,6 +134,25 @@ class BuyActionPointModeBoxFlagTests(unittest.TestCase):
             self.runner._run_buy_action_point_mode()
         self.assertFalse(getattr(self.runner, '_os_ap_box_forbidden', False))
 
+    def test_skips_sync_popup_when_user_limit_already_reached(self):
+        # 上限<5（如 3 次）买满后，模式入口直接结束，
+        # 不再每次调度周期白弹一次同步窗（同步短路写死 5/5 救不了较小上限）
+        self.runner = self.make_mode_runner(Mock(return_value=False))
+        self.runner.config = SimpleNamespace(OpsiGeneral_BuyActionPointLimit=3)
+        self.runner._get_buy_action_point_count = Mock(return_value=3)
+        self.assertFalse(self.runner._run_buy_action_point_mode())
+        self.runner._sync_buy_action_point_count_with_game.assert_not_called()
+        self.runner._run_buy_ap_meowfficer_loop.assert_not_called()
+
+    def test_sync_runs_and_count_reread_when_below_limit(self):
+        # 未达上限时正常同步；同步可能发现手动购买使计数上调，需重读
+        self.runner = self.make_mode_runner(Mock(return_value=False))
+        counts = iter([2, 4])
+        self.runner._get_buy_action_point_count = Mock(
+            side_effect=lambda: next(counts))
+        self.assertFalse(self.runner._run_buy_action_point_mode())
+        self.runner._sync_buy_action_point_count_with_game.assert_called_once()
+
 
 if __name__ == '__main__':
     unittest.main()

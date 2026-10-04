@@ -691,8 +691,10 @@ class ActionPointHandler(UI, MapEventHandler):
                 f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
             )
         buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
-        # 智能调度实例的持久化计数已确认购满时，不再点击石油查看剩余次数（多余交互），
-        # 直接按已达上限处理；跨周重置由 _get_buy_action_point_count 内部完成。
+        # 用户设置的购买上限（OpsiGeneral_BuyActionPointLimit，0-5）买满后，
+        # 不再点击石油查看剩余次数（多余交互），直接按已达上限处理；
+        # min(buy_limit, 5) 仅为防御手改配置超范围时按游戏每周 5 次兜底。
+        # 跨周重置由 _get_buy_action_point_count 内部完成。
         # 非智能调度实例（无计数器方法）保持原 OCR 核对流程。
         if hasattr(self, '_get_buy_action_point_count'):
             stored_count = self._get_buy_action_point_count()

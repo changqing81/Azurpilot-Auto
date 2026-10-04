@@ -1489,9 +1489,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             )
             return False
 
-        # 同步购买计数器与游戏内剩余次数（重启后可能不一致）
-        self._sync_buy_action_point_count_with_game()
-
         buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
         if buy_limit <= 0:
             # 凭持久化备份区分「temporary 崩溃残留」与「用户主动设 0（不买）」：
@@ -1530,6 +1527,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         # 恢复正常配置后重置「上限为0停用」推送标记，允许下次设 0 时再次提醒
         self._clear_smart_scheduling_state_value(self.STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED)
 
+        # 已达用户设定购买上限时直接结束，放在同步弹窗之前——
+        # 同步弹窗只服务继续购买前的计数校准；若先同步再判满，
+        # 上限<5 的用户买满后每次调度周期仍会白弹一次同步窗
+        # （同步内部的跳过短路写死 5/5，永远轮不到较小上限）。
+        # 用户之后调大上限会重新走到同步，计数仍会被游戏 OCR 校正。
         current_count = self._get_buy_action_point_count()
         if current_count >= buy_limit:
             logger.info(
@@ -1537,6 +1539,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 f'（已购买 {current_count} 次），买行动力模式结束，剩余行动力交由正常调度'
             )
             return False
+
+        # 同步购买计数器与游戏内剩余次数（重启后可能不一致）；
+        # 同步可能发现手动购买使计数上调，重读一次保证后续日志与预算准确
+        self._sync_buy_action_point_count_with_game()
+        current_count = self._get_buy_action_point_count()
 
         logger.info(
             f'[大世界-买行动力] 本周已购买 {current_count}/{buy_limit} 次，'
