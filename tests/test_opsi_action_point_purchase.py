@@ -18,6 +18,7 @@ from module.os.operation_siren import OperationSiren
 from module.os.tasks.scheduling import (
     CONFIG_PATH_BUY_PORT_ACTION_POINT,
     STATE_KEY_ACTION_POINT_PURCHASE,
+    OpsiScheduling,
     monthly_explore_complete,
 )
 from module.os.tasks.shop import OpsiShop
@@ -159,6 +160,62 @@ class ActionPointPurchaseTests(unittest.TestCase):
         self.mark_monthly_complete()
         self.runner._prevent_action_point_overflow_context = True
         self.assertFalse(self.runner._try_scheduling_action_point_purchase())
+        self.runner.perform_port_shop_purchase.assert_not_called()
+
+
+class SchedulingWiringTests(unittest.TestCase):
+    """run_smart_scheduling_once 的接线：行动力不足 / 续购时真的会去买。"""
+
+    def setUp(self):
+        clock = patch('module.os.tasks.scheduling.get_os_next_reset', return_value=RESET)
+        clock.start()
+        self.addCleanup(clock.stop)
+        self.runner = OpsiScheduling.__new__(OpsiScheduling)
+        self.runner.config = Config()
+        self.runner._read_disk_smart_scheduling_state = Mock(return_value={})
+        self.runner._delay_smart_scheduling_for_opsi_explore = Mock(return_value=False)
+        self.runner._is_buy_action_point_mode_active = Mock(return_value=False)
+        self.runner.get_yellow_coins = Mock(return_value=70000)
+        self.runner._get_effective_cl1_ap_preserve = Mock(return_value=200)
+        self.runner.handle_first_auto_search = Mock()
+        self.runner.perform_port_shop_purchase = Mock(return_value=True)
+        self.runner._run_with_opsi_task_context = Mock(
+            side_effect=lambda task, func, *args, **kwargs: func(*args, **kwargs))
+        self.runner._execute_hazard1_leveling = Mock()
+        self.runner._delay_smart_scheduling_for_ap_limit = Mock()
+        self.runner._reset_month_end_cleanup_first_run_if_new_month = Mock()
+        self.runner._is_month_end_cleanup_active = Mock(return_value=False)
+        self.runner._get_smart_scheduling_operation_coins_preserve = Mock(return_value=40000)
+        self.runner._get_coin_task_action_point_preserve = Mock(return_value=100)
+        self.runner._is_coin_target_scheduling_enabled = Mock(return_value=True)
+        self.runner._sync_smart_scheduling_mode_state = Mock()
+        self.runner._is_coin_replenish_active = Mock(return_value=False)
+        self.runner._is_ap_replenish_active = Mock(return_value=False)
+        self.runner.config.cross_set(CONFIG_PATH_BUY_PORT_ACTION_POINT, True)
+        self.runner.config.cross_set('OpsiExplore.OpsiExplore.ExploreProgress', '已完成百分之100.00')
+        self.runner.config.cross_set('OpsiExplore.Scheduler.NextRun', RESET)
+
+    def test_low_ap_triggers_purchase_before_leveling(self):
+        self.runner._get_scheduling_action_point = Mock(return_value=(150, 100))
+        self.runner.run_smart_scheduling_once()
+        self.runner.perform_port_shop_purchase.assert_called_once_with(action_point_only=True)
+        self.runner._execute_hazard1_leveling.assert_not_called()
+        self.runner._delay_smart_scheduling_for_ap_limit.assert_not_called()
+
+    def test_interrupted_purchase_is_resumed_before_other_scheduling(self):
+        self.runner._get_scheduling_action_point = Mock(return_value=(2000, 150))
+        self.runner._set_smart_scheduling_state_value(
+            STATE_KEY_ACTION_POINT_PURCHASE,
+            dict(reset=RESET.isoformat(), phase='buying'),
+        )
+        self.runner.run_smart_scheduling_once()
+        self.runner.perform_port_shop_purchase.assert_called_once_with(action_point_only=True)
+        self.runner._execute_hazard1_leveling.assert_not_called()
+
+    def test_no_purchase_when_switch_off(self):
+        self.runner.config.cross_set(CONFIG_PATH_BUY_PORT_ACTION_POINT, False)
+        self.runner._get_scheduling_action_point = Mock(return_value=(2000, 150))
+        self.runner.run_smart_scheduling_once()
         self.runner.perform_port_shop_purchase.assert_not_called()
 
 
