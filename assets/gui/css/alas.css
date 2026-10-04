@@ -779,6 +779,12 @@ pre.rich-traceback-code {
 
 #pywebio-scope-log-bar {
     flex-wrap: wrap;
+    /* 仪表盘（dashboard）住在本容器里，条目刷新是「清空元素再插入」：
+       重建瞬间内容高度塌陷，浏览器滚动锚定（overflow-anchor）会自动调整
+       本容器的 scrollTop，仪表盘数值（如石油）随之上下跳位、看起来像
+       随日志滚动而动。本容器不应参与锚定，溢出横向也不该滚。 */
+    overflow-anchor: none;
+    overflow-x: hidden;
 }
 
 #pywebio-scope-log-bar-btns {
@@ -794,6 +800,9 @@ pre.rich-traceback-code {
     font-weight: 400;
     width: 100%;
     display: grid;
+    /* 条目刷新逐项「清空再插入」，重建间隙 grid 行高塌陷会把上方布局
+       顶得跳动；保住一行的最小高度让单条目重建不引发整块塌陷。 */
+    min-height: 3.5rem;
     grid-auto-flow: row;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
 }
