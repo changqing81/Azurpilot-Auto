@@ -64,10 +64,13 @@ class DashboardMixin(WebUIMixinBase):
         if self.page != "Overview":
             return
         # 配置文件 mtime 短路：load()=deepcopy 全量配置(~12ms)+override+重放
-        # modified，本任务每 10s 跑一次。文件没变（实例空闲时占大多数轮次）
+        # modified，本任务周期性跑一次。文件没变（实例空闲时占大多数轮次）
         # 就直接沿用上次加载的数据，只重算任务队列。
+        # mtime 为 None（stat 失败，如 mod 实例路径不规则）时视为未知，
+        # 回退到每轮强制 load 的旧行为，宁可白读不可漏读。
         mtime = self._overview_config_mtime()
-        if mtime != getattr(self, "_overview_config_mtime_seen", _OVERVIEW_MTIME_MISSING):
+        seen = getattr(self, "_overview_config_mtime_seen", _OVERVIEW_MTIME_MISSING)
+        if mtime is None or seen is _OVERVIEW_MTIME_MISSING or mtime != seen:
             self.alas_config.load()
             self._overview_config_mtime_seen = mtime
         self.alas_config.get_next_task()

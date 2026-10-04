@@ -80,6 +80,20 @@ class TestOverviewTaskMtimeShortCircuit(unittest.TestCase):
         self._run(stub)
         self.assertEqual(len(self.load_calls), 2)
 
+    def test_load_forced_when_mtime_unknown(self):
+        """stat 失败（mtime=None，如 mod 实例路径不规则）时回退强制 load。
+
+        None 不能与 None 比对相等后跳过——否则永远漏 load、任务列表失真。
+        """
+        stub = self._stub()
+        stub._overview_config_mtime = lambda: None
+
+        self._run(stub)
+        self.assertEqual(len(self.load_calls), 1, "首跑必须 load")
+        # seen 已记录为 None 后，下一轮仍要强制 load（宁可白读不可漏读）
+        self._run(stub)
+        self.assertEqual(len(self.load_calls), 2)
+
 
 class TestLocalCommitCache(unittest.TestCase):
     def test_commit_queried_once_process_wide(self):
