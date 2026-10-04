@@ -8,12 +8,93 @@ Frame 实现侧边栏、菜单导航和内容区域的切换逻辑。
 import functools
 import json
 import threading
+import time
 
 from pywebio.output import clear, put_html, put_scope, put_text, use_scope
 from pywebio.session import defer_call, info, run_js
 
 from module.webui.lang import t
 from module.webui.utils import Icon, WebIOTaskHandler, set_localstorage
+
+
+class _RenderLock:
+    """会话级渲染锁：可重入 + 用户交互优先 + 后台任务防饿死。
+
+    为什么不用 threading.RLock：RLock 无优先级，总览页的周期刷新任务
+    （仪表盘全量重建历史上平均 3.4s、峰值 10.3s）持锁期间，用户点击
+    「统计」「任务设置」等回调只能排队干等，且还会被下一轮周期任务
+    反复插队——表现为「总览加载中点哪里都没反应」。
+
+    规则：
+    - 用户回调（按钮点击等会话线程）注册为交互等待者，等锁期间
+      所有后台任务让位，保证用户是下一个拿锁的；
+    - 后台任务（TaskHandler 线程）拿锁前若发现交互等待者就让位轮询，
+      超过让位耐心后硬闯一次，防止持续的用户操作饿死周期刷新。
+    """
+
+    # 后台任务在有用户等待时的让位耐心（秒）：超过后硬闯防饿死。
+    # 用户回调都是亚秒级，3s 预算内几乎必然已拿到锁。
+    BACKGROUND_PATIENCE = 3.0
+    # 让位轮询间隔（秒）：通过 Condition.wait 间接响应 release 唤醒，
+    # 轮询只是兜底。
+    _YIELD_POLL = 0.05
+
+    def __init__(self) -> None:
+        self._cond = threading.Condition()
+        self._owner = None  # 持锁线程 ident
+        self._depth = 0
+        self._interactive_waiters = 0
+
+    def has_interactive_waiters(self) -> bool:
+        """是否有用户回调正在等锁（供后台长渲染做分段中断）。"""
+        with self._cond:
+            return self._interactive_waiters > 0
+
+    def acquire(self, is_background: bool = False) -> None:
+        me = threading.get_ident()
+        with self._cond:
+            if self._owner == me:
+                self._depth += 1
+                return
+            if is_background:
+                deadline = time.monotonic() + self.BACKGROUND_PATIENCE
+                while True:
+                    if self._owner is None and self._interactive_waiters == 0:
+                        break
+                    if time.monotonic() >= deadline:
+                        # 硬闯防饿死：插一次队，跑完本轮立即释放
+                        break
+                    self._cond.wait(self._YIELD_POLL)
+            else:
+                self._interactive_waiters += 1
+                try:
+                    while self._owner is not None:
+                        self._cond.wait(self._YIELD_POLL)
+                finally:
+                    self._interactive_waiters -= 1
+            self._owner = me
+            self._depth = 1
+
+    def release(self) -> None:
+        with self._cond:
+            if self._owner != threading.get_ident():
+                raise RuntimeError("render lock released by non-owner thread")
+            self._depth -= 1
+            if self._depth == 0:
+                self._owner = None
+                self._cond.notify_all()
+
+
+def _current_is_background_task(gui) -> bool:
+    """当前线程是否正在执行 TaskHandler 注册的后台任务。
+
+    TaskHandler.loop 执行任务期间会把任务写进自己的 thread-local，
+    用户按钮回调线程里它恒为 None——据此区分调用者身份。
+    """
+    handler = getattr(gui, "task_handler", None)
+    if handler is None:
+        return False
+    return handler._task is not None
 
 
 def render_locked(func):
@@ -28,6 +109,9 @@ def render_locked(func):
 
     使用会话级可重入锁 `self.render_lock` 串行化所有渲染入口；
     远控 P2P 高延迟会大幅拉长竞态窗口，本锁在服务端消除交错。
+
+    锁是交互优先的（见 `_RenderLock`）：用户回调 vs 后台任务按调用
+    线程身份自动区分，无需在装饰器上人工标注。
     """
 
     @functools.wraps(func)
@@ -36,8 +120,11 @@ def render_locked(func):
         lock = getattr(self, "render_lock", None)
         if lock is None:
             return func(self, *args, **kwargs)
-        with lock:
+        lock.acquire(is_background=_current_is_background_task(self))
+        try:
             return func(self, *args, **kwargs)
+        finally:
+            lock.release()
 
     # functools.wraps 默认把 __wrapped__ 指向紧内层的包装函数（如 use_scope
     # 的 wrapper）；tests 通过 `__wrapped__` 绕过全部装饰器直达原实现。
@@ -52,8 +139,8 @@ class Base:
 
     def __init__(self) -> None:
         self.alive = True
-        # 页面渲染串行化锁（可重入：页面入口互相调用时同线程直接通过）
-        self.render_lock = threading.RLock()
+        # 页面渲染串行化锁（可重入；用户回调优先于后台刷新任务）
+        self.render_lock = _RenderLock()
         # 窗口是否可见（切换页面时置为 False 阻止旧页面的任务继续执行）
         self.visible = True
         # 是否为移动端设备
@@ -65,6 +152,17 @@ class Base:
     def stop(self) -> None:
         self.alive = False
         self.task_handler.stop()
+
+    def render_should_yield(self) -> bool:
+        """后台长渲染的分段中断检查点。
+
+        返回 True 表示有用户回调（切页/点击）正在等渲染锁：长循环里的
+        渲染任务应立即放弃本轮剩余输出、释放锁让用户先走，下一轮周期
+        再补渲染。已写出的中间状态由调用方保证可重跑（中断时不提交
+        缓存快照、不置 first_display 等一次性标志）。
+        """
+        lock = getattr(self, "render_lock", None)
+        return lock.has_interactive_waiters() if lock is not None else False
 
 
 class Frame(Base):

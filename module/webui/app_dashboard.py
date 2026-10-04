@@ -74,7 +74,10 @@ class DashboardMixin(WebUIMixinBase):
         }
         if self._overview_snapshot == snapshot:
             return
-        self._overview_snapshot = snapshot
+        # 用户正在等渲染锁（切页/点击）：立即让出。snapshot 不提交，
+        # 下一轮按同样的 diff 重跑，避免「快照已更新但列表没渲染」的断档。
+        if self.render_should_yield():
+            return
 
         def put_task(func: Function):
             with use_scope(f"overview-task_{func.command}"):
@@ -112,6 +115,9 @@ class DashboardMixin(WebUIMixinBase):
                     put_task(task)
             else:
                 put_text(t("Gui.Overview.NoTask")).style("--overview-notask-text--")
+
+        # 渲染完整完成才提交快照：上方让位中断时快照保持旧值，下轮重渲染
+        self._overview_snapshot = snapshot
 
     def _check_task_failure_notifications(self) -> None:
         """检查任务失败保护通知并弹出浮动提示卡片。
@@ -310,6 +316,12 @@ class DashboardMixin(WebUIMixinBase):
         # 模式（force_clear=True，scope 已存在）才需要清空重写。
         first_display = self._log.first_display
         for group_name in _arg_group:
+            # 分段中断：用户正在等渲染锁（如切页）时放弃剩余条目。
+            # 检查在任何状态写入之前，保证本轮不留下半更新的缓存
+            # （first_display 保持 True、last_display_time 不污染），
+            # 下轮从头全量重跑。
+            if self.render_should_yield():
+                return
             group = log_res.group(group_name)
             if group is None:
                 continue
@@ -428,6 +440,9 @@ class DashboardMixin(WebUIMixinBase):
             return
         # 页面守卫：dashboard scope 仅存在于总览页，页外渲染会产生孤儿容器。
         if self.page != "Overview":
+            return
+        # 用户正在等渲染锁：连容器清空都先不做，让用户立即拿到锁。
+        if self.render_should_yield():
             return
         # _clear=True：切换仪表盘显示模式（4 项 ⇄ 全量），容器与条目都要清空重建；
         # _clear=False：切回总览页的后台首跑，或 10s 周期刷新——由 _update_dashboard
