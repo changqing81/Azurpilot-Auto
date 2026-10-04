@@ -3876,8 +3876,8 @@
       "help": "「指揮猫牧場」モードのみ使用。現在行動力がこの値を下回ると海域任務の実行を停止し購入ステップに戻る。デフォルト100。"
     },
     "BuyActionPointMonthWeeks": {
-      "name": "OpsiScheduling.BuyActionPointMonthWeeks.name",
-      "help": "OpsiScheduling.BuyActionPointMonthWeeks.help",
+      "name": "月間購入週数上限",
+      "help": "月ごとに最大 N 週だけ石油で行動力を購入します。購入する週は実際の需要に応じて先着順で決まります。0 で無制限。月末購入封鎖週は従来どおり購入しません。",
       "0": "0",
       "1": "1",
       "2": "2",

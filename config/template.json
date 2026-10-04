@@ -2919,7 +2919,8 @@
       "MonthEndShopPurchase": true,
       "BuyActionPointMode": "off",
       "BuyActionPointUpperThreshold": 200,
-      "BuyActionPointLowerThreshold": 100
+      "BuyActionPointLowerThreshold": 100,
+      "BuyActionPointMonthWeeks": 0
     },
     "Storage": {
       "Storage": {}

@@ -104,6 +104,9 @@ class CoinTaskMixin:
     STATE_KEY_BUY_AP_WEEK_ID = 'BuyActionPointWeekId'    # 上次购买时所在的 ISO 周标识（str，如 "2026-W32"）
     STATE_KEY_BUY_AP_LIMIT_BACKUP = 'BuyActionPointLimitBackup'  # temporary 禁用购买上限前的原值备份（int）
     STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED = 'BuyLimitZeroNotified'   # 「上限为0停用」推送已发送标记（bool）
+    # 每月购买周数预算：记录本月发生过购买的 ISO 周标识，跨月自动清空
+    STATE_KEY_BUY_AP_MONTH_ID = 'BuyActionPointMonthId'            # 本月月份标识（str，如 "2026-10"）
+    STATE_KEY_BUY_AP_MONTH_WEEKS = 'BuyActionPointMonthWeeksUsed'  # 本月已购买的 ISO 周标识列表（list[str]）
     # 买行动力模式常量（与 argument.yaml 中 BuyActionPointMode.option 对应）
     BUY_AP_MODE_OFF = 'off'
     BUY_AP_MODE_HAZARD1 = 'hazard1_leveling'
@@ -112,6 +115,7 @@ class CoinTaskMixin:
     CONFIG_PATH_BUY_AP_MODE = 'OpsiScheduling.OpsiScheduling.BuyActionPointMode'
     CONFIG_PATH_BUY_AP_UPPER = 'OpsiScheduling.OpsiScheduling.BuyActionPointUpperThreshold'
     CONFIG_PATH_BUY_AP_LOWER = 'OpsiScheduling.OpsiScheduling.BuyActionPointLowerThreshold'
+    CONFIG_PATH_BUY_AP_MONTH_WEEKS = 'OpsiScheduling.OpsiScheduling.BuyActionPointMonthWeeks'
     
     # 耄耋相接任务名称
     TASK_NAME_MEOWFFICER_FARMING = 'OpsiMeowfficerFarming'
@@ -1095,6 +1099,121 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 current_week_id,
             )
 
+    # ==================== 买行动力模式：每月购买周数预算 ====================
+
+    def _get_buy_action_point_month_weeks(self):
+        """
+        读取每月购买周数预算。
+
+        Returns:
+            int: 每月最多购买的周数，0 表示不限制，解析失败回退 0
+        """
+        value = self.config.cross_get(
+            keys=self.CONFIG_PATH_BUY_AP_MONTH_WEEKS,
+            default=0,
+        )
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    def _get_current_purchase_month_id(self):
+        """
+        获取当前月份标识（基于服务器时间）。
+
+        大世界月度重置固定在每月 1 号，与自然月对齐，
+        因此直接用服务器时间的 "YYYY-MM" 作为月标识。
+
+        Returns:
+            str: 当前服务器时间所在月份标识，如 "2026-10"
+        """
+        diff = server_time_offset()
+        server_now = current_time() - diff
+        return f'{server_now.year}-{server_now.month:02d}'
+
+    def _reset_buy_action_point_month_if_new_month(self):
+        """
+        检测跨月时清空本月购买周列表。
+
+        与 _reset_buy_action_point_count_if_new_week() 同一模式：
+        比较持久化的月标识与当前月标识，不一致时重置。
+        """
+        current_month_id = self._get_current_purchase_month_id()
+        stored_month_id = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_BUY_AP_MONTH_ID,
+        )
+        if stored_month_id != current_month_id:
+            logger.info(
+                f'[大世界-买行动力] 检测到跨月 ({stored_month_id} -> {current_month_id})，'
+                f'清空本月购买周列表'
+            )
+            self._set_smart_scheduling_state_value(
+                self.STATE_KEY_BUY_AP_MONTH_WEEKS,
+                [],
+            )
+            self._set_smart_scheduling_state_value(
+                self.STATE_KEY_BUY_AP_MONTH_ID,
+                current_month_id,
+            )
+
+    def _get_buy_action_point_month_weeks_used(self):
+        """
+        读取本月已发生购买的 ISO 周标识列表（跨月时自动清空）。
+
+        Returns:
+            list[str]: 本月已购买的周标识列表，如 ["2026-W40", "2026-W41"]
+        """
+        self._reset_buy_action_point_month_if_new_month()
+        weeks = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_BUY_AP_MONTH_WEEKS,
+            default=[],
+        )
+        if not isinstance(weeks, list):
+            return []
+        return weeks
+
+    def _is_buy_action_point_month_budget_available(self):
+        """
+        判断本月购买周数预算是否还允许购买。
+
+        预算按「周」记账：本月发生过购买的周都会被记入列表；
+        达到上限后，仅当当前周已被计入预算时才放行
+        （同周内继续买满每周上限不重复占预算）。
+        纯日期计算，无游戏交互，调用方负责日志。
+
+        Returns:
+            bool: True 表示允许购买
+        """
+        limit = self._get_buy_action_point_month_weeks()
+        if limit <= 0:
+            return True
+        weeks_used = self._get_buy_action_point_month_weeks_used()
+        if self._get_current_purchase_week_id() in weeks_used:
+            return True
+        return len(weeks_used) < limit
+
+    def _record_buy_action_point_month_week(self):
+        """
+        把当前周记入本月购买周列表（幂等，同周重复购买不重复记录）。
+
+        在每次购买成功、或 OCR 同步出游戏口径本周已购买后调用
+        （后者覆盖用户在游戏内手动购买的场景）。
+        """
+        self._reset_buy_action_point_month_if_new_month()
+        current_week_id = self._get_current_purchase_week_id()
+        weeks_used = self._get_buy_action_point_month_weeks_used()
+        if current_week_id in weeks_used:
+            return
+        weeks_used.append(current_week_id)
+        self._set_smart_scheduling_state_value(
+            self.STATE_KEY_BUY_AP_MONTH_WEEKS,
+            weeks_used,
+        )
+        logger.info(
+            f'[大世界-买行动力] 本月购买周数预算 {len(weeks_used)}'
+            f'/{self._get_buy_action_point_month_weeks()} 周（{weeks_used}）'
+        )
+
     def _is_buy_action_point_ocr_valid(self):
         """
         验证购买剩余次数 OCR 区域是否成功提取到文字像素。
@@ -1164,6 +1283,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self._reset_buy_action_point_count_if_new_week()
         actual_count = max(0, self.BUY_AP_WEEKLY_LIMIT - remain)
         self._set_buy_action_point_count(actual_count)
+        # 游戏口径本周已有购买（可能来自用户手动购买），把本周计入月度预算
+        if actual_count > 0:
+            self._record_buy_action_point_month_week()
 
         # 同步更新行动力缓存，后续 _get_scheduling_action_point 无需重复弹窗
         # 防护：弹窗加载超时时 OCR 可能残留 0 值，写入缓存会导致功能2误判 AP=0 而误买
@@ -1231,6 +1353,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             logger.info('[大世界-买行动力] 月末封锁周，跳过本次购买')
             return False
 
+        # 每月购买周数预算在打开弹窗前拦截，兜住单次会话跨周一后继续超买
+        if not self._is_buy_action_point_month_budget_available():
+            logger.info('[大世界-买行动力] 本月购买周数预算已用完，跳过本次购买')
+            return False
+
         self.action_point_enter()
         self.action_point_safe_get()
         try:
@@ -1244,6 +1371,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             current_count = self._get_buy_action_point_count()
             new_count = current_count + 1
             self._set_buy_action_point_count(new_count)
+            # 同步记入本月购买周数预算
+            self._record_buy_action_point_month_week()
             logger.info(
                 f'[大世界-买行动力] 购买一次行动力成功，'
                 f'本周已购买 {new_count} 次'
@@ -1346,6 +1475,17 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             logger.info(
                 '[大世界-买行动力] 当前处于月末封锁周，无法购买行动力，'
                 '跳过买行动力模式，交由正常调度接管'
+            )
+            return False
+
+        # 每月购买周数预算用尽则整体不进入：纯日期计算，
+        # 放在弹窗同步之前，省掉无意义的弹窗交互
+        if not self._is_buy_action_point_month_budget_available():
+            logger.info(
+                f'[大世界-买行动力] 已达每月购买周数预算 '
+                f'{len(self._get_buy_action_point_month_weeks_used())}'
+                f'/{self._get_buy_action_point_month_weeks()} 周，'
+                f'买行动力模式结束，剩余行动力交由正常调度'
             )
             return False
 

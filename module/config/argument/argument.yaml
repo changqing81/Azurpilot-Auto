@@ -1436,6 +1436,10 @@ OpsiScheduling:
     value: 200
   BuyActionPointLowerThreshold:
     value: 100
+  # 每月最多在 N 个周内用石油购买行动力，0 表示不限制
+  BuyActionPointMonthWeeks:
+    value: 0
+    option: [0, 1, 2, 3, 4, 5]
 OpsiPreventActionPointOverflow:
   Task:
     value: OpsiScheduling

@@ -3876,8 +3876,8 @@
       "help": "Only for 'Meowfficer Farming' mode. When current AP falls below this value, stop executing sea zone tasks and return to purchase step. Default 100."
     },
     "BuyActionPointMonthWeeks": {
-      "name": "OpsiScheduling.BuyActionPointMonthWeeks.name",
-      "help": "OpsiScheduling.BuyActionPointMonthWeeks.help",
+      "name": "Monthly Purchase Week Limit",
+      "help": "Buy action points with oil in at most N weeks per month; which weeks depends on actual demand, first come first served. 0 means no limit. The month-end purchase block week still applies.",
       "0": "0",
       "1": "1",
       "2": "2",

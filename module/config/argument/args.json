@@ -14766,6 +14766,18 @@
       "BuyActionPointLowerThreshold": {
         "type": "input",
         "value": 100
+      },
+      "BuyActionPointMonthWeeks": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
       }
     },
     "Storage": {

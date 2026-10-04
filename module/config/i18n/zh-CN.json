@@ -3876,8 +3876,8 @@
       "help": "仅「短猫补黄币」模式使用。当前真实行动力低于此值时停止执行海域任务，回到购买步骤。默认 100。"
     },
     "BuyActionPointMonthWeeks": {
-      "name": "OpsiScheduling.BuyActionPointMonthWeeks.name",
-      "help": "OpsiScheduling.BuyActionPointMonthWeeks.help",
+      "name": "每月最多购买周数",
+      "help": "每月最多在 N 个周内用石油购买行动力，哪两周由当月实际需求决定、先到先得。0 表示不限制，整月都按每周上限购买。月末封锁周照旧不购买。",
       "0": "0",
       "1": "1",
       "2": "2",

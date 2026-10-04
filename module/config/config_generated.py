@@ -749,6 +749,7 @@ class GeneratedConfig:
     OpsiScheduling_BuyActionPointMode = 'off'  # off, hazard1_leveling, meowfficer_farming
     OpsiScheduling_BuyActionPointUpperThreshold = 200
     OpsiScheduling_BuyActionPointLowerThreshold = 100
+    OpsiScheduling_BuyActionPointMonthWeeks = 0  # 0, 1, 2, 3, 4, 5
 
     # 配置组 `OpsiPreventActionPointOverflow`
     OpsiPreventActionPointOverflow_Task = 'OpsiScheduling'  # OpsiScheduling, OpsiHazard1Leveling, OpsiMeowfficerFarming
