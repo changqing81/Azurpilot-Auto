@@ -3874,6 +3874,16 @@
     "BuyActionPointLowerThreshold": {
       "name": "行動力購入下限閾値",
       "help": "「指揮猫牧場」モードのみ使用。現在行動力がこの値を下回ると海域任務の実行を停止し購入ステップに戻る。デフォルト100。"
+    },
+    "BuyActionPointMonthWeeks": {
+      "name": "OpsiScheduling.BuyActionPointMonthWeeks.name",
+      "help": "OpsiScheduling.BuyActionPointMonthWeeks.help",
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -7143,6 +7153,8 @@
       "MeowLootItemObscure": "隠蔽海域",
       "MeowLootItemAbyssal": "深淵海域",
       "MeowLootItemCat": "猫箱",
+      "MeowLootStripClickHint": "クリックで明細を絞り込み",
+      "MeowLootStripActiveHint": "もう一度クリックで解除",
       "MeowLootBackToCurrent": "今月に戻る",
       "MeowLootPickMonthTitle": "表示する月を選択",
       "MeowLootNoHistoryMonth": "過去の月のデータがありません",
@@ -7170,6 +7182,7 @@
       "OpsiDropLevelHeader": "レベル",
       "OpsiDropLevelBadge": "{level}級×{count}",
       "OpsiDropEmptyNotice": "今月のドロップ記録はありません",
+      "OpsiDropFilterEmptyNotice": "今月はこのカテゴリのドロップはありません",
       "OpsiDropFoldTitle": "ドロップ明細",
       "OpsiDropFoldDigest": "{n} 回 · {total} 個",
       "OpsiDropMoreItems": "残り {n} 件",

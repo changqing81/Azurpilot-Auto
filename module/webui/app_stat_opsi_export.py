@@ -5,8 +5,9 @@
   月份胶囊是按钮（点开历史月份选择器）；
 - 左栏「掉落任务筛选」：DropRecord 的 8 个开关 + 「全部任务」，点选按任务过滤明细；
 - 右栏：「掉落明细」常驻区（侵蚀等级卡 + 物品掉落明细表，表内可「其余 N 项」
-  展开）；「收获合计」条挂在折叠标题行（meow_strip_scope），收起状态也可见。
-  明细常驻显示、不再折叠；侵蚀等级卡是短猫相接的数据收集口径，只在
+  展开）；「收获合计」条挂在折叠标题行（meow_strip_scope），收起状态也可见，
+  点合计项联动下方明细表按该口径过滤（见 ``MEOW_STRIP_FILTERS``），再点一次
+  取消。明细常驻显示、不再折叠；侵蚀等级卡是短猫相接的数据收集口径，只在
   「全部任务」与「短猫相接」筛选下出现。唯一的外层「大世界收获」折叠块在
   ``_render_opsi_summary`` 里只建一次，展开一次后任意切换筛选/月份都不会
   被折回去（折叠块若随回调重建，会回到默认收起态，实测用户不可接受）。
@@ -21,7 +22,7 @@ CSV，两者口径不同，界面上分区呈现。
 """
 
 from base64 import b64encode
-from functools import lru_cache
+from functools import lru_cache, partial
 from html import escape as html_escape
 
 from module.logger import logger
@@ -44,6 +45,7 @@ from module.webui.app_dependencies import (
     put_column,
     put_html,
     put_row,
+    put_widget,
     t,
     use_scope,
 )
@@ -84,6 +86,21 @@ _MEOW_CATEGORY_COLORS = {
 }
 _MEOW_CATEGORY_SUFFIX = {
     key: suffix for key, suffix, _icon, _color in MEOW_LOOT_CATEGORIES
+}
+
+# 合计条点击 -> 明细表行的过滤口径：(维度, 值)，键与 MEOW_LOOT_ITEMS 对齐。
+# 金菜/彩图纸/金机密按用户裁定（2026-10-04）联动**类别列**：彩图纸给全部图纸
+# （SSR T4 + UR T5）、金机密给全部机密报告（T1~T4），合计数字只是该类的头部
+# 口径，不必与行数求和一致；隐蔽/深渊坐标与金猫箱是单一物品家族，类别列会把
+# 隐蔽+深渊、猫箱T2+T3 合并到一起，所以按模板名前缀过滤（与 _opsi_strip_totals
+# 对这几项的合计口径一致）。
+MEOW_STRIP_FILTERS = {
+    "Plate": ("category", CATEGORY_PLATE),
+    "GearDesignPlanT5": ("category", CATEGORY_DESIGN),
+    "OrdnanceTestingReportT4": ("category", CATEGORY_REPORT),
+    "CoordinateObscure": ("name", "CoordinateObscure"),
+    "CoordinateAbyssal": ("name", "CoordinateAbyssal"),
+    "CatT3": ("name", "CatT3"),
 }
 
 # 侵蚀 1~6 全套配色：3=蓝、5=红 沿用数据收集卡徽标的既定色，其余等级补齐
@@ -178,6 +195,18 @@ def _opsi_item_icon_data_uri(item_name: str):
 class OpsiExportMixin(WebUIMixinBase):
     """WebUI 大世界收获统计视图（左栏筛选 + 合计条 + 等级卡 + 物品明细表）。"""
 
+    # 「收获合计」条的自定义模板。合计项要挂 onclick 点击回调，回调只能长在
+    # Output 上、塞不进 put_html 字符串，所以每个合计项是独立的 put_html
+    # Output，借 put_widget 模板 + pywebio_output_parse 渲染（与
+    # OpsiStatisticsMixin.MEOW_COLLAPSE_TPL 同款做法）。模板渲染出的 DOM 与
+    # 旧版整条 HTML 串一致（同一 class 体系），只是合计项多了点击回调。
+    MEOW_STRIP_TPL = """<div class="meow-loot-strip">
+        <span class="meow-loot-strip-title">{{title}}</span>
+        {{#chips}}
+            {{& pywebio_output_parse}}
+        {{/chips}}
+    </div>"""
+
     @render_locked
     def _render_meowofficer_farming(self, view=None, drop=None, meow_rows=None):
         """渲染 meow_loot_scope：「大世界收获」区块。
@@ -206,9 +235,10 @@ class OpsiExportMixin(WebUIMixinBase):
             drop = self._load_opsi_drop_view()
 
         # 「收获合计」条挂在折叠标题行的 meow_strip_scope 里（收起也可见），
-        # 与内容同批重绘，筛选/切月后数字不会 stale
+        # 与内容同批重绘，筛选/切月后数字不会 stale；合计项可点击，联动下方
+        # 明细表过滤（见 _render_meow_loot_strip）
         with use_scope("meow_strip_scope", clear=True):
-            put_html(self._build_meow_loot_strip_html(view, drop))
+            self._render_meow_loot_strip(view, drop)
         # 外层「大世界收获」折叠块由 _render_opsi_summary 创建（只建一次，包住
         # 本 scope），本函数只重绘折叠内的内容。任务筛选、月份切换、「其余 N 项」
         # 等按钮回调都走这里 —— 折叠块若写在本函数里，每次回调 clear 都会把
@@ -523,14 +553,20 @@ class OpsiExportMixin(WebUIMixinBase):
             )
         return placeables
 
-    @staticmethod
-    def _opsi_drop_hidden_rows(drop):
-        """明细表被折叠掉的行数（展开状态见 ``_meow_drop_expanded``）。"""
-        total = len(drop.get("items") or [])
+    def _opsi_drop_hidden_rows(self, drop):
+        """明细表被折叠掉的行数（按类别筛选后的列表算，展开状态见
+        ``_meow_drop_expanded``）。"""
+        total = len(self._opsi_drop_filtered_items(drop))
         return max(0, total - OPSI_DROP_TABLE_PREVIEW)
 
-    def _build_meow_loot_strip_html(self, view, drop):
-        """合计条左侧：标题 + 各类别合计（跨任务求和）；全 0 时显示占位提示。"""
+    def _render_meow_loot_strip(self, view, drop):
+        """合计条：标题 + 六个可点击的类别合计（跨任务求和）；全 0 也占位显示。
+
+        点击某个合计项联动下方明细表按该口径过滤（``MEOW_STRIP_FILTERS``），
+        再点一次取消；选中态用该项主题色的描边 + 浅底内联标注（各项目色不同，
+        写不进公共 CSS）。合计数字永远按全量 items 计算，不受自身点击产生的
+        筛选影响 —— 否则筛完别项就看不见、没法点回来了。
+        """
         if view["is_current"]:
             title = t("Gui.Stat.MeowLootTitleCurrent")
         else:
@@ -538,24 +574,39 @@ class OpsiExportMixin(WebUIMixinBase):
                 "Gui.Stat.MeowLootTitleHistory",
                 month=f"{view['year']:04d}-{view['month']:02d}",
             )
-        html = (
-            '<div class="meow-loot-strip">'
-            f'<span class="meow-loot-strip-title">{html_escape(title)}</span>'
-        )
+        active = getattr(self, "_meow_item_filter", None)
         totals = self._opsi_strip_totals(drop.get("items") or [])
+        chips = []
         for key, suffix, icon_name, color in MEOW_LOOT_ITEMS:
             total = totals.get(key, 0)
             name = t(f"Gui.Stat.MeowLootItem{suffix}")
-            html += (
-                '<span class="meow-loot-strip-item" '
-                f'title="{html_escape(str(name))}">'
+            if key == active:
+                hint = t("Gui.Stat.MeowLootStripActiveHint")
+                state_style = (
+                    f"background: {color}14; "
+                    f"box-shadow: inset 0 0 0 1.5px {color};"
+                )
+            else:
+                hint = t("Gui.Stat.MeowLootStripClickHint")
+                state_style = ""
+            style = f' style="{state_style}"' if state_style else ""
+            # 根元素必须是 <button> 而不是 <span>：合计条挂在折叠块的
+            # <summary> 行里，span 的点击会冒泡触发 summary 激活行为（整块
+            # 折叠/展开）；浏览器对 summary 内的交互元素（button 等）豁免
+            # 切换。type="button" 防止表单提交语义。
+            chip = (
+                f'<button type="button" class="meow-loot-strip-item" '
+                f'title="{html_escape(f"{name} · {hint}")}"{style}>'
                 f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
                 f"{self._meow_loot_icon_html(icon_name, color, 'strip')}"
                 "</span>"
                 f"<b>{int(total):,}</b>"
-                "</span>"
+                "</button>"
             )
-        return html + "</div>"
+            chips.append(
+                put_html(chip).onclick(partial(self._on_meow_strip_click, key=key))
+            )
+        put_widget(self.MEOW_STRIP_TPL, dict(title=title, chips=chips))
 
     @staticmethod
     def _opsi_strip_totals(items):
@@ -594,15 +645,44 @@ class OpsiExportMixin(WebUIMixinBase):
 
     # ---------- 右栏：物品明细表 ----------
 
+    def _opsi_drop_filtered_items(self, drop):
+        """按合计条选中项过滤明细行；未选中返回原列表。
+
+        只作用于明细表：合计条数字、掉落明细标签里的结算/件数摘要仍按全量算。
+
+        Args:
+            drop (dict): ``get_opsi_drop_summary`` 的汇总。
+
+        Returns:
+            list[dict]: 过滤后的 items（键不存在时原样返回，不抛错）。
+        """
+        items = drop.get("items") or []
+        key = getattr(self, "_meow_item_filter", None)
+        if key is None:
+            return items
+        dimension, value = MEOW_STRIP_FILTERS.get(key, ("category", None))
+        if dimension == "category":
+            return [
+                item
+                for item in items
+                if category_of(str(item.get("name") or "")) == value
+            ]
+        return [
+            item for item in items if str(item.get("name") or "").startswith(value)
+        ]
+
     def _build_opsi_drop_table_html(self, drop):
         """物品掉落明细表：图标 + 名称 + 类别 + 总量 + 次数 + 均值 + 等级徽标。
 
         行按总量降序平铺（与参考图版1 一致），类别单独成列而不是分组标题行。
         默认只列前 ``OPSI_DROP_TABLE_PREVIEW`` 行，其余交给「其余 N 项」按钮
-        展开（见 ``_meow_drop_detail_placeables``）。
+        展开（见 ``_meow_drop_detail_placeables``）。合计条点选了类别时只列
+        该口径的行（见 ``_opsi_drop_filtered_items``）。
         """
-        items = drop.get("items") or []
+        items = self._opsi_drop_filtered_items(drop)
         if not items:
+            if getattr(self, "_meow_item_filter", None) is not None:
+                return build_muted_notice(t("Gui.Stat.OpsiDropFilterEmptyNotice"))
             return build_muted_notice(t("Gui.Stat.OpsiDropEmptyNotice"))
 
         expanded = bool(getattr(self, "_meow_drop_expanded", False))
@@ -700,6 +780,22 @@ class OpsiExportMixin(WebUIMixinBase):
         else:
             self._meow_task_filter = value
         # 刻意不重置 _meow_drop_expanded：用户展开过的明细表不因切换筛选被折回
+        self._render_meowofficer_farming()
+
+    @render_locked
+    def _on_meow_strip_click(self, key):
+        """合计条点击回调：切换明细表的类别筛选（再点一次取消）。
+
+        与任务筛选叠加生效：任务筛选取自 ``_load_opsi_drop_view``，类别筛选
+        在渲染明细表时应用（``_opsi_drop_filtered_items``），互不覆盖。切换
+        任务筛选/月份时不重置类别筛选 —— 与 ``_meow_drop_expanded`` 同理，
+        用户选好的视角不被别的操作悄悄带走。
+        """
+        if getattr(self, "_meow_item_filter", None) == key:
+            self._meow_item_filter = None
+        else:
+            self._meow_item_filter = key
+        # 与任务筛选同一条重绘路径：合计条（选中态）与明细表一起刷新
         self._render_meowofficer_farming()
 
     @render_locked

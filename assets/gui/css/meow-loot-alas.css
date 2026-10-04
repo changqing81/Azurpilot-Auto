@@ -163,14 +163,29 @@
 	color: var(--st-text, inherit);
 }
 
+/* 合计项是 <button>（合计条挂在折叠块 <summary> 行里，浏览器对 summary 内
+   的交互元素豁免 details 切换，span 做不到），这里复位按钮默认外观对齐旧版
+   span 观感；选中态的浅底/描边由 HTML 按项主题色内联标注 */
 #pywebio-scope-opsi_stats .meow-loot-strip-item {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
+	padding: 0;
 	font-size: 0.9rem;
+	font-family: inherit;
 	color: var(--st-text, inherit);
+	background: none;
+	border: none;
 	font-variant-numeric: tabular-nums;
-	cursor: default;
+	/* 合计项可点击（联动下方明细表过滤，pywebio 会加 .pywebio-clickable）；
+	   圆角常驻，选中态不用 border 用内联描边，避免挤动布局 */
+	cursor: pointer;
+	border-radius: 8px;
+	transition: background-color 0.15s ease;
+}
+
+#pywebio-scope-opsi_stats .meow-loot-strip-item:hover {
+	background: var(--st-chip-hover, rgba(128, 128, 128, 0.12));
 }
 
 #pywebio-scope-opsi_stats .meow-loot-strip-item b {

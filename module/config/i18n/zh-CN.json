@@ -3874,6 +3874,16 @@
     "BuyActionPointLowerThreshold": {
       "name": "买行动力下限阈值",
       "help": "仅「短猫补黄币」模式使用。当前真实行动力低于此值时停止执行海域任务，回到购买步骤。默认 100。"
+    },
+    "BuyActionPointMonthWeeks": {
+      "name": "OpsiScheduling.BuyActionPointMonthWeeks.name",
+      "help": "OpsiScheduling.BuyActionPointMonthWeeks.help",
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -7143,6 +7153,8 @@
       "MeowLootItemObscure": "隐蔽海域",
       "MeowLootItemAbyssal": "深渊海域",
       "MeowLootItemCat": "金猫箱",
+      "MeowLootStripClickHint": "点击筛选下方明细",
+      "MeowLootStripActiveHint": "再点一次取消筛选",
       "MeowLootBackToCurrent": "回到本月",
       "MeowLootPickMonthTitle": "选择查看月份",
       "MeowLootNoHistoryMonth": "暂无历史月份数据",
@@ -7170,6 +7182,7 @@
       "OpsiDropLevelHeader": "等级",
       "OpsiDropLevelBadge": "{level}级×{count}",
       "OpsiDropEmptyNotice": "本月暂无掉落记录",
+      "OpsiDropFilterEmptyNotice": "该类别本月暂无掉落",
       "OpsiDropFoldTitle": "掉落明细",
       "OpsiDropFoldDigest": "{n} 次结算 · {total} 件",
       "OpsiDropMoreItems": "其余 {n} 项",

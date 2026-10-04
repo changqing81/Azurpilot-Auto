@@ -3874,6 +3874,16 @@
     "BuyActionPointLowerThreshold": {
       "name": "买行动力下限阈值喵~",
       "help": "仅「短猫补黄币」模式使用喵~ 当前真实行动力低于此值时停止执行海域任务，回到购买步骤喵。默认 100 喵~"
+    },
+    "BuyActionPointMonthWeeks": {
+      "name": "OpsiScheduling.BuyActionPointMonthWeeks.name",
+      "help": "OpsiScheduling.BuyActionPointMonthWeeks.help",
+      "0": "0",
+      "1": "1",
+      "2": "2",
+      "3": "3",
+      "4": "4",
+      "5": "5"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -7143,6 +7153,8 @@
       "MeowLootItemObscure": "隐蔽海域喵",
       "MeowLootItemAbyssal": "深渊海域喵",
       "MeowLootItemCat": "金猫箱喵",
+      "MeowLootStripClickHint": "点一下筛下面的明细喵",
+      "MeowLootStripActiveHint": "再点一下就不筛了喵",
       "MeowLootBackToCurrent": "回到本月喵",
       "MeowLootPickMonthTitle": "选择查看月份喵",
       "MeowLootNoHistoryMonth": "暂无历史月份数据喵",
@@ -7170,6 +7182,7 @@
       "OpsiDropLevelHeader": "等级",
       "OpsiDropLevelBadge": "{level}级×{count}",
       "OpsiDropEmptyNotice": "本月暂无掉落记录喵",
+      "OpsiDropFilterEmptyNotice": "这个类别本月没得掉落喵",
       "OpsiDropFoldTitle": "掉落明细喵",
       "OpsiDropFoldDigest": "{n} 次结算 · {total} 件喵",
       "OpsiDropMoreItems": "其余 {n} 项喵",

@@ -521,6 +521,8 @@ Stat:
   MeowLootItemObscure:
   MeowLootItemAbyssal:
   MeowLootItemCat:
+  MeowLootStripClickHint:
+  MeowLootStripActiveHint:
   MeowLootBackToCurrent:
   MeowLootPickMonthTitle:
   MeowLootNoHistoryMonth:
@@ -548,6 +550,7 @@ Stat:
   OpsiDropLevelHeader:
   OpsiDropLevelBadge:
   OpsiDropEmptyNotice:
+  OpsiDropFilterEmptyNotice:
   OpsiDropFoldTitle:
   OpsiDropFoldDigest:
   OpsiDropMoreItems:
