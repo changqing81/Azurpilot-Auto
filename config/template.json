@@ -2071,6 +2071,7 @@
     },
     "Research": {
       "BatchMode": false,
+      "MaintainFill": false,
       "UseCube": "only_05_hour",
       "UseCoin": "always_use",
       "UsePart": "always_use",

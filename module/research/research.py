@@ -32,6 +32,7 @@ from module.research.assets import *
 from module.research.project import get_research_finished
 from module.research.rqueue import ResearchQueue, parse_display_time
 from module.research.selector import RESEARCH_ENTRANCE, ResearchSelector
+from module.server_maintain import query_maintain_today
 from module.storage.storage import StorageHandler
 from module.ui.assets import RESEARCH_CHECK
 from module.ui.page import page_research
@@ -41,6 +42,9 @@ OCR_SIXTH_TIME_BRIGHT = Ocr(RESEARCH_LAB_DURATION_REMAIN, letter=(255, 255, 255)
                             alphabet='0123456789:IDSB', name='OCR_SIXTH_TIME_BRIGHT')
 OCR_SIXTH_TIME_DIM = Ocr(RESEARCH_LAB_DURATION_REMAIN, letter=(255, 255, 255), threshold=280,
                          alphabet='0123456789:IDSB', name='OCR_SIXTH_TIME_DIM')
+
+# 「维护当天科研」开启时，维护开始前多久跑本次收光 + 填满
+RESEARCH_MAINTAIN_LEAD_MINUTES = 60
 
 
 def batch_all_completed(times, sixth):
@@ -810,7 +814,7 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         logger.attr('科研-批量收获时机', ready)
         return ready
 
-    def _batch_schedule(self):
+    def _batch_schedule(self, maintain=None):
         """
         批量模式调度：NextRun = 全部完成的预计时间 + 3 分钟余量。
 
@@ -818,6 +822,14 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         逐槽 OCR 可能整体读空（实测会把正在运行的队列误判为全空，
         一路推迟到服务器刷新）；重拍仍为 0 才是真正的全空，推迟到
         服务器刷新。
+
+        传入 maintain（维护当天科研）时，排程不早于维护开始时刻：收光
+        填满后剩余总时长仍可能把下次运行排在维护开始之前，钳到维护
+        开始即可——醒来时维护中，由调度器的服务器状态检查拦到维护结束
+        后再收，窗口内不会重复进游戏。
+
+        Args:
+            maintain (datetime.datetime | None): 今天维护的开始时间，None 表示不钳制。
 
         Pages:
             in: is_in_research
@@ -828,7 +840,11 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
             total = batch_total_remaining(*self._batch_snapshot())
         logger.attr('科研-批量剩余总时长', total)
         if total > timedelta(0):
-            self.config.task_delay(target=current_time() + total + timedelta(minutes=3))
+            target = current_time() + total + timedelta(minutes=3)
+            if maintain is not None and target < maintain:
+                logger.info(f'[科研-维护] 排程 {target} 早于维护开始，钳到 {maintain}')
+                target = maintain
+            self.config.task_delay(target=target)
         else:
             self.config.task_delay(server_update=True)
 
@@ -863,6 +879,36 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
 
         self._batch_schedule()
 
+    def _run_batch_maintain(self, maintain):
+        """
+        维护当天科研：维护前最后一次运行，收光已完成项目并拉满队列。
+
+        与普通批量模式的区别：不等「全部完成」的收获时机——已完成的直接
+        收，队列（含第 6 个）尽量填满，让停服期间与维护结束后立即有项目
+        在跑；排程不早于维护开始时刻，维护中的运行由调度器的服务器状态
+        检查拦到维护结束后再收。
+
+        Args:
+            maintain (datetime.datetime): 今天维护的开始时间（未开始）。
+
+        Pages:
+            in: page_research
+            out: page_research
+        """
+        logger.hr('科研批量模式（维护前）', level=1)
+        # research_delay_check 在填充过程中可能访问 end_time，批量模式未经过
+        # 单槽调度赋值，这里置为当前时间以保证资源不足延迟判断可用
+        self.end_time = current_time()
+
+        self.queue_enter()
+        self.queue_receive()
+        self.queue_quit()
+        if self.handle_pending_t_research():
+            self.receive_6th_research()
+            self.research_fill_queue()
+
+        self._batch_schedule(maintain=maintain)
+
     def run(self):
         """
         Pages:
@@ -873,6 +919,19 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         self.ui_ensure(page_research)
 
         if self.config.Research_BatchMode:
+            if self.config.Research_MaintainFill:
+                maintain, reason, queried = query_maintain_today(self.config.SERVER)
+                logger.attr('维护当天科研', reason if queried else f'未查到公告（{reason}）')
+                if maintain is not None and maintain > current_time():
+                    run_at = maintain - timedelta(minutes=RESEARCH_MAINTAIN_LEAD_MINUTES)
+                    if current_time() < run_at:
+                        logger.info(f'[科研-维护] 还没到维护前的运行时间，推迟到 {run_at}')
+                        self.config.task_delay(target=run_at)
+                        return
+                    logger.info(f'[科研-维护] 到维护前 {RESEARCH_MAINTAIN_LEAD_MINUTES} 分钟了，'
+                                f'收光已完成项目并拉满科研队列')
+                    self._run_batch_maintain(maintain)
+                    return
             self._run_batch()
             return
 

@@ -2294,6 +2294,10 @@
       "name": "Batch Research (Experimental)",
       "help": "Wait until ALL research projects complete, then claim all rewards at once and refill 6 projects in one go. When disabled, finished projects are claimed and refilled immediately."
     },
+    "MaintainFill": {
+      "name": "Run Research Before Maintenance",
+      "help": "Requires Research Batch Mode (experimental). Once enabled, the script checks the server maintenance notice once a day: if maintenance starts today and hasn't begun, this run is postponed to 60 minutes before it, claiming all finished research projects and filling the research queue (including the 6th slot). If maintenance is already over or falls on another day, the normal schedule applies. Data from api-blhx-maintain, matched to the current game server, times converted to local time"
+    },
     "UseCube": {
       "name": "Use Cubes",
       "help": "",
