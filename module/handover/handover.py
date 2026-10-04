@@ -41,16 +41,12 @@
 """
 
 import math
-import re
-from datetime import datetime, timedelta, timezone
-
-import requests
+from datetime import datetime, timedelta
 
 from module.base.timer import Timer
 from module.base.utils import crop
 from module.campaign.run import CampaignRun
 from module.config.time_source import now as current_time
-from module.config.utils import SERVER_TO_TIMEZONE
 from module.handler.assets import NEW_SHIP_SKIP, POPUP_CONFIRM
 from module.handler.fast_forward import to_map_file_name
 from module.logger import logger
@@ -67,6 +63,7 @@ from module.map.assets import (FLEET_PREPARATION, HANDOVER_BOOK_AMOUNT_OCR,
                                HANDOVER_TIME_NEEDED_OCR, HANDOVER_TIME_REMAINING_OCR)
 from module.ocr.models import OCR_MODEL
 from module.ocr.ocr import Digit, Duration
+from module.server_maintain import query_maintain_today
 
 OCR_HANDOVER_COUNT = Digit(HANDOVER_COUNT_OCR, letter=(255, 255, 255), threshold=128, alphabet='0123456789')
 OCR_HANDOVER_BOOK_COUNT = Digit(HANDOVER_BOOK_COUNT_OCR, letter=(255, 255, 255), threshold=128,
@@ -93,11 +90,6 @@ HANDOVER_WEEKDAY_NAMES = ['周一', '周二', '周三', '周四', '周五', '周
 # 整周都错过一键消耗
 HANDOVER_CONSUME_RETRY_MINUTES = 30
 
-# 停服维护时间接口，顶层是国服公告的聚合结果，servers 里按 cn/jp/en/tw 分别给出
-# maintenance_date(YYYY-MM-DD) 与 start_time(HH:MM)
-HANDOVER_MAINTAIN_API = 'https://api-blhx-maintain.nanoda.work/api/maintenance'
-# 接口里服务器时区的形状，如 `UTC+8`、`UTC-7`、`UTC+08:00`
-HANDOVER_MAINTAIN_TIMEZONE = re.compile(r'^UTC([+-])(\d{1,2})(?::?(\d{2}))?$')
 # 维护开始前多久跑最后一次作战委托
 HANDOVER_MAINTAIN_LEAD_MINUTES = 10
 # 委托次数为 0、只等维护时，这次没查到公告就隔这么久再查一次。
@@ -737,71 +729,13 @@ class OperationHandover(CampaignRun):
             return self.handover_week_key(record)
         return str(record)
 
-    def handover_maintain_query(self):
-        """查询停服维护接口，取出当前游戏服务器的那一份公告。
-
-        接口顶层是国服新闻聚合出来的结果，各服务器自己的公告在 `servers` 里，
-        并且带各自的时区。只有拿不到 `servers`（旧版接口）时才退回顶层数据。
-
-        Returns:
-            tuple[dict | None, datetime.timedelta, str]:
-                (维护公告, 公告时间所用的兜底时区, 失败原因)。取不到公告时公告为 None。
-        """
-        server = self.config.SERVER
-        try:
-            response = requests.get(HANDOVER_MAINTAIN_API, timeout=10).json()
-        except Exception as e:
-            logger.warning(f'[作战委托] 查询维护时间失败，按不维护处理: {e}')
-            return None, timedelta(), '查询维护时间失败'
-
-        data = response.get('data') or {}
-        if not data:
-            detail = response.get('message') or response.get('status')
-            logger.warning(f'[作战委托] 维护接口没有返回数据，按不维护处理: {detail}')
-            return None, timedelta(), '维护接口没有返回数据'
-
-        servers = data.get('servers')
-        if not isinstance(servers, dict) or not servers:
-            # 顶层公告来自国服新闻，退回它时只能按国服时区解释
-            logger.warning('[作战委托] 维护接口没有按服务器返回数据，退回顶层公告（国服）')
-            return data, SERVER_TO_TIMEZONE['cn'], ''
-
-        payload = servers.get(server)
-        if not payload:
-            reason = (data.get('server_errors') or {}).get(server) or '接口未返回该服务器'
-            logger.warning(f'[作战委托] {server} 的维护公告查询失败，按不维护处理: {reason}')
-            return None, timedelta(), f'{server} 维护公告查询失败'
-
-        return payload, SERVER_TO_TIMEZONE.get(server, SERVER_TO_TIMEZONE['cn']), ''
-
-    def handover_maintain_timezone(self, payload, default):
-        """解析维护公告所用的服务器时区。
-
-        接口在每条服务器公告里给了 timezone（如 `UTC+8`），以它为准；缺失或者
-        格式不认识时用兜底时区。
-
-        Args:
-            payload (dict): 一条服务器维护公告。
-            default (datetime.timedelta): 兜底时区偏移。
-
-        Returns:
-            datetime.timedelta: 相对 UTC 的时区偏移。
-        """
-        text = str(payload.get('timezone', '')).strip().upper()
-        match = HANDOVER_MAINTAIN_TIMEZONE.match(text)
-        if not match:
-            logger.warning(f'[作战委托] 无法识别的服务器时区 {text!r}，按 {default} 处理')
-            return default
-
-        offset = timedelta(hours=int(match.group(2)), minutes=int(match.group(3) or 0))
-        return offset if match.group(1) == '+' else -offset
-
     def handover_maintain_state(self):
         """今天有没有停服维护，有的话返回维护开始时间（可能已经开始）。
 
-        数据来自 api-blhx-maintain，按当前游戏服务器取对应公告，公告里的服务器本地
-        时间先换算成本机时间。不是今天的维护一律返回 None；今天已经开始的维护仍然
-        返回时间，好让调用方区分「今天没事了」和「等维护」。
+        查询与解析在 module.server_maintain（数据来自 api-blhx-maintain，按当前
+        游戏服务器取对应公告，公告里的服务器本地时间先换算成本机时间）。不是
+        今天的维护一律返回 None；今天已经开始的维护仍然返回时间，好让调用方
+        区分「今天没事了」和「等维护」。
 
         Returns:
             tuple[datetime.datetime | None, str, bool]:
@@ -812,34 +746,10 @@ class OperationHandover(CampaignRun):
         if not self.config.OperationHandover_MaintainOverride:
             return None, '开关未开启', False
 
-        payload, default, error = self.handover_maintain_query()
-        if payload is None:
-            return None, error, False
-
-        try:
-            start = datetime.strptime(
-                f"{payload.get('maintenance_date', '')} {payload.get('start_time', '')}",
-                '%Y-%m-%d %H:%M')
-        except ValueError:
-            logger.warning(f'[作战委托] 维护公告时间无法识别，按不维护处理: '
-                           f"{payload.get('maintenance_date')} {payload.get('start_time')}")
-            return None, '维护公告时间无法识别', False
-
-        # 服务器本地时间 → 本机时间，后续调度用的都是本机时间
-        offset = self.handover_maintain_timezone(payload, default)
-        start = start.replace(tzinfo=timezone(offset)).astimezone().replace(tzinfo=None)
-
-        now = current_time()
-        if start.date() != now.date():
-            if start < now:
-                return None, f'{start} 已经过去', True
-            return None, f'下次维护 {start}，不是今天', True
-        if start <= now:
-            return start, f'今天 {start} 的维护已经过去', True
-
-        name = payload.get('name') or self.config.SERVER
-        return start, (f'今天 {start} 停服维护（{name}），'
-                       f'维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟运行'), True
+        maintain, reason, queried = query_maintain_today(self.config.SERVER)
+        if maintain is not None:
+            reason = f'{reason}，维护前 {HANDOVER_MAINTAIN_LEAD_MINUTES} 分钟运行'
+        return maintain, reason, queried
 
     def handover_commission_end(self):
         """脚本上一次开的委托预计什么时候结束。
