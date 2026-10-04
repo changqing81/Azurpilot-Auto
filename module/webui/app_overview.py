@@ -382,14 +382,13 @@ class OverviewMixin(WebUIMixinBase):
         self.task_handler.add(switch_log_scroll.g(), 1, True)
         if "Maa" not in self.ALAS_ARGS:
             self.task_handler.add(switch_dashboard.g(), 1, True)
-        # 首屏同步渲染一次任务列表：后台任务首跑要与页面渲染争抢
-        # render_lock，远控慢链路下可能滞后数秒甚至被可见性窗口拦截，
-        # 导致进入页面后运行中/队列中/等待中长期空白。
-        self.alas_update_overview_task()
+        # 任务列表 / 仪表盘改由后台任务首跑（first_run=True）填充，不再在渲染
+        # 线程里同步跑一遍。本函数持有 render_lock，后台首跑会先等锁、待本函数
+        # 返回后才写 scope，因此不会产生孤儿容器；同时切页也不必再等 dashboard
+        # 的 12 次全量重建（切总览曾因此平均 3.4s、峰值 10.3s）。
         self.task_handler.add(self.alas_update_overview_task, 10, True, group="slow")
         if "Maa" not in self.ALAS_ARGS:
             self.task_handler.add(self.alas_update_dashboard, 10, True, group="slow")
-            self.alas_update_dashboard(True)
         if hasattr(self, "alas") and self.alas is not None:
             self.task_handler.add(log.put_log(self.alas), 0.25, True)
 

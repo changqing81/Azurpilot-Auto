@@ -292,7 +292,7 @@ class DashboardMixin(WebUIMixinBase):
         except Exception as e:
             logger.warning(f'[WebUI] 标记失败保护通知已读失败: {e}')
 
-    def _update_dashboard(self, num=None, groups_to_display=None):
+    def _update_dashboard(self, num=None, groups_to_display=None, force_clear=False):
         x = 0
         _num = 10000 if num is None else num
         _arg_group = (
@@ -304,6 +304,11 @@ class DashboardMixin(WebUIMixinBase):
         # LogRes 的 groups 是 cached_property，每实例独立缓存。
         # 提出循环外复用同一实例，避免每个资源都重新读盘解析 dashboard.json。
         log_res = LogRes(self.alas_config)
+        # 首显（切回总览页）时 dashboard 容器刚由 alas_overview 重建，各资源
+        # scope 尚不存在：此时 clear 只会多发 12 条 WS 指令、并触发前端强制
+        # 布局重算（高级材质主题下成本翻倍）。只有增量刷新，或显式切换显示
+        # 模式（force_clear=True，scope 已存在）才需要清空重写。
+        first_display = self._log.first_display
         for group_name in _arg_group:
             group = log_res.group(group_name)
             if group is None:
@@ -377,7 +382,7 @@ class DashboardMixin(WebUIMixinBase):
             color = f'<div class="status-point" style={_color}>'
             # 使用集中管理的辅助函数生成 scope_id，确保命名一致性和安全性
             scope_id = get_dashboard_scope_id(group_name)
-            with use_scope(scope_id, clear=True):
+            with use_scope(scope_id, clear=force_clear or not first_display):
                 put_row(
                     [
                         put_html(color),
@@ -424,10 +429,15 @@ class DashboardMixin(WebUIMixinBase):
         # 页面守卫：dashboard scope 仅存在于总览页，页外渲染会产生孤儿容器。
         if self.page != "Overview":
             return
+        # _clear=True：切换仪表盘显示模式（4 项 ⇄ 全量），容器与条目都要清空重建；
+        # _clear=False：切回总览页的后台首跑，或 10s 周期刷新——由 _update_dashboard
+        # 依据 first_display 自行决定条目是否清空。
         with use_scope("dashboard", clear=_clear):
             if not self._log.display_dashboard:
                 self._update_dashboard(
-                    num=4, groups_to_display=["Oil", "Coin", "Gem", "Pt"]
+                    num=4,
+                    groups_to_display=["Oil", "Coin", "Gem", "Pt"],
+                    force_clear=_clear,
                 )
             elif self._log.display_dashboard:
-                self._update_dashboard()
+                self._update_dashboard(force_clear=_clear)
