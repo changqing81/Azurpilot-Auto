@@ -68,7 +68,8 @@ def item_info(template_name: str) -> dict:
 
     Returns:
         dict: {'zh', 'en', 'rarity', 'category'}；查不到时中文名回落到模板名，
-            category 回落到 'other'。
+            category 回落到 'other'。纯数字的物品名是历史脏数据（旧版本识别
+            层/同步层没记下名字），界面显示成「未知物品 #编号」而不是裸数字。
     """
     name = str(template_name or '')
     info = load_name_table().get(name)
@@ -78,6 +79,13 @@ def item_info(template_name: str) -> dict:
             'en': info.get('en') or name,
             'rarity': info.get('rarity'),
             'category': info.get('category') or CATEGORY_OTHER,
+        }
+    if name.isdigit():
+        return {
+            'zh': f'未知物品 #{name}',
+            'en': name,
+            'rarity': None,
+            'category': CATEGORY_OTHER,
         }
     return {'zh': name, 'en': name, 'rarity': None, 'category': CATEGORY_OTHER}
 

@@ -209,6 +209,24 @@
   "rarity": 3,
   "category": "material"
  },
+ "TripleEmergencyRepairPack": {
+  "zh": "三重应急维修箱",
+  "en": "Triple Emergency Repair Pack",
+  "rarity": 4,
+  "category": "material"
+ },
+ "Complete RepairPack": {
+  "zh": "完全应急维修箱",
+  "en": "Complete Repair Pack",
+  "rarity": 5,
+  "category": "material"
+ },
+ "SpecialGearPrototype": {
+  "zh": "特殊装备原型",
+  "en": "Special Gear Prototype",
+  "rarity": 4,
+  "category": "other"
+ },
  "OperationCoin": {
   "zh": "作战补给凭证",
   "en": "Operation Supply Voucher",
@@ -267,6 +285,12 @@
   "zh": "试作装备零件T4",
   "en": "T4 Prototype Gear Parts",
   "rarity": 4,
+  "category": "other"
+ },
+ "PrototypeGearPartsT5": {
+  "zh": "试作装备零件T5",
+  "en": "T5 Prototype Gear Parts",
+  "rarity": 5,
   "category": "other"
  },
  "ActionPoint20": {
