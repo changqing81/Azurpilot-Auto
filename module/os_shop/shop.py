@@ -266,6 +266,17 @@ class OSShop(PortShop, AkashiShop):
         if count == 1:
             return True
 
+        if getattr(self, '_opsi_action_point_purchase', False):
+            # 行动力专购按核算数量购买，避免旧的“接近最大值”启发式改写数量。
+            self.ui_ensure_index(
+                count,
+                letter=OCR_SHOP_AMOUNT,
+                prev_button=AMOUNT_MINUS,
+                next_button=AMOUNT_PLUS,
+                skip_first_screenshot=True,
+            )
+            return True
+
         coins = self.get_coins_no_limit(item)
         total_count = min(int(coins // item.price), item.count)
 
@@ -333,14 +344,18 @@ class OSShop(PortShop, AkashiShop):
         items = self.scan_all()
         if not len(items):
             logger.warning('大世界商店+为空')
-            self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
+            if not getattr(self, '_opsi_action_point_purchase', False):
+                self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
             return False
         items = self.items_filter_in_os_shop(items)
         if not len(items):
             logger.warning('大世界商店+没有可购买物品')
-            self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
+            if not getattr(self, '_opsi_action_point_purchase', False):
+                self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
             return False
-        if all(item.cost == 'PurpleCoins' for item in items):
+        if getattr(self, '_opsi_action_point_purchase', False):
+            pass  # 行动力专购不代表普通黄币商品已买完。
+        elif all(item.cost == 'PurpleCoins' for item in items):
             logger.info('港口商店黄币商品已全部购买')
             self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
         else:
@@ -408,6 +423,9 @@ class OSShop(PortShop, AkashiShop):
         Returns:
             int: 可用货币数量。
         """
+        if getattr(self, '_opsi_action_point_purchase', False):
+            # 用户明确要求一次买完行动力，专购时允许使用原本为练级保留的货币。
+            return self.get_coins_no_limit(item)
         if item.cost == 'YellowCoins':
             if get_os_reset_remain() == 0:
                 return self._shop_yellow_coins - 100

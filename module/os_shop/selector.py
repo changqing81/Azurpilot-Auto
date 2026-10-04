@@ -129,6 +129,9 @@ class Selector():
             list[Item]: 可购买的物品列表。
         """
         items = self.pretreatment(items)
+        if getattr(self, '_opsi_action_point_purchase', False):
+            # 港口行动力专购：只买行动力箱，忽略预设过滤器和紫币限制。
+            return [item for item in items if item.group == 'actionpoint' and self.check_item_count(item)]
         preset = self.config.OpsiShop_PresetFilter
         parser = ''
         if preset == 'custom':

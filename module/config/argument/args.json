@@ -13631,6 +13631,10 @@
       }
     },
     "OpsiShop": {
+      "BuyActionPoint": {
+        "type": "checkbox",
+        "value": false
+      },
       "PresetFilter": {
         "type": "select",
         "value": "max_benefit_meta",

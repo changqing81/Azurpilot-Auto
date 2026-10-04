@@ -3468,6 +3468,10 @@
       "name": "Operation Siren Shop",
       "help": "The following conditions must be met before using this feature:\n- Complete Operation Siren main story and finish Simulation Battle + Siren Proving Ground\n- Enable Operation Siren exploration or use Campaign Information Recorder (5000 Oil item)\n- The month after completing Operation Siren main story, i.e. when the Port Shop becomes the new version."
     },
+    "BuyActionPoint": {
+      "name": "Buy Operation Siren port-shop AP",
+      "help": "Allowed only after monthly exploration reaches 100% this month. The exploration task does not need to stay enabled. Once per month, buy all port-shop AP boxes in one go without spending oil; may spend coins reserved for leveling. Triggers when AP is insufficient for leveling or a subtask runs out of AP. Sufficient currency is required; the monthly purchase is recorded when the buying flow finishes, without rescanning other goods. Interrupted purchases can resume; having no AP stock left also completes the flow."
+    },
     "PresetFilter": {
       "name": "Port Shop filter",
       "help": "Generally the default is sufficient. If free vouchers overflow, select \"High value items and META materials\". For beginners, select \"Do not purchase META materials\" which buys everything except META materials.\nHigh-value items are AP, coordinates, and gold or higher tier products; META materials include META general tactical textbooks and 4 types of enhancement materials.",

@@ -1262,6 +1262,7 @@ OpsiExplore:
     display: disabled
     value: ""
 OpsiShop:
+  BuyActionPoint: false
   PresetFilter:
     value: max_benefit_meta
     option:
