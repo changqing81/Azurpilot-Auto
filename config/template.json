@@ -101,19 +101,25 @@
       "GameStuckThreshold": 3,
       "AdbOfflineRestart": false,
       "AdbOfflineThreshold": 3,
-      "WatchdogEnable": false,
-      "WatchdogTaskEnable": false,
-      "WatchdogTaskTimeout": 120,
-      "RestartOperationTimeoutEnable": false,
-      "RestartOperationTimeout": 120,
       "LlmAnalysis": true,
       "LlmApiKey": null,
       "LlmApiBase": "https://api.xiaomimimo.com/v1",
       "LlmModel": "mimo-v2.5-pro"
     },
-    "DailySummary": {
+    "TaskFailureProtection": {
       "Enable": false,
-      "TriggerTime": "20:00"
+      "PushNotify": false,
+      "MaxFailures": 3,
+      "TimeWindowHours": 24,
+      "WatchdogEnable": true,
+      "WatchdogLogTimeout": 300,
+      "WatchdogTaskTimeout": 120,
+      "RestartOperationTimeout": 120
+    },
+    "Report": {
+      "Enable": false,
+      "TriggerTime": "23:50",
+      "OnePushConfig": "provider: null"
     },
     "Optimization": {
       "OcrDevice": "auto",
@@ -134,16 +140,20 @@
     },
     "DropRecord": {
       "SaveFolder": "./screenshots",
-      "AzurStatsID": null,
-      "API": "default",
       "ResearchRecord": "do_not",
       "CommissionRecord": "do_not",
       "CombatRecord": "do_not",
-      "OpsiRecord": "upload",
+      "OpsiHazard1Leveling": "local",
+      "OpsiMeowfficerFarming": "local",
+      "OpsiDaily": "local",
+      "OpsiObscure": "local",
+      "OpsiAbyssal": "local",
+      "OpsiStronghold": "local",
+      "OpsiExplore": "local",
+      "OpsiOther": "local",
+      "OpsiShopRecord": "do_not",
       "MeowfficerBuy": "do_not",
-      "MeowfficerTalent": "do_not",
-      "TelemetryReport": true,
-      "BugReport": true
+      "MeowfficerTalent": "do_not"
     },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": false,
@@ -189,7 +199,7 @@
       "FleetOnsen": false
     },
     "YukikazeTaskManager": {
-      "TaskPriorityAdjustment": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
+      "TaskPriorityAdjustment": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandPlan\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
     },
     "Storage": {
       "Storage": {}
@@ -242,6 +252,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -325,6 +336,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -408,6 +420,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -477,6 +490,7 @@
       "Sensitive": false
     },
     "GemsFarming": {
+      "EventFallbackStage": "2-4",
       "ChangeFlagship": "ship_equip",
       "CommonCV": "any",
       "CommonCVFilter": "bogue > ranger > langley > hermes",
@@ -510,6 +524,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -532,7 +547,7 @@
       "Fleet": 0,
       "Mode": "do_not_use",
       "AutoSearchMode": "sub_standby",
-      "DistanceToBoss": "2_grid_to_boss",
+      "DistanceToBoss": "use_open_ocean_support",
       "AdvancedConfig": "# 弹药数\nammo: 7\n\n# 远洋支援数\nsupport: 1\n\n# 松鲷的狩猎范围\nrange:\n  - \"ONONOOO\"\n  - \"ONNNNOO\"\n  - \"NNNNNNO\"\n  - \"ONNHNNN\"\n  - \"NNNNNNO\"\n  - \"ONOONOO\"\n  - \"OOOOOOO\"\n\n# 规则\nrules:\n  battle_0: # 所有战斗\n    type: hunt  # 出击类型为狩猎\n    condition:  # 出击条件\n      ammo: \">2\"  # 弹药数大于2\n      enemy:  # 敌人类型为\n        - \"2C\"  # 中航\n        - \"3T\"  # 大运\n        - \"0E\"  # 未知敌人\n      in_range: true  # 在狩猎范围里\n    move: false # 不移动\n  battle_2: # 第二场战斗\n    type: call  # 出击类型为召唤\n    condition:  # 出击条件\n      ammo: \">=2\" # 弹药数大于等于2\n      support: \"!=0\" # 远洋支援数不等于0\n      enemy:  # 敌人类型为\n        - \"3*\"  # 所有大型舰队\n      in_range: false  # 不要求在狩猎范围里\n    move: false # 不移动\n  battle_-1:  # 最后一场战斗\n    type: call  # 出击类型为召唤\n    # 这里没写条件所以是必定出击\n    support: true # 远洋支援\n    move: true # 移动\n"
     },
     "Emotion": {
@@ -569,6 +584,7 @@
       "Sensitive": false
     },
     "GemsFarming": {
+      "EventFallbackStage": "2-4",
       "ChangeFlagship": "ship_equip",
       "CommonCV": "any",
       "CommonCVFilter": "bogue > ranger > langley > hermes",
@@ -602,6 +618,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -624,7 +641,7 @@
       "Fleet": 0,
       "Mode": "do_not_use",
       "AutoSearchMode": "sub_standby",
-      "DistanceToBoss": "2_grid_to_boss",
+      "DistanceToBoss": "use_open_ocean_support",
       "AdvancedConfig": "# 弹药数\nammo: 7\n\n# 远洋支援数\nsupport: 1\n\n# 松鲷的狩猎范围\nrange:\n  - \"ONONOOO\"\n  - \"ONNNNOO\"\n  - \"NNNNNNO\"\n  - \"ONNHNNN\"\n  - \"NNNNNNO\"\n  - \"ONOONOO\"\n  - \"OOOOOOO\"\n\n# 规则\nrules:\n  battle_0: # 所有战斗\n    type: hunt  # 出击类型为狩猎\n    condition:  # 出击条件\n      ammo: \">2\"  # 弹药数大于2\n      enemy:  # 敌人类型为\n        - \"2C\"  # 中航\n        - \"3T\"  # 大运\n        - \"0E\"  # 未知敌人\n      in_range: true  # 在狩猎范围里\n    move: false # 不移动\n  battle_2: # 第二场战斗\n    type: call  # 出击类型为召唤\n    condition:  # 出击条件\n      ammo: \">=2\" # 弹药数大于等于2\n      support: \"!=0\" # 远洋支援数不等于0\n      enemy:  # 敌人类型为\n        - \"3*\"  # 所有大型舰队\n      in_range: false  # 不要求在狩猎范围里\n    move: false # 不移动\n  battle_-1:  # 最后一场战斗\n    type: call  # 出击类型为召唤\n    # 这里没写条件所以是必定出击\n    support: true # 远洋支援\n    move: true # 移动\n"
     },
     "Emotion": {
@@ -661,6 +678,7 @@
       "Sensitive": false
     },
     "GemsFarming": {
+      "EventFallbackStage": 0,
       "ChangeFlagship": "ship_equip",
       "CommonCV": "any",
       "CommonCVFilter": "bogue > ranger > langley > hermes",
@@ -694,6 +712,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -778,6 +797,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -861,6 +881,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -944,6 +965,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1031,6 +1053,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1086,6 +1109,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1147,6 +1171,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1202,6 +1227,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1260,6 +1286,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1350,6 +1377,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1358,6 +1386,10 @@
     },
     "WarArchives": {
       "DailyRunCount": 0,
+      "AutoClear": false,
+      "AutoSelectEvent": false,
+      "AutoClearTarget": "three_star",
+      "AutoClearProgress": null,
       "DailyRunCountRemain": 0,
       "DailyRunCountRecord": "2020-01-01 00:00:00",
       "DailyRunCountLimit": 0
@@ -1443,6 +1475,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1530,6 +1563,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1617,6 +1651,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1704,6 +1739,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1787,6 +1823,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1873,6 +1910,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1928,6 +1966,7 @@
     "StopCondition": {
       "OilLimit": 1000,
       "CoinLimit": 0,
+      "CoinLimit_Enable": false,
       "RunCount": 0,
       "MapAchievement": "non_stop",
       "StageIncrease": false,
@@ -1975,8 +2014,13 @@
       "CustomFilter": "DailyEvent > Gem-4 > Gem-2 > Gem-8 > ExtraCube-0:30\n> UrgentCube-1:30 > UrgentCube-1:45 > UrgentCube-3\n> ExtraDrill-5:20 > ExtraDrill-2 > ExtraDrill-3:20\n> UrgentCube-2:15 > UrgentCube-4\n> ExtraDrill-1 > UrgentCube-6 > ExtraCube-1:30\n> ExtraDrill-2:40 > ExtraDrill-0:20\n> Major > DailyChip > DailyResource\n> ExtraPart-0:30 > ExtraOil-1 > UrgentBox-6\n> ExtraCube-3 > ExtraPart-1 > UrgentBox-3\n> ExtraCube-4 > ExtraPart-1:30 > ExtraOil-4\n> UrgentBox-1 > ExtraCube-5 > UrgentBox-1\n> ExtraCube-8 > ExtraOil-8\n> UrgentDrill-4 > UrgentDrill-2:40 > UrgentDrill-2\n> UrgentDrill-1 > UrgentDrill-1:30 > UrgentDrill-1:10\n> Extra-0:20 > Extra-0:30 > Extra-1:00 > Extra-1:30 > Extra-2:00\n> shortest",
       "Blacklist": null,
       "DoMajorCommission": false,
-      "CommissionNotifyReward": false,
-      "CommissionNotifyRewardStatistics": true
+      "NotifyReward": true,
+      "NotifyRewardStatistics": true,
+      "DetectShipDrop": false,
+      "GemNotify": true,
+      "GemStatistics": false,
+      "GemStatisticsPeriod": "month",
+      "CommissionNotifyRewardCube": false
     },
     "Storage": {
       "Storage": {}
@@ -2026,6 +2070,7 @@
       "Sensitive": false
     },
     "Research": {
+      "BatchMode": false,
       "UseCube": "only_05_hour",
       "UseCoin": "always_use",
       "UsePart": "always_use",
@@ -2085,6 +2130,8 @@
       "Mode": "seamlessly",
       "RetainTalentedGold": true,
       "RetainTalentedPurple": true,
+      "ScoreTalents": false,
+      "ScoreThreshold": 0,
       "EnhanceIndex": 1,
       "MaxFeedLevel": 5
     },
@@ -2156,6 +2203,29 @@
     "Awaken": {
       "LevelCap": "level120",
       "Favourite": false
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "Secretary": {
+    "Scheduler": {
+      "Enable": false,
+      "PushNotification": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "Secretary",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00",
+      "Sensitive": false
+    },
+    "Secretary": {
+      "CustomFilter": "ultra > super_rare > elite > rare > common",
+      "LowFavorabilityPriority": false,
+      "BackupEnable": true,
+      "CheckInterval": 0,
+      "Notify": true,
+      "OnePushConfig": "provider: null"
     },
     "Storage": {
       "Storage": {}
@@ -2244,7 +2314,8 @@
     },
     "Hard": {
       "HardStage": "11-4",
-      "HardFleet": 1
+      "HardFleet": 1,
+      "UseRecommendFleet": false
     },
     "Storage": {
       "Storage": {}
@@ -2483,7 +2554,10 @@
       "LauncherPush": true,
       "IndependentPush": false,
       "OpsiOnePushConfig": "provider: null",
-      "AutoSearchTimeLimit": 5
+      "AutoSearchTimeLimit": 5,
+      "SkipStrategicSearchCheck": false,
+      "ActionPointLedgerEnabled": false,
+      "ActionPointTierBox": false
     },
     "Storage": {
       "Storage": {}
@@ -2808,6 +2882,7 @@
     },
     "OpsiFleetAutoChange": {
       "Enable": false,
+      "AnyShipReached": false,
       "CooldownHours": 24,
       "LastRun": "2020-01-01 00:00:00"
     },
@@ -2839,7 +2914,10 @@
       "MonthEndActionPointCleanupEnable": false,
       "MonthEndActionPointCleanupDays": 0,
       "MonthEndActionPointPreserve": 0,
-      "MonthEndShopPurchase": true
+      "MonthEndShopPurchase": true,
+      "BuyActionPointMode": "off",
+      "BuyActionPointUpperThreshold": 200,
+      "BuyActionPointLowerThreshold": 100
     },
     "Storage": {
       "Storage": {}
@@ -2876,6 +2954,13 @@
       "ServerUpdate": "00:00",
       "Sensitive": true
     },
+    "OpsiCrossMonth": {
+      "ActionPointCleanupEnable": true,
+      "ActionPointPreserve": 50,
+      "PushNotify": true,
+      "StopAfterComplete": false,
+      "RehearsalDebug": "off"
+    },
     "Storage": {
       "Storage": {}
     }
@@ -2905,8 +2990,37 @@
     }
   },
   "IslandPlan": {
+    "Scheduler": {
+      "Enable": false,
+      "PushNotification": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "IslandPlan",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00",
+      "Sensitive": false
+    },
     "IslandPlan": {
-      "Season": "spring"
+      "Season": "spring",
+      "IntervalHours": 12,
+      "RespectSubTaskTimes": true,
+      "EnableAirDrop": true,
+      "EnableDailyGather": true,
+      "EnableCargoPreparation": true,
+      "EnableDailyOrder": true,
+      "EnableDailyInteract": true,
+      "EnableFarm": true,
+      "EnableRancher": true,
+      "EnableMineForest": true,
+      "EnablePearlSell": true,
+      "EnableManufacture": true,
+      "EnableRestaurant": true,
+      "EnableTeahouse": true,
+      "EnableGrill": true,
+      "EnableJuuEatery": true,
+      "EnableJuuCoffee": true,
+      "EnableBusiness": true,
+      "TaskOrder": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness"
     },
     "Storage": {
       "Storage": {}
@@ -3539,6 +3653,21 @@
       "RemoteSSHPublicKey": null,
       "RemoteStartCommand": null,
       "RemoteStopCommand": null
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "MeowfficerScore": {
+    "MeowfficerScore": {
+      "Source": "screenshot",
+      "Folder": "./screenshots/meowfficer_talent",
+      "MaxImages": 50,
+      "ReportPath": "./log/meowfficer_score.md",
+      "DeviceShots": 1,
+      "DeviceInterval": 2,
+      "ScanLimit": 0,
+      "ScanPasses": 12
     },
     "Storage": {
       "Storage": {}

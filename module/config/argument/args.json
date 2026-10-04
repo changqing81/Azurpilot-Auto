@@ -306,7 +306,6 @@
           "en-3",
           "en-4",
           "en-5",
-          "en-6",
           "jp-0",
           "jp-1",
           "jp-2",
@@ -324,12 +323,7 @@
           "jp-14",
           "jp-15",
           "jp-16",
-          "jp-17",
-          "tw-0",
-          "tw-1",
-          "tw-2",
-          "tw-3",
-          "tw-4"
+          "jp-17"
         ]
       },
       "ScreenshotMethod": {
@@ -492,34 +486,6 @@
           10
         ]
       },
-      "WatchdogEnable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "WatchdogTaskEnable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "WatchdogTaskTimeout": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          0,
-          99999
-        ]
-      },
-      "RestartOperationTimeoutEnable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "RestartOperationTimeout": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          10,
-          600
-        ]
-      },
       "LlmAnalysis": {
         "type": "checkbox",
         "value": true
@@ -538,7 +504,7 @@
         "valuetype": "str"
       }
     },
-    "DailySummary": {
+    "TaskFailureProtection": {
       "Enable": {
         "type": "checkbox",
         "value": false,
@@ -547,10 +513,76 @@
           false
         ]
       },
+      "PushNotify": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "MaxFailures": {
+        "type": "input",
+        "value": 3,
+        "validate": [
+          1,
+          10
+        ]
+      },
+      "TimeWindowHours": {
+        "type": "input",
+        "value": 24,
+        "validate": [
+          1,
+          168
+        ]
+      },
+      "WatchdogEnable": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "WatchdogLogTimeout": {
+        "type": "input",
+        "value": 300,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "WatchdogTaskTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "RestartOperationTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          1,
+          99999
+        ]
+      }
+    },
+    "Report": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "TriggerTime": {
         "type": "input",
-        "value": "20:00",
-        "valuetype": "str"
+        "value": "23:50"
+      },
+      "OnePushConfig": {
+        "type": "textarea",
+        "value": "provider: null",
+        "mode": "yaml"
       }
     },
     "Optimization": {
@@ -688,26 +720,12 @@
         "type": "input",
         "value": "./screenshots"
       },
-      "AzurStatsID": {
-        "type": "input",
-        "value": null
-      },
-      "API": {
-        "type": "select",
-        "value": "default",
-        "option": [
-          "default",
-          "cn_gz_reverse_proxy"
-        ]
-      },
       "ResearchRecord": {
         "type": "select",
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       },
       "CommissionRecord": {
@@ -715,9 +733,7 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       },
       "CombatRecord": {
@@ -728,14 +744,92 @@
           "save"
         ]
       },
-      "OpsiRecord": {
+      "OpsiHazard1Leveling": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiMeowfficerFarming": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiDaily": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiObscure": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiAbyssal": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiStronghold": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiExplore": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiOther": {
+        "type": "select",
+        "value": "local",
+        "option": [
+          "do_not",
+          "save",
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiShopRecord": {
+        "type": "select",
+        "value": "do_not",
+        "option": [
+          "do_not",
+          "save"
         ]
       },
       "MeowfficerBuy": {
@@ -751,18 +845,8 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
-      },
-      "TelemetryReport": {
-        "type": "checkbox",
-        "value": true
-      },
-      "BugReport": {
-        "type": "checkbox",
-        "value": true
       }
     },
     "EmulatorManagement": {
@@ -933,7 +1017,7 @@
     "YukikazeTaskManager": {
       "TaskPriorityAdjustment": {
         "type": "task_priority",
-        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
+        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandPlan\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
       }
     },
     "Storage": {
@@ -1153,6 +1237,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -1585,6 +1673,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -2016,6 +2108,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -2384,6 +2480,10 @@
       }
     },
     "GemsFarming": {
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4"
+      },
       "ChangeFlagship": {
         "type": "select",
         "value": "ship_equip",
@@ -2498,7 +2598,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -2511,10 +2610,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -2573,6 +2671,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -2740,7 +2842,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "2_grid_to_boss",
+        "value": "use_open_ocean_support",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -2920,6 +3022,10 @@
       }
     },
     "GemsFarming": {
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4"
+      },
       "ChangeFlagship": {
         "type": "select",
         "value": "ship_equip",
@@ -3034,7 +3140,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -3047,10 +3152,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -3109,6 +3213,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -3276,7 +3384,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "2_grid_to_boss",
+        "value": "use_open_ocean_support",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -3455,6 +3563,11 @@
       }
     },
     "GemsFarming": {
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "0",
+        "display": "hide"
+      },
       "ChangeFlagship": {
         "type": "select",
         "value": "ship_equip",
@@ -3631,6 +3744,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4008,7 +4125,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4021,10 +4137,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4080,6 +4195,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4457,7 +4576,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4470,10 +4588,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4529,6 +4646,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4906,7 +5027,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -4919,10 +5039,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -4977,6 +5096,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5371,7 +5494,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "raid_20260212",
           "raid_20260827"
         ],
         "option_cn": [
@@ -5384,10 +5506,9 @@
           "raid_20260827"
         ],
         "option_tw": [
-          "raid_20260212"
+          "raid_20260827"
         ],
         "option_bold": [
-          "raid_20260212",
           "raid_20260827"
         ]
       },
@@ -5447,6 +5568,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5658,7 +5783,6 @@
         "type": "state",
         "value": "campaign_main",
         "option": [
-          "raid_20260212",
           "raid_20260827"
         ],
         "option_cn": [
@@ -5671,10 +5795,9 @@
           "raid_20260827"
         ],
         "option_tw": [
-          "raid_20260212"
+          "raid_20260827"
         ],
         "option_bold": [
-          "raid_20260212",
           "raid_20260827"
         ]
       },
@@ -5729,6 +5852,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6067,6 +6194,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0,
@@ -6361,6 +6492,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6661,6 +6796,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -7358,6 +7497,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -7391,6 +7534,28 @@
       "DailyRunCount": {
         "type": "input",
         "value": 0
+      },
+      "AutoClear": {
+        "type": "checkbox",
+        "value": false
+      },
+      "AutoSelectEvent": {
+        "type": "checkbox",
+        "value": false
+      },
+      "AutoClearTarget": {
+        "type": "select",
+        "value": "three_star",
+        "option": [
+          "normal_3_star",
+          "three_star",
+          "clear_100"
+        ]
+      },
+      "AutoClearProgress": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
       },
       "DailyRunCountRemain": {
         "type": "stored",
@@ -7767,7 +7932,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -7780,10 +7944,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -7840,6 +8003,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8233,7 +8400,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -8246,10 +8412,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -8306,6 +8471,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8699,7 +8868,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -8712,10 +8880,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -8772,6 +8939,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -9165,7 +9336,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9178,10 +9348,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9238,6 +9407,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -9621,7 +9794,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ],
         "option_cn": [
@@ -9634,10 +9806,9 @@
           "event_20260908_cn"
         ],
         "option_tw": [
-          "event_20260813_cn"
+          "event_20260908_cn"
         ],
         "option_bold": [
-          "event_20260813_cn",
           "event_20260908_cn"
         ]
       },
@@ -9694,6 +9865,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10084,7 +10259,6 @@
         "type": "select",
         "value": "campaign_main",
         "option": [
-          "raid_20260212",
           "raid_20260827"
         ],
         "option_cn": [
@@ -10097,10 +10271,9 @@
           "raid_20260827"
         ],
         "option_tw": [
-          "raid_20260212"
+          "raid_20260827"
         ],
         "option_bold": [
-          "raid_20260212",
           "raid_20260827"
         ]
       },
@@ -10160,6 +10333,10 @@
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10453,6 +10630,10 @@
         "type": "input",
         "value": 0
       },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
+      },
       "RunCount": {
         "type": "input",
         "value": 0
@@ -10685,13 +10866,42 @@
         "type": "checkbox",
         "value": false
       },
-      "CommissionNotifyReward": {
+      "NotifyReward": {
+        "type": "checkbox",
+        "value": true
+      },
+      "NotifyRewardStatistics": {
+        "type": "checkbox",
+        "value": true
+      },
+      "DetectShipDrop": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "GemNotify": {
+        "type": "checkbox",
+        "value": true
+      },
+      "GemStatistics": {
         "type": "checkbox",
         "value": false
       },
-      "CommissionNotifyRewardStatistics": {
+      "GemStatisticsPeriod": {
+        "type": "select",
+        "value": "month",
+        "option": [
+          "today",
+          "week",
+          "month"
+        ]
+      },
+      "CommissionNotifyRewardCube": {
         "type": "checkbox",
-        "value": true
+        "value": false
       }
     },
     "Storage": {
@@ -10878,6 +11088,10 @@
       }
     },
     "Research": {
+      "BatchMode": {
+        "type": "checkbox",
+        "value": false
+      },
       "UseCube": {
         "type": "select",
         "value": "only_05_hour",
@@ -10931,6 +11145,7 @@
           "series_8_blueprint_305",
           "series_8_blueprint_only",
           "series_8_305_only",
+          "series_8_305_e_first",
           "series_7_blueprint_la9",
           "series_7_blueprint_only",
           "series_7_la9_only",
@@ -11147,6 +11362,18 @@
       "RetainTalentedPurple": {
         "type": "checkbox",
         "value": true
+      },
+      "ScoreTalents": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ScoreThreshold": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          100
+        ]
       },
       "EnhanceIndex": {
         "type": "input",
@@ -11414,6 +11641,94 @@
       "Favourite": {
         "type": "checkbox",
         "value": false
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "Secretary": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "Secretary",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
+    "Secretary": {
+      "CustomFilter": {
+        "type": "textarea",
+        "value": "ultra > super_rare > elite > rare > common"
+      },
+      "LowFavorabilityPriority": {
+        "type": "checkbox",
+        "value": false
+      },
+      "BackupEnable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "CheckInterval": {
+        "type": "input",
+        "value": 0
+      },
+      "Notify": {
+        "type": "checkbox",
+        "value": true
+      },
+      "OnePushConfig": {
+        "type": "textarea",
+        "value": "provider: null",
+        "mode": "yaml"
       }
     },
     "Storage": {
@@ -11889,6 +12204,10 @@
           1,
           2
         ]
+      },
+      "UseRecommendFleet": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {
@@ -12977,6 +13296,18 @@
           1,
           240
         ]
+      },
+      "SkipStrategicSearchCheck": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ActionPointLedgerEnabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ActionPointTierBox": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {
@@ -14245,6 +14576,14 @@
           false
         ]
       },
+      "AnyShipReached": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
       "CooldownHours": {
         "type": "select",
         "value": 24,
@@ -14402,6 +14741,23 @@
           true,
           false
         ]
+      },
+      "BuyActionPointMode": {
+        "type": "select",
+        "value": "off",
+        "option": [
+          "off",
+          "hazard1_leveling",
+          "meowfficer_farming"
+        ]
+      },
+      "BuyActionPointUpperThreshold": {
+        "type": "input",
+        "value": 200
+      },
+      "BuyActionPointLowerThreshold": {
+        "type": "input",
+        "value": 100
       }
     },
     "Storage": {
@@ -14545,6 +14901,34 @@
         ]
       }
     },
+    "OpsiCrossMonth": {
+      "ActionPointCleanupEnable": {
+        "type": "checkbox",
+        "value": true
+      },
+      "ActionPointPreserve": {
+        "type": "input",
+        "value": 50
+      },
+      "PushNotify": {
+        "type": "checkbox",
+        "value": true
+      },
+      "StopAfterComplete": {
+        "type": "checkbox",
+        "value": false
+      },
+      "RehearsalDebug": {
+        "type": "select",
+        "value": "off",
+        "option": [
+          "off",
+          "cleanup",
+          "full"
+        ],
+        "display": "hide"
+      }
+    },
     "Storage": {
       "Storage": {
         "type": "storage",
@@ -14648,6 +15032,57 @@
     }
   },
   "IslandPlan": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "IslandPlan",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
     "IslandPlan": {
       "Season": {
         "type": "select",
@@ -14658,6 +15093,150 @@
           "autumn",
           "winter"
         ]
+      },
+      "IntervalHours": {
+        "type": "input",
+        "value": 12
+      },
+      "RespectSubTaskTimes": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableAirDrop": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableDailyGather": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableCargoPreparation": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableDailyOrder": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableDailyInteract": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableFarm": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableRancher": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableMineForest": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnablePearlSell": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableManufacture": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableRestaurant": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableTeahouse": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableGrill": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableJuuEatery": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableJuuCoffee": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableBusiness": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "TaskOrder": {
+        "type": "textarea",
+        "value": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness"
       }
     },
     "Storage": {
@@ -18261,6 +18840,75 @@
       "RemoteStopCommand": {
         "type": "input",
         "value": ""
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "MeowfficerScore": {
+    "MeowfficerScore": {
+      "Source": {
+        "type": "select",
+        "value": "screenshot",
+        "option": [
+          "screenshot",
+          "device",
+          "scan"
+        ]
+      },
+      "Folder": {
+        "type": "input",
+        "value": "./screenshots/meowfficer_talent"
+      },
+      "MaxImages": {
+        "type": "input",
+        "value": 50,
+        "validate": [
+          1,
+          999
+        ]
+      },
+      "ReportPath": {
+        "type": "input",
+        "value": "./log/meowfficer_score.md"
+      },
+      "DeviceShots": {
+        "type": "input",
+        "value": 1,
+        "validate": [
+          1,
+          99
+        ]
+      },
+      "DeviceInterval": {
+        "type": "input",
+        "value": 2,
+        "validate": [
+          0,
+          60
+        ]
+      },
+      "ScanLimit": {
+        "type": "input",
+        "value": 0,
+        "validate": [
+          0,
+          999
+        ]
+      },
+      "ScanPasses": {
+        "type": "input",
+        "value": 12,
+        "validate": [
+          1,
+          60
+        ]
       }
     },
     "Storage": {
