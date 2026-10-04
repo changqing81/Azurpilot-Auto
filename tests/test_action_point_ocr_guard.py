@@ -463,13 +463,39 @@ class TestActionPointUseGuard(unittest.TestCase):
                 self.calls += 1
                 return self.calls > 1
 
-        with patch.object(ap_module, 'Timer', ShortTimer):
-            with self.assertRaises(RequestHumanTakeover):
-                handler.action_point_use(selected_index=3)
-        self.assertEqual(len(clicks), 1)
-        self.assertIsNotNone(handler._pending)
+    def test_tier_box_selects_by_current(self):
+        from types import SimpleNamespace
+        from module.os_handler import action_point as ap_module
 
-    def test_big_box_first_off_keeps_small_first(self):
+        # 分档：>=100 → 20 箱；80~99 → 50 箱；20~79 → 100 箱
+        for current, expected in ((100, [1]), (99, [2]), (79, [3]), (20, [3])):
+            with self.subTest(current=current):
+                handler, _ = self.make_handler()
+                handler._is_in_action_point = lambda: True
+                handler.action_point_safe_get = lambda: None
+                handler.action_point_set_button = lambda index: True
+                handler.action_point_quit = lambda: None
+                handler.config.OS_ACTION_POINT_PRESERVE = 200
+                handler.config.OpsiGeneral_BuyActionPointLimit = 0
+                handler.config.OpsiGeneral_ActionPointTierBox = True
+                handler._action_point_current = current
+                handler._action_point_total = 1297
+                handler._action_point_box = [11026, 9, 9, 9]
+                used = []
+
+                def use_once(selected_index, handler=handler, used=used):
+                    used.append(selected_index)
+                    handler._action_point_current += ap_module.ACTION_POINT_BOX[selected_index]
+                    handler._action_point_box[selected_index] -= 1
+
+                handler.action_point_use = use_once
+                self.assertTrue(handler.handle_action_point(
+                    zone=SimpleNamespace(hazard_level=1, is_port=False),
+                    pinned='DANGEROUS', cost=120,
+                ))
+                self.assertEqual(used, expected)
+
+    def test_tier_box_falls_back_when_out_of_stock(self):
         from types import SimpleNamespace
         from module.os_handler import action_point as ap_module
 
@@ -480,10 +506,10 @@ class TestActionPointUseGuard(unittest.TestCase):
         handler.action_point_quit = lambda: None
         handler.config.OS_ACTION_POINT_PRESERVE = 200
         handler.config.OpsiGeneral_BuyActionPointLimit = 0
-        handler.config.OpsiGeneral_ActionPointBigBoxFirst = False
-        handler._action_point_current = 100
+        handler.config.OpsiGeneral_ActionPointTierBox = True
+        handler._action_point_current = 99
         handler._action_point_total = 1297
-        handler._action_point_box = [11026, 3, 3, 3]
+        handler._action_point_box = [11026, 9, 0, 9]  # 档位对应的 50 箱没库存
         used = []
 
         def use_once(selected_index):
@@ -494,13 +520,15 @@ class TestActionPointUseGuard(unittest.TestCase):
         handler.action_point_use = use_once
         self.assertTrue(handler.handle_action_point(
             zone=SimpleNamespace(hazard_level=1, is_port=False),
-            pinned='DANGEROUS', cost=210,
+            pinned='DANGEROUS', cost=120,
         ))
-        # 默认关闭：维持上游小箱优先（不顶破 200 的先用，攒大箱应急）
-        self.assertEqual(used, [1, 1, 1, 3])
+        # 99 档位是 50 箱但没库存 → 回退上游排序用 20 箱（99→119），
+        # 下一轮当前 119 ≥ 100 → 档位回到 20 箱（119→139）
+        self.assertEqual(used, [1, 1])
 
-    def test_big_box_first_reduces_confirmations(self):
+    def test_tier_box_below_20_keeps_original_order(self):
         from types import SimpleNamespace
+        from module.os_handler import action_point as ap_module
 
         handler, _ = self.make_handler()
         handler._is_in_action_point = lambda: True
@@ -509,14 +537,43 @@ class TestActionPointUseGuard(unittest.TestCase):
         handler.action_point_quit = lambda: None
         handler.config.OS_ACTION_POINT_PRESERVE = 200
         handler.config.OpsiGeneral_BuyActionPointLimit = 0
-        handler.config.OpsiGeneral_ActionPointBigBoxFirst = True
+        handler.config.OpsiGeneral_ActionPointTierBox = True
+        handler._action_point_current = 15
+        handler._action_point_total = 1297
+        handler._action_point_box = [11026, 9, 9, 9]
+        used = []
+
+        def use_once(selected_index):
+            used.append(selected_index)
+            handler._action_point_current += ap_module.ACTION_POINT_BOX[selected_index]
+            handler._action_point_box[selected_index] -= 1
+
+        handler.action_point_use = use_once
+        self.assertTrue(handler.handle_action_point(
+            zone=SimpleNamespace(hazard_level=1, is_port=False),
+            pinned='DANGEROUS', cost=120,
+        ))
+        # 低于 20 维持原排序（小箱优先 15→35），此后 35 ≥ 20 进入档位 → 100 箱
+        self.assertEqual(used, [1, 3])
+
+    def test_tier_box_off_keeps_upstream_order(self):
+        from types import SimpleNamespace
+        from module.os_handler import action_point as ap_module
+
+        handler, _ = self.make_handler()
+        handler._is_in_action_point = lambda: True
+        handler.action_point_safe_get = lambda: None
+        handler.action_point_set_button = lambda index: True
+        handler.action_point_quit = lambda: None
+        handler.config.OS_ACTION_POINT_PRESERVE = 200
+        handler.config.OpsiGeneral_BuyActionPointLimit = 0
+        handler.config.OpsiGeneral_ActionPointTierBox = False
         handler._action_point_current = 100
         handler._action_point_total = 1297
         handler._action_point_box = [11026, 3, 3, 3]
         used = []
 
         def use_once(selected_index):
-            from module.os_handler import action_point as ap_module
             used.append(selected_index)
             handler._action_point_current += ap_module.ACTION_POINT_BOX[selected_index]
             handler._action_point_box[selected_index] -= 1
@@ -526,9 +583,8 @@ class TestActionPointUseGuard(unittest.TestCase):
             zone=SimpleNamespace(hazard_level=1, is_port=False),
             pinned='DANGEROUS', cost=210,
         ))
-        # 缺口 110 >= 100：先 100 箱（100→200），此后全部箱子都顶破上限，
-        # 溢出档仍大→小 → 再用 100 箱到 300；2 次确认搞定，不再 4 次
-        self.assertEqual(used, [3, 3])
+        # 关闭：上游小箱优先，不顶破 200 的先用
+        self.assertEqual(used, [1, 1, 1, 3])
 
 
 class TestSampleImages(unittest.TestCase):

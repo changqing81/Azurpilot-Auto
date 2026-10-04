@@ -1206,10 +1206,10 @@ OpsiGeneral:
   # 关闭后回退旧行为：不读顶栏，每次决策读与开工检查都弹行动力弹窗校准。
   # 默认关闭，验证稳定后可手动开启。
   ActionPointLedgerEnabled: false
-  # 补充行动力时，缺口不小于 100 时优先使用大箱子（100→50→20），
-  # 减少开箱确认次数（每次确认需等弹窗数字刷新约 5~8 秒）。
+  # 分档选箱：按当前行动力定箱型——≥100 用 20 箱，80~99 用 50 箱，
+  # 20~79 用 100 箱，低于 20 维持原排序；对应档位没库存时回退原排序。
   # 关闭时维持小箱优先（上游行为）：防溢出、攒大箱应急。
-  ActionPointBigBoxFirst: false
+  ActionPointTierBox: false
 OpsiAshBeacon:
   AttackMode:
     value: current

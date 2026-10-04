@@ -13400,7 +13400,7 @@
         "type": "checkbox",
         "value": false
       },
-      "ActionPointBigBoxFirst": {
+      "ActionPointTierBox": {
         "type": "checkbox",
         "value": false
       }

@@ -818,17 +818,23 @@ class ActionPointHandler(UI, MapEventHandler):
                     cost=cost,
                 )
 
-            # 排序行动力药剂。默认（关闭）＝上游行为：不顶破自然上限（200）的
-            # 箱子先用、档内小→大，防溢出、攒大箱应急。
-            # 大箱优先开关开启且缺口 >= 100 时，改为纯大→小（100→50→20），
-            # 减少开箱确认次数（每次确认需等弹窗数字刷新 5~8 秒）；
-            # 总行动力守恒，越过 200 只损失极短时间的自然回复，不浪费箱值。
-            big_first = (
-                getattr(self.config, 'OpsiGeneral_ActionPointBigBoxFirst', False)
-                and cost - self._action_point_current >= 100
-            )
-            if big_first:
-                box = [index for index in [3, 2, 1] if self._action_point_box[index] > 0]
+            # 排序行动力药剂。
+            # 分档选箱开关（默认关闭）开启时，按当前行动力定箱型：
+            #   >=100 → 20 箱；80~99 → 50 箱；20~79 → 100 箱；
+            #   对应档位没库存 → 回退上游排序；<20 → 维持上游排序。
+            # 关闭时＝上游行为：不顶破自然上限（200）的箱子先用、档内小→大，
+            # 防溢出、攒大箱应急。
+            tier_index = None
+            if getattr(self.config, 'OpsiGeneral_ActionPointTierBox', False):
+                current = self._action_point_current
+                if current >= 100:
+                    tier_index = 1
+                elif current >= 80:
+                    tier_index = 2
+                elif current >= 20:
+                    tier_index = 3
+            if tier_index is not None and self._action_point_box[tier_index] > 0:
+                box = [tier_index]
             else:
                 box = []
                 for index in [3, 2, 1]:
