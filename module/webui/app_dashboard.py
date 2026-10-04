@@ -34,10 +34,25 @@ from module.webui.app_helpers import (
 
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.config.utils import filepath_config
+
+# 「配置文件从未 stat 过」的哨兵：首跑必须强制 load 一次
+_OVERVIEW_MTIME_MISSING = object()
 
 
 class DashboardMixin(WebUIMixinBase):
     """WebUI仪表盘刷新逻辑"""
+
+    def _overview_config_mtime(self):
+        """当前实例配置文件的 mtime_ns；文件不存在时返回 None。
+
+        实例进程每次保存配置（任务调度改 next_run 等）都会触碰 mtime，
+        WebUI 侧据此判断要不要重新 load。
+        """
+        try:
+            return os.stat(filepath_config(self.alas_name, self.alas_mod)).st_mtime_ns
+        except OSError:
+            return None
 
     @render_locked
     def alas_update_overview_task(self) -> None:
@@ -48,7 +63,13 @@ class DashboardMixin(WebUIMixinBase):
         # ROOT 下自动创建孤儿容器，任务列表将永久裸奔在页面顶层。
         if self.page != "Overview":
             return
-        self.alas_config.load()
+        # 配置文件 mtime 短路：load()=deepcopy 全量配置(~12ms)+override+重放
+        # modified，本任务每 10s 跑一次。文件没变（实例空闲时占大多数轮次）
+        # 就直接沿用上次加载的数据，只重算任务队列。
+        mtime = self._overview_config_mtime()
+        if mtime != getattr(self, "_overview_config_mtime_seen", _OVERVIEW_MTIME_MISSING):
+            self.alas_config.load()
+            self._overview_config_mtime_seen = mtime
         self.alas_config.get_next_task()
 
         # 检查任务失败保护通知

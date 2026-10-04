@@ -320,8 +320,13 @@ class RichLog:
         yield
         try:
             last_idx = len(pm.renderables)
-            # 全量首显走缓存片段：切回总览页时只需渲染新增部分
-            html = self.render_cached(pm.renderables[:])
+            # 全量首显走缓存片段：切回总览页时只需渲染新增部分。
+            # 只发尾部 dom_max_chunks 条——前端 extend 后按 dom_max_chunks
+            # 裁掉更早的 chunk，超出部分发过去也会被立刻删掉，纯属白传
+            # （日志缓冲 400 条，前端只保留 200 条，首显 payload 直接减半）。
+            # 渲染游标 last_idx 仍指向全量长度，环形回绕修正不受影响。
+            tail = pm.renderables[-self.dom_max_chunks:]
+            html = self.render_cached(tail)
             self.reset()
             self.extend(html)
             while True:

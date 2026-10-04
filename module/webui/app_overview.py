@@ -132,6 +132,20 @@ def _export_today_js(instance: str) -> str:
     )
 
 
+# 总览页日志容器角标的本地版本号。本地 commit 在 WebUI 进程生命周期内
+# 不变（更新流程要求重启生效），进程级缓存后切回总览零开销，也不再每
+# 60s（Updater.COMMIT_CACHE_TTL 过期）付一次 git 子进程冷启动（Windows 上
+# 数百 ms，正好卡在总览渲染路径上）。
+_LOCAL_COMMIT_CACHE: tuple | None = None
+
+
+def _local_commit_version() -> tuple:
+    global _LOCAL_COMMIT_CACHE
+    if _LOCAL_COMMIT_CACHE is None:
+        _LOCAL_COMMIT_CACHE = updater.get_commit(short_sha1=True)
+    return _LOCAL_COMMIT_CACHE
+
+
 class OverviewMixin(WebUIMixinBase):
     """WebUI实例概览和守护模式"""
 
@@ -350,7 +364,7 @@ class OverviewMixin(WebUIMixinBase):
                     ),
                 )
             # version
-            local_commit = updater.get_commit(short_sha1=True)
+            local_commit = _local_commit_version()
             version = local_commit[0] if local_commit and local_commit[0] else "Unknown"
             put_scope("log-container", [put_scope("log", [put_html("")])]).style(
                 f"--version: 'Ver.{version}';"

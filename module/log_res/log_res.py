@@ -18,7 +18,6 @@ Dashboard 数据结构：
 
 # 此文件实现了资源变动的记录与同步功能。
 # 当各项资源数值（如石油、魔方等）发生变化时，负责更新配置文件中对应的 Dashboard 项及记录时间戳。
-from cached_property import cached_property
 from module.logger import logger
 from module.config.deep import deep_get
 from datetime import datetime
@@ -26,6 +25,12 @@ from datetime import datetime
 
 # config 模板中 Dashboard.<资源>.Record 的初始值，表示该资源从未被记录过
 _RECORD_INIT = '2020-01-01 00:00:00'
+
+# dashboard.yaml 是随包分发的参数定义，进程生命周期内不变。groups 是高频
+# 读取（总览每次首显、仪表盘每 10s 刷新各一次，实测每次 ~12ms 读盘+解析），
+# 而调用方每次都新建 LogRes 实例，cached_property 的实例级缓存从不复用，
+# 因此提升为进程级缓存。返回共享只读 dict，调用方不得修改。
+_DASHBOARD_GROUPS: dict | None = None
 
 
 class LogRes:
@@ -159,10 +164,16 @@ class LogRes:
 
     def group(self, name):
         return deep_get(self.config.data, f'Dashboard.{name}')
-    @cached_property
+
+    @property
     def groups(self) -> dict:
-        from module.config.utils import read_file, filepath_argument
-        return deep_get(d=read_file(filepath_argument("dashboard")), keys='Dashboard')
+        global _DASHBOARD_GROUPS
+        if _DASHBOARD_GROUPS is None:
+            from module.config.utils import read_file, filepath_argument
+            _DASHBOARD_GROUPS = deep_get(
+                d=read_file(filepath_argument("dashboard")), keys='Dashboard'
+            )
+        return _DASHBOARD_GROUPS
 
     """
     def log_res(self, name, modified: dict, update=True):

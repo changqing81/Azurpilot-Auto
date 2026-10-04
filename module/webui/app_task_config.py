@@ -74,26 +74,26 @@ class TaskConfigMixin(WebUIMixinBase):
     # 小任务页维持全量渲染，不增加交互成本。
     CONFIG_LAZY_GROUP_THRESHOLD = 48
 
-    @use_scope("menu", clear=True)
     def alas_set_menu(self) -> None:
         """渲染任务菜单及配置搜索入口。"""
-        # 如果菜单和搜索入口已渲染且数据未变，仅调用 alas_overview 更新概览，
-        # 跳过重建数百个 put_button 和数千条搜索索引。
-        data_sig = (id(self.ALAS_MENU), id(self.ALAS_ARGS), lang.LANG, self.alas_name)
-        if getattr(self, "_menu_rendered", False):
-            if getattr(self, "_menu_data_sig", None) == data_sig:
-                # 数据未变时不重建菜单，但 @use_scope("menu", clear=True) 已清空，
-                # 需要重新渲染菜单项，否则菜单会消失。
-                self._render_task_menu_items()
-                self.alas_overview()
-                return
-        self._menu_data_sig = data_sig
-
-        put_scope("task_config_search")
-        put_scope("task_config_search_results")
-        put_scope("task_config_menu_items")
-        self._render_config_search_control()
-        self._render_task_menu_items()
+        # 结构签名不含实例名：ALAS_MENU/ALAS_ARGS 是按 mod 缓存的共享数据，
+        # 菜单内容与具体实例无关，按钮的 onclick 是会话级回调 id、点击时
+        # 用的是当前实例。结构未变且已渲染时菜单 DOM 原样保留，切实例从
+        # 「clear + 重建数百个 put_button」降为零重建，只刷新概览。
+        struct_sig = (id(self.ALAS_MENU), id(self.ALAS_ARGS), lang.LANG)
+        if (
+            getattr(self, "_menu_rendered", False)
+            and getattr(self, "_menu_struct_sig", None) == struct_sig
+        ):
+            self.alas_overview()
+            return
+        with use_scope("menu", clear=True):
+            put_scope("task_config_search")
+            put_scope("task_config_search_results")
+            put_scope("task_config_menu_items")
+            self._render_config_search_control()
+            self._render_task_menu_items()
+        self._menu_struct_sig = struct_sig
         self._menu_rendered = True
         self.alas_overview()
 
