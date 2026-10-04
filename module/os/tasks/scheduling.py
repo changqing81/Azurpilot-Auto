@@ -1543,12 +1543,18 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             f'剩余 {buy_limit - current_count} 次'
         )
 
-        if self._is_buy_action_point_hazard1_mode():
-            return self._run_buy_ap_hazard1_loop(buy_limit)
-        elif self._is_buy_action_point_meowfficer_mode():
-            return self._run_buy_ap_meowfficer_loop(buy_limit)
-
-        return False
+        # 买行动力模式期间禁止使用行动力箱子：只允许石油购买行动力（石油优先），
+        # 行动力缺口由 handle_action_point 抛 ActionPointLimit 交回主循环做中央购买；
+        # 模式结束（含异常退出）后恢复，交由正常调度按原规则使用箱子。
+        self._os_ap_box_forbidden = True
+        try:
+            if self._is_buy_action_point_hazard1_mode():
+                return self._run_buy_ap_hazard1_loop(buy_limit)
+            elif self._is_buy_action_point_meowfficer_mode():
+                return self._run_buy_ap_meowfficer_loop(buy_limit)
+            return False
+        finally:
+            self._os_ap_box_forbidden = False
 
     def _run_buy_ap_hazard1_loop(self, buy_limit):
         """

@@ -690,12 +690,23 @@ class ActionPointHandler(UI, MapEventHandler):
                 '存在未确认的行动力 USE，禁止购买；'
                 f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
             )
+        buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
+        # 智能调度实例的持久化计数已确认购满时，不再点击石油查看剩余次数（多余交互），
+        # 直接按已达上限处理；跨周重置由 _get_buy_action_point_count 内部完成。
+        # 非智能调度实例（无计数器方法）保持原 OCR 核对流程。
+        if hasattr(self, '_get_buy_action_point_count'):
+            stored_count = self._get_buy_action_point_count()
+            if buy_limit <= 0 or stored_count >= min(buy_limit, 5):
+                logger.info(
+                    f'[大世界-行动点] 本地计数已购 {stored_count} 次'
+                    f'（上限 {buy_limit}），跳过石油查看，不再购买'
+                )
+                return False
         if not self.action_point_set_button(0):
             raise RequestHumanTakeover('无法选择石油购买行动力，禁止点击 USE')
         current = self.action_point_get_buy_remain()
         buy_max = 5  # 当前版本中，玩家每周可购买 5 次行动力
         buy_count = buy_max - current
-        buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
         # 注：BuyActionPointLimit <= 0 表示用户选择不购买（由调用方的 >0 条件拦截），
         # 不再做「临时覆盖残留」恢复——残留自愈由智能调度入口凭状态备份完成。
         if self._is_in_month_end_purchase_block_week():
@@ -811,6 +822,17 @@ class ActionPointHandler(UI, MapEventHandler):
             # 如果是，则跳过使用药剂
             if self._action_point_total < cost:
                 logger.info('[大世界-行动点] 行动点不足')
+                self.action_point_quit()
+                raise ActionPointLimit(
+                    current=self._action_point_current,
+                    total=self._action_point_total,
+                    cost=cost,
+                )
+
+            # 买行动力模式期间禁止使用行动力箱子：只允许石油购买行动力，
+            # 行动力缺口抛 ActionPointLimit 交回买行动力主循环做中央购买
+            if getattr(self, '_os_ap_box_forbidden', False):
+                logger.info('[大世界-行动点] 买行动力模式期间禁止使用箱子，交回购买步骤')
                 self.action_point_quit()
                 raise ActionPointLimit(
                     current=self._action_point_current,
