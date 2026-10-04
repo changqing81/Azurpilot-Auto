@@ -13399,10 +13399,6 @@
       "ActionPointLedgerEnabled": {
         "type": "checkbox",
         "value": false
-      },
-      "ActionPointLedgerTopUpCeiling": {
-        "type": "input",
-        "value": 320
       }
     },
     "Storage": {

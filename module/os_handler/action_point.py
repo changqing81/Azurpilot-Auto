@@ -503,7 +503,7 @@ class ActionPointHandler(UI, MapEventHandler):
             logger.exception('[AP账本] 顶栏记录失败')
         return value
 
-    def need_action_point_popup(self, cost, preserve=0, top_up_ceiling=None):
+    def need_action_point_popup(self, cost, preserve=0):
         """判定是否需要打开行动力弹窗。
 
         - 账本关闭时恒返回 True，行为与现状完全一致；
@@ -521,7 +521,7 @@ class ActionPointHandler(UI, MapEventHandler):
         ledger = self._get_ap_ledger()
         if ledger is None:
             return True
-        return ledger.need_popup(cost, preserve=preserve, top_up_ceiling=top_up_ceiling)
+        return ledger.need_popup(cost, preserve=preserve)
 
     def action_point_safe_get(self):
         """

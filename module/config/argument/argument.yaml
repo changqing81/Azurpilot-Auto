@@ -1206,9 +1206,6 @@ OpsiGeneral:
   # 关闭后回退旧行为：不读顶栏，每次决策读与开工检查都弹行动力弹窗校准。
   # 默认关闭，验证稳定后可手动开启。
   ActionPointLedgerEnabled: false
-  # 进攻塞壬要塞前补充行动力时，总行动力（含箱）最多补充到该值，
-  # 防止无意义开箱。仅对要塞生效。
-  ActionPointLedgerTopUpCeiling: 320
 OpsiAshBeacon:
   AttackMode:
     value: current

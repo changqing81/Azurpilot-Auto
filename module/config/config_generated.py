@@ -623,7 +623,6 @@ class GeneratedConfig:
     OpsiGeneral_AutoSearchTimeLimit = 5
     OpsiGeneral_SkipStrategicSearchCheck = False
     OpsiGeneral_ActionPointLedgerEnabled = False
-    OpsiGeneral_ActionPointLedgerTopUpCeiling = 320
 
     # 配置组 `OpsiAshBeacon`
     OpsiAshBeacon_AttackMode = 'current'  # current, current_dossier, current_dossier_only

@@ -3331,10 +3331,6 @@
     "ActionPointLedgerEnabled": {
       "name": "Action point ledger",
       "help": "Automatically reads the top-bar action points (next to MAX) inside Operation Siren zones and records the current AP and total AP (incl. boxes). Tasks read the ledger directly instead of repeatedly opening the AP popup; the refill popup only appears when the recorded AP falls below the requirement. When disabled, falls back to the old behavior: every decision read and start check opens the AP popup to read the real value."
-    },
-    "ActionPointLedgerTopUpCeiling": {
-      "name": "Stronghold top-up ceiling",
-      "help": "When replenishing before a Siren Stronghold, total action points (including boxes) are topped up to at most this value. Only applies to strongholds."
     }
   },
   "OpsiAshBeacon": {

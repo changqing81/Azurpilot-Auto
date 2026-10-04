@@ -96,10 +96,6 @@ class TestNeedPopup(unittest.TestCase):
         # 总行动力会被保留值拦截：即使当前值够开工也弹窗（走 ActionPointLimit 正常延后）
         self.assertTrue(self.make(130, 180).need_popup(cost=120, preserve=200))
 
-    def test_top_up_ceiling(self):
-        self.assertTrue(self.make(500, 500).need_popup(cost=800, top_up_ceiling=320))
-        self.assertFalse(self.make(158, 1158).need_popup(cost=120, top_up_ceiling=320))
-
 
 class TestSanitizeMapBarValue(unittest.TestCase):
     def test_ok(self):

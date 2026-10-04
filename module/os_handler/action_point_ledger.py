@@ -94,21 +94,16 @@ class ActionPointLedger:
 
     # -------------------- 判定 --------------------
 
-    def need_popup(self, cost, preserve=0, top_up_ceiling=None):
+    def need_popup(self, cost, preserve=0):
         """判定是否需要打开行动力弹窗：账本记录值 vs 任务所需。
 
         Args:
             cost (int): 任务所需行动力（开工线，当前行动力需达到该值）。
             preserve (int): 保留值（含箱总行动力不许低于该值，沿用各任务现状）。
-            top_up_ceiling (int | None): 补充上限（仅要塞 320），由补充循环消费；
-                开工线超过该值时直接按弹窗处理。
 
         Returns:
             bool: True = 需要弹窗（读真值或补充）；False = 账本记录够用，直接开工。
         """
-        if top_up_ceiling is not None and cost > top_up_ceiling:
-            logger.warning(f'[AP账本] 开工线 {cost} 超过补充上限 {top_up_ceiling}，按弹窗处理')
-            return True
         if self.current is None:
             # 账本还没有任何记录，无从判定
             return True
