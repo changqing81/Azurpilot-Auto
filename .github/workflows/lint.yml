@@ -16,8 +16,13 @@ jobs:
         uses: actions/setup-python@v7
         with:
           python-version: '3.14'
+      # pyproject 里的国内 PyPI 镜像从海外 runner 访问经常超时（cernet/hust
+      # 反复把 uv sync 卡死）。CI 统一走官方 PyPI：临时删掉镜像 index 行，
+      # 本地用户不受影响（仓库内 pyproject 原样保留）。
       - name: Install dependencies
-        run: uv sync
+        run: |
+          sed -i '/mirrors\.aliyun\.com/d;/mirrors\.cloud\.tencent\.com/d;/repo\.huaweicloud\.com/d;/mirrors\.cernet\.edu\.cn/d' pyproject.toml
+          uv sync
       - name: Run ruff
         run: uv run ruff check . --select E9,F63,F7,F82 --ignore F821,F722
 
@@ -35,13 +40,17 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install dependencies
-        run: uv sync --no-dev
+        run: |
+          sed -i '/mirrors\.aliyun\.com/d;/mirrors\.cloud\.tencent\.com/d;/repo\.huaweicloud\.com/d;/mirrors\.cernet\.edu\.cn/d' pyproject.toml
+          uv sync --no-dev
       - name: Run button_extract
         run: uv run -m dev_tools.button_extract
       - name: Run config_updater
         run: uv run -m module.config.config_updater
       - name: Check for differences
         run: |
+          # 还原依赖安装阶段对 pyproject 的临时修改，避免污染产物 diff 检查
+          git checkout -- pyproject.toml
           git diff --exit-code
 
   call-signature-audit:
@@ -70,6 +79,8 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install dependencies
-        run: uv sync
+        run: |
+          sed -i '/mirrors\.aliyun\.com/d;/mirrors\.cloud\.tencent\.com/d;/repo\.huaweicloud\.com/d;/mirrors\.cernet\.edu\.cn/d' pyproject.toml
+          uv sync
       - name: Run unittest
         run: uv run python -m unittest discover -s tests
