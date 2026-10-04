@@ -400,11 +400,16 @@ class OverviewMixin(WebUIMixinBase):
         # 线程里同步跑一遍。本函数持有 render_lock，后台首跑会先等锁、待本函数
         # 返回后才写 scope，因此不会产生孤儿容器；同时切页也不必再等 dashboard
         # 的 12 次全量重建（切总览曾因此平均 3.4s、峰值 10.3s）。
-        self.task_handler.add(self.alas_update_overview_task, 10, True, group="slow")
+        # 15s 而非 10s：任务 next_run 与资源值都是分钟级变化，高频周期重建
+        # 只会白添前端 DOM 应用压力（高级材质下尤其明显）。
+        self.task_handler.add(self.alas_update_overview_task, 15, True, group="slow")
         if "Maa" not in self.ALAS_ARGS:
-            self.task_handler.add(self.alas_update_dashboard, 10, True, group="slow")
+            self.task_handler.add(self.alas_update_dashboard, 15, True, group="slow")
         if hasattr(self, "alas") and self.alas is not None:
-            self.task_handler.add(log.put_log(self.alas), 0.25, True)
+            # 0.5s 而非更高频：日志 append 是前端主线程的最高频输入源，
+            # 高级材质下每次 append 都伴随样式重算，频率过高会把主线程
+            # 打满、用户切页指令排队（实测 0.25s 时长任务约占主线程 40%）。
+            self.task_handler.add(log.put_log(self.alas), 0.5, True)
 
     def set_dashboard_display(self, b):
         self._log.set_dashboard_display(b)
@@ -574,4 +579,4 @@ class OverviewMixin(WebUIMixinBase):
         if switch_log_scroll is not None:
             self.task_handler.add(switch_log_scroll.g(), 1, True)
         if show_log_content and hasattr(self, "alas") and self.alas is not None:
-            self.task_handler.add(log.put_log(self.alas), 0.25, True)
+            self.task_handler.add(log.put_log(self.alas), 0.5, True)

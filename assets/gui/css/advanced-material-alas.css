@@ -40,6 +40,9 @@ html:root {
 	--alas-apple-bg-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
 	--alas-apple-card-bg: rgba(255, 255, 255, 0.72);
 	--alas-apple-card-bg-solid: #ffffff;
+	/* 日志区实底：日志禁用 backdrop-filter 后用高不透明底保文字对比度。
+	   暗色主题在 dark-advanced-material-overrides-alas.css 里覆盖此变量。 */
+	--alas-log-bg: rgba(255, 255, 255, 0.93);
 	--alas-apple-glass-border: rgba(255, 255, 255, 0.4);
 	--alas-apple-text: #1d1d1f;
 	--alas-apple-text-secondary: #86868b;
@@ -431,7 +434,12 @@ body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
    5. 卡片样式
    ========================================== */
 
-/* 通用卡片样式 */
+/* 通用卡片样式。
+   日志区（#pywebio-scope-log / .container-log）刻意不在本组：它是全页
+   更新频率最高的区域（日志每秒增量 append），backdrop-filter 会让每次
+   内容变更都伴随昂贵的模糊层合成，且日志卡片做入场动画时每帧都要重新
+   采样背景 —— 实测是「来回切页卡死」的最大单项来源。日志区在下方
+   「10. 日志区域」走实底 + contain 隔离的轻量样式。 */
 [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(#pywebio-scope-aside):not(#pywebio-scope-navigator),
 #pywebio-scope-running,
 #pywebio-scope-pending,
@@ -440,8 +448,6 @@ body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
 #pywebio-scope-stat-bar,
 #pywebio-scope-image-container,
 #pywebio-scope-log-bar,
-#pywebio-scope-log,
-.container-log,
 #pywebio-scope-groups>*:not(#pywebio-scope-navigator) {
 	background-color: var(--alas-apple-card-bg) !important;
 	backdrop-filter: blur(16px) saturate(180%);
@@ -480,11 +486,14 @@ body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
 	transition: box-shadow var(--ease-spring-normal), transform var(--ease-spring-fast) !important;
 }
 
-/* --- 5.1 日志区域专项适配 --- */
+/* --- 5.1 日志区域专项适配 ---
+   日志是全页更新频率最高的区域：不用 backdrop-filter（高频内容变更叠加
+   模糊合成是切页卡死的最大单项来源），改用高不透明度实底近似毛玻璃观感；
+   contain 把每次日志 append 的重排/重绘锁死在容器内部，不再波及全页。 */
 .container-log {
-	background-color: rgba(255, 255, 255, 0.85) !important;
-	backdrop-filter: blur(10px) saturate(150%) !important;
-	-webkit-backdrop-filter: blur(10px) saturate(150%) !important;
+	background-color: var(--alas-log-bg) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
 	border: 1px solid rgba(255, 255, 255, 0.5) !important;
 	border-radius: var(--radius-lg) !important;
 	display: block !important;
@@ -493,6 +502,7 @@ body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
 	margin: 10px !important;
 	min-height: 240px !important;
 	box-shadow: var(--alas-apple-shadow-lg) !important;
+	contain: layout paint style;
 }
 
 #pywebio-scope-log div,
@@ -600,6 +610,27 @@ body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
 /* ==========================================
    6. 按钮样式
    ========================================== */
+
+/* 高频小元素不做模糊：页面上按钮/输入框数量远多于卡片，每个
+   backdrop-filter 都是一次独立的模糊层采样，样式重算与合成成本随
+   数量线性叠加（实测 78 个 blur 元素时前端主线程被长任务占满）。
+   卡片本身已带模糊，按钮直接继承卡片背景即可，视觉几乎无差。 */
+button,
+input,
+select,
+textarea,
+.btn,
+.form-control {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
+
+/* 任务列表是 dashboard 周期刷新的重绘热点，contain 把重排锁在列表内 */
+#pywebio-scope-running,
+#pywebio-scope-pending,
+#pywebio-scope-waiting {
+	contain: layout paint style;
+}
 
 /* 通用按钮 */
 .btn:not(.btn-aside):not(.btn-menu) {
@@ -1388,14 +1419,15 @@ details[open]>summary::after {
 #pywebio-scope-log {
 	font-family: 'JetBrains Mono NL', monospace !important;
 	font-size: 13px !important;
-	background-color: var(--alas-apple-card-bg) !important;
-	backdrop-filter: blur(20px) saturate(180%) !important;
-	-webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+	background-color: var(--alas-log-bg) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
 	border: 1px solid var(--alas-apple-glass-border) !important;
 	border-radius: var(--radius-lg) !important;
 	padding: 20px !important;
 	line-height: 1.6;
 	box-shadow: var(--alas-apple-shadow-md) !important;
+	contain: layout paint style;
 }
 
 /* ==========================================
@@ -1450,13 +1482,14 @@ details[open]>summary::after {
 
 /* 淡入上滑动画 */
 @keyframes ios-slide-up {
+	/* 只做淡入，不做 translateY 位移：带 backdrop-filter 的卡片做位移动画
+	   时每帧都要重新采样背景模糊，切页时十几个卡片同时入场会形成
+	   长任务风暴（实测占满主线程、切页响应拖到数秒）。 */
 	0% {
-		transform: translateY(20px);
 		opacity: 0;
 	}
 
 	100% {
-		transform: translateY(0);
 		opacity: 1;
 	}
 }
