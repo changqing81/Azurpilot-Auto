@@ -67,6 +67,34 @@ class TestRenderLockBasics(unittest.TestCase):
         lock.release()
         self.assertTrue(second.wait(2))
 
+    def test_context_manager_protocol(self):
+        # app_manage 的菜单回调用 `with gui.render_lock:`：锁必须支持
+        # 上下文管理器协议，with 内抛异常也要正常放锁
+        lock = _RenderLock()
+        with lock as acquired:
+            self.assertIs(acquired, lock)
+        got = threading.Event()
+        threading.Thread(target=lambda: (lock.acquire(), got.set(), lock.release())).start()
+        self.assertTrue(got.wait(2), "with 退出后锁必须已释放")
+
+    def test_context_manager_releases_on_exception(self):
+        lock = _RenderLock()
+        with self.assertRaises(ValueError):
+            with lock:
+                raise ValueError("boom")
+        got = threading.Event()
+        threading.Thread(target=lambda: (lock.acquire(), got.set(), lock.release())).start()
+        self.assertTrue(got.wait(2), "with 内抛异常后锁必须已释放")
+
+    def test_context_manager_reentrant(self):
+        lock = _RenderLock()
+        with lock:
+            with lock:
+                pass
+        got = threading.Event()
+        threading.Thread(target=lambda: (lock.acquire(), got.set(), lock.release())).start()
+        self.assertTrue(got.wait(2), "嵌套 with 退出后锁必须释放干净")
+
 
 class TestInteractivePriority(unittest.TestCase):
     """核心语义：用户回调是下一个拿锁的，后台任务让位。"""

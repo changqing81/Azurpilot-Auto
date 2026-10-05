@@ -84,6 +84,16 @@ class _RenderLock:
                 self._owner = None
                 self._cond.notify_all()
 
+    def __enter__(self) -> "_RenderLock":
+        # 直接 `with self.render_lock:` 的调用点（app_manage 各菜单回调）
+        # 都在用户会话线程，默认交互优先；后台任务应经 render_locked
+        # 装饰器进入，由线程身份自动判别 is_background。
+        self.acquire()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        self.release()
+
 
 def _current_is_background_task(gui) -> bool:
     """当前线程是否正在执行 TaskHandler 注册的后台任务。
