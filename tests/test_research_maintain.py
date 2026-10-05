@@ -8,7 +8,7 @@
 import unittest
 from contextlib import ExitStack
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from module.config.config import AzurLaneConfig, name_to_function
 from module.config.time_source import now as current_time
@@ -19,9 +19,16 @@ from module.research.research import (RESEARCH_MAINTAIN_LEAD_MINUTES,
 
 
 def make_config(**groups):
-    """使用真实更新和绑定流程，全程在内存中操作配置。"""
+    """使用真实更新和绑定流程，全程在内存中操作配置。
+
+    write_file 必须拦截：fixture 的配置名是真实存在的 'template'，
+    若放行 save() 会把重算后的 Research.NextRun 写回 config/template.json
+    污染工作区（历史实测：每跑一次本文件，template.json 被改写一次，
+    NextRun 被刷成 now + RESEARCH_MAINTAIN_RETRY_MINUTES）。
+    """
     config = AzurLaneConfig('template')
     config.auto_update = False
+    config.write_file = Mock()
     config.data = config.config_update({'Research': groups})
     config.bind('Research')
     config.task = name_to_function('Research')
