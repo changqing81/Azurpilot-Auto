@@ -624,10 +624,12 @@ class OpsiExportMixin(WebUIMixinBase):
     def _meow_strip_chip_html(self, key, name, color, icon_name, inner):
         """合计条单个 chip：button 包图标 + 内容（数量或类别名）。
 
-        根元素必须是 <button> 而不是 <span>：合计条挂在折叠块的 <summary>
-        行里，span 的点击会冒泡触发 summary 激活行为（整块折叠/展开）；浏览
-        器对 summary 内的交互元素（button 等）豁免切换。type="button" 防止
-        表单提交语义。
+        合计条挂在折叠块的 <summary> 行里，点击 chip 时事件会冒泡到 summary
+        触发激活行为（实测 Chrome 会把整块折叠/展开，用户被折走一回了——
+        「summary 内交互元素豁免切换」的假设不成立），所以 button 上内联
+        preventDefault + stopPropagation 把 toggle 掐掉；pywebio 绑在元素
+        自身的 jQuery 点击回调不受影响（同一元素上的其他监听器照常执行）。
+        内联属性能落地是因为 put_html 默认不 sanitize、应用也没设 CSP。
         """
         if getattr(self, "_meow_item_filter", None) == key:
             hint = t("Gui.Stat.MeowLootStripActiveHint")
@@ -641,6 +643,7 @@ class OpsiExportMixin(WebUIMixinBase):
         style = f' style="{state_style}"' if state_style else ""
         return (
             f'<button type="button" class="meow-loot-strip-item" '
+            f'onclick="event.preventDefault();event.stopPropagation()" '
             f'title="{html_escape(f"{name} · {hint}")}"{style}>'
             f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
             f"{self._meow_loot_icon_html(icon_name, color, 'strip')}"
