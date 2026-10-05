@@ -217,7 +217,13 @@ class OpsiExportMixin(WebUIMixinBase):
     # Output，借 put_widget 模板 + pywebio_output_parse 渲染（与
     # OpsiStatisticsMixin.MEOW_COLLAPSE_TPL 同款做法）。模板渲染出的 DOM 与
     # 旧版整条 HTML 串一致（同一 class 体系），只是合计项多了点击回调。
-    MEOW_STRIP_TPL = """<div class="meow-loot-strip">
+    # 根 div 的内联 handler 把条内所有点击（chip 之间的缝隙、右侧空白、收获
+    # 合计标题）挡在 summary 激活行为之外——合计条挂在折叠块的 <summary> 行
+    # 里，否则瞄准 chip 时点到缝隙就会把整块折叠/展开（用户实测 2026-10-04）。
+    # ⚠️ 必须 preventDefault：实测 stopPropagation 拦不住 summary 的 toggle
+    # （激活行为只在事件被取消时跳过，冒泡拦截无效）；stopPropagation 顺带
+    # 防 summary/details 祖先上的其他监听器。开合只留给「大世界收获」标题。
+    MEOW_STRIP_TPL = """<div class="meow-loot-strip" onclick="event.preventDefault();event.stopPropagation()">
         <span class="meow-loot-strip-title">{{title}}</span>
         {{#chips}}
             {{& pywebio_output_parse}}

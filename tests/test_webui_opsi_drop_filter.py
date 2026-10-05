@@ -241,6 +241,8 @@ class OpsiDropFilterTest(unittest.TestCase):
         template, data = put_widget.call_args[0]
         self.assertIn("meow-loot-strip", template)
         self.assertIn("pywebio_output_parse", template)
+        # 条内容器要挡掉点击冒泡：缝隙/空白误点不得触发 summary 开合
+        self.assertIn("event.stopPropagation()", template)
         self.assertEqual(data["title"], "Gui.Stat.MeowLootTitleHistory")
         self.assertEqual(len(data["chips"]), 7)
 
