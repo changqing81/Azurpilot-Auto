@@ -460,6 +460,21 @@ class CoinTaskMixin:
         """仅在至少一个通知渠道发送成功后记录成功时间。"""
         setattr(self.config, key, current_time())
     
+    def _resolve_notify_ap_total(self):
+        """推送用的总行动力：账本（恒含箱）优先，兜底本轮读数。
+
+        账本开启后大量轮次走「顶栏 OCR + 账本记录」快路径跳过弹窗
+        （ap_checked=True），而 _action_point_total 只在 action_point_update()
+        里赋值，未弹窗时保持类属性默认 0——直接拿它推送会发出
+        「总行动力: 0 下跌 X」的假信号，还会把 0 写进对比基准，
+        让下一次推送显示成「上涨几千」的假暴涨。
+        """
+        if self._ap_ledger_enabled():
+            ledger = self._get_ap_ledger()
+            if ledger is not None and ledger.total_with_box is not None:
+                return int(ledger.total_with_box)
+        return int(getattr(self, '_action_point_total', 0) or 0)
+
     def check_and_notify_action_point_threshold(self):
         """
         发送行动力变化推送通知。
@@ -467,8 +482,13 @@ class CoinTaskMixin:
         """
         if not hasattr(self, '_action_point_total'):
             return
-            
-        total_ap = self._action_point_total
+
+        total_ap = self._resolve_notify_ap_total()
+        if total_ap <= 0:
+            # 读数无效（OCR 失败 / 本轮未读到）：宁可漏推一次，
+            # 也不能把 0 当真值推送并污染下次推送的对比基准
+            logger.info('[大世界-智能调度+] 行动力读数无效(<=0)，跳过推送通知')
+            return
 
         instance_name = getattr(self.config, 'config_name', 'default')
         # AP 快照由各任务模块自行管理（如 _record_ap_and_coins），此处仅保留推送逻辑。

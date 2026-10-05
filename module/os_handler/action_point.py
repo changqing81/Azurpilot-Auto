@@ -490,6 +490,23 @@ class ActionPointHandler(UI, MapEventHandler):
             return None
         try:
             ledger.observe(value, source=SOURCE_MAP_BAR)
+            # 本轮实例的行动力属性同步：跳过弹窗的轮次不会走 action_point_update()，
+            # 若不在这里刷新，_action_point_total 会停留在类属性默认 0，
+            # 导致行动力推送发出「总行动力: 0」，且最低保留检查误判行动力不足而推迟任务。
+            self._action_point_current = int(value)
+            if ledger.total_with_box is not None:
+                total_with_box = int(ledger.total_with_box)
+                self._action_point_total_with_box = total_with_box
+                # 与 action_point_update() 同一口径：含箱开关关闭时总行动力不含箱
+                self._action_point_total = (
+                    total_with_box
+                    if getattr(self.config, 'OS_ACTION_POINT_BOX_USE', False)
+                    else int(value)
+                )
+            else:
+                # 含箱总量未知（从没弹过窗）：至少不让本轮属性停在 0；
+                # need_popup 会因总量未知强制弹窗补齐，不会长期停留在这个分支
+                self._action_point_total = int(value)
             # 同步总览显示（Dashboard.ActionPoint，与弹窗口径一致）。
             # 直接写显示键而非 LogRes：行动力趋势快照与统计不混入顶栏读数
             self.config.modified['Dashboard.ActionPoint.Value'] = int(value)

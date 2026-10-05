@@ -45,6 +45,12 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
     def _cl1_ap_check(self):
         """最低行动力保留检查"""
         min_reserve = self.config.OS_ACTION_POINT_PRESERVE
+        if self._action_point_total <= 0:
+            # 读数无效（OCR 失败 / 本轮未读数）：读不到不等于不足，
+            # 否则会把 0 当成行动力判断，误推迟侵蚀 1 任务 50 分钟
+            logger.warning("[大世界-侵蚀1练级] 行动力读数无效(<=0)，跳过最低保留检查")
+            self.config.OpsiHazard1_PreviousApInsufficient = False
+            return
         if self._action_point_total < min_reserve:
             logger.warning(
                 f"行动力低于最低保留 ({self._action_point_total} < {min_reserve})"
