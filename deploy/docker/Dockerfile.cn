@@ -9,7 +9,7 @@ ENV PATH=/app/AzurLaneAutoScript/.venv/bin:${PATH}
 WORKDIR /app/AzurLaneAutoScript
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock* ./
 
 RUN echo "\
 deb https://mirrors.aliyun.com/debian/ bookworm main non-free contrib\n\
@@ -25,7 +25,7 @@ deb-src https://mirrors.aliyun.com/debian/ bookworm-updates main non-free contri
  && ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
  && echo 'Asia/Shanghai' > /etc/timezone \
  && uv venv --relocatable --python /usr/local/bin/python .venv \
- && uv sync --frozen --no-dev --no-install-project \
+ && uv sync --no-dev --no-install-project \
  && cp /usr/local/bin/uv .venv/bin/uv \
  && cp /usr/bin/adb .venv/bin/adb \
  && cp /usr/bin/git .venv/bin/git \

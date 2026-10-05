@@ -22,7 +22,7 @@ ENV PATH=/app/AzurPilot/.venv/bin:${PATH}
 WORKDIR /app/AzurPilot
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml uv.lock* ./
 
 RUN if [ -n "$HTTP_PROXY" ]; then \
     printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$HTTP_PROXY" "$HTTPS_PROXY" > /etc/apt/apt.conf.d/99proxy; \
@@ -46,7 +46,7 @@ RUN git config --global --add safe.directory '*' && \
     fi
 
 RUN uv venv --relocatable --python /usr/local/bin/python .venv && \
-    uv sync --frozen --no-dev --no-install-project && \
+    uv sync --no-dev --no-install-project && \
     cp /usr/local/bin/uv .venv/bin/uv && \
     cp /usr/bin/adb .venv/bin/adb && \
     cp /usr/bin/git .venv/bin/git && \
