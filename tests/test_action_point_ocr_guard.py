@@ -117,6 +117,36 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         self.assertEqual(modified['Dashboard.ActionPoint.Total'], 844)
         self.assertIn('Dashboard.ActionPoint.Record', modified)
 
+    def test_map_bar_refreshes_handler_ap_attributes(self):
+        # 回归（2026-10-05 真机日志定位）：账本跳过弹窗的轮次不走
+        # action_point_update()，_action_point_total 会停留在类属性默认 0，
+        # 推送发出「总行动力: 0 下跌 2470」，下一次又假装「上涨 2794」。
+        # 顶栏记录成功时必须同时刷新本轮的行动力属性。
+        handler, ap_module = self.make_handler()
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
+            handler.ap_observe_from_map_bar()
+        self.assertEqual(handler._action_point_current, 158)
+        self.assertEqual(handler._action_point_total_with_box, 844)
+        # 桩 config 未开含箱开关：总行动力按不含箱口径（与 action_point_update 一致）
+        self.assertEqual(handler._action_point_total, 158)
+
+    def test_map_bar_total_includes_box_when_switch_on(self):
+        handler, ap_module = self.make_handler()
+        handler.config.OS_ACTION_POINT_BOX_USE = True
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
+            handler.ap_observe_from_map_bar()
+        self.assertEqual(handler._action_point_total, 844)
+
+    def test_garbage_reading_leaves_ap_attributes_untouched(self):
+        # 读数被门禁丢弃时不得写属性：否则又变回「用 0 冒充真值」
+        handler, ap_module = self.make_handler()
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=-1):
+            self.assertIsNone(handler.ap_observe_from_map_bar())
+        self.assertEqual(handler._action_point_total, 0)
+        self.assertEqual(handler._action_point_current, 0)
+
     def test_unknown_total_with_preserve_forces_popup(self):
         # 场景还原（2026-10-03 18:46 真机）：账本空、顶栏读到 171——
         # 当前值够开工（171>=120），但保留值需要含箱总量，未知 → 弹一次窗建立；
