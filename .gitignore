@@ -19,6 +19,7 @@ dev_tools/debug_tools
 /campaign/test/
 /toolkit
 *.lock
+!/uv.lock
 config/reloadflag
 config/reloadalas
 config/webui-dependency-sync-pending

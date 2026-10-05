@@ -1,0 +1,100 @@
+name: Docker Publish
+
+# 每次 master 更新构建并发布预构建镜像到 ghcr.io，
+# Docker 用户 docker compose pull 即可运行，无需本地解析依赖。
+# dev 分支不构建——发版（master 快进）才出镜像。
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  IMAGE: ghcr.io/changqing81/azurpilot-auto
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            suffix: amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            suffix: arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 与 lint.yml 同一策略：pyproject 里的国内 PyPI 镜像 index 从海外
+      # runner 访问会卡死（cernet/huwawei 反复超时），临时移除后统一走
+      # 官方 PyPI 生成锁文件。锁随构建上下文进入镜像，固化本次发布的
+      # 依赖版本——同一 tag 的所有用户拿到完全相同的依赖组合。
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          cache-dependency-glob: pyproject.toml
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Generate lockfile (official PyPI only)
+        run: |
+          sed -i '/mirrors\.aliyun\.com/d;/mirrors\.cloud\.tencent\.com/d;/repo\.huaweicloud\.com/d;/mirrors\.cernet\.edu\.cn/d' pyproject.toml
+          uv lock
+
+      - name: Build and push ${{ matrix.platform }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./deploy/docker/Dockerfile
+          platforms: ${{ matrix.platform }}
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}-${{ matrix.suffix }}
+          cache-from: type=gha,scope=build-${{ matrix.suffix }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.suffix }}
+
+  merge-manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create and push multi-arch manifest
+        run: |
+          docker buildx imagetools create \
+            -t $IMAGE:latest \
+            -t $IMAGE:master-${GITHUB_SHA} \
+            $IMAGE:${GITHUB_SHA}-amd64 \
+            $IMAGE:${GITHUB_SHA}-arm64
+        env:
+          GITHUB_SHA: ${{ github.sha }}

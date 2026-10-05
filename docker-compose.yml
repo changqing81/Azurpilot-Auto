@@ -1,14 +1,17 @@
 services:
     ALAS:
         container_name: "alas"
-        image: "alas:py314"
-        build:
-            context: .
-            dockerfile: ./deploy/docker/Dockerfile
-            # dockerfile: ./deploy/docker/Dockerfile.cn
-            args:
-                UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.org/simple}
-                UV_EXTRA_INDEX_URL: ${UV_EXTRA_INDEX_URL:-}
+        # 官方预构建镜像（推荐）：docker compose pull && docker compose up -d
+        image: "ghcr.io/changqing81/azurpilot-auto:latest"
+        # 本地构建（内网隔离 / 自定义依赖用户）：取消下面注释，然后
+        #   docker compose build --pull && docker compose up -d
+        # 若自行修改了依赖，请先在仓库根执行 `uv lock` 更新 uv.lock 再构建
+        # build:
+        #     context: .
+        #     dockerfile: ./deploy/docker/Dockerfile
+        #     args:
+        #         UV_INDEX_URL: ${UV_INDEX_URL:-https://pypi.org/simple}
+        #         UV_EXTRA_INDEX_URL: ${UV_EXTRA_INDEX_URL:-}
         network_mode: host
         restart: unless-stopped
         init: true

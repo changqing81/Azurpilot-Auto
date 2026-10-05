@@ -219,6 +219,39 @@ uv run python gui.py
 curl -fsSL https://alas.nanoda.work/install/deploy-image.sh | sudo -E bash
 ```
 
+### Docker 部署
+
+**方式一：拉取官方镜像（推荐）**——无需本地构建、无需解析依赖，镜像内依赖与发布时完全一致：
+
+```shell
+git clone https://github.com/changqing81/Azurpilot-Auto.git
+cd AzurPilot
+docker compose pull
+docker compose up -d
+```
+
+> 镜像发布于 `ghcr.io/changqing81/azurpilot-auto`，支持 amd64 / arm64 双架构。
+
+**方式二：本地构建**（内网隔离、自定义依赖等场景）：取消 `docker-compose.yml` 中 `build` 段的注释后：
+
+```shell
+docker compose build --pull
+docker compose up -d
+```
+
+- 若自行修改了依赖（`pyproject.toml`），请先在仓库根执行 `uv lock` 更新 `uv.lock` 再构建。
+- 仓库提交的 `uv.lock` 按官方 PyPI 源生成；国内网络构建时可改用 `deploy/docker/Dockerfile.cn`。
+
+⚠️ **更新必读**：`docker-compose.yml` 使用名为 `alas-venv` 的数据卷承载虚拟环境。更新源码或镜像后，**旧的虚拟环境不会自动更新**，必须重建数据卷：
+
+```shell
+docker compose down -v
+docker compose pull        # 本地构建改为 docker compose build --pull
+docker compose up -d
+```
+
+> `down -v` 只删除 `alas-venv` 卷（依赖环境），你的配置、日志、统计数据都在仓库目录里，不受影响。
+
 ## 重要说明
 
 - 本项目包含大量自动化逻辑和图像识别相关功能。使用前请确保已完成[游戏内设置](#使用前设置)，否则可能导致识别失败、流程异常或任务无法正常执行。

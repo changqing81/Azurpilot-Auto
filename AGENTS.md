@@ -23,7 +23,7 @@ alwaysApply: true
 
 - **Python >=3.14,<3.15**
 - **uv** 包管理器（项目模式，`package = false`）
-- **依赖安装**：`uv sync`。仓库**不提交锁文件**（`.gitignore` 忽略 `*.lock`），不要使用 `uv sync --frozen`（CI 上会因缺少 `uv.lock` 报错）
+- **依赖安装**：`uv sync`。仓库**提交 `uv.lock`**（按官方 PyPI 源生成，`.gitignore` 中 `!/uv.lock` 放开）。修改依赖（`pyproject.toml`）后**必须运行 `uv lock`** 更新锁文件并一并提交。CI 与 Docker 镜像构建统一走官方 PyPI（pyproject 的国内镜像 index 在 CI 中被临时移除），本地构建可用 `uv sync --frozen`
 - **运行时环境**：项目本地 `.venv/`
 - **不维护 `requirements*.txt`**——依赖在 `pyproject.toml` 中声明，版本直接钉死在 pyproject.toml
 
@@ -639,7 +639,7 @@ GitHub Actions：workflow 只有 `lint.yml`（`on: [push, pull_request]`），�
 
 注意事项：
 
-- 仓库不提交 `uv.lock`，workflow 使用 `uv sync`（**无** `--frozen`）
+- 仓库提交 `uv.lock`（官方 PyPI 源生成）；workflow 用 `uv sync`（无 `--frozen`），Docker 发布（docker-publish.yml）构建前 `uv lock` 重新生成锁并随镜像固化
 - actions 版本：`actions/checkout@v7`、`actions/setup-python@v7`、`astral-sh/setup-uv@v10.0.1`——新版 setup-uv **没有 `v10` 这类浮动 tag**，升级时必须钉完整版本号
 - 失败先看 `gh run view <run-id> --log-failed`
 
