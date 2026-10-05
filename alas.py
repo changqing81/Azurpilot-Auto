@@ -785,7 +785,7 @@ class AzurLaneAutoScript:
                 time.sleep(wait_seconds)
                 self.config.task_call('Restart')
                 return 'recoverable'
-        except RequestHumanTakeover:
+        except RequestHumanTakeover as e:
             self._last_task_error = 'RequestHumanTakeover'
             logger.error_context(
                 title='任务需要人工介入（将尝试自动恢复）',
