@@ -265,6 +265,91 @@ class ActionPointHandler(UI, MapEventHandler):
         if self._load_ap_use_pending() != pending:
             raise RequestHumanTakeover('行动力 USE 保护文件校验失败，禁止继续补充')
 
+    def _resolve_ap_use_pending(self):
+        """pending 哨兵存在时，重读行动力弹窗对账，能对上账就自动解除。
+
+        背景：USE 点击前先写哨兵、确认后清除；期间进程被打断（点击洪水
+        异常、模拟器重启、用户手动停止，2026-10-06 07:56 三种都有实例）
+        就会残留哨兵。旧逻辑一律锁死等人工删文件，但实际上重读一次就能
+        判定，绝大多数情况可自愈：
+        - 库存 -1 且行动力上涨符合档位值 → 已生效但未确认，解除；
+        - 库存不变且行动力未异常上涨 → 点击未生效，解除；
+        - 其余（对不上账/字段异常）→ 维持人工介入，绝不猜。
+
+        自然恢复按 1 点/10 分钟计，外加 1 点 OCR/时间差容差。
+        调用前提：行动力弹窗已打开。
+
+        Returns:
+            bool: True 表示哨兵已解除，可继续正常补充流程。
+
+        Raises:
+            RequestHumanTakeover: 对不上账时抛出，维持人工介入。
+        """
+        pending = self._load_ap_use_pending()
+        if not pending:
+            return True
+        index = pending.get('index')
+        prev_ap = pending.get('current')
+        prev_stock = pending.get('stock')
+        at = pending.get('at')
+        if not (isinstance(index, int) and index in ACTION_POINT_BOX
+                and isinstance(prev_ap, int) and isinstance(prev_stock, int)):
+            raise RequestHumanTakeover(
+                '行动力 USE 保护文件字段异常，请人工核对游戏内行动力与药剂库存，'
+                f'确认无误后删除 {self._ap_use_pending_path()} 再继续'
+            )
+
+        # 等弹窗数值可见后重读当前值与库存（真值以这一帧为准）
+        self.action_point_safe_get()
+        if not self.is_current_ap_visible():
+            # 读不到真值绝不猜，维持人工介入。
+            raise RequestHumanTakeover(
+                '行动力弹窗数值不可见，无法对账解除 USE 哨兵，'
+                f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
+            )
+        self.action_point_update()
+        now_ap = int(self._action_point_current)
+        now_stock = int(self._action_point_box[index])
+        gained = now_ap - prev_ap
+        stock_change = prev_stock - now_stock
+
+        # 自然恢复余量：1 点/10 分钟 + 1 点 OCR/时间差容差
+        slack = 1
+        try:
+            elapsed = (datetime.now() - datetime.strptime(at, '%Y-%m-%d %H:%M:%S')).total_seconds()
+            slack += max(0, int(elapsed // 600))
+        except (TypeError, ValueError):
+            pass
+
+        expected = ACTION_POINT_BOX[index]
+        if index == 0:
+            effective = stock_change > 0 and gained > 0
+        else:
+            effective = stock_change == 1 and expected <= gained <= expected + slack
+        not_effective = stock_change == 0 and 0 <= gained <= slack
+
+        if effective or not_effective:
+            logger.info(
+                f'[大世界-行动点] USE 哨兵对账通过，自动解除：'
+                f'记录(当前={prev_ap}, 库存={prev_stock}) -> '
+                f'重读(当前={now_ap}, 库存={now_stock})，'
+                f'判定={"药剂已生效" if effective else "点击未生效"}'
+            )
+            self._save_ap_use_pending(None)
+            self._ap_use_blocked = False
+            return True
+
+        logger.warning(
+            f'[大世界-行动点] USE 哨兵对账失败：'
+            f'记录(当前={prev_ap}, 库存={prev_stock}) -> '
+            f'重读(当前={now_ap}, 库存={now_stock})；'
+            '行动力或库存发生了无法解释的变化，维持人工介入'
+        )
+        raise RequestHumanTakeover(
+            '行动力 USE 哨兵与当前读数对不上账，请人工核对游戏内行动力与药剂库存，'
+            f'确认无误后删除 {self._ap_use_pending_path()} 再继续'
+        )
+
     def action_point_use(self, selected_index):
         """每次最多点一次 USE；对应库存减少才算确认。
 
@@ -273,14 +358,12 @@ class ActionPointHandler(UI, MapEventHandler):
         未确认时保留独立保护文件并请求人工介入，禁止任务重启后再点。
         """
         if self._ap_use_blocked:
+            # 本轮已点过且确认失败：同进程内不自动重试，维持人工。
             raise RequestHumanTakeover('本轮 USE 结果未确认，禁止再次点击')
-        pending = self._load_ap_use_pending()
-        if pending:
-            self._ap_use_blocked = True
-            raise RequestHumanTakeover(
-                '行动力 USE 尚未确认，禁止再次补充；请手动核实当前值和对应库存，'
-                f'确认安全后删除 {self._ap_use_pending_path()}'
-            )
+        if self._load_ap_use_pending():
+            # 跨进程残留的哨兵（点击洪水异常/模拟器重启/手动停止）：
+            # 先重读对账，能对上自动解除，对不上才等人工。
+            self._resolve_ap_use_pending()
 
         if selected_index not in ACTION_POINT_BOX:
             raise RequestHumanTakeover(f'行动力补充选项无效: {selected_index}')
@@ -323,6 +406,12 @@ class ActionPointHandler(UI, MapEventHandler):
                 )
                 self._save_ap_use_pending(None)
                 self._ap_use_blocked = False
+                # 每瓶确认即清一次该按钮的点击/网格记录：补药剂本来就要连点
+                # USE（一轮最多补 5+ 瓶，等效允许连点 20 次以上），不清会被
+                # 设备层 GameTooManyClickError 当成点击洪水打断——2026-10-06
+                # 日志：第 6 瓶点 USE 时 SHIP_SWIPE×7+USE×6 触顶，流程在
+                # 「已点未确认」窗口被打断，残留 pending 哨兵死锁。
+                self.device.click_record_remove(ACTION_POINT_USE)
                 return True
 
         logger.error(
@@ -702,11 +791,11 @@ class ActionPointHandler(UI, MapEventHandler):
         Pages:
             in: ACTION_POINT_USE
         """
-        if self._load_ap_use_pending() or self._ap_use_blocked:
-            raise RequestHumanTakeover(
-                '存在未确认的行动力 USE，禁止购买；'
-                f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
-            )
+        if self._ap_use_blocked:
+            raise RequestHumanTakeover('本轮 USE 结果未确认，禁止购买')
+        if self._load_ap_use_pending():
+            # 跨进程残留的哨兵：先重读对账，能对上自动解除，对不上才等人工。
+            self._resolve_ap_use_pending()
         buy_limit = self.config.OpsiGeneral_BuyActionPointLimit
         # 用户设置的购买上限（OpsiGeneral_BuyActionPointLimit，0-5）买满后，
         # 不再点击石油查看剩余次数（多余交互），直接按已达上限处理；
@@ -788,11 +877,13 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         if not self._is_in_action_point():
             return False
-        if self._load_ap_use_pending() or self._ap_use_blocked:
-            raise RequestHumanTakeover(
-                '存在未确认的行动力 USE，禁止自动补充；'
-                f'请人工核对后删除 {self._ap_use_pending_path()} 再继续'
-            )
+        if self._ap_use_blocked:
+            # 本轮已点过且确认失败：同进程内不自动重试，维持人工。
+            raise RequestHumanTakeover('本轮 USE 结果未确认，禁止自动补充')
+        if self._load_ap_use_pending():
+            # 跨进程残留的哨兵（点击洪水异常/模拟器重启/手动停止）：
+            # 先重读对账，能对上自动解除，对不上才等人工。
+            self._resolve_ap_use_pending()
 
         # 行动力药剂有显示动画
         self.action_point_safe_get()
