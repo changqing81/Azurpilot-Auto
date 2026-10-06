@@ -19,11 +19,20 @@ from module.logger import logger
 class ApiClient:
     """公告客户端：拉取仓库公告文件，支持主源+备用源故障转移"""
 
-    # 数据仓库里的公告文件（jsdelivr 对国内用户可达性最好作主源；raw.githubusercontent.com
-    # 在国内普遍被阻断，仅作主源故障时的兜底）
+    # 数据仓库里的公告文件。三类源按优先级故障转移：
+    #   1) gitcode 国内源（直连最快，数据由发布工具同步推送）—— 首选
+    #   2) jsdelivr CDN（对国内时通时断，且 @main 引用有约 12 小时缓存）
+    #   3) raw.githubusercontent.com（在国内普遍被阻断，仅兜底）
+    # 背景：2026-10-06 实测国内 jsdelivr 拉取超时、GitHub raw 502，公告与更新日志
+    # 双双收不到，故增加 gitcode 通道并把国内源置首位。
     DATA_REPO = 'changqing81/announcement-changelog'
     DATA_BRANCH = 'main'
+    DATA_CN_REPO = 'gcw_BYvq9jGu/alas-launcher'
+    DATA_CN_BRANCH = 'data'
 
+    ANNOUNCEMENT_CN_URL = (
+        f'https://gitcode.com/api/v5/repos/{DATA_CN_REPO}/raw/announcement.json'
+    )
     ANNOUNCEMENT_PRIMARY_URL = (
         f'https://cdn.jsdelivr.net/gh/{DATA_REPO}@{DATA_BRANCH}/announcement.json'
     )
@@ -35,6 +44,9 @@ class ApiClient:
     ANNOUNCEMENT_CHECK_INTERVAL = 300
 
     # 更新日志地址（同一数据仓库、同一套分发机制）
+    CHANGELOG_CN_URL = (
+        f'https://gitcode.com/api/v5/repos/{DATA_CN_REPO}/raw/changelog.json'
+    )
     CHANGELOG_PRIMARY_URL = (
         f'https://cdn.jsdelivr.net/gh/{DATA_REPO}@{DATA_BRANCH}/changelog.json'
     )
@@ -57,6 +69,7 @@ class ApiClient:
         # 时间戳参数绕过 CDN 缓存
         timestamp = int(time.time())
         sources = [
+            ('国内源', f'{cls.ANNOUNCEMENT_CN_URL}?ref={cls.DATA_CN_BRANCH}&t={timestamp}'),
             ('主源', f'{cls.ANNOUNCEMENT_PRIMARY_URL}?t={timestamp}'),
             ('备用源', f'{cls.ANNOUNCEMENT_FALLBACK_URL}?t={timestamp}'),
         ]
@@ -123,6 +136,7 @@ class ApiClient:
         """
         timestamp = int(time.time())
         sources = [
+            ('国内源', f'{cls.CHANGELOG_CN_URL}?ref={cls.DATA_CN_BRANCH}&t={timestamp}'),
             ('主源', f'{cls.CHANGELOG_PRIMARY_URL}?t={timestamp}'),
             ('备用源', f'{cls.CHANGELOG_FALLBACK_URL}?t={timestamp}'),
         ]

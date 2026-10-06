@@ -39,6 +39,8 @@ from dev_tools.announcement_publish import (
     CDN_ROOT,
     DATA_BRANCH,
     DATA_REPO,
+    GITCODE_DATA_BRANCH,
+    GITCODE_REPO_URL,
     REPO_ROOT,
     WORK_DIR,
     find_git,
@@ -49,6 +51,7 @@ from dev_tools.announcement_publish import (
     read_draft,
     request_json,
     rewrite_body,
+    sync_data_to_gitcode,
 )
 from module.webui.update_log import MAX_ENTRIES, render_entries_html, render_placeholder_html
 
@@ -300,8 +303,11 @@ def cmd_publish(args: argparse.Namespace) -> int:
     else:
         print("已请求刷新 jsdelivr 缓存。")
 
+    sync_data_to_gitcode()
+
     print("\n发布完成。验证地址：")
     print(f"  {CDN_ROOT}/{DATA_REPO}@{DATA_BRANCH}/{CHANGELOG_PATH}")
+    print(f"  {GITCODE_REPO_URL}（{GITCODE_DATA_BRANCH} 分支，国内首选源）")
     return 0
 
 

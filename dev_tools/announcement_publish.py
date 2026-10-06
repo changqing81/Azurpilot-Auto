@@ -59,6 +59,13 @@ from pathlib import Path
 # 代码仓库的提交历史也不会被发布动作污染（2026-09-20 用户明确要求）。
 DATA_REPO = "changqing81/announcement-changelog"
 DATA_BRANCH = "main"
+
+# gitcode 国内数据分发（客户端 ApiClient 的首选源）：
+# 2026-10-06 实测 jsdelivr 国内拉取超时、GitHub raw 502，公告与更新日志
+# 「发布成功但客户端收不到」，因此发布时把数据副本同步推到 gitcode 的 data 分支。
+GITCODE_DATA_REPO = "gcw_BYvq9jGu/alas-launcher"
+GITCODE_DATA_BRANCH = "data"
+GITCODE_REPO_URL = f"https://gitcode.com/{GITCODE_DATA_REPO}.git"
 CODE_REPO = "changqing81/Azurpilot-Auto"  # 代码仓库，仅用于提示信息
 
 ANNOUNCEMENT_PATH = "announcement.json"
@@ -313,6 +320,53 @@ def purge_jsdelivr(paths: list[str]) -> list[str]:
 # --------------------------------------------------------------------------
 # 草稿解析
 # --------------------------------------------------------------------------
+def sync_data_to_gitcode() -> bool:
+    """把本地数据副本（announcement.json / changelog.json）同步到 gitcode 的 data 分支。
+
+    背景：jsdelivr 与 GitHub raw 在国内均不可靠（2026-10-06 实测拉取超时 / 502），
+    客户端 ApiClient 已改为优先读 gitcode，公告与更新日志不再「发出去了但收不到」。
+    实现：独立临时仓库单 commit force push（该分支只承载这两个数据文件），
+    失败只打印警告，不影响 jsdelivr / GitHub 通道的发布结果。
+    """
+    names = ("announcement.json", "changelog.json")
+    if not any((WORK_DIR / name).exists() for name in names):
+        print("[gitcode] 本地没有数据副本，跳过同步")
+        return False
+    try:
+        import tempfile
+
+        work = Path(tempfile.mkdtemp(prefix="alas-data-"))
+        for name in names:
+            source = WORK_DIR / name
+            if source.exists():
+                shutil.copy2(source, work / name)
+
+        git = find_git()
+        env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+        commands = [
+            [git, "init", "-q", "-b", GITCODE_DATA_BRANCH],
+            [git, "add", "-A"],
+            [
+                git, "-c", "user.name=alas-data", "-c", "user.email=data@local",
+                "commit", "-qm", "data: sync announcement + changelog",
+            ],
+            [
+                git, "push", "-q", "--force", GITCODE_REPO_URL,
+                f"HEAD:refs/heads/{GITCODE_DATA_BRANCH}",
+            ],
+        ]
+        for command in commands:
+            subprocess.run(
+                command, cwd=work, env=env, check=True, timeout=300, capture_output=True
+            )
+        shutil.rmtree(work, ignore_errors=True)
+        print(f"[gitcode] 数据已同步到 {GITCODE_DATA_BRANCH} 分支（客户端国内首选源）")
+        return True
+    except Exception as e:  # noqa: BLE001 - 同步失败不应该影响发布结果
+        print(f"[gitcode] 数据同步失败（不影响其他通道）: {e}")
+        return False
+
+
 def read_draft(path: Path) -> tuple[str, list[str]]:
     if not path.exists():
         raise RuntimeError(f"草稿文件不存在：{path}")
@@ -624,8 +678,11 @@ def cmd_publish(args: argparse.Namespace) -> int:
     else:
         print("已请求刷新 jsdelivr 缓存。")
 
+    sync_data_to_gitcode()
+
     print("\n发布完成。验证地址：")
     print(f"  {CDN_ROOT}/{DATA_REPO}@{DATA_BRANCH}/{ANNOUNCEMENT_PATH}")
+    print(f"  {GITCODE_REPO_URL}（{GITCODE_DATA_BRANCH} 分支，国内首选源）")
     return 0
 
 
