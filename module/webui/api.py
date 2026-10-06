@@ -17,7 +17,6 @@ import threading
 import time
 from time import sleep
 
-import cv2
 from module.device.pkg_resources import get_distribution
 
 _ = get_distribution
@@ -32,9 +31,6 @@ from starlette.responses import (
 )
 from starlette.routing import Route, WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
-from module.device.method.scrcpy import const as scrcpy_const
-from module.device.method.scrcpy.control import ControlSender
-from module.device.method.scrcpy.options import ScrcpyOptions
 from module.device.method.utils import recv_all
 from module.logger import logger
 from module.config.utils import DEFAULT_CONFIG_NAME, filepath_config
@@ -552,6 +548,10 @@ class LiveWsScrcpySession:
     def __init__(self, instance, fps=60, width=640, bitrate_scale=1.0):
         from module.config.config import AzurLaneConfig
         from module.device.connection import Connection
+        from module.device.method.scrcpy import const as scrcpy_const
+
+        # 延迟注入模块全局（本类方法体裸名引用 scrcpy_const），理由见模块头说明。
+        globals()["scrcpy_const"] = scrcpy_const
 
         self.instance = instance
         self.fps = _parse_int(fps, 60, 15, 240)
@@ -806,7 +806,18 @@ class LiveScrcpySession:
 
     def __init__(self, instance, fps=60, width=640, bitrate_scale=1.0):
         from module.config.config import AzurLaneConfig
+        from module.device.method.scrcpy import const as scrcpy_const
+        from module.device.method.scrcpy.control import ControlSender
         from module.device.method.scrcpy.core import ScrcpyCore
+        from module.device.method.scrcpy.options import ScrcpyOptions
+
+        # scrcpy 链条经 module.base.utils 顶层拉着 cv2。把导入延迟到首次建会话、
+        # 再注入模块全局（方法体里的裸名引用零改动），是为了 opencv 文件被杀软
+        # 隔离/损坏时（用户实测发生过）api 模块仍能加载，notify/launcher 流等
+        # 无关路由不陪葬——否则 fastapi.py 的路由装载会整体静默失败。
+        globals()["scrcpy_const"] = scrcpy_const
+        globals()["ControlSender"] = ControlSender
+        globals()["ScrcpyOptions"] = ScrcpyOptions
 
         self.instance = instance
         self.fps = _parse_int(fps, 60, 15, 240)
@@ -1034,6 +1045,8 @@ class LiveControlDevice:
 
 
 def _key_to_android_keycode(key):
+    from module.device.method.scrcpy import const as scrcpy_const
+
     mapping = {
         "Backspace": scrcpy_const.KEYCODE_DEL,
         "Delete": scrcpy_const.KEYCODE_FORWARD_DEL,
@@ -1054,11 +1067,15 @@ def _key_to_android_keycode(key):
     return mapping.get(key)
 
 
-CONTROL_ACTION_KEYCODES = {
-    "back": scrcpy_const.KEYCODE_BACK,
-    "home": scrcpy_const.KEYCODE_HOME,
-    "app_switch": scrcpy_const.KEYCODE_APP_SWITCH,
-}
+def _control_action_keycodes():
+    """远控系统按键码表，懒构建（scrcpy 链顶层拉 cv2，见模块头说明）。"""
+    from module.device.method.scrcpy import const as scrcpy_const
+
+    return {
+        "back": scrcpy_const.KEYCODE_BACK,
+        "home": scrcpy_const.KEYCODE_HOME,
+        "app_switch": scrcpy_const.KEYCODE_APP_SWITCH,
+    }
 
 
 def _create_live_ws_scrcpy_session(instance, fps, target_width, bitrate_scale):
@@ -1295,6 +1312,11 @@ async def _ws_live_raw_scrcpy(websocket, instance, fps, target_width, bitrate_sc
 
 
 async def _ws_live_screenshot_fallback(websocket, instance, codec, ffmpeg, fps, target_width, bitrate_scale):
+    # cv2 只在这里用：局部导入。opencv 文件被杀软隔离/损坏时（用户实测发生过），
+    # 不能让它把整个 api 模块拖死——否则 /api/notify_stream、/api/launcher/stream
+    # 等全部路由随 fastapi.py 的 try/except 静默消失，启动器 3 秒一次 404 重连刷屏。
+    import cv2
+
     stop_event = threading.Event()
     out_queue = queue.Queue(maxsize=16)
     proc = None
@@ -1414,6 +1436,8 @@ async def _ws_live_screenshot_fallback(websocket, instance, codec, ffmpeg, fps, 
 
 
 async def ws_live_control(websocket):
+    from module.device.method.scrcpy import const as scrcpy_const
+
     await websocket.accept()
     if is_demo_mode():
         await websocket.send_text(json.dumps({
@@ -1473,8 +1497,8 @@ async def ws_live_control(websocket):
             elif action == "back":
                 logger.info("[WebUI] 实时预览控制：返回")
                 await asyncio.to_thread(target.keycode, scrcpy_const.KEYCODE_BACK)
-            elif action in CONTROL_ACTION_KEYCODES:
-                keycode = CONTROL_ACTION_KEYCODES[action]
+            elif action in _control_action_keycodes():
+                keycode = _control_action_keycodes()[action]
                 logger.info(f"[WebUI] 实时预览控制：系统按键 {action} ({keycode})")
                 await asyncio.to_thread(target.keycode, keycode)
             else:
