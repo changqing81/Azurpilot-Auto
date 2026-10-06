@@ -25,9 +25,7 @@ def make_action_point_runner(buy_limit=0, current=105, total=1375, boxes=None):
     runner._action_point_current = current
     runner._action_point_total = total
     runner._action_point_box = [8654, 6, 0, 11] if boxes is None else boxes
-    runner._ap_use_blocked = False
     runner._is_in_action_point = Mock(return_value=True)
-    runner._load_ap_use_pending = Mock(return_value=None)
     runner.action_point_safe_get = Mock()
     runner.action_point_quit = Mock()
     runner.action_point_set_button = Mock(return_value=True)

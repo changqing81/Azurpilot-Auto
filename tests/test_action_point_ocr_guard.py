@@ -211,13 +211,6 @@ class TestActionPointUseGuard(unittest.TestCase):
         )
         handler._action_point_current = 97
         handler._action_point_box = [11026, 0, 0, 12]
-        handler._ap_use_blocked = False
-        handler._pending = None
-        handler._load_ap_use_pending = lambda: handler._pending
-
-        def save_pending(value):
-            handler._pending = value
-        handler._save_ap_use_pending = save_pending
         handler.appear = lambda *args, **kwargs: True
         handler.handle_popup_confirm = lambda *args, **kwargs: False
         handler.is_current_ap_visible = lambda: True
@@ -230,9 +223,12 @@ class TestActionPointUseGuard(unittest.TestCase):
         handler.action_point_update = update
         return handler, clicks
 
-    def test_stale_ocr_never_clicks_twice_and_leaves_pending(self):
-        from module.exception import RequestHumanTakeover
+    def test_stale_ocr_clicks_once_and_raises_unconfirmed(self):
+        # OCR 全程读到旧值：只点一次，然后抛「未确认」终止任务。
+        # 异常继承 ActionPointLimit——调度器按延后处理，绝不进入
+        # RequestHumanTakeover 的重启模拟器死循环轨道。
         from module.os_handler import action_point as ap_module
+        from module.os_handler.action_point import ActionPointLimit, ActionPointUseUnconfirmed
 
         handler, clicks = self.make_handler([(97, 12)] * 4)
 
@@ -246,17 +242,13 @@ class TestActionPointUseGuard(unittest.TestCase):
                 return self.calls > 4
 
         with patch.object(ap_module, 'Timer', ShortTimer):
-            with self.assertRaisesRegex(RequestHumanTakeover, '未确认'):
+            with self.assertRaises(ActionPointLimit) as ctx:
                 handler.action_point_use(selected_index=3)
+        self.assertIsInstance(ctx.exception, ActionPointUseUnconfirmed)
         self.assertEqual(len(clicks), 1)
-        self.assertEqual(handler._pending['current'], 97)
-        self.assertEqual(handler._pending['stock'], 12)
-        with self.assertRaises(RequestHumanTakeover):
-            handler.action_point_use(selected_index=3)
-        self.assertEqual(len(clicks), 1)
+        self.assertEqual(ctx.exception.current, 97)
 
     def test_only_one_signal_changes_does_not_confirm(self):
-        from module.exception import RequestHumanTakeover
         from module.os_handler import action_point as ap_module
 
         handler, clicks = self.make_handler([(197, 12), (97, 11)])
@@ -271,10 +263,9 @@ class TestActionPointUseGuard(unittest.TestCase):
                 return self.calls > 2
 
         with patch.object(ap_module, 'Timer', ShortTimer):
-            with self.assertRaises(RequestHumanTakeover):
+            with self.assertRaises(ap_module.ActionPointUseUnconfirmed):
                 handler.action_point_use(selected_index=3)
         self.assertEqual(len(clicks), 1)
-        self.assertIsNotNone(handler._pending)
 
     def test_confirmed_ocr_and_stock_allow_next_box(self):
         from module.os_handler import action_point as ap_module
@@ -293,122 +284,6 @@ class TestActionPointUseGuard(unittest.TestCase):
         with patch.object(ap_module, 'Timer', ShortTimer):
             self.assertTrue(handler.action_point_use(selected_index=3))
         self.assertEqual(len(clicks), 1)
-        self.assertIsNone(handler._pending)
-        self.assertFalse(handler._ap_use_blocked)
-
-    def test_unwritable_guard_never_clicks_use(self):
-        from module.exception import RequestHumanTakeover
-
-        handler, clicks = self.make_handler()
-        handler._save_ap_use_pending = lambda value: (_ for _ in ()).throw(
-            RequestHumanTakeover('保护文件不可写'))
-        with self.assertRaisesRegex(RequestHumanTakeover, '不可写'):
-            handler.action_point_use(selected_index=3)
-        self.assertEqual(clicks, [])
-
-    def test_buy_path_checks_pending_before_switching_tab(self):
-        from module.exception import RequestHumanTakeover
-
-        handler, clicks = self.make_handler()
-        handler._pending = {'index': 3, 'current': 97, 'stock': 12}
-        # 对账失败（对不上账）时维持人工介入，且绝不切换到购买页签
-        def resolve_fail():
-            raise RequestHumanTakeover('USE 哨兵对不上账，请人工核对后删除 ap-use-pending 再继续')
-        handler._resolve_ap_use_pending = resolve_fail
-        handler.action_point_set_button = lambda index: self.fail('不应切换到购买页签')
-        # 报错必须带哨兵文件路径，否则用户不知道删哪个文件
-        with self.assertRaisesRegex(RequestHumanTakeover, 'ap-use-pending'):
-            handler.action_point_buy()
-        self.assertEqual(clicks, [])
-
-    def test_pending_reconcile_failure_blocks_before_click(self):
-        # 跨进程残留的哨兵：对账失败（对不上账）时不点 USE，维持人工
-        from module.exception import RequestHumanTakeover
-
-        handler, clicks = self.make_handler()
-        handler._pending = {'index': 3, 'current': 97, 'stock': 12}
-
-        def resolve_fail():
-            raise RequestHumanTakeover('对不上账，请人工核对')
-        handler._resolve_ap_use_pending = resolve_fail
-        with self.assertRaisesRegex(RequestHumanTakeover, '对不上账'):
-            handler.action_point_use(selected_index=3)
-        self.assertEqual(clicks, [])
-
-    def test_pending_is_persisted_and_new_handler_self_heals(self):
-        import tempfile
-        from pathlib import Path
-        from module.os_handler import action_point as ap_module
-
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'ap_use_test.json.ap-use-pending'
-            handler, clicks = self.make_handler()
-            del handler._save_ap_use_pending
-            del handler._load_ap_use_pending
-            handler._ap_use_pending_path = lambda: str(path)
-            handler._save_ap_use_pending({
-                'index': 3, 'current': 97, 'stock': 12,
-            })
-            self.assertEqual(handler._load_ap_use_pending()['stock'], 12)
-            self.assertNotEqual(path.suffix, '.json')  # 不会被配置实例枚举器当作模组实例
-            # 新进程（重启/手动停止后）读到残留哨兵：重读对账数值一致
-            # → 判定点击未生效，自动解除并正常补一瓶，不再死锁等人工
-            new_handler, new_clicks = self.make_handler(readings=[(97, 12), (197, 11)])
-            del new_handler._load_ap_use_pending
-            del new_handler._save_ap_use_pending
-            new_handler._ap_use_pending_path = lambda: str(path)
-            new_handler.action_point_safe_get = lambda: None
-
-            class ShortTimer:
-                def __init__(self, *args):
-                    self.calls = 0
-                def start(self):
-                    return self
-                def reached(self):
-                    self.calls += 1
-                    return self.calls > 3
-
-            with patch.object(ap_module, 'Timer', ShortTimer):
-                self.assertTrue(new_handler.action_point_use(selected_index=3))
-            self.assertEqual(len(new_clicks), 1)
-            self.assertFalse(path.exists())
-            # 确认已刷新后由程序自动清除；没有强制让用户手改实例配置。
-            handler._save_ap_use_pending(None)
-            self.assertFalse(path.exists())
-
-    def test_cleanup_after_manual_delete_is_success(self):
-        import tempfile
-        from pathlib import Path
-
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'ap_use_test.json.ap-use-pending'
-            handler, clicks = self.make_handler()
-            del handler._save_ap_use_pending
-            del handler._load_ap_use_pending
-            handler._ap_use_pending_path = lambda: str(path)
-            handler._save_ap_use_pending({'index': 3, 'current': 97, 'stock': 12})
-            path.unlink()  # 用户在等待确认期间已按日志提示手动删除
-            # USE 已确认，清除哨兵时文件不存在应视为清理成功，不得抛人工接管
-            handler._save_ap_use_pending(None)
-            self.assertFalse(path.exists())
-            self.assertEqual(clicks, [])
-
-    def test_invalid_guard_file_never_allows_another_click(self):
-        import tempfile
-        from pathlib import Path
-        from module.exception import RequestHumanTakeover
-
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'ap-use-pending.json'
-            for content in ('', '{}', 'null', '[]', '{broken'):
-                with self.subTest(content=content):
-                    path.write_text(content, encoding='utf-8')
-                    handler, clicks = self.make_handler()
-                    del handler._load_ap_use_pending
-                    handler._ap_use_pending_path = lambda: str(path)
-                    with self.assertRaises(RequestHumanTakeover):
-                        handler.action_point_use(selected_index=3)
-                    self.assertEqual(clicks, [])
 
     def test_handle_action_point_does_not_retry_after_timeout(self):
         from types import SimpleNamespace
@@ -453,7 +328,6 @@ class TestActionPointUseGuard(unittest.TestCase):
         with patch.object(ap_module, 'Timer', ShortTimer):
             self.assertTrue(handler.action_point_use(selected_index=0))
         self.assertEqual(len(clicks), 1)
-        self.assertIsNone(handler._pending)
 
     def test_one_confirmed_box_reaches_target_without_repeating_read(self):
         from types import SimpleNamespace
@@ -503,7 +377,6 @@ class TestActionPointUseGuard(unittest.TestCase):
         self.assertEqual(reads, ['read'])
 
     def test_one_click_cannot_confirm_two_boxes(self):
-        from module.exception import RequestHumanTakeover
         from module.os_handler import action_point as ap_module
 
         handler, clicks = self.make_handler([(297, 10)])
@@ -639,86 +512,6 @@ class TestActionPointUseGuard(unittest.TestCase):
         ))
         # 关闭：上游小箱优先，不顶破 200 的先用
         self.assertEqual(used, [1, 1, 1, 3])
-
-
-class TestPendingResolve(unittest.TestCase):
-    """跨进程残留 USE 哨兵的重读对账自愈（2026-10-06 事故回归）。
-
-    事故链：USE 点击前写哨兵 → 点击洪水异常/模拟器重启/手动停止打断确认
-    → 哨兵残留 → 重启后所有行动力操作死锁，只能人工删文件。
-    修复：恢复路径重读弹窗当前值与库存，能对上账自动解除。
-    """
-
-    def make_handler(self, now_ap=97, now_stock=12, visible=True, at_offset_seconds=0):
-        from datetime import datetime, timedelta
-        from types import SimpleNamespace
-        from module.os_handler.action_point import ActionPointHandler
-
-        handler = ActionPointHandler.__new__(ActionPointHandler)
-        handler.config = SimpleNamespace(data={}, modified={}, config_name='ap_resolve_test_nonexistent')
-        handler.device = SimpleNamespace(image='img')
-        handler._action_point_current = now_ap
-        handler._action_point_box = [11026, 3, 2, now_stock]
-        handler._ap_use_blocked = False
-        at = (datetime.now() - timedelta(seconds=at_offset_seconds)).strftime('%Y-%m-%d %H:%M:%S')
-        handler._pending = {'index': 3, 'current': 97, 'stock': 12, 'at': at}
-        handler._load_ap_use_pending = lambda: handler._pending
-
-        def save_pending(value):
-            handler._pending = value
-        handler._save_ap_use_pending = save_pending
-        handler.action_point_safe_get = lambda: None
-        handler.is_current_ap_visible = lambda: visible
-        handler.action_point_update = lambda: None  # 属性即重读结果
-        return handler
-
-    def test_unchanged_values_means_click_ineffective_and_clears(self):
-        # 重读与记录完全一致：点击被吞，未生效 → 自动解除
-        handler = self.make_handler(now_ap=97, now_stock=12)
-        self.assertTrue(handler._resolve_ap_use_pending())
-        self.assertIsNone(handler._pending)
-        self.assertFalse(handler._ap_use_blocked)
-
-    def test_effective_but_unconfirmed_clears(self):
-        # 场景还原（2026-10-06 07:56 真机）：USE 点击后 117→167（+50 库存-1），
-        # 随后用户手动停止打断确认。重读应判定「已生效未确认」并自动解除
-        handler = self.make_handler(now_ap=167, now_stock=11)
-        handler._action_point_box[2] = 1  # 50 箱库存 2->1
-        handler._pending = {'index': 2, 'current': 117, 'stock': 2, 'at': handler._pending['at']}
-        self.assertTrue(handler._resolve_ap_use_pending())
-        self.assertIsNone(handler._pending)
-
-    def test_natural_regen_within_slack_clears(self):
-        # 哨兵 30 分钟前写入：自然恢复 +3（1点/10分钟）仍在容差内 → 未生效解除
-        handler = self.make_handler(now_ap=100, now_stock=12, at_offset_seconds=30 * 60)
-        self.assertTrue(handler._resolve_ap_use_pending())
-        self.assertIsNone(handler._pending)
-
-    def test_mismatch_keeps_manual_and_pending(self):
-        from module.exception import RequestHumanTakeover
-
-        # 行动力大涨但库存没动：对不上账，绝不猜，维持人工
-        handler = self.make_handler(now_ap=200, now_stock=12)
-        with self.assertRaisesRegex(RequestHumanTakeover, '对不上账'):
-            handler._resolve_ap_use_pending()
-        self.assertIsNotNone(handler._pending)
-
-    def test_invalid_fields_keep_manual(self):
-        from module.exception import RequestHumanTakeover
-
-        handler = self.make_handler()
-        handler._pending = {'foo': 1}
-        with self.assertRaisesRegex(RequestHumanTakeover, '字段异常'):
-            handler._resolve_ap_use_pending()
-
-    def test_invisible_popup_keeps_manual(self):
-        from module.exception import RequestHumanTakeover
-
-        # 读不到真值绝不猜：弹窗数值不可见时维持人工
-        handler = self.make_handler(visible=False)
-        with self.assertRaisesRegex(RequestHumanTakeover, '不可见'):
-            handler._resolve_ap_use_pending()
-        self.assertIsNotNone(handler._pending)
 
 
 class TestSampleImages(unittest.TestCase):
