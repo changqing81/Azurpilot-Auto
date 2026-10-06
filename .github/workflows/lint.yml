@@ -49,8 +49,9 @@ jobs:
         run: uv run -m module.config.config_updater
       - name: Check for differences
         run: |
-          # 还原依赖安装阶段对 pyproject 的临时修改，避免污染产物 diff 检查
-          git checkout -- pyproject.toml
+          # 还原依赖安装阶段对 pyproject / uv.lock 的临时修改，避免污染产物 diff 检查。
+          # sed 删除镜像 index 后 uv 判定锁过期，sync 会把 uv.lock 重写为官方源版本。
+          git checkout -- pyproject.toml uv.lock
           git diff --exit-code
 
   call-signature-audit:
