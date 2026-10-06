@@ -240,7 +240,9 @@ docker compose up -d
 ```
 
 - 若自行修改了依赖（`pyproject.toml`），请先在仓库根执行 `uv lock` 更新 `uv.lock` 再构建。
-- 仓库提交的 `uv.lock` 按官方 PyPI 源生成；国内网络构建时可改用 `deploy/docker/Dockerfile.cn`。
+- 仓库提交的 `uv.lock` 下载源指向阿里云镜像（包 sha256 不变，仅换下载地址），国内同步更快；
+  **海外网络环境**请先在仓库根执行 `uv lock`（按官方 PyPI 重新生成锁文件）再构建。
+- 国内网络构建也可改用 `deploy/docker/Dockerfile.cn`。
 
 ⚠️ **更新必读**：`docker-compose.yml` 使用名为 `alas-venv` 的数据卷承载虚拟环境。更新源码或镜像后，**旧的虚拟环境不会自动更新**，必须重建数据卷：
 
