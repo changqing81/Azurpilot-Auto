@@ -713,6 +713,11 @@ class IslandPearlSell(Island):
 
             for button in self.trade_count_adjust_buttons(current, target):
                 self.device.click(button)
+            # 数量调整本来就要连点 +10/+1 按钮（一次买 200 珍珠要点 20 下），
+            # 每轮之间有 OCR 读数把关，不属于点击洪水；不清计数会被设备层
+            # GameTooManyClickError 当成卡死保护打断（2026-10-06 岛屿计划
+            # 采购珍珠真机事故）。与好友排名滑动后的清理同款。
+            self.device.click_record_clear()
         logger.warning("[岛屿-珍珠采购] 交易数量调整超出最大点击次数")
         return False
 
@@ -757,9 +762,13 @@ class IslandPearlSell(Island):
             if self.appear_then_click(confirm_button, offset=(20, 20), interval=1):
                 confirmed = True
                 confirm_timer.reset()
+                # 确认与 GET_ITEMS 弹窗交替点击是合法流程（每次点击之间
+                # 都有截图判定），清掉计数避免撞设备层卡死保护。
+                self.device.click_record_clear()
                 continue
             if self.handle_pearl_get_items():
                 confirm_timer.reset()
+                self.device.click_record_clear()
                 continue
             if confirmed and self.appear(check_button, offset=(20, 20)):
                 if confirm_timer.reached():
