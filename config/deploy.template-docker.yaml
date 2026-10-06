@@ -33,6 +33,9 @@ Deploy:
     # [其他情况] 连接到不受信任的网络时使用 false
     # [Other] Use false to when connected to an untrusted network
     SSLVerify: true
+    # 启动器读取：true = 启动器启动时跳过 AzurPilot 仓库更新（用本地代码直启），不影响启动器自更新；首次安装自动忽略
+    # Launcher reads this: true = skip AzurPilot repository update on launcher start (local code, no pull); first install unaffected
+    SkipRepositoryUpdate: false
     # 云端更新开关地址（可选）
     # Cloud update switch URL (optional)
     # 指向一个内容为纯文本 true / false 的地址：

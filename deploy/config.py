@@ -41,6 +41,9 @@ class ConfigModel:
     GitExecutable: str = "./.venv/Scripts/git/cmd/git.exe" if sys.platform == "win32" else "./.venv/bin/git"
     GitProxy: Optional[str] = None
     SSLVerify: bool = False
+    # 启动器（alas-launcher）读取：true = 启动器下次启动跳过 AzurPilot 仓库拉取，直接使用本地代码。
+    # 仅影响启动器的仓库更新，不影响启动器自更新；首次安装（本地无 .git）时自动忽略。
+    SkipRepositoryUpdate: bool = False
     # 云端更新开关地址；None / 空字符串 = 不启用远程开关（始终允许更新）。
     # 可在 config/deploy.yaml 里覆盖。
     CloudUpdateControl: Optional[str] = CLOUD_UPDATE_CONTROL_URL

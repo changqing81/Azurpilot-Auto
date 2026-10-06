@@ -6966,6 +6966,8 @@
       "GitProxyHelp": "HTTP または SOCKS5 プロキシです。空欄で無効になります。",
       "SSLVerify": "Git SSL 検証",
       "SSLVerifyHelp": "信頼できるネットワークでは有効にすることを推奨します。",
+      "SkipRepositoryUpdate": "起動時にリポジトリ更新をスキップ",
+      "SkipRepositoryUpdateHelp": "有効にすると、次回ランチャー起動時に AzurPilot リポジトリの更新取得をスキップし、ローカルのコードで直接起動します。初回インストールには影響せず、ランチャー自身の更新にも影響しません。",
       "PythonExecutable": "Python 実行ファイル",
       "PythonExecutableHelp": "AzurPilot を実行する Python のパスです。",
       "PypiMirror": "PyPI ミラー",
