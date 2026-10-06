@@ -1,0 +1,38 @@
+name: Sync to GitCode
+
+# 把 master / dev 同步到 gitcode 仓库（国内用户的代码更新源）。
+# 背景：gitcode 仓库已取消平台导入镜像（2026-10-06），代码不会自动跟随
+# GitHub，需要这里主动推送；客户启动器默认从
+# https://gitcode.com/gcw_BYvq9jGu/AzurPilot 拉取 master 分支。
+# 需要密钥 GITCODE_TOKEN（兼容小写 gitcode）；未配置时打印提示并跳过。
+
+on:
+  push:
+    branches: [master, dev]
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 完整历史：gitcode 拒收浅历史推送（shallow update not allowed）
+          fetch-depth: 0
+
+      - name: Push to GitCode
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN || secrets.gitcode }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -e
+          if [ -z "$GITCODE_TOKEN" ]; then
+            echo "GITCODE_TOKEN 未配置，跳过 GitCode 同步"
+            exit 0
+          fi
+          git push --force \
+            "https://gcw_BYvq9jGu:${GITCODE_TOKEN}@gitcode.com/gcw_BYvq9jGu/AzurPilot.git" \
+            "HEAD:refs/heads/${BRANCH}"
+          echo "已同步 ${BRANCH} 到 GitCode"
