@@ -41,8 +41,8 @@
     <img src="https://img.shields.io/badge/Docker-部署方式-blue?style=for-the-badge&logo=docker&logoColor=white" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
-  <a href="https://alas.nanoda.work/download.html">
-    <img src="https://img.shields.io/badge/上游-下载页-lightgrey?style=for-the-badge&logo=google-chrome&logoColor=white" />
+  <a href="https://github.com/changqing81/alas-launcher/releases/latest">
+    <img src="https://img.shields.io/badge/启动器-下载-lightgrey?style=for-the-badge&logo=github&logoColor=white" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://addgroup.nanoda.work/#/">
@@ -182,7 +182,7 @@ AzurPilot-Auto 是基于 [wess09/AzurPilot](https://github.com/wess09/AzurPilot)
 
 ## 快速开始
 
-> 💡 **推荐方式**：直接使用启动器（内置 Python 环境，开箱即用），从[上游官网下载页](https://alas.nanoda.work/download.html)下载。本仓库不发布独立安装包，部署方式见 [Linux 一键部署](#linux-一键部署) 与 [Docker 部署](#docker-部署)。
+> 💡 **推荐方式**：直接使用启动器（内置 Python 环境，开箱即用）。本仓库配套启动器 **alas-launcher** 有独立仓库与发布页，从 [Releases](https://github.com/changqing81/alas-launcher/releases/latest) 下载（**中国大陆可用 [GitCode 镜像](https://gitcode.com/gcw_BYvq9jGu/alas-launcher) 的 `dist` 分支**）。也可自行部署，见 [Linux 一键部署](#linux-一键部署) 与 [Docker 部署](#docker-部署)。
 
 ### 源码运行
 
@@ -411,7 +411,8 @@ AzurPilot 提供 MCP 服务，可供支持 MCP 的客户端或工具调用，方
 
 ## 多平台启动器
 
-> 📥 从[上游官网](https://alas.nanoda.work/download.html)下载 Windows / macOS / Linux 启动器
+> 📥 从 [启动器 Releases](https://github.com/changqing81/alas-launcher/releases/latest) 下载 Windows / macOS / Linux 启动器
+> （**中国大陆可用 [GitCode 镜像](https://gitcode.com/gcw_BYvq9jGu/alas-launcher) 的 `dist` 分支**）
 
 <div align="center">
   <img src="doc/loading.png" alt="loading" width="500" />
@@ -422,7 +423,18 @@ AzurPilot 提供 MCP 服务，可供支持 MCP 的客户端或工具调用，方
   <p>Mac 客户端界面</p>
 </div>
 
-启动器项目地址：[上游 alas-launcher](https://github.com/wess09/alas-launcher) · 源项目 [ALAS Launcher: 一种新型的 AzurLaneAutoScript 启动器](https://github.com/swordfeng/alas-launcher)
+启动器是**独立仓库**：[changqing81/alas-launcher](https://github.com/changqing81/alas-launcher)
+· [GitCode 镜像](https://gitcode.com/gcw_BYvq9jGu/alas-launcher)
+· 源项目 [ALAS Launcher: 一种新型的 AzurLaneAutoScript 启动器](https://github.com/swordfeng/alas-launcher)
+
+| 平台 | 下载文件 | 说明 |
+| --- | --- | --- |
+| Windows x64 | `AzurPilot_Setup_<版本>.exe` | 安装版，推荐 |
+| Windows x64 / arm64 | `alas-launcher-windows-*.exe` | 免安装单文件 |
+| macOS（Apple Silicon） | `alas-launcher-darwin-aarch64` | 首次运行需 `xattr -dr com.apple.quarantine` |
+| Linux x86_64 | `alas-launcher-linux-x86_64` | 依赖 `libwebkit2gtk-4.1` 与较新 glibc |
+
+> Windows 7 / 8 / 10 需先安装 [WebView2 运行时](https://developer.microsoft.com/microsoft-edge/webview2/)。
 
 更改内容：
 
@@ -863,6 +875,8 @@ adb shell wm density reset
 
 - [本仓库](https://github.com/changqing81/Azurpilot-Auto) — 本分支源码、Issue、Pull Request
 - [GitCode 镜像](https://gitcode.com/gcw_BYvq9jGu/AzurPilot) — 中国大陆代码源，与 GitHub 自动同步
+- [启动器仓库](https://github.com/changqing81/alas-launcher) — 配套启动器 alas-launcher 的源码与发布页
+- [启动器 GitCode 镜像](https://gitcode.com/gcw_BYvq9jGu/alas-launcher) — 中国大陆下载源（`dist` 分支）
 - [上游 AzurPilot](https://github.com/wess09/AzurPilot) — 功能设计与主要开发所在仓库
 - [上游官网](https://alas.nanoda.work/) — 项目介绍、功能详情、碧蓝航线自动化方案
 - [上游下载页](https://alas.nanoda.work/download.html) — Windows / macOS / Linux 版本的碧蓝航线脚本工具
