@@ -4,6 +4,7 @@
 提供战略搜索面板的进入、标签页切换（已净化/未净化）、
 搜索选项勾选、确认弹窗处理以及滚动条控制等操作。
 """
+from module.base.timer import Timer
 from module.base.utils import get_color
 from module.logger import logger
 from module.os_handler.assets import *
@@ -31,12 +32,16 @@ class StrategicSearchHandler(MapEventHandler):
 
     def strategic_search_set_tab(self):
         logger.info('[大世界-策略] 设置策略搜索标签')
-        for _ in self.loop():
-            if get_color(self.device.image, STRATEGIC_SEARCH_TAB_SECURED.area)[2] <= 150:
-                self.device.click(STRATEGIC_SEARCH_TAB_SECURED)
-                continue
+        # 悬停说明气泡会盖住标签使颜色判定持续失败：点击限速防连点熔断，超时后放行直接确认
+        click_limit = Timer(0.5)
+        for _ in self.loop(timeout=5):
             if get_color(self.device.image, STRATEGIC_SEARCH_TAB_SECURED.area)[2] > 150:
                 break
+            if click_limit.reached():
+                self.device.click(STRATEGIC_SEARCH_TAB_SECURED)
+                click_limit.reset()
+        else:
+            logger.warning('[大世界-策略] 设置策略搜索标签超时，跳过标签检查直接确认')
 
     def _strategy_search_scroll_appear(self):
         """
@@ -141,17 +146,19 @@ class StrategicSearchHandler(MapEventHandler):
         """
         logger.hr('策略搜索开始')
         # 快速模式（大世界通用设置·跳过计划作战滑动检查）：面板会保留上一次的
-        # 选项配置，循环刷取时每次重新滑动检查各选项属于重复动作，直接确认开始。
+        # 标签页与选项配置，循环刷取时每次重新设置属于重复动作，进入面板直接确认开始。
         skip_check = self.config.OpsiGeneral_SkipStrategicSearchCheck
         if skip_check:
-            logger.info('[大世界-策略] 已开启快速模式，跳过计划作战面板选项检查')
+            logger.info('[大世界-策略] 已开启快速模式，跳过标签与选项检查，直接确认开始')
         for _ in range(3):
             self.strategy_search_enter()
+            if skip_check:
+                self.strategic_search_confirm()
+                return True
             self.strategic_search_set_tab()
-            if not skip_check:
-                success = self.strategic_search_set_option()
-                if not success:
-                    continue
+            success = self.strategic_search_set_option()
+            if not success:
+                continue
             self.strategic_search_confirm()
             return True
 
