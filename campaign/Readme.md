@@ -1,16 +1,17 @@
-# Event List
+# 活动清单（Event List）
 
-The `/campaign` directory is used to place map files.
+`/campaign` 目录用于存放海图（地图）文件。
 
-To add a new event, add a new row in here, and run `python -m module.config.config_updater`. Some date in directory not equal to Aired date, because they use the map files in old events. Use `Ctrl+F` to search what you want.
+新增一个活动：在下方表格中添加一行，然后运行 `python -m module.config.config_updater`。
+注意部分目录名与首次上线日期并不一致——因为该活动复用了旧活动的海图文件。用 `Ctrl+F` 查找需要的活动。
 
-**Aired Date** The date that the event aired for the first time.
+**Aired Date（首次上线日期）** 该活动第一次上线的日期。
 
-**Directory** The directory where contains map files of an event are stored.
+**Directory（目录）** 存放该活动海图文件的目录。
 
-**Event Name** Official name in English. If an event haven't aired in EN, use the name in CN.
+**Event Name（活动名）** 官方英文名；若该活动未在 EN 服上线，则使用 CN 服名称。
 
-**CN, EN, JP, TW** Event names in GUI. If an event is not aired on some servers, use `-`.
+**CN / EN / JP / TW** GUI 中显示的各服活动名；某服未上线时填 `-`。
 
 
 | Aired Date | Directory                | Event Name                                   | CN                         | EN                                                 | JP                                   | TW                         |

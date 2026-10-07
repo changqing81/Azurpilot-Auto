@@ -101,7 +101,7 @@ uv run -m dev_tools.button_extract    # 从截图中提取按钮定义
 - `Filter` (`filter.py`) — 基于正则的过滤系统，用于游戏物品（舰船、装备等）。支持预设和 `>` 分隔的优先级排序。
 - `Timer` (`timer.py`) — 双重计时器，用于时间计数和访问计数。提供 `reached()`、`reset()`、`reached_and_reset()`。访问计数在慢设备上提供鲁棒性。
 - `AsyncExecutor` (`async_executor.py`) — 单例异步执行器，带后台线程用于非阻塞存储/推送操作。
-- `ApiClient` (`api_client.py`) — HTTP 客户端，用于错误报告、遥测和公告，支持双域名故障转移。
+- `ApiClient` (`api_client.py`) — 只读 HTTP 客户端，用于拉取公告与更新日志（GitCode / jsDelivr / raw.githubusercontent 三源回退）。本分支不涉及错误报告或遥测。
 - `DeviceId` (`device_id.py`) — 通过 WMIC 查询生成硬件指纹用于设备识别。
 - `retry` (`retry.py`) — 带退避、抖动和可配置异常处理的重试装饰器。
 - `Switch` (`switch.py`) — 在状态间切换（如 normal/hard 模式）。

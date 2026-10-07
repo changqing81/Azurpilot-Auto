@@ -31,7 +31,7 @@ alwaysApply: true
 
 ```bash
 uv sync                                          # 安装依赖
-uv run python gui.py                             # 启动 WebUI（端口 22267）
+uv run python gui.py                             # 启动 WebUI（默认端口 25548，可在 config/deploy.yaml 覆盖）
 uv run python alas.py                            # 直接运行调度器
 uv run python mcp_server_sse.py                  # 启动 MCP SSE 服务器（端口 22268）
 uv run ruff check . --select E9,F63,F7,F82 --ignore F821,F722  # CI lint

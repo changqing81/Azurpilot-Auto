@@ -12,4 +12,4 @@ pnpm run typecheck
 pnpm run lint
 ```
 
-`packages/renderer` 是 Vue 3 + Vite 应用，默认通过 iframe 访问本地 WebUI：`http://127.0.0.1:22267`。如需覆盖地址，可在环境变量中设置 `VITE_WEBUI_URL`。
+`packages/renderer` 是 Vue 3 + Vite 应用，通过 iframe 访问本地 WebUI，默认地址 `http://127.0.0.1:25548`（与 `WebuiPort` 默认值一致；实际端口以部署配置 `config/deploy.yaml` 为准）。如需覆盖地址，可设置环境变量 `VITE_WEBUI_URL`。

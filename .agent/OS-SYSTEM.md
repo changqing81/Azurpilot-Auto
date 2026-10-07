@@ -62,7 +62,7 @@ alwaysApply: true
 - 塞壬研究装置处理（`clear_question`）：雷达问号移动、敌人/资源模式分支
 - 强制巡逻扫描（`_execute_fixed_patrol_scan`）：多舰队定点移动、视角复位、全图重扫
 - 短猫任务指标（`meow_search_metrics_start/end`）：战斗计时、行动力消耗记录
-- CL1 战斗统计（`on_auto_search_battle_count_add`）：每月战斗计数、遥测提交
+- CL1 战斗统计（`on_auto_search_battle_count_add`）：每月战斗计数（本地统计，无遥测提交）
 - 行动力月底策略（`get_action_point_limit`）：根据大世界重置剩余时间动态调整保留值
 
 **关键设计模式**：
@@ -237,7 +237,7 @@ alwaysApply: true
 | 文件 | 行数 | 导出类 | 核心职责 |
 |------|------|--------|---------|
 | `scheduling.py` | 1484 | `OpsiScheduling`, `CoinTaskMixin` | 智能调度引擎：黄币/行动力阈值、任务切换、虚拟资产计算、推送通知、短猫提前开始算法（原 `smart_scheduling_utils.py` 已并入本文件） |
-| `hazard_leveling.py` | 856 | `OpsiHazard1Leveling` | 侵蚀1练级：CL1 战斗循环、黄币检查、舰船经验检测、海里数记录、遥测提交 |
+| `hazard_leveling.py` | 856 | `OpsiHazard1Leveling` | 侵蚀1练级：CL1 战斗循环、黄币检查、舰船经验检测、海里数记录、本地战斗统计 |
 | `fleet_auto_change.py` | 605 | `OpsiFleetAutoChange` | 自动配队：满经验检测、船坞选船、舰队部署、冷却管理 |
 | `meowfficer_farming.py` | 379 | `OpsiMeowfficerFarming` | 短猫相接：传统/StayInZone/普通搜索三种模式、行动力管理 |
 | `daily.py` | 221 | `OpsiDaily` | 每日任务：港口任务、任务完成、调谐样本使用 |
@@ -711,7 +711,7 @@ graph LR
 1. **深度菱形继承**：`OSMap` 继承 5 个父类，总继承深度约 8 层。这使得代码复用率高但理解成本大。
 2. **任务-处理器分离**：`tasks/` 目录下的任务类负责调度逻辑，`module/os/` 负责底层操作。
 3. **智能调度系统**：`OpsiScheduling` 实现了黄币/行动力/虚拟资产三维资源管理，支持 4 种黄币补充任务的动态切换。
-4. **统计集成**：通过 `module/statistics/` 记录战斗时长、资源消耗、明石遭遇等数据，支持仪表盘展示和遥测提交。
+4. **统计集成**：通过 `module/statistics/` 记录战斗时长、资源消耗、明石遭遇等数据，支持仪表盘展示；数据只落本地 `config/azurstats_local.db`，无遥测提交。
 5. **推送通知**：`CoinTaskMixin.notify_push()` 支持启动器推送和 OnePush 双通道通知。
 
 ---

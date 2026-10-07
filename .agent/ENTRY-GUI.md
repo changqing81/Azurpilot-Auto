@@ -306,19 +306,23 @@ class State:
 ```python
 class ConfigModel:
     # Git 配置
-    Repository: str = "https://github.com/wess09/AzurPilot"
+    # Repository 填 'auto' 表示按网络所在地区自动选择更新源（国内 GitCode / 其他 GitHub）；
+    # 填任何具体地址则表示锁定该地址，不会被自动改写。
+    Repository: str = AUTO_REPOSITORY          # 'auto'
     Branch: str = "master"
-    GitExecutable: str = ...
+    GitExecutable: str = ...                   # ./.venv/{Scripts/bin}/git
     GitProxy: Optional[str] = None
     SSLVerify: bool = False
+    SkipRepositoryUpdate: bool = False         # 启动器读取：true = 跳过仓库拉取
+    CloudUpdateControl: Optional[str] = ...    # 云端更新开关地址，None = 不启用
 
     # Python 配置
-    PythonExecutable: str = ...
+    PythonExecutable: str = ...                # ./.venv/{Scripts/bin}/python
     PypiMirror: Optional[str] = None
     InstallDependencies: bool = True
 
     # ADB 配置
-    AdbExecutable: str = ...
+    AdbExecutable: str = ...                   # ./.venv/{Scripts/bin}/adb
     ReplaceAdb: bool = True
     AutoConnect: bool = True
     InstallUiautomator2: bool = True
@@ -333,6 +337,17 @@ class ConfigModel:
     EnableReload: bool = True
     CheckUpdateInterval: int = 5
     AutoRestartTime: str = "03:50"
+    HideUpdateNotice: bool = False
+    HideAnnouncement: bool = True
+
+    # 远程访问
+    EnableRemoteAccess: bool = False
+    RemoteAccessMode: str = "auto"
+    SSHUser / SSHServer / SSHExecutable: Optional[str] = None
+    SignalingServer: Optional[str] = None
+    StunServers: Optional[str] = ...
+    TurnServers: Optional[str] = None
+    TurnCredentialMode: str = "static"
 
     # WebUI 配置
     WebuiHost: str = "0.0.0.0"
@@ -345,6 +360,23 @@ class ConfigModel:
     Password: Optional[str] = None
     CDN: Union[str, bool] = False
     Run: Optional[str] = None
+
+    # 动态配置
+    GitOverCdn: bool = False
+```
+
+**更新源常量**（`deploy/config.py` 顶部）——本 fork 与上游不同，**支持按地区自动切源**：
+
+| 常量 | 值 |
+| --- | --- |
+| `AUTO_REPOSITORY` | `'auto'`（哨兵值，触发自动选源） |
+| `GITHUB_REPOSITORY` | `https://github.com/changqing81/Azurpilot-Auto` |
+| `CN_REPOSITORY` | `https://gitcode.com/gcw_BYvq9jGu/AzurPilot` |
+| `GIT_OVER_CDN_REPOSITORY` | `git://git.pull/AzurPilot`（GitOverCdn 加速通道） |
+| `GIT_OVER_CDN_FALLBACK_REPOSITORY` | `https://gitcode.com/ddl2/AzurLaneAutoScript` |
+| `CLOUD_UPDATE_CONTROL_URL` | jsDelivr 上的 `switch/updata` 纯文本开关（fail-open） |
+
+填任何**具体地址**（含上游 `wess09/AzurPilot`）都表示锁定该地址，不会被自动改写。
 
     # 动态配置
     GitOverCdn: bool = False

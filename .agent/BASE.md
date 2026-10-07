@@ -196,7 +196,7 @@ alwaysApply: true
 
 **逐段分析**：
 
-- `L1-269`：`ApiClient` — HTTP 客户端。双域名故障转移（`cloudflare` + `aliyun`）。端点：bug 日志、CL1 遥测、公告。通过 `AsyncExecutor` 异步提交。
+- `L1-269`：`ApiClient` — HTTP 客户端。三源回退（GitCode → jsDelivr → raw.githubusercontent）。端点：公告、更新日志，均为**只读**。本分支已移除 bug 日志与 CL1 遥测提交。
 
 ### 2.13 device_id.py（169 行）
 

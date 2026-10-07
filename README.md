@@ -6,43 +6,47 @@
 </p>
 
 <p align="center">
-  <strong><a href="https://alas.nanoda.work/">AzurPilot 官网</a></strong> ｜ 碧蓝航线自动化脚本 · 大世界侵蚀循环 · 多平台支持
+  <strong><a href="https://github.com/changqing81/Azurpilot-Auto">AzurPilot-Auto（本仓库）</a></strong> ｜ 基于 <a href="https://github.com/wess09/AzurPilot">wess09/AzurPilot</a> 的碧蓝航线自动化脚本 · 大世界侵蚀循环 · 多平台支持
 </p>
 
 <p align="center">
-  <a href="https://deepwiki.com/wess09/AzurPilot">
+  <a href="https://deepwiki.com/changqing81/Azurpilot-Auto">
     <img src="https://deepwiki.com/badge.svg" alt="DeepWiki" height="22">
   </a>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.14-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/github/license/wess09/AzurPilot?style=flat-square&label=License&color=2ea44f" alt="License">
-  <img src="https://img.shields.io/github/stars/wess09/AzurPilot?style=flat-square&label=Stars&color=ffcc00" alt="Stars">
-  <img src="https://img.shields.io/github/forks/wess09/AzurPilot?style=flat-square&label=Forks&color=58a6ff" alt="Forks">
-  <img src="https://img.shields.io/github/issues/wess09/AzurPilot?style=flat-square&label=Issues&color=f85149" alt="Issues">
+  <img src="https://img.shields.io/github/license/changqing81/Azurpilot-Auto?style=flat-square&label=License&color=2ea44f" alt="License">
+  <img src="https://img.shields.io/github/stars/changqing81/Azurpilot-Auto?style=flat-square&label=Stars&color=ffcc00" alt="Stars">
+  <img src="https://img.shields.io/github/forks/changqing81/Azurpilot-Auto?style=flat-square&label=Forks&color=58a6ff" alt="Forks">
+  <img src="https://img.shields.io/github/issues/changqing81/Azurpilot-Auto?style=flat-square&label=Issues&color=f85149" alt="Issues">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/last-commit/wess09/AzurPilot?style=flat-square&label=Last%20Commit&color=8b949e" alt="Last Commit">
-  <img src="https://img.shields.io/github/commit-activity/m/wess09/AzurPilot?style=flat-square&label=Commit%20Activity&color=8957e5" alt="Commit Activity">
-  <img src="https://img.shields.io/github/repo-size/wess09/AzurPilot?style=flat-square&label=Repo%20Size&color=orange" alt="Repo Size">
-  <img src="https://img.shields.io/github/languages/top/wess09/AzurPilot?style=flat-square&label=Top%20Language&color=3776AB" alt="Top Language">
+  <img src="https://img.shields.io/github/last-commit/changqing81/Azurpilot-Auto?style=flat-square&label=Last%20Commit&color=8b949e" alt="Last Commit">
+  <img src="https://img.shields.io/github/commit-activity/m/changqing81/Azurpilot-Auto?style=flat-square&label=Commit%20Activity&color=8957e5" alt="Commit Activity">
+  <img src="https://img.shields.io/github/repo-size/changqing81/Azurpilot-Auto?style=flat-square&label=Repo%20Size&color=orange" alt="Repo Size">
+  <img src="https://img.shields.io/github/languages/top/changqing81/Azurpilot-Auto?style=flat-square&label=Top%20Language&color=3776AB" alt="Top Language">
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/github/contributors/wess09/AzurPilot?style=flat-square&label=Contributors&color=00b4d8" alt="Contributors">
-  <img src="https://img.shields.io/github/issues-pr/wess09/AzurPilot?style=flat-square&label=Pull%20Requests&color=ffb703" alt="Pull Requests">
-  <img src="https://img.shields.io/github/issues-pr-closed/wess09/AzurPilot?style=flat-square&label=PRs%20Closed&color=2ea44f" alt="Closed Pull Requests">
+  <img src="https://img.shields.io/github/contributors/changqing81/Azurpilot-Auto?style=flat-square&label=Contributors&color=00b4d8" alt="Contributors">
+  <img src="https://img.shields.io/github/issues-pr/changqing81/Azurpilot-Auto?style=flat-square&label=Pull%20Requests&color=ffb703" alt="Pull Requests">
+  <img src="https://img.shields.io/github/issues-pr-closed/changqing81/Azurpilot-Auto?style=flat-square&label=PRs%20Closed&color=2ea44f" alt="Closed Pull Requests">
 </p>
 
 <div align="center">
-  <a href="https://alas.nanoda.work/">
-    <img src="https://img.shields.io/badge/Web-下载-blue?style=for-the-badge&logo=google-chrome&logoColor=white" />
+  <a href="#docker-部署">
+    <img src="https://img.shields.io/badge/Docker-部署方式-blue?style=for-the-badge&logo=docker&logoColor=white" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://alas.nanoda.work/download.html">
+    <img src="https://img.shields.io/badge/上游-下载页-lightgrey?style=for-the-badge&logo=google-chrome&logoColor=white" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://addgroup.nanoda.work/#/">
-    <img src="https://img.shields.io/badge/交流群-QQ-red?style=for-the-badge&logo=tencent-qq&logoColor=white" />
+    <img src="https://img.shields.io/badge/上游交流群-QQ-red?style=for-the-badge&logo=tencent-qq&logoColor=white" />
   </a>
 </div>
 
@@ -52,49 +56,27 @@
 - [主要改动](#主要改动)
 - [GUI 预览](#gui-预览)
 - [快速开始](#快速开始)
+- [重要说明](#重要说明)
 - [使用前设置](#使用前设置)
 - [MCP 服务](#mcp-服务)
 - [多平台启动器](#多平台启动器)
 - [OCR 模型](#ocr-模型)
 - [Termux 真机安装运行指南](#termux-真机安装运行指南)
 - [赞助支持](#赞助支持)
-- [贡献者](#贡献者)
 - [相关链接](#相关链接)
 - [开发与贡献](#开发与贡献)
 - [许可证](#许可证)
+- [致谢与上游贡献者](#致谢与上游贡献者)
 
 ## 项目简介
 
-AzurPilot 是基于 AzurLaneAutoScript 修改而来的碧蓝航线自动化辅助工具，保留原项目的核心能力，并在此基础上整合了多个分支、功能改进和实验性特性。通过 ADB/uiautomator2 控制安卓模拟器，以截图识别、图像匹配与 OCR 自动执行游戏任务，支持 CN/EN/JP/TW 四服。
+AzurPilot-Auto 是基于 [wess09/AzurPilot](https://github.com/wess09/AzurPilot)（其上游为 [LmeSzinc/AzurLaneAutoScript](https://github.com/LmeSzinc/AzurLaneAutoScript)）的碧蓝航线自动化辅助工具，保留原项目的核心能力，并在此基础上整合了多个分支、功能改进和实验性特性。通过 ADB/uiautomator2 控制安卓模拟器，以截图识别、图像匹配与 OCR 自动执行游戏任务，支持 CN/EN/JP/TW 四服。
 
-> **请注意**：本项目代码基本由 AI 代码生成与辅助编写，存在较大的不确定性，欢迎提交 [Pull Request](https://github.com/wess09/AzurPilot/pulls) 改正。
+本仓库是 AzurPilot 的下游分支，在跟随上游功能同步的同时，维护自己的构建与发布渠道（Docker 镜像、启动器、CI 流程），并合入尚未进入上游的社区补丁。功能设计与主要开发仍在上游仓库进行，完整的功能介绍请参考[上游项目说明](https://github.com/wess09/AzurPilot)；本仓库相对上游的差异见下方[主要改动](#主要改动)。
 
-项目原始来源与主要贡献者（ClaudeCode分析得出可能存在不准确性）：
+> **请注意**：本项目代码基本由 AI 代码生成与辅助编写，存在较大的不确定性，欢迎提交 [Pull Request](https://github.com/changqing81/Azurpilot-Auto/pulls) 改正。
 
-| 仓库 / 作者 | 贡献内容 |
-| --- | --- |
-| @LmeSzinc/AzurLaneAutoScript | 原项目 ALAS 本体 |
-| @wess09 | 智能调度雏形、CL1 统计/遥测、重启模拟器管理、OCR/GPU 升级（PP-OCRv6/DirectML/ncnn）、MCP 服务器、LLM 分析、OOBE、WebUI 重构、婚舰识别、SSH 管理、WebUI 安全加固、依赖/部署/CI 工程 |
-| @guoh064 | 岛屿计划、大世界经验检测、海域成就 OpsiTarget、装备码、活动商店、突击沉船、岛屿数据/季节/科技扫描、仪表盘核心、GemsFarming 增强 |
-| @longer-sausage | 蒙特卡洛模拟器、共用心情、智能调度侵蚀 1 联动、大世界重构、紧急委托、自动寻吊 |
-| @Beatrice-betty | 大世界自动配队、共斗沉船、月末行动力清理、道中战败细化、委托统计、16 图重构、情绪修复 |
-| @ZhangMusan | 智能调度+ 重构（#87/#95）、短猫数据收集、月末清理模式初版、自动寻吊修复、DroidCast 升级、macOS 支持、塞壬探测 |
-| @a2893005741 | 自动技能切换、维修箱重构、侵蚀统计修复、AP/资源图表、退役修复、退役船坞过滤器 |
-| @123456 | 岛屿每日订单/互动/珍珠采购/货备独立任务、岛屿经营修复 |
-| @LanceRingHong | 三油低耗、岛屿排产/停滞修复 |
-| @quankong1551 | 岛屿持续修复、每日订单、JUU 速运 |
-| @EnderAvaritia | 资源历史图表、调度器推送通知 |
-| @moon-dim | 道中换队、独立推送分离 |
-| @DreamyDust | 自动配装模块、WebUI 性能优化 |
-| @Heipen | 塞壬研究装置基础、SirenBug 修复、AP 推送控制 |
-| @Msrtria | 委托推送、钻石推送 |
-| @kotoricon | 物资/硬币停止条件 |
-| @flyndxd78 | 虚拟资产系统、CL1 维修阈值、SSH 基础（PR #477）|
-| @izum1 | 日志备份/压缩 |
-| 上游贡献者 sui-feng-cb(ArecaSapling) / nEEtdo0d / SarContDeli / haoli2322(Q1213a) 等 | 作战档案/突袭活动/16 章/科研、商店/退役、侵蚀 1 练级基础、战斗学院/图表 |
-
-
-访问 **[AzurPilot 官网](https://alas.nanoda.work/)** 了解更多功能详情，或前往 **[下载页面](https://alas.nanoda.work/download.html)** 获取最新版本。
+上游来源与贡献者名单已移至文末[致谢与上游贡献者](#致谢与上游贡献者)。
 
 ## 主要改动
 
@@ -200,28 +182,54 @@ AzurPilot 是基于 AzurLaneAutoScript 修改而来的碧蓝航线自动化辅�
 
 ## 快速开始
 
-> 💡 **推荐方式**：直接从 [AzurPilot 官网下载页](https://alas.nanoda.work/download.html) 下载对应平台的启动器，内置 Python 环境，开箱即用。
+> 💡 **推荐方式**：直接使用启动器（内置 Python 环境，开箱即用），从[上游官网下载页](https://alas.nanoda.work/download.html)下载。本仓库不发布独立安装包，部署方式见 [Linux 一键部署](#linux-一键部署) 与 [Docker 部署](#docker-部署)。
 
 ### 源码运行
 
-本项目使用 `uv` 和项目根目录 `.venv` 管理 Python 运行环境（要求 Python >= 3.14）。发布版启动器会自带 uv、Python、ADB、Git，并在 `.venv` 中同步依赖；源码开发时可安装 uv 后运行：
+本项目使用 `uv` 和项目根目录 `.venv` 管理 Python 运行环境（要求 Python >= 3.14）。发布版启动器会自带 uv、Python、ADB、Git，并在 `.venv` 中同步依赖；源码开发时先克隆仓库（**中国大陆推荐 GitCode 镜像，速度更快**），安装 uv 后运行：
 
 ```bash
+# 主仓库
+git clone https://github.com/changqing81/Azurpilot-Auto.git
+# 中国大陆镜像（内容与主仓库同步）
+# git clone https://gitcode.com/gcw_BYvq9jGu/AzurPilot.git
+
+cd AzurPilot
 uv sync --frozen --no-dev
 uv run python gui.py
 ```
 
 启动后浏览器访问 `http://127.0.0.1:25548` 进入 WebUI。
 
+> **分支说明**：`master` 与 `dev` 始终指向同一提交、内容一致。GitHub 的 `master` / `dev` 每次推送后会自动同步到 GitCode，国内用户可直接从 GitCode 拉取。
+
 ### Linux 一键部署
 
+本仓库自带部署脚本 [`deploy/docker/deploy-image.sh`](deploy/docker/deploy-image.sh)：自动安装 Docker、克隆本仓库、拉取 `ghcr.io/changqing81/azurpilot-auto` 镜像并启动容器（带端口选择与访问地址输出）。
+
 ```shell
-curl -fsSL https://alas.nanoda.work/install/deploy-image.sh | sudo -E bash
+curl -fsSL https://raw.githubusercontent.com/changqing81/Azurpilot-Auto/master/deploy/docker/deploy-image.sh | sudo -E bash
 ```
+
+已克隆过仓库时，直接运行本地脚本即可：
+
+```shell
+sudo -E bash deploy/docker/deploy-image.sh
+```
+
+中国大陆网络建议先从 GitCode 拉源码，再运行本地脚本（避免访问 GitHub）：
+
+```shell
+git clone https://gitcode.com/gcw_BYvq9jGu/AzurPilot.git
+cd AzurPilot
+sudo -E bash deploy/docker/deploy-image.sh
+```
+
+可用环境变量覆盖默认值：`REPOSITORY`（源码仓库，中国大陆可设为 `https://gitcode.com/gcw_BYvq9jGu/AzurPilot`）、`IMAGE`（镜像地址）、`APP_DIR`（源码目录，默认 `~/AP`）、`WEBUI_PORT`、`LANGUAGE`（`zh` / `en`）。国内拉取 `ghcr.io` 较慢时，可用 `IMAGE=` 指向自己的镜像加速地址。
 
 ### Docker 部署
 
-**方式一：拉取官方镜像（推荐）**——无需本地构建、无需解析依赖，镜像内依赖与发布时完全一致：
+**方式一：拉取预构建镜像（推荐）**——无需本地构建、无需解析依赖，镜像内依赖与发布时完全一致：
 
 ```shell
 git clone https://github.com/changqing81/Azurpilot-Auto.git
@@ -229,6 +237,8 @@ cd AzurPilot
 docker compose pull
 docker compose up -d
 ```
+
+> 中国大陆可用 GitCode 镜像克隆：`git clone https://gitcode.com/gcw_BYvq9jGu/AzurPilot.git`。
 
 > 镜像发布于 `ghcr.io/changqing81/azurpilot-auto`，支持 amd64 / arm64 双架构。
 
@@ -261,22 +271,37 @@ docker compose up -d
 
 ### 数据上报与隐私
 
-当您使用本项目时，会向服务器发送一些信息：
+**本分支已移除原版的遥测与统计上报链路。** 上游 ALAS / AzurPilot 会把侵蚀 1 统计数据、掉落记录等上传到项目服务器，本仓库将整条链路删除，统计只落本地：
 
-当**开启遥测数据上报时**，会上传您的**侵蚀 1 统计数据（战斗次数、明石遇见概率等匿名数据）**、**设备 ID**（用于去重操作）以及您的 **IP** 信息。
+| 项目 | 本分支行为 |
+| --- | --- |
+| 遥测统计上报（侵蚀 1 战斗次数、明石遇见概率等） | **已移除**，配置项 `TelemetryReport` 已不存在 |
+| 掉落记录上传 | **已移除**，掉落截图经 OCR 解析后只写入本地 `config/azurstats_local.db` |
+| 设备 ID 上传 | **不上传**，仅用于本地统计去重 |
+| 错误日志上报 | **已移除**，异常日志与截图只存本地 `log/error/` |
 
-*注：IP 信息为网络传输时 TCP/IP 传输层所携带的信息，CDN 及服务端会记录访问日志。根据[中华人民共和国个人信息保护政策法规问答（2026 年 1 月）](https://www.cac.gov.cn/2026-01/09/c_1769688003183197.htm)，IP 地址不属于个人信息。如果您在意您的 IP 地址有可能被泄露，请立即停止使用本项目和 ALAS。*
+被删除的上游文件：`module/statistics/` 下的 `opsi_secure.py`、`opsi_keys.py`、`opsi_drop_stats.py`、`opsi_device_keys.py`、`research_drop.py`、`research_stats.py`、`storage_snapshot.py`。`azurstats.py` 已重写为纯本地实现，不含任何出网代码。
 
-相关源码：
-- [ALAS 通过访问云服务器获取 IP-碧蓝航线服务器检测](https://github.com/LmeSzinc/AzurLaneAutoScript/blob/master/module/server_checker.py#L12-L35)
-- [ALAS 通过访问云服务器获取 IP-碧蓝统计局](https://github.com/LmeSzinc/AzurLaneAutoScript/blob/master/module/statistics/azurstats.py#L95-L105)
-- [谨防恶意代码](https://github.com/LmeSzinc/AzurLaneAutoScript/blob/9f2defedfb82ad6b300f1d6f3edf1f17f830e965/module/device/connection_attr.py#L44-L61)
+#### 仍会联网的功能（均可控）
 
-**设备 ID 生成流程**：[设备 ID 源码](https://github.com/wess09/AzurPilot/blob/master/module/base/device_id.py#L82-L88)
+- **服务器状态检测**：`module/server_checker.py` 访问 `sc.shiratama.cn` 与 `www.baidu.com`，用于判断服务器维护状态与网络连通性。
+- **公告 / 更新日志**：`module/base/api_client.py` 从 GitCode、jsDelivr、raw.githubusercontent **只读**拉取 `announcement.json` / `changelog.json`。
+- **通知推送**：OnePush（企业微信机器人等）是**您自行配置**的 webhook，内容由您控制。
+- **LLM 错误分析**：如启用，异常信息会发送到**您自行配置**的 LLM API。
+
+上述请求会携带您的 **IP**（TCP/IP 传输层固有信息，CDN 及服务端会记录访问日志）。根据[中华人民共和国个人信息保护政策法规问答（2026 年 1 月）](https://www.cac.gov.cn/2026-01/09/c_1769688003183197.htm)，IP 地址不属于个人信息。如果您在意 IP 有可能被泄露，请立即停止使用本项目。
+
+#### 设备 ID
+
+**生成流程**：[设备 ID 源码](https://github.com/changqing81/Azurpilot-Auto/blob/master/module/base/device_id.py#L82-L88)
 
 ```
 读取设备信息(敏感信息) → 字符串拼接 → SHA256 哈希化脱敏处理（量子计算机普及前完全不可逆）
 ```
+
+生成的 32 位十六进制字符串写入 `log/device_id.json`，仅用于**本地**统计按设备去重（`config/azurstats_local.db` 的 `device_id` 字段）与 WebUI 演示数据限制，**不会上传到任何服务器**。
+
+完整的数据处理与免责说明见 [PRIVACY_AND_DISCLAIMER.md](PRIVACY_AND_DISCLAIMER.md)。
 
 ## 使用前设置
 
@@ -386,7 +411,7 @@ AzurPilot 提供 MCP 服务，可供支持 MCP 的客户端或工具调用，方
 
 ## 多平台启动器
 
-> 📥 从 [AzurPilot 官网](https://alas.nanoda.work/download.html) 下载 Windows / macOS / Linux 启动器
+> 📥 从[上游官网](https://alas.nanoda.work/download.html)下载 Windows / macOS / Linux 启动器
 
 <div align="center">
   <img src="doc/loading.png" alt="loading" width="500" />
@@ -397,7 +422,7 @@ AzurPilot 提供 MCP 服务，可供支持 MCP 的客户端或工具调用，方
   <p>Mac 客户端界面</p>
 </div>
 
-启动器项目地：[GitHub](https://github.com/wess09/alas-launcher) · 源项目 [ALAS Launcher: 一种新型的 AzurLaneAutoScript 启动器](https://github.com/swordfeng/alas-launcher)
+启动器项目地址：[上游 alas-launcher](https://github.com/wess09/alas-launcher) · 源项目 [ALAS Launcher: 一种新型的 AzurLaneAutoScript 启动器](https://github.com/swordfeng/alas-launcher)
 
 更改内容：
 
@@ -701,7 +726,7 @@ apt install -y lxde-core lxterminal tigervnc-standalone-server
 #### 11. 克隆项目
 
 1. 打开 [https://gh-proxy.com/](https://gh-proxy.com/) 下载代理源项目
-2. 将 `https://github.com/wess09/AzurPilot.git` 复制到页面的输入框
+2. 将 `https://github.com/changqing81/Azurpilot-Auto.git` 复制到页面的输入框
 3. 点击 **git clone** 获取最新的链接
 4. 用最新的链接替换下面的 `url`：
    ```bash
@@ -824,74 +849,24 @@ adb shell wm density reset
 
 ## 赞助支持
 
+> 本仓库是下游分支，不单独接受赞助。下方为上游项目的赞助通道，赞助将用于上游服务器费用与新模型训练。
+
 <p align="center">
   <a href="https://afdian.com/a/miaonaa">
     <img src="doc/afdian.jfif" alt="爱发电" width="200">
   </a>
   <br>
-  <b>支持本项目（用于支付服务器费用或训练新模型等）</b>
+  <b>支持上游 AzurPilot 项目</b>
 </p>
-
-## 贡献者
-
-由于本项目基于 AzurLaneAutoScript 及其社区分支继续开发，贡献者列表不仅包含本仓库的直接贡献者，也包含上游项目与相关分支中的原始贡献者。
-
-感谢所有为 AzurPilot、原上游 AzurLaneAutoScript 及相关分支做出贡献的开发者。
-
-<a href="https://github.com/wess09/AzurPilot/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=wess09/AzurPilot&max=1000" alt="AzurPilot Contributors">
-</a>
-
-### 主要贡献者名单（ClaudeCode生成）
-
-**核心维护者**
-
-| 作者 | 身份 | 核心贡献 |
-| --- | --- | --- |
-| @wess09 | 本仓库作者 | 智能调度雏形、CL1 统计/遥测、重启模拟器管理、OCR/GPU 升级、MCP、LLM、OOBE、WebUI 重构、婚舰识别、SSH、依赖/部署/CI 工程 |
-
-**主要功能贡献者**
-
-| 作者 | 核心贡献 |
-| --- | --- |
-| @guoh064 | 岛屿计划、大世界经验检测、海域成就、装备码、活动商店、突击沉船、岛屿数据扫描、仪表盘核心 |
-| @longer-sausage | 蒙特卡洛模拟器、共用心情、智能调度侵蚀 1 联动、大世界重构 |
-| @Beatrice-betty | 大世界自动配队、共斗沉船、月末行动力清理、道中战败、委托统计、16 图重构 |
-| @ZhangMusan | 智能调度+ 重构、短猫数据收集、月末清理模式初版、自动寻吊、DroidCast 升级、macOS 支持 |
-| @a2893005741 | 自动技能切换、维修箱重构、侵蚀统计修复、AP/资源图表、退役修复 |
-| @123456 | 岛屿每日订单/互动/珍珠采购/货备独立任务 |
-| @LanceRingHong | 三油低耗、岛屿排产/停滞修复 |
-| @quankong1551 | 岛屿持续修复、每日订单、JUU 速运 |
-| @EnderAvaritia | 资源历史图表、调度器推送通知 |
-| @moon-dim | 道中换队、独立推送分离 |
-| @DreamyDust | 自动配装、WebUI 性能优化 |
-| @Heipen | 塞壬研究装置基础、SirenBug 修复 |
-| @Msrtria | 委托推送、钻石推送 |
-| @kotoricon | 物资/硬币停止条件 |
-| @flyndxd78 | 虚拟资产系统、CL1 维修阈值、SSH 基础 |
-| @izum1 | 日志备份/压缩 |
-
-**上游生态贡献者**
-
-| 作者 | 贡献 |
-| --- | --- |
-| @LmeSzinc | 活动地图/章节、战斗优化、设备修复、W16 战役、上游合并 |
-| sui-feng-cb（ArecaSapling）| 作战档案、突袭活动、16 章、科研 S9、宿舍买食 |
-| haoli2322（Q1213a）| 战斗学院、吊机概率、活动地图、图表 |
-| SarContDeli / nEEtdo0d / 18870 等 | 侵蚀 1 练级基础、商店/退役、GUI 开发 |
-
-感谢所有为启动器项目做出贡献的开发者。
-
-<a href="https://github.com/wess09/alas-launcher/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=wess09/alas-launcher&max=1000" alt="Launcher Contributors">
-</a>
 
 ## 相关链接
 
-- [AzurPilot 官网](https://alas.nanoda.work/) — 项目介绍、功能详情、碧蓝航线自动化方案
-- [AzurPilot 下载页](https://alas.nanoda.work/download.html) — 下载 Windows / macOS / Linux 版本的碧蓝航线脚本工具
-- [GitHub 仓库](https://github.com/wess09/AzurPilot) — 源码、Issue、Pull Request
-- [QQ 交流群](https://join.nanoda.work/#/) — 碧蓝航线自动化社区交流
+- [本仓库](https://github.com/changqing81/Azurpilot-Auto) — 本分支源码、Issue、Pull Request
+- [GitCode 镜像](https://gitcode.com/gcw_BYvq9jGu/AzurPilot) — 中国大陆代码源，与 GitHub 自动同步
+- [上游 AzurPilot](https://github.com/wess09/AzurPilot) — 功能设计与主要开发所在仓库
+- [上游官网](https://alas.nanoda.work/) — 项目介绍、功能详情、碧蓝航线自动化方案
+- [上游下载页](https://alas.nanoda.work/download.html) — Windows / macOS / Linux 版本的碧蓝航线脚本工具
+- [上游交流群](https://join.nanoda.work/#/) — 碧蓝航线自动化社区交流
 - [AzurLaneAutoScript 上游项目](https://github.com/LmeSzinc/AzurLaneAutoScript) — ALAS 原版
 
 ## 开发与贡献
@@ -1121,3 +1096,53 @@ uv run -m module.config.config_updater
 本项目遵循原项目及相关上游项目的许可证要求。启动器项目遵循 GPL-3.0 协议开源。
 
 使用、修改或分发本项目时，请同时遵守相关上游项目的许可证要求。
+
+## 致谢与上游贡献者
+
+> 本节为上游来源与致谢记录，内容来自上游仓库，与当前分支的构建/发布无关。
+
+本仓库基于 AzurLaneAutoScript 及其社区分支继续开发，贡献者不仅包含上游仓库的直接贡献者，也包含上游项目与相关分支的原始贡献者。感谢所有为 AzurPilot、原上游 AzurLaneAutoScript 及相关分支做出贡献的开发者。
+
+<a href="https://github.com/wess09/AzurPilot/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=wess09/AzurPilot&max=1000" alt="AzurPilot Contributors">
+</a>
+
+### 上游贡献者名单
+
+**上游核心维护者**
+
+| 作者 | 身份 | 核心贡献 |
+| --- | --- | --- |
+| @wess09 | 上游 AzurPilot 作者 | 智能调度雏形、CL1 统计/遥测、重启模拟器管理、OCR/GPU 升级、MCP、LLM、OOBE、WebUI 重构、婚舰识别、SSH、依赖/部署/CI 工程 |
+
+**主要功能贡献者**
+
+| 作者 | 核心贡献 |
+| --- | --- |
+| @guoh064 | 岛屿计划、大世界经验检测、海域成就、装备码、活动商店、突击沉船、岛屿数据扫描、仪表盘核心 |
+| @longer-sausage | 蒙特卡洛模拟器、共用心情、智能调度侵蚀 1 联动、大世界重构 |
+| @Beatrice-betty | 大世界自动配队、共斗沉船、月末行动力清理、道中战败、委托统计、16 图重构 |
+| @ZhangMusan | 智能调度+ 重构、短猫数据收集、月末清理模式初版、自动寻吊、DroidCast 升级、macOS 支持 |
+| @a2893005741 | 自动技能切换、维修箱重构、侵蚀统计修复、AP/资源图表、退役修复 |
+| @123456 | 岛屿每日订单/互动/珍珠采购/货备独立任务 |
+| @LanceRingHong | 三油低耗、岛屿排产/停滞修复 |
+| @quankong1551 | 岛屿持续修复、每日订单、JUU 速运 |
+| @EnderAvaritia | 资源历史图表、调度器推送通知 |
+| @moon-dim | 道中换队、独立推送分离 |
+| @DreamyDust | 自动配装、WebUI 性能优化 |
+| @Heipen | 塞壬研究装置基础、SirenBug 修复 |
+| @Msrtria | 委托推送、钻石推送 |
+| @kotoricon | 物资/硬币停止条件 |
+| @flyndxd78 | 虚拟资产系统、CL1 维修阈值、SSH 基础 |
+| @izum1 | 日志备份/压缩 |
+
+**上游生态贡献者**
+
+| 作者 | 贡献 |
+| --- | --- |
+| @LmeSzinc | 活动地图/章节、战斗优化、设备修复、W16 战役、上游合并 |
+| sui-feng-cb（ArecaSapling）| 作战档案、突袭活动、16 章、科研 S9、宿舍买食 |
+| haoli2322（Q1213a）| 战斗学院、吊机概率、活动地图、图表 |
+| SarContDeli / nEEtdo0d / 18870 等 | 侵蚀 1 练级基础、商店/退役、GUI 开发 |
+
+上游启动器项目贡献者：[wess09/alas-launcher](https://github.com/wess09/alas-launcher/graphs/contributors)
