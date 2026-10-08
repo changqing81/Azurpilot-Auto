@@ -2292,7 +2292,7 @@
     },
     "BatchMode": {
       "name": "Batch Research (Experimental)",
-      "help": "Wait until ALL research projects complete, then claim all rewards at once and refill 6 projects in one go. When disabled, finished projects are claimed and refilled immediately."
+      "help": "Wait until the 5 queued research projects complete, then claim all rewards at once and refill 6 projects in one go (the 6th project running outside the queue is not waited for). When disabled, finished projects are claimed and refilled immediately."
     },
     "MaintainFill": {
       "name": "Run Research Before Maintenance",

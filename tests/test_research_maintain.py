@@ -95,7 +95,7 @@ class TestRunBranches(unittest.TestCase):
             patch.object(RewardResearch, 'get_queue_slot', autospec=True, return_value=slot),
             patch.object(RewardResearch, '_batch_ready', autospec=True, return_value=True),
             patch.object(RewardResearch, '_batch_snapshot', autospec=True,
-                         return_value=(list(times), None)),
+                         return_value=list(times)),
         ]
         stack = ExitStack()
         for patcher in patchers:
@@ -215,7 +215,7 @@ class TestBatchScheduleClamp(unittest.TestCase):
     @staticmethod
     def patch_snapshot(times):
         return patch.object(RewardResearch, '_batch_snapshot', autospec=True,
-                            return_value=(times, None))
+                            return_value=times)
 
     def test_normal_stage_clamps_to_lead(self):
         """照常阶段：Σ 排程越过强制运行点时钳到维护前 60 分钟。"""
