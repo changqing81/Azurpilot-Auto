@@ -151,13 +151,18 @@ class TestInteractivePriority(unittest.TestCase):
         self.assertTrue(bg_got.wait(2))
         t_bg.join(2)
 
-    def test_background_breaks_through_after_patience(self):
-        """防饿死：让位耐心耗尽后硬闯一次。"""
+    def test_background_stops_yielding_after_patience(self):
+        """防饿死：让位耐心耗尽后不再给用户让位，但不得抢占 owner。
+
+        owner 释放后后台必须能拿到锁；期间原持有者 release 绝不能报
+        「released by non-owner thread」。
+        """
         lock = _RenderLock()
         lock.BACKGROUND_PATIENCE = 0.2
         lock.acquire()  # 用户持锁不放（极端场景）
 
         bg_got = threading.Event()
+        holder_error = []
 
         def background():
             lock.acquire(is_background=True)
@@ -166,12 +171,47 @@ class TestInteractivePriority(unittest.TestCase):
 
         t_bg = threading.Thread(target=background)
         t_bg.start()
-        self.assertTrue(bg_got.wait(3), "耐心耗尽后后台必须能硬闯拿锁")
+        # 耐心耗尽（0.2s）后仍拿不到：owner 未释放，抢占是被禁止的
+        self.assertFalse(bg_got.wait(0.6), "后台不得抢占用户持有的锁")
+        # 原持有者释放必须成功，不得抛「non-owner thread」
         try:
             lock.release()
-        except RuntimeError:
-            pass  # 硬闯者已释放，主线程这个"用户"的释放不再合法
+        except RuntimeError as e:  # pragma: no cover - 修复前的失败路径
+            holder_error.append(str(e))
+        self.assertEqual(holder_error, [], "后台不得篡改 owner")
+        # 用户释放后后台立即拿到
+        self.assertTrue(bg_got.wait(3), "owner 释放后后台必须能拿到锁")
         t_bg.join(2)
+
+    def test_holder_release_survives_background_patience(self):
+        """回归：后台让位耐心耗尽不得篡改 owner。
+
+        线上表现为用户点击「刷新」等按钮时报
+        `RuntimeError: render lock released by non-owner thread`
+        （被 PyWebIO 包装成「应用发生内部错误」），且锁状态被搅乱后
+        同类错误在短时间内连环爆发（2026-10-08 GUI 日志 233 次）。
+        """
+        lock = _RenderLock()
+        lock.BACKGROUND_PATIENCE = 0.05
+        lock.acquire()  # 模拟用户回调持锁渲染
+
+        started = threading.Event()
+
+        def background():
+            started.set()
+            lock.acquire(is_background=True)
+            lock.release()
+
+        t_bg = threading.Thread(target=background)
+        t_bg.start()
+        self.assertTrue(started.wait(1))
+        # 覆盖「让位阶段 → 硬闯阶段」全过程
+        time.sleep(0.3)
+        # 持有者释放必须成功
+        lock.release()
+        t_bg.join(2)
+        self.assertIsNone(lock._owner, "全部释放后锁必须回到空闲状态")
+        self.assertEqual(lock._depth, 0)
 
 
 class TestCallerIdentity(unittest.TestCase):

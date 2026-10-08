@@ -105,5 +105,43 @@ class TestTaskGroupParallelism(unittest.TestCase):
         self.assertFalse(handler._alive)
 
 
+class TestSessionFailureHandling(unittest.TestCase):
+    """会话失效必须静默处理，不得打成 ERROR 堆栈。"""
+
+    def test_session_not_found_is_silent(self):
+        """关闭页面后残留的后台渲染任务会抛 SessionNotFoundException。
+
+        它与 SessionClosedException 同属 SessionException 子类；调度循环
+        只捕后者会让它落到通用分支 logger.exception()，在 GUI 日志里刷
+        ERROR 堆栈（2026-10-08 实测 14 次）。此处钉死「静默处理 + 移除任务」。
+        """
+        from unittest.mock import patch
+
+        from pywebio.exceptions import SessionNotFoundException
+
+        handler = TaskHandler()
+        called = threading.Event()
+
+        def failing():
+            called.set()
+            raise SessionNotFoundException("Can't find current session.")
+
+        handler.add(failing, 0.05)
+        with patch("module.webui.utils.logger") as logger_mock:
+            handler.start()
+            try:
+                self.assertTrue(called.wait(5), "任务未执行")
+                deadline = time.time() + 5
+                while handler.get_task("failing") is not None and time.time() < deadline:
+                    time.sleep(0.01)
+            finally:
+                handler.stop()
+        self.assertFalse(
+            logger_mock.exception.called,
+            "SessionNotFoundException 属会话失效，不得打 ERROR 堆栈",
+        )
+        self.assertIsNone(handler.get_task("failing"), "会话失效的任务必须被移除")
+
+
 if __name__ == "__main__":
     unittest.main()

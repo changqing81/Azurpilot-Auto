@@ -20,7 +20,7 @@ from queue import Queue
 from typing import Callable, Generator, List
 
 import pywebio
-from pywebio.exceptions import SessionClosedException
+from pywebio.exceptions import SessionException
 from pywebio.input import PASSWORD, actions, input, input_group
 from pywebio.output import PopupSize, popup, put_html, put_text, toast
 from pywebio.session import eval_js, info as session_info, local, register_thread, run_js
@@ -300,8 +300,12 @@ class TaskHandler:
                 self._task = task
                 task.running = True
                 task.send(self)
-            except SessionClosedException:
-                logger.debug(f"WebIO 会话已关闭，停止任务 {task.name}")
+            except SessionException as e:
+                # 会话失效有两种：SessionClosedException（已关闭）与
+                # SessionNotFoundException（当前线程无活动会话，如关闭页面后
+                # 残留的后台渲染任务）。二者都是 SessionException 子类，
+                # 只捕前者会让后者落到通用分支打出 ERROR 堆栈（纯噪音）。
+                logger.debug(f"WebIO 会话已失效，停止任务 {task.name}: {e}")
                 self.remove_task(task, nowait=True)
             except Exception as e:
                 logger.exception(e)

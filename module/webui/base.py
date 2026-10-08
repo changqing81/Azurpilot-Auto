@@ -29,11 +29,13 @@ class _RenderLock:
     - 用户回调（按钮点击等会话线程）注册为交互等待者，等锁期间
       所有后台任务让位，保证用户是下一个拿锁的；
     - 后台任务（TaskHandler 线程）拿锁前若发现交互等待者就让位轮询，
-      超过让位耐心后硬闯一次，防止持续的用户操作饿死周期刷新。
+      超过让位耐心后不再让位（但仍与 owner 互斥），防止持续的用户操作
+      饿死周期刷新。防饿死只放弃「让位」，绝不放弃「互斥」。
     """
 
-    # 后台任务在有用户等待时的让位耐心（秒）：超过后硬闯防饿死。
-    # 用户回调都是亚秒级，3s 预算内几乎必然已拿到锁。
+    # 后台任务在有用户等待时的让位耐心（秒）：超过后不再让位，
+    # 但仍需等待 owner 释放（不抢占）。用户回调都是亚秒级，
+    # 3s 预算内几乎必然已拿到锁。
     BACKGROUND_PATIENCE = 3.0
     # 让位轮询间隔（秒）：通过 Condition.wait 间接响应 release 唤醒，
     # 轮询只是兜底。
@@ -57,13 +59,19 @@ class _RenderLock:
                 self._depth += 1
                 return
             if is_background:
+                # 让位阶段：只要还有 owner 或用户在排队，后台就继续让位。
                 deadline = time.monotonic() + self.BACKGROUND_PATIENCE
-                while True:
-                    if self._owner is None and self._interactive_waiters == 0:
-                        break
+                while self._owner is not None or self._interactive_waiters > 0:
                     if time.monotonic() >= deadline:
-                        # 硬闯防饿死：插一次队，跑完本轮立即释放
                         break
+                    self._cond.wait(self._YIELD_POLL)
+                # 硬闯阶段：不再给用户回调让位，但**绝不抢占** owner。
+                # 抢占会把 self._owner 改成自己，原持有者稍后 release 时
+                # 发现 owner 不是自己而抛 RuntimeError，导致该次渲染整体
+                # 失败（线上表现为点「刷新」等按钮报「应用发生内部错误」，
+                # 且锁状态被搅乱后错误会连环爆发）。防饿死只应放弃「让位」，
+                # 不应放弃「互斥」——持有者总会释放，等待即可。
+                while self._owner is not None:
                     self._cond.wait(self._YIELD_POLL)
             else:
                 self._interactive_waiters += 1
