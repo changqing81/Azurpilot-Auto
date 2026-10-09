@@ -50,7 +50,7 @@ FILTER_REGEX = re.compile(
     '|dd|cl|bb|cv'
     '|iris|sardegna'
     '|abyssal|archive|obscure|unlock'
-    '|combat|offense|survival)?'
+    '|combat|offence|offense|survival)?'
 
     '(s[1-5]|t[1-6])?$',
     flags=re.IGNORECASE)

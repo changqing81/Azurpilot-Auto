@@ -6,6 +6,7 @@
 import re
 from typing import List
 from module.config.config_generated import GeneratedConfig
+from module.logger import logger
 from module.os_shop.preset import OS_SHOP
 from module.os_shop.item import OSShopItem as Item
 from module.base.filter import Filter
@@ -19,7 +20,7 @@ FILTER_REGEX = re.compile(
     '|tuning)'
 
     '(20|50|100|prototype|specialized|abyssal|obscure|full2|full|triple2|triple|2'
-    '|combat|offence|survival)?'
+    '|combat|offence|offense|survival)?'
 
     '(t[1-6])?$',
     flags=re.IGNORECASE)
@@ -94,6 +95,7 @@ class Selector():
         """
         return item.count >= 1 and item.total_count >= 1 and item.count <= item.total_count
 
+
     def items_filter_in_akashi_shop(self, items) -> List[Item]:
         """过滤明石商店中可购买的物品。
 
@@ -130,7 +132,6 @@ class Selector():
         """
         items = self.pretreatment(items)
         if getattr(self, '_opsi_action_point_purchase', False):
-            # 港口行动力专购：只买行动力箱，忽略预设过滤器和紫币限制。
             return [item for item in items if item.group == 'actionpoint' and self.check_item_count(item)]
         preset = self.config.OpsiShop_PresetFilter
         parser = ''
