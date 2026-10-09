@@ -106,5 +106,69 @@ class TestBatchScheduling(unittest.TestCase):
                          timedelta(0))
 
 
+class TestFillSixth(unittest.TestCase):
+    """第 6 个并行位的补位判据：主页有空闲卡位（detail）才尝试启动。"""
+
+    @staticmethod
+    def _runner():
+        from types import SimpleNamespace
+        runner = RewardResearch.__new__(RewardResearch)
+        runner.device = SimpleNamespace(image=object())  # get_research_status 入参
+        return runner
+
+    def test_fill_sixth_starts_when_idle_card_exists(self):
+        """主页有 detail 卡位 → 尝试启动，且不入队列。"""
+        runner = self._runner()
+        with patch.object(RewardResearch, 'get_research_status', autospec=True,
+                          return_value=['finished', 'running', 'waiting', 'waiting', 'detail']), \
+                patch.object(RewardResearch, 'research_queue_append', autospec=True,
+                             return_value=True) as append:
+            result = runner.research_fill_sixth()
+        self.assertTrue(result)
+        append.assert_called_once()
+        self.assertIs(append.call_args.kwargs.get('add_queue'), False)
+
+    def test_fill_sixth_skips_when_no_idle_card(self):
+        """主页无 detail 卡位（第 6 个在跑/已完成未收/队列占满）→ 不尝试。"""
+        runner = self._runner()
+        with patch.object(RewardResearch, 'get_research_status', autospec=True,
+                          return_value=['finished', 'running', 'waiting', 'waiting', 'waiting']), \
+                patch.object(RewardResearch, 'research_queue_append', autospec=True) as append:
+            result = runner.research_fill_sixth()
+        self.assertFalse(result)
+        append.assert_not_called()
+
+    def test_fill_sixth_survives_click_storm(self):
+        """启动尝试点击无响应时只记日志，不炸任务。"""
+        from module.exception import GameTooManyClickError
+        runner = self._runner()
+        with patch.object(RewardResearch, 'get_research_status', autospec=True,
+                          return_value=['detail'] * 5), \
+                patch.object(RewardResearch, 'research_queue_append', autospec=True,
+                             side_effect=GameTooManyClickError('too many clicks')):
+            result = runner.research_fill_sixth()
+        self.assertFalse(result)
+
+    def test_batch_not_ready_still_maintains_sixth(self):
+        """队列未全部完成时也维护第 6 个位：收已完成 + 尝试补位。
+
+        回归用户报告：队列 ['finished','running','waiting','waiting','waiting']
+        且未到收获时机时，第 6 个并行位整批闲置 8 小时。
+        """
+        runner = self._runner()
+        with patch.object(RewardResearch, '_batch_ready', autospec=True, return_value=False), \
+                patch.object(RewardResearch, 'research_fill_queue', autospec=True) as fill, \
+                patch.object(RewardResearch, 'handle_pending_t_research', autospec=True,
+                             return_value=True), \
+                patch.object(RewardResearch, 'receive_6th_research', autospec=True) as recv, \
+                patch.object(RewardResearch, 'research_fill_sixth', autospec=True) as fill_sixth, \
+                patch.object(RewardResearch, '_batch_schedule', autospec=True):
+            runner._run_batch()
+        fill.assert_called_once()
+        self.assertIs(fill.call_args.kwargs.get('include_sixth'), False)
+        recv.assert_called_once()
+        fill_sixth.assert_called_once()
+
+
 if __name__ == '__main__':
     unittest.main()

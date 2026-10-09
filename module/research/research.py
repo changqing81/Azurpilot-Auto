@@ -610,9 +610,9 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         持续选择科研项目直到队列填满。
 
         Args:
-            include_sixth (bool): 是否处理第 6 个项目（队列外）。
-                批量模式过渡态（未全部完成时的补位）必须为 False，
-                避免在已完成未收取的第 6 个项目上覆盖启动新项目。
+            include_sixth (bool): 填满队列后是否尝试启动第 6 个项目（队列外）。
+                启动与否由 research_fill_sixth 按主页空闲卡位判定；
+                传 False 表示本轮完全不动第 6 个（调用方自行维护）。
 
         Returns:
             int: 加入队列的科研项目数量
@@ -638,17 +638,38 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
 
             # 运行第 6 个项目
             if include_sixth:
-                status = self.get_research_status(self.device.image)
-                if 'waiting' not in status:
-                    logger.info('[科研-第6个] 选择第6个科研')
-                    self.research_queue_append(drop=drop, add_queue=False)
-                else:
-                    logger.info('[科研-第6个] 第6个科研已在等待中')
+                self.research_fill_sixth(drop=drop)
             else:
                 logger.info('[科研-队列] 跳过第 6 个项目（批量模式过渡态）')
 
             logger.info(f'[科研-队列] 科研队列已填满，已添加: {total}')
             return total
+
+    def research_fill_sixth(self, drop=None):
+        """
+        尝试在第 6 个并行位（队列外）再启动一个项目，能做就做。
+
+        判据不依赖第 6 个的显示位置：主页存在 detail 空闲卡位时才尝试启动
+        （add_queue=False）；无空卡位（第 6 个正在跑、已完成未收取、或队列
+        项目占满主页）则不动，天然避免覆盖已完成未收的项目。
+        启动失败（资源不足、无匹配项目、点击无响应）只记日志，不影响任务。
+
+        Args:
+            drop (DropImage): 掉落记录对象。
+
+        Returns:
+            bool: 是否成功启动第 6 个项目。
+        """
+        status = self.get_research_status(self.device.image)
+        if 'detail' not in status:
+            logger.info('[科研-第6个] 主页无空闲卡位，第 6 个位已被占用')
+            return False
+        logger.info('[科研-第6个] 主页有空闲卡位，尝试启动第 6 个科研')
+        try:
+            return self.research_queue_append(drop=drop, add_queue=False)
+        except GameTooManyClickError:
+            logger.warning('[科研-第6个] 启动第 6 个科研失败，本轮跳过')
+            return False
 
     def receive_6th_research(self, skip_first_screenshot=True):
         """
@@ -857,9 +878,13 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
                 self.receive_6th_research()
                 self.research_fill_queue()
         else:
-            # 队列未全部完成：不收取（保证一次性收完），仅补满空槽；
-            # 第 6 个槽留待收取时机，避免覆盖已完成未收的项目
+            # 队列未全部完成：不收队列（保证一次性收完），仅补满空槽；
+            # 第 6 个并行位照常维护——先收掉已完成未收的项目，主页有空闲
+            # 卡位则再启动一个，避免它在批次剩余时间（可能 8+ 小时）里闲置
             self.research_fill_queue(include_sixth=False)
+            if self.handle_pending_t_research():
+                self.receive_6th_research()
+                self.research_fill_sixth()
 
         self._batch_schedule(maintain=maintain)
 
