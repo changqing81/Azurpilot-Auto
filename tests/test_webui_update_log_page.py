@@ -16,7 +16,7 @@ from module.webui.app_developer_update import DeveloperUpdateMixin
 from module.webui.update_log import render_entries_html
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-LANGUAGES = ("zh-CN", "zh-TW", "zh-MIAO", "en-US", "ja-JP")
+LANGUAGES = ("zh-CN", "zh-TW", "en-US", "ja-JP")
 NEW_KEYS = ("Changelog", "ChangelogLoading", "ChangelogEmpty")
 
 

@@ -8,7 +8,7 @@
 - 随机 ID：配置实例的唯一标识生成
 
 常量定义：
-- LANGUAGES: 支持的语言列表（zh-CN、zh-MIAO、en-US、ja-JP、zh-TW）
+- LANGUAGES: 支持的语言列表（zh-CN、en-US、ja-JP、zh-TW）
 - SERVER_TO_LANG: 服务器到语言的映射
 - SERVER_TO_TIMEZONE: 服务器到时区的映射
 """
@@ -29,7 +29,7 @@ from module.base.decorator import run_once
 from module.config.time_source import now as current_time, timestamp as current_timestamp
 from module.logger import logger
 
-LANGUAGES = ['zh-CN', 'zh-MIAO', 'en-US', 'ja-JP', 'zh-TW']
+LANGUAGES = ['zh-CN', 'en-US', 'ja-JP', 'zh-TW']
 SERVER_TO_LANG = {
     'cn': 'zh-CN',
     'en': 'en-US',

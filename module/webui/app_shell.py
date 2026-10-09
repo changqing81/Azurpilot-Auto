@@ -348,7 +348,7 @@ class AppShellMixin(WebUIMixinBase):
                 -1 (*state not changed)
 
         页眉结构固定为「排头（base.py 渲染）+ 加载圈 + 状态文字」。
-        zh-CN / zh-MIAO / zh-TW 把整句放在排头（与 en/ja 的 AzurPilot 同位置），
+        zh-CN / zh-TW 把整句放在排头（与 en/ja 的 AzurPilot 同位置），
         Running / Inactive 文案为空，因此这里只剩一个加载圈；
         en-US / ja-JP 状态文字非空，显示为「AzurPilot 〇 Waiting」。
         """

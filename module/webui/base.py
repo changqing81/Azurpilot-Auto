@@ -432,7 +432,7 @@ class Frame(Base):
     @use_scope("ROOT", clear=True)
     def _show() -> None:
         # 页眉排头恒定渲染，结构为「头像 + 排头 + 加载圈 + 状态文字」：
-        #   zh-CN / zh-MIAO / zh-TW：排头是整句「待到山花烂漫时，她在丛中笑」，
+        #   zh-CN / zh-TW：排头是整句「待到山花烂漫时，她在丛中笑」，
         #       状态文字为空，加载圈紧跟在排头之后；
         #   en-US / ja-JP：排头是 AzurPilot，加载圈后还有状态文字。
         put_scope(

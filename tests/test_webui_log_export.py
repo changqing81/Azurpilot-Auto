@@ -1114,7 +1114,7 @@ class TestLogExportI18n(unittest.TestCase):
        写成单花括号会在渲染界面时抛 KeyError。
     """
 
-    LANGUAGES = ("zh-CN", "en-US", "ja-JP", "zh-TW", "zh-MIAO")
+    LANGUAGES = ("zh-CN", "en-US", "ja-JP", "zh-TW")
     KEYS = (
         "Title",
         "InstanceLabel",

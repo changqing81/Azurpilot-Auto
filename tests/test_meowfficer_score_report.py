@@ -212,7 +212,7 @@ class MeowfficerScoreI18nTests(unittest.TestCase):
     占位符写错会在渲染界面时抛 KeyError。
     """
 
-    LANGUAGES = ('zh-CN', 'en-US', 'ja-JP', 'zh-TW', 'zh-MIAO')
+    LANGUAGES = ('zh-CN', 'en-US', 'ja-JP', 'zh-TW')
     KEYS = (
         'Title', 'Refresh', 'Refreshing', 'OpenReport', 'EmptyTitle', 'EmptyHint', 'Summary',
         'Broken', 'Score', 'Maxed', 'Fixed', 'AxisX', 'AxisY', 'NoHits', 'OtherRubrics',

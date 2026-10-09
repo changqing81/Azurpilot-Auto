@@ -421,7 +421,7 @@ class TestManageExportUi(unittest.TestCase):
             "ExportDataScopeAll",
             "ExportDataFilteredHint",
         )
-        for lang in ("zh-CN", "zh-MIAO", "en-US", "ja-JP", "zh-TW"):
+        for lang in ("zh-CN", "en-US", "ja-JP", "zh-TW"):
             data = json.loads((i18n_dir / f"{lang}.json").read_text(encoding="utf-8"))
             section = data["Gui"]["AppManage"]
             for key in keys:
@@ -434,7 +434,7 @@ class TestManageExportUi(unittest.TestCase):
         """t() 会对文案执行 .format()：体积文案必须用 {{files}} 双花括号，
         否则无参调用直接 KeyError（管理页面板打不开的回归）。"""
         i18n_dir = Path(__file__).resolve().parents[1] / "module" / "config" / "i18n"
-        for lang in ("zh-CN", "zh-MIAO", "en-US", "ja-JP", "zh-TW"):
+        for lang in ("zh-CN", "en-US", "ja-JP", "zh-TW"):
             data = json.loads((i18n_dir / f"{lang}.json").read_text(encoding="utf-8"))
             size_text = data["Gui"]["AppManage"]["ExportDataSize"]
             self.assertIn("{{files}}", size_text, f"{lang} 的 ExportDataSize 缺少转义占位符")
