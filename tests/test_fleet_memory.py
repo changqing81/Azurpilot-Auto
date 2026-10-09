@@ -48,6 +48,20 @@ class DecideFlagshipCheckTest(unittest.TestCase):
             with self.subTest(lv=lv):
                 self.assertEqual(decide_flagship_check({'flagship_lv': lv}), 'change')
 
+    def test_pending_change_forces_change(self):
+        """换装事务未收尾时，无论等级高低都必须先换船换装。"""
+        for memory in ({'change_pending': True},
+                       {'change_pending': True, 'flagship_lv': 1},
+                       {'change_pending': True, 'flagship_lv': 40},
+                       {'change_pending': True, 'flagship_lv': 'bad'}):
+            with self.subTest(memory=memory):
+                self.assertEqual(decide_flagship_check(memory), 'change')
+
+    def test_pending_false_falls_back_to_level(self):
+        """change_pending 为 False / 非 True 时不影响原有等级判定。"""
+        self.assertEqual(decide_flagship_check({'change_pending': False, 'flagship_lv': 5}), 'skip')
+        self.assertEqual(decide_flagship_check({'change_pending': 1, 'flagship_lv': 5}), 'skip')
+
 
 class LvFlagshipVanguardTest(unittest.TestCase):
     """战斗 OCR 等级的旗舰/先锋提取。"""
@@ -160,6 +174,58 @@ class FleetMemoryTest(unittest.TestCase):
         memory.write('ThreeOilLowCost', flagship_lv=9, fleet_order='fleet1_all')
         self.assertEqual(memory.read('ThreeOilLowCost', 'fleet1_all')['flagship_lv'], 9)
 
+    def test_change_pending_roundtrip_without_levels(self):
+        """换装标记在没有等级数据时也能独立落盘与清除。"""
+        self.memory.set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        self.assertTrue(self.memory.is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+        self.memory.set_change_pending('ThreeOilLowCost', False, fleet_order='fleet1_all')
+        self.assertFalse(self.memory.is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+
+    def test_change_pending_survives_level_write(self):
+        """等级写回（任务退出 finally）不得冲掉未完成标记。"""
+        self.memory.set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        self.memory.write('ThreeOilLowCost', flagship_lv=3, fleet_order='fleet1_all')
+        entry = self.memory.read('ThreeOilLowCost', 'fleet1_all')
+        self.assertTrue(entry['change_pending'])
+        self.assertEqual(entry['flagship_lv'], 3)
+        self.assertTrue(self.memory.is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+
+    def test_change_pending_scoped_by_fleet_order(self):
+        self.memory.set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        self.assertFalse(self.memory.is_change_pending(
+            'ThreeOilLowCost', 'fleet1_standby_fleet2_all'))
+
+    def test_change_pending_expires_with_record(self):
+        """标记随记录一起过期，避免长期停用后反复重做换装。"""
+        self.memory.set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        data = self._read_memory_file()
+        data['ThreeOilLowCost']['record'] = (datetime.now() - timedelta(hours=25)).isoformat()
+        self._write_memory_file(data)
+        self.assertFalse(self.memory.is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+
+    def test_change_pending_corrupted_file_degrades(self):
+        self.memory.set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        self._write_raw_text('{not a json')
+        self.assertFalse(self.memory.is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+
+    def test_change_code_kept_until_cleared(self):
+        """装备码随标记持久化；只刷新标记不得冲掉它，收尾才清除。"""
+        self.memory.set_change_pending(
+            'ThreeOilLowCost', True, fleet_order='fleet1_all', code='AAAA')
+        self.assertEqual(self.memory.get_change_code('ThreeOilLowCost', 'fleet1_all'), 'AAAA')
+        # _begin_change_transaction() 在导出之前先落标记，此时不得清掉已有码
+        self.memory.set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        self.assertEqual(self.memory.get_change_code('ThreeOilLowCost', 'fleet1_all'), 'AAAA')
+        self.memory.set_change_pending('ThreeOilLowCost', False, fleet_order='fleet1_all')
+        self.assertIsNone(self.memory.get_change_code('ThreeOilLowCost', 'fleet1_all'))
+
+    def test_change_code_invalid_values_ignored(self):
+        for value in (None, '', '   ', 123, [], {}):
+            with self.subTest(value=value):
+                self.memory.set_change_pending(
+                    'ThreeOilLowCost', True, fleet_order='fleet1_all', code=value)
+                self.assertIsNone(self.memory.get_change_code('ThreeOilLowCost', 'fleet1_all'))
+
 
 class _FakeCampaign:
     """实现混入回退所需的 lv 属性。"""
@@ -184,10 +250,14 @@ def _make_config(command='ThreeOilLowCost', fleet_order='fleet1_all', allow_high
 class _FakeTask(FleetMemoryMixin):
     """实现混入所依赖的最小宿主接口：config / change_flagship / campaign。"""
 
+    # 与 EquipmentCodeHandler 同名的跨进程恢复槽位
+    resume_code = None
+
     def __init__(self, config, change_flagship=True, campaign=None):
         self.config = config
         self._change_flagship = change_flagship
         self.campaign = campaign
+        self.resume_code = None
 
     @property
     def change_flagship(self):
@@ -285,6 +355,124 @@ class FleetMemoryMixinTest(unittest.TestCase):
         # 第二次运行（新实例，模拟进程重启后恢复）：读记忆直接出击
         second = _FakeTask(_make_config(), campaign=_FakeCampaign([9, -1, -1, 5, -1, -1]))
         self.assertFalse(second._init_fleet_memory())
+
+
+class ChangeTransactionTest(unittest.TestCase):
+    """换船/换装事务：未完成标记 + 任务切换保护。
+
+    核心场景：换装过程中被用户手动打断 → 标记落盘 → 重启后强制重做，
+    不再以空装备状态直接出击。
+    """
+
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        patcher = patch('module.campaign.fleet_memory.LOG_DIR', Path(directory.name))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _new_task(self, **kwargs):
+        task = _FakeTask(_make_config(**kwargs))
+        task._init_fleet_memory()
+        return task
+
+    def test_init_pending_forces_change(self):
+        """上次换装未完成：即便等级合格也强制重做换船换装。"""
+        FleetMemory('alas').write('ThreeOilLowCost', flagship_lv=5, fleet_order='fleet1_all')
+        FleetMemory('alas').set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        task = _FakeTask(_make_config())
+        self.assertTrue(task._init_fleet_memory())
+        self.assertTrue(task._change_pending)
+
+    def test_init_pending_overrides_allow_high(self):
+        """允许高等级旗舰时也不能跳过未完成的换装事务。"""
+        FleetMemory('alas').set_change_pending('ThreeOilLowCost', True, fleet_order='fleet1_all')
+        self.assertTrue(_FakeTask(_make_config(allow_high=True))._init_fleet_memory())
+
+    def test_transaction_success_clears_pending(self):
+        task = self._new_task()
+        self.assertTrue(task._change_transaction(lambda: True))
+        self.assertFalse(task._change_pending)
+        self.assertFalse(FleetMemory('alas').is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+        self.assertFalse(task.config._disable_task_switch)
+
+    def test_transaction_disables_task_switch_while_running(self):
+        """事务期间禁止任务切换，结束后还原为原值。"""
+        task = self._new_task()
+        seen = {}
+
+        def _probe():
+            seen['during'] = task.config._disable_task_switch
+            return True
+
+        task._change_transaction(_probe)
+        self.assertTrue(seen['during'])
+        self.assertFalse(task.config._disable_task_switch)
+
+    def test_transaction_keeps_pending_on_interrupt(self):
+        """用户手动打断（TaskEnd）判为换装失败：保留标记，重启后重做。"""
+        task = self._new_task()
+
+        def _interrupted():
+            raise _FakeTaskEnd
+
+        with self.assertRaises(_FakeTaskEnd):
+            task._change_transaction(_interrupted)
+        self.assertTrue(FleetMemory('alas').is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+        # 任务切换开关同样必须还原，避免异常逃逸后永久锁死
+        self.assertFalse(task.config._disable_task_switch)
+        # 下一次启动（新实例）：强制重做换船换装
+        resumed = _FakeTask(_make_config())
+        self.assertTrue(resumed._init_fleet_memory())
+
+    def test_transaction_restores_preexisting_switch_flag(self):
+        """事务前已是 True（嵌套在其他上下文中）时不能被还原成 False。"""
+        config = _make_config()
+        config._disable_task_switch = True
+        task = _FakeTask(config)
+        task._init_fleet_memory()
+        task._change_transaction(lambda: True)
+        self.assertTrue(config._disable_task_switch)
+
+    def test_transaction_graceful_failure_clears_pending(self):
+        """无可用舰船属正常收尾（装备已在流程末尾恢复），不算换装失败。"""
+        task = self._new_task()
+        self.assertFalse(task._change_transaction(lambda: False))
+        self.assertFalse(FleetMemory('alas').is_change_pending('ThreeOilLowCost', 'fleet1_all'))
+
+    def test_save_memory_keeps_pending_after_interrupt(self):
+        """run() 的 finally 写回等级时不得冲掉未完成标记。"""
+        task = _FakeTask(_make_config(), campaign=_FakeCampaign([1, -1, -1, 1, -1, -1]))
+        task._init_fleet_memory()
+        with self.assertRaises(_FakeTaskEnd):
+            task._change_transaction(lambda: (_ for _ in ()).throw(_FakeTaskEnd))
+        task._save_fleet_memory()
+        entry = FleetMemory('alas').read('ThreeOilLowCost', 'fleet1_all')
+        self.assertTrue(entry['change_pending'])
+        self.assertEqual(entry['flagship_lv'], 1)
+
+    def test_exported_code_persisted_and_reused_after_restart(self):
+        """换船后才被打断：重启时目标船型无配置码，仍能复用中断前导出的方案。"""
+        code = 'MkpKQS9JUkUvRzNELzQ4TC80OElcMA=='
+        task = self._new_task()
+        task._on_equip_code_exported(code)
+        self.assertEqual(
+            FleetMemory('alas').get_change_code('ThreeOilLowCost', 'fleet1_all'), code)
+        resumed = _FakeTask(_make_config())
+        self.assertTrue(resumed._init_fleet_memory())
+        self.assertEqual(resumed.resume_code, code)
+
+    def test_clear_change_pending_drops_persisted_code(self):
+        code = 'MkpKQS9JUkUvRzNELzQ4TC80OElcMA=='
+        task = self._new_task()
+        task._on_equip_code_exported(code)
+        task.resume_code = code
+        task._clear_change_pending()
+        self.assertIsNone(task.resume_code)
+        self.assertIsNone(
+            FleetMemory('alas').get_change_code('ThreeOilLowCost', 'fleet1_all'))
+        self.assertFalse(
+            FleetMemory('alas').is_change_pending('ThreeOilLowCost', 'fleet1_all'))
 
 
 if __name__ == '__main__':

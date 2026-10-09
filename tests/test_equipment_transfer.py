@@ -46,6 +46,25 @@ class EquipmentTransferTests(unittest.TestCase):
         resumed._code_apply.assert_called_with(code=CV_CODE)
         self.assertIsNone(resumed.last_code)
 
+    def test_interrupted_after_ship_change_reuses_persisted_code(self):
+        """换船后才被打断：目标船型无配置码时，不得在已卸空的装备上重新导出。
+
+        回归：重启后内存里的 last_code 已丢失，若此时目标船型没有配置码，
+        旧逻辑会在空装备上导出空码并写回配置，导致换装后仍空装备出击。
+        """
+        store = {'raw': 'bogue: null\nranger: null'}
+        first = handler_with_store(store, ship='bogue')
+        self.assertTrue(first.code_clear())
+        # 换船已完成、装备已卸空，此刻被用户打断；重启后只拿到持久化的 resume_code。
+        resumed = handler_with_store(store, ship='ranger')
+        resumed.resume_code = CV_CODE
+        self.assertTrue(resumed.code_clear())
+        resumed._code_export.assert_not_called()
+        # 历史方案（ranger 仍为 null）没有被空码覆盖
+        self.assertIsNone(yaml.safe_load(store['raw'])['ranger'])
+        self.assertTrue(resumed.code_apply())
+        resumed._code_apply.assert_called_with(code=CV_CODE)
+
     def test_each_clear_replaces_cache_and_target_scheme_has_priority(self):
         store = {'raw': yaml.safe_dump({'bogue': CV_CODE, 'ranger': DD_CODE, 'DD': DD_CODE})}
         handler = handler_with_store(store)

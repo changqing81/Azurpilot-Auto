@@ -39,6 +39,11 @@ EQUIPMENT_PREVIEW_OCCUPIED = [
 
 class EquipmentCodeHandler(StorageHandler):
     last_code: str = None
+    # 跨进程恢复用的装备码：由 FleetMemoryMixin 在任务启动时从舰队记忆注入。
+    # 换船/换装中途被打断后重启时，内存中的 last_code 已丢失，若此时目标船型
+    # 又没有配置装备码，就会在已被卸空的装备上重新导出并写入空码，
+    # 把历史方案覆盖掉。resume_code 让重启后的流程直接复用中断前导出的方案。
+    resume_code: str = None
     FASTINPUT_IME = 'com.github.uiautomator/.FastInputIME'
 
     @property
@@ -540,6 +545,14 @@ class EquipmentCodeHandler(StorageHandler):
         logger.warning('未确认装备码导出成功，不读取可能残留的剪贴板')
         return None
 
+    def _on_equip_code_exported(self, code):
+        """装备码导出并写入配置后的回调钩子（默认空实现）。
+
+        ``FleetMemoryMixin`` 覆盖本方法，把导出的装备码持久化到舰队记忆，
+        使换装中途被打断后重启仍能复用该方案。
+        """
+        pass
+
     def code_clear(self, name=None):
         # 每次卸装独立交接，禁止复用上一艘舰船或上一轮失败留下的缓存。
         self.last_code = None
@@ -552,6 +565,11 @@ class EquipmentCodeHandler(StorageHandler):
         code = None
         if self.equipment_code_export_to_config:
             code = self.get_code(name=name)
+            if code is None and self._is_equipment_code(self.resume_code):
+                # 上次换装中断前已导出过方案：直接复用，避免在已卸空的装备上
+                # 重新导出空码，把历史方案覆盖掉。
+                logger.info("[装备-代码] 复用上次换装中断前导出的装备码")
+                code = self.resume_code
             if code is None:
                 code = self._code_export()
                 if not self._is_equipment_code(code):
@@ -560,6 +578,7 @@ class EquipmentCodeHandler(StorageHandler):
                 if not self.set_code(name=name, code=code):
                     logger.warning('装备码保存失败，保留当前装备')
                     return False
+                self._on_equip_code_exported(code)
         if not self._code_apply(code=None):
             return False
         self.last_code = code

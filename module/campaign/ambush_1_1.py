@@ -1096,15 +1096,26 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
 
             # Post-run ship switching block
             if self._trigger_lv32 or self._trigger_emotion:
-                success = True
                 self.hard_mode_override()
                 emotion = self.get_emotion()
-                if self.change_flagship:
-                    success = self.flagship_change()
-                if self.change_vanguard and success:
-                    success = self.vanguard_change()
-                    if not success and self.config.GemsFarming_AllowHighFlagshipLevel:
-                        self.set_emotion(emotion)
+
+                def _change_ships():
+                    """换船与换装流程，返回是否全部成功。
+
+                    在换装事务保护下执行：期间禁止其他任务打断，
+                    事务未完成（被用户手动打断 / 装备码失败）会落盘标记，
+                    下次启动强制重做，绝不带着空装备出击。
+                    """
+                    ok = True
+                    if self.change_flagship:
+                        ok = self.flagship_change()
+                    if self.change_vanguard and ok:
+                        ok = self.vanguard_change()
+                        if not ok and self.config.GemsFarming_AllowHighFlagshipLevel:
+                            self.set_emotion(emotion)
+                    return ok
+
+                success = self._change_transaction(_change_ships)
 
                 if is_limit and self.config.StopCondition_RunCount <= 0:
                     logger.hr('[战役-伏击] 触发停止条件: 运行次数')

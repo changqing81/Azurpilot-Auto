@@ -1145,27 +1145,44 @@ class GemsFarming(FleetMemoryMixin, CampaignRun, FleetEquipment, GemsEquipmentHa
                 if not (hard_unsatisfied and self.change_flagship and self.change_vanguard):
                     raise
                 self.hard_mode_override()
-                vanguard_success = self.vanguard_change()
-                flagship_success = self.flagship_change()
-                if not (vanguard_success and flagship_success):
+
+                def _change_ships_on_hard_unsatisfied():
+                    """困难编队不满足时的补位换船换装，返回是否全部成功。
+
+                    在换装事务保护下执行，避免补位过程中被中断后空装备出击。
+                    """
+                    vanguard_success = self.vanguard_change()
+                    flagship_success = self.flagship_change()
+                    return vanguard_success and flagship_success
+
+                if not self._change_transaction(_change_ships_on_hard_unsatisfied):
                     self.campaign.ensure_auto_search_exit()
                     self.config.task_delay(minute=60)
                     self.config.task_stop()
 
             # 结束条件
             if self._trigger_lv32 or self._trigger_emotion:
-                success = True
                 self.hard_mode_override()
                 emotion = self.get_emotion()
-                vanguard_success = True
-                flagship_success = True
-                if self.change_vanguard:
-                    vanguard_success = self.vanguard_change()
-                if self.change_flagship and (vanguard_success or self._trigger_lv32):
-                    flagship_success = self.flagship_change()
-                    if not flagship_success and self.config.GemsFarming_AllowHighFlagshipLevel:
-                        self.set_emotion(emotion)
-                success = vanguard_success and flagship_success
+
+                def _change_ships():
+                    """换船与换装流程，返回是否全部成功。
+
+                    在换装事务保护下执行：期间禁止其他任务打断，
+                    事务未完成（被用户手动打断 / 装备码失败）会落盘标记，
+                    下次启动强制重做，绝不带着空装备出击。
+                    """
+                    vanguard_success = True
+                    flagship_success = True
+                    if self.change_vanguard:
+                        vanguard_success = self.vanguard_change()
+                    if self.change_flagship and (vanguard_success or self._trigger_lv32):
+                        flagship_success = self.flagship_change()
+                        if not flagship_success and self.config.GemsFarming_AllowHighFlagshipLevel:
+                            self.set_emotion(emotion)
+                    return vanguard_success and flagship_success
+
+                success = self._change_transaction(_change_ships)
                 # 旗舰换船失败时不写成功等级，记忆仍保留 ≥32 级（或最后 OCR 值），
                 # 下次调度读到后会在出击前重试换船，不会让补位的高等级舰船直接出击。
                 # 任务退出时由 run() 的 finally 统一把最后已知等级写回舰队记忆。
