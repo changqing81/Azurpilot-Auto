@@ -3,7 +3,7 @@
 import inspect
 import unittest
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from module.config.config import AzurLaneConfig, name_to_function
 from module.config.utils import read_file
@@ -114,13 +114,37 @@ class TestFillSixth(unittest.TestCase):
         from types import SimpleNamespace
         runner = RewardResearch.__new__(RewardResearch)
         runner.device = SimpleNamespace(image=object())  # get_research_status 入参
+        # _run_batch 会开掉落记录上下文，需要可用的 stat / config
+        stat = MagicMock()
+        stat.new.return_value.__enter__.return_value = MagicMock()
+        runner.stat = stat
+        runner.config = SimpleNamespace(DropRecord_ResearchRecord=True)
         return runner
 
+    def test_queue_append_tolerates_none_drop(self):
+        """drop=None 时不得抛 AttributeError（2026-10-09 线上崩溃回归）。"""
+        runner = self._runner()
+
+        def fake_select(*args, **kwargs):
+            runner.research_project_started = 'project'
+            return True
+
+        with patch.object(RewardResearch, 'research_project_list_init', autospec=True), \
+                patch.object(RewardResearch, 'research_sort_filter', autospec=True,
+                             return_value=[]), \
+                patch.object(RewardResearch, 'research_select', autospec=True,
+                             side_effect=fake_select):
+            result = runner.research_queue_append(drop=None, add_queue=False)
+        self.assertTrue(result)
+
     def test_fill_sixth_starts_when_idle_card_exists(self):
-        """主页有 detail 卡位 → 尝试启动，且不入队列。"""
+        """第 6 个位空闲（主页无 waiting/running）→ 尝试启动，且不入队列。
+
+        取实测形态：队列空时主页为 ['detail','detail','unknown','detail','detail']。
+        """
         runner = self._runner()
         with patch.object(RewardResearch, 'get_research_status', autospec=True,
-                          return_value=['finished', 'running', 'waiting', 'waiting', 'detail']), \
+                          return_value=['detail', 'detail', 'unknown', 'detail', 'detail']), \
                 patch.object(RewardResearch, 'research_queue_append', autospec=True,
                              return_value=True) as append:
             result = runner.research_fill_sixth()
@@ -128,11 +152,36 @@ class TestFillSixth(unittest.TestCase):
         append.assert_called_once()
         self.assertIs(append.call_args.kwargs.get('add_queue'), False)
 
-    def test_fill_sixth_skips_when_no_idle_card(self):
-        """主页无 detail 卡位（第 6 个在跑/已完成未收/队列占满）→ 不尝试。"""
+    def test_fill_sixth_skips_when_sixth_waiting(self):
+        """主页出现 waiting = 队列外第 6 个在排队 → 不重复启动。
+
+        2026-10-09 线上崩溃场景：队列 ['finished','finished','finished','running',
+        'waiting'] 且主页 ['detail','detail','waiting','detail','detail'] 时，
+        旧判据 'detail' in status 恒真导致误判「有空闲卡位」并再次启动。
+        """
         runner = self._runner()
         with patch.object(RewardResearch, 'get_research_status', autospec=True,
-                          return_value=['finished', 'running', 'waiting', 'waiting', 'waiting']), \
+                          return_value=['detail', 'detail', 'waiting', 'detail', 'detail']), \
+                patch.object(RewardResearch, 'research_queue_append', autospec=True) as append:
+            result = runner.research_fill_sixth()
+        self.assertFalse(result)
+        append.assert_not_called()
+
+    def test_fill_sixth_skips_when_sixth_running(self):
+        """主页出现 running = 队列外第 6 个在制作 → 不重复启动。"""
+        runner = self._runner()
+        with patch.object(RewardResearch, 'get_research_status', autospec=True,
+                          return_value=['detail', 'detail', 'running', 'detail', 'detail']), \
+                patch.object(RewardResearch, 'research_queue_append', autospec=True) as append:
+            result = runner.research_fill_sixth()
+        self.assertFalse(result)
+        append.assert_not_called()
+
+    def test_fill_sixth_skips_when_page_not_stable(self):
+        """主页全 unknown（动画中）→ 本轮不动。"""
+        runner = self._runner()
+        with patch.object(RewardResearch, 'get_research_status', autospec=True,
+                          return_value=['unknown'] * 5), \
                 patch.object(RewardResearch, 'research_queue_append', autospec=True) as append:
             result = runner.research_fill_sixth()
         self.assertFalse(result)
@@ -168,6 +217,8 @@ class TestFillSixth(unittest.TestCase):
         self.assertIs(fill.call_args.kwargs.get('include_sixth'), False)
         recv.assert_called_once()
         fill_sixth.assert_called_once()
+        # 必须带上掉落记录上下文，否则 research_queue_append 会拿到 drop=None
+        self.assertIsNotNone(fill_sixth.call_args.kwargs.get('drop'))
 
 
 if __name__ == '__main__':

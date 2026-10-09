@@ -599,7 +599,8 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
                 break
 
         if self.research_project_started is not None:
-            if project_record is not None:
+            # drop 可能为 None（调用方未提供掉落记录上下文），此时跳过记录
+            if project_record is not None and drop is not None:
                 drop.add(project_record)
             return True
         else:
@@ -649,9 +650,12 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         """
         尝试在第 6 个并行位（队列外）再启动一个项目，能做就做。
 
-        判据不依赖第 6 个的显示位置：主页存在 detail 空闲卡位时才尝试启动
-        （add_queue=False）；无空卡位（第 6 个正在跑、已完成未收取、或队列
-        项目占满主页）则不动，天然避免覆盖已完成未收的项目。
+        判据（2026-10-09 按日志实证修正）：
+        - 主页尚未加载稳定（无任何 detail 卡）→ 本轮不动；
+        - 主页出现 waiting/running 卡位 → 队列外的第 6 个已存在。实测它固定
+          显示在第 3 位，与队列 5 槽的状态互不影响（队列里的 running/waiting
+          不会反映到主页），故可直接据此判断第 6 个位是否被占用；
+        - 否则第 6 个位空闲 → 启动（add_queue=False）。
         启动失败（资源不足、无匹配项目、点击无响应）只记日志，不影响任务。
 
         Args:
@@ -662,9 +666,12 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         """
         status = self.get_research_status(self.device.image)
         if 'detail' not in status:
-            logger.info('[科研-第6个] 主页无空闲卡位，第 6 个位已被占用')
+            logger.info('[科研-第6个] 主页未加载稳定，本轮跳过')
             return False
-        logger.info('[科研-第6个] 主页有空闲卡位，尝试启动第 6 个科研')
+        if 'waiting' in status or 'running' in status:
+            logger.info('[科研-第6个] 第 6 个位已被占用（等待中/进行中），跳过')
+            return False
+        logger.info('[科研-第6个] 第 6 个位空闲，尝试启动第 6 个科研')
         try:
             return self.research_queue_append(drop=drop, add_queue=False)
         except GameTooManyClickError:
@@ -884,7 +891,10 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
             self.research_fill_queue(include_sixth=False)
             if self.handle_pending_t_research():
                 self.receive_6th_research()
-                self.research_fill_sixth()
+                with self.stat.new(
+                        genre='research', method=self.config.DropRecord_ResearchRecord
+                ) as drop:
+                    self.research_fill_sixth(drop=drop)
 
         self._batch_schedule(maintain=maintain)
 
