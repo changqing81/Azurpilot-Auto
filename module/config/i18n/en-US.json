@@ -2955,7 +2955,7 @@
     },
     "UseTicket": {
       "name": "Use single build permit",
-      "help": "When enabled, pools that support build permits will use them first. When no permits are available or building in a standard pool, Cubes will be used instead."
+      "help": "When enabled, first visit the event pool to use single build permits, regardless of the selected pool type. If the event pool has no available permits or not enough for the requested amount, complete the remaining builds in the selected pool using Cubes and Coins."
     },
     "UseDrill": {
       "name": "Use Quick Finisher to complete construction",
