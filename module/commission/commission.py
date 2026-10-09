@@ -65,14 +65,16 @@ COMMISSION_REWARD_SCREENSHOT_KEEP = 50
 
 
 class CommissionAmount(AmountOcr):
-    """委托收益数量 OCR：碎片过滤 + 2 倍放大 + 裁剪。
+    """委托收益先匹配原始数量字形，不确定时放大并过滤碎片交给 OCR。
 
     委托页数字很小（高约 14px），直接识别时两处系统性误读：
     - 不裁剪时右缘被截断的数字会被丢掉（71 → 7）；
     - 裁剪后原尺寸下两个 7 会丢掉一个（77 → 7）。
-    实测「裁剪 + 放大 2 倍」后 71/77/97/13 等读数全部正确。
+    完整数位通过加宽数量框保留；OCR 兜底仍超限时不截断猜值。
     """
     remove_fragments = True
+    use_digit_templates = True
+    strict_amount_max = True
 
     def pre_process(self, image):
         import cv2
@@ -924,7 +926,7 @@ class RewardCommission(UI, InfoHandler):
                 logger.info('[委托-收入] 模板文件夹不存在，跳过')
                 return
 
-            grid = ItemGrid(None, {}, template_area=(40, 21, 89, 70), amount_area=(50, 71, 91, 92))
+            grid = ItemGrid(None, {}, template_area=(40, 21, 89, 70), amount_area=(50, 72, 94, 94))
             grid.item_class = Item
             grid.similarity = 0.92
             # 过滤图标底部伸入数量区域的白色碎块，避免被 OCR 误读为数字
@@ -985,6 +987,9 @@ class RewardCommission(UI, InfoHandler):
                             mapped_name = COMMISSION_ITEM_NAME_MAP.get(item.name, item.name)
                             if mapped_name not in COMMISSION_TRACKED_ITEMS:
                                 logger.info(f'[委托-收入] 截图[{idx}] 忽略 {item.name} (未跟踪)')
+                                continue
+                            if item.amount <= 0:
+                                logger.warning(f'[委托-收入] 截图[{idx}] {item.name} 数量无法确认，保留截图供核对')
                                 continue
                             merged_items[mapped_name] = merged_items.get(mapped_name, 0) + item.amount
                             item_count += 1

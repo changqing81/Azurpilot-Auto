@@ -39,15 +39,17 @@ class AutoSearchAmount(AmountOcr):
             （如 2 被读成 12）。
     """
 
-    # 数量区域先放大 2.67 倍再提取文字：数字组件高度 24~27px，图标边缘碎片 ≤8px。
+    # 字形匹配不缩放；OCR 兜底统一高度后过滤图标边缘碎片。
     remove_fragments = True
+    use_digit_templates = True
+    strict_amount_max = True
     fragment_min_height = 15
     fragment_min_area = 30
     fragment_max_digit_gap = 10
 
     def pre_process(self, image):
-        # 自律寻敌页 group.amount_area = (35, 51, 63, 63)，目标高度 32
-        scale = 32 / 12
+        # 两类奖励页的数量框高度不同，统一放大到 32px 再做 OCR 兜底。
+        scale = 32 / image.shape[0]
         #     CV_INTER_NN       =0,
         #     CV_INTER_LINEAR   =1,
         #     CV_INTER_CUBIC    =2,
@@ -61,32 +63,34 @@ class AutoSearchAmount(AmountOcr):
 
 
 class GetItemsCoveredByInfoBar(ImageError):
+    """获得物品截图被信息栏遮挡。"""
     pass
 
 
 class GetItemsInvalid(ImageError):
-    """ Trying to detect a non get_items image """
+    """非获得道具结算界面截图。"""
     pass
 
 
 class ZeroAmountError(ImageError):
-    """ Item amount equal 0 """
+    """物品数量识别为 0。"""
     pass
 
 
 class TooManyNewTemplate(ImageError):
-    """ New item templates >= 2 """
+    """单次提取的新模板数量过多。"""
     pass
 
 
 def merge_get_items(item_list_1: t.Iterable[Item], item_list_2: t.Iterable[Item]):
-    """
+    """合并两个物品列表并去重。
+
     Args:
-        item_list_1:
-        item_list_2:
+        item_list_1 (Iterable[Item]): 第一个物品迭代器。
+        item_list_2 (Iterable[Item]): 第二个物品迭代器。
 
     Yields:
-        Item:
+        Item: 合并去重后的物品对象。
     """
     items = set(list(item_list_1) + list(item_list_2))
     for item in items:
@@ -94,39 +98,50 @@ def merge_get_items(item_list_1: t.Iterable[Item], item_list_2: t.Iterable[Item]
 
 
 def has_odd_items(image):
-    """
+    """检测单行物品排布是否为奇数个（1/3/5）。
+
     Args:
-        image (np.ndarray):
+        image (np.ndarray): 待检测截图。
 
     Returns:
-        bool: If there're 1/3/5 items in one row
+        bool: 单行是否存在奇数个物品。
     """
     image = crop(image, GET_ITEMS_ODD.area)
     return np.mean(rgb2gray(image) > 127) > 0.1
 
 
 class GetItems(ImageBase):
+    """获得物品截图识别器。
+
+    负责战斗与任务结算弹窗中掉落物品的排布检测、网格定位与物品识别。
+    """
+
     ITEM_TEMPLATE_FOLDER = f'./assets/stats_basic'
-    # True when extracting templates for new scene
-    # False at normal run
+    ITEM_GRID_CLASS = ItemGrid
+    # 提取新场景模板时为 True，常规运行时为 False
     ALLOW_TOO_MANY_NEW_TEMPLATE = False
 
     # 数量区。获得道具页的数字贴着图标右下角、右对齐，位数多时左侧会超出这个区，
     # 于是四位数被切掉首位（作战补给凭证 1638 读成 638，实测 6/9 张吃亏）；
     # 而白纸类（图纸/实验计划）的数字压在右下角的灰色齿轮上，齿轮的齿在默认区里
     # 会被读成「7」（1 读成 71）。两者都不能靠调一个通用区解决，只能按物品换区。
-    ITEM_AMOUNT_AREA = (60, 71, 91, 92)
+    ITEM_AMOUNT_AREA = (50, 72, 94, 94)
     ITEM_AMOUNT_AREA_RULES = (
         # 数字在齿轮下方，下移一档避开齿轮的齿
-        ('GearDesignPlan', (60, 76, 90, 94)),
-        ('OrdnanceTestingReport', (60, 76, 90, 94)),
+        ('GearDesignPlan', (50, 76, 94, 94)),
+        ('OrdnanceTestingReport', (50, 76, 94, 94)),
         # 只有这一格会到四位数，且右下角没有压住数字的装饰，可以整体左扩
-        ('OperationCoin', (50, 71, 92, 92)),
+        ('OperationCoin', (28, 72, 94, 94)),
     )
 
     @cached_property
     def item_grid(self) -> ItemGrid:
-        grid = ItemGrid(None, {}, template_area=(40, 21, 89, 70), amount_area=self.ITEM_AMOUNT_AREA)
+        """获取物品网格识别器实例。
+
+        Returns:
+            ItemGrid: 初始化的物品网格对象。
+        """
+        grid = self.ITEM_GRID_CLASS(None, {}, template_area=(40, 21, 89, 70), amount_area=self.ITEM_AMOUNT_AREA)
         grid.item_class = Item
         grid.similarity = 0.92
         grid.amount_area = self.ITEM_AMOUNT_AREA
@@ -136,18 +151,29 @@ class GetItems(ImageBase):
         return grid
 
     def is_get_items(self, image):
-        return bool(self.classify_server(GET_ITEMS_1, image)) or bool(self.classify_server(GET_ITEMS_2, image))
+        """判断是否为获得物品结算弹窗界面。
+
+        Args:
+            image (np.ndarray): 待检测图像。
+
+        Returns:
+            bool: 是否为获得物品弹窗。
+        """
+        return any(self.classify_server(button, image) for button in (GET_ITEMS_1, GET_ITEMS_2, GET_ITEMS_3))
 
     def parse_get_items(self, image, name=True, amount=True, tag=True) -> t.Iterator[Item]:
-        """
+        """解析单张获得物品截图中的所有掉落道具。
+
         Args:
-            image (np.ndarray):
-            name (bool):
-            amount (bool):
-            tag (bool):
+            image (np.ndarray): 结算截图。
+            name (bool): 是否识别物品名称。
+            amount (bool): 是否识别物品数量。
+            tag (bool): 是否识别物品标签。
 
         Yields:
-            Item:
+            Item: 解析出的物品对象。
+
+        数量无法确认的单格保留日志并跳过，其他已确认物品照常返回。
         """
         self._get_items_load(image)
 
@@ -162,16 +188,20 @@ class GetItems(ImageBase):
                 after = str(item)
                 if before != after:
                     logger.info(f'[统计-物品] 物品 {before} 修正为 {after}')
-                if item.amount == 0:
-                    raise ZeroAmountError(f'Invalid item amount: {item}')
+                if item.amount <= 0:
+                    logger.warning(f'[统计-物品] {item.name} 数量无法确认，跳过本格并保留其他物品')
+                    continue
                 yield item
 
     def extract_item_template(self, image, folder=None):
-        """
+        """从结算截图中提取未知物品的新模板。
+
         Args:
-            image:
-            folder: Folder to save new templates.
-                If None, use self.ITEM_TEMPLATE_FOLDER
+            image (np.ndarray): 截图图像。
+            folder (str, optional): 模板保存文件夹，默认使用 ITEM_TEMPLATE_FOLDER。
+
+        Raises:
+            TooManyNewTemplate: 提取的新模板数量过多时抛出。
         """
         if folder is None:
             folder = self.ITEM_TEMPLATE_FOLDER
@@ -183,15 +213,36 @@ class GetItems(ImageBase):
                 raise TooManyNewTemplate(f'Extracted {new} new templates')
 
     def before_revise_items(self, items: t.List[Item]) -> t.List[Item]:
+        """物品修正前的预处理钩子方法。
+
+        Args:
+            items (list[Item]): 原始识别出的物品列表。
+
+        Returns:
+            list[Item]: 预处理后的物品列表。
+        """
         return items
 
     def revise_item(self, item: Item) -> Item:
+        """单项物品修正钩子方法。
+
+        Args:
+            item (Item): 待修正的物品。
+
+        Returns:
+            Item: 修正后的物品。
+        """
         return item
 
     def _get_items_load(self, image):
-        """
+        """检查截图并根据服务器和排布确定物品网格。
+
         Args:
-            image (np.ndarray):
+            image (np.ndarray): 截图图像。
+
+        Raises:
+            GetItemsCoveredByInfoBar: 截图被通知横条遮挡。
+            GetItemsInvalid: 截图不是获得物品界面。
         """
         self.item_grid.grids = None
         if INFO_BAR_1.appear_on(image):
@@ -206,14 +257,13 @@ class GetItems(ImageBase):
             raise GetItemsInvalid('Stat image is not a get_items image')
 
     def drop_has_get_items(self, images):
-        """
-        Whether the given images has at least one get_items
+        """检查给定的截图列表中是否包含至少一张获得物品截图。
 
         Args:
-            images (list):
+            images (list[np.ndarray]): 截图列表。
 
         Returns:
-            bool:
+            bool: 是否包含获得物品截图。
         """
         for image in images:
             if self.is_get_items(image):
@@ -221,12 +271,13 @@ class GetItems(ImageBase):
         return False
 
     def parse_get_items_chain(self, images) -> t.Iterator[t.Iterator[Item]]:
-        """
-        Parse an image chain of get_items.
-        GET_ITEMS_3 has 2 images, so this method merge them into 1.
+        """解析包含连续翻页的获得物品截图链，多页情况自动合并。
+
+        Args:
+            images (list[np.ndarray]): 连续截图序列。
 
         Yields:
-            iter[iter[Item]]:
+            Iterator[Item]: 每次结算完整的物品迭代器。
         """
         page1 = None
         for image in images:
@@ -236,14 +287,14 @@ class GetItems(ImageBase):
                 page1 = None
             elif count == 2:
                 if page1 is None:
-                    # Normal 2 rows of items
+                    # 正常的两行物品
                     yield self.parse_get_items(image)
                 else:
-                    # Second image, merge previous
+                    # 第二张图，与前一页合并
                     page1 = self.parse_get_items(page1)
                     page2 = self.parse_get_items(image)
                     yield merge_get_items(page1, page2)
                 page1 = None
             elif count == 3:
-                # first image, add to cache
+                # 第一张图，暂存待合并
                 page1 = image

@@ -77,7 +77,19 @@ class TestMatchCandidates(unittest.TestCase):
                  'OrdnanceTestingReportT3_2', 'Coins']
         filtered, similarity = self.grid.match_candidates(image, names, 0.85)
         self.assertEqual(filtered, ['GearDesignPlanGunT4', 'Coins'])
-        self.assertLessEqual(similarity, AutoSearchItemGrid.TIER_SIMILARITY)
+        # 过滤只裁候选，不再整体压低阈值；白纸类的缩放动画阈值
+        # 由 template_similarity_for 按物品单独放宽
+        self.assertEqual(similarity, 0.85)
+
+    def test_gold_image_similarity_lowered_only_for_paper_items(self):
+        """金图下白纸类（有缩放动画）单独压到 TIER_SIMILARITY，其他物品不受影响。"""
+        image = build_image((230, 190, 110))
+        self.grid.match_candidates(
+            image, ['GearDesignPlanGunT4', 'Coins'], 0.85)
+        self.assertEqual(
+            self.grid.template_similarity_for('GearDesignPlanGunT4', 0.85),
+            AutoSearchItemGrid.TIER_SIMILARITY)
+        self.assertEqual(self.grid.template_similarity_for('Coins', 0.85), 0.85)
 
     def test_unknown_color_keeps_everything(self):
         image = np.full((96, 96, 3), 250, dtype=np.uint8)
@@ -86,12 +98,13 @@ class TestMatchCandidates(unittest.TestCase):
         self.assertEqual(filtered, names)
         self.assertEqual(similarity, 0.85)
 
-    def test_missing_tier_falls_back_to_all_candidates(self):
-        # 该等级尚无模板时不限制候选，仍按原阈值识别
+    def test_missing_tier_keeps_unknown(self):
+        # 该等级尚无模板时保持未知：过滤结果为空，不能把其他稀有度的
+        # 纸类候选放回来（防止紫图被识别成金/彩图纸）。
         image = build_image((150, 120, 220))
         names = ['GearDesignPlanGunT4', 'GearDesignPlanGunT5']
         filtered, similarity = self.grid.match_candidates(image, names, 0.85)
-        self.assertEqual(filtered, names)
+        self.assertEqual(filtered, [])
         self.assertEqual(similarity, 0.85)
 
 

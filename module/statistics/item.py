@@ -30,44 +30,45 @@ ITEM_AMOUNT_MAX = {
     # 民用电子元件单次掉落 1~10，超上限读数（如 3 被读成 73）
     # 会触发抹灰版兜底重试修正
     'Consumer_Grade_Electronic_Components': 50,
-}
-# 前缀匹配的上限表，用于名称带档位后缀（T1~T5）但单次掉落量很小的
-# 物品种类。匹配时精确名优先，其次取最长匹配的前缀。
-ITEM_AMOUNT_MAX_PREFIX = {
-    # 装备设计图（紫 T3 底 / 金 T4 底 / 彩 T5 底）：单次结算通常 1~3 张。
-    # 三档的白纸图案完全相同，图标残影会让数字被多读一位（如 1 读成 71），
-    # 超限时走 ocr_with_validation 的抹灰重试与末位截断纠偏。
-    'GearDesignPlan': 20,
-    # 军械测试报告（T1~T4）：单次掉落 1~5，口径同上方精确项
-    'OrdnanceTestingReport': 50,
-    # 坐标：隐秘海域 / 深渊海域，单次 1~2 个
-    'CoordinateObscure': 10,
-    'CoordinateAbyssal': 10,
-    # 指挥喵箱子（T1~T3）：单次 1 个
-    'Cat': 10,
+    # 装备设计图（白纸类，T4 金 / T5 彩）单次掉落 1~10，与军械测试报告同样的
+    # 误读规律：纸面白色纹理被拼进数量框，实测「舰载机研发图纸UR型 1 张」
+    # 首轮读成 51，加上限后重试修正回 1。
+    'GearDesignPlanGunT4': 50,
+    'GearDesignPlanGunT5': 50,
+    'GearDesignPlanTorpedoT4': 50,
+    'GearDesignPlanTorpedoT5': 50,
+    'GearDesignPlanAntiAirT4': 50,
+    'GearDesignPlanAntiAirT5': 50,
+    'GearDesignPlanPlaneT4': 50,
+    'GearDesignPlanPlaneT5': 50,
 }
 DEFAULT_AMOUNT_MAX = 2147483645
 
 
-def get_item_amount_max(item_name):
-    """返回物品单次掉落的数量读数上限。
+def resolve_amount_max(item_name, amount_max=None, amount_default_max=None):
+    """取本次识别使用的数量上限。
 
-    精确名优先，其次按最长前缀匹配，都未命中时返回 DEFAULT_AMOUNT_MAX。
+    上限只用于触发重识别：读数超过上限几乎必然是 OCR 错（例如数量框切到图标
+    高光，把 72 读成 172）。不同场景的单次掉落规律差很多——大世界的心智单元
+    上限是 50，科研一次能给 100 多——所以允许调用方按场景覆盖。
 
     Args:
-        item_name (str | None): 物品名称，为 None 时返回默认上限。
+        item_name (str): 物品名，即模板文件名。
+        amount_max (dict): 物品名 -> 上限，优先于内置表。
+        amount_default_max (int): 未命中时的默认上限。None 表示回落到内置表。
 
     Returns:
-        int: 数量读数上限。
+        int: 数量上限。
     """
-    if not item_name:
-        return DEFAULT_AMOUNT_MAX
-    if item_name in ITEM_AMOUNT_MAX:
-        return ITEM_AMOUNT_MAX[item_name]
-    matched = [p for p in ITEM_AMOUNT_MAX_PREFIX if item_name.startswith(p)]
-    if not matched:
-        return DEFAULT_AMOUNT_MAX
-    return ITEM_AMOUNT_MAX_PREFIX[max(matched, key=len)]
+    if amount_max and item_name in amount_max:
+        return amount_max[item_name]
+    if amount_default_max is not None:
+        # 允许传 callable：某些场景的规律是按物品名分类的（科研的图纸 ≤10 而
+        # 装备不受此限），用一张静态表表示不了。
+        if callable(amount_default_max):
+            return amount_default_max(item_name)
+        return amount_default_max
+    return ITEM_AMOUNT_MAX.get(item_name, DEFAULT_AMOUNT_MAX)
 
 
 def remove_small_fragments(image, min_height=6, min_area=10, keep_margin=3,
@@ -178,6 +179,9 @@ def remove_small_fragments(image, min_height=6, min_area=10, keep_margin=3,
 
 class AmountOcr(Digit):
     MAX_RETRY = 3
+    # 掉落统计按原始小字形逐位校验；商店价格等其他数字场景仍沿用原 OCR。
+    use_digit_templates = False
+    strict_amount_max = False
     # 是否过滤图标边缘碎块。委托收入与自律寻敌奖励场景开启，
     # 战斗掉落统计保持原行为。
     remove_fragments = False
@@ -188,6 +192,9 @@ class AmountOcr(Digit):
     # 右侧数字簇的最大水平间隙（None 关闭）。奖励页图标中的竖笔画
     # 会被误读成数字（如 2 变 12），按间隙阈值把它排除在数字簇外。
     fragment_max_digit_gap = None
+    # 未启用 strict_amount_max 的旧调用方可选择截断方向。
+    # 科研、委托和大世界掉落均拒绝无法确认的超限数量，不使用截断。
+    drop_leading_on_overflow = False
 
     def pre_process(self, image):
         """预处理图像，提取白色文字。
@@ -208,8 +215,12 @@ class AmountOcr(Digit):
             )
         return image.astype(np.uint8)
 
-    def ocr_with_validation(self, image, item_name=None, direct_ocr=False, trim=True):
-        """带验证的 OCR 识别，超过最大值时重试最多 3 次，仍无效则截断末位数字。
+    def ocr_with_validation(self, image, item_name=None, direct_ocr=False, trim=True,
+                            amount_max=None, amount_default_max=None):
+        """带验证的数量识别，可先匹配字形；超限重试后按场景处理。
+
+        掉落场景开启 strict_amount_max 时拒绝无法确认的超限读数，避免截断后
+        把另一位数字当作真值。未启用的旧调用方保留原有兜底行为。
 
         首轮读数超过上限时，若启用了碎片过滤（remove_fragments），
         改用「抹灰版」图像（fill_background=True）重试：抹灰能消除
@@ -223,11 +234,28 @@ class AmountOcr(Digit):
             trim: 是否调用 crop_to_text 裁剪空白边框。委托收入场景关闭：
                 图标碎片过滤后数字右对齐在原图中，裁剪会改变文字位置，
                 导致 OCR 结果变差（例如 71 被读成 2）。
+            amount_max (dict): 按场景覆盖的数量上限表。
+            amount_default_max (int): 未命中时的默认上限，见 resolve_amount_max。
 
         Returns:
             int: 验证后的数量。
         """
-        max_val = get_item_amount_max(item_name)
+        max_val = resolve_amount_max(item_name, amount_max, amount_default_max)
+
+        if self.use_digit_templates:
+            from module.statistics.amount_digits import read_amount_digits
+
+            raw_image = image if direct_ocr else crop(image, self.buttons[0])
+            matched = read_amount_digits(raw_image)
+            if matched is None and max_val <= 10:
+                # 这类数量只可能是 1~9 或 10。右侧单字形可避开紧贴的纸角；
+                # 末位为 0 时匹配器不返回数量，因此不会把真实的 10 削成个位数。
+                matched = read_amount_digits(raw_image[:, -14:])
+            if matched is not None and 0 < matched <= max_val:
+                return matched
+            if matched is not None and matched > max_val and self.strict_amount_max:
+                logger.warning(f'[统计-物品] {item_name} 字形读数 {matched} 超过上限 {max_val}，跳过本格')
+                return 0
 
         if direct_ocr:
             pre_image = self.pre_process(image)
@@ -279,35 +307,38 @@ class AmountOcr(Digit):
                 logger.info(f'{item_name} amount validated after {retry + 1} retries: {amount}')
                 return amount
 
+        if self.strict_amount_max and amount > max_val:
+            logger.warning(f'[统计-物品] {item_name} 数量 {amount} 超过上限 {max_val}，'
+                           '本格数量无法确认，保留截图供重放')
+            return 0
+
         if amount > max_val and amount >= 10:
-            original = amount
-            # 图标残影多拼在数字左侧（高位），真实值在末位：
-            # 「1 被读成 71」「3 被读成 73」「1 被读成 7221」等。
-            # 前缀匹配的小数量物品（图纸/机密/坐标/猫箱，单次合理值 ≤5），
-            # 读数 ≥10 几乎必是残影，逐位削首位到只剩一位取末位真实值；
-            # 精确名物品（芯片/金币/石油等）可能存在真实大数，保守削到 ≤ max。
-            is_small_item = bool(item_name) and any(
-                item_name.startswith(p) for p in ITEM_AMOUNT_MAX_PREFIX
-            )
-            if is_small_item:
-                while amount >= 10:
-                    amount = int(str(amount)[1:])
+            if self.drop_leading_on_overflow:
+                # 残影在数字左侧，多出来的正是首位；可能不止一位，丢到不超限为止
+                digits = str(amount)
+                while len(digits) > 1 and int(digits) > max_val:
+                    digits = digits[1:]
+                truncated = int(digits)
+                logger.warning(f'{item_name} amount {amount} still 超过最大值 after {self.MAX_RETRY} retries, '
+                              f'dropping leading digit to {truncated}')
             else:
-                while amount > max_val and amount >= 10:
-                    amount = int(str(amount)[1:])
-            logger.warning(f'{item_name} amount {original} still 超过最大值 after {self.MAX_RETRY} retries, '
-                          f'truncating to {amount}')
-            return amount
+                truncated = int(str(amount)[:-1])
+                logger.warning(f'{item_name} amount {amount} still 超过最大值 after {self.MAX_RETRY} retries, '
+                              f'truncating to {truncated}')
+            return truncated
 
         return amount
 
-    def ocr_batch_with_validation(self, image_list, item_names=None, direct_ocr=True, trim=True):
+    def ocr_batch_with_validation(self, image_list, item_names=None, direct_ocr=True, trim=True,
+                                  amount_max=None, amount_default_max=None):
         """批量带验证的 OCR 识别，逐个物品进行校验。
 
         Args:
             item_names: 物品名称列表，与图像列表一一对应。
             direct_ocr: 为 True 时跳过裁剪。
             trim: 是否调用 crop_to_text 裁剪空白边框。
+            amount_max (dict): 按场景覆盖的数量上限表。
+            amount_default_max (int): 未命中时的默认上限。
 
         Returns:
             list[int]: 验证后的数量列表。
@@ -317,7 +348,9 @@ class AmountOcr(Digit):
 
         results = []
         for image, item_name in zip(image_list, item_names):
-            amount = self.ocr_with_validation(image, item_name=item_name, direct_ocr=direct_ocr, trim=trim)
+            amount = self.ocr_with_validation(image, item_name=item_name, direct_ocr=direct_ocr,
+                                              trim=trim, amount_max=amount_max,
+                                              amount_default_max=amount_default_max)
             results.append(amount)
         return results
 
@@ -358,6 +391,7 @@ class Item:
 
     @property
     def name(self):
+        """获取物品名称。"""
         return self._name
 
     @name.setter
@@ -377,10 +411,12 @@ class Item:
 
     @property
     def cost(self):
+        """获取商品消耗的货币类型名称。"""
         return self._cost
 
     @cost.setter
     def cost(self, value):
+        """设置商品消耗的货币类型名称，自动去除尾部数字后缀。"""
         if '_' in value:
             pre, suffix = value.rsplit('_', 1)
             if suffix.isdigit():
@@ -388,6 +424,11 @@ class Item:
         self._cost = value
 
     def is_known_item(self):
+        """判断物品是否为已成功识别的已知物品（非默认名或纯数字临时名）。
+
+        Returns:
+            bool: 是已知物品返回 True，否则返回 False。
+        """
         if self.name == 'DefaultItem':
             return False
         elif self.name.isdigit():
@@ -409,10 +450,16 @@ class Item:
         return name
 
     def predict_valid(self):
+        """判断该物品格是否包含有效物品图标。
+
+        Returns:
+            bool: 灰度均值大于阈值返回 True，否则返回 False。
+        """
         return np.mean(rgb2gray(self.image) > 127) > 0.1
 
     @property
     def button(self):
+        """获取物品关联的按钮点击目标区域。"""
         return self._button.button
 
     @property
@@ -425,6 +472,14 @@ class Item:
         return self._button.area
 
     def crop(self, area):
+        """基于当前物品图标左上角相对偏移进行局部裁切。
+
+        Args:
+            area (tuple): 相对物品左上角的 (x1, y1, x2, y2) 区域。
+
+        Returns:
+            np.ndarray: 裁切后的图像。
+        """
         return crop(self.image_raw, area_offset(area, offset=self._button.area[:2]))
 
     def __eq__(self, other):
@@ -514,7 +569,11 @@ class ItemGrid:
         for name, image in data.items():
             if name in self.templates:
                 continue
-            image = load_image(image)
+            # 用 cv2 读图而不是 load_image()（PIL）：WebUI 测试会给
+            # sys.modules 塞假 PIL，全量跑时连真实 PIL 解码器一起搞坏
+            # （仓库已知问题）；np.fromfile + imdecode 兼容非 ASCII 路径。
+            data_bytes = np.fromfile(image, dtype=np.uint8)
+            image = cv2.cvtColor(cv2.imdecode(data_bytes, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
             image = crop(image, area=self.template_area)
             self.colors[name] = cv2.mean(image)[:3]
             self.templates[name] = image
@@ -536,7 +595,8 @@ class ItemGrid:
         for name, image in data.items():
             if name in self.cost_templates:
                 continue
-            image = load_image(image)
+            data_bytes = np.fromfile(image, dtype=np.uint8)
+            image = cv2.cvtColor(cv2.imdecode(data_bytes, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
             self.cost_templates[name] = image
             self.cost_templates_hit[name] = 0
             if name.isdigit():
@@ -560,8 +620,12 @@ class ItemGrid:
         """
         return names, similarity
 
+    def template_similarity_for(self, name, similarity):
+        """取单个候选的阈值，允许子类仅放宽受动画影响的物品。"""
+        return similarity
+
     def match_template(self, image, similarity=None):
-        """匹配物品模板，优先尝试命中频率最高的模板。
+        """优先取达到阈值的已知物品，再匹配临时未知模板。
 
         未匹配到已有模板时，会自动创建新模板并分配递增 ID。
 
@@ -582,12 +646,16 @@ class ItemGrid:
         names = [name for name in names if not name.isdigit()] + [name for name in names if name.isdigit()]
         names, similarity = self.match_candidates(image, names, similarity)
         best_name = None
-        best_similarity = similarity
+        best_similarity = -1
         for name in names:
+            # 临时模板可能来自前一张的缩放动画，与当前图逐像素更接近。
+            # 已知模板达到门槛后不让它被未知编号覆盖，否则复用解析器会漏算。
+            if name.isdigit() and best_name is not None:
+                break
             if color_similar(color1=color, color2=self.colors[name], threshold=30):
                 res = cv2.matchTemplate(image, self.templates[name], cv2.TM_CCOEFF_NORMED)
                 _, current_similarity, _, _ = cv2.minMaxLoc(res)
-                if current_similarity > best_similarity:
+                if current_similarity > self.template_similarity_for(name, similarity) and current_similarity > best_similarity:
                     best_name = name
                     best_similarity = current_similarity
 
@@ -717,7 +785,8 @@ class ItemGrid:
             amount_images = [item.crop(self.amount_area_for(item.name)) for item in self.items]
             item_names = [item.name for item in self.items]
             amount_list = self.amount_ocr.ocr_batch_with_validation(
-                amount_images, item_names=item_names, direct_ocr=True, trim=amount_trim
+                amount_images, item_names=item_names, direct_ocr=True, trim=amount_trim,
+                amount_max=self.amount_max, amount_default_max=self.amount_default_max
             )
             for item, a in zip(self.items, amount_list):
                 item.amount = a
