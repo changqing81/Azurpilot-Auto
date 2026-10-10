@@ -92,6 +92,22 @@ def color_rows(pixels):
     return rows
 
 
+def row_scroll_offset(pixels, origin, pitch, estimated):
+    """用至少两排卡头校准累计取整误差；绝对页数仍由重叠位移确认。"""
+    rows = color_rows(pixels)
+    if len(rows) < 2:
+        return None
+    distances = np.diff(rows)
+    if any(abs(distance - round(distance / pitch) * pitch) > 3 for distance in distances):
+        return None
+    offsets = [estimated + (origin - y - estimated + pitch / 2) % pitch - pitch / 2 for y in rows]
+    if max(offsets) - min(offsets) > 3:
+        return None
+    corrected = round(float(np.median(offsets)))
+    # 卡头只确认行内位置，不能替代失去重叠后的整页位置证据。
+    return corrected if abs(corrected - estimated) <= pitch / 4 else None
+
+
 def detect_rows(image, ocr):
     """等级锚点作为色带检测的补充；只返回能容纳完整船名条的行。"""
     headers = []

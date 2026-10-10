@@ -13,7 +13,7 @@ from module.logger import logger
 from module.retire.assets import DOCK_EMPTY
 from module.retire.dock import CARD_GRIDS, DOCK_SCROLL, Dock
 from module.runtime.mind_calculator import RESULT_PATH, revision
-from module.runtime.mind_recognition import ScanMerger, recognize_cards
+from module.runtime.mind_recognition import ScanMerger, recognize_cards, row_scroll_offset
 from module.ui.page import page_dock
 
 
@@ -104,6 +104,10 @@ class MindCalculatorScan(Dock):
         mode = None
         gain = None
         bar_origin = None
+        checkpoint = None
+        recovering = False
+        recovery = None
+        step_limit = 8
         actions = 0
         page = 0
         progress = Timer(20, count=10).start()
@@ -123,6 +127,18 @@ class MindCalculatorScan(Dock):
                 try:
                     moved = merger.advance(image)
                 except ValueError as exc:
+                    if recovering:
+                        if recovery.reached():
+                            raise MindCalculatorScanError('快拖回退后仍无法确认原位置，保留旧扫描结果') from exc
+                        continue
+                    if mode == 'bar' and touch.active and checkpoint is not None and checkpoint[2] > 1:
+                        # 快拖丢失重叠时仍抓着原滑块，回到最后已核实的触点坐标，缩小步长重扫。
+                        touch.move(checkpoint[0])
+                        step_limit = max(1, checkpoint[2] // 2)
+                        recovering = True
+                        recovery = Timer(3, count=3).start()
+                        logger.warning(f'船坞快拖失去重叠，回退确认位置；滑块步长降至 {step_limit}px')
+                        continue
                     raise MindCalculatorScanError(str(exc)) from exc
                 if moved:
                     progress.reset()
@@ -130,6 +146,8 @@ class MindCalculatorScan(Dock):
                     self.device.click_record_clear()
                     self.device.stuck_record_clear()
                     logger.attr('船坞实际位移', f'{moved:+d}px，累计 {merger.offset}px')
+                    if mode == 'bar' and not recovering and checkpoint is not None:
+                        step_limit = min(64, max(step_limit, 2 * checkpoint[2]))
                 thumb = self._scroll_thumb(allow_occlusion=touch.active and mode == 'bar')
                 if thumb is None:
                     # 按下时的特效可能残留几帧；只等待完整黄色滑块，不猜位置或继续移动。
@@ -137,6 +155,14 @@ class MindCalculatorScan(Dock):
                         raise MindCalculatorScanError('船坞滚动条持续被遮挡，无法确认位置，保留旧扫描结果')
                     continue
                 occlusion.reset()
+                if recovering:
+                    if abs(merger.offset - checkpoint[1]) > 3:
+                        if recovery.reached():
+                            raise MindCalculatorScanError('快拖回退未到达已确认位置，保留旧扫描结果')
+                        continue
+                    recovering = False
+                    checkpoint = None
+                    logger.attr('船坞快拖回退', f'已恢复 {merger.offset}px')
                 at_top = thumb[0] <= 1
                 at_bottom = thumb[-1] >= DOCK_SCROLL.total - 2
                 if phase == 'top' and touch.active and mode == 'bar':
@@ -148,6 +174,12 @@ class MindCalculatorScan(Dock):
                     actual_delta = merger.offset - bar_origin[0]
                     if pointer_delta and actual_delta * pointer_delta > 0:
                         gain = abs(actual_delta / pointer_delta)
+                if phase == 'scan' and pitch is not None and not at_bottom and (
+                        mode == 'fine' or abs(target - merger.offset) <= max(96, 2 * (gain or 0))):
+                    corrected = row_scroll_offset(self.device.image, origin_y, pitch, merger.offset)
+                    if corrected is not None and corrected != merger.offset:
+                        logger.attr('船坞行对齐', f'{merger.offset}px → {corrected}px')
+                        merger.offset = corrected
                 reached = edge_confirmed if phase == 'top' else target is None or abs(target - merger.offset) <= 3 or at_bottom
                 if reached:
                     if touch.active:
@@ -203,6 +235,7 @@ class MindCalculatorScan(Dock):
                         raise MindCalculatorScanError('三排位移与卡片行位置不一致，保留旧扫描结果')
                     target = page * 3 * pitch
                     actions = 0
+                    checkpoint = None
                     logger.attr('船坞三排目标', f'{target}px')
                     if page >= 500:
                         raise GameStuckError('船坞扫描未能到达底部')
@@ -225,12 +258,21 @@ class MindCalculatorScan(Dock):
                         (DOCK_SCROLL.area[0] + DOCK_SCROLL.area[2]) // 2,
                         round(DOCK_SCROLL.area[1] + float(np.mean(thumb))))
                     self._grab(touch, point)
+                    checkpoint = None
                     bar_origin = (merger.offset, point[1]) if mode == 'bar' else None
                     logger.attr('船坞实时控制', '卡面持续触控校正' if fine else '按住滚动条逐帧定位')
                     continue
                 if mode == 'bar':
-                    # 滑块每次只走一像素，紧接着截图计算，避免船多时一次跳过重叠区域。
-                    destination = (touch.point[0], touch.point[1] + (1 if remaining > 0 else -1))
+                    # 远离目标时加速；已测得倍率后控制卡面推进量，接近目标减速。
+                    if phase == 'top' and at_top:
+                        step = 32
+                    elif gain:
+                        allowance = 300 if phase == 'top' else min(300, max(1, abs(remaining) - max(32, 2 * gain)))
+                        step = max(1, min(step_limit, int(allowance / gain)))
+                    else:
+                        step = step_limit
+                    checkpoint = (touch.point, merger.offset, step)
+                    destination = (touch.point[0], touch.point[1] + (step if remaining > 0 else -step))
                 else:
                     distance = int(np.clip(remaining, -120, 120))
                     destination = (touch.point[0], touch.point[1] - distance)
