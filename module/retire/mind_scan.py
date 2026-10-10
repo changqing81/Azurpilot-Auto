@@ -9,7 +9,7 @@ from module.base.timer import Timer
 from module.exception import GameStuckError, MindCalculatorScanError
 from module.logger import logger
 from module.retire.assets import DOCK_EMPTY
-from module.retire.dock import DOCK_SCROLL, Dock
+from module.retire.dock import CARD_GRIDS, DOCK_SCROLL, Dock
 from module.runtime.mind_calculator import RESULT_PATH, revision
 from module.runtime.mind_recognition import ScanMerger, recognize_cards
 from module.ui.page import page_dock
@@ -126,13 +126,15 @@ class MindCalculatorScan(Dock):
                     if at_bottom:
                         break
                     rows = sorted({card.y for card in cards})
+                    logger.attr('船坞卡片行', rows)
                     if len(rows) != 3:
                         raise MindCalculatorScanError('船坞未显示三排完整船名，无法安全按三排推进')
                     if pitch is None:
                         distances = np.diff(rows)
-                        pitch = int(round(float(np.median(distances))))
+                        # 卡框圆角与稀有度会使色带起点相差 1–2 px；不能把此误差累积为滚动距离。
+                        pitch = int(CARD_GRIDS.delta[1])
                         origin_y = rows[0]
-                        if not 180 <= pitch <= 250 or max(abs(distances - pitch)) > 3:
+                        if max(abs(distances - pitch)) > 3:
                             raise MindCalculatorScanError('无法确认船坞实际行距，保留旧扫描结果')
                         logger.attr('船坞行距', f'{pitch}px，三排 {3 * pitch}px')
                     if any(abs(y - origin_y - index * pitch) > 6 for index, y in enumerate(rows)):

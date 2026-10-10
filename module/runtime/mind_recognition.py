@@ -183,12 +183,11 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
     anchor_rows = _clusters([round(min(point[1] for point in box)) for _, box, _ in headers
                              if 65 <= min(point[1] for point in box) <= MAX_ROW_ORIGIN], 20)
     colored = color_rows(pixels)
-    # 色带须与等级锚点吻合。OCR 读不到等级时仍可保留已定位的色框。
+    # 等级锚点优先对齐色带；整屏 OCR 漏掉某排 Lv 时仍保留该排色框证据。
     rows = list(row_origins) if row_origins is not None else [
         min(colored, key=lambda y: abs(y - anchor))
-        if colored and min(abs(y - anchor) for y in colored) <= 12 else anchor for anchor in anchor_rows]
-    if not rows:
-        rows = colored
+        if colored and min(abs(y - anchor) for y in colored) <= 12 else anchor for anchor in anchor_rows
+    ] + colored
     if not rows:
         raise ValueError('未能定位船坞卡片，请使用加载完成的船坞截图')
     rows = _clusters([y for y in rows if 65 <= y <= MAX_ROW_ORIGIN], 20)
