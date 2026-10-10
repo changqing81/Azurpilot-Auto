@@ -1,5 +1,9 @@
 """可在按住期间穿插截图与识别的连续触控会话。"""
 
+import math
+import threading
+from time import monotonic
+
 from module.exception import ScriptError
 from module.logger import logger
 
@@ -18,6 +22,13 @@ class LiveDrag:
             raise ScriptError(f'{self.method} 不支持持续按住期间的截图反馈，请使用 MaaTouch 等控制方式')
         self.active = False
         self.point = None
+        self._motion = None
+        self._motion_stop = threading.Event()
+        self._motion_wake = threading.Event()
+        self._motion_lock = threading.Lock()
+        self._destination = None
+        self._speed = 0
+        self._motion_error = None
 
     def __enter__(self):
         return self
@@ -70,11 +81,69 @@ class LiveDrag:
     def move(self, point):
         if not self.active:
             raise ScriptError('连续拖拽尚未按下')
+        self.hold()
         self.point = tuple(map(int, point))
         self._send('move', self.point)
 
+    def glide(self, point, speed):
+        """后台按单像素小步连续移动，主线程同时截图；速度单位为像素/秒。"""
+        self.check_error()
+        if not self.active or speed <= 0:
+            raise ScriptError('平滑拖动需要活动触点和正速度')
+        with self._motion_lock:
+            self._destination = tuple(map(int, point))
+            self._speed = float(speed)
+        if self._motion is None:
+            self._motion_stop.clear()
+            self._motion = threading.Thread(target=self._glide_worker, daemon=True, name='live-drag-motion')
+            self._motion.start()
+        self._motion_wake.set()
+
+    def _glide_worker(self):
+        try:
+            while not self._motion_stop.is_set():
+                with self._motion_lock:
+                    destination, speed, point = self._destination, self._speed, self.point
+                if destination is None or point == destination:
+                    self._motion_wake.wait()
+                    self._motion_wake.clear()
+                    continue
+                started = monotonic()
+                following = tuple(value + (1 if goal > value else -1 if goal < value else 0)
+                                  for value, goal in zip(point, destination))
+                # 每次最多改变一个像素，不用截图帧率作为触点移动的帧率。
+                self.point = following
+                self._send('move', following)
+                duration = math.dist(point, following) / speed
+                self._motion_stop.wait(max(.001, duration - (monotonic() - started)))
+        except BaseException as exc:
+            self._motion_error = exc
+
+    def check_error(self):
+        """把后台发送错误交回游戏线程，仍由上下文负责释放触点。"""
+        if self._motion_error is not None:
+            error, self._motion_error = self._motion_error, None
+            raise error
+
+    def _stop_motion(self):
+        if self._motion is not None:
+            self._motion_stop.set()
+            self._motion_wake.set()
+            self._motion.join(timeout=5)
+            if self._motion.is_alive():
+                raise ScriptError('平滑触控发送未结束，无法继续操作设备')
+            self._motion = None
+            self._destination = None
+
+    def hold(self):
+        """停止移动并保持按下，随后可重新设定平滑目标或精调。"""
+        self._stop_motion()
+        self.check_error()
+
     def up(self):
         if self.active:
+            self._stop_motion()
             self._send('up', self.point)
             self.active = False
             logger.info(f'[设备-控制] 连续拖拽释放 {self.point} @ {self.name}')
+            self.check_error()

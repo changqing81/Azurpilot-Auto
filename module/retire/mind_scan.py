@@ -107,14 +107,16 @@ class MindCalculatorScan(Dock):
         checkpoint = None
         recovering = False
         recovery = None
-        step_limit = 8
+        bar_speed = 4.
         actions = 0
         page = 0
         progress = Timer(20, count=10).start()
         occlusion = Timer(1, count=3).start()
         with self.device.live_drag(name='心智单元船坞实时定位') as touch:
             while True:
+                touch.check_error()
                 self.device.screenshot()
+                frame_point = touch.point
                 if not self.appear(page_dock.check_button):
                     touch.up()
                     if self.handle_popup_confirm():
@@ -133,11 +135,11 @@ class MindCalculatorScan(Dock):
                         continue
                     if mode == 'bar' and touch.active and checkpoint is not None and checkpoint[2] > 1:
                         # 快拖丢失重叠时仍抓着原滑块，回到最后已核实的触点坐标，缩小步长重扫。
-                        touch.move(checkpoint[0])
-                        step_limit = max(1, checkpoint[2] // 2)
+                        bar_speed = max(1., min(checkpoint[2] / 2, 150 / (gain or 150)))
+                        touch.glide(checkpoint[0], speed=bar_speed)
                         recovering = True
                         recovery = Timer(3, count=3).start()
-                        logger.warning(f'船坞快拖失去重叠，回退确认位置；滑块步长降至 {step_limit}px')
+                        logger.warning(f'船坞快拖失去重叠，平滑回退确认位置；滑块速度降至 {bar_speed:.1f}px/s')
                         continue
                     raise MindCalculatorScanError(str(exc)) from exc
                 if moved:
@@ -147,7 +149,7 @@ class MindCalculatorScan(Dock):
                     self.device.stuck_record_clear()
                     logger.attr('船坞实际位移', f'{moved:+d}px，累计 {merger.offset}px')
                     if mode == 'bar' and not recovering and checkpoint is not None:
-                        step_limit = min(64, max(step_limit, 2 * checkpoint[2]))
+                        bar_speed = min(72., 1.5 * bar_speed)
                 thumb = self._scroll_thumb(allow_occlusion=touch.active and mode == 'bar')
                 if thumb is None:
                     # 按下时的特效可能残留几帧；只等待完整黄色滑块，不猜位置或继续移动。
@@ -156,10 +158,8 @@ class MindCalculatorScan(Dock):
                     continue
                 occlusion.reset()
                 if recovering:
-                    if abs(merger.offset - checkpoint[1]) > 3:
-                        if recovery.reached():
-                            raise MindCalculatorScanError('快拖回退未到达已确认位置，保留旧扫描结果')
-                        continue
+                    # 截图与触控并行，返回点可能位于曝光前后；重叠证据恢复后使用实际测得位置。
+                    touch.hold()
                     recovering = False
                     checkpoint = None
                     logger.attr('船坞快拖回退', f'已恢复 {merger.offset}px')
@@ -170,7 +170,7 @@ class MindCalculatorScan(Dock):
                     if at_top and touch.point[1] <= DOCK_SCROLL.area[1] + len(thumb) / 2 - 16:
                         edge_confirmed = True
                 if mode == 'bar' and touch.active and bar_origin is not None:
-                    pointer_delta = touch.point[1] - bar_origin[1]
+                    pointer_delta = frame_point[1] - bar_origin[1]
                     actual_delta = merger.offset - bar_origin[0]
                     if pointer_delta and actual_delta * pointer_delta > 0:
                         gain = abs(actual_delta / pointer_delta)
@@ -184,6 +184,7 @@ class MindCalculatorScan(Dock):
                 if reached:
                     if touch.active:
                         if hold is None:
+                            touch.hold()
                             hold = Timer(.4, count=2).start()
                         if not hold.reached():
                             continue
@@ -259,26 +260,28 @@ class MindCalculatorScan(Dock):
                         round(DOCK_SCROLL.area[1] + float(np.mean(thumb))))
                     self._grab(touch, point)
                     checkpoint = None
+                    bar_speed = 4.
                     bar_origin = (merger.offset, point[1]) if mode == 'bar' else None
                     logger.attr('船坞实时控制', '卡面持续触控校正' if fine else '按住滚动条逐帧定位')
                     continue
                 if mode == 'bar':
-                    # 远离目标时加速；已测得倍率后控制卡面推进量，接近目标减速。
-                    if phase == 'top' and at_top:
-                        step = 32
+                    # 先用一像素确认倍率；按截图证据渐增速度，触点后台始终逐像素移动。
+                    if phase == 'top' and (at_top or gain):
+                        destination = (touch.point[0], int(DOCK_SCROLL.area[1] + len(thumb) / 2 - 16))
                     elif gain:
-                        allowance = 300 if phase == 'top' else min(300, max(1, abs(remaining) - max(32, 2 * gain)))
-                        step = max(1, min(step_limit, int(allowance / gain)))
+                        distance = max(1, int((remaining - max(32, 2 * gain)) / gain))
+                        destination = (touch.point[0], frame_point[1] + distance)
                     else:
-                        step = step_limit
-                    checkpoint = (touch.point, merger.offset, step)
-                    destination = (touch.point[0], touch.point[1] + (step if remaining > 0 else -step))
+                        destination = (touch.point[0], touch.point[1] + (1 if remaining > 0 else -1))
+                    speed = min(bar_speed, (600 if phase == 'top' else min(600, max(32, 2 * abs(remaining)))) / gain) if gain else bar_speed
+                    checkpoint = (frame_point, merger.offset, speed)
+                    touch.glide(destination, speed=speed)
                 else:
                     distance = int(np.clip(remaining, -120, 120))
-                    destination = (touch.point[0], touch.point[1] - distance)
+                    destination = (touch.point[0], frame_point[1] - distance)
                     if not 110 <= destination[1] <= 630:
                         touch.up()
                         continue
-                touch.move(destination)
+                    touch.glide(destination, speed=min(120, max(8, 3 * abs(remaining))))
                 actions += 1
         return merger.ships()

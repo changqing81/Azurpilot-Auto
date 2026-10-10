@@ -83,6 +83,107 @@ class LiveDragTests(unittest.TestCase):
                 touch.down((1243, 120))
         builder.up.assert_called_once_with()
 
+    def test_smooth_motion_and_screenshots_run_at_the_same_time(self):
+        device, _ = self.device('MaaTouch')
+        touch = LiveDrag(device, '测试平滑拖动')
+        started, resume, finished = threading.Event(), threading.Event(), threading.Event()
+        events = []
+        def send(operation, point):
+            events.append((operation, point))
+            if operation == 'move' and point[1] == 121:
+                started.set()
+                self.assertTrue(resume.wait(2))
+            if operation == 'move' and point[1] == 126:
+                finished.set()
+        touch._send = send
+        try:
+            with touch:
+                touch.down((1243, 120))
+                touch.glide((1243, 126), speed=1000)
+                self.assertTrue(started.wait(1))
+                device.screenshot()
+                self.assertEqual(touch.point, (1243, 121))
+                self.assertTrue(touch.active)
+                self.assertFalse(any(operation == 'up' for operation, _ in events))
+                resume.set()
+                self.assertTrue(finished.wait(1))
+                touch.hold()
+                self.assertEqual([point[1] for operation, point in events if operation == 'move'], list(range(121, 127)))
+        finally:
+            resume.set()
+            touch.up()
+        self.assertIsNone(touch._motion)
+
+    def test_smooth_target_can_reverse_before_releasing(self):
+        device, _ = self.device('MaaTouch')
+        touch = LiveDrag(device, '测试平滑反向')
+        started, resume, finished = threading.Event(), threading.Event(), threading.Event()
+        points = []
+        def send(operation, point):
+            if operation == 'move':
+                points.append(point[1])
+                if len(points) == 1:
+                    started.set()
+                    self.assertTrue(resume.wait(2))
+                if point[1] == 119:
+                    finished.set()
+        touch._send = send
+        try:
+            with touch:
+                touch.down((1243, 120))
+                touch.glide((1243, 126), speed=1000)
+                self.assertTrue(started.wait(1))
+                touch.glide((1243, 119), speed=1000)
+                resume.set()
+                self.assertTrue(finished.wait(1))
+                touch.hold()
+                self.assertEqual(points, [121, 120, 119])
+                self.assertTrue(touch.active)
+        finally:
+            resume.set()
+            touch.up()
+
+    def test_release_interrupts_smooth_motion_without_finishing_the_path(self):
+        device, _ = self.device('MaaTouch')
+        touch = LiveDrag(device, '测试平滑中断')
+        started = threading.Event()
+        events = []
+        def send(operation, point):
+            events.append((operation, point))
+            if operation == 'move':
+                started.set()
+        touch._send = send
+        with touch:
+            touch.down((1243, 120))
+            touch.glide((1243, 500), speed=2)
+            self.assertTrue(started.wait(1))
+            touch.up()
+            self.assertFalse(touch.active)
+            self.assertIsNone(touch._motion)
+        self.assertEqual(events, [('down', (1243, 120)), ('move', (1243, 121)), ('up', (1243, 121))])
+
+    def test_smooth_send_error_is_propagated_and_contact_is_released(self):
+        device, _ = self.device('MaaTouch')
+        touch = LiveDrag(device, '测试平滑发送失败')
+        failed = threading.Event()
+        events = []
+        error = OSError('平滑发送中断')
+        def send(operation, point):
+            events.append((operation, point))
+            if operation == 'move':
+                failed.set()
+                raise error
+        touch._send = send
+        with self.assertRaises(OSError) as caught:
+            with touch:
+                touch.down((1243, 120))
+                touch.glide((1243, 126), speed=1000)
+                self.assertTrue(failed.wait(1))
+                touch.hold()
+        self.assertIs(caught.exception, error)
+        self.assertEqual(events[-1][0], 'up')
+        self.assertFalse(touch.active)
+
     def test_unsupported_backend_never_falls_back_to_swipe_or_click(self):
         device, _ = self.device('ADB')
         with self.assertRaises(ScriptError):
