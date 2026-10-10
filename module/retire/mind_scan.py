@@ -6,7 +6,7 @@ from PIL import Image
 
 import module.config.server as server
 from module.base.timer import Timer
-from module.exception import GameStuckError, RequestHumanTakeover
+from module.exception import GameStuckError, MindCalculatorScanError
 from module.logger import logger
 from module.retire.assets import DOCK_EMPTY
 from module.retire.dock import DOCK_SCROLL, Dock
@@ -24,7 +24,7 @@ class MindCalculatorScan(Dock):
             out: page_dock
         """
         if server.server != 'cn':
-            raise RequestHumanTakeover('心智单元计算器当前内置国服舰船资料，请在国服实例使用自动扫描')
+            raise MindCalculatorScanError('心智单元计算器当前内置国服舰船资料，请在国服实例使用自动扫描')
         from module.ocr.al_ocr import AlOcr
         from module.config.deep import deep_get, deep_set
         from module.config.transaction import config_transaction
@@ -41,9 +41,9 @@ class MindCalculatorScan(Dock):
                 if DOCK_SCROLL.at_top(self) or DOCK_SCROLL.length == DOCK_SCROLL.total:
                     logger.attr('船坞位置', '已确认顶部')
                 else:
-                    raise RequestHumanTakeover('船坞未能回到顶部，保留旧扫描结果')
+                    raise MindCalculatorScanError('船坞未能回到顶部，保留旧扫描结果')
             else:
-                raise RequestHumanTakeover('无法识别船坞滚动条，保留旧扫描结果')
+                raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
             names = AlOcr(config=self.config, name='ppocr_v6')
             levels = AlOcr(config=self.config, name='azur_lane')
             ships = self._scan_pages(names, levels)
@@ -51,7 +51,7 @@ class MindCalculatorScan(Dock):
         with config_transaction(filepath_config(self.config.config_name)):
             latest = self.config.read_file(self.config.config_name)
             if revision(deep_get(latest, RESULT_PATH, {}).get('ships', [])) != previous_revision:
-                raise RequestHumanTakeover('扫描期间舰船数据已修改，保留现有数据；请重新扫描')
+                raise MindCalculatorScanError('扫描期间舰船数据已修改，保留现有数据；请重新扫描')
             # 同一清单重复保存只会更新日期；通过版本检查后更新本字段基线，
             # 让通用配置保存继续保护其他字段，同时允许提交已完成的扫描。
             if hasattr(self.config, '_loaded_data'):
@@ -61,54 +61,98 @@ class MindCalculatorScan(Dock):
             self.config.save()
         logger.attr('待核对舰船', len(ships))
 
+    def _drag_rows(self, distance):
+        """一次最多拖一排行距，终点按住后释放，截图再确认实际位移。"""
+        start = (1170, 470) if distance > 0 else (1170, 243)
+        end = (start[0], start[1] - distance)
+        if self.config.Emulator_ControlMethod in ('minitouch', 'MaaTouch', 'uiautomator2', 'scrcpy', 'nemu_ipc'):
+            self.device.drag(start, end, point_random=(0, 0, 0, 0), shake=(0, 0),
+                             shake_random=(0, 0, 0, 0), hold_duration=.4, name='心智单元船坞三排定位')
+        else:
+            if abs(distance) < 10:
+                raise MindCalculatorScanError('当前控制方式无法进行船坞小距离校正，请改用 MaaTouch 等支持拖拽的控制方式')
+            # 不使用 Device.drag 的不支持分支，避免其松手后回退点击舰船。
+            self.device.swipe(start, end, duration=.6, name='心智单元船坞三排定位')
+
     def _scan_pages(self, names, levels):
-        """每页先确认画面稳定，正向识别滚动条底部后完成。"""
+        """分段核验三排位移，目标位置连续稳定后识别整页，末页确认到底。"""
         merger = ScanMerger()
         previous = None
-        stable = Timer(.3, count=2).start()
+        stable = Timer(.6, count=3).start()
         drag = Timer(2).start()
-        scanned = False
+        target = pitch = origin_y = None
+        attempts = 0
         page = 0
         progress = Timer(20, count=10).start()
         while True:
             self.device.screenshot()
             if self.appear(page_dock.check_button):
-                pixels = self.device.image[65:520, 80:1230]
+                pixels = self.device.image[65:720, 80:1230]
                 if previous is None or np.mean(np.abs(pixels.astype(float) - previous.astype(float))) > 1:
                     previous = pixels.copy()
                     stable.reset()
                     continue
                 if not stable.reached():
                     continue
-                if not scanned:
-                    image = Image.fromarray(self.device.image)
+                image = Image.fromarray(self.device.image)
+                try:
+                    moved = merger.advance(image)
+                except ValueError as exc:
+                    raise MindCalculatorScanError(str(exc)) from exc
+                if moved:
+                    progress.reset()
+                    # 只有已核实的位移才清除连击历史，停滞仍沿用设备检测和超时恢复。
+                    self.device.click_record_clear()
+                    logger.attr('船坞实际位移', f'{moved:+d}px，累计 {merger.offset}px')
+                if not DOCK_SCROLL.appear(self):
+                    raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
+                thumb = np.flatnonzero(DOCK_SCROLL.match_color(self))
+                if len(thumb) and thumb[-1] - thumb[0] + 1 != len(thumb):
+                    raise MindCalculatorScanError('船坞滚动条被遮挡，无法确认底部，保留旧扫描结果')
+                at_bottom = len(thumb) and thumb[-1] >= DOCK_SCROLL.total - 2
+                if target is None or abs(target - merger.offset) <= 3 or at_bottom:
                     page += 1
                     try:
                         cards = recognize_cards(image, f'自动扫描第 {page} 页', name_ocr=names, level_ocr=levels)
-                        moved = merger.add(image, cards)
+                        merger.add(image, cards)
                     except ValueError as exc:
-                        raise RequestHumanTakeover(str(exc)) from exc
-                    if page == 1 or moved:
+                        raise MindCalculatorScanError(str(exc)) from exc
+                    if page == 1:
                         progress.reset()
                     if len(merger.slots) > 5000:
-                        raise RequestHumanTakeover('识别卡片超过 5000，请核对船坞布局，保留旧扫描结果')
+                        raise MindCalculatorScanError('识别卡片超过 5000，请核对船坞布局，保留旧扫描结果')
                     logger.attr('扫描页', page)
                     logger.attr('识别卡片', len(merger.slots))
-                    scanned = True
-                    if DOCK_SCROLL.appear(self):
-                        if DOCK_SCROLL.at_bottom(self) or DOCK_SCROLL.length == DOCK_SCROLL.total:
-                            break
-                    if progress.reached():
-                        raise GameStuckError('船坞扫描画面没有继续滚动，尚未确认到底')
+                    if at_bottom:
+                        break
+                    rows = sorted({card.y for card in cards})
+                    if len(rows) != 3:
+                        raise MindCalculatorScanError('船坞未显示三排完整船名，无法安全按三排推进')
+                    if pitch is None:
+                        distances = np.diff(rows)
+                        pitch = int(round(float(np.median(distances))))
+                        origin_y = rows[0]
+                        if not 180 <= pitch <= 250 or max(abs(distances - pitch)) > 3:
+                            raise MindCalculatorScanError('无法确认船坞实际行距，保留旧扫描结果')
+                        logger.attr('船坞行距', f'{pitch}px，三排 {3 * pitch}px')
+                    if any(abs(y - origin_y - index * pitch) > 6 for index, y in enumerate(rows)):
+                        raise MindCalculatorScanError('三排位移与卡片行位置不一致，保留旧扫描结果')
+                    target = page * 3 * pitch
+                    attempts = 0
+                    logger.attr('船坞三排目标', f'{target}px')
                     if page >= 500:
                         raise GameStuckError('船坞扫描未能到达底部')
+                if progress.reached():
+                    raise GameStuckError('船坞扫描画面没有继续滚动，尚未确认到底')
                 if drag.reached():
-                    # 滚动条单次操作，不在父状态循环里嵌套 Scroll.set 的循环。
-                    self.device.swipe((1170, 470), (1170, 243), name='心智单元船坞翻页')
+                    if attempts >= 8:
+                        raise MindCalculatorScanError('船坞三排定位未能停在目标位置，请检查控制方式')
+                    remaining = target - merger.offset
+                    self._drag_rows(int(np.clip(remaining, -pitch, pitch)))
+                    attempts += 1
                     drag.reset()
                     stable.reset()
                     previous = None
-                    scanned = False
                 continue
             if self.handle_popup_confirm():
                 previous = None

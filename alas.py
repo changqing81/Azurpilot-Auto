@@ -573,6 +573,16 @@ class AzurLaneAutoScript:
             self.__getattribute__(command)()
             self._last_task_error = None
             return True
+        except MindCalculatorScanError as e:
+            logger.error_context(
+                title='心智单元船坞扫描未完成', reason=str(e), exc=e,
+                impact='本次扫描结束，保留上次完整舰船清单，不重启模拟器。',
+                action='查看错误截图和具体原因，确认船坞布局及控制方式后重新启动扫描。',
+                level=50,
+            )
+            self.save_error_log()
+            self._check_sensitive_exit(command, e)
+            return False
         except TaskEnd:
             self._last_task_error = None
             return True

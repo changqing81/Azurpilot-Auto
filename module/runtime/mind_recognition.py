@@ -12,6 +12,9 @@ import numpy as np
 from module.base.utils import extract_letters
 from module.runtime.mind_calculator import catalog, find_ship, normalize_name
 
+CARD_COLUMNS = tuple(round(93 + col * (164 + 2 / 3)) for col in range(7))
+MAX_ROW_ORIGIN = 720 - 183
+
 
 @dataclass
 class Card:
@@ -75,8 +78,11 @@ def color_rows(pixels):
     """找卡头的连续稀有度色带，排除卡面、文字条和画面边缘。"""
     mask = np.logical_or.reduce(list(rarity_masks(pixels).values()))
     candidates = []
-    for y in range(65, 454):
-        spans = [(left, right) for left, right in _runs(mask[y, 80:1230]) if 90 <= right - left <= 150]
+    for y in range(65, MAX_ROW_ORIGIN + 1):
+        spans = [(left, right) for left, right in _runs(mask[y, 80:1230])
+                 if 90 <= right - left <= 150
+                 and any(abs(left + 80 - x) <= 8 and abs(right + 80 - x - 138) <= 12
+                         for x in CARD_COLUMNS)]
         if spans:
             candidates.append(y)
     rows = []
@@ -92,7 +98,7 @@ def detect_rows(image, ocr):
     for text, box, score in ocr.det(np.array(image)):
         if score >= .7 and parse_level(text) and text.strip().lower().startswith(('lv', '1v', 'iy', 'ly')):
             y = min(point[1] for point in box)
-            if 65 <= y <= 453:
+            if 65 <= y <= MAX_ROW_ORIGIN:
                 headers.append(round(y))
     return _clusters(headers, 20)
 
@@ -175,7 +181,7 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
     headers = [(text, box, score) for text, box, score in words if score >= .7 and parse_level(text)
                and re.match(r'[Ll1I][VvYy]', text.strip())]
     anchor_rows = _clusters([round(min(point[1] for point in box)) for _, box, _ in headers
-                             if 65 <= min(point[1] for point in box) <= 453], 20)
+                             if 65 <= min(point[1] for point in box) <= MAX_ROW_ORIGIN], 20)
     colored = color_rows(pixels)
     # 色带须与等级锚点吻合。OCR 读不到等级时仍可保留已定位的色框。
     rows = list(row_origins) if row_origins is not None else [
@@ -185,11 +191,10 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
         rows = colored
     if not rows:
         raise ValueError('未能定位船坞卡片，请使用加载完成的船坞截图')
-    rows = _clusters([y for y in rows if 65 <= y <= 453], 20)
+    rows = _clusters([y for y in rows if 65 <= y <= MAX_ROW_ORIGIN], 20)
     boxes, name_images, level_images, frame_rarities, header_texts = [], [], [], [], []
     for y in rows:
-        for col in range(7):
-            x = round(93 + col * (164 + 2 / 3))
+        for col, x in enumerate(CARD_COLUMNS):
             masks = rarity_masks(pixels[y:y + 5, x:x + 138])
             frame_rarity = max(masks, key=lambda key: masks[key].sum())
             if masks[frame_rarity].mean() < .3:
@@ -243,14 +248,19 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
 
 
 def estimate_scroll(previous, current):
-    """用重叠区域像素核验真实位移；没有唯一证据时终止而不猜测漏页。"""
+    """核验分段拖动的正负位移；向下微调和零位移也必须有像素证据。"""
     before = cv2.cvtColor(previous[65:640, 85:1225], cv2.COLOR_RGB2GRAY).astype(np.float32)[:, ::8]
     after = cv2.cvtColor(current[65:640, 85:1225], cv2.COLOR_RGB2GRAY).astype(np.float32)[:, ::8]
     if np.mean(np.abs(before - after)) < 1:
         return 0
     scores = []
-    for shift in range(1, 341):
-        a, b = before[shift:][::2], after[:-shift][::2]
+    for shift in range(-454, 455):
+        if shift > 0:
+            a, b = before[shift:][::2], after[:-shift][::2]
+        elif shift < 0:
+            a, b = before[:shift][::2], after[-shift:][::2]
+        else:
+            a, b = before[::2], after[::2]
         # 背景黑色不能占据大部分匹配权重，船名和卡面共同提供证据。
         active = np.maximum(a, b) > 35
         error = float(np.abs(a - b)[active].mean()) if active.sum() > 300 else float('inf')
@@ -270,11 +280,16 @@ class ScanMerger:
         self.offset = 0
         self.slots = []
 
-    def add(self, image, cards):
+    def advance(self, image):
+        """中间截图只核验位移，让无直接重叠的三排整页仍可准确累计坐标。"""
         pixels = np.array(image)
         shift = estimate_scroll(self.previous, pixels) if self.previous is not None else 0
         self.offset += shift
         self.previous = pixels.copy()
+        return shift
+
+    def add(self, image, cards):
+        shift = self.advance(image)
         for card in cards:
             absolute_y = card.y + self.offset
             existing = next((item for item in self.slots if item[0].col == card.col and abs(item[1] - absolute_y) <= 12), None)
