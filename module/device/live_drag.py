@@ -51,9 +51,9 @@ class LiveDrag:
             else:
                 getattr(builder, operation)(*point).commit()
             if self.method == 'MaaTouch':
-                builder.send_sync()
+                builder.send_sync(post_delay=False)
             else:
-                builder.send()
+                builder.send(post_delay=False)
         elif self.method == 'uiautomator2':
             getattr(device.u2.touch, operation)(*point)
         elif self.method == 'nemu_ipc':

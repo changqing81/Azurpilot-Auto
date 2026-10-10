@@ -108,6 +108,7 @@ class MindCalculatorScan(Dock):
         recovering = False
         recovery = None
         bar_speed = 4.
+        last_speed = None
         actions = 0
         page = 0
         progress = Timer(20, count=10).start()
@@ -180,7 +181,7 @@ class MindCalculatorScan(Dock):
                     if corrected is not None and corrected != merger.offset:
                         logger.attr('船坞行对齐', f'{merger.offset}px → {corrected}px')
                         merger.offset = corrected
-                reached = edge_confirmed if phase == 'top' else target is None or abs(target - merger.offset) <= 3 or at_bottom
+                reached = edge_confirmed if phase == 'top' else target is None or abs(target - merger.offset) <= 1 or at_bottom
                 if reached:
                     if touch.active:
                         if hold is None:
@@ -261,6 +262,7 @@ class MindCalculatorScan(Dock):
                     self._grab(touch, point)
                     checkpoint = None
                     bar_speed = 4.
+                    last_speed = None
                     bar_origin = (merger.offset, point[1]) if mode == 'bar' else None
                     logger.attr('船坞实时控制', '卡面持续触控校正' if fine else '按住滚动条逐帧定位')
                     continue
@@ -274,6 +276,9 @@ class MindCalculatorScan(Dock):
                     else:
                         destination = (touch.point[0], touch.point[1] + (1 if remaining > 0 else -1))
                     speed = min(bar_speed, (600 if phase == 'top' else min(600, max(32, 2 * abs(remaining)))) / gain) if gain else bar_speed
+                    if last_speed is None or speed > last_speed * 1.25 or speed < last_speed * .8:
+                        logger.attr('船坞拖动速度', f'{speed:.1f}px/s')
+                        last_speed = speed
                     checkpoint = (frame_point, merger.offset, speed)
                     touch.glide(destination, speed=speed)
                 else:

@@ -129,8 +129,8 @@ class MaatouchBuilder(CommandBuilder):
     def send(self):
         return self.device.maatouch_send(builder=self)
 
-    def send_sync(self, mode=2):
-        return self.device.maatouch_send_sync(builder=self, mode=mode)
+    def send_sync(self, mode=2, post_delay=True):
+        return self.device.maatouch_send_sync(builder=self, mode=mode, post_delay=post_delay)
 
     def end(self):
         self.device.sleep(self.DEFAULT_DELAY)
@@ -297,7 +297,19 @@ class MaaTouch(Connection):
         self.sleep(builder.delay / 1000 + builder.DEFAULT_DELAY)
         builder.clear()
 
-    def maatouch_send_sync(self, builder: MaatouchBuilder, mode=2):
+    def maatouch_send_sync(self, builder: MaatouchBuilder, mode=2, post_delay=True):
+        """
+        向 MaaTouch 守护进程发送带有时间戳同步标识的触控指令序列。
+
+        Args:
+            builder: 构建完成的 MaaTouch 命令构造器。
+            mode: 注入模式，默认为 2（等待系统触控分发确认）。
+            post_delay: 是否追加常规手势结束延时；连续触点由调用方控制移动速率。
+
+        Raises:
+            MaaTouchSyncTimeout: 同步响应超时。
+            MaaTouchNotInstalledError: MaaTouch 进程异常终止或未安装。
+        """
         # 设置最后一条命令的注入模式
         for command in builder.commands[::-1]:
             if command.operation in ['r', 'd', 'm', 'u']:
@@ -339,7 +351,8 @@ class MaaTouch(Connection):
 
         # logger.info(f'Delay: {builder.delay}')
         # logger.info(f'Waiting control {time.time() - start}')
-        self.sleep(builder.DEFAULT_DELAY)
+        if post_delay:
+            self.sleep(builder.DEFAULT_DELAY)
         builder.clear()
 
     def maatouch_install(self):
