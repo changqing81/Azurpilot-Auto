@@ -11,7 +11,7 @@ from module.exception import GameStuckError, MindCalculatorScanError
 from module.logger import logger
 from module.retire.assets import DOCK_EMPTY
 from module.retire.dock import DOCK_SCROLL, Dock
-from module.runtime.mind_calculator import RESULT_PATH, revision
+from module.runtime.mind_calculator import RESULT_PATH, calculate, revision
 from module.runtime.mind_recognition import ScanMerger, ScanPolicy, grid_rows, recognize_cards
 from module.ui.page import page_dock
 
@@ -68,7 +68,9 @@ class MindCalculatorScan(Dock):
                 deep_set(self.config._loaded_data, RESULT_PATH, copy.deepcopy(deep_get(latest, RESULT_PATH, {})))
             self.config.modified[RESULT_PATH] = dict(ships=ships, updated_at=datetime.now().isoformat(timespec='seconds'))
             self.config.save()
-        logger.attr('待核对舰船', len(ships))
+        result = calculate(ships)
+        logger.info(f'[心智扫描] 已保存 {len(ships)} 艘，计入 {result["included"]} 艘，'
+                    f'待核对 {result["review"]} 艘，心智单元Ⅰ {result["mind"]}，物资 {result["gold"]}')
 
     @staticmethod
     def _stable_pixels(image):

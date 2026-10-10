@@ -9,7 +9,7 @@ from functools import lru_cache
 import cv2
 import numpy as np
 
-from module.runtime.mind_calculator import find_ship, highest_ships, normalize_name
+from module.runtime.mind_calculator import RARITIES, find_ship, highest_ships, normalize_name
 
 
 @dataclass
@@ -307,10 +307,13 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
         if not name or all(not char.isalnum() for char in name):
             name = f'未识别舰船（第 {rows.index(y) + 1} 行第 {col + 1} 列）'
         notes = [note for note in (name_note, level_note) if note]
-        ship = dict(name=name[:100], level=value, rarity=info['rarity'] if info else frame_rarities[index],
-                    base_rarity='', excluded=False, review=True,
-                    source='；'.join([source, *notes]).strip('；')[:200])
         reliable = bool(value and not level_note)
+        base_rarity = info.get('base_rarity', '') if info else ''
+        # 名单身份、等级和基础稀有度均已确认才直接计费；不能以改造卡框猜基础稀有度。
+        review = not (info and reliable and base_rarity in RARITIES)
+        ship = dict(name=name[:100], level=value, rarity=info['rarity'] if info else frame_rarities[index],
+                    base_rarity=base_rarity, excluded=False, review=review,
+                    source='；'.join([source, *notes]).strip('；')[:200])
         quality = (4 if info else 0) + (2 if reliable else 0)
         cards.append(Card(x, y, col, ship, quality, reliable, fleets[index]))
     return cards
