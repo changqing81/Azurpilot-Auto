@@ -116,11 +116,6 @@
       "WatchdogTaskTimeout": 120,
       "RestartOperationTimeout": 120
     },
-    "Report": {
-      "Enable": false,
-      "TriggerTime": "23:50",
-      "OnePushConfig": "provider: null"
-    },
     "Optimization": {
       "OcrDevice": "auto",
       "OcrBackend": "auto",
@@ -3592,20 +3587,6 @@
       "BuyNextRun": "2020-01-01 00:00:00",
       "DailyPriceRefresh": false,
       "NextPearlTradeTime": "2020-01-01 00:00:00"
-    },
-    "Storage": {
-      "Storage": {}
-    }
-  },
-  "FleetScan": {
-    "Storage": {
-      "Storage": {}
-    }
-  },
-  "FleetInfo": {
-    "FleetInfo": {
-      "Result": {},
-      "Record": "2020-01-01 00:00:00"
     },
     "Storage": {
       "Storage": {}
