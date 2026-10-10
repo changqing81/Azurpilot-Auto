@@ -33,7 +33,7 @@ def catalog():
         rarity = base['rarity_name']
         if rarity not in RARITIES:
             continue
-        group = ('联动' if row['nationality'] >= 100 else 'META' if row['nationality'] == 97
+        group = ('联动' if row['nationality'] >= 100 else '布里' if row['nationality'] == 98 else 'META' if row['nationality'] == 97
                  else '幼体' if row.get('is_child') else '方案' if row['group_type'] // 100 % 100 == 99 else '')
         info = dict(name=name, rarity=rarity, base_rarity=rarity,
                     base_name=base['name']['cn'].strip() if row['is_retrofit'] else name,
@@ -133,7 +133,9 @@ def calculate(ships):
     highest = {}
     for index, ship in enumerate(rows):
         name = ship['name']
-        if ship['excluded'] or '兵装' in name or 'μ' in name.casefold() or ship['group'] in ('幼体', '联动'):
+        ship['automatic_excluded'] = ('兵装' in name or 'μ' in name.casefold()
+                                      or ship['group'] in ('幼体', '联动', '布里'))
+        if ship['excluded'] or ship['automatic_excluded']:
             ship['status'] = 'excluded'
         elif ship['review'] or not 1 <= ship['level'] <= 125 or ship['base_rarity'] not in RARITIES:
             ship['status'] = 'review'
