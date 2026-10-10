@@ -1189,6 +1189,32 @@
       "retire_10": "Retire 10"
     }
   },
+  "LowCostCheck": {
+    "_info": {
+      "name": "Low Cost Check",
+      "help": "Tracks oil consumption within a sliding time window; exceeding the threshold is treated as a low-cost anomaly and the task is delayed to the next server reset."
+    },
+    "Enable": {
+      "name": "Enable low cost check",
+      "help": "When enabled, tracks oil consumption within the window. On exceeding the threshold it pushes an alert and delays this task to the next server reset (00:00). Only oil consumed while this task is running is counted; oil used by other tasks is ignored.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "OilLimit": {
+      "name": "Oil consumption threshold",
+      "help": "Consumption above this value within the window is treated as an anomaly (500-5000, default 800). Note this is the consumption amount, not the remaining-oil limit."
+    },
+    "Window": {
+      "name": "Time window",
+      "help": "Sliding window length with half-hour precision (default 1 hour).",
+      "0.5": "0.5 h",
+      "1": "1 h",
+      "1.5": "1.5 h",
+      "2": "2 h",
+      "2.5": "2.5 h",
+      "3": "3 h"
+    }
+  },
   "Campaign": {
     "_info": {
       "name": "Level settings",

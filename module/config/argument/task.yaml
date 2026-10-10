@@ -30,6 +30,7 @@ Farm:
       - Scheduler
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -39,6 +40,7 @@ Farm:
       - Scheduler
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -48,6 +50,7 @@ Farm:
       - Scheduler
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -58,6 +61,7 @@ Farm:
       - GemsFarming
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -67,6 +71,7 @@ Farm:
       - GemsFarming
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -76,6 +81,7 @@ Farm:
       - GemsFarming
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -90,6 +96,7 @@ Event:
       - Scheduler
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -99,6 +106,7 @@ Event:
       - Scheduler
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion
@@ -108,6 +116,7 @@ Event:
       - Scheduler
       - Campaign
       - StopCondition
+      - LowCostCheck
       - Fleet
       - Submarine
       - Emotion

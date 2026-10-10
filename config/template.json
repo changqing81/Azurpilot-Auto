@@ -259,6 +259,11 @@
       "GetNewShip": false,
       "ReachLevel": 0
     },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
+    },
     "Fleet": {
       "Fleet1": 1,
       "Fleet1Formation": "double_line",
@@ -343,6 +348,11 @@
       "GetNewShip": false,
       "ReachLevel": 0
     },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
+    },
     "Fleet": {
       "Fleet1": 1,
       "Fleet1Formation": "double_line",
@@ -426,6 +436,11 @@
       "StageIncrease": false,
       "GetNewShip": false,
       "ReachLevel": 0
+    },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
     },
     "Fleet": {
       "Fleet1": 1,
@@ -531,6 +546,11 @@
       "GetNewShip": false,
       "ReachLevel": 0
     },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
+    },
     "Fleet": {
       "Fleet1": 1,
       "Fleet1Formation": "double_line",
@@ -624,6 +644,11 @@
       "StageIncrease": false,
       "GetNewShip": false,
       "ReachLevel": 0
+    },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
     },
     "Fleet": {
       "Fleet1": 1,
@@ -719,6 +744,11 @@
       "GetNewShip": false,
       "ReachLevel": 0
     },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
+    },
     "Fleet": {
       "Fleet1": 1,
       "Fleet1Formation": "double_line",
@@ -804,6 +834,11 @@
       "GetNewShip": false,
       "ReachLevel": 0
     },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
+    },
     "Fleet": {
       "Fleet1": 1,
       "Fleet1Formation": "double_line",
@@ -888,6 +923,11 @@
       "GetNewShip": false,
       "ReachLevel": 0
     },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
+    },
     "Fleet": {
       "Fleet1": 1,
       "Fleet1Formation": "double_line",
@@ -971,6 +1011,11 @@
       "StageIncrease": false,
       "GetNewShip": false,
       "ReachLevel": 0
+    },
+    "LowCostCheck": {
+      "Enable": false,
+      "OilLimit": 800,
+      "Window": 1
     },
     "Fleet": {
       "Fleet1": 1,

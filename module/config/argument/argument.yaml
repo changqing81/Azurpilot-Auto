@@ -413,6 +413,19 @@ OldRetire:
 
 # ==================== Farm ====================
 
+LowCostCheck:
+  # 低耗检测：在滑动时间窗口内累计石油消耗，超过阈值判定为低耗异常。
+  # 与 StopCondition.OilLimit（石油余量下限）语义相反，默认值特意设为 800 以作区分。
+  Enable:
+    type: checkbox
+    value: false
+    option: [true, false]
+  OilLimit:
+    value: 800
+    validate: [500, 5000]
+  Window:
+    value: 1
+    option: [0.5, 1, 1.5, 2, 2.5, 3]
 Campaign:
   Name: 12-4
   Event:

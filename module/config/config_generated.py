@@ -208,6 +208,11 @@ class GeneratedConfig:
     OldRetire_SSR = False
     OldRetire_RetireAmount = 'retire_all'  # retire_all, retire_10
 
+    # 配置组 `LowCostCheck`
+    LowCostCheck_Enable = False  # True, False
+    LowCostCheck_OilLimit = 800
+    LowCostCheck_Window = 1  # 0.5, 1, 1.5, 2, 2.5, 3
+
     # 配置组 `Campaign`
     Campaign_Name = '12-4'
     Campaign_Event = 'campaign_main'  # campaign_main

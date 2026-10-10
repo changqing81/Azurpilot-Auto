@@ -18,11 +18,14 @@ import random
 
 from module.campaign.campaign_base import CampaignBase
 from module.campaign.campaign_event import CampaignEvent
+from module.campaign.low_cost import LowCostChecker
 from module.shop.shop_status import ShopStatus
 from module.campaign.campaign_ui import MODE_SWITCH_1
 from module.config.config import AzurLaneConfig
+from module.config.utils import current_time, get_server_next_update
 from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import map_files, to_map_file_name
+from module.log_res.log_res import LogRes
 from module.logger import logger
 from module.notify import handle_notify
 from module.ui.page import page_campaign
@@ -136,9 +139,26 @@ class CampaignRun(CampaignEvent, ShopStatus):
             self.status_get_gems()
             # 金币限制
             self.get_coin()
-            if self.get_oil() < max(500, self.config.StopCondition_OilLimit):
+            oil = self.get_oil()
+            if oil < max(500, self.config.StopCondition_OilLimit):
                 logger.hr('触发停止条件: 石油上限')
                 self.config.task_delay(minute=(120, 240))
+                return True
+            # 低耗检测：滑动窗口内石油消耗超过阈值
+            if self.config.LowCostCheck_Enable and self.low_cost_triggered(oil):
+                logger.hr('触发低耗检测: 石油消耗异常')
+                # 推迟该任务到次日服务器 0 点，今日不再运行该图
+                self.config.task_delay(target=get_server_next_update('00:00'))
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config.config_name}> 低耗异常",
+                    content=(
+                        f"<{self.config.config_name}> {self.config.task.command} {self.name} "
+                        f"使用石油超过设定值（{self.config.LowCostCheck_Window} 小时内累计 "
+                        f"{self._low_cost_checker.consumed} 油，阈值 {self.config.LowCostCheck_OilLimit}），"
+                        f"可能是因为换错了队伍/低耗异常"
+                    ),
+                )
                 return True
         # 金币限制
         if oil_check and self.coin_limit_triggered():
@@ -176,6 +196,32 @@ class CampaignRun(CampaignEvent, ShopStatus):
                 return True
 
         return False
+
+    def low_cost_triggered(self, oil):
+        """在滑动时间窗口内累计石油消耗，超过阈值时返回 True。
+
+        统计器挂在实例上，任务被抢占或结束后随之销毁，恢复时会重新建立基线，
+        因此其它任务（如主线图、大世界行动力购买）消耗的石油不会被计入本任务。
+
+        Args:
+            oil (int): 本次读到的石油量（由 ``get_oil()`` 提供，避免二次 OCR）。
+
+        Returns:
+            bool: 是否触发低耗异常。
+        """
+        checker = getattr(self, '_low_cost_checker', None)
+        if checker is None:
+            # 石油上限用于过滤 OCR 误读；取自仪表盘最近一次记录，缺失时不做校验
+            oil_group = LogRes(self.config).group('Oil')
+            oil_cap = oil_group.get('Limit') if isinstance(oil_group, dict) else None
+            checker = LowCostChecker(
+                window_seconds=int(float(self.config.LowCostCheck_Window) * 3600),
+                oil_limit=int(self.config.LowCostCheck_OilLimit),
+                oil_cap=oil_cap,
+            )
+            self._low_cost_checker = checker
+
+        return checker.update(oil, current_time())
 
     def _triggered_app_restart(self):
         """
