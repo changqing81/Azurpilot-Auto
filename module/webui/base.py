@@ -396,8 +396,6 @@ class Frame(Base):
             "Utils": self.dev_utils,
             "Update": self.dev_update,
             "Remote": self.dev_remote,
-            "FleetScan": self.fleet_scan_page,
-            "FleetInfo": self.fleet_info_page,
         }
         if name in named:
             return named[name]

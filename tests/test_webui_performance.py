@@ -642,8 +642,6 @@ class PageRestoreTests(unittest.TestCase):
             dev_utils=rec("Utils"),
             dev_update=rec("Update"),
             dev_remote=rec("Remote"),
-            fleet_scan_page=rec("FleetScan"),
-            fleet_info_page=rec("FleetInfo"),
             alas_set_group=rec("Group"),
             alas_daemon_overview=rec("Daemon"),
         )
@@ -657,7 +655,7 @@ class PageRestoreTests(unittest.TestCase):
         from module.webui.base import Frame
 
         for page in ("Overview", "Stat", "HomePage", "Setting", "Utils",
-                     "Update", "Remote", "FleetScan", "FleetInfo", "Develop"):
+                     "Update", "Remote", "Develop"):
             with self.subTest(page=page):
                 gui, calls = self._gui()
                 renderer = Frame.page_renderer(gui, page)

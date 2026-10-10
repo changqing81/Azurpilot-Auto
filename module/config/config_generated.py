@@ -486,11 +486,6 @@ class GeneratedConfig:
     Awaken_LevelCap = 'level120'  # level120, level125
     Awaken_Favourite = False
 
-    # 配置组 `Report`
-    Report_Enable = False
-    Report_TriggerTime = '23:50'
-    Report_OnePushConfig = 'provider: null'
-
     # 配置组 `GeneralShop`
     GeneralShop_Enable = True
     GeneralShop_UseGems = False
@@ -1065,10 +1060,6 @@ class GeneratedConfig:
     IslandBusinessShop5_Product4 = 'None'  # None, cheese, citrus_coffee, strawberry_milkshake, morning_light, wake_up_call, fruity_fruitier
     IslandBusinessShop5_Product5 = 'None'  # None, cheese, citrus_coffee, strawberry_milkshake, morning_light, wake_up_call, fruity_fruitier
     IslandBusinessShop5_BoostReplaceFilter = '30 > 20 > cheese > 10'
-
-    # 配置组 `FleetInfo`
-    FleetInfo_Result = {}
-    FleetInfo_Record = datetime.datetime(2020, 1, 1, 0, 0)
 
     # 配置组 `Daemon`
     Daemon_EnterMap = True

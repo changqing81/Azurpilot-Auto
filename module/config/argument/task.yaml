@@ -7,7 +7,6 @@ Alas:
       - EmulatorInfo
       - Error
       - TaskFailureProtection
-      - Report
       - Optimization
       - DropRecord
       - EmulatorManagement
@@ -462,16 +461,6 @@ Island:
     IslandPearlSell:
       - Scheduler
       - IslandPearlSell
-
-# ==================== Fleet Management ====================
-
-FleetManagement:
-  menu: collapse
-  page: setting
-  tasks:
-    FleetScan: []
-    FleetInfo:
-      - FleetInfo
 
 # ==================== Tool ====================
 

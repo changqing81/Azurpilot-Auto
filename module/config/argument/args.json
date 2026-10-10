@@ -570,21 +570,6 @@
         ]
       }
     },
-    "Report": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "TriggerTime": {
-        "type": "input",
-        "value": "23:50"
-      },
-      "OnePushConfig": {
-        "type": "textarea",
-        "value": "provider: null",
-        "mode": "yaml"
-      }
-    },
     "Optimization": {
       "OcrDevice": {
         "type": "select",
@@ -19144,39 +19129,6 @@
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime"
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "FleetScan": {
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "FleetInfo": {
-    "FleetInfo": {
-      "Result": {
-        "type": "stored",
-        "value": {},
-        "display": "hide"
-      },
-      "Record": {
-        "type": "stored",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime",
-        "display": "hide"
       }
     },
     "Storage": {

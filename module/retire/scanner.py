@@ -14,7 +14,7 @@ DHash 感知哈希用于跨页去重判断。
 import os
 import time
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Union
 
@@ -39,7 +39,6 @@ from module.retire.assets import (DOCK_CHECK, SHIP_DETAIL_CHECK,
 from module.retire.dock import (CARD_EMOTION_GRIDS, CARD_EMOTION_STATUS_GRIDS, CARD_GRIDS,
                                 CARD_LEVEL_GRIDS, CARD_RARITY_GRIDS, DOCK_SCROLL,
                                 EMOTION_RED, EMOTION_YELLOW, EMOTION_GREEN)
-from module.retire.ship_name import ShipNameMatcher
 
 
 class EmotionDigit(Digit):
@@ -477,120 +476,6 @@ class FleetScanner(Scanner):
 
     def limit_value(self, value) -> int:
         return limit_in(value, 0, 6)
-
-
-class FleetNameScanner(Scanner):
-    """识别船坞卡片中的舰娘名称，保留 OCR 原始结果。"""
-    OCR_LANG = {
-        'cn': 'ppocr_v6',
-        'en': 'ppocr_v6',
-        'jp': 'jp',
-        'tw': 'tw',
-    }
-
-    class NameOcr(Ocr):
-        """提取白色和婚舰粉色名称，统一为黑白图像。"""
-        PINK_LETTER = (255, 170, 206)
-        PINK_THRESHOLD = 108
-        TEXT_ROWS = (4, 23)
-        TEXT_LEFT = 4
-
-        @staticmethod
-        def _remove_edge_noise(image):
-            """移除名称区域左右边缘残留的卡片边框像素。"""
-            count, labels, stats, _ = cv2.connectedComponentsWithStats(
-                (image < 120).astype(np.uint8), connectivity=8
-            )
-            for label in range(1, count):
-                x, _, component_width, _, _ = stats[label]
-                if x == 0 or x + component_width == image.shape[1]:
-                    image[labels == label] = 255
-            return image
-
-        def pre_process(self, image):
-            white = extract_letters(image, letter=self.letter, threshold=self.threshold)
-            pink = extract_letters(image, letter=self.PINK_LETTER, threshold=self.PINK_THRESHOLD)
-            merged = cv2.min(white, pink)
-            merged = merged[self.TEXT_ROWS[0]:self.TEXT_ROWS[1], self.TEXT_LEFT:]
-            return self._remove_edge_noise(merged)
-
-    def __init__(
-        self,
-        grid_shape: Tuple[int, int] = (7, 2),
-        excluded_positions: Tuple[Tuple[int, int], ...] = (),
-    ) -> None:
-        super().__init__()
-        self._results = []
-        card_grids = ButtonGrid(
-            origin=CARD_GRIDS.origin,
-            delta=CARD_GRIDS.delta,
-            button_shape=CARD_GRIDS.button_shape,
-            grid_shape=grid_shape,
-            name='CARD',
-        )
-        self.grids = card_grids.crop(area=(-10, 160, 142, 190), name='SHIP_NAME')
-        self.excluded_positions = set(excluded_positions)
-        self.ocr_model = self.NameOcr(
-            self._buttons(),
-            lang=self.OCR_LANG[server.server],
-            threshold=128,
-            name='FLEET_SHIP_NAME',
-        )
-        self.name_matcher = ShipNameMatcher(server.server)
-
-    def _buttons(self) -> List:
-        return [
-            button.area
-            for x, y, button in self.grids.generate()
-            if (x, y) not in self.excluded_positions
-        ]
-
-    def _scan(self, image) -> List:
-        names = self.ocr_model.ocr(image)
-        corrected = [self.name_matcher.correct(name) for name in names]
-        for raw, name in zip(names, corrected):
-            if raw != name:
-                logger.info(f'[舰队扫描-OCR] 舰娘名修正: {raw!r} -> {name!r}')
-        return corrected
-
-    def limit_value(self, value) -> str:
-        return value
-
-    def move(self, vector) -> None:
-        super().move(vector)
-        self.ocr_model.buttons = self._buttons()
-
-
-class FleetManagementScanner:
-    """扫描当前船坞页面，并按舰队归属聚合舰娘名称与等级。"""
-    def __init__(
-        self,
-        grid_shape: Tuple[int, int] = (7, 3),
-        excluded_positions: Tuple[Tuple[int, int], ...] = (),
-    ) -> None:
-        self.fleet_scanner = FleetScanner(
-            grid_shape=grid_shape,
-            excluded_positions=excluded_positions,
-        )
-        self.name_scanner = FleetNameScanner(
-            grid_shape=grid_shape,
-            excluded_positions=excluded_positions,
-        )
-        self.level_scanner = LevelScanner(
-            grid_shape=grid_shape,
-            excluded_positions=excluded_positions,
-        )
-
-    def scan(self, image) -> Dict[int, List[Dict[str, Union[str, int]]]]:
-        """返回按舰队编号分组的舰娘名称与等级 OCR 结果。"""
-        fleets = self.fleet_scanner.scan(image, output=False)
-        names = self.name_scanner.scan(image, output=False)
-        levels = self.level_scanner.scan(image, output=False)
-        result = defaultdict(list)
-        for fleet, name, level in zip(fleets, names, levels):
-            if fleet:
-                result[fleet].append({'name': name, 'level': level})
-        return dict(result)
 
 
 class StatusScanner(Scanner):

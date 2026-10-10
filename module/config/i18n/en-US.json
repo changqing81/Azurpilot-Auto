@@ -32,10 +32,6 @@
       "name": "Island Plan",
       "help": ""
     },
-    "FleetManagement": {
-      "name": "Fleet Management",
-      "help": ""
-    },
     "Tool": {
       "name": "Tools+",
       "help": ""
@@ -373,14 +369,6 @@
     "IslandPearlSell": {
       "name": "Weekly Pearl Trade",
       "help": "Only supports minitouch. Process pearls every Tuesday at 01:00."
-    },
-    "FleetScan": {
-      "name": "Fleet Scan",
-      "help": "Scan ships assigned to fleets"
-    },
-    "FleetInfo": {
-      "name": "Fleet Information",
-      "help": "View the latest fleet scan result"
     },
     "Daemon": {
       "name": "Semi-Auto Click",
@@ -2610,24 +2598,6 @@
     "Favourite": {
       "name": "Only awaken favorited ships",
       "help": ""
-    }
-  },
-  "Report": {
-    "_info": {
-      "name": "OPS Daily Report",
-      "help": "Send a daily OPS resource statistics report via WeCom bot"
-    },
-    "Enable": {
-      "name": "Enable Report",
-      "help": "Send the daily OPS report automatically at the configured trigger time"
-    },
-    "TriggerTime": {
-      "name": "Trigger Time",
-      "help": "Daily report send time, format HH:MM, e.g. 23:50"
-    },
-    "OnePushConfig": {
-      "name": "OnePush Configuration",
-      "help": "Notification config for daily report (WeCom bot channel)"
     }
   },
   "GeneralShop": {
@@ -6312,20 +6282,6 @@
       "help": "When multiple boosted products are detected, the first one in filter order is prioritized for replacement; the replacement slot is the last non-empty slot searched from Product5→1"
     }
   },
-  "FleetInfo": {
-    "_info": {
-      "name": "Fleet information",
-      "help": "Stores fleet scan results"
-    },
-    "Result": {
-      "name": "Scan result",
-      "help": "Ships grouped by category and fleet number"
-    },
-    "Record": {
-      "name": "Scan time",
-      "help": "Time when the latest fleet scan completed"
-    }
-  },
   "Daemon": {
     "_info": {
       "name": "semi-automatic click",
@@ -6739,22 +6695,6 @@
       "SearchPlaceholder": "Search settings",
       "SearchNoResult": "No matching settings",
       "SearchResultCount": "{count} results"
-    },
-    "FleetManagement": {
-      "StartScan": "Start scan",
-      "Scanning": "Scanning",
-      "ScanStarted": "Fleet scan started",
-      "ScanAlreadyRunning": "This instance is already running a task and cannot start a fleet scan",
-      "ScanStartFailed": "Failed to start fleet scan",
-      "LastScan": "Latest scan",
-      "NoResult": "No fleet scan result has been saved",
-      "Main": "Main fleet",
-      "Vanguard": "Vanguard fleet",
-      "Submarine": "Submarine fleet",
-      "SurfaceFleet": "Surface Fleets",
-      "UnderwaterFleet": "Underwater Fleets",
-      "Fleet": "Fleet",
-      "Ships": "Ships"
     },
     "MeowfficerScore": {
       "Title": "Meowfficer Score Report",

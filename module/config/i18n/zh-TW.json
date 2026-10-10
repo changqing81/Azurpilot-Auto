@@ -32,10 +32,6 @@
       "name": "島嶼計劃",
       "help": ""
     },
-    "FleetManagement": {
-      "name": "艦隊管理",
-      "help": ""
-    },
     "Tool": {
       "name": "工具+",
       "help": ""
@@ -373,14 +369,6 @@
     "IslandPearlSell": {
       "name": "每週珍珠採購與售賣",
       "help": "僅支援minitouch。每週二 01:00 自動處理珍珠：先採購本週珍珠，再售賣已有珍珠。金幣一定要夠購買200x220個這是最低要求能一次買光本週珍珠, 否則可能會報錯."
-    },
-    "FleetScan": {
-      "name": "艦隊掃描",
-      "help": "掃描目前編入艦隊的艦船資訊"
-    },
-    "FleetInfo": {
-      "name": "艦隊資訊",
-      "help": "查看最近一次艦隊掃描結果"
     },
     "Daemon": {
       "name": "半自動點選",
@@ -2610,24 +2598,6 @@
     "Favourite": {
       "name": "僅覺醒常用艦船",
       "help": ""
-    }
-  },
-  "Report": {
-    "_info": {
-      "name": "大世界日報",
-      "help": "每天定時推播大世界資源統計日報，透過企業微信機器人發送"
-    },
-    "Enable": {
-      "name": "啟用日報",
-      "help": "開啟後每天到達觸發時間時自動發送大世界日報"
-    },
-    "TriggerTime": {
-      "name": "觸發時間",
-      "help": "每天發送日報的時間，格式 HH:MM，例如 23:50"
-    },
-    "OnePushConfig": {
-      "name": "OnePush 推送設定",
-      "help": "用於日報推送的通知設定（企業微信機器人頻道）"
     }
   },
   "GeneralShop": {
@@ -6312,20 +6282,6 @@
       "help": "多個加成餐品時按過濾順序優先替換第一個；替換槽位從餐品5→1倒查替換最後一個非空餐品\n可用餐品key對照：cheese:芝士, strawberry_milkshake:草莓奶綠, morning_light:晨光活力組合, wake_up_call:醒神套餐, fruity_fruitier:果香雙杯樂\n示例：30 > 20 > cheese > 10"
     }
   },
-  "FleetInfo": {
-    "_info": {
-      "name": "艦隊資訊",
-      "help": "儲存艦隊掃描結果"
-    },
-    "Result": {
-      "name": "掃描結果",
-      "help": "依艦種與艦隊編號儲存的艦船資訊"
-    },
-    "Record": {
-      "name": "掃描時間",
-      "help": "最近一次完成艦隊掃描的時間"
-    }
-  },
   "Daemon": {
     "_info": {
       "name": "半自動點選",
@@ -6739,22 +6695,6 @@
       "SearchPlaceholder": "搜尋設定",
       "SearchNoResult": "找不到相符的設定",
       "SearchResultCount": "共 {count} 項結果"
-    },
-    "FleetManagement": {
-      "StartScan": "開始掃描",
-      "Scanning": "掃描中",
-      "ScanStarted": "艦隊掃描已啟動",
-      "ScanAlreadyRunning": "目前實例正在執行任務，無法啟動艦隊掃描",
-      "ScanStartFailed": "艦隊掃描啟動失敗",
-      "LastScan": "最近掃描",
-      "NoResult": "尚未儲存艦隊掃描結果",
-      "Main": "後排主力",
-      "Vanguard": "前排先鋒",
-      "Submarine": "潛艇",
-      "SurfaceFleet": "水上艦隊",
-      "UnderwaterFleet": "水下艦隊",
-      "Fleet": "艦隊",
-      "Ships": "艦船"
     },
     "MeowfficerScore": {
       "Title": "指揮喵評分報告",

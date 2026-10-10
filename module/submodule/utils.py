@@ -28,7 +28,6 @@ def get_available_func():
         'Benchmark',
         'OcrBenchmark',
         'MeowfficerScore',
-        'FleetScan',
         'GameManager',
         'EmulatorManager',
     )
