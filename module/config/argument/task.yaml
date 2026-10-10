@@ -476,6 +476,8 @@ Tool:
   page: tool
   tasks:
     FleetScan: []
+    MindCalculatorScan:
+      - MindCalculator
     Daemon:
       - Daemon
     OpsiDaemon:

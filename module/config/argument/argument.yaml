@@ -2241,6 +2241,12 @@ IslandBusinessShop5:
 
 # ==================== Fleet Management ====================
 
+MindCalculator:
+  Result:
+    type: stored
+    value: {}
+    display: hide
+
 FleetInfo:
   Result:
     type: stored
