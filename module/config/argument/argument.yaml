@@ -2242,6 +2242,12 @@ IslandBusinessShop5:
 # ==================== Fleet Management ====================
 
 MindCalculator:
+  MinLevel:
+    value: 95
+    validate: "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
+  MaxLevel:
+    value: 120
+    validate: "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
   Result:
     type: stored
     value: {}

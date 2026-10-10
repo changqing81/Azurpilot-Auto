@@ -1065,6 +1065,8 @@ class GeneratedConfig:
     IslandBusinessShop5_BoostReplaceFilter = '30 > 20 > cheese > 10'
 
     # 配置组 `MindCalculator`
+    MindCalculator_MinLevel = 95
+    MindCalculator_MaxLevel = 120
     MindCalculator_Result = {}
 
     # 配置组 `FleetInfo`

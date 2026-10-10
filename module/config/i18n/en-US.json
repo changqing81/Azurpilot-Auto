@@ -6321,6 +6321,14 @@
       "name": "MindCalculator._info.name",
       "help": "MindCalculator._info.help"
     },
+    "MinLevel": {
+      "name": "Minimum scan level",
+      "help": "Inclusive. Import ships at or above this level."
+    },
+    "MaxLevel": {
+      "name": "Maximum scan level",
+      "help": "Inclusive. Import ships at or below this level."
+    },
     "Result": {
       "name": "MindCalculator.Result.name",
       "help": "MindCalculator.Result.help"

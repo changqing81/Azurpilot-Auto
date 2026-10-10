@@ -6321,6 +6321,14 @@
       "name": "MindCalculator._info.name",
       "help": "MindCalculator._info.help"
     },
+    "MinLevel": {
+      "name": "スキャン最低レベル",
+      "help": "境界を含む。このレベル以上の艦船を取り込みます。"
+    },
+    "MaxLevel": {
+      "name": "スキャン最高レベル",
+      "help": "境界を含む。このレベル以下の艦船を取り込みます。"
+    },
     "Result": {
       "name": "MindCalculator.Result.name",
       "help": "MindCalculator.Result.help"

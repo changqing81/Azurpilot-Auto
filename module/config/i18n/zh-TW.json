@@ -6321,6 +6321,14 @@
       "name": "MindCalculator._info.name",
       "help": "MindCalculator._info.help"
     },
+    "MinLevel": {
+      "name": "最低掃描等級",
+      "help": "包含邊界。僅匯入此等級及以上的艦船。"
+    },
+    "MaxLevel": {
+      "name": "最高掃描等級",
+      "help": "包含邊界。僅匯入此等級及以下的艦船。"
+    },
     "Result": {
       "name": "MindCalculator.Result.name",
       "help": "MindCalculator.Result.help"

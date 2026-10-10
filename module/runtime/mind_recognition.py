@@ -4,16 +4,12 @@
 """
 from collections import Counter
 from dataclasses import dataclass
-from difflib import SequenceMatcher
+from functools import lru_cache
 
 import cv2
 import numpy as np
 
-from module.base.utils import extract_letters
-from module.runtime.mind_calculator import catalog, find_ship, normalize_name
-
-CARD_COLUMNS = tuple(round(93 + col * (164 + 2 / 3)) for col in range(7))
-MAX_ROW_ORIGIN = 720 - 183
+from module.runtime.mind_calculator import find_ship, highest_ships, normalize_name
 
 
 @dataclass
@@ -24,6 +20,58 @@ class Card:
     col: int
     ship: dict
     quality: int = 0
+    level_reliable: bool = False
+    fleet: int = 0
+
+
+def normalize_screenshot(image):
+    """裁去可确认的黑边，沿用设备截图的 720p 坐标归一化。"""
+    from PIL import Image, ImageOps
+    from module.device.screenshot import Screenshot
+    width, height = image.size
+    if width * height > 20_000_000 or min(width, height) < 360:
+        raise ValueError(f'截图尺寸 {width}×{height} 不适合识别，请上传清晰的完整模拟器截图')
+    image = ImageOps.exif_transpose(image).convert('RGB')
+    width, height = image.size
+    pixels = np.array(image)
+    # 四边同时加黑边时整体仍可能是 16:9，也需要检查有效区域。
+    active = pixels.max(axis=2) > 20
+    ys = np.flatnonzero(active.mean(axis=1) > .02)
+    xs = np.flatnonzero(active.mean(axis=0) > .02)
+    if not len(xs) or not len(ys):
+        raise ValueError('截图为空或全黑，请等待船坞加载完成')
+    cropped_width, cropped_height = int(xs[-1] - xs[0] + 1), int(ys[-1] - ys[0] + 1)
+    paired_borders = ((xs[0] > 0) == (xs[-1] < width - 1)
+                      and (ys[0] > 0) == (ys[-1] < height - 1))
+    if paired_borders and abs(cropped_width / cropped_height - 16 / 9) <= .015:
+        # 仅移除整行/整列几乎全黑的边缘，不能把缺失的游戏界面拉伸补齐。
+        image = image.crop((int(xs[0]), int(ys[0]), int(xs[-1]) + 1, int(ys[-1]) + 1))
+        width, height = image.size
+    if abs(width / height - 16 / 9) > .015:
+        raise ValueError(f'截图有效区域为 {width}×{height}，需要完整的 16:9 船坞画面；请去除窗口边框并保留游戏界面')
+    if image.size != (1280, 720):
+        image = Image.fromarray(Screenshot.resize_screenshot_to_720p(np.array(image)))
+    return image
+
+
+def grid_rows(pixels):
+    """复用船坞扫描器的行间空白判定，并由已有网格间距补齐三行。"""
+    from module.retire.dock import CARD_GRIDS
+    from module.retire.scanner import DockScanner
+    left, top, right, bottom = DockScanner.SCAN_ZONES['dock']
+    gray = cv2.cvtColor(pixels, cv2.COLOR_RGB2GRAY)
+    gaps = [(start, end) for start, end in _runs(np.std(gray[:, left:right], axis=1) < 20)
+            if start >= top and 10 <= end - start <= 30]
+    # 多个卡片行之间应有一致的间距；卡面内部的空白不能成为定位证据。
+    pitch = int(CARD_GRIDS.delta[1])
+    ends = [end for _, end in gaps if end < bottom - 30]
+    aligned = [end for end in ends if any(abs(abs(end - other) - pitch) <= 6 for other in ends if end != other)]
+    if not aligned:
+        return []
+    phase = round(float(np.median([end - round((end - aligned[0]) / pitch) * pitch for end in aligned]))) + 4
+    while phase - pitch >= top:
+        phase -= pitch
+    return [y for y in range(phase, bottom, pitch) if top <= y and y + 185 <= 720]
 
 
 def parse_level(text):
@@ -34,15 +82,15 @@ def parse_level(text):
 
 
 def level_vote(texts, digit_count=0):
-    """数字位数作为约束，无法一致确认的等级保留提示，不补猜百位。"""
+    """只接受位数吻合且至少两次一致的读数，不补猜百位。"""
     counts = Counter(value for text in texts if (value := parse_level(text)))
     compatible = {value: count for value, count in counts.items()
                   if not digit_count or len(str(value)) == digit_count}
-    if not compatible:
-        return (counts.most_common(1)[0][0] if counts else 0), '等级未能通过数字位数核验'
+    if not digit_count or not compatible:
+        return 0, '等级未能通过数字位数核验'
     level = max(compatible, key=lambda value: compatible[value])
-    if len(counts) > 1 or compatible[level] < 2:
-        return level, '等级候选需核对：' + ' / '.join(map(str, sorted(counts)))
+    if len(compatible) > 1 or compatible[level] < 2:
+        return 0, '等级候选需核对：' + ' / '.join(map(str, sorted(counts)))
     return level, ''
 
 
@@ -76,13 +124,13 @@ def rarity_masks(pixels):
 
 def color_rows(pixels):
     """找卡头的连续稀有度色带，排除卡面、文字条和画面边缘。"""
+    from module.retire.dock import CARD_GRIDS
+    columns = [round(float(CARD_GRIDS.origin[0] + col * CARD_GRIDS.delta[0])) for col in range(7)]
     mask = np.logical_or.reduce(list(rarity_masks(pixels).values()))
     candidates = []
-    for y in range(65, MAX_ROW_ORIGIN + 1):
-        spans = [(left, right) for left, right in _runs(mask[y, 80:1230])
-                 if 90 <= right - left <= 150
-                 and any(abs(left + 80 - x) <= 8 and abs(right + 80 - x - 138) <= 12
-                         for x in CARD_COLUMNS)]
+    for y in range(55, 536):
+        spans = [(left, right) for left, right in _runs(mask[y, 80:1230]) if 90 <= right - left <= 150
+                 and any(abs(left + 80 - x) <= 8 and abs(right + 80 - x - 138) <= 12 for x in columns)]
         if spans:
             candidates.append(y)
     rows = []
@@ -92,46 +140,28 @@ def color_rows(pixels):
     return rows
 
 
-def row_scroll_offset(pixels, origin, pitch, estimated):
-    """用至少两排卡头校准累计取整误差；绝对页数仍由重叠位移确认。"""
-    rows = color_rows(pixels)
-    if len(rows) < 2:
-        return None
-    distances = np.diff(rows)
-    if any(abs(distance - round(distance / pitch) * pitch) > 3 for distance in distances):
-        return None
-    offsets = [estimated + (origin - y - estimated + pitch / 2) % pitch - pitch / 2 for y in rows]
-    if max(offsets) - min(offsets) > 3:
-        return None
-    corrected = round(float(np.median(offsets)))
-    # 卡头只确认行内位置，不能替代失去重叠后的整页位置证据。
-    return corrected if abs(corrected - estimated) <= pitch / 4 else None
-
-
 def detect_rows(image, ocr):
     """等级锚点作为色带检测的补充；只返回能容纳完整船名条的行。"""
     headers = []
     for text, box, score in ocr.det(np.array(image)):
         if score >= .7 and parse_level(text) and text.strip().lower().startswith(('lv', '1v', 'iy', 'ly')):
             y = min(point[1] for point in box)
-            if 65 <= y <= MAX_ROW_ORIGIN:
+            if 55 <= y <= 535:
                 headers.append(round(y))
     return _clusters(headers, 20)
 
 
 def _name_image(pixels):
-    gray = cv2.min(extract_letters(pixels), extract_letters(pixels, (255, 170, 206), 108))
-    count, components, stats, _ = cv2.connectedComponentsWithStats((gray < 120).astype(np.uint8), connectivity=8)
-    for component in range(1, count):
-        left, _, width, _, _ = stats[component]
-        if left == 0 or left + width == gray.shape[1]:
-            gray[components == component] = 255
-    return gray
+    # 名称条的上下边界和婚舰粉色提取必须与舰队扫描保持一致。
+    return _scanners()[1].pre_process(pixels)
 
 
 def _digit_count(pixels):
-    # 去掉左侧 Lv，只对右侧数字统计；过短噪点不能作为百位证据。
-    mask = (cv2.cvtColor(pixels[:, 25:], cv2.COLOR_RGB2GRAY) > 220).astype(np.uint8)
+    # LevelOcr 已按 L 的位置移除 Lv，不能再截去固定 25px 导致漏掉百位。
+    # 卡框及立绘在字形底部可能连成横线，去除边缘两像素后再统计数字。
+    if pixels.shape[0] <= 4 or not pixels.shape[1]:
+        return 0
+    mask = (pixels[2:-2] < 120).astype(np.uint8)
     count, _, stats, _ = cv2.connectedComponentsWithStats(mask, connectivity=8)
     groups = []
     for left, top, width, height, area in sorted(stats[1:count], key=lambda item: item[0]):
@@ -148,122 +178,181 @@ def _digit_count(pixels):
                for left, right, top, bottom, area in groups)
 
 
+@lru_cache(maxsize=1)
+def _scanners():
+    from module.retire.scanner import FleetNameScanner, FleetScanner
+    from module.retire.ship_name import ShipNameMatcher
+    return ShipNameMatcher('cn'), FleetNameScanner().ocr_model, FleetScanner()
+
+
+@lru_cache(maxsize=1)
+def _fleet_label():
+    from pathlib import Path
+    from PIL import Image
+    return np.array(Image.open(Path(__file__).parents[2] / 'assets/ship/dock_fleet_label.png').convert('L'))
+
+
+def fleet_status(region, reader):
+    """复用舰队编号模板；只有“编队”文字证据才能标记未知编队。"""
+    binary = reader.pre_process(region)
+    fleet = reader._match(binary)
+    if fleet:
+        return fleet
+    score = cv2.minMaxLoc(cv2.matchTemplate(binary[20:42, :, 0], _fleet_label(), cv2.TM_CCOEFF_NORMED))[1]
+    return -1 if score >= .75 else 0
+
+
 def _match_name(texts, frame_rarity):
-    def consistent(info):
-        if not frame_rarity or info['rarity'] == frame_rarity or frame_rarity == 'SSR' and info['rarity'] == 'UR':
-            return True
-        # 内置资料沿用原工具的基础稀有度，改造卡框在游戏内会升一档。
-        upgraded = {'N': 'R', 'R': 'SR', 'SR': 'SSR', 'SSR': 'UR'}
-        return info['group'] == '改造' and upgraded.get(info['base_rarity']) == frame_rarity
-    for text in texts:
-        info = find_ship(text)
-        if info and consistent(info):
-            return info, ''
-    # 名称模糊校正必须唯一；META、改造和兵装身份不跨组猜测。
+    """复用舰队管理名单，只有精确命中或唯一截断补全才接受身份。"""
+    matcher, _, _ = _scanners()
     candidates = {}
+    votes = Counter()
+    # 实机名称条核实过的形近字与罗马数字误读；不做编辑距离猜名。
+    corrections = {'酒句': '酒匂', '条鱼': '鲦鱼', '绦鱼': '鲦鱼', '四系乃': '四糸乃', '百雪': '白雪',
+                   '杓鹊改': '杓鹬.改', '约克城iii': '约克城II', '列克星敦iii': '列克星敦II'}
     for text in texts:
-        key = normalize_name(text)
-        if len(key) < 3:
-            continue
-        for name, info in catalog()['ships'].items():
-            candidate = normalize_name(name)
-            if not consistent(info):
-                continue
-            if ('meta' in key) != ('meta' in candidate) or ('改' in key) != ('改' in candidate):
-                continue
-            if ('兵装' in key or 'μ' in key) != ('兵装' in candidate or 'μ' in candidate):
-                continue
-            score = SequenceMatcher(None, key, candidate).ratio()
-            if score >= .8 and abs(len(key) - len(candidate)) <= 1:
-                candidates[name] = max(score, candidates.get(name, 0))
-    ranked = sorted(candidates, key=candidates.get, reverse=True)
-    if ranked and (len(ranked) == 1 or candidates[ranked[0]] - candidates[ranked[1]] >= .15):
-        name = ranked[0]
-        return catalog()['ships'][name], f'船名经资料校正：{texts[0]} → {name}'
-    return None, '船名未能唯一匹配资料'
+        text = corrections.get(normalize_name(text), text)
+        info = find_ship(text)
+        name, status = matcher.resolve(text)
+        if info:
+            candidates[normalize_name(info['name'])] = info
+            votes[normalize_name(info['name'])] += 1
+        elif status in ('exact', 'prefix'):
+            info = find_ship(name) or dict(name=name, rarity=frame_rarity, base_rarity='')
+            candidates[normalize_name(name)] = info
+            votes[normalize_name(name)] += 1
+    # 原彩色复读偶尔漏掉 II；只有另外两次都读到后缀才接受 II 身份。
+    if len(candidates) == 2:
+        for key in list(candidates):
+            if key + 'ii' in candidates and votes[key + 'ii'] >= 2 and votes[key] == 1:
+                del candidates[key]
+                break
+    if len(candidates) != 1:
+        return None, '船名未能唯一匹配国服名单'
+    info = next(iter(candidates.values()))
+    raw = texts[0].strip()
+    if 'meta' in raw.casefold() and 'meta' not in info['name'].casefold() or raw.endswith('改') and not info['name'].endswith('改'):
+        return None, '多轮船名身份不一致，请核对'
+    return info, f'船名经名单校正：{raw} → {info["name"]}' if normalize_name(raw) != normalize_name(info['name']) else ''
 
 
 def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_origins=None):
-    """整屏定位、分卡裁剪、多倍率重读；保留读不全的卡片供核对。"""
-    import re
+    """识别连续三行；自动扫描与上传共用相同网格、名单和等级校验。"""
     from module.ocr.al_ocr import AlOcr, OcrSettings
-    if image.size != (1280, 720):
-        raise ValueError('请使用 1280×720 的模拟器船坞截图')
+    from module.retire.dock import CARD_GRIDS
+    from module.runtime.mind_level import dock_level_reader
+    image = normalize_screenshot(image)
     settings = OcrSettings('onnx', 'cpu', False, 'standard')
     name_ocr = name_ocr or AlOcr(name='ppocr_v6', settings=settings)
     level_ocr = level_ocr or AlOcr(name='azur_lane', settings=settings)
+    _, _, fleet_reader = _scanners()
+    level_reader = dock_level_reader()
     pixels = np.array(image)
-    words = name_ocr.det(pixels)
-    headers = [(text, box, score) for text, box, score in words if score >= .7 and parse_level(text)
-               and re.match(r'[Ll1I][VvYy]', text.strip())]
-    anchor_rows = _clusters([round(min(point[1] for point in box)) for _, box, _ in headers
-                             if 65 <= min(point[1] for point in box) <= MAX_ROW_ORIGIN], 20)
-    colored = color_rows(pixels)
-    # 等级锚点优先对齐色带；整屏 OCR 漏掉某排 Lv 时仍保留该排色框证据。
-    rows = list(row_origins) if row_origins is not None else [
-        min(colored, key=lambda y: abs(y - anchor))
-        if colored and min(abs(y - anchor) for y in colored) <= 12 else anchor for anchor in anchor_rows
-    ] + colored
+    rows = list(row_origins) if row_origins is not None else grid_rows(pixels)
     if not rows:
-        raise ValueError('未能定位船坞卡片，请使用加载完成的船坞截图')
-    rows = _clusters([y for y in rows if 65 <= y <= MAX_ROW_ORIGIN], 20)
-    boxes, name_images, level_images, frame_rarities, header_texts = [], [], [], [], []
+        rows = detect_rows(image, name_ocr) or color_rows(pixels)
+    rows = _clusters([y for y in rows if 55 <= y and y + 185 <= 720], 20)
+    if not rows:
+        raise ValueError('未能定位船坞卡片，请上传加载完成、包含完整船名和等级的船坞截图')
+    boxes, name_images, frame_rarities, fleets = [], [], [], []
+    prepared = []
     for y in rows:
-        for col, x in enumerate(CARD_COLUMNS):
+        for col in range(7):
+            x = round(float(CARD_GRIDS.origin[0] + col * CARD_GRIDS.delta[0]))
+            raw_level = pixels[y:y + 32, x + 74:x + 138]
             masks = rarity_masks(pixels[y:y + 5, x:x + 138])
-            frame_rarity = max(masks, key=lambda key: masks[key].sum())
-            if masks[frame_rarity].mean() < .3:
-                frame_rarity = ''
-            anchors = [text for text, box, _ in headers
-                       if x + 60 <= np.mean([p[0] for p in box]) <= x + 144
-                       and y - 12 <= np.mean([p[1] for p in box]) <= y + 35]
-            name_region = pixels[y + 164:y + 183, x - 6:x + 142]
-            # 空格不凭固定网格造船；有颜色框、等级或名字条内容则保留。
-            if not frame_rarity and not anchors and not np.any(_name_image(name_region) < 120):
+            rarity = max(masks, key=lambda key: masks[key].sum())
+            frame_rarity = rarity if masks[rarity].mean() >= .3 else ''
+            body = pixels[y + 35:y + 150, x:x + 138]
+            if not frame_rarity and cv2.cvtColor(body, cv2.COLOR_RGB2GRAY).std() < 20:
                 continue
             boxes.append((x, y, col))
             frame_rarities.append(frame_rarity)
-            header_texts.append(anchors)
-            name_images.append(name_region)
-            level_images.append(pixels[y + 5:y + 27, x + 74:x + 138])
+            name_images.append(pixels[y + 160:y + 190, x - 10:x + 142])
+            prepared.append(level_reader.prepare(raw_level))
+            region = pixels[y + 117:y + 162, x:x + 35]
+            fleets.append(fleet_status(region, fleet_reader))
     if not boxes:
         raise ValueError('船坞卡片为空或尚未加载')
     names = name_ocr.ocr_for_single_lines([_name_image(region) for region in name_images])
-    # 原色、两倍白字和三倍白字独立重读，数字位数用于排除漏位候选。
-    binary = [extract_letters(region, threshold=108) for region in level_images]
-    digit_reads = [level_ocr.ocr_for_single_lines(level_images)]
-    for scale in (2, 3):
-        digit_reads.append(level_ocr.ocr_for_single_lines([
-            cv2.resize(region, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC) for region in binary]))
+    values = [level_reader.read(glyphs) for glyphs, _, _ in prepared]
+    unresolved = [index for index, value in enumerate(values) if not value]
+    level_notes = [''] * len(values)
+    if unresolved:
+        clean_levels = [prepared[index][1] for index in unresolved]
+        digit_reads = [level_ocr.ocr_for_single_lines(clean_levels),
+                       level_ocr.ocr_for_single_lines([prepared[index][2] for index in unresolved]),
+                       level_ocr.ocr_for_single_lines([cv2.resize(region, None, fx=2, fy=2)
+                                                       for region in clean_levels]),
+                       level_ocr.ocr_for_single_lines([cv2.resize(prepared[index][2], None, fx=2, fy=2)
+                                                       for index in unresolved])]
+        for position, index in enumerate(unresolved):
+            values[index], level_notes[index] = level_vote([reads[position] for reads in digit_reads],
+                                                     len(prepared[index][0]))
     cards = []
     for index, (x, y, col) in enumerate(boxes):
-        candidates = [names[index].strip()]
+        candidates = [str(names[index]).strip()]
         info, name_note = _match_name(candidates, frame_rarities[index])
-        if not info:
+        # 同一名称存在 II 型时，即使首读命中基础型也核对后缀，避免错并舰船。
+        has_second_type = info and find_ship(info['name'] + 'II')
+        if not info or has_second_type:
             region = name_images[index]
-            retry = [cv2.resize(region, None, fx=3, fy=3, interpolation=cv2.INTER_CUBIC),
-                     cv2.resize(_name_image(region), None, fx=4, fy=4, interpolation=cv2.INTER_CUBIC)]
-            candidates.extend(name_ocr.ocr_for_single_lines(retry))
-            full_names = [text for text, box, _ in words if x - 10 <= np.mean([p[0] for p in box]) <= x + 148
-                          and y + 153 <= np.mean([p[1] for p in box]) <= y + 188]
-            candidates.extend(full_names)
+            reader = _scanners()[1]
+            color = region[reader.TEXT_ROWS[0]:reader.TEXT_ROWS[1], reader.TEXT_LEFT:]
+            candidates.extend(name_ocr.ocr_for_single_lines([color, cv2.resize(_name_image(region), None, fx=2, fy=2,
+                                                                               interpolation=cv2.INTER_CUBIC)]))
             info, name_note = _match_name(candidates, frame_rarities[index])
-        value, level_note = level_vote([*[reads[index] for reads in digit_reads], *header_texts[index]],
-                                      _digit_count(level_images[index]))
+        value, level_note = values[index], level_notes[index]
         name = info['name'] if info else candidates[0]
-        if not name or re.fullmatch(r'[\W\d_]+', name):
+        if not name or all(not char.isalnum() for char in name):
             name = f'未识别舰船（第 {rows.index(y) + 1} 行第 {col + 1} 列）'
         notes = [note for note in (name_note, level_note) if note]
-        ship = dict(name=name, level=value, rarity=info['rarity'] if info else frame_rarities[index],
+        ship = dict(name=name[:100], level=value, rarity=info['rarity'] if info else frame_rarities[index],
                     base_rarity='', excluded=False, review=True,
                     source='；'.join([source, *notes]).strip('；')[:200])
-        quality = (4 if info else 0) + (2 if value and not level_note else 0)
-        cards.append(Card(x, y, col, ship, quality))
+        reliable = bool(value and not level_note)
+        quality = (4 if info else 0) + (2 if reliable else 0)
+        cards.append(Card(x, y, col, ship, quality, reliable, fleets[index]))
     return cards
 
 
+class ScanPolicy:
+    """编队置顶与普通舰分别核对降序，只有完整、确定的三行才能早停。"""
+    def __init__(self, min_level=95, max_level=120, sorted_desc=False):
+        if type(min_level) is not int or type(max_level) is not int or not 1 <= min_level <= max_level <= 125:
+            raise ValueError('扫描等级范围必须满足 1 ≤ 最低等级 ≤ 最高等级 ≤ 125')
+        self.min_level, self.max_level = min_level, max_level
+        self.sorted_desc = sorted_desc
+        self.sort_valid = True
+
+    def can_stop(self, cards, slots):
+        if not self.sorted_desc or not self.sort_valid:
+            return False
+        ordered = [card for card, _ in sorted(slots, key=lambda item: (item[1], item[0].col))]
+        previous, ordinary = None, False
+        for card in ordered:
+            if card.fleet < 0 or not card.level_reliable:
+                return False
+            if card.fleet:
+                if ordinary:
+                    self.sort_valid = False
+                    return False
+            elif not ordinary:
+                ordinary, previous = True, None
+            if previous is not None and card.ship['level'] > previous:
+                self.sort_valid = False
+                return False
+            previous = card.ship['level']
+        rows = {}
+        for card in cards:
+            rows.setdefault(card.y, []).append(card)
+        return (len(rows) == 3 and all({card.col for card in row} == set(range(7)) for row in rows.values())
+                and all(card.fleet == 0 and card.level_reliable
+                        and card.ship['level'] < self.min_level for card in cards))
+
+
 def estimate_scroll(previous, current):
-    """核验分段拖动的正负位移；向下微调和零位移也必须有像素证据。"""
+    """用重叠区域核验正负位移；没有唯一证据时终止而不猜测漏页。"""
     before = cv2.cvtColor(previous[65:640, 85:1225], cv2.COLOR_RGB2GRAY).astype(np.float32)[:, ::8]
     after = cv2.cvtColor(current[65:640, 85:1225], cv2.COLOR_RGB2GRAY).astype(np.float32)[:, ::8]
     if np.mean(np.abs(before - after)) < 1:
@@ -289,15 +378,15 @@ def estimate_scroll(previous, current):
 
 
 class ScanMerger:
-    """跨页按列和绝对行坐标合并；同名同级的不同格子仍然保留。"""
+    """按格子核验滚动，输出时再对同名舰船取最高等级。"""
     def __init__(self):
         self.previous = None
         self.offset = 0
         self.slots = []
 
     def advance(self, image):
-        """中间截图只核验位移，让无直接重叠的三排整页仍可准确累计坐标。"""
-        pixels = np.array(image)
+        """中间截图只累计位移，保证三排推进始终有重叠区域可核验。"""
+        pixels = np.array(normalize_screenshot(image))
         shift = estimate_scroll(self.previous, pixels) if self.previous is not None else 0
         self.offset += shift
         self.previous = pixels.copy()
@@ -305,6 +394,19 @@ class ScanMerger:
 
     def add(self, image, cards):
         shift = self.advance(image)
+        offset = self.offset
+        if cards and self.slots:
+            from module.retire.dock import CARD_GRIDS
+            # 像素配准有约一像素误差，逐页累加会把重叠行误当新行。
+            # 用同一船坞网格的行间距校正误差，仍以实际位移决定跨过几行。
+            pitch = int(CARD_GRIDS.delta[1])
+            origin = self.slots[0][1]
+            top = min(card.y for card in cards) + offset
+            correction = origin + round((top - origin) / pitch) * pitch - top
+            if abs(correction) > 12:
+                raise ValueError('滚动像素位移与船坞行间距不一致，停止扫描以免遗漏或重复')
+            offset += correction
+        self.offset = offset
         for card in cards:
             absolute_y = card.y + self.offset
             existing = next((item for item in self.slots if item[0].col == card.col and abs(item[1] - absolute_y) <= 12), None)
@@ -315,9 +417,13 @@ class ScanMerger:
                 selected = existing[0]
                 if previous.ship['name'] != card.ship['name'] or previous.ship['level'] != card.ship['level']:
                     selected.ship['source'] = (selected.ship['source'] + '；跨屏读数不一致，请核对')[:200]
+                    selected.ship['review'] = True
+                if previous.level_reliable and card.level_reliable and previous.ship['level'] != card.ship['level']:
+                    selected.level_reliable = False
             else:
                 self.slots.append([card, absolute_y])
         return shift
 
-    def ships(self):
-        return [card.ship for card, _ in sorted(self.slots, key=lambda item: (item[1], item[0].col))]
+    def ships(self, min_level=1, max_level=125):
+        return highest_ships([card.ship for card, _ in sorted(self.slots, key=lambda item: (item[1], item[0].col))
+                              if card.level_reliable and min_level <= card.ship['level'] <= max_level])

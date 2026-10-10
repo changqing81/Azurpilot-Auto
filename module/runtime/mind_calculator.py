@@ -25,6 +25,20 @@ def normalize_name(name):
     return re.sub(r'[\s.·・．。]', '', unicodedata.normalize('NFKC', name)).casefold()
 
 
+def highest_ships(ships):
+    """同名取最高等级；后读到更高等级时替换整条记录。"""
+    output = {}
+    for index, ship in enumerate(ships):
+        if not 1 <= ship['level'] <= 125:
+            continue
+        key = normalize_name(ship['name'])
+        if ship['name'].startswith('未识别舰船'):
+            key = f'unknown:{index}'
+        if key not in output or output[key]['level'] < ship['level']:
+            output[key] = ship
+    return list(output.values())
+
+
 def find_ship(name):
     ships = catalog()['ships']
     if name in ships:
@@ -117,9 +131,21 @@ def calculate(ships):
 
 def recognize(image, source='', *, name_ocr=None, level_ocr=None, row_origins=None):
     """读取完整卡片；保留多轮识别提示，全部要求人工核对。"""
-    from module.runtime.mind_recognition import recognize_cards
-    return [card.ship for card in recognize_cards(image, source, name_ocr=name_ocr,
-                                                  level_ocr=level_ocr, row_origins=row_origins)]
+    import numpy as np
+    from module.retire.assets import DOCK_CHECK
+    from module.runtime.mind_recognition import normalize_screenshot, recognize_cards
+    image = normalize_screenshot(image)
+    pixels = np.array(image)
+    left, top, right, bottom = DOCK_CHECK.area
+    # Button.match 的反向模板参数对纯色输入可能返回 1，先排除没有文字的页头。
+    if pixels[top:bottom, left:right].std() < 10 or not DOCK_CHECK.match(pixels, offset=(0, 0)):
+        raise ValueError('截图未显示完整船坞界面，请上传包含顶部“船坞”标识及舰船卡片的游戏截图')
+    cards = recognize_cards(image, source, name_ocr=name_ocr, level_ocr=level_ocr, row_origins=row_origins)
+    invalid = [f'第 {sorted({card.y for card in cards}).index(card.y) + 1} 行第 {card.col + 1} 列'
+               for card in cards if not card.level_reliable]
+    if invalid:
+        raise ValueError('等级未能确认：' + '、'.join(invalid) + '；请上传清晰的静止船坞截图，未导入零等级数据')
+    return highest_ships([card.ship for card in cards])
 
 
 def detect_rows(image, ocr):

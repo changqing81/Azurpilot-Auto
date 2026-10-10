@@ -233,6 +233,8 @@ def func(
             "ws_ping_interval": 20,
             "ws_ping_timeout": 60,
             "timeout_keep_alive": 75,
+            # 上游心智扫描截图导入用的 WS 队列深度（本地保留更宽的 ws_max_size）
+            "ws_max_queue": 16,
         }
         if ssl:
             uvicorn_options.update(
