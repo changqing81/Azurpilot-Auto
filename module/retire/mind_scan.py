@@ -6,6 +6,8 @@ from PIL import Image
 
 import module.config.server as server
 from module.base.timer import Timer
+from module.base.utils import color_similarity_2d
+from module.device.live_drag import LIVE_DRAG_METHODS
 from module.exception import GameStuckError, MindCalculatorScanError
 from module.logger import logger
 from module.retire.assets import DOCK_EMPTY
@@ -36,14 +38,6 @@ class MindCalculatorScan(Dock):
         if self.appear(DOCK_EMPTY):
             ships = []
         else:
-            DOCK_SCROLL.set_top(self)
-            if DOCK_SCROLL.appear(self):
-                if DOCK_SCROLL.at_top(self) or DOCK_SCROLL.length == DOCK_SCROLL.total:
-                    logger.attr('船坞位置', '已确认顶部')
-                else:
-                    raise MindCalculatorScanError('船坞未能回到顶部，保留旧扫描结果')
-            else:
-                raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
             names = AlOcr(config=self.config, name='ppocr_v6')
             levels = AlOcr(config=self.config, name='azur_lane')
             ships = self._scan_pages(names, levels)
@@ -61,40 +55,71 @@ class MindCalculatorScan(Dock):
             self.config.save()
         logger.attr('待核对舰船', len(ships))
 
-    def _drag_rows(self, distance):
-        """一次最多拖一排行距，终点按住后释放，截图再确认实际位移。"""
-        start = (1170, 470) if distance > 0 else (1170, 243)
-        end = (start[0], start[1] - distance)
-        if self.config.Emulator_ControlMethod in ('minitouch', 'MaaTouch', 'uiautomator2', 'scrcpy', 'nemu_ipc'):
-            self.device.drag(start, end, point_random=(0, 0, 0, 0), shake=(0, 0),
-                             shake_random=(0, 0, 0, 0), hold_duration=.4, name='心智单元船坞三排定位')
+    def _scroll_thumb(self, allow_occlusion=False):
+        """直接检测滑块像素；小滑块也有效，不使用通用控件的 10% 可见门槛。"""
+        thumb = np.flatnonzero(DOCK_SCROLL.match_color(self))
+        if not len(thumb):
+            if allow_occlusion:
+                return None
+            raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
+        if thumb[-1] - thumb[0] + 1 != len(thumb):
+            if allow_occlusion:
+                return None
+            raise MindCalculatorScanError('船坞滚动条被遮挡，无法确认位置，保留旧扫描结果')
+        if thumb[0] == 0:
+            # 通用按钮框从 76 开始，国服滑块顶部可能延伸到 67；抓取须使用完整滑块中心。
+            x1, y1, x2, _ = DOCK_SCROLL.area
+            above = self.device.image[y1 - 12:y1, x1:x2]
+            mask = np.max(color_similarity_2d(above, DOCK_SCROLL.color), axis=1) > DOCK_SCROLL.color_threshold
+            count = 0
+            for matched in mask[::-1]:
+                if not matched:
+                    break
+                count += 1
+            thumb = np.concatenate((np.arange(-count, 0), thumb))
+        return thumb
+
+    @staticmethod
+    def _grab(touch, point):
+        """横移激活拖动；抓滑块后保持触点在左侧，避开游戏的触控菱形。"""
+        touch.down(point)
+        if point[0] > 1230:
+            # 游戏触控特效约宽 64 px；拖动已由滑块捕获，横移不会改变滚动位置。
+            touch.move((point[0] - 64, point[1]))
         else:
-            if abs(distance) < 10:
-                raise MindCalculatorScanError('当前控制方式无法进行船坞小距离校正，请改用 MaaTouch 等支持拖拽的控制方式')
-            # 不使用 Device.drag 的不支持分支，避免其松手后回退点击舰船。
-            self.device.swipe(start, end, duration=.6, name='心智单元船坞三排定位')
+            touch.move((point[0] + 20, point[1]))
+            touch.move(point)
 
     def _scan_pages(self, names, levels):
-        """分段核验三排位移，目标位置连续稳定后识别整页，末页确认到底。"""
+        """按住滚动条逐帧测位移；仍按住时校正，停准后才松手并读取三排。"""
+        if self.config.Emulator_ControlMethod not in LIVE_DRAG_METHODS:
+            raise MindCalculatorScanError('实时船坞扫描需要 MaaTouch 等支持持续触控的控制方式')
         merger = ScanMerger()
         previous = None
         stable = Timer(.6, count=3).start()
-        drag = Timer(2).start()
+        hold = None
         target = pitch = origin_y = None
-        attempts = 0
+        phase = 'top'
+        edge_confirmed = False
+        mode = None
+        gain = None
+        bar_origin = None
+        actions = 0
         page = 0
         progress = Timer(20, count=10).start()
-        while True:
-            self.device.screenshot()
-            if self.appear(page_dock.check_button):
-                pixels = self.device.image[65:720, 80:1230]
-                if previous is None or np.mean(np.abs(pixels.astype(float) - previous.astype(float))) > 1:
-                    previous = pixels.copy()
-                    stable.reset()
-                    continue
-                if not stable.reached():
-                    continue
+        occlusion = Timer(1, count=3).start()
+        with self.device.live_drag(name='心智单元船坞实时定位') as touch:
+            while True:
+                self.device.screenshot()
+                if not self.appear(page_dock.check_button):
+                    touch.up()
+                    if self.handle_popup_confirm():
+                        previous = None
+                        stable.reset()
+                        continue
+                    raise MindCalculatorScanError('实时拖动期间离开船坞，保留旧扫描结果')
                 image = Image.fromarray(self.device.image)
+                # 不等停稳、不松手：每张新截图都先计算与上一帧的实际重叠位移。
                 try:
                     moved = merger.advance(image)
                 except ValueError as exc:
@@ -103,14 +128,51 @@ class MindCalculatorScan(Dock):
                     progress.reset()
                     # 只有已核实的位移才清除连击历史，停滞仍沿用设备检测和超时恢复。
                     self.device.click_record_clear()
+                    self.device.stuck_record_clear()
                     logger.attr('船坞实际位移', f'{moved:+d}px，累计 {merger.offset}px')
-                if not DOCK_SCROLL.appear(self):
-                    raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
-                thumb = np.flatnonzero(DOCK_SCROLL.match_color(self))
-                if len(thumb) and thumb[-1] - thumb[0] + 1 != len(thumb):
-                    raise MindCalculatorScanError('船坞滚动条被遮挡，无法确认底部，保留旧扫描结果')
-                at_bottom = len(thumb) and thumb[-1] >= DOCK_SCROLL.total - 2
-                if target is None or abs(target - merger.offset) <= 3 or at_bottom:
+                thumb = self._scroll_thumb(allow_occlusion=touch.active and mode == 'bar')
+                if thumb is None:
+                    # 按下时的特效可能残留几帧；只等待完整黄色滑块，不猜位置或继续移动。
+                    if occlusion.reached():
+                        raise MindCalculatorScanError('船坞滚动条持续被遮挡，无法确认位置，保留旧扫描结果')
+                    continue
+                occlusion.reset()
+                at_top = thumb[0] <= 1
+                at_bottom = thumb[-1] >= DOCK_SCROLL.total - 2
+                if phase == 'top' and touch.active and mode == 'bar':
+                    # 边缘像素可能对应多像素内容；把仍按住的触点移过滑块中心极限，确认夹紧。
+                    if at_top and touch.point[1] <= DOCK_SCROLL.area[1] + len(thumb) / 2 - 16:
+                        edge_confirmed = True
+                if mode == 'bar' and touch.active and bar_origin is not None:
+                    pointer_delta = touch.point[1] - bar_origin[1]
+                    actual_delta = merger.offset - bar_origin[0]
+                    if pointer_delta and actual_delta * pointer_delta > 0:
+                        gain = abs(actual_delta / pointer_delta)
+                reached = edge_confirmed if phase == 'top' else target is None or abs(target - merger.offset) <= 3 or at_bottom
+                if reached:
+                    if touch.active:
+                        if hold is None:
+                            hold = Timer(.4, count=2).start()
+                        if not hold.reached():
+                            continue
+                        touch.up()
+                        mode = None
+                        previous = None
+                        stable.reset()
+                    pixels = self.device.image[65:720, 80:1230]
+                    if previous is None or np.mean(np.abs(pixels.astype(float) - previous.astype(float))) > 1:
+                        previous = pixels.copy()
+                        stable.reset()
+                        continue
+                    if not stable.reached():
+                        continue
+                    if phase == 'top':
+                        # 回顶期间也持续追踪，但完整扫描的绝对坐标从已确认顶部重新开始。
+                        merger = ScanMerger()
+                        merger.advance(image)
+                        phase = 'scan'
+                        edge_confirmed = False
+                        logger.attr('船坞位置', '已确认顶部')
                     page += 1
                     try:
                         cards = recognize_cards(image, f'自动扫描第 {page} 页', name_ocr=names, level_ocr=levels)
@@ -140,24 +202,41 @@ class MindCalculatorScan(Dock):
                     if any(abs(y - origin_y - index * pitch) > 6 for index, y in enumerate(rows)):
                         raise MindCalculatorScanError('三排位移与卡片行位置不一致，保留旧扫描结果')
                     target = page * 3 * pitch
-                    attempts = 0
+                    actions = 0
                     logger.attr('船坞三排目标', f'{target}px')
                     if page >= 500:
                         raise GameStuckError('船坞扫描未能到达底部')
                 if progress.reached():
                     raise GameStuckError('船坞扫描画面没有继续滚动，尚未确认到底')
-                if drag.reached():
-                    if attempts >= 8:
-                        raise MindCalculatorScanError('船坞三排定位未能停在目标位置，请检查控制方式')
-                    remaining = target - merger.offset
-                    self._drag_rows(int(np.clip(remaining, -pitch, pitch)))
-                    attempts += 1
-                    drag.reset()
-                    stable.reset()
-                    previous = None
-                continue
-            if self.handle_popup_confirm():
+                if actions >= 1024:
+                    raise MindCalculatorScanError('实时船坞定位未能到达三排目标，保留旧扫描结果')
+                hold = None
                 previous = None
                 stable.reset()
-                continue
+                remaining = -1 if phase == 'top' else target - merger.offset
+                fine = phase == 'scan' and (mode == 'fine' or remaining < 0 or abs(remaining) <= max(20, gain or 0))
+                if touch.active and (mode == 'bar' and fine or mode == 'fine' and not fine):
+                    # 大船坞的一像素滑块会对应多像素卡面；卡面内用已激活的同一触点做最后校正。
+                    touch.up()
+                    mode = None
+                if not touch.active:
+                    mode = 'fine' if fine else 'bar'
+                    point = (1170, 400) if fine else (
+                        (DOCK_SCROLL.area[0] + DOCK_SCROLL.area[2]) // 2,
+                        round(DOCK_SCROLL.area[1] + float(np.mean(thumb))))
+                    self._grab(touch, point)
+                    bar_origin = (merger.offset, point[1]) if mode == 'bar' else None
+                    logger.attr('船坞实时控制', '卡面持续触控校正' if fine else '按住滚动条逐帧定位')
+                    continue
+                if mode == 'bar':
+                    # 滑块每次只走一像素，紧接着截图计算，避免船多时一次跳过重叠区域。
+                    destination = (touch.point[0], touch.point[1] + (1 if remaining > 0 else -1))
+                else:
+                    distance = int(np.clip(remaining, -120, 120))
+                    destination = (touch.point[0], touch.point[1] - distance)
+                    if not 110 <= destination[1] <= 630:
+                        touch.up()
+                        continue
+                touch.move(destination)
+                actions += 1
         return merger.ships()
