@@ -20,6 +20,9 @@ dev_tools/debug_tools
 /toolkit
 *.lock
 !/uv.lock
+debug_ocr/
+ocr_debug/
+/assets/ship/mind_calculator.json
 config/reloadflag
 config/reloadalas
 config/webui-dependency-sync-pending

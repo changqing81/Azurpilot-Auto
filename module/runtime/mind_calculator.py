@@ -13,12 +13,43 @@ MIND_COSTS = {
     'SR': (120, 240, 360, 600), 'SSR': (200, 400, 600, 1000), 'UR': (300, 600, 900, 1500),
 }
 RESULT_PATH = 'MindCalculatorScan.MindCalculator.Result'
+SHIP_DATA_FILE = Path(__file__).parents[2] / 'assets/ship/ship_data.json'
 
 
 @lru_cache(maxsize=1)
 def catalog():
-    """内置公共舰船资料，离线可用，不读取原工具的私人配置。"""
-    return json.loads((Path(__file__).parents[2] / 'assets/ship/mind_calculator.json').read_text(encoding='utf-8'))
+    """从共享舰船资料构建国服目录，改造按基础舰船稀有度计费。"""
+    data = json.loads(SHIP_DATA_FILE.read_text(encoding='utf-8'))
+    ships = {}
+    for ship_id, row in data.items():
+        if row['group_type'] is None or row['star_max'] is None or row['rarity_name'] not in RARITIES:
+            continue
+        # 剧情复制舰可能沿用模板群组，不能覆盖可获取舰船的身份与稀有度。
+        if int(ship_id) // 10 != row['group_type'] and not (row['is_retrofit'] and int(ship_id) < 900000):
+            continue
+        name = row['name']['cn'].strip()
+        name = re.sub(r'[.・]META$', '·META', name)
+        base = data.get(str(row['retrofit_base_id']), row) if row['is_retrofit'] else row
+        rarity = base['rarity_name']
+        if rarity not in RARITIES:
+            continue
+        group = ('联动' if row['nationality'] >= 100 else 'META' if row['nationality'] == 97
+                 else '幼体' if row.get('is_child') else '方案' if row['group_type'] // 100 % 100 == 99 else '')
+        info = dict(name=name, rarity=rarity, base_rarity=rarity,
+                    base_name=base['name']['cn'].strip() if row['is_retrofit'] else name,
+                    group=group, type=row['type_name'])
+        if row['is_retrofit']:
+            info.update(group='改造', rarity=RARITIES[max(0, RARITIES.index(rarity) - 1)])
+        ships[name] = info
+    for row in data.values():
+        base = ships.get(row['name']['cn'].strip())
+        if not base or row['is_retrofit']:
+            continue
+        for name in row.get('retrofit_names', []):
+            # 游戏 Ship.getRarity() 在改造后升一档；费用仍取基础稀有度。
+            ships[name] = dict(base, name=name, group='改造',
+                               rarity=RARITIES[max(0, RARITIES.index(base['base_rarity']) - 1)])
+    return dict(source='assets/ship/ship_data.json', updated_at='', ships=ships)
 
 
 def normalize_name(name):
