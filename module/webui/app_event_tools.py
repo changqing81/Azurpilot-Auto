@@ -135,7 +135,7 @@ class EventToolsMixin(WebUIMixinBase):
         if isinstance(gacha_value, (bool, int, float, str)):
             try:
                 gacha_amount = int(gacha_value or 0)
-            except TypeError, ValueError, OverflowError:
+            except (TypeError, ValueError, OverflowError):
                 gacha_amount = 0
         else:
             gacha_amount = 0

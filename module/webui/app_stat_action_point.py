@@ -619,7 +619,7 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
                             continue
                         asset_list.append(asset_value)
                         asset_ts_list.append(int(va_dt.timestamp() * 1000))
-                    except TypeError, ValueError:
+                    except (TypeError, ValueError):
                         continue
 
         stats_html = ""

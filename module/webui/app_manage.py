@@ -103,7 +103,7 @@ def app_manage(gui: "AlasGUI") -> None:
             return
         try:
             result = json.loads(raw)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return
         if not isinstance(result, dict):
             return
