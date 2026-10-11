@@ -3008,30 +3008,6 @@
       "Storage": {}
     }
   },
-  "OpsiSimulator": {
-    "OpsiSimulatorParameters": {
-      "Samples": 100000,
-      "Draw": "do_not",
-      "TotalTime": 0,
-      "TimeUseRatio": 0.8,
-      "InitialAp": 0,
-      "InitialCoin": 0,
-      "MeowHazardLevel": "level5",
-      "CrossWeek": true,
-      "BuyAp": true,
-      "Cl1Coin": 170,
-      "Meow3Coin": 750,
-      "Meow5Coin": 1700,
-      "AkashiProbability": 0.05,
-      "Cl1Time": 0,
-      "Meow3Time": 0,
-      "Meow5Time": 0,
-      "Deterministic": false
-    },
-    "Storage": {
-      "Storage": {}
-    }
-  },
   "IslandPlan": {
     "Scheduler": {
       "Enable": false,

@@ -1121,24 +1121,5 @@ class GeneratedConfig:
     MeowfficerScore_ScanLimit = 0
     MeowfficerScore_ScanPasses = 12
 
-    # 配置组 `OpsiSimulatorParameters`
-    OpsiSimulatorParameters_Samples = 100000
-    OpsiSimulatorParameters_Draw = 'do_not'  # do_not, single_sample, multi_sample
-    OpsiSimulatorParameters_TotalTime = 0
-    OpsiSimulatorParameters_TimeUseRatio = 0.8
-    OpsiSimulatorParameters_InitialAp = 0
-    OpsiSimulatorParameters_InitialCoin = 0
-    OpsiSimulatorParameters_MeowHazardLevel = 'level5'  # level3, level5
-    OpsiSimulatorParameters_CrossWeek = True
-    OpsiSimulatorParameters_BuyAp = True
-    OpsiSimulatorParameters_Cl1Coin = 170
-    OpsiSimulatorParameters_Meow3Coin = 750
-    OpsiSimulatorParameters_Meow5Coin = 1700
-    OpsiSimulatorParameters_AkashiProbability = 0.05
-    OpsiSimulatorParameters_Cl1Time = 0
-    OpsiSimulatorParameters_Meow3Time = 0
-    OpsiSimulatorParameters_Meow5Time = 0
-    OpsiSimulatorParameters_Deterministic = False
-
     # 配置组 `Storage`
     Storage_Storage = {}

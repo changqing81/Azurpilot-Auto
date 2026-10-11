@@ -22,7 +22,6 @@ class WebUIMixinBase:
         ALAS_MENU: Any
         ALAS_ARGS: Any
         task_handler: Any
-        simulator: Any
         state_switch: Any
         visible: bool
         alive: bool

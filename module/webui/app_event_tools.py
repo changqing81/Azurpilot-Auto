@@ -1,30 +1,22 @@
-"""WebUI活动计算器和大世界模拟器"""
+"""WebUI活动计算器"""
 
 from module.webui.app_dependencies import (
     Any,
-    BinarySwitchButton,
     Dict,
     List,
     Optional,
-    ProcessManager,
-    RichLog,
-    base64,
     build_error_html,
     build_event_calculator_html,
     build_event_calculator_js,
-    cast,
     current_time,
     datetime,
     deep_get,
     eval_js,
-    json,
     load_event_calculator,
-    logger,
     pin,
     put_button,
     put_html,
     put_row,
-    put_scope,
     put_text,
     re,
     run_js,
@@ -39,7 +31,7 @@ from module.webui.app_types import WebUIMixinBase
 
 
 class EventToolsMixin(WebUIMixinBase):
-    """WebUI活动计算器和大世界模拟器"""
+    """WebUI活动计算器"""
 
     def _event_calculator_scope_id(self) -> str:
         name = re.sub(r"[^0-9A-Za-z_]", "_", self.alas_name)
@@ -275,145 +267,3 @@ class EventToolsMixin(WebUIMixinBase):
                 size="auto auto auto auto auto",
                 scope=f"{scope_id}_write_actions",
             )
-
-    def _os_simulator(self):
-        self.simulator.set_config(self.alas_config)
-        self._last_os_simulator_figure = None
-
-        if self._simulator_logger_pm is None:
-
-            class SimulatorLogger:
-                def __init__(self):
-                    self.renderables = []
-                    self.renderables_max_length = 2000
-                    self.renderables_reduce_length = 1000
-                    self.renderables_total = 0
-
-            self._simulator_logger_pm = SimulatorLogger()
-
-        pm = self._simulator_logger_pm
-        import logging
-
-        class ListHandler(logging.Handler):
-            """将模拟器日志转存到 WebUI 可消费的缓冲区。"""
-
-            is_webui_simulator_handler: bool = True
-
-            def emit(self, record: logging.LogRecord) -> None:
-                msg = self.format(record)
-                pm.renderables.append(msg + "\n")
-                pm.renderables_total += 1
-                if len(pm.renderables) > pm.renderables_max_length:
-                    del pm.renderables[: pm.renderables_reduce_length]
-
-        # Remove existing handlers to avoid duplication on page refresh
-        for h in self.simulator.logger.handlers[:]:
-            if getattr(h, "is_webui_simulator_handler", False):
-                self.simulator.logger.removeHandler(h)
-
-        handler = ListHandler()
-        handler.setFormatter(
-            logging.Formatter(
-                fmt="%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s",
-                datefmt="%Y-%m-%d %H:%M:%S",
-            )
-        )
-        self.simulator.logger.addHandler(handler)
-
-        put_scope(
-            "scheduler-bar",
-            [
-                put_text(t("Task.OpsiSimulator.name")).style(
-                    "font-size: 1.25rem; margin: auto .5rem auto;"
-                ),
-                put_scope("scheduler_btn"),
-            ],
-        )
-
-        put_scope("figure_display")
-
-        put_scope(
-            "logs",
-            [
-                put_scope(
-                    "log-bar",
-                    [
-                        put_text(t("Gui.Overview.Log")).style(
-                            "font-size: 1.25rem; margin: auto .5rem auto;"
-                        ),
-                        put_scope(
-                            "log-bar-btns",
-                            [
-                                put_scope("log_scroll_btn"),
-                                put_button(
-                                    label="截图预览",
-                                    onclick=lambda: run_js(
-                                        f"window.alasToggleLivePreview({json.dumps(self.alas_name)});"
-                                    ),
-                                    color="off",
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-                put_scope("log-container", [put_scope("log", [put_html("")])]),
-            ],
-        )
-
-        switch_scheduler = BinarySwitchButton(
-            label_on=t("Gui.Button.Stop"),
-            label_off=t("Gui.Button.Start"),
-            onclick_on=self.simulator.interrupt,
-            onclick_off=self._simulator_start,
-            get_state=lambda: self.simulator.is_running,
-            color_on="off",
-            color_off="on",
-            scope="scheduler_btn",
-        )
-        self.task_handler.add(switch_scheduler.g(), 1, True)
-
-        log = RichLog("log")
-        log.console.width = log.get_width()
-        switch_log_scroll = BinarySwitchButton(
-            label_on=t("Gui.Button.ScrollON"),
-            label_off=t("Gui.Button.ScrollOFF"),
-            onclick_on=lambda: log.set_scroll(False),
-            onclick_off=lambda: log.set_scroll(True),
-            get_state=lambda: log.keep_bottom,
-            color_on="on",
-            color_off="off",
-            scope="log_scroll_btn",
-        )
-        self.task_handler.add(switch_log_scroll.g(), 1, True)
-
-        def _update_simulator_figure():
-            # Prevent flicker by checking if figure has changed
-            last_figure = getattr(self, "_last_os_simulator_figure", None)
-            if self.simulator.figure == last_figure:
-                return
-
-            figure_path = self.simulator.figure
-            self._last_os_simulator_figure = figure_path
-
-            if figure_path:
-                try:
-                    with open(figure_path, "rb") as f:
-                        img_b64 = base64.b64encode(f.read()).decode("utf-8")
-                    with use_scope("figure_display", clear=True):
-                        put_html(
-                            f'<img src="data:image/png;base64,{img_b64}" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">'
-                        )
-                except FileNotFoundError:
-                    # This can happen if the figure is deleted before it's read
-                    with use_scope("figure_display", clear=True):
-                        pass  # Clear the image
-                except Exception as e:
-                    logger.warning(f"[WebUI-活动工具] 更新模拟器图表失败: {e}")
-            else:
-                with use_scope("figure_display", clear=True):
-                    pass  # Clear the image
-
-        self.task_handler.add(_update_simulator_figure, 0.5, True)
-
-        # RichLog 只读取日志缓冲字段；模拟器使用同构的轻量对象而非进程管理器。
-        self.task_handler.add(log.put_log(cast(ProcessManager, pm)), 0.25, True)

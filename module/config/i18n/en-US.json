@@ -298,10 +298,6 @@
       "name": "Cross-Month Daily",
       "help": "    AzurPilot will enter Operation Siren 10 minutes before the cross-month reset, wait for the reset without exiting, then complete the new day's OpSi daily, Obscured Zone, Abyssal Zone and Meowfficer Farming to earn extra rewards. When running OpSi Daily, it follows the \"OpSi - Daily\" task settings, and likewise for others.\n    Important: Do not operate the game while AzurPilot is waiting for the cross-month reset."
     },
-    "OpsiSimulator": {
-      "name": "OpSi Simulator Alpha",
-      "help": "Uses the Monte Carlo algorithm to estimate the outcome of continuing corrosion cycles for a period of time in the current state. This feature does not affect AzurPilot's normal operation.\nModel parameters are taken from AzurPilot configuration and statistics. Please ensure that OpSi settings such as Smart Scheduling are correctly configured.\nCurrently in beta; results may not have much reference value.\nThe model for the shady dealer selling Action Points lacks sufficient evidence. Specifically, it assumes that the dealer's 6 types of AP boxes follow a hypergeometric distribution X~H(6,6,24).\nRegarding \"crashes\": here, a crash means that during the entire simulation, AP drops below the AP reserve threshold set in Smart Scheduling at least once. If it falls below that threshold, the simulator will stop corrosion cycles and wait for AP to recover naturally."
-    },
     "IslandPlan": {
       "name": "Island Plan (Unified Scheduling)",
       "help": "Runs all island sub-modules in a single visit: every due sub-module is executed in the order of the task list, then no island visit happens until the configured interval elapses.\nAfter enabling this task, disable the individual scheduling of the other island tasks to avoid duplicate visits."
@@ -6523,85 +6519,6 @@
     "ScanPasses": {
       "name": "Max list pages",
       "help": "How many pages of the cattery list to walk in scan-all mode (12 cats per page); stops early at the end of the list"
-    }
-  },
-  "OpsiSimulatorParameters": {
-    "_info": {
-      "name": "Parameter Settings",
-      "help": ""
-    },
-    "Samples": {
-      "name": "Sample Count",
-      "help": "Theoretically larger values give more accurate simulation but consume more performance."
-    },
-    "Draw": {
-      "name": "Drawing Settings",
-      "help": "Single sample trajectory: plots the trajectory of one sample.\nMulti-sample average trend: plots overall trend and probability.",
-      "do_not": "No Drawing",
-      "single_sample": "Single Sample Trajectory",
-      "multi_sample": "Multi-Sample Average Trend"
-    },
-    "TotalTime": {
-      "name": "Total Simulation Time",
-      "help": "How long to simulate (unit: seconds).\nIf 0, uses the remaining time of the current month from now."
-    },
-    "TimeUseRatio": {
-      "name": "Time Utilization Ratio",
-      "help": "What proportion of total simulation time is spent on corrosion cycles."
-    },
-    "InitialAp": {
-      "name": "Initial Action Points",
-      "help": "Set to 0 for auto-detect. Not recommended to modify."
-    },
-    "InitialCoin": {
-      "name": "Initial Coins",
-      "help": "Set to 0 for auto-detect. Not recommended to modify."
-    },
-    "MeowHazardLevel": {
-      "name": "Meowfficer Hazard Level",
-      "help": "Select the execution level for Meowfficer tasks (Level 3 or Level 5).",
-      "level3": "level3",
-      "level5": "level5"
-    },
-    "CrossWeek": {
-      "name": "Calculate Cross-Week",
-      "help": "Whether to calculate weekly action point purchase and fortress events."
-    },
-    "BuyAp": {
-      "name": "Weekly AP Purchase",
-      "help": "Whether to purchase 1000 action points weekly. Fortress will still be fought even without purchasing."
-    },
-    "Cl1Coin": {
-      "name": "Corrosion 1 Coin Expectation",
-      "help": "Average coins per corrosion 1 cycle. Recommended: 145."
-    },
-    "Meow3Coin": {
-      "name": "Meow 3 Coin Expectation",
-      "help": "Average coins per corrosion 3 Meowfficer task. Recommended: 600."
-    },
-    "Meow5Coin": {
-      "name": "Meow 5 Coin Expectation",
-      "help": "Average coins per corrosion 5 Meowfficer task. Recommended: 1700."
-    },
-    "AkashiProbability": {
-      "name": "Akashi Encounter Probability",
-      "help": "Probability of encountering Akashi shop during corrosion cycles. Recommended: 0.05."
-    },
-    "Cl1Time": {
-      "name": "Corrosion 1 Cycle Time",
-      "help": "Unit: seconds. Set to 0 to auto-detect from historical statistics."
-    },
-    "Meow3Time": {
-      "name": "Meow 3 Cycle Time",
-      "help": "Unit: seconds. Average time for corrosion 3 Meowfficer task. Set to 0 for historical statistics."
-    },
-    "Meow5Time": {
-      "name": "Meow 5 Cycle Time",
-      "help": "Unit: seconds. Average time for corrosion 5 Meowfficer task. Set to 0 for historical statistics."
-    },
-    "Deterministic": {
-      "name": "Disable Randomness",
-      "help": "For debugging. Generally should be off."
     }
   },
   "Storage": {

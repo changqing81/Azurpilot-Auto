@@ -47,7 +47,6 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 
-from module.webui.app_helpers import is_demo_mode
 from module.webui.config_search import (
     ConfigSearchEntry,
     build_config_search_result_click_script,
@@ -442,9 +441,6 @@ class TaskConfigMixin(WebUIMixinBase):
         if task == "Alas":
             group_outputs.append(put_scope("group_StartupRun"))
 
-        if task == "OpsiSimulator":
-            group_outputs.append(put_scope("group_OpsiSimulatorRuntime"))
-
         for group, arg_dict in render_groups:
             group_name = group[0]
             if lazy and group_name != initial_group:
@@ -495,9 +491,6 @@ class TaskConfigMixin(WebUIMixinBase):
         if task == "Alas":
             with use_scope("group_StartupRun"):
                 self._render_startup_run_setting()
-        elif task == "OpsiSimulator":
-            with use_scope("group_OpsiSimulatorRuntime"):
-                self._os_simulator()
         elif render_event_calculator:
             self._render_event_calculator(config)
 
@@ -726,12 +719,6 @@ class TaskConfigMixin(WebUIMixinBase):
 
     def _alas_start(self):
         self.alas.start(None, updater.event)
-
-    def _simulator_start(self):
-        if is_demo_mode():
-            logger.info("[WebUI] DEMO=1，跳过大世界模拟器启动。")
-            return
-        self.simulator.start()
 
     def _bind_config_watcher(self, path: List[str]) -> None:
         """为已渲染的配置控件注册一次变更监听。"""

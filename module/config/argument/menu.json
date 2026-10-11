@@ -103,8 +103,7 @@
       "OpsiHazard1Leveling",
       "OpsiScheduling",
       "OpsiPreventActionPointOverflow",
-      "OpsiCrossMonth",
-      "OpsiSimulator"
+      "OpsiCrossMonth"
     ]
   },
   "Island": {

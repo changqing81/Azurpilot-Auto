@@ -128,30 +128,11 @@ class AppShellMixin(WebUIMixinBase):
         self._announcement_fetching = False
         self._announcement_force = False
         self._update_notified = False
-        self._simulator = None
-        self._simulator_logger_pm = None
         self._overview_log = None
         self._overview_log_config_name = None
         self._statistics_cache_key = None
         self._statistics_source_signature = None
         self._statistics_refresh_pending = False
-
-    @property
-    def simulator(self):
-        """在首次进入大世界模拟器时再加载其运行时依赖。"""
-        if self._simulator is None:
-            import sys
-
-            from module.webui.fake_pil_module import remove_fake_pil_module
-
-            # matplotlib 需要真实 PIL；仅移除 WebUI 启动阶段安装的替身，
-            # 避免其他会话已加载真实 PIL 时再次从模块缓存中删除它。
-            if not hasattr(sys.modules.get("PIL"), "__path__"):
-                remove_fake_pil_module()
-            from module.os_simulator.simulator import OSSimulator
-
-            self._simulator = OSSimulator()
-        return self._simulator
 
     def _close_update_notice(self) -> None:
         run_js(

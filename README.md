@@ -1013,20 +1013,7 @@ uv run -m module.config.config_updater
 - 🔄 `_check_custom_positions_full_exp()` L877: 复杂度: 12
 - 🔍 ...还有 45 个问题实在太屎，列不完了
 
-##### 5. module\os_simulator\simulator.py
-
-**糟糕指数: 40.39**
-
-**问题**: 🔄 复杂度问题: 9, ⚠️ 其他问题: 5, 📋 重复问题: 3, 🏗️ 结构问题: 3, ❌ 错误处理问题: 1, 📝 注释问题: 1, 🏷️ 命名问题: 10
-
-- 🔄 `_simulate_one()` L48: 复杂度: 22
-- 🔄 `get_paras()` L197: 复杂度: 14
-- 🔄 `simulate()` L377: 复杂度: 11
-- 🔄 `_simulate_one()` L48: 认知复杂度: 30
-- 🔄 `_simulate_batch_kernel()` L140: 认知复杂度: 19
-- 🔍 ...还有 25 个问题实在太屎，列不完了
-
-##### 6. module\statistics\cl1_database.py
+##### 5. module\statistics\cl1_database.py
 
 **糟糕指数: 39.08**
 
@@ -1039,7 +1026,7 @@ uv run -m module.config.config_updater
 - 🔄 `_check_key_migration()` L105: 认知复杂度: 16
 - 🔍 ...还有 77 个问题实在太屎，列不完了
 
-##### 7. module\device\connection.py
+##### 6. module\device\connection.py
 
 **糟糕指数: 38.47**
 
@@ -1052,7 +1039,7 @@ uv run -m module.config.config_updater
 - 🔄 `retry_wrapper()` L32: 认知复杂度: 18
 - 🔍 ...还有 47 个问题实在太屎，列不完了
 
-##### 8. module\map\fleet.py
+##### 7. module\map\fleet.py
 
 **糟糕指数: 37.16**
 
@@ -1065,7 +1052,7 @@ uv run -m module.config.config_updater
 - 🔄 `track_movable()` L611: 复杂度: 30
 - 🔍 ...还有 46 个问题实在太屎，列不完了
 
-##### 9. module\commission\commission.py
+##### 8. module\commission\commission.py
 
 **糟糕指数: 36.00**
 
@@ -1078,7 +1065,7 @@ uv run -m module.config.config_updater
 - 🔄 `_commission_receive()` L622: 复杂度: 28
 - 🔍 ...还有 44 个问题实在太屎，列不完了
 
-##### 10. module\shop_event\shop_event.py
+##### 9. module\shop_event\shop_event.py
 
 **糟糕指数: 35.21**
 
