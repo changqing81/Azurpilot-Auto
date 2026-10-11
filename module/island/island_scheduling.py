@@ -41,7 +41,7 @@ from module.ui.page import page_island
 
 
 class IslandScheduling(Island):
-    """岛屿计划（赤石计划）统一调度器。
+    """岛屿计划统一调度器。
 
     岛屿原子任务名 → (模块路径, 类名)。键集合即 `IslandPlan` 组里 `EnableXxx` 开关的
     取值范围，声明顺序同时是执行顺序（快 / 时间敏感在前，耗时的餐饮家族随后，
@@ -341,7 +341,7 @@ class IslandScheduling(Island):
     def _run_with_island_task_context(self, task_name, module_path, class_name):
         """以指定岛屿子任务身份执行逻辑。
 
-        与「大世界智能调度+」的 `_run_with_opsi_task_context()` 同构：临时切换
+        与「大世界智能调度」的 `_run_with_opsi_task_context()` 同构：临时切换
         `config.task` 与配置绑定，让子模块读到自己那一组参数、`task_delay()` 写回
         自己的 `Scheduler.NextRun`。
 

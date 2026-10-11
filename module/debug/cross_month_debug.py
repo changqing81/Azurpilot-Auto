@@ -3,7 +3,7 @@
 把今天当成大世界跨月时刻：跳过时间检查与等待重置，真机执行跨月后续阶段，
 用于月末实测前的流程验证：
 
-    大世界初始化 → 每日+（可选）→ 塞壬要塞 → 隐秘海域 → 深渊坐标 → 耄耋相接 → 推送
+    大世界初始化 → 每日（可选）→ 塞壬要塞 → 隐秘海域 → 深渊坐标 → 短猫相接 → 推送
 
 注意：
 - 预演会真实操作游戏：可能消耗行动力与仓库道具，并按推送开关发送真实通知
@@ -61,8 +61,8 @@ def show_plan(instance, with_daily, dry):
     logger.info(f'实例: {instance}')
     logger.info(f'OpsiCrossMonth 当前 NextRun: {next_run}（预演不会修改它，真实跨月仍按此时间执行）')
     logger.info(
-        '执行计划: 大世界初始化 → 每日+（'
-        f'{"执行" if with_daily else "跳过"}）→ 塞壬要塞 → 隐秘海域 → 深渊坐标 → 耄耋相接 → 推送'
+        '执行计划: 大世界初始化 → 每日（'
+        f'{"执行" if with_daily else "跳过"}）→ 塞壬要塞 → 隐秘海域 → 深渊坐标 → 短猫相接 → 推送'
     )
     logger.info(f'清理开关: {cleanup_enable}（预演强制执行清理）；保留值: {preserve}；推送开关: {push_enable}')
     if not push_enable:
@@ -77,7 +77,7 @@ def main():
     )
     parser.add_argument('--instance', default='alas', help='实例名（config 目录下的 json 文件名），默认 alas')
     parser.add_argument('--with-daily', action='store_true',
-                        help='连同大世界每日+一起执行（默认跳过，只测塞壬要塞及后续清理）')
+                        help='连同大世界每日一起执行（默认跳过，只测塞壬要塞及后续清理）')
     parser.add_argument('--dry', action='store_true', help='只检查配置并打印执行计划，不连接模拟器')
     parser.add_argument('--yes', action='store_true', help='跳过执行前的确认提示')
     args = parser.parse_args()

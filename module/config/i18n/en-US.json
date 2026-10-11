@@ -1,15 +1,15 @@
 {
   "Menu": {
     "Alas": {
-      "name": "Smart Port Area+",
+      "name": "Smart Port Area",
       "help": ""
     },
     "Farm": {
-      "name": "Sortie+",
+      "name": "Sortie",
       "help": ""
     },
     "Event": {
-      "name": "Event+",
+      "name": "Event",
       "help": ""
     },
     "EventDaily": {
@@ -25,7 +25,7 @@
       "help": ""
     },
     "Opsi": {
-      "name": "Operation Siren+",
+      "name": "Operation Siren",
       "help": ""
     },
     "Island": {
@@ -33,7 +33,7 @@
       "help": ""
     },
     "Tool": {
-      "name": "Tools+",
+      "name": "Tools",
       "help": ""
     }
   },
@@ -51,23 +51,23 @@
       "help": ""
     },
     "Main": {
-      "name": "Main Campaign-1+",
+      "name": "Main Campaign-1",
       "help": ""
     },
     "Main2": {
-      "name": "Main Campaign-2+",
+      "name": "Main Campaign-2",
       "help": ""
     },
     "Main3": {
-      "name": "Main Campaign+",
+      "name": "Main Campaign",
       "help": ""
     },
     "GemsFarming": {
-      "name": "Urgent Commission+",
+      "name": "Urgent Commission",
       "help": ""
     },
     "ThreeOilLowCost": {
-      "name": "3-Oil Low Cost+",
+      "name": "3-Oil Low Cost",
       "help": "Use a 3-oil low-cost fleet to fight. Automatically replaces and retires the flagship when it reaches level 32."
     },
     "Ambush11": {
@@ -79,23 +79,23 @@
       "help": ""
     },
     "Event": {
-      "name": "Event Map-1+",
+      "name": "Event Map-1",
       "help": ""
     },
     "Event2": {
-      "name": "Event Map-2+",
+      "name": "Event Map-2",
       "help": ""
     },
     "Event3": {
-      "name": "Event Map-3+",
+      "name": "Event Map-3",
       "help": ""
     },
     "Raid": {
-      "name": "Raid Event+",
+      "name": "Raid Event",
       "help": ""
     },
     "RaidScuttle": {
-      "name": "Raid Scuttle+",
+      "name": "Raid Scuttle",
       "help": ""
     },
     "Hospital": {
@@ -243,11 +243,11 @@
       "help": ""
     },
     "OpsiExplore": {
-      "name": "Monthly Exploration+",
+      "name": "Monthly Exploration",
       "help": ""
     },
     "OpsiShop": {
-      "name": "OpSi Shop+",
+      "name": "OpSi Shop",
       "help": ""
     },
     "OpsiVoucher": {
@@ -255,7 +255,7 @@
       "help": ""
     },
     "OpsiDaily": {
-      "name": "OpSi - Daily+",
+      "name": "OpSi - Daily",
       "help": ""
     },
     "OpsiObscure": {
@@ -279,15 +279,15 @@
       "help": ""
     },
     "OpsiMeowfficerFarming": {
-      "name": "Meowfficer Farming+",
+      "name": "Meowfficer Farming",
       "help": ""
     },
     "OpsiHazard1Leveling": {
-      "name": "Corrosion 1 Leveling+",
+      "name": "Corrosion 1 Leveling",
       "help": ""
     },
     "OpsiScheduling": {
-      "name": "Smart Scheduling+",
+      "name": "Smart Scheduling",
       "help": "Operation Siren smart scheduling function, used to coordinate switching between Corrosion 1 leveling and gold coin replenishment tasks.\nOnce enabled, it will automatically switch between different tasks and send push notifications based on gold coins and action points."
     },
     "OpsiPreventActionPointOverflow": {
@@ -3329,7 +3329,7 @@
     },
     "RepairPackThresholdHazard1": {
       "name": "Use Repair Toolkit when any ship HP is below X (Corrosion 1)",
-      "help": "Only takes effect when \"Use Repair Toolkit to repair ships\" is enabled.\nOnly attempts repair during Corrosion 1 Leveling+.\n0.0 ~ 1.0"
+      "help": "Only takes effect when \"Use Repair Toolkit to repair ships\" is enabled.\nOnly attempts repair during Corrosion 1 Leveling.\n0.0 ~ 1.0"
     },
     "DoRandomMapEvent": {
       "name": "Complete random map events",

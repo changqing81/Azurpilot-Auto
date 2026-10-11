@@ -755,7 +755,7 @@ def webui_style_names(theme=None, is_mobile=None) -> list:
         "stat-delta-alas",
         # 指挥喵评分面板样式（--meow-* 变量回退值，主题 CSS 稍后加载可覆盖）
         "meowfficer-score-alas",
-        # 耄耋相接「收获」区块（物品卡片 + 侵蚀等级明细表）样式
+        # 短猫相接「收获」区块（物品卡片 + 侵蚀等级明细表）样式
         "meow-loot-alas",
     ]
     styles.extend(webui_theme_style_names(theme))

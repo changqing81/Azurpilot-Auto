@@ -45,7 +45,7 @@ def _warm_statistics_modules() -> None:
         import numpy                                                            0.19s
         import sqlite3                                                          0.02s
         设备指纹 get_device_id()（WMIC 子进程）                                  ~0.9s
-    全是一次性的，跟数据量无关；预热后「耄耋相接」表格的构造
+    全是一次性的，跟数据量无关；预热后「短猫相接」表格的构造
     从冷启 728ms 降到 16ms。放到 WebUI 起来之后的空闲时段后台消化，
     用户点开统计页就不用等这几百毫秒。
 

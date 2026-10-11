@@ -323,7 +323,7 @@
         while (tipEl.firstChild) tipEl.removeChild(tipEl.firstChild);
 
         var title = document.createElement("div");
-        // 主标题用当前语言的任务名（如 活动图-2+），原始命令名灰字附在后面便于排查
+        // 主标题用当前语言的任务名（如 活动图-2），原始命令名灰字附在后面便于排查
         title.textContent = task.name;
         if (task.fullname && task.fullname !== task.name) {
             var raw = document.createElement("span");

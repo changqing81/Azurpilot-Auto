@@ -23,7 +23,7 @@
     余烬 (Ash/Ember): 大世界中的特殊系统。
     塞壬要塞 (Siren Stronghold): 特殊海域类型。
     侵蚀1练级 (Hazard 1 Leveling): 在低难度海域反复刷经验的策略。
-    智能调度+ (Smart Scheduling+): 跨任务的自动化调度功能。
+    智能调度 (Smart Scheduling): 跨任务的自动化调度功能。
 """
 import time
 from contextlib import suppress
@@ -100,9 +100,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     """
     def is_smart_scheduling_enabled(self) -> bool:
         """
-        统一判断是否启用了智能调度+（侵蚀1与补黄币任务共享的开关逻辑）。
+        统一判断是否启用了智能调度（侵蚀1与补黄币任务共享的开关逻辑）。
         """
-        # 检测是否在开荒中，如果是，则停止智能调度+
+        # 检测是否在开荒中，如果是，则停止智能调度
         if self.is_in_opsi_explore():
             return False
 
@@ -195,7 +195,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             )
             or overflow_target_task == "OpsiScheduling"
         ):
-            logger.info("智能调度+将决定初始化自律寻敌是否执行")
+            logger.info("智能调度将决定初始化自律寻敌是否执行")
             self._smart_scheduling_first_auto_search_pending = True
         elif (
             self.zone.zone_id == leveling_zone
@@ -797,7 +797,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         """
         Keeping enough startup AP to run CL1.
         """
-        # 检查智能调度+是否启用，如果启用则由智能调度+模块统一管理任务切换
+        # 检查智能调度是否启用，如果启用则由智能调度模块统一管理任务切换
         # 这里不应该直接切换到 CL1
         if self.is_smart_scheduling_enabled():
             return
@@ -848,14 +848,14 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             except Exception:
                 logger.debug("Failed to update cl1 battle counter", exc_info=True)
 
-        # 耄耋相接任务数据收集
+        # 短猫相接任务数据收集
         if getattr(self, "_meow_searching_active", False) and getattr(
             self, "_meow_time_recording_enabled", False
         ):
             try:
                 self._meow_auto_search_battle_count += 1
                 logger.attr("指挥喵战斗计数", self._meow_auto_search_battle_count)
-                # 耄耋相接记录原始战斗数和标准化轮数；
+                # 短猫相接记录原始战斗数和标准化轮数；
                 # 指标助手负责危险等级转换。
                 self._meow_battle_timer = record_meow_auto_search_battle(
                     self,
@@ -866,7 +866,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
     def on_meow_search_start(self):
         """
-        耄耋相接任务：每次开始新海域搜索时调用
+        短猫相接任务：每次开始新海域搜索时调用
         记录搜索开始时间和行动力
         """
         if not (
@@ -875,7 +875,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         ):
             return
 
-        # 智能调度+上下文外层已查询行动力，跳过搜敌前的冗余弹窗刷新
+        # 智能调度上下文外层已查询行动力，跳过搜敌前的冗余弹窗刷新
         if getattr(self, "_smart_scheduling_context", False) \
                 or getattr(self.config, "_smart_scheduling_context", False):
             self._meow_search_start_time = time.time()
@@ -889,9 +889,9 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
     def meow_search_metrics_start(self):
         """
-        为单次海域搜索启用耄耋相接指标。
+        为单次海域搜索启用短猫相接指标。
 
-        活跃标志在此处限定作用域，防止后续 CL1 自动搜索循环意外写入耄耋相接统计。
+        活跃标志在此处限定作用域，防止后续 CL1 自动搜索循环意外写入短猫相接统计。
         """
         self._meow_searching_active = True
         self._meow_time_recording_enabled = True
@@ -901,7 +901,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
     def on_meow_search_end(self):
         """
-        耄耋相接任务：每次完成海域搜索后调用
+        短猫相接任务：每次完成海域搜索后调用
         通过行动力变化计算实际轮数，记录单轮时间
         """
         if not (
@@ -926,7 +926,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         self._meow_search_start_ap = None
 
     def meow_search_metrics_end(self):
-        """刷新并禁用当前海域搜索的耄耋相接指标。"""
+        """刷新并禁用当前海域搜索的短猫相接指标。"""
         try:
             self.on_meow_search_end()
         finally:

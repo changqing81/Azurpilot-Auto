@@ -75,7 +75,7 @@ class Cl1Database:
         Args:
             instance: 实例名称
             source: 数据来源 (cl1 / meow)
-            hazard_level: 侵蚀等级（耄耋相接专用）
+            hazard_level: 侵蚀等级（短猫相接专用）
         """
         month = datetime.now().strftime("%Y-%m")
         data = self.get_stats(instance, month)
@@ -193,11 +193,11 @@ class Cl1Database:
             "akashi_ap_entries": [],
             "yellow_coin_snapshots": [],
             "coins_snapshots": [],
-            # 耄耋相接数据
+            # 短猫相接数据
             "meow_battle_raw_count": 0,
             "meow_battle_count": 0,
             "meow_round_times": [],
-            "meow_battle_times": [],  # 耄耋相接单场战斗时间
+            "meow_battle_times": [],  # 短猫相接单场战斗时间
             "meow_hazard_stats": {},  # 按侵蚀等级拆分统计
             # 塞壬研究装置（吊机）
             "siren_research_devices": {"cl1": 0, "meow": {}},
@@ -213,7 +213,7 @@ class Cl1Database:
     def _normalize_meow_round_times(
         self, round_times: List[Any]
     ) -> List[Dict[str, Any]]:
-        """兼容旧格式耄耋相接轮次样本，统一为字典结构。"""
+        """兼容旧格式短猫相接轮次样本，统一为字典结构。"""
         normalized_times = []
         for entry in round_times:
             if isinstance(entry, dict) and "duration" in entry:
@@ -226,7 +226,7 @@ class Cl1Database:
         return normalized_times
 
     def _extract_meow_round_durations(self, round_times: List[Any]) -> List[float]:
-        """提取耄耋相接轮次耗时，兼容旧格式浮点样本。"""
+        """提取短猫相接轮次耗时，兼容旧格式浮点样本。"""
         return [
             entry["duration"] for entry in self._normalize_meow_round_times(round_times)
         ]
@@ -239,7 +239,7 @@ class Cl1Database:
     def _normalize_meow_hazard_stats(
         self, data: Dict[str, Any]
     ) -> Dict[str, Dict[str, Any]]:
-        """兼容旧格式的分级耄耋相接统计结构。"""
+        """兼容旧格式的分级短猫相接统计结构。"""
         raw_stats = data.get("meow_hazard_stats", {})
         if not isinstance(raw_stats, dict):
             return {}
@@ -292,7 +292,7 @@ class Cl1Database:
                 "effective_rounds": max(0.0, effective_rounds),
                 "round_times": normalized_round_times,
                 "battle_times": normalized_battle_times,
-                # 耄耋相接明石统计：遇见次数与购买体力（按侵蚀等级拆分）
+                # 短猫相接明石统计：遇见次数与购买体力（按侵蚀等级拆分）
                 "akashi_encounters": int(bucket.get("akashi_encounters", 0) or 0),
                 "akashi_ap": int(bucket.get("akashi_ap", 0) or 0),
             }
@@ -327,7 +327,7 @@ class Cl1Database:
     def _infer_meow_battles_per_round(
         self, round_times: List[Any]
     ) -> Tuple[Optional[int], Optional[float]]:
-        """从耄耋相接样本推断每轮战斗数。"""
+        """从短猫相接样本推断每轮战斗数。"""
         hazard_levels = []
         for entry in round_times:
             if isinstance(entry, dict):
@@ -367,7 +367,7 @@ class Cl1Database:
         month_key: Optional[str] = None,
         persist: bool = False,
     ) -> Tuple[int, float, bool]:
-        """兼容旧数据并修正耄耋相接真实战斗场次与等效轮次。"""
+        """兼容旧数据并修正短猫相接真实战斗场次与等效轮次。"""
         inferred_divisor, inferred_battles_per_round = (
             self._infer_meow_battles_per_round(round_times)
         )
@@ -442,7 +442,7 @@ class Cl1Database:
     def backfill_meow_stats(
         self, instance: str, year: int = None, month: int = None
     ) -> bool:
-        """显式回填指定月份的耄耋相接统计。
+        """显式回填指定月份的短猫相接统计。
 
         仅在主动调用时落盘，避免读取统计时产生写入副作用。
         """
@@ -469,7 +469,7 @@ class Cl1Database:
         return changed
 
     def backfill_all_meow_stats(self, instance: Optional[str] = None) -> Dict[str, int]:
-        """批量回填数据库内已有月份的耄耋相接统计。"""
+        """批量回填数据库内已有月份的短猫相接统计。"""
         rows = self._list_stats_rows(instance=instance)
         result = {"checked": 0, "updated": 0}
 
@@ -817,12 +817,12 @@ class Cl1Database:
         except Exception as e:
             logger.error(f"[统计-数据库] 自动迁移扫描错误: {e}")
 
-    # ========== 耄耋相接数据记录方法 ==========
+    # ========== 短猫相接数据记录方法 ==========
 
     def increment_meow_battle_count(
         self, instance: str, hazard_level: int = None, delta: float = None
     ):
-        """增加耄耋相接有效战斗轮数
+        """增加短猫相接有效战斗轮数
 
         Args:
             instance: 实例名称
@@ -863,7 +863,7 @@ class Cl1Database:
     def add_meow_round_time(
         self, instance: str, duration: float, hazard_level: int = None
     ):
-        """记录耄耋相接单轮战斗时间
+        """记录短猫相接单轮战斗时间
 
         Args:
             instance: 实例名称
@@ -907,7 +907,7 @@ class Cl1Database:
     def add_meow_battle_time(
         self, instance: str, duration: float, hazard_level: int = None
     ):
-        """记录耄耋相接单场战斗时间
+        """记录短猫相接单场战斗时间
 
         Args:
             instance: 实例名称
@@ -946,7 +946,7 @@ class Cl1Database:
         self.save_stats(instance, month, data)
 
     def increment_meow_akashi_encounter(self, instance: str, hazard_level: int):
-        """记录一次耄耋相接明石事件（按侵蚀等级拆分）。
+        """记录一次短猫相接明石事件（按侵蚀等级拆分）。
 
         Args:
             instance: 实例名称
@@ -965,7 +965,7 @@ class Cl1Database:
         self.save_stats(instance, month, data)
 
     def add_meow_akashi_ap(self, instance: str, hazard_level: int, amount: int):
-        """记录耄耋相接明石商店购买的体力（按侵蚀等级拆分）。
+        """记录短猫相接明石商店购买的体力（按侵蚀等级拆分）。
 
         Args:
             instance: 实例名称
@@ -995,7 +995,7 @@ class Cl1Database:
         self, instance: str, year: int = None, month: int = None,
         hazard_level: int = None, persist: bool = True,
     ) -> Dict[str, Any]:
-        """获取耄耋相接统计数据
+        """获取短猫相接统计数据
 
         Args:
             instance: 实例名称
@@ -1007,7 +1007,7 @@ class Cl1Database:
                 「只在主动调用时落盘」）。
 
         Returns:
-            耄耋相接统计数据字典
+            短猫相接统计数据字典
         """
         if year is None or month is None:
             now = datetime.now()

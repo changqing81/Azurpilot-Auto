@@ -149,7 +149,7 @@ OPSI_DROP_TASKS = (
 OPSI_DROP_FILTER_ALL = "__all__"
 # 兜底开关的后缀（genre 集合要按本月实际数据算补集）
 OPSI_DROP_FILTER_OTHER = "Other"
-# 侵蚀等级卡的归属筛选：卡内是耄耋相接（短猫相接）的数据收集口径——
+# 侵蚀等级卡的归属筛选：卡内是短猫相接（短猫相接）的数据收集口径——
 # 战斗场次/平均黄币等只对短猫相接有意义，挂在其他任务筛选下会被误读成
 # 那个任务的收益，因此只在「全部任务」与本筛选下渲染（用户裁定 2026-09-28）
 MEOW_CARDS_FILTER = "MeowfficerFarming"

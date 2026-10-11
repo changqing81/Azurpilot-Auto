@@ -1,6 +1,6 @@
 """大世界运行期统计入口。
 
-这里集中处理侵蚀1与耄耋相接任务的运行事件，把任务代码里的战斗、地图、
+这里集中处理侵蚀1与短猫相接任务的运行事件，把任务代码里的战斗、地图、
 塞壬研究装置等事件统一落到统计库，避免各个任务到处直接写数据库。
 """
 
@@ -126,7 +126,7 @@ def record_cl1_auto_search_battle(
 
 
 def meow_hazard_level_from_runtime(main: Any) -> int | None:
-    """读取耄耋相接当前侵蚀等级，地图对象缺失时回退到配置值。"""
+    """读取短猫相接当前侵蚀等级，地图对象缺失时回退到配置值。"""
     hazard_level = None
     try:
         hazard_level = getattr(getattr(main, "zone", None), "hazard_level", None)
@@ -150,7 +150,7 @@ def meow_hazard_level_from_runtime(main: Any) -> int | None:
 
 
 def meow_battles_per_round(hazard_level: int | None) -> int:
-    """返回耄耋相接一个有效轮次包含的战斗场数。"""
+    """返回短猫相接一个有效轮次包含的战斗场数。"""
     if hazard_level in {4, 5, 6}:
         return 3
     return 2
@@ -160,7 +160,7 @@ def record_meow_auto_search_battle(
     main: Any,
     battle_started_at: float | int | None,
 ) -> float:
-    """记录一次耄耋相接战斗，并返回下一场战斗的计时起点。"""
+    """记录一次短猫相接战斗，并返回下一场战斗的计时起点。"""
     hazard_level = meow_hazard_level_from_runtime(main)
     instance_name = instance_name_from_config(main.config)
 
@@ -169,37 +169,37 @@ def record_meow_auto_search_battle(
 
         cl1_db.async_increment_meow_battle_count(instance_name, hazard_level)
     except Exception:
-        logger.debug("[统计-大世界] 持久化月度耄耋战斗次数失败", exc_info=True)
+        logger.debug("[统计-大世界] 持久化月度短猫战斗次数失败", exc_info=True)
 
     now = time.time()
     if battle_started_at:
         battle_duration = round(now - float(battle_started_at), 2)
         if 5 < battle_duration < 600:
-            logger.attr("耄耋战斗耗时", f"{battle_duration:.1f}s")
+            logger.attr("短猫战斗耗时", f"{battle_duration:.1f}s")
             try:
                 from module.statistics.cl1_database import db as cl1_db
 
                 cl1_db.async_add_meow_battle_time(instance_name, battle_duration, hazard_level)
             except Exception:
-                logger.debug("[统计-大世界] 记录耄耋战斗耗时失败", exc_info=True)
+                logger.debug("[统计-大世界] 记录短猫战斗耗时失败", exc_info=True)
         else:
             logger.debug(
-                f"[统计-大世界] 耄耋战斗耗时 {battle_duration:.1f}s 超出范围，不记录"
+                f"[统计-大世界] 短猫战斗耗时 {battle_duration:.1f}s 超出范围，不记录"
             )
     return now
 
 
 def start_meow_search_timer(main: Any) -> tuple[float, int | None]:
-    """记录耄耋相接开始搜索当前海域时的时间与行动力。"""
+    """记录短猫相接开始搜索当前海域时的时间与行动力。"""
     try:
         refresh_action_point(main)
         start_ap = main._action_point_total
-        logger.debug(f"[统计-大世界] 耄耋搜索开始，行动力: {start_ap}")
+        logger.debug(f"[统计-大世界] 短猫搜索开始，行动力: {start_ap}")
     except Exception:
         start_ap = None
         logger.debug("[统计-大世界] 获取起始行动力失败")
 
-    logger.debug("[统计-大世界] 耄耋搜索开始，计时器重置")
+    logger.debug("[统计-大世界] 短猫搜索开始，计时器重置")
     return time.time(), start_ap
 
 
@@ -208,7 +208,7 @@ def finish_meow_search_timer(
     search_started_at: float,
     battle_count: int,
 ) -> float | None:
-    """按完成的海域搜索记录耄耋相接单轮耗时。"""
+    """按完成的海域搜索记录短猫相接单轮耗时。"""
     try:
         refresh_action_point(main)
     except Exception:
@@ -223,7 +223,7 @@ def finish_meow_search_timer(
                 source="meow",
             )
         except Exception:
-            logger.debug("记录耄耋相接行动力快照失败", exc_info=True)
+            logger.debug("记录短猫相接行动力快照失败", exc_info=True)
 
     duration = time.time() - search_started_at
     hazard_level = meow_hazard_level_from_runtime(main)
@@ -236,15 +236,15 @@ def finish_meow_search_timer(
         rounds = battle_count / battles_per_round
         duration = duration / rounds
         logger.debug(
-            f"[统计-大世界] 耄耋搜索总耗时: {time.time() - search_started_at:.1f}s, "
+            f"[统计-大世界] 短猫搜索总耗时: {time.time() - search_started_at:.1f}s, "
             f"战斗: {battle_count}, 轮次: {rounds}, 单轮: {duration:.1f}s"
         )
 
     if duration < 1 or duration > 1800:
-        logger.debug(f"[统计-大世界] 耄耋搜索耗时 {duration:.1f}s 超出范围，不记录")
+        logger.debug(f"[统计-大世界] 短猫搜索耗时 {duration:.1f}s 超出范围，不记录")
         return None
 
-    logger.attr("耄耋搜索耗时", f"{duration:.1f}s")
+    logger.attr("短猫搜索耗时", f"{duration:.1f}s")
     try:
         from module.statistics.cl1_database import db as cl1_db
 
@@ -254,7 +254,7 @@ def finish_meow_search_timer(
             hazard_level,
         )
     except Exception:
-        logger.debug("[统计-大世界] 记录耄耋搜索耗时失败", exc_info=True)
+        logger.debug("[统计-大世界] 记录短猫搜索耗时失败", exc_info=True)
 
     return duration
 
@@ -278,25 +278,25 @@ def record_cl1_akashi_encounter(config: Any) -> int | None:
 
 
 def record_meow_akashi_encounter(main: Any) -> int | None:
-    """记录耄耋相接明石事件，并返回当月该侵蚀等级的累计次数。"""
+    """记录短猫相接明石事件，并返回当月该侵蚀等级的累计次数。"""
     try:
         from module.statistics.cl1_database import db as cl1_db
 
         instance_name = instance_name_from_config(main.config)
         hazard_level = meow_hazard_level_from_runtime(main)
         if hazard_level is None:
-            logger.debug("[统计-大世界] 耄耋相接侵蚀等级未知，跳过明石事件记录")
+            logger.debug("[统计-大世界] 短猫相接侵蚀等级未知，跳过明石事件记录")
             return None
         cl1_db.async_increment_meow_akashi_encounter(instance_name, hazard_level)
-        logger.attr("耄耋相接明石次数", f"侵蚀{hazard_level}")
+        logger.attr("短猫相接明石次数", f"侵蚀{hazard_level}")
         return None
     except Exception:
-        logger.exception("[统计-大世界] 持久化耄耋相接明石次数失败")
+        logger.exception("[统计-大世界] 持久化短猫相接明石次数失败")
         return None
 
 
 def record_siren_research_device(main: Any) -> None:
-    """记录一次塞壬研究装置（吊机）出现，按侵蚀1或耄耋相接侵蚀等级拆分。"""
+    """记录一次塞壬研究装置（吊机）出现，按侵蚀1或短猫相接侵蚀等级拆分。"""
     source = battle_source_from_config(main.config)
     if source not in {"cl1", "meow"}:
         return

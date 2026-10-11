@@ -391,7 +391,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
 
     @staticmethod
     def _meow_loot_labels():
-        """耄耋相接的四个平均收益列名（本地累积统计口径）。
+        """短猫相接的四个平均收益列名（本地累积统计口径）。
 
         原先直接借 `AzurStats.meowofficer_farming_labels` 里那四个中文列名，
         做成卡片后标签要跟着界面语言走，因此改走 i18n。
@@ -423,7 +423,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             # 跟随统计页的查看月份；历史月份下 persist=False，浏览不改历史数据。
             view_year, view_month = self._stat_month_pair()
             is_current_month = self._stat_month_is_current()
-            # 侵蚀等级 1~6 都查一遍：3 / 5 是耄耋相接的常驻刷取等级，总是占位显示；
+            # 侵蚀等级 1~6 都查一遍：3 / 5 是短猫相接的常驻刷取等级，总是占位显示；
             # 其余等级只有真跑过、或本地累积有收益时才生成卡片（见下面的过滤）。
             # ⚠️ 分等级数据必须读 ``by_hazard`` 桶：get_meow_stats 只为 3/5 构建
             # 分等级数据，查 1/2/4/6 时顶层字段是全月总量（不是该等级的），
@@ -541,7 +541,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
         return text, ""
 
     def _build_meow_cards_html(self, rows):
-        """把耄耋相接的行数据渲染成按侵蚀等级的卡片。
+        """把短猫相接的行数据渲染成按侵蚀等级的卡片。
 
         与「侵蚀一」共用同一套卡片语言：左侧等级徽标 + 场次 / 轮次大字摘要，
         右侧指标格。指标做了合并 —— 明石次数带概率副值、战斗时间带一轮时长副值。

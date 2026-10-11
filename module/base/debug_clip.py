@@ -62,7 +62,7 @@ DEFAULT_OUTPUT_DIR = "./log/clips"
 RECORD_FPS = 30
 # 录像文件名前缀，用于区分是哪个任务录的
 CLIP_PREFIX_EH1 = "eh1_clip_"  # 侵蚀1练级
-CLIP_PREFIX_MEOW = "meow_clip_"  # 短猫相接（耄耋相接）
+CLIP_PREFIX_MEOW = "meow_clip_"  # 短猫相接（短猫相接）
 CLIP_PREFIXES = (CLIP_PREFIX_EH1, CLIP_PREFIX_MEOW)
 # 本地临时文件前缀（转码中途）；保留旧前缀以便清理历史残留
 TMP_PREFIX = "_tmp_clip_"

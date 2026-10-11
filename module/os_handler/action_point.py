@@ -187,8 +187,8 @@ class ActionPointUseUnconfirmed(ActionPointLimit):
     """
     USE 点击后 24 秒内未确认结果（库存/行动力都没有按预期变化）。
 
-    故意继承 ActionPointLimit：所有捕获行动力不足的地方（智能调度+、
-    月末清理、耄耋相接、各海域任务）会自然按「延后重跑」处理，
+    故意继承 ActionPointLimit：所有捕获行动力不足的地方（智能调度、
+    月末清理、短猫相接、各海域任务）会自然按「延后重跑」处理，
     走正常调度轨道，绝不进入 RequestHumanTakeover 的
     「可恢复错误 → 重启模拟器 → 不计失败限制」死循环轨道
     （2026-10-06 11 点真机日志：50 次 CRITICAL/66 秒一轮的教训）。

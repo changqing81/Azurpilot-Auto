@@ -139,7 +139,7 @@ class OSShop(PortShop, AkashiShop):
         for _ in range(12):
             button = select_func()
             if button is None:
-                logger.info('[大世界商店] 大世界商店+购买完成')
+                logger.info('[大世界商店] 大世界商店购买完成')
                 return count
             else:
                 self.os_shop_buy_execute(button)
@@ -149,7 +149,7 @@ class OSShop(PortShop, AkashiShop):
                 try:
                     if not getattr(self, 'is_running_cl1_leveling', False) \
                             and not getattr(self, '_meow_searching_active', False):
-                        logger.debug('[大世界商店] 非侵蚀1/耄耋相接，跳过明石行动力购买记录')
+                        logger.debug('[大世界商店] 非侵蚀1/短猫相接，跳过明石行动力购买记录')
                     else:
                         name = str(getattr(button, 'name', '') or '')
                         name_l = name.lower()
@@ -183,7 +183,7 @@ class OSShop(PortShop, AkashiShop):
                                         hazard_level=hazard_level,
                                         amount=int(bought_ap),
                                     )
-                                    logger.info('[大世界商店] 已记录耄耋相接明石行动力购买数据到数据库')
+                                    logger.info('[大世界商店] 已记录短猫相接明石行动力购买数据到数据库')
                             except Exception:
                                 logger.exception('[大世界商店] 保存明石行动力购买数据失败')
                 except Exception:
@@ -255,7 +255,7 @@ class OSShop(PortShop, AkashiShop):
                 break
 
             if retry.reached():
-                logger.critical('[大世界商店+] OCR_SHOP_AMOUNT 识别结果错误，请检查资源文件')
+                logger.critical('[大世界商店] OCR_SHOP_AMOUNT 识别结果错误，请检查资源文件')
                 raise ScriptError
         retry.reset()
 
@@ -343,13 +343,13 @@ class OSShop(PortShop, AkashiShop):
         self.os_shop_get_coins()
         items = self.scan_all()
         if not len(items):
-            logger.warning('大世界商店+为空')
+            logger.warning('大世界商店为空')
             if not getattr(self, '_opsi_action_point_purchase', False):
                 self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
             return False
         items = self.items_filter_in_os_shop(items)
         if not len(items):
-            logger.warning('大世界商店+没有可购买物品')
+            logger.warning('大世界商店没有可购买物品')
             if not getattr(self, '_opsi_action_point_purchase', False):
                 self.config.cross_set("OpsiShop.Storage.Storage.BoughtAllYellowCoinItems", True)
             return False
@@ -365,7 +365,7 @@ class OSShop(PortShop, AkashiShop):
         items.reverse()
         count = 0
         while len(items):
-            logger.hr('大世界商店+购买', level=2)
+            logger.hr('大世界商店购买', level=2)
             item = items.pop()
             if not skip_get_coins:
                 self.os_shop_get_coins()

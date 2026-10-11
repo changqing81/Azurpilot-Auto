@@ -155,7 +155,7 @@ class PortActionPointPurchaseTests(unittest.TestCase):
                          dict(reset=RESET.isoformat(), phase='buying'))
 
     def test_smart_scheduling_no_longer_owns_purchase(self):
-        """行动力购买已从智能调度+剥离，不应再挂在 CoinTaskMixin 上。"""
+        """行动力购买已从智能调度剥离，不应再挂在 CoinTaskMixin 上。"""
         self.assertFalse(hasattr(CoinTaskMixin, '_try_scheduling_action_point_purchase'))
 
 

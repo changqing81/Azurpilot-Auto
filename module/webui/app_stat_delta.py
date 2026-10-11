@@ -363,7 +363,7 @@ class ResourceDeltaStatisticsMixin(WebUIMixinBase):
     def _source_label(source):
         """任务命令名 -> 任务名翻译（Task.<name>.name）；无翻译时回退原命令名。
 
-        任务名文案住在 i18n 的 Task 组（形如 ``Task.Event2.name = 活动图-2+``），
+        任务名文案住在 i18n 的 Task 组（形如 ``Task.Event2.name = 活动图-2``），
         按 ``Gui.Menu.*`` 取值必然落空，界面就只能显示英文命令名（Gacha、Event2）。
         缓存按语言分桶，切换语言后立即取到对应语言的文案。
         """

@@ -181,7 +181,7 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             logger.error(f"[大世界-侵蚀1练级] OCR识别错误: {e}")
             raise
 
-        # 侵蚀 1 练级时，行动力优先用于此任务，而非耄耋相接。
+        # 侵蚀 1 练级时，行动力优先用于此任务，而非短猫相接。
         # ap_checked=True 表示调度器已确认行动力充足（>=120），无需重复弹窗；
         # 账本预判（账本开启时）同样能跳过开工检查弹窗，
         # 且带保留值守卫（总行动力会被拦截时仍会弹窗走 ActionPointLimit 正常延后）

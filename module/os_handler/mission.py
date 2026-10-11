@@ -175,7 +175,7 @@ class MissionHandler(GlobeOperation, ZoneManager):
             return False
 
         if self.is_in_opsi_explore():
-            logger.info('[大世界处理-任务] 每月开荒+正在运行，仅接取任务并领取奖励')
+            logger.info('[大世界处理-任务] 每月开荒正在运行，仅接取任务并领取奖励')
             self.os_mission_quit()
             return False
 
@@ -268,24 +268,24 @@ class MissionHandler(GlobeOperation, ZoneManager):
 
     def is_in_opsi_explore(self):
         """
-        判断任务每月开荒+是否正在调度中。
+        判断任务每月开荒是否正在调度中。
 
         Returns:
-            bool: 每月开荒+是否正在调度中。
+            bool: 每月开荒是否正在调度中。
         """
         enable = self.config.is_task_enabled('OpsiExplore')
         next_run = self.config.cross_get(keys='OpsiExplore.Scheduler.NextRun', default=DEFAULT_TIME)
         next_reset = get_os_next_reset()
         logger.attr('大世界下次重置', next_reset)
-        logger.attr('每月开荒+', (enable, next_run))
+        logger.attr('每月开荒', (enable, next_run))
         # -12 小时以处理夏令时
         # `next_run` 可能在夏令时之前计算，但现在是夏令时
         # 2023-03-14 11:15:28.423 | INFO | [OpsiNextReset] 2023-04-01 03:00:00
         # 2023-03-14 11:15:28.425 | INFO | [OpsiExplore] (True, datetime.datetime(2023, 4, 1, 2, 0))
-        # 2023-03-14 11:15:28.426 | INFO | 每月开荒+仍在运行，仅接取任务...
+        # 2023-03-14 11:15:28.426 | INFO | 每月开荒仍在运行，仅接取任务...
         if enable and next_run < next_reset - timedelta(hours=12):
-            logger.info('每月开荒+仍在运行，仅接取任务。每月开荒+访问所有区域时会完成这些任务，不必担心遗漏。')
+            logger.info('每月开荒仍在运行，仅接取任务。每月开荒访问所有区域时会完成这些任务，不必担心遗漏。')
             return True
         else:
-            logger.info('未处于每月开荒+，可以执行大世界每日+')
+            logger.info('未处于每月开荒，可以执行大世界每日')
             return False

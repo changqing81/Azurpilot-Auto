@@ -1456,14 +1456,14 @@ OpsiPreventActionPointOverflow:
   ActionPointLowerbound: 10
 OpsiCrossMonth:
   # 跨月每日完成后清理多余行动力：
-  # 检查塞壬要塞并循环 隐秘海域 → 深渊坐标 → 耄耋相接，直到总行动力低于保留值
+  # 检查塞壬要塞并循环 隐秘海域 → 深渊坐标 → 短猫相接，直到总行动力低于保留值
   ActionPointCleanupEnable: true
   # 清理保留值：总行动力（当前行动力 + 行动力箱子折算）低于该值即停止清理，
   # 自由填写，填 0 表示烧到见底
   ActionPointPreserve: 50
   # 跨月每日完成或失败时推送通知，推送渠道遵循大世界推送设置
   PushNotify: true
-  # 跨月每日真正完成（每日+ 与行动力清理都结束）后停止 AzurPilot 调度，
+  # 跨月每日真正完成（每日与行动力清理都结束）后停止 AzurPilot 调度，
   # 等待人工确认游戏状态后再手动启动。
   # 与 Scheduler.Sensitive 的区别：敏感任务只在出错时停止，本开关在成功完成时停止。
   StopAfterComplete: false

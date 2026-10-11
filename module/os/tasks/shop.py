@@ -64,22 +64,22 @@ class OpsiShop(OSMap):
             in: page_os, 大世界地图
             out: page_os, 大世界地图
         """
-        logger.hr('大世界-大世界商店+', level=1)
+        logger.hr('大世界-大世界商店', level=1)
         today = current_time().day
         limit = self.config.OpsiShop_DisableBeforeDate
         if today <= limit:
-            logger.info(f'大世界商店+延迟运行，今日日期 {today} <= 限制日期 {limit}')
+            logger.info(f'大世界商店延迟运行，今日日期 {today} <= 限制日期 {limit}')
             self.config.task_delay(server_update=True)
             self.config.task_stop()
 
         if self.try_port_action_point_purchase():
-            logger.info('大世界商店+：本月港口行动力购买已完成')
+            logger.info('大世界商店：本月港口行动力购买已完成')
 
         not_empty = self.perform_port_shop_purchase()
 
         next_reset = self._os_shop_delay(not_empty)
         if not_empty:
-            logger.info('大世界商店+已完成，延迟到下次重置')
+            logger.info('大世界商店已完成，延迟到下次重置')
         else:
             logger.warning('[大世界-商店] 港口中没有商店，跳到下个月')
         logger.attr('大世界商店下次重置', next_reset)
@@ -91,7 +91,7 @@ class OpsiShop(OSMap):
         """
         执行一次港口商店购买流程，不包含任务延迟和停止逻辑。
 
-        供 os_shop 和智能调度+月末清理共用。前往最近友方港口，
+        供 os_shop 和智能调度月末清理共用。前往最近友方港口，
         进入商店购买所有补给，购买完成后退出港口。
 
         Args:
@@ -186,7 +186,7 @@ class OpsiShop(OSMap):
     def try_port_action_point_purchase(self):
         """本月仅执行一轮大世界港口商店行动力购买；正常走完流程即标记完成，中断后可续购。
 
-        随大世界商店任务一起触发，不再依赖智能调度+。仅本月每月开荒达到 100%
+        随大世界商店任务一起触发，不再依赖智能调度。仅本月每月开荒达到 100%
         后才允许购买。这里买的是港口商店里的行动力箱，不调用耗油的每日行动力购买。
         购买流程内部只挑行动力商品，不复扫其他商品。
 
@@ -214,7 +214,7 @@ class OpsiShop(OSMap):
 
     def _os_shop_delay(self, not_empty) -> datetime:
         """
-        计算大世界商店+的延迟时间。
+        计算大世界商店的延迟时间。
 
         根据商店是否为空和距月底重置的天数决定下次运行时间。
 

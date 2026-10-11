@@ -107,12 +107,12 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
         if len(shop_items):
             min_row = self.os_shop_items.grids[0, 0].area[1]
             row = [str(item) for item in shop_items if item.button[1] == min_row]
-            logger.info(f'[大世界商店-港口] 大世界商店+第 1 行: {row}')
+            logger.info(f'[大世界商店-港口] 大世界商店第 1 行: {row}')
             row = [str(item) for item in shop_items if item.button[1] != min_row]
-            logger.info(f'[大世界商店-港口] 大世界商店+第 2 行: {row}')
+            logger.info(f'[大世界商店-港口] 大世界商店第 2 行: {row}')
             return shop_items
         else:
-            logger.info('[大世界商店-港口] 未找到大世界商店+物品')
+            logger.info('[大世界商店-港口] 未找到大世界商店物品')
 
         return []
 
@@ -131,7 +131,7 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
         items = self.os_shop_get_items()
         for _ in range(2):
             if not len(items) or any(not item.is_known_item() for item in items):
-                logger.warning('[大世界商店-港口] 大世界商店+为空或物品为空，正在确认')
+                logger.warning('[大世界商店-港口] 大世界商店为空或物品为空，正在确认')
                 self.device.sleep((0.3, 0.5))
                 self.device.screenshot()
                 items = self.os_shop_get_items()
@@ -158,7 +158,7 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
         self.device.click_record.clear()
 
         for i in range(4):
-            logger.hr(f'大世界商店+扫描 {i}')
+            logger.hr(f'大世界商店扫描 {i}')
             self.os_shop_side_navbar_ensure(upper=i + 1)
             pre_pos, cur_pos = self.init_slider()
 
@@ -169,7 +169,7 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
                 for _ in range(3):
                     _items = self.os_shop_get_items(i, cur_pos)
                     if not len(_items) or any(not item.is_known_item() for item in _items):
-                        logger.warning('[大世界商店-港口] 大世界商店+为空或物品为空，正在确认')
+                        logger.warning('[大世界商店-港口] 大世界商店为空或物品为空，正在确认')
                         self.device.sleep((0.3, 0.5))
                         self.device.screenshot()
                         continue
@@ -185,7 +185,7 @@ class PortShop(OSStatus, OSShopUI, Selector, MapEventHandler):
                         items.append(item)
 
                 if OS_SHOP_SCROLL.at_bottom(main=self):
-                    logger.info('[大世界商店-港口] 大世界商店+已滚动到底部，停止扫描')
+                    logger.info('[大世界商店-港口] 大世界商店已滚动到底部，停止扫描')
                     break
                 else:
                     OS_SHOP_SCROLL.next_page(main=self, page=0.5, skip_first_screenshot=False)

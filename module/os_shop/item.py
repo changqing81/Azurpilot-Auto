@@ -25,7 +25,7 @@ class PriceOcr(DigitYuv):
         prev = result
         if result.startswith('0'):
             result = '1' + result
-            logger.warning(f'大世界商店+数量 {prev} 已修正为 {result}')
+            logger.warning(f'大世界商店数量 {prev} 已修正为 {result}')
 
         result = super().after_process(result)
         return result
@@ -96,7 +96,7 @@ else:
 
 
 class OSShopItem(Item):
-    """大世界商店+物品类。
+    """大世界商店物品类。
 
     扩展基础物品类，增加商店索引、滚动位置、库存计数等属性。
     """
@@ -161,7 +161,7 @@ class OSShopItem(Item):
 
 
 class OSShopItemGrid(ItemGrid):
-    """大世界商店+物品网格类。
+    """大世界商店物品网格类。
 
     支持物品识别、计数器 OCR、商店索引和滚动位置记录。
     """

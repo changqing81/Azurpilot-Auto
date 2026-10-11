@@ -27,7 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # 面板文案的桩：只保留占位符替换行为，文案内容与界面无关
 LABELS = {
     'EmptyTitle': '还没跑过评分任务',
-    'EmptyHint': '在「工具+ → 指挥喵评分」运行一次任务',
+    'EmptyHint': '在「工具 → 指挥喵评分」运行一次任务',
     'Summary': '共 {count} 只 · 生成时间 {time}',
     'Score': '参考分',
     'Maxed': '已满级',
@@ -87,7 +87,7 @@ class RenderPanelTests(unittest.TestCase):
         html = render_panel({}, tr)
         self.assertIn('meow-empty', html)
         self.assertIn('还没跑过评分任务', html)
-        self.assertIn('工具+ → 指挥喵评分', html)
+        self.assertIn('工具 → 指挥喵评分', html)
 
     def test_none_payload_renders_empty_state(self):
         self.assertIn('meow-empty', render_panel(None, tr))

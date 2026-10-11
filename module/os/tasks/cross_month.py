@@ -54,7 +54,7 @@ class OpsiCrossMonth(OpsiScheduling):
             self._halt_scheduler(
                 title='[AzurPilot] 跨月每日完成，已停止运行',
                 content=(
-                    '跨月每日已完成（每日+ 与行动力清理均结束），按「完成后停止运行」开关停止 AzurPilot\n'
+                    '跨月每日已完成（每日与行动力清理均结束），按「完成后停止运行」开关停止 AzurPilot\n'
                     f'下次计划运行时间: {get_os_next_reset() - timedelta(minutes=10)}\n'
                     '请人工确认游戏状态与行动力消耗后手动启动。'
                 ),
@@ -98,7 +98,7 @@ class OpsiCrossMonth(OpsiScheduling):
 
         本任务及子任务链路（clear_obscure / handle_action_point / os_init 等）
         会写入大量 config.override 强制覆盖：它按属性名全局生效、进程内不会
-        自动恢复，不清理会泄漏给同进程后续任务（如耄耋相接保留值被归零、
+        自动恢复，不清理会泄漏给同进程后续任务（如短猫相接保留值被归零、
         买行动力上限被清零、舰队设置被替换）。退出时统一恢复快照。
         """
         overridden_backup = dict(self.config.overridden)
@@ -135,7 +135,7 @@ class OpsiCrossMonth(OpsiScheduling):
         """开发者工具触发的预演：真机执行调试流程后按常规重新规划调度。
 
         Args:
-            mode (str): 'cleanup' 跳过每日+ / 'full' 完整流程。
+            mode (str): 'cleanup' 跳过每日 / 'full' 完整流程。
         """
         try:
             with self._os_cross_month_guard():
@@ -207,11 +207,11 @@ class OpsiCrossMonth(OpsiScheduling):
         """调试预演入口（由 module.debug.cross_month_debug 调用）。
 
         把今天当成跨月时刻：跳过时间检查与等待重置，真机执行
-        大世界初始化 → 每日+（可选）→ 塞壬要塞 → 隐秘/深渊/耄耋清理 → 推送。
+        大世界初始化 → 每日（可选）→ 塞壬要塞 → 隐秘/深渊/短猫清理 → 推送。
         预演不修改任务调度：不写 NextRun、不调用 task_stop。
 
         Args:
-            skip_daily (bool): True 跳过每日+阶段，只验证塞壬要塞及后续清理。
+            skip_daily (bool): True 跳过每日阶段，只验证塞壬要塞及后续清理。
         """
         logger.hr('跨月每日调试预演', level=1)
         logger.warning('预演将真实操作游戏：可能消耗行动力/仓库道具，并按推送开关发送真实通知')
@@ -220,7 +220,7 @@ class OpsiCrossMonth(OpsiScheduling):
                 self.os_init()
                 self._os_cross_month_enter_context()
                 if skip_daily:
-                    logger.info('按参数跳过大世界每日+阶段')
+                    logger.info('按参数跳过大世界每日阶段')
                 else:
                     self._os_cross_month_daily()
                 self._os_cross_month_clear_action_point(force=True)
@@ -259,7 +259,7 @@ class OpsiCrossMonth(OpsiScheduling):
         logger.hr('跨月每日处理大世界重置', level=3)
 
         self._os_cross_month_enter_context()
-        # 每日+阶段内部会接续完成行动力清理，并以 task_stop 结束本任务
+        # 每日阶段内部会接续完成行动力清理，并以 task_stop 结束本任务
         self._os_cross_month_daily()
 
     def _os_cross_month_enter_context(self):
@@ -271,8 +271,8 @@ class OpsiCrossMonth(OpsiScheduling):
         self.config.override(_disable_task_switch=True)
 
     def _os_cross_month_daily(self):
-        """阶段一：接取并完成大世界每日+。"""
-        logger.hr('跨月每日清理大世界每日+', level=1)
+        """阶段一：接取并完成大世界每日。"""
+        logger.hr('跨月每日清理大世界每日', level=1)
         self.config.override(
             OpsiGeneral_DoRandomMapEvent=True,
             OpsiFleet_Fleet=self.config.cross_get('OpsiDaily.OpsiFleet.Fleet'),
@@ -290,11 +290,11 @@ class OpsiCrossMonth(OpsiScheduling):
             # MISSION_ENTER 从右侧出现，需确认动画结束，否则会点击到 MAP_GOTO_GLOBE
             self.zone_init()
             if empty_trial >= 5:
-                logger.warning('5 分钟内没有找到大世界每日+，停止等待')
+                logger.warning('5 分钟内没有找到大世界每日，停止等待')
                 break
             count += self.os_finish_daily_mission()
             if not count:
-                logger.warning('未接取到大世界每日+，可能游戏每日尚未刷新，等待 1 分钟')
+                logger.warning('未接取到大世界每日，可能游戏每日尚未刷新，等待 1 分钟')
                 empty_trial += 1
                 self.device.sleep(60)
                 continue
@@ -356,7 +356,7 @@ class OpsiCrossMonth(OpsiScheduling):
     def _run_cross_month_action_point_cleanup(self, preserve):
         """复用月末清理循环消耗多余行动力。
 
-        先检查塞壬要塞，再循环 隐秘海域 → 深渊坐标 → 耄耋相接，
+        先检查塞壬要塞，再循环 隐秘海域 → 深渊坐标 → 短猫相接，
         直到总行动力低于保留值、无可执行内容或行动力耗尽。
 
         Args:
@@ -374,7 +374,7 @@ class OpsiCrossMonth(OpsiScheduling):
             OpsiObscure_ForceRun=True,
             OpsiAbyssal_ForceRun=True,
             OpsiFleetFilter_Filter=self.config.cross_get('OpsiAbyssal.OpsiFleetFilter.Filter'),
-            # 耄耋相接（清理全程沿用该舰队设置，与月末清理单舰队跑全部子任务的模式一致）
+            # 短猫相接（清理全程沿用该舰队设置，与月末清理单舰队跑全部子任务的模式一致）
             OpsiFleet_Fleet=self.config.cross_get('OpsiMeowfficerFarming.OpsiFleet.Fleet'),
             OpsiFleet_Submarine=False,
             OpsiMeowfficerFarming_ActionPointPreserve=0,

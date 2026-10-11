@@ -151,7 +151,7 @@ class OSCampaignRun(OSMapOperation):
     def opsi_scheduling(self):
         # 必须在 load_campaign() 前拦截，否则 os_init() 会执行首次自律寻敌。
         if self.is_in_opsi_explore():
-            logger.info('[大世界-智能调度+] 每月开荒+正在运行，初始化前延期智能调度+')
+            logger.info('[大世界-智能调度] 每月开荒正在运行，初始化前延期智能调度')
             self.config.task_delay(
                 server_update=self.config.cross_get(
                     keys='OpsiScheduling.Scheduler.ServerUpdate',
