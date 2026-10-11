@@ -104,6 +104,10 @@ class BuyActionPointModeBoxFlagTests(unittest.TestCase):
         runner.config = SimpleNamespace(OpsiGeneral_BuyActionPointLimit=5)
         runner._is_in_month_end_purchase_block_week = Mock(return_value=False)
         runner._is_buy_action_point_month_budget_available = Mock(return_value=True)
+        # 月度周账本补记是独立关注点（见 test_opsi_buy_ap_month_budget），
+        # 这里只测箱子/同步接线，避免补记额外读取 _get_buy_action_point_count
+        # 打乱本文件按调用次数编排的计数序列
+        runner._backfill_buy_action_point_month_week = Mock()
         runner._sync_buy_action_point_count_with_game = Mock()
         runner._get_smart_scheduling_state_value = Mock(return_value=None)
         runner._clear_smart_scheduling_state_value = Mock()

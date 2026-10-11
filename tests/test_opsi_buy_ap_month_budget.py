@@ -136,6 +136,111 @@ class MonthBudgetTests(unittest.TestCase):
         self.runner._record_buy_action_point_month_week()
         self.assertEqual(self.weeks_used(), [WEEK_W42])
 
+    def test_record_actually_persists(self):
+        """记账必须真正落盘。
+
+        _get_..._weeks_used() 返回的是 config.data 内的活列表，若原地 append，
+        _set_... 的「新旧相等就跳过」短路会命中同一对象而跳过 save，
+        账本只停在内存里，进程重启即丢。
+        """
+        save = Mock(wraps=self.runner.config.save)
+        self.runner.config.save = save
+        self.runner._record_buy_action_point_month_week()
+        self.assertTrue(save.called, '记账未触发落盘（被去重短路吞掉）')
+        self.assertEqual(
+            deep_get(
+                self.runner.config.data,
+                f'{self.runner.CONFIG_PATH_SMART_STATE}'
+                f'.{STATE_KEY_BUY_AP_MONTH_WEEKS}',
+            ),
+            [WEEK_W42],
+        )
+
+    # ==================== 账本补记（冷启动盲区） ====================
+
+    def test_backfill_records_week_when_local_count_positive(self):
+        """本地周计数 > 0 即说明本周买过，补记进账本（覆盖账本上线前的购买）。"""
+        self.runner._set_buy_action_point_count(5)
+        self.runner._backfill_buy_action_point_month_week()
+        self.assertEqual(self.weeks_used(), [WEEK_W42])
+
+    def test_backfill_noop_when_local_count_zero(self):
+        """本周没买过就不补记，避免凭空占用预算。"""
+        self.runner._backfill_buy_action_point_month_week()
+        self.assertEqual(self.weeks_used(), [])
+
+    def test_count_month_refreshes_only_on_change(self):
+        """计数所属月份只在计数真正变化时刷新（OCR 同步常重复写同值）。"""
+        month_key = self.runner.STATE_KEY_BUY_AP_COUNT_MONTH
+        self.now = NOW_W44
+        self.runner._set_buy_action_point_count(5)
+        self.assertEqual(
+            self.runner._get_smart_scheduling_state_value(month_key), '2026-10')
+        self.now = NOW_NOV_SAME_WEEK
+        self.runner._set_buy_action_point_count(5)  # 同值重复写
+        self.assertEqual(
+            self.runner._get_smart_scheduling_state_value(month_key), '2026-10')
+
+    def test_backfill_skips_straddling_week_inherited_from_prev_month(self):
+        """跨月周（W44 = 10-26~11-01）：11-01 时本周计数继承自 10 月，不该记进 11 月。"""
+        self.now = NOW_W44
+        self.runner._set_buy_action_point_count(5)
+        self.runner._record_buy_action_point_month_week()  # 10 月账本记 W44
+        self.now = NOW_NOV_SAME_WEEK                        # 11-01，仍是 W44
+        self.runner._backfill_buy_action_point_month_week()
+        self.assertEqual(self.weeks_used(), [])
+
+    def test_block_week_is_exactly_the_old_month_part_of_straddling_week(self):
+        """几何事实：月末封锁区间 == 跨月 ISO 周的「上月那一段」。
+
+        封锁区间 = [包含下月 1 号的 ISO 周的周一, 下月 1 号)，与跨月周的上月段重合；
+        这是上面那条跨月保护的「正常路径兜底」依据，但封锁只是脚本侧策略、
+        且依赖服务器时间，故跨月保护仍需保留。
+        封锁周本身的完整护栏（含 31 号周二/1 号周三样例）见
+        `tests/test_month_end_purchase_block.py`，此处只留与月度账本直接相关的一遍。
+        """
+        for year, month in ((2026, 11), (2026, 12), (2027, 1)):
+            first = datetime(year, month, 1)
+            monday = first - timedelta(days=first.weekday())
+            for offset in range(7):
+                day = monday + timedelta(days=offset)
+                self.now = day.replace(hour=12)
+                with patch('module.os_handler.action_point.current_time',
+                           lambda: self.now), \
+                        patch('module.os_handler.action_point.server_time_offset',
+                              lambda: timedelta(0)):
+                    in_block = self.runner._is_in_month_end_purchase_block_week()
+                self.assertEqual(
+                    in_block,
+                    day.date() < first.date(),
+                    f'{day.date()} 的封锁判定应等于「属于上月那一段」',
+                )
+
+    def test_backfill_records_when_bought_in_new_month_on_straddling_week(self):
+        """跨月周（W44）里本月确实买了 → 记进本月账本（同一周可分别计入相邻两月）。"""
+        self.now = NOW_W44
+        self.runner._record_buy_action_point_month_week()  # 10 月账本记 W44
+        self.now = NOW_NOV_SAME_WEEK                        # 11-01，仍是 W44
+        self.runner._set_buy_action_point_count(4)          # 11-01 真的买了
+        self.runner._backfill_buy_action_point_month_week()
+        self.assertEqual(self.weeks_used(), ['2026-W44'])
+
+    def test_entry_backfills_before_early_return_when_week_maxed(self):
+        """本周已买满时入口提前返回，但该周必须先被补记进账本。"""
+        self.runner._set_buy_action_point_count(5)  # 本周已买满
+        self.runner._is_in_month_end_purchase_block_week = Mock(return_value=False)
+        self.assertFalse(self.runner._run_buy_action_point_mode())
+        self.assertEqual(self.weeks_used(), [WEEK_W42])
+
+    def test_sync_short_circuit_still_records_week(self):
+        """同步短路（本周已满）时不弹窗，但本周仍要计入账本。"""
+        self.runner._set_buy_action_point_count(5)
+        self.runner.action_point_enter = Mock()
+        count = self.runner._sync_buy_action_point_count_with_game()
+        self.assertEqual(count, 5)
+        self.runner.action_point_enter.assert_not_called()
+        self.assertEqual(self.weeks_used(), [WEEK_W42])
+
     def test_cross_month_clears_used_weeks(self):
         """跨月后周列表自动清空，预算重新可用。"""
         self.set_month_limit(1)

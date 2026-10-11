@@ -102,6 +102,9 @@ class CoinTaskMixin:
     # 买行动力功能状态键（持久化到 OpsiScheduling.Storage.Storage）
     STATE_KEY_BUY_AP_COUNT = 'BuyActionPointCount'       # 本周已购买行动力次数（int）
     STATE_KEY_BUY_AP_WEEK_ID = 'BuyActionPointWeekId'    # 上次购买时所在的 ISO 周标识（str，如 "2026-W32"）
+    # 上面那次周计数是在哪个月写下的（str，如 "2026-10"）。用于区分
+    # 「跨月周（如 W44 覆盖 10-26~11-01）里继承自上一月的计数」与「本月真实购买」。
+    STATE_KEY_BUY_AP_COUNT_MONTH = 'BuyActionPointCountMonthId'
     STATE_KEY_BUY_AP_LIMIT_BACKUP = 'BuyActionPointLimitBackup'  # temporary 禁用购买上限前的原值备份（int）
     STATE_KEY_BUY_LIMIT_ZERO_NOTIFIED = 'BuyLimitZeroNotified'   # 「上限为0停用」推送已发送标记（bool）
     # 每月购买周数预算：记录本月发生过购买的 ISO 周标识，跨月自动清空
@@ -1080,19 +1083,31 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
     def _set_buy_action_point_count(self, count):
         """
-        写入本周已购买行动力次数，并同步周标识。
+        写入本周已购买行动力次数，并同步周标识与「计数所属月份」。
 
         Args:
             count (int): 已购买次数
         """
+        count = int(count)
+        previous = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_BUY_AP_COUNT,
+        )
         self._set_smart_scheduling_state_value(
             self.STATE_KEY_BUY_AP_COUNT,
-            int(count),
+            count,
         )
         self._set_smart_scheduling_state_value(
             self.STATE_KEY_BUY_AP_WEEK_ID,
             self._get_current_purchase_week_id(),
         )
+        # 只在计数真正变化时刷新所属月份：OCR 同步常把同一个值重复写回，
+        # 若无条件刷新，跨月周（W44）在本月未购买时也会被标记成本月，
+        # 导致 _backfill_... 误把上月的购买周记进本月账本。
+        if previous != count:
+            self._set_smart_scheduling_state_value(
+                self.STATE_KEY_BUY_AP_COUNT_MONTH,
+                self._get_current_purchase_month_id(),
+            )
 
     def _reset_buy_action_point_count_if_new_week(self):
         """
@@ -1224,6 +1239,10 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         weeks_used = self._get_buy_action_point_month_weeks_used()
         if current_week_id in weeks_used:
             return
+        # 必须用副本追加：_get_..._weeks_used() 返回的是 config.data 内的**活列表**，
+        # 原地 append 后 _set_... 的「新旧相等就跳过」短路判定会命中（同一个对象），
+        # 于是只改了内存、既不写 config.modified 也不落盘，进程重启即丢。
+        weeks_used = list(weeks_used)
         weeks_used.append(current_week_id)
         self._set_smart_scheduling_state_value(
             self.STATE_KEY_BUY_AP_MONTH_WEEKS,
@@ -1233,6 +1252,49 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             f'[大世界-买行动力] 本月购买周数预算 {len(weeks_used)}'
             f'/{self._get_buy_action_point_month_weeks()} 周（{weeks_used}）'
         )
+
+    def _backfill_buy_action_point_month_week(self):
+        """按本地周计数把「本周已发生购买」补记进本月周账本。
+
+        账本原先只从两条路径学习本周：脚本自己买成功、或进入模式时的 OCR 同步。
+        但同步在「本周已买满」时会短路跳过，而买满时模式入口又直接提前返回，
+        于是「账本上线前已买满的周」「用户游戏内手动买满的周」永远进不了账本，
+        本月已用周数被少算、预算被放大。
+
+        实测：2026-10 的 W40（10-01 购买）在账本 10-04 22:19 上线前就已买满，
+        至今未入账，导致 10-11 时账本只有 [2026-W41]，设置 2 周仍会在 W42 放行。
+
+        纯本地判断（周计数已按周重置），幂等，无游戏交互。
+
+        跨月周保护（必留）：本月账本尚未建立（持久化月份 != 当前月份）且本周计数
+        写于上一个月时，本周就是横跨两月的同一个 ISO 周（如 W44 = 10-26~11-01），
+        计数来自上月的购买、本月实际没买 → 不补记，否则新月份凭空少掉一周预算。
+
+        注：封锁区间通常覆盖跨月周的上月段（见
+        test_block_week_is_exactly_the_old_month_part_of_straddling_week），
+        正常情况下走不到这条分支；但封锁只是脚本侧策略、且月份/周边界依赖服务器时间，
+        保留该判定作为兜底，避免任何情况下把上月的购买周记进本月账本。
+        """
+        if self._get_buy_action_point_count() <= 0:
+            return
+        stored_month = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_BUY_AP_MONTH_ID,
+        )
+        count_month = self._get_smart_scheduling_state_value(
+            self.STATE_KEY_BUY_AP_COUNT_MONTH,
+        )
+        current_month = self._get_current_purchase_month_id()
+        if (
+            count_month is not None
+            and count_month != current_month
+            and stored_month != current_month
+        ):
+            logger.info(
+                f'[大世界-买行动力] 本周计数写于 {count_month}（跨月周 '
+                f'{self._get_current_purchase_week_id()}），本月尚未购买，不补记月度账本'
+            )
+            return
+        self._record_buy_action_point_month_week()
 
     def _is_buy_action_point_ocr_valid(self):
         """
@@ -1276,6 +1338,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self._reset_buy_action_point_count_if_new_week()
         stored = self._get_buy_action_point_count()
         if stored >= self.BUY_AP_WEEKLY_LIMIT:
+            # 本周已买满同样说明本周发生过购买：先补记进本月周账本再短路，
+            # 否则冷启动/账本为空时该周会被永久漏记（见 _backfill_... 说明）。
+            self._backfill_buy_action_point_month_week()
             logger.info(
                 f'[大世界-买行动力] 本周已购满 {stored}/{self.BUY_AP_WEEKLY_LIMIT} 次，'
                 f'跳过同步弹窗，买行动力模式结束'
@@ -1303,9 +1368,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self._reset_buy_action_point_count_if_new_week()
         actual_count = max(0, self.BUY_AP_WEEKLY_LIMIT - remain)
         self._set_buy_action_point_count(actual_count)
-        # 游戏口径本周已有购买（可能来自用户手动购买），把本周计入月度预算
-        if actual_count > 0:
-            self._record_buy_action_point_month_week()
+        # 游戏口径本周已有购买（可能来自用户手动购买），把本周计入月度预算；
+        # 走补记入口而非直接记账，以复用跨月周保护
+        self._backfill_buy_action_point_month_week()
 
         # 同步更新行动力缓存，后续 _get_scheduling_action_point 无需重复弹窗
         # 防护：弹窗加载超时时 OCR 可能残留 0 值，写入缓存会导致功能2误判 AP=0 而误买
@@ -1497,6 +1562,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 '跳过买行动力模式，交由正常调度接管'
             )
             return False
+
+        # 账本校准必须在预算判定之前：本地周计数 > 0 说明本周已经买过
+        # （账本上线前买的、或用户游戏内手动买的），先把本周补记进本月账本，
+        # 否则「已买满 → 入口提前返回」这条路径会让该周永远不进账本，
+        # 本月已用周数被少算、预算被放大（2026-10 实测：W40 漏记）。
+        self._backfill_buy_action_point_month_week()
 
         # 每月购买周数预算用尽则整体不进入：纯日期计算，
         # 放在弹窗同步之前，省掉无意义的弹窗交互
