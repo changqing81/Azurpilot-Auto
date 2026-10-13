@@ -630,14 +630,23 @@ class Cl1Database:
 
         return None
 
-    def set_last_ap_notification(self, instance: str, ap_current: int):
-        """记录最近一次成功推送时的行动力值。"""
+    def set_last_ap_notification(
+        self, instance: str, ap_current: int, yellow_coin: int = None
+    ):
+        """记录最近一次成功推送时的行动力（及黄币）值。
+
+        yellow_coin 与 ap 一起落盘，作为下一次推送的对比基准；
+        读取失败（None）时不写入该字段，避免把无效值当成基准。
+        """
         month = datetime.now().strftime("%Y-%m")
         data = self.get_stats(instance, month)
-        data["last_ap_notification"] = {
+        payload = {
             "ts": datetime.now().isoformat(),
             "ap": self._coerce_int(ap_current),
         }
+        if yellow_coin is not None:
+            payload["yellow_coin"] = self._coerce_int(yellow_coin)
+        data["last_ap_notification"] = payload
         self.save_stats(instance, month, data)
 
     def add_yellow_coin_snapshot(
@@ -1214,11 +1223,13 @@ class Cl1Database:
 
         return async_executor.submit(self.add_ap_snapshot, instance, ap_current, source, distance, ap_total)
 
-    def async_set_last_ap_notification(self, instance: str, ap_current: int):
+    def async_set_last_ap_notification(
+        self, instance: str, ap_current: int, yellow_coin: int = None
+    ):
         from module.base.async_executor import async_executor
 
         return async_executor.submit(
-            self.set_last_ap_notification, instance, ap_current
+            self.set_last_ap_notification, instance, ap_current, yellow_coin
         )
 
     def async_add_yellow_coin_snapshot(

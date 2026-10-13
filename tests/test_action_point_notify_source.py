@@ -8,6 +8,8 @@ action_point_update() 里赋值，未弹窗时保持类属性默认 0。于是�
 """
 
 import unittest
+from types import ModuleType, SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from module.os.tasks.scheduling import CoinTaskMixin
 from module.os_handler.action_point_ledger import (
@@ -24,18 +26,43 @@ class _NotifyStub:
     check_and_notify_action_point_threshold = (
         CoinTaskMixin.check_and_notify_action_point_threshold
     )
+    _format_launcher_notification = CoinTaskMixin._format_launcher_notification
 
-    def __init__(self, ledger, fallback_total=0, ledger_enabled=True):
+    def __init__(
+        self,
+        ledger,
+        fallback_total=0,
+        ledger_enabled=True,
+        yellow_coin=None,
+        yellow_coin_error=None,
+        can_send=True,
+    ):
         self._ledger = ledger
         self._ledger_enabled = ledger_enabled
         self._action_point_total = fallback_total
         self.pushed = []
+        self.marked = []
+        self.config = SimpleNamespace(config_name='test')
+        self._yellow_coin = yellow_coin
+        self._yellow_coin_error = yellow_coin_error
+        self._can_send = can_send
 
     def _ap_ledger_enabled(self):
         return self._ledger_enabled
 
     def _get_ap_ledger(self):
         return self._ledger
+
+    def _can_send_ap_notification(self, key):
+        return self._can_send
+
+    def _mark_ap_notification_sent(self, key):
+        self.marked.append(key)
+
+    def get_yellow_coins(self):
+        if self._yellow_coin_error is not None:
+            raise self._yellow_coin_error
+        return self._yellow_coin
 
     def notify_push(self, title, content):
         self.pushed.append((title, content))
@@ -83,6 +110,120 @@ class TestInvalidReadingSkipsPush(unittest.TestCase):
         stub = _NotifyStub(None, fallback_total=-1, ledger_enabled=True)
         stub.check_and_notify_action_point_threshold()
         self.assertEqual(stub.pushed, [])
+
+
+def _fake_cl1_db(previous):
+    """用假模块顶替 cl1_database，避免测试碰真实 DB 文件。"""
+    module = ModuleType('module.statistics.cl1_database')
+    fake_db = MagicMock()
+    fake_db.get_last_ap_notification.return_value = previous
+    module.db = fake_db
+    return module, fake_db
+
+
+def _run_notify(previous, ap_total, yellow_coin, **stub_kwargs):
+    module, fake_db = _fake_cl1_db(previous)
+    stub = _NotifyStub(
+        _ledger_with(126, ap_total), yellow_coin=yellow_coin, **stub_kwargs
+    )
+    with patch.dict('sys.modules', {'module.statistics.cl1_database': module}):
+        stub.check_and_notify_action_point_threshold()
+    return stub, fake_db
+
+
+class TestYellowCoinInActionPointNotification(unittest.TestCase):
+    """黄币行：与行动力同格式（总量 + 涨跌），且推送后落盘为下次基准。"""
+
+    def test_title_empty_and_yellow_coin_delta_shown(self):
+        stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 5200)
+        self.assertEqual(len(stub.pushed), 1)
+        title, content = stub.pushed[0]
+        self.assertEqual(title, '', '标题必须留空，消息体只保留内容')
+        self.assertEqual(
+            content, '总行动力: 990 下跌10行动力\n总黄币: 5200 上涨200黄币'
+        )
+
+    def test_yellow_coin_falling(self):
+        stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 4600)
+        self.assertIn('总黄币: 4600 下跌400黄币', stub.pushed[0][1])
+
+    def test_yellow_coin_without_baseline_shows_plain_value(self):
+        # 首次推送（库里还没有黄币基准）：只显示数值，不伪造涨跌
+        stub, _ = _run_notify({'ap': 1000}, 990, 5200)
+        self.assertEqual(
+            stub.pushed[0][1], '总行动力: 990 下跌10行动力\n总黄币: 5200'
+        )
+
+    def test_yellow_coin_unchanged_has_no_trend_word(self):
+        stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 5200}, 990, 5200)
+        content = stub.pushed[0][1]
+        self.assertIn('总黄币: 5200', content)
+        self.assertNotIn('上涨', content)
+        self.assertNotIn('下跌', content.split('\n')[1])
+
+    def test_yellow_coin_read_failure_still_pushes_action_point(self):
+        # 黄币读取失败不能拖垮行动力推送
+        stub, _ = _run_notify(
+            {'ap': 1000, 'yellow_coin': 5000},
+            990,
+            None,
+            yellow_coin_error=RuntimeError('ocr timeout'),
+        )
+        self.assertEqual(len(stub.pushed), 1)
+        self.assertEqual(stub.pushed[0][1], '总行动力: 990 下跌10行动力')
+
+    def test_zero_yellow_coin_omits_line(self):
+        # OCR 兜底可能返回 0，0 不写入推送也不写入基准
+        stub, fake_db = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 0)
+        self.assertNotIn('总黄币', stub.pushed[0][1])
+        fake_db.async_set_last_ap_notification.assert_called_once_with(
+            'test', 990, yellow_coin=None
+        )
+
+    def test_zero_baseline_degrades_to_plain_value(self):
+        # 基准里残留 0（早期版本写入过）：必须退化成「无基准」，
+        # 不能拿 0 做差发出「上涨几千黄币」的假信号
+        stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 0}, 990, 5200)
+        self.assertEqual(
+            stub.pushed[0][1], '总行动力: 990 下跌10行动力\n总黄币: 5200'
+        )
+
+    def test_yellow_coin_recorded_as_next_baseline(self):
+        stub, fake_db = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 5200)
+        fake_db.async_set_last_ap_notification.assert_called_once_with(
+            'test', 990, yellow_coin=5200
+        )
+        self.assertEqual(stub.marked, ['_last_ap_notification_time'])
+
+    def test_ap_unchanged_skips_push_entirely(self):
+        stub, _ = _run_notify({'ap': 990, 'yellow_coin': 5000}, 990, 5200)
+        self.assertEqual(stub.pushed, [])
+
+
+class TestLauncherFormatWithEmptyTitle(unittest.TestCase):
+    """启动器通道：空标题时不生成占位标题行，但窗口标题仍可读。"""
+
+    def test_empty_title_uses_ap_caption_without_placeholder_line(self):
+        stub = _NotifyStub(None)
+        title, content = stub._format_launcher_notification(
+            instance_name='test',
+            title='',
+            content='总行动力: 990 下跌10行动力\n总黄币: 5200 上涨200黄币',
+        )
+        self.assertEqual(title, 'test 行动力动了一下喵~')
+        self.assertEqual(
+            content, '总行动力: 990 下跌10行动力\n总黄币: 5200 上涨200黄币 喵~'
+        )
+
+    def test_non_empty_title_keeps_existing_mapping(self):
+        stub = _NotifyStub(None)
+        title, content = stub._format_launcher_notification(
+            instance_name='test',
+            title='[AzurPilot] 行动力出现变化！',
+            content='总行动力: 990 下跌10行动力',
+        )
+        self.assertEqual(title, 'test 行动力动了一下喵~')
+        self.assertIn('行动力出现变化', content)
 
 
 if __name__ == '__main__':

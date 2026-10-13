@@ -321,7 +321,10 @@ class CoinTaskMixin:
 
         # 获取实例名称并格式化标题
         instance_name = getattr(self.config, 'config_name', 'AzurPilot')
-        if title.startswith('[AzurPilot]'):
+        if not title:
+            # 空标题推送（行动力变化）：消息体只保留内容，不生成标题行
+            formatted_title = ''
+        elif title.startswith('[AzurPilot]'):
             formatted_title = f"[AzurPilot <{instance_name}>]{title[len('[AzurPilot]'):]}"
         elif title.startswith('[AzurPilot info]'):
             formatted_title = f"[AzurPilot <{instance_name}>]{title[len('[AzurPilot info]'):]}"
@@ -371,10 +374,12 @@ class CoinTaskMixin:
                 title=formatted_title,
                 content=content
             )
+            # 空标题推送（行动力变化）日志里退回显示内容首行，便于排障定位
+            log_label = formatted_title or (content.splitlines()[0] if content else '')
             if success:
-                logger.info(f"{log_tag} 推送通知成功: {formatted_title}")
+                logger.info(f"{log_tag} 推送通知成功: {log_label}")
             else:
-                logger.warning(f"{log_tag} 推送通知失败: {formatted_title}")
+                logger.warning(f"{log_tag} 推送通知失败: {log_label}")
             return bool(success or webui_success)
         except Exception as e:
             logger.error(f"{log_tag} 推送通知异常: {e}")
@@ -390,7 +395,13 @@ class CoinTaskMixin:
                 plain_title = plain_title[len(prefix):].strip()
                 break
         if not plain_title:
-            plain_title = '大世界有新消息'
+            # 空标题推送（目前仅行动力变化使用）：启动器窗口仍需要一个可读标题，
+            # 但内容不再拼接占位标题行，只保留推送正文
+            launcher_title = f"{instance_name} 行动力动了一下喵~"
+            launcher_content = content
+            if not launcher_content.endswith(('喵', '喵~', '。', '！', '~')):
+                launcher_content = f"{launcher_content} 喵~"
+            return launcher_title, launcher_content
 
         if '行动力出现变化' in plain_title:
             launcher_title = f"{instance_name} 行动力动了一下喵~"
@@ -482,6 +493,9 @@ class CoinTaskMixin:
         """
         发送行动力变化推送通知。
         需要类中包含 _action_point_total 属性。
+
+        标题留空：消息体只保留内容（行动力行 + 黄币行）。
+        黄币与行动力同格式：总量 + 相对上次推送的涨跌。
         """
         if not hasattr(self, '_action_point_total'):
             return
@@ -496,11 +510,14 @@ class CoinTaskMixin:
         instance_name = getattr(self.config, 'config_name', 'default')
         # AP 快照由各任务模块自行管理（如 _record_ap_and_coins），此处仅保留推送逻辑。
         previous_ap = None
+        previous_yellow_coin = None
         try:
             from module.statistics.cl1_database import db as cl1_db
             last_notification = cl1_db.get_last_ap_notification(instance_name)
             if isinstance(last_notification, dict):
                 previous_ap = last_notification.get('ap')
+                # 0 视为无效历史读数（与行动力同理），退化成「无基准」而不是拿 0 做差
+                previous_yellow_coin = last_notification.get('yellow_coin') or None
         except Exception:
             logger.exception('Failed to load last AP notification')
 
@@ -518,15 +535,39 @@ class CoinTaskMixin:
         if not self._can_send_ap_notification('_last_ap_notification_time'):
             return
 
+        # 黄币行：与行动力同格式（总量 + 涨跌）。读取失败不影响行动力推送。
+        # 读不到有效值（0）时既不推送黄币行，也不写进对比基准，
+        # 否则下一次推送会把 0 当成基准发出「上涨几千」的假信号。
+        yellow_coin = None
+        if hasattr(self, 'get_yellow_coins'):
+            try:
+                read_value = int(self.get_yellow_coins())
+                yellow_coin = read_value if read_value > 0 else None
+            except Exception as e:
+                logger.warning(f'[大世界-智能调度] 推送前读取黄币失败，本次不带黄币行: {e}')
+
+        if yellow_coin:
+            if previous_yellow_coin is None:
+                content += f"\n总黄币: {yellow_coin}"
+            else:
+                coin_delta = yellow_coin - int(previous_yellow_coin)
+                if coin_delta == 0:
+                    content += f"\n总黄币: {yellow_coin}"
+                else:
+                    trend = '上涨' if coin_delta > 0 else '下跌'
+                    content += f"\n总黄币: {yellow_coin} {trend}{abs(coin_delta)}黄币"
+
         pushed = self.notify_push(
-            title="[AzurPilot] 行动力出现变化！",
+            title="",
             content=content
         )
         if pushed:
             self._mark_ap_notification_sent('_last_ap_notification_time')
             try:
                 from module.statistics.cl1_database import db as cl1_db
-                cl1_db.async_set_last_ap_notification(instance_name, total_ap)
+                cl1_db.async_set_last_ap_notification(
+                    instance_name, total_ap, yellow_coin=yellow_coin
+                )
             except Exception:
                 logger.exception('Failed to save last AP notification')
 
