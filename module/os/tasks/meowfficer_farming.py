@@ -216,7 +216,8 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         try:
             search_completed = self.run_strategic_search()
             with self._meow_debug_clip():
-                if search_completed:
+                # 仅安全海域才做战后扫图（受 OpsiGeneral.SkipScanOnUnsafeZone 控制）
+                if search_completed and self.should_run_post_search_scan():
                     self._solved_map_event = set()
                     self._solved_fleet_mechanism = False
                     self.clear_question()
@@ -266,7 +267,8 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
                 logger.warning(f'[大世界-短猫相接] 战略搜索异常: {e}')
 
             with self._meow_debug_clip():
-                if search_completed:
+                # 仅安全海域才做战后扫图与强制移动（受 OpsiGeneral.SkipScanOnUnsafeZone 控制）
+                if search_completed and self.should_run_post_search_scan():
                     self._solved_map_event = set()
                     self._solved_fleet_mechanism = False
                     self.clear_question()
@@ -348,10 +350,12 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
             # 自律寻敌完成后，查看短猫舰队雷达上的剩余问号并处理
             # （仅当前舰队雷达，不切换 1~4 队；参考侵蚀一的战后问号处理）
             with self._meow_debug_clip():
-                self._solved_map_event = set()
-                self._solved_fleet_mechanism = False
-                self.clear_question()
-                self.map_rescan()
+                # 仅安全海域才做战后扫图（受 OpsiGeneral.SkipScanOnUnsafeZone 控制）
+                if self.should_run_post_search_scan():
+                    self._solved_map_event = set()
+                    self._solved_fleet_mechanism = False
+                    self.clear_question()
+                    self.map_rescan()
                 self.handle_after_auto_search()
         finally:
             self.meow_search_metrics_end()

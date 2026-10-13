@@ -228,6 +228,58 @@ class OSMapOperation(MapOrderHandler, MissionHandler, PortHandler, StorageHandle
             name = m.group(0)
         return name
 
+    def should_run_post_search_scan(self, attempts=3):
+        """自律寻敌返回后，是否执行战后扫图与强制移动。
+
+        三重限定，任一不满足即返回 True（保持原行为）：
+        1. 仅 CN 服务器生效：其他服务器暂无素材验证，一律不判定；
+        2. 受「大世界通用设置 → 非安全海域跳过扫图」(OpsiGeneral.SkipScanOnUnsafeZone)
+           控制，开关关闭（默认）时不判定，行为与改动前完全一致，不做任何 OCR；
+        3. 开关开启时 OCR 画面上方海域名称，仅识别到安全海域才返回 True；
+           未识别到（含 OCR 异常/悬浮窗遮挡）返回 False，调用方跳过扫图与强制移动。
+
+        复用 get_zone_name() 的多服务器 OCR，读取副作用 self.is_zone_name_hidden。
+        这是「安全才做」的正向判定，识别失败即按非安全处理，故做有限次重试以抗
+        过场动画与 OCR 抖动，避免误跳过本该执行的扫图。
+
+        Args:
+            attempts (int): 开关开启时的最多截图识别次数，至少 1 次。
+
+        Returns:
+            bool: True=执行战后扫图与强制移动；False=跳过。
+
+        Pages:
+            in: page_os（大世界海域地图，顶部海域名可见）
+        """
+        if self.config.SERVER != 'cn':
+            return True
+        if not self.config.OpsiGeneral_SkipScanOnUnsafeZone:
+            return True
+
+        attempts = max(1, int(attempts))
+        for index in range(attempts):
+            self.device.screenshot()
+            try:
+                name = self.get_zone_name()
+                safe = bool(self.is_zone_name_hidden)
+            except Exception as e:
+                logger.warning(f"[大世界-地图] 安全海域判定 OCR 异常: {e}")
+                name, safe = '', False
+
+            if safe:
+                logger.attr("安全海域判定", f"安全 ({name})")
+                return True
+
+            logger.info(
+                f"[大世界-地图] 未识别到安全海域信息"
+                f"（第 {index + 1}/{attempts} 次，OCR='{name}'）"
+            )
+            if index + 1 < attempts:
+                self.device.sleep(0.5)
+
+        logger.warning("[大世界-地图] 判定为非安全海域，本轮跳过扫图与强制移动")
+        return False
+
     def get_current_zone(self):
         """
         Returns:

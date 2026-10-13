@@ -95,19 +95,27 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             self.config,
             self.config.OpsiHazard1Leveling_DebugClip,
         ):
-            # 第一次重扫：检查是否还有事件
+            # 每轮无条件重置事件簿：即使本轮因非安全海域跳过扫图，也必须清掉
+            # 上一轮残留的 is_akashi，否则末尾 record_cl1_akashi_encounter 会重复计数
+            # （该记录函数不消费标记，与短猫相接的 _meow_record_akashi_if_solved 不同）。
             self._solved_map_event = set()
             self._solved_fleet_mechanism = False
-            self.map_rescan()
 
-            # 强制移动逻辑（按等级 0/1/2 分发）
-            # 0=关闭；1=效率模式（只换队看雷达、不挪动舰队，最快，找不到就放弃）；
-            # 2=保守模式（先扫雷达不动，扫不到再逐个挪舰队+整图重扫，更稳但会挪、慢一些）。
-            # 保守模式在 _execute_fixed_patrol_scan 内部完成（L1→L2→L3），返回后不再
-            # 二次重扫，否则清完明石后会再次重复进明石商店（购买之外的多余进店）。
-            if self._forced_move_level() >= 1:
-                if not self._solved_map_event:
-                    self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
+            # 仅安全海域执行战后扫图与强制移动（受 OpsiGeneral.SkipScanOnUnsafeZone 控制，
+            # 默认关闭时恒执行；非 CN 服务器不判定）。handle_after_auto_search（EMP 减益/
+            # 修理）不属于扫图，始终执行。
+            if self.should_run_post_search_scan():
+                # 第一次重扫：检查是否还有事件
+                self.map_rescan()
+
+                # 强制移动逻辑（按等级 0/1/2 分发）
+                # 0=关闭；1=效率模式（只换队看雷达、不挪动舰队，最快，找不到就放弃）；
+                # 2=保守模式（先扫雷达不动，扫不到再逐个挪舰队+整图重扫，更稳但会挪、慢一些）。
+                # 保守模式在 _execute_fixed_patrol_scan 内部完成（L1→L2→L3），返回后不再
+                # 二次重扫，否则清完明石后会再次重复进明石商店（购买之外的多余进店）。
+                if self._forced_move_level() >= 1:
+                    if not self._solved_map_event:
+                        self._execute_fixed_patrol_scan(ExecuteFixedPatrolScan=True)
 
             self.handle_after_auto_search()
 
