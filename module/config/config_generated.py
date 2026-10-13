@@ -632,6 +632,7 @@ class GeneratedConfig:
     OpsiGeneral_SkipStrategicSearchCheck = False
     OpsiGeneral_ActionPointLedgerEnabled = False
     OpsiGeneral_ActionPointTierBox = False
+    OpsiGeneral_SkipScanOnUnsafeZone = False
 
     # 配置组 `OpsiAshBeacon`
     OpsiAshBeacon_AttackMode = 'current'  # current, current_dossier, current_dossier_only

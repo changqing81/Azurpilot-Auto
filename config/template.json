@@ -2598,7 +2598,8 @@
       "AutoSearchTimeLimit": 5,
       "SkipStrategicSearchCheck": false,
       "ActionPointLedgerEnabled": false,
-      "ActionPointTierBox": false
+      "ActionPointTierBox": false,
+      "SkipScanOnUnsafeZone": false
     },
     "Storage": {
       "Storage": {}

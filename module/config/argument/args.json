@@ -13887,6 +13887,10 @@
       "ActionPointTierBox": {
         "type": "checkbox",
         "value": false
+      },
+      "SkipScanOnUnsafeZone": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {
