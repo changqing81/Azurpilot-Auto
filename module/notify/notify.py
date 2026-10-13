@@ -16,6 +16,7 @@ from onepush.core import Provider
 from onepush.exceptions import OnePushException
 from onepush.providers.custom import Custom
 from requests import Response
+from requests.exceptions import ProxyError, SSLError
 
 from module.logger import logger
 
@@ -28,11 +29,40 @@ PUSH_REQUEST_TIMEOUT = (10, 30)
 # 仅在未 patch 过时包装：模块被重复加载时 Provider.request 已是包装函数，
 # 二次包装会因模块 dict 原地更新导致原函数引用丢失、无限递归
 if not getattr(Provider.request, '_timeout_patched', False):
-    _original_provider_request = Provider.request
-
     def _provider_request_with_timeout(method, url, **kwargs):
         kwargs.setdefault('timeout', PUSH_REQUEST_TIMEOUT)
-        return _original_provider_request(method, url, **kwargs)
+        session = requests.Session()
+        try:
+            return session.request(method, url, **kwargs)
+        except SSLError as e:
+            logger.warning(f"[通知] 推送请求 SSL 错误，关闭证书校验重试: {e}")
+            try:
+                return session.request(method, url, verify=False, **kwargs)
+            except Exception as e:
+                logger.error(e)
+                return None
+        except ProxyError as e:
+            # 进程环境里 HTTP(S)_PROXY 指向不可用的本地代理时（如代理软件已退出、
+            # 端口 10808 未监听），requests 抛 ProxyError，onepush 原版会静默吞掉异常
+            # 返回 None，表现为推送全部失败且看不出原因。此处忽略环境变量代理直连重试。
+            logger.warning(f"[通知] 环境代理不可用，改用直连重试: {e}")
+            direct = requests.Session()
+            direct.trust_env = False
+            try:
+                return direct.request(method, url, **kwargs)
+            except SSLError as e:
+                logger.warning(f"[通知] 直连推送请求 SSL 错误，关闭证书校验重试: {e}")
+                try:
+                    return direct.request(method, url, verify=False, **kwargs)
+                except Exception as e:
+                    logger.error(e)
+                    return None
+            except Exception as e:
+                logger.error(e)
+                return None
+        except Exception as e:
+            logger.error(e)
+            return None
 
     _provider_request_with_timeout._timeout_patched = True
     Provider.request = staticmethod(_provider_request_with_timeout)
@@ -147,7 +177,11 @@ def notify_webui(instance: str, title: str, content: str, **kwargs) -> bool:
         import requests
         payload = {"instance": instance, "title": title, "content": content}
         payload.update(kwargs)
-        requests.post(
+        # 本地回环请求固定直连：不走 HTTP(S)_PROXY，
+        # 避免进程环境里残留的失效代理把 WebUI 本地推送也带崩
+        session = requests.Session()
+        session.trust_env = False
+        session.post(
             f"http://127.0.0.1:{port}/api/notify",
             json=payload,
             timeout=2,
