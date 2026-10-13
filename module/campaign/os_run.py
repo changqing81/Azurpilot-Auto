@@ -34,6 +34,12 @@ class OSCampaignRun(OSMapOperation):
         PREVENT_AP_OVERFLOW_TASK (str): 防止行动力溢出的任务名称。
     """
     PREVENT_AP_OVERFLOW_TASK = 'OpsiPreventActionPointOverflow'
+    # 「guard 临时关闭」残留标记：guard 关闭防溢出任务时置 True，恢复时清除。
+    # 若进程在 guard 运行期间被终止（如 WebUI 手动停止、崩溃），finally 不会执行，
+    # 该标记会残留；下次运行大世界任务时由自愈逻辑恢复，避免任务被永久锁死。
+    PREVENT_AP_OVERFLOW_GUARD_FLAG = (
+        'OpsiPreventActionPointOverflow.Storage.Storage.GuardTempClosed'
+    )
 
     def load_campaign(self, cls=OperationSiren):
         config = self.config.merge(OSConfig())
@@ -47,13 +53,48 @@ class OSCampaignRun(OSMapOperation):
             logger.info(f'[大世界-运行] 延迟大世界行动力任务 {delay_minutes} 分钟直到行动力恢复')
         self.config.opsi_task_delay(ap_limit=True, ap_limit_minutes=delay_minutes)
 
+    def _is_prevent_ap_overflow_guard_flag_set(self):
+        """读取「guard 临时关闭」残留标记。"""
+        return bool(self.config.cross_get(
+            keys=self.PREVENT_AP_OVERFLOW_GUARD_FLAG, default=False))
+
+    def _set_prevent_ap_overflow_guard_flag(self, value):
+        """写入或清除「guard 临时关闭」残留标记。"""
+        self.config.cross_set(
+            keys=self.PREVENT_AP_OVERFLOW_GUARD_FLAG, value=bool(value))
+
+    def heal_prevent_ap_overflow_guard_residual(self):
+        """自愈 guard 临时关闭后进程异常终止留下的残留状态。
+
+        guard 依赖 finally 恢复防溢出任务；若进程在运行期间被终止（WebUI 手动
+        停止、崩溃等），恢复不会执行，任务会残留 `Scheduler.Enable=False` 且
+        永不被调度。用持久化标记区分「guard 临时关闭」与「用户主动关闭」：
+        仅当前者残留时才自动恢复，不影响用户主动关闭的任务。
+
+        Returns:
+            bool: 本次是否执行了自愈恢复。
+        """
+        if not self._is_prevent_ap_overflow_guard_flag_set():
+            return False
+
+        if not self.config.is_task_enabled(self.PREVENT_AP_OVERFLOW_TASK):
+            logger.info('[战役] 检测到防止行动力溢出任务残留的临时关闭，自动恢复调度')
+            self.config.cross_set(
+                keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=True)
+        self._set_prevent_ap_overflow_guard_flag(False)
+        return True
+
     def _run_opsi_task_with_ap_overflow_guard(self, runner):
         """运行普通大世界任务时临时关闭防溢出任务，并在结束时恢复调度。"""
+        # 先自愈上次异常终止（如手动停止）留下的临时关闭状态
+        self.heal_prevent_ap_overflow_guard_residual()
+
         campaign = None
         prevent_enabled = self.config.is_task_enabled(self.PREVENT_AP_OVERFLOW_TASK)
         if prevent_enabled:
             logger.info('[战役] 临时关闭防止行动力溢出任务')
             self.config.cross_set(keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=False)
+            self._set_prevent_ap_overflow_guard_flag(True)
 
         try:
             campaign = self.load_campaign()
@@ -68,6 +109,7 @@ class OSCampaignRun(OSMapOperation):
                         self.config.cross_set(keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=True)
                 else:
                     self.config.cross_set(keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=True)
+                self._set_prevent_ap_overflow_guard_flag(False)
 
     def opsi_explore(self):
         try:
