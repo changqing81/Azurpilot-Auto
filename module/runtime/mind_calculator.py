@@ -60,11 +60,12 @@ def highest_ships(ships):
     """同基础身份取最高等级；同级优先改造舰，II 型与 META 保留独立身份。"""
     output = {}
     for index, ship in enumerate(ships):
-        if not 1 <= ship['level'] <= 125:
+        if not 1 <= ship['level'] <= 125 and not (ship.get('review') and ship['level'] == 0):
             continue
         info = find_ship(ship['name'])
         key = base_key(info) if info else normalize_name(ship['name'])
-        if ship['name'].startswith('未识别舰船'):
+        # 未确认的卡位不能按猜测身份合并，也不能覆盖已确认的最高等级。
+        if ship.get('review') or ship['name'].startswith('未识别舰船'):
             key = f'unknown:{index}'
         if key not in output or preference(output[key]) < preference(ship):
             output[key] = ship
@@ -135,10 +136,12 @@ def calculate(ships):
         name = ship['name']
         ship['automatic_excluded'] = ('兵装' in name or 'μ' in name.casefold()
                                       or ship['group'] in ('幼体', '联动', '布里'))
-        if ship['excluded'] or ship['automatic_excluded']:
+        if ship['excluded']:
             ship['status'] = 'excluded'
         elif ship['review'] or not 1 <= ship['level'] <= 125 or ship['base_rarity'] not in RARITIES:
             ship['status'] = 'review'
+        elif ship['automatic_excluded']:
+            ship['status'] = 'excluded'
         else:
             ship['status'] = 'merged'
             key = base_key(ship)
@@ -181,10 +184,11 @@ def recognize(image, source='', *, name_ocr=None, level_ocr=None, row_origins=No
     if pixels[top:bottom, left:right].std() < 10 or not DOCK_CHECK.match(pixels, offset=(0, 0)):
         raise ValueError('截图未显示完整船坞界面，请上传包含顶部“船坞”标识及舰船卡片的游戏截图')
     cards = recognize_cards(image, source, name_ocr=name_ocr, level_ocr=level_ocr, row_origins=row_origins)
-    invalid = [f'第 {sorted({card.y for card in cards}).index(card.y) + 1} 行第 {card.col + 1} 列'
-               for card in cards if not card.level_reliable]
-    if invalid:
-        raise ValueError('等级未能确认：' + '、'.join(invalid) + '；请上传清晰的静止船坞截图，未导入零等级数据')
+    for card in cards:
+        if not card.level_reliable:
+            location = f'第 {sorted({item.y for item in cards}).index(card.y) + 1} 行第 {card.col + 1} 列'
+            card.ship.update(level=0, review=True,
+                             source=f'{card.ship["source"]}；{location}等级未确认，待人工核对'[:200])
     return highest_ships([card.ship for card in cards])
 
 

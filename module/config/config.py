@@ -28,6 +28,26 @@ from module.logger import logger
 from module.map.map_grids import SelectedGrids
 
 
+def resolve_ocr_device(backend, device):
+    """按后端和当前平台解析 OCR 设备选择，不修改配置。"""
+    if device == 'auto':
+        if backend == 'onnxruntime':
+            if sys.platform == 'darwin' and platform.machine() == 'arm64':
+                return 'ane'
+            if sys.platform == 'win32':
+                # Windows ML 自行筛选 NPU、独显和 CPU。
+                return 'auto'
+            return 'gpu' if is_good_gpu() else 'cpu'
+        from module.ocr.ncnn_ocr import has_ncnn_vulkan_gpu
+        return 'gpu' if has_ncnn_vulkan_gpu() else 'cpu'
+
+    if backend == 'ncnn' and device in {
+        'qnn_npu', 'openvino_npu', 'openvino_gpu', 'openvino_cpu',
+    }:
+        return 'cpu'
+    return device
+
+
 # 「guard 临时挂起」标记：任务名 → 该任务配置内的标记相对路径。
 # guard 运行其他大世界任务期间把标记置 True，期间对应任务视为不可调度。
 # 该标记与用户控制的 `Scheduler.Enable` 分离，避免 guard 的临时开关覆盖
