@@ -467,7 +467,7 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
 
 class ScanPolicy:
     """编队置顶与普通舰分别核对降序，只有完整、确定的三行才能早停。"""
-    def __init__(self, min_level=95, max_level=120, sorted_desc=False):
+    def __init__(self, min_level=95, max_level=125, sorted_desc=False):
         if type(min_level) is not int or type(max_level) is not int or not 1 <= min_level <= max_level <= 125:
             raise ValueError('扫描等级范围必须满足 1 ≤ 最低等级 ≤ 最高等级 ≤ 125')
         self.min_level, self.max_level = min_level, max_level

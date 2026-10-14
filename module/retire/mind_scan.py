@@ -75,6 +75,12 @@ class MindCalculatorScan(Dock):
                 import copy
                 deep_set(self.config._loaded_data, RESULT_PATH, copy.deepcopy(deep_get(latest, RESULT_PATH, {})))
             self.config.modified[RESULT_PATH] = dict(ships=ships, updated_at=datetime.now().isoformat(timespec='seconds'))
+            from module.runtime.fleet_tech import RECORD_PATH, merge_mind
+            record = deep_get(latest, RECORD_PATH, {})
+            merged = merge_mind(record, ships)
+            if hasattr(self.config, '_loaded_data'):
+                deep_set(self.config._loaded_data, RECORD_PATH, record)
+            self.config.modified[RECORD_PATH] = merged
             self.config.save()
         self._prune_scan_evidence()
         result = calculate(ships)
