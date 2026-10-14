@@ -28,6 +28,16 @@ from module.logger import logger
 from module.map.map_grids import SelectedGrids
 
 
+# 「guard 临时挂起」标记：任务名 → 该任务配置内的标记相对路径。
+# guard 运行其他大世界任务期间把标记置 True，期间对应任务视为不可调度。
+# 该标记与用户控制的 `Scheduler.Enable` 分离，避免 guard 的临时开关覆盖
+# 用户的启用/关闭意图（2026-10-14 线上：用户关闭防溢出任务后，残留自愈
+# 与 finally 里的 enable=True 反复把它重新启用，任务实际一直在跑）。
+GUARD_SUSPEND_FLAG_PATHS = {
+    'OpsiPreventActionPointOverflow': 'Storage.Storage.GuardTempClosed',
+}
+
+
 class TaskEnd(Exception):
     """任务提前结束异常。
 
@@ -53,6 +63,10 @@ class Function:
         self.enable = deep_get(data, keys="Scheduler.Enable", default=False)
         self.command = deep_get(data, keys="Scheduler.Command", default="Unknown")
         self.next_run = deep_get(data, keys="Scheduler.NextRun", default=DEFAULT_TIME)
+        # 「guard 临时挂起」期间视为不可调度，但不改动用户控制的 Scheduler.Enable
+        suspend_flag = GUARD_SUSPEND_FLAG_PATHS.get(self.command)
+        if self.enable and suspend_flag is not None and deep_get(data, keys=suspend_flag, default=False):
+            self.enable = False
 
     def __str__(self):
         enable = "Enable" if self.enable else "Disable"
@@ -752,7 +766,18 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             self.task_stop(message=message)
 
     def is_task_enabled(self, task):
-        return bool(self.cross_get(keys=[task, 'Scheduler', 'Enable'], default=False))
+        """判断任务是否启用且未被 guard 临时挂起。
+
+        `Scheduler.Enable` 只表达用户意愿；guard 运行其他大世界任务期间
+        通过独立的挂起标记（见 `GUARD_SUSPEND_FLAG_PATHS`）让任务暂时
+        不可调度，不再改写用户的启用状态。
+        """
+        if not bool(self.cross_get(keys=[task, 'Scheduler', 'Enable'], default=False)):
+            return False
+        suspend_flag = GUARD_SUSPEND_FLAG_PATHS.get(task)
+        if suspend_flag is not None and self.cross_get(keys=[task] + suspend_flag.split('.'), default=False):
+            return False
+        return True
 
     @property
     def campaign_name(self):

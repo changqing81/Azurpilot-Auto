@@ -34,9 +34,11 @@ class OSCampaignRun(OSMapOperation):
         PREVENT_AP_OVERFLOW_TASK (str): 防止行动力溢出的任务名称。
     """
     PREVENT_AP_OVERFLOW_TASK = 'OpsiPreventActionPointOverflow'
-    # 「guard 临时关闭」残留标记：guard 关闭防溢出任务时置 True，恢复时清除。
+    # 「guard 临时挂起」标记：guard 运行其他大世界任务期间置 True，结束时清除。
     # 若进程在 guard 运行期间被终止（如 WebUI 手动停止、崩溃），finally 不会执行，
-    # 该标记会残留；下次运行大世界任务时由自愈逻辑恢复，避免任务被永久锁死。
+    # 标记会残留；下次运行大世界任务时先清掉，避免防溢出任务被永久挂起。
+    # 该标记只参与调度判据（见 `module.config.config.GUARD_SUSPEND_FLAG_PATHS`），
+    # 绝不改写用户控制的 `Scheduler.Enable`。
     PREVENT_AP_OVERFLOW_GUARD_FLAG = (
         'OpsiPreventActionPointOverflow.Storage.Storage.GuardTempClosed'
     )
@@ -64,36 +66,37 @@ class OSCampaignRun(OSMapOperation):
             keys=self.PREVENT_AP_OVERFLOW_GUARD_FLAG, value=bool(value))
 
     def heal_prevent_ap_overflow_guard_residual(self):
-        """自愈 guard 临时关闭后进程异常终止留下的残留状态。
+        """清除 guard 临时挂起后进程异常终止留下的残留标记。
 
-        guard 依赖 finally 恢复防溢出任务；若进程在运行期间被终止（WebUI 手动
-        停止、崩溃等），恢复不会执行，任务会残留 `Scheduler.Enable=False` 且
-        永不被调度。用持久化标记区分「guard 临时关闭」与「用户主动关闭」：
-        仅当前者残留时才自动恢复，不影响用户主动关闭的任务。
+        guard 依赖 finally 清除挂起标记；若进程在运行期间被终止（WebUI 手动
+        停止、崩溃等），清除不会执行。下次运行大世界任务时先清掉，避免防溢出
+        任务被永久挂起。
+
+        挂起标记与用户控制的 `Scheduler.Enable` 已分离，本方法只清标记，
+        绝不改动任务的启用状态，因此不存在「把用户主动关闭误当成残留恢复」。
 
         Returns:
-            bool: 本次是否执行了自愈恢复。
+            bool: 本次是否清除了残留标记。
         """
         if not self._is_prevent_ap_overflow_guard_flag_set():
             return False
-
-        if not self.config.is_task_enabled(self.PREVENT_AP_OVERFLOW_TASK):
-            logger.info('[战役] 检测到防止行动力溢出任务残留的临时关闭，自动恢复调度')
-            self.config.cross_set(
-                keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=True)
+        logger.info('[战役] 清除防止行动力溢出任务残留的临时挂起标记')
         self._set_prevent_ap_overflow_guard_flag(False)
         return True
 
     def _run_opsi_task_with_ap_overflow_guard(self, runner):
-        """运行普通大世界任务时临时关闭防溢出任务，并在结束时恢复调度。"""
-        # 先自愈上次异常终止（如手动停止）留下的临时关闭状态
+        """运行普通大世界任务时临时挂起防溢出任务，并在结束时恢复。
+
+        「挂起」只写 guard 标记，不改 `Scheduler.Enable`；用户关闭的任务
+        因此不会被 guard 重新启用。
+        """
+        # 先清掉上次异常终止（如手动停止）留下的临时挂起标记
         self.heal_prevent_ap_overflow_guard_residual()
 
         campaign = None
         prevent_enabled = self.config.is_task_enabled(self.PREVENT_AP_OVERFLOW_TASK)
         if prevent_enabled:
-            logger.info('[战役] 临时关闭防止行动力溢出任务')
-            self.config.cross_set(keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=False)
+            logger.info('[战役] 临时挂起防止行动力溢出任务')
             self._set_prevent_ap_overflow_guard_flag(True)
 
         try:
@@ -101,15 +104,13 @@ class OSCampaignRun(OSMapOperation):
             return runner(campaign)
         finally:
             if prevent_enabled:
-                if campaign is not None:
-                    try:
-                        campaign.update_prevent_action_point_overflow_schedule(enable=True)
-                    except Exception:
-                        logger.debug('恢复防止行动力溢出任务调度失败，直接重新启用任务', exc_info=True)
-                        self.config.cross_set(keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=True)
-                else:
-                    self.config.cross_set(keys=f'{self.PREVENT_AP_OVERFLOW_TASK}.Scheduler.Enable', value=True)
-                self._set_prevent_ap_overflow_guard_flag(False)
+                try:
+                    if campaign is not None:
+                        campaign.update_prevent_action_point_overflow_schedule()
+                except Exception:
+                    logger.debug('更新防止行动力溢出任务调度失败', exc_info=True)
+                finally:
+                    self._set_prevent_ap_overflow_guard_flag(False)
 
     def opsi_explore(self):
         try:

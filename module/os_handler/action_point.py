@@ -217,6 +217,11 @@ class ActionPointHandler(UI, MapEventHandler):
     # 按钮短暂消失（2026-10-14 真机：上一瓶确认后 2ms 内尝试下一瓶，
     # USE 单帧检测失败即抛「行动力不足」，含箱 6477 被判不足推迟到次日）。
     AP_USE_RETRY_SECONDS = 5
+    # 进入/退出行动力弹窗的等待上限（秒）。界面不匹配时必须退出，否则会一直
+    # 截图空转，只能等设备层 `stuck_timer_long`（195s）兜底抛 GameStuckError
+    # （2026-10-14 线上事故：194 秒零日志、零点击、零文件写入）。
+    ACTION_POINT_ENTER_TIMEOUT = 15
+    ACTION_POINT_QUIT_TIMEOUT = 15
 
     @staticmethod
     def _is_in_month_end_purchase_block_week():
@@ -753,11 +758,14 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         退出行动力弹窗。
 
+        界面不匹配时按 `ACTION_POINT_QUIT_TIMEOUT` 超时退出，避免无超时循环
+        截图空转到设备层 195s 卡死兜底。
+
         Pages:
             in: ACTION_POINT_USE
             out: page_os
         """
-        for _ in self.loop():
+        for _ in self.loop(timeout=self.ACTION_POINT_QUIT_TIMEOUT):
             # 结束
             # 有时行动力弹窗没有黑色模糊背景
             # ACTION_POINT_CANCEL 和 OS_CHECK 同时出现
@@ -770,6 +778,10 @@ class ActionPointHandler(UI, MapEventHandler):
             # 处理行动力弹窗上方的强制地图事件
             if self.handle_map_event():
                 continue
+        else:
+            logger.warning(
+                f'[大世界-行动点] 退出行动力弹窗超时（{self.ACTION_POINT_QUIT_TIMEOUT}s）'
+            )
 
     def handle_action_point(self, zone, pinned, cost=None, keep_current_ap=True, check_rest_ap=False):
         """
@@ -923,11 +935,14 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         进入行动力弹窗。
 
+        界面不匹配时按 `ACTION_POINT_ENTER_TIMEOUT` 超时退出：原先的无超时
+        循环会一直截图空转，只能等设备层 195s 卡死兜底（2026-10-14 线上事故）。
+
         Pages:
             in: OS_CHECK
             out: ACTION_POINT_USE
         """
-        for _ in self.loop():
+        for _ in self.loop(timeout=self.ACTION_POINT_ENTER_TIMEOUT):
             if self.appear(ACTION_POINT_USE, offset=(20, 20)):
                 break
 
@@ -940,6 +955,11 @@ class ActionPointHandler(UI, MapEventHandler):
                 continue
             if self.appear_then_click(AUTO_SEARCH_REWARD, offset=(50, 50)):
                 continue
+        else:
+            logger.warning(
+                f'[大世界-行动点] 进入行动力弹窗超时（{self.ACTION_POINT_ENTER_TIMEOUT}s），'
+                f'当前页面可能不在大世界'
+            )
 
     def action_point_set(self, zone=None, pinned=None, cost=None, keep_current_ap=True, check_rest_ap=False):
         """
@@ -963,9 +983,13 @@ class ActionPointHandler(UI, MapEventHandler):
             return False
 
         # 等待行动力弹窗关闭
-        for _ in self.loop():
+        for _ in self.loop(timeout=self.ACTION_POINT_QUIT_TIMEOUT):
             if self.appear(IN_MAP, offset=(200, 5)):
                 break
+        else:
+            logger.warning(
+                f'[大世界-行动点] 等待行动力弹窗关闭超时（{self.ACTION_POINT_QUIT_TIMEOUT}s）'
+            )
 
         return True
 
@@ -989,8 +1013,12 @@ class ActionPointHandler(UI, MapEventHandler):
             logger.info(f'[大世界-行动点] 没有 {amount} 行动点')
 
         self.action_point_quit()
-        for _ in self.loop():
+        for _ in self.loop(timeout=self.ACTION_POINT_QUIT_TIMEOUT):
             if self.appear(IN_MAP, offset=(200, 5)):
                 break
+        else:
+            logger.warning(
+                f'[大世界-行动点] 等待回到大世界地图超时（{self.ACTION_POINT_QUIT_TIMEOUT}s）'
+            )
 
         return enough
