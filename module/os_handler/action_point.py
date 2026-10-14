@@ -213,6 +213,10 @@ class ActionPointHandler(UI, MapEventHandler):
     _action_point_current = 0
     _action_point_total = 0
     _action_point_total_with_box = 0
+    # USE 按钮点击前的重试等待秒数：覆盖弹窗刷新动画/网络波动导致的
+    # 按钮短暂消失（2026-10-14 真机：上一瓶确认后 2ms 内尝试下一瓶，
+    # USE 单帧检测失败即抛「行动力不足」，含箱 6477 被判不足推迟到次日）。
+    AP_USE_RETRY_SECONDS = 5
 
     @staticmethod
     def _is_in_month_end_purchase_block_week():
@@ -273,14 +277,26 @@ class ActionPointHandler(UI, MapEventHandler):
                 cost=ACTION_POINT_BOX[selected_index],
             )
 
-        if not self.appear(ACTION_POINT_USE, offset=(20, 20)):
-            # USE 按钮没出现就没有点击，本轮作废延后重跑（未点不存在未确认）。
-            logger.warning('[大世界-行动点] USE 按钮未出现，本轮补充作废，延后处理')
-            raise ActionPointLimit(
-                current=prev,
-                total=self._action_point_total,
-                cost=ACTION_POINT_BOX[selected_index],
-            )
+        # USE 按钮可能因弹窗刷新动画/网络波动短暂消失（2026-10-14 真机日志：
+        # 上一瓶确认后 2ms 内尝试下一瓶，USE 单帧检测失败即抛「行动力不足」，
+        # 把含箱 6477 判成不足并推迟到次日）。点击前等待重试：
+        # 未点击就不存在未确认状态，不违反单发原则。
+        timeout = Timer(self.AP_USE_RETRY_SECONDS).start()
+        while 1:
+            if self.appear(ACTION_POINT_USE, offset=(20, 20)):
+                break
+            if timeout.reached():
+                # USE 按钮没出现就没有点击，本轮作废延后重跑（未点不存在未确认）。
+                logger.warning(
+                    f'[大世界-行动点] USE 按钮未出现（已重试 {self.AP_USE_RETRY_SECONDS} 秒），'
+                    f'本轮补充作废，延后处理'
+                )
+                raise ActionPointLimit(
+                    current=prev,
+                    total=self._action_point_total,
+                    cost=ACTION_POINT_BOX[selected_index],
+                )
+            self.device.screenshot()
         # 不走 interval 重点：每次调用只允许一次实际点击；下次必须重新读数。
         self.device.click(ACTION_POINT_USE)
         self.device.sleep(0.3)

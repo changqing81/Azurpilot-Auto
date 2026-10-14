@@ -97,6 +97,11 @@ class CoinTaskMixin:
     # 各任务的配置路径常量（集中管理，避免硬编码）
     CONFIG_PATH_MEOW_AP_PRESERVE = 'OpsiMeowfficerFarming.OpsiMeowfficerFarming.ActionPointPreserve'
     CONFIG_PATH_CL1_MIN_AP_RESERVE = 'OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve'
+    # 开箱动作失败（USE 未出现等）但含箱总数充足时的短延迟重跑分钟数。
+    # 能漏过 action_point_use 点击前 5 秒重试的故障，5 分钟内基本已恢复；
+    # 不取更小值是因为 task_stop 后只能靠 NextRun 重拉任务，若持续故障
+    # （UI 变动/素材过期）会导致每几分钟空转一轮直到人工干预。
+    AP_RETRY_DELAY_MINUTES = 5
 
     # ==================== 买行动力功能相关常量 ====================
     # 买行动力功能状态键（持久化到 OpsiScheduling.Storage.Storage）
@@ -2389,21 +2394,53 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         因行动力不足推迟智能调度。
         """
         # 二次确认：推迟到次日是破坏性动作。账本开启时先读一次顶栏真值
-        # （在海域内时）并记录，读到的总行动力其实高于保留值 → 放弃推迟。
+        # （在海域内时顺带刷新账本）；读不到顶栏（如正处行动力弹窗流程、
+        # 不在海域地图）则回退账本最近记录复核——弹窗刚写入的含箱总数
+        # 远比「放弃复核」可靠（2026-10-14 真机：弹窗流程中复核被跳过，
+        # 含箱 6477 被判不足并推迟到次日）。
         if self._ap_ledger_enabled():
-            if self.ap_observe_from_map_bar() is not None:
-                ledger = self._get_ap_ledger()
-                if ledger is not None and ledger.total_with_box is not None \
-                        and ledger.total_with_box > min_ap_reserve:
-                    logger.info(
-                        f'[AP账本] 推迟前复核通过: 总行动力 {ledger.total_with_box} '
-                        f'> 保留值 {min_ap_reserve}，放弃推迟'
-                    )
-                    return
+            self.ap_observe_from_map_bar()
+            ledger = self._get_ap_ledger()
+            total = getattr(ledger, 'total_with_box', None)
+            if total is not None and total > min_ap_reserve:
+                logger.info(
+                    f'[AP账本] 推迟前复核通过: 总行动力 {total} '
+                    f'> 保留值 {min_ap_reserve}，放弃推迟'
+                )
+                return
         logger.warning(f'[大世界-智能调度] 行动力达到最低保留 ({total_ap} <= {min_ap_reserve})')
         self._notify_ap_insufficient(total_ap, min_ap_reserve)
         self._delay_smart_scheduling_to_server_update('行动力不足')
         self.config.task_stop()
+
+    def _handle_ap_limit_exception(self, e, total_ap, cl1_ap_preserve):
+        """
+        子任务抛 ActionPointLimit 的统一出口。
+
+        含箱总数仍高于保留值时，缺的只是开箱动作成功与否（网络波动/弹窗动画
+        导致 USE 检测失败），短延迟重跑让下一轮重新读数补箱，不推送不足告警、
+        不推迟到次日；真不足才走「延迟到服务器刷新」轨道
+        （2026-10-14 真机：USE 检测失败把含箱 6477 判成不足、推迟 19 小时）。
+
+        Args:
+            e (ActionPointLimit): 子任务抛出的异常。
+            total_ap (int): 本轮决策读到的总行动力（异常值缺失时的兜底）。
+            cl1_ap_preserve (int): 侵蚀1行动力保留值（异常未携带 preserve 时使用）。
+        """
+        logger.warning(f'[大世界-智能调度] 智能调度执行子任务时行动力不足: {e}')
+        preserve = getattr(e, 'preserve', None) or cl1_ap_preserve
+        current = getattr(e, 'total', None) or getattr(e, 'current', None) or total_ap
+        if current > preserve:
+            logger.info(
+                f'[大世界-智能调度] 含箱总行动力 {current} > 保留值 {preserve}，'
+                f'仅开箱动作未成功，{self.AP_RETRY_DELAY_MINUTES} 分钟后重跑'
+            )
+            self._delay_smart_scheduling_with_minutes(
+                '开箱动作未成功（含箱行动力充足）', self.AP_RETRY_DELAY_MINUTES
+            )
+            self.config.task_stop()
+            return
+        self._delay_smart_scheduling_for_ap_limit(current, preserve)
 
     def _delay_smart_scheduling_for_opsi_explore(self):
         """开荒未完成时延迟智能调度并结束本轮。"""
@@ -2564,10 +2601,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             logger.info(f'[大世界-智能调度] 黄币充足 ({yellow_coins} >= {cl1_preserve})，执行侵蚀1练级')
             self._execute_hazard1_leveling(yellow_coins, total_ap)
         except ActionPointLimit as e:
-            logger.warning(f'[大世界-智能调度] 智能调度执行子任务时行动力不足: {e}')
-            preserve = getattr(e, 'preserve', None) or cl1_ap_preserve
-            current = getattr(e, 'total', None) or getattr(e, 'current', None) or total_ap
-            self._delay_smart_scheduling_for_ap_limit(current, preserve)
+            self._handle_ap_limit_exception(e, total_ap, cl1_ap_preserve)
 
     def run_smart_scheduling(self):
         """
