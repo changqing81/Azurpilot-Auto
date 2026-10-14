@@ -2505,6 +2505,8 @@
       "Pool": "light",
       "Amount": 1,
       "UseTicket": true,
+      "TicketAmount": 1,
+      "ClearTicket": true,
       "UseDrill": false
     },
     "Storage": {
