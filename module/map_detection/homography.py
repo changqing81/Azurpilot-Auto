@@ -14,6 +14,11 @@ from module.map_detection.perspective import Perspective
 from module.map_detection.utils import *
 from module.map_detection.utils_assets import *
 
+# 瓦片角点备份方案的最小匹配点数量。
+# 角点接近匹配阈值时极易被单个边缘匹配蒙对（实测 0.806 / 1 match 可把 homo_loca
+# 指到 48 像素外），单点结果不可信，要求至少 3 个一致匹配点才采纳。
+HOMO_CORNER_MIN_MATCHES = 3
+
 
 class Homography:
     """单应性变换。
@@ -278,17 +283,21 @@ class Homography:
             loca = np.argwhere(result > threshold)[:, ::-1] - self.config.HOMO_CORNER_OFFSET_LIST[index]
             location = np.append(location, loca, axis=0) if len(location) else loca
 
-        if similarity > threshold:
+        success = similarity > threshold and len(location) >= HOMO_CORNER_MIN_MATCHES
+        if success:
             self.homo_loca = fit_points(
                 location, mod=self.config.HOMO_TILE, encourage=encourage) - self.config.HOMO_CENTER_OFFSET
             self.map_inner = get_map_inner(location)
             message = f'{len(location)} matches'
+        elif similarity > threshold:
+            # 相似度够但匹配点太少，大概率是误报，不采纳
+            message = f'few matches ({len(location)})'
         else:
             message = 'bad match'
 
         # print(self.homo_loca % self.config.HOMO_TILE)
         logger.attr_align('瓦片角点', f'{float2str(similarity)} ({message})')
-        return message != 'bad match'
+        return success
 
     def search_tile_rectangle(self, image, threshold=10, encourage=5.1, close_kernel=(5, 10, 15, 20, 25)):
         """搜索空闲瓦片的矩形位置。

@@ -34,9 +34,19 @@ class OSCamera(OSMapOperation, Camera):
     Attributes:
         radar (Radner): 雷达对象，用于检测大世界中的目标。
         fleet_current (tuple): 当前舰队位置。
+        os_detect_success (bool): update_os() 最近一次是否成功定位画面。
     """
     radar: Radar
     fleet_current: tuple
+
+    # 最近一次 update_os() 是否成功定位画面。
+    # 检测失败时 homo_loca 是上一次的残留值，调用方必须能区分
+    # "真的检测到这个位置" 和 "检测失败、这只是旧值"，
+    # 否则会把失败帧当成有效读数参与稳定性判断。
+    os_detect_success: bool = False
+
+    # 从未成功定位过时的兜底视角（保证 View.generate() 仍有坐标可用）
+    _OS_DETECT_FALLBACK_LOCA = (53, 60)
 
     def _map_swipe(self, vector, box=(239, 128, 993, 628)):
         return super()._map_swipe(vector, box=box)
@@ -166,27 +176,45 @@ class OSCamera(OSMapOperation, Camera):
     def update_os(self):
         """
         Similar to `Camera.update()`, but for OPSI.
+
+        Returns:
+            bool: 画面是否成功定位。
+                True: 检测成功，view.backend.homo_loca 是本帧真实位置。
+                False: 检测失败，homo_loca 保持上一次成功定位的值（或首次失败时
+                    的兜底值），调用方不应把它当作真实读数使用。
         """
-        # self.device.screenshot()
         self._view_init()
+        self.os_detect_success = False
 
         try:
             self.view.load(self.device.image)
         except (MapDetectionError, AttributeError, cv2.error) as e:
             logger.warning(e)
-            logger.warning('[大世界-相机] 假设摄像机聚焦在格子中心')
+            logger.warning('[大世界-相机] 画面无法定位，沿用上一次有效视角')
 
-            def empty(*args, **kwargs):
-                pass
-
-            backup, self.view.backend.load = self.view.backend.load, empty
-            self.view.backend.homo_loca = (53, 60)
+            # detect() 失败时不会写 homo_loca，它保留上一次成功定位的值；
+            # 若从未成功定位过则退回固定兜底值，保证后续 generate() 有坐标可用。
+            if getattr(self.view.backend, 'homo_loca', None) is None:
+                self.view.backend.homo_loca = np.array(self._OS_DETECT_FALLBACK_LOCA)
             self.view.backend.left_edge = False
             self.view.backend.right_edge = False
             self.view.backend.lower_edge = False
             self.view.backend.upper_edge = False
-            self.view.load(self.device.image)
-            self.view.backend.load = backup
+
+            def empty(*args, **kwargs):
+                pass
+
+            # 绕过 backend.load 让 View 用上面的坐标把网格建起来。
+            # 必须保证 load 被还原，否则第二次调用起地图检测就永久失效。
+            backup, self.view.backend.load = self.view.backend.load, empty
+            try:
+                self.view.load(self.device.image)
+            finally:
+                self.view.backend.load = backup
+            return False
+
+        self.os_detect_success = True
+        return True
 
     def convert_radar_to_local(self, location):
         """

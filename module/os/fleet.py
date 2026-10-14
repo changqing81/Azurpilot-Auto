@@ -52,6 +52,13 @@ from module.ui.assets import BACK_ARROW
 
 FLEET_FILTER = Filter(regex=re.compile(r'fleet-?(\d)'), attr=('fleet',), preset=('callsubmarine',))
 
+# 等待摄像机/移动稳定的总超时（秒）。
+# 稳定判据只看相邻两帧的位置差，遇到"画面持续无法定位"或"坐标在两簇值之间
+# 反复跳变"时永远等不到稳定，循环会无限进行下去。这里加一道总闸：
+# 连续 50 秒没有任何真实进展（战斗/事件/切页）就提前判定为稳定并返回，
+# 让调用方继续后续流程，而不是把整个任务吊死。
+OS_WAIT_STABLE_TIMEOUT = 50
+
 
 def limit_walk(location, step=3):
     """限制舰队单次移动步数，防止越界。
@@ -389,9 +396,13 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         logger.hr('等待摄像机稳定')
         record = None
         confirm_timer = Timer(0.6, count=2).start()
+        timeout = Timer(OS_WAIT_STABLE_TIMEOUT).start()
         for _ in self.loop(skip_first=skip_first_screenshot):
-            self.update_os()
-            current = self.view.backend.homo_loca
+            if timeout.reached():
+                logger.warning(f'[大世界-摄像机] 等待摄像机稳定超过 {OS_WAIT_STABLE_TIMEOUT}s，提前判定为稳定')
+                break
+            updated = self.update_os()
+            current = self.view.backend.homo_loca if updated else None
             logger.attr('单应位置', current)
             if record is None or (current is not None and np.linalg.norm(np.subtract(current, record)) < 3):
                 if confirm_timer.reached():
@@ -440,6 +451,10 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         clicked_story_total = 0
 
         confirm_timer.reset()
+        # 总超时：只在"有真实进展"（事件/战斗/切页）时重置。
+        # 单纯的"检测成功"不重置——位置在两簇值之间反复跳变时，
+        # 检测一直是成功的，只有这道闸能让循环退出。
+        deadline = Timer(OS_WAIT_STABLE_TIMEOUT).start()
 
         def abyssal_expected_end():
             # 添加 handle_map_event() 因为 OSCombat.combat_status() 会移除 get_items
@@ -448,9 +463,14 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
             return self.is_in_map()
 
         for _ in self.loop(skip_first=skip_first_screenshot):
+            if deadline.reached():
+                logger.warning(
+                    f'[大世界-移动] 等待移动稳定超过 {OS_WAIT_STABLE_TIMEOUT}s 仍无进展，提前判定为稳定')
+                break
             # 地图事件
             event = self.handle_map_event(drop=drop)
             if event:
+                deadline.reset()
                 confirm_timer.reset()
                 result.add('event')
                 if event == 'story_skip':
@@ -487,38 +507,47 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                     clicked_story_total = 0
                 continue
             if self.handle_retirement():
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.handle_walk_out_of_step():
                 if walk_out_of_step:
                     raise MapWalkError('walk_out_of_step')
                 else:
+                    deadline.reset()
                     continue
             if self.handle_popup_confirm('WALK_UNTIL_STABLE'):
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.handle_manjuu():
+                deadline.reset()
                 confirm_timer.reset()
                 continue
 
             # 意外点击
             if self.is_in_globe():
                 self.os_globe_goto_map()
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.is_in_storage():
                 self.storage_quit()
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.is_in_os_mission():
                 self.os_mission_quit()
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.handle_os_game_tips():
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.is_in_map_order():
                 self.order_quit()
+                deadline.reset()
                 confirm_timer.reset()
                 continue
 
@@ -527,6 +556,7 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                 # 使用 ui_back() 进行测试，因为每月深渊日志太少。
                 # self.ui_back(check_button=self.is_in_map)
                 self.combat(expected_end=abyssal_expected_end, fleet_index=self.fleet_show_index, save_get_items=drop)
+                deadline.reset()
                 confirm_timer.reset()
                 result.add('event')
                 continue
@@ -535,18 +565,21 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
             if self.appear(PORT_SUPPLY_CHECK, offset=(20, 20)):
                 self.interval_clear(PORT_SUPPLY_CHECK)
                 self.handle_akashi_supply_buy(CLICK_SAFE_AREA)
+                deadline.reset()
                 confirm_timer.reset()
                 result.add('akashi')
                 continue
 
             # 游戏 bug：上一个已清理海域的 AUTO_SEARCH_REWARD 弹窗
             if self.appear_then_click(AUTO_SEARCH_REWARD, offset=(50, 50), interval=3):
+                deadline.reset()
                 confirm_timer.reset()
                 continue
 
             # 敌人搜索
             if not enemy_searching_appear and self.enemy_searching_appear():
                 enemy_searching_appear = True
+                deadline.reset()
                 confirm_timer.reset()
                 continue
             else:
@@ -555,6 +588,7 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                     self.device.sleep(0.3)
                     logger.info('[大世界-战斗] 敌舰搜索出现')
                     enemy_searching_appear = False
+                    deadline.reset()
                     confirm_timer.reset()
                     result.add('search')
                 if self.is_in_map():
@@ -564,7 +598,14 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
             # 检查颜色，因为解锁时屏幕会变黑。
             # 直接使用 IN_MAP，本质上是 `self.is_in_map() and IN_MAP.match_template_color()`
             if self.match_template_color(IN_MAP, offset=(200, 5), threshold=50):
-                self.update_os()
+                if not self.update_os():
+                    # 这一帧定位失败，homo_loca 是上一次的残留值。
+                    # 不把它当真实读数：既不确认稳定，也不刷新确认计时器，
+                    # 是否继续等由总超时裁决（避免假坐标把计时器每轮打飞）。
+                    logger.info('[大世界-移动] 本帧无法定位画面，等待下一帧')
+                    zero_streak = 0
+                    zero_timer = None
+                    continue
                 current = self.view.backend.homo_loca
                 logger.attr('单应位置', current)
                 # 已知最大距离为 4.48px，homo_loca 在 (56, 60) 和 (52, 58) 之间
