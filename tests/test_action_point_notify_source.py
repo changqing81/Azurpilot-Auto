@@ -41,6 +41,7 @@ class _NotifyStub:
         self._ledger_enabled = ledger_enabled
         self._action_point_total = fallback_total
         self.pushed = []
+        self.raw_titles = []
         self.marked = []
         self.config = SimpleNamespace(config_name='test')
         self._yellow_coin = yellow_coin
@@ -64,8 +65,9 @@ class _NotifyStub:
             raise self._yellow_coin_error
         return self._yellow_coin
 
-    def notify_push(self, title, content):
+    def notify_push(self, title, content, raw_title=False):
         self.pushed.append((title, content))
+        self.raw_titles.append(raw_title)
         return True
 
 
@@ -132,37 +134,54 @@ def _run_notify(previous, ap_total, yellow_coin, **stub_kwargs):
 
 
 class TestYellowCoinInActionPointNotification(unittest.TestCase):
-    """黄币行：与行动力同格式（总量 + 涨跌），且推送后落盘为下次基准。"""
+    """消息布局：标题=行动力行（原样），内容=黄币行换行+「[AzurPilot] 实例名」。"""
 
-    def test_title_empty_and_yellow_coin_delta_shown(self):
+    def test_title_is_ap_line_content_is_coin_line_with_signature(self):
         stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 5200)
         self.assertEqual(len(stub.pushed), 1)
         title, content = stub.pushed[0]
-        self.assertEqual(title, '', '标题必须留空，消息体只保留内容')
-        self.assertEqual(
-            content, '总行动力: 990 下跌10行动力\n总黄币: 5200 上涨200黄币'
-        )
+        self.assertEqual(title, '总行动力: 990 下跌10行动力')
+        self.assertEqual(content, '总黄币: 5200 上涨200黄币\n[AzurPilot] test')
+        self.assertEqual(stub.raw_titles, [True], '标题必须原样发送、不加实例前缀')
+
+    def test_content_always_keeps_azurpilot_keyword(self):
+        # 钉钉「自定义关键词」校验只扫消息正文 → 正文任何分支都必须带 [AzurPilot]
+        cases = [
+            ({'ap': 1000, 'yellow_coin': 5000}, 5200, None),
+            ({'ap': 1000, 'yellow_coin': 5000}, 4600, None),
+            ({'ap': 1000}, 5200, None),
+            ({'ap': 1000, 'yellow_coin': 5200}, 5200, None),
+            ({'ap': 1000, 'yellow_coin': 5000}, 0, None),
+            ({'ap': 1000, 'yellow_coin': 0}, 5200, None),
+            ({'ap': 1000, 'yellow_coin': 5000}, None, RuntimeError('ocr')),
+        ]
+        for previous, yellow, error in cases:
+            stub, _ = _run_notify(
+                previous, 990, yellow, yellow_coin_error=error
+            )
+            title, content = stub.pushed[0]
+            self.assertIn('[AzurPilot] test', content, f'case {previous},{yellow}')
+            self.assertTrue(title.startswith('总行动力: '), f'case {previous},{yellow}')
 
     def test_yellow_coin_falling(self):
         stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 4600)
-        self.assertIn('总黄币: 4600 下跌400黄币', stub.pushed[0][1])
+        self.assertEqual(
+            stub.pushed[0][1], '总黄币: 4600 下跌400黄币\n[AzurPilot] test'
+        )
 
     def test_yellow_coin_without_baseline_shows_plain_value(self):
         # 首次推送（库里还没有黄币基准）：只显示数值，不伪造涨跌
         stub, _ = _run_notify({'ap': 1000}, 990, 5200)
-        self.assertEqual(
-            stub.pushed[0][1], '总行动力: 990 下跌10行动力\n总黄币: 5200'
-        )
+        self.assertEqual(stub.pushed[0][1], '总黄币: 5200\n[AzurPilot] test')
 
     def test_yellow_coin_unchanged_has_no_trend_word(self):
         stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 5200}, 990, 5200)
-        content = stub.pushed[0][1]
-        self.assertIn('总黄币: 5200', content)
-        self.assertNotIn('上涨', content)
-        self.assertNotIn('下跌', content.split('\n')[1])
+        self.assertEqual(
+            stub.pushed[0][1], '总黄币: 5200\n[AzurPilot] test'
+        )
 
-    def test_yellow_coin_read_failure_still_pushes_action_point(self):
-        # 黄币读取失败不能拖垮行动力推送
+    def test_yellow_coin_read_failure_keeps_ap_title_and_signature(self):
+        # 黄币读取失败不能拖垮行动力推送，正文退化为只剩标记
         stub, _ = _run_notify(
             {'ap': 1000, 'yellow_coin': 5000},
             990,
@@ -170,12 +189,15 @@ class TestYellowCoinInActionPointNotification(unittest.TestCase):
             yellow_coin_error=RuntimeError('ocr timeout'),
         )
         self.assertEqual(len(stub.pushed), 1)
-        self.assertEqual(stub.pushed[0][1], '总行动力: 990 下跌10行动力')
+        title, content = stub.pushed[0]
+        self.assertEqual(title, '总行动力: 990 下跌10行动力')
+        self.assertEqual(content, '[AzurPilot] test')
 
-    def test_zero_yellow_coin_omits_line(self):
+    def test_zero_yellow_coin_omits_coin_line(self):
         # OCR 兜底可能返回 0，0 不写入推送也不写入基准
         stub, fake_db = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 0)
         self.assertNotIn('总黄币', stub.pushed[0][1])
+        self.assertEqual(stub.pushed[0][1], '[AzurPilot] test')
         fake_db.async_set_last_ap_notification.assert_called_once_with(
             'test', 990, yellow_coin=None
         )
@@ -184,9 +206,7 @@ class TestYellowCoinInActionPointNotification(unittest.TestCase):
         # 基准里残留 0（早期版本写入过）：必须退化成「无基准」，
         # 不能拿 0 做差发出「上涨几千黄币」的假信号
         stub, _ = _run_notify({'ap': 1000, 'yellow_coin': 0}, 990, 5200)
-        self.assertEqual(
-            stub.pushed[0][1], '总行动力: 990 下跌10行动力\n总黄币: 5200'
-        )
+        self.assertEqual(stub.pushed[0][1], '总黄币: 5200\n[AzurPilot] test')
 
     def test_yellow_coin_recorded_as_next_baseline(self):
         stub, fake_db = _run_notify({'ap': 1000, 'yellow_coin': 5000}, 990, 5200)
@@ -198,6 +218,33 @@ class TestYellowCoinInActionPointNotification(unittest.TestCase):
     def test_ap_unchanged_skips_push_entirely(self):
         stub, _ = _run_notify({'ap': 990, 'yellow_coin': 5000}, 990, 5200)
         self.assertEqual(stub.pushed, [])
+
+
+class TestOnepushTitleFormatting(unittest.TestCase):
+    """标题格式化：raw 模式原样发送，其余保持既有实例前缀行为。"""
+
+    def test_raw_title_passes_through(self):
+        self.assertEqual(
+            CoinTaskMixin._format_onepush_title(
+                '总行动力: 5900 下跌100行动力', 'alas', raw_title=True
+            ),
+            '总行动力: 5900 下跌100行动力',
+        )
+
+    def test_default_adds_instance_prefix(self):
+        self.assertEqual(
+            CoinTaskMixin._format_onepush_title('大世界-买行动力', 'alas'),
+            '[AzurPilot <alas>] 大世界-买行动力',
+        )
+
+    def test_marked_title_keeps_existing_behavior(self):
+        self.assertEqual(
+            CoinTaskMixin._format_onepush_title('[AzurPilot] 行动力出现变化！', 'alas'),
+            '[AzurPilot <alas>] 行动力出现变化！',
+        )
+
+    def test_empty_title_stays_empty(self):
+        self.assertEqual(CoinTaskMixin._format_onepush_title('', 'alas'), '')
 
 
 class TestLauncherFormatWithEmptyTitle(unittest.TestCase):
@@ -224,6 +271,17 @@ class TestLauncherFormatWithEmptyTitle(unittest.TestCase):
         )
         self.assertEqual(title, 'test 行动力动了一下喵~')
         self.assertIn('行动力出现变化', content)
+
+    def test_ap_line_title_maps_to_ap_caption(self):
+        # 标题改成行动力行后，启动器仍应命中「行动力」文案而不是兜底小铃铛
+        stub = _NotifyStub(None)
+        title, content = stub._format_launcher_notification(
+            instance_name='test',
+            title='总行动力: 990 下跌10行动力',
+            content='总黄币: 5200 上涨200黄币 [AzurPilot] test',
+        )
+        self.assertEqual(title, 'test 行动力动了一下喵~')
+        self.assertIn('总黄币', content)
 
 
 if __name__ == '__main__':

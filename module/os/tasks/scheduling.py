@@ -280,18 +280,19 @@ class CoinTaskMixin:
     
     # ==================== 推送通知相关方法 ====================
     
-    def notify_push(self, title, content):
+    def notify_push(self, title, content, raw_title=False):
         """
         发送推送通知（智能调度功能）
-        
+
         Args:
-            title (str): 通知标题（会自动添加实例名称前缀）
+            title (str): 通知标题（默认会自动添加实例名称前缀）
             content (str): 通知内容
-            
+            raw_title (bool): True 时标题原样发送、不添加实例名称前缀
+
         Notes:
             - 仅在启用智能调度时生效
             - 启动器推送和 OnePush 推送分别由各自配置控制
-            - 标题会自动格式化为 "[AzurPilot <实例名>] 原标题" 的形式
+            - 标题默认格式化为 "[AzurPilot <实例名>] 原标题" 的形式
 
         Returns:
             bool: True 表示推送成功发送，False 表示未发送或发送失败
@@ -300,9 +301,31 @@ class CoinTaskMixin:
         if not self.is_smart_scheduling_enabled():
             return False
 
-        return self._send_opsi_notification(title, content)
+        return self._send_opsi_notification(title, content, raw_title=raw_title)
 
-    def _send_opsi_notification(self, title, content, log_tag='[大世界-智能调度]'):
+    @staticmethod
+    def _format_onepush_title(title, instance_name, raw_title=False):
+        """把推送标题格式化为 "[AzurPilot <实例名>] 原标题"。
+
+        raw_title=True 时原样返回（用于标题本身就是完整文案的场景，
+        如行动力变化推送：标题即「总行动力: ...」，不需要再加实例前缀）。
+        """
+        if raw_title:
+            return title
+        if not title:
+            # 空标题推送：消息体只保留内容，不生成标题行
+            return ''
+        if title.startswith('[AzurPilot]'):
+            return f"[AzurPilot <{instance_name}>]{title[len('[AzurPilot]'):]}"
+        if title.startswith('[AzurPilot info]'):
+            return f"[AzurPilot <{instance_name}>]{title[len('[AzurPilot info]'):]}"
+        if title.startswith('[Alas]'):
+            return f"[AzurPilot <{instance_name}>]{title[len('[Alas]'):]}"
+        if title.startswith('[Alas info]'):
+            return f"[AzurPilot <{instance_name}>]{title[len('[Alas info]'):]}"
+        return f"[AzurPilot <{instance_name}>] {title}"
+
+    def _send_opsi_notification(self, title, content, log_tag='[大世界-智能调度]', raw_title=False):
         """
         实际发送大世界推送（启动器推送 + OnePush），不带任务级开关门控。
 
@@ -326,19 +349,9 @@ class CoinTaskMixin:
 
         # 获取实例名称并格式化标题
         instance_name = getattr(self.config, 'config_name', 'AzurPilot')
-        if not title:
-            # 空标题推送（行动力变化）：消息体只保留内容，不生成标题行
-            formatted_title = ''
-        elif title.startswith('[AzurPilot]'):
-            formatted_title = f"[AzurPilot <{instance_name}>]{title[len('[AzurPilot]'):]}"
-        elif title.startswith('[AzurPilot info]'):
-            formatted_title = f"[AzurPilot <{instance_name}>]{title[len('[AzurPilot info]'):]}"
-        elif title.startswith('[Alas]'):
-            formatted_title = f"[AzurPilot <{instance_name}>]{title[len('[Alas]'):]}"
-        elif title.startswith('[Alas info]'):
-            formatted_title = f"[AzurPilot <{instance_name}>]{title[len('[Alas info]'):]}"
-        else:
-            formatted_title = f"[AzurPilot <{instance_name}>] {title}"
+        formatted_title = self._format_onepush_title(
+            title, instance_name, raw_title=raw_title
+        )
 
         webui_success = False
         if launcher_enabled:
@@ -408,7 +421,7 @@ class CoinTaskMixin:
                 launcher_content = f"{launcher_content} 喵~"
             return launcher_title, launcher_content
 
-        if '行动力出现变化' in plain_title:
+        if '行动力出现变化' in plain_title or '总行动力' in plain_title:
             launcher_title = f"{instance_name} 行动力动了一下喵~"
         elif '行动力不足' in plain_title or '行动力低于最低保留' in plain_title:
             launcher_title = f"{instance_name} 大世界行动力不够喵~"
@@ -499,8 +512,11 @@ class CoinTaskMixin:
         发送行动力变化推送通知。
         需要类中包含 _action_point_total 属性。
 
-        标题留空：消息体只保留内容（行动力行 + 黄币行）。
-        黄币与行动力同格式：总量 + 相对上次推送的涨跌。
+        消息布局：
+        - 标题 = 行动力行（总量 + 涨跌），原样发送、不叠加实例前缀
+        - 内容 = 黄币行（总量 + 涨跌）换行 + 「[AzurPilot] 实例名」
+        尾部标记供钉钉等带「自定义关键词」校验的渠道命中关键词
+        （该校验只扫消息正文，标题里的关键词不参与匹配）。
         """
         if not hasattr(self, '_action_point_total'):
             return
@@ -526,23 +542,24 @@ class CoinTaskMixin:
         except Exception:
             logger.exception('Failed to load last AP notification')
 
-        content = f"总行动力: {total_ap}"
+        # 行动力行，作为推送标题
+        ap_line = f"总行动力: {total_ap}"
         if previous_ap is not None:
             ap_delta = total_ap - previous_ap
             if ap_delta == 0:
                 logger.info('[大世界-智能调度] 行动力未发生变化，跳过推送通知')
                 return
             if ap_delta > 0:
-                content = f"总行动力: {total_ap} 上涨{ap_delta}行动力"
+                ap_line = f"总行动力: {total_ap} 上涨{ap_delta}行动力"
             else:
-                content = f"总行动力: {total_ap} 下跌{abs(ap_delta)}行动力"
+                ap_line = f"总行动力: {total_ap} 下跌{abs(ap_delta)}行动力"
 
         if not self._can_send_ap_notification('_last_ap_notification_time'):
             return
 
-        # 黄币行：与行动力同格式（总量 + 涨跌）。读取失败不影响行动力推送。
-        # 读不到有效值（0）时既不推送黄币行，也不写进对比基准，
-        # 否则下一次推送会把 0 当成基准发出「上涨几千」的假信号。
+        # 黄币行，作为推送内容：与行动力同格式（总量 + 涨跌）。
+        # 读取失败不影响行动力推送；读不到有效值（0）时既不推送黄币行，
+        # 也不写进对比基准，否则下一次推送会把 0 当成基准发出「上涨几千」的假信号。
         yellow_coin = None
         if hasattr(self, 'get_yellow_coins'):
             try:
@@ -551,20 +568,28 @@ class CoinTaskMixin:
             except Exception as e:
                 logger.warning(f'[大世界-智能调度] 推送前读取黄币失败，本次不带黄币行: {e}')
 
+        coin_line = ''
         if yellow_coin:
             if previous_yellow_coin is None:
-                content += f"\n总黄币: {yellow_coin}"
+                coin_line = f"总黄币: {yellow_coin}"
             else:
                 coin_delta = yellow_coin - int(previous_yellow_coin)
                 if coin_delta == 0:
-                    content += f"\n总黄币: {yellow_coin}"
+                    coin_line = f"总黄币: {yellow_coin}"
                 else:
                     trend = '上涨' if coin_delta > 0 else '下跌'
-                    content += f"\n总黄币: {yellow_coin} {trend}{abs(coin_delta)}黄币"
+                    coin_line = f"总黄币: {yellow_coin} {trend}{abs(coin_delta)}黄币"
 
+        # 尾部单独一行保留「[AzurPilot] 实例名」：钉钉等渠道的「自定义关键词」
+        # 校验只扫消息正文，标题里的关键词不参与匹配，故在正文保留该标记。
+        signature = f"[AzurPilot] {instance_name}"
+        content = f"{coin_line}\n{signature}" if coin_line else signature
+
+        # raw_title=True：标题即完整文案，不再叠加 "[AzurPilot <实例>]" 前缀
         pushed = self.notify_push(
-            title="",
-            content=content
+            title=ap_line,
+            content=content,
+            raw_title=True
         )
         if pushed:
             self._mark_ap_notification_sent('_last_ap_notification_time')
