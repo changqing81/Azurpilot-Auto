@@ -287,6 +287,29 @@ def second_type_family(texts):
     return False
 
 
+def meta_frame(pixels, x, y):
+    """识别橙色 META 卡框的外沿；未命中不表示普通舰。
+
+    Lua 的 shipRarity2bgPrint 对 META 使用独立卡框。外沿位于普通卡面
+    左侧空隙，避开舰种标志和立绘中的红色；精锐 META 仍可走名字匹配。
+    """
+    red, green, blue = pixels[y + 25:y + 145, x - 9:x - 6].astype(np.int16).transpose(2, 0, 1)
+    return bool(((red >= 70) & (red > green * 1.6) & (red > blue * 2)).mean() >= .1)
+
+
+@lru_cache(maxsize=1)
+def _aircraft_icon():
+    from pathlib import Path
+    from PIL import Image
+    return np.array(Image.open(Path(__file__).parents[2] / 'assets/ship/dock_aircraft_icon.png').convert('L'))
+
+
+def aircraft_icon(pixels, x, y):
+    """只用白色飞机字形的正向模板区分相近名单候选。"""
+    white = (pixels[y:y + 30, x:x + 40].min(axis=2) > 205).astype(np.uint8) * 255
+    return cv2.minMaxLoc(cv2.matchTemplate(white, _aircraft_icon(), cv2.TM_CCOEFF_NORMED))[1] >= .85
+
+
 def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_origins=None):
     """识别连续三行；自动扫描与上传共用相同网格、名单和等级校验。"""
     from module.ocr.al_ocr import AlOcr, OcrSettings
@@ -349,6 +372,10 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
         candidates = [str(names[index]).strip()]
         ellipsis = _has_name_ellipsis(name_images[index])
         info, name_note = _match_name(candidates, frame_rarities[index], ellipsis=ellipsis)
+        is_meta = meta_frame(pixels, x, y)
+        if info and is_meta and info.get('group') != 'META':
+            # META 名称条可能只容纳普通舰全名；不能让该精确前缀绕过边框证据。
+            info = None
         # 同一名称存在 II 型时，即使首读命中基础型也核对后缀，避免错并舰船。
         has_second_type = info and find_ship(info['name'] + 'II')
         if not info or has_second_type:
@@ -408,6 +435,16 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
             confirmed = [_match_name([text], frame_rarities[index])[0] for text in retry_reads]
             if not info or sum(bool(item and item['name'] == info['name']) for item in confirmed) < 2:
                 info, name_note = None, previous_note
+        if info and is_meta and info.get('group') != 'META':
+            info = None
+        if not info:
+            from module.runtime.mind_name import match_lua_name
+            matched, match_note = match_lua_name(candidates, frame_rarities[index], ellipsis=ellipsis,
+                                                 meta_frame=is_meta, aviation=aircraft_icon(pixels, x, y))
+            if matched:
+                info, name_note = matched, match_note
+            elif '罗马后缀未确认' not in name_note:
+                name_note = match_note
         value, level_note = values[index], level_notes[index]
         name = info['name'] if info else candidates[0]
         if not name or all(not char.isalnum() for char in name):
