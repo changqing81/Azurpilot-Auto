@@ -1254,7 +1254,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             bool: 是否清理了问号。
         """
         logger.hr("清除问号", level=2)
-        for _ in range(3):
+        attempts = 3
+        for _ in range(attempts):
             grid = self.radar.predict_question(
                 self.device.image, in_port=self.zone.is_port
             )
@@ -1269,11 +1270,23 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             self.view.predict()
             self.view.show()
 
+            # 摄像机漂移（视野中找不到当前舰队，如全图扫描后相机停留在扫描位置）时，
+            # 回退换算会以摄像机中心当作舰队位置，可能点到错误的格子。
+            # 先换队重新对焦提高换算准确性；对焦失败也继续走回退换算：
+            # 点错后舰队移动会带动相机跟队解除漂移，未触发事件还有全图扫描兜底
+            if self.view.select(is_current_fleet=True).count == 0:
+                self._os_camera_recover_to_fleet()
+
             try:
                 grid = self.convert_radar_to_local(grid)
             except KeyError:
-                # 雷达问号越界到地图外（如舰队贴近边缘），该问号无法到达，丢弃并重新预测
-                logger.warning(f"[大世界-搜索] 雷达问号 {grid} 越界到地图外，跳过")
+                # 雷达问号越界到地图外（如舰队贴近边缘），该问号无法到达，丢弃并重新预测；
+                # 但若视野中连当前舰队都没有，说明摄像机漂移未跟随舰队（偶发游戏Bug），
+                # 先换队重新对焦再重试，避免把可见问号误判为越界
+                if self.view.select(is_current_fleet=True).count == 0:
+                    self._os_camera_recover_to_fleet()
+                else:
+                    logger.warning(f"[大世界-搜索] 雷达问号 {grid} 越界到地图外，跳过")
                 continue
 
             # ========== 移动前检查：是否为塞壬研究装置且功能未开启 ==========
@@ -1376,8 +1389,12 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
                 return True
 
+        # 连续 attempts 次都在雷达上看到问号却没清掉：舰队根本到不了
+        # （视频实测游戏提示"目标点超出移动范围"）。记下来——这种"看到了却点不到"
+        # 只能靠挪舰队解决，和行动力无关，上层必须为它挪一次。
+        self._question_unreachable = True
         logger.warning(
-            "[大世界-地图] 前往问号5次尝试失败, "
+            f"[大世界-地图] 前往问号{attempts}次尝试失败, "
             "可能是相邻双舰队机关, 已停止"
         )
         return False
@@ -1402,6 +1419,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         logger.hr("[大世界] 遍历舰队查找问号", level=2)
         primary = self.config.OpsiFleet_Fleet
         fleets = [primary] + [f for f in [1, 2, 3, 4] if f != primary]
+        # 每次进入都先清零：上一支舰队"看到问号却点不到"不代表这一支也点不到
+        self._question_unreachable = False
         for fleet in fleets:
             try:
                 self.fleet_set(fleet)
@@ -1523,6 +1542,10 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     _solved_fleet_mechanism = 0
     # 双舰队机关第一踩成功后钉住的第二踩舰队编号，None 表示没有待办的第二踩
     _fleet_mechanism_second_fleet = None
+    # 本轮是否有舰队"在雷达上看到问号却清不掉"（clear_question 三次尝试失败）。
+    # 这种东西只能靠挪舰队/整图重扫解决，与行动力、与海域是否安全无关，
+    # 看到就不能放跑。每轮开始清零，clear_question_any_fleet 进入时也清零。
+    _question_unreachable = False
 
     def run_strategic_search(self):
         """
@@ -2168,6 +2191,35 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                         )
                 time.sleep(0.5)
 
+        return False
+
+    def _os_camera_recover_to_fleet(self, fleet=None):
+        """摄像机未跟随当前舰队时（偶发游戏Bug），通过换队强制重新对焦。
+
+        游戏偶发摄像机停在别处不跟随当前舰队（自动搜索结束/事件处理后），
+        此时本地视野中找不到当前舰队，雷达坐标无法转换成可点击格子，
+        可见的事件会被误判为越界而跳过。切换到其他舰队再切回，利用换队
+        时的镜头移动重新对准当前舰队（fleet_set 内部已含相机稳定等待）。
+
+        Args:
+            fleet: 需要对准的舰队编号，默认当前舰队。
+
+        Returns:
+            bool: 是否重新对焦成功（视野中找到当前舰队）。
+        """
+        if fleet is None:
+            fleet = self.fleet_selector.get()
+        logger.warning(f"[大世界-相机] 摄像机未跟随当前舰队，切换舰队重新对焦: {fleet}")
+        other = 1 if fleet != 1 else 2
+        self.fleet_set(other)
+        self.fleet_set(fleet)
+        self.device.screenshot()
+        self.update_os()
+        self.view.predict()
+        if self.view.select(is_current_fleet=True).count == 1:
+            logger.info("[大世界-相机] 摄像机已重新对准当前舰队")
+            return True
+        logger.warning("[大世界-相机] 换队对焦后仍未找到当前舰队，视野检测可能异常")
         return False
 
     # 基于ShaddockNH3极致侵蚀一的个人修改
