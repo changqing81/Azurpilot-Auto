@@ -6,6 +6,7 @@
 主要组件：
     - RichFileHandler: 文件日志处理器（基于 Rich 格式化）。
     - RichRenderableHandler: 将日志渲染为可渲染对象传递给回调，用于 WebUI 实时展示。
+    - AsyncLogDispatcher: 把 WebUI 日志投递挪到独立线程，避免主线程被跨进程队列卡死。
     - RichTimedRotatingHandler: 按时间轮转的文件日志处理器，支持跨平台多进程。
     - HTMLConsole: 输出 HTML 格式的 Rich Console，用于 WebUI 渲染。
     - Highlighter: 自定义正则高亮器，高亮路径、URL、Python 布尔值/None 等。
@@ -31,6 +32,7 @@ import tarfile
 import threading
 import time
 import zipfile
+from collections import deque
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from typing import Callable, List
@@ -562,7 +564,93 @@ def _clean_orphan_logs(max_age_days=7):
             pass
 
 
+class AsyncLogDispatcher:
+    """把 WebUI 日志投递从主线程解耦（2026-10-14 主线程冻结事故的修复）。
+
+    WebUI 的日志通道是 ``multiprocessing.Manager`` 的队列代理，``q.put`` 是
+    同步跨进程调用且**没有超时**。Manager 侧响应变慢时，调用线程会被永久阻塞：
+    2026-10-14 事故中 worker 主线程卡在 ``q.put`` 上 3 分钟，期间零日志、
+    ``log/`` 与 ``config/`` 零文件写入、游戏停在主页，进程却仍然存活，
+    无异常、无错误现场，极难定位。
+
+    本类让主线程只做一次**纯内存入队**（不阻塞），真正的投递交给独立守护线程。
+    投递线程即使被 Manager 卡死，也只影响 WebUI 的实时显示，不会冻结任务主线程；
+    投递顺序与入队顺序一致，本地队列保证不丢日志。
+
+    注意：进程被强制终止（taskkill）时，本地队列里尚未投递的少量日志会丢失——
+    文件日志（``RichFileHandler``）仍由主线程同步写盘，持久记录不受影响。
+    """
+
+    #: 本地待投递队列上限。WebUI 长时间不可用时防止内存无界增长；
+    #: 达到上限后丢弃最旧的一条并计数（正常场景远达不到）。
+    DEFAULT_MAX_PENDING = 10000
+
+    def __init__(self, func, max_pending=None):
+        self._func = func
+        self._max_pending = max(
+            1,
+            int(self.DEFAULT_MAX_PENDING if max_pending is None else max_pending),
+        )
+        self._pending = deque()
+        self._lock = threading.Lock()
+        self._wake = threading.Event()
+        self._stop = threading.Event()
+        self._dropped = 0
+        self._thread = threading.Thread(
+            target=self._run, daemon=True, name='alas-log-dispatcher'
+        )
+        self._thread.start()
+
+    @property
+    def dropped(self):
+        """因本地队列达到上限而被丢弃的最旧日志条数。"""
+        return self._dropped
+
+    def submit(self, renderable):
+        """主线程调用：非阻塞入队，绝不因 WebUI 通道异常而卡住。"""
+        with self._lock:
+            if len(self._pending) >= self._max_pending:
+                self._pending.popleft()
+                self._dropped += 1
+            self._pending.append(renderable)
+        self._wake.set()
+
+    def stop(self, timeout=1.0):
+        """停止投递线程，仅用于重新配置日志通道。
+
+        若投递线程正卡在 ``q.put`` 上，join 会超时返回，该线程作为守护线程
+        残留到进程退出，不影响功能。
+        """
+        self._stop.set()
+        self._wake.set()
+        if self._thread.is_alive():
+            self._thread.join(timeout=timeout)
+
+    def _run(self):
+        while not self._stop.is_set():
+            with self._lock:
+                renderable = self._pending.popleft() if self._pending else None
+            if renderable is None:
+                self._wake.wait(timeout=1)
+                self._wake.clear()
+                continue
+            try:
+                self._func(renderable)
+            except Exception:
+                # 投递失败只影响 WebUI 显示。此处不能向上抛（守护线程会退出，
+                # 后续日志全丢），也不能记日志（会递归回到本处理器）。
+                pass
+
+
+#: 进程内唯一的日志投递器，供 set_func_logger 复用，避免重复起线程。
+_log_dispatcher = None
+
+
 def set_func_logger(func):
+    global _log_dispatcher
+    previous = _log_dispatcher
+    _log_dispatcher = AsyncLogDispatcher(func)
+
     console = HTMLConsole(
         force_terminal=False,
         force_interactive=False,
@@ -574,7 +662,7 @@ def set_func_logger(func):
         theme=WEB_THEME
     )
     hdlr = RichRenderableHandler(
-        func=func,
+        func=_log_dispatcher.submit,
         console=console,
         show_path=False,
         show_time=False,
@@ -588,6 +676,9 @@ def set_func_logger(func):
     logger.handlers = [h for h in logger.handlers if not isinstance(
         h, RichRenderableHandler)]
     logger.addHandler(hdlr)
+    # 新处理器挂上后再停旧的，避免切换窗口内的日志落进已停止的投递器
+    if previous is not None:
+        previous.stop()
 
 
 def _get_renderables(
