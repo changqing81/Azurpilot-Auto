@@ -133,15 +133,15 @@
     "menu": "collapse",
     "page": "setting",
     "tasks": [
-      "FleetInfo"
+      "FleetInfo",
+      "FleetScan",
+      "MindCalculatorScan"
     ]
   },
   "Tool": {
     "menu": "collapse",
     "page": "tool",
     "tasks": [
-      "FleetScan",
-      "MindCalculatorScan",
       "Daemon",
       "OpsiDaemon",
       "EventStory",

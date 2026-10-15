@@ -468,6 +468,9 @@ FleetManagement:
   tasks:
     FleetInfo:
       - FleetInfo
+    FleetScan: []
+    MindCalculatorScan:
+      - MindCalculator
 
 # ==================== Tool ====================
 
@@ -475,9 +478,6 @@ Tool:
   menu: collapse
   page: tool
   tasks:
-    FleetScan: []
-    MindCalculatorScan:
-      - MindCalculator
     Daemon:
       - Daemon
     OpsiDaemon:
