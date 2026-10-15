@@ -120,6 +120,11 @@ class TaskConfigMixin(WebUIMixinBase):
                 task_btn_list = []
                 for task in task_data.get("tasks", []):
                     onclick = _onclick
+                    if menu == "FleetManagement":
+                        onclick = {
+                            "FleetScan": self.fleet_scan_page,
+                            "FleetInfo": self.fleet_info_page,
+                        }.get(task, _onclick)
                     task_btn_list.append(
                         put_buttons(
                             [

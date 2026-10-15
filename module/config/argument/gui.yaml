@@ -82,6 +82,21 @@ TaskConfig:
   SearchNoResult:
   SearchResultCount:
 
+FleetManagement:
+  StartScan:
+  Scanning:
+  ScanStarted:
+  ScanAlreadyRunning:
+  ScanStartFailed:
+  LastScan:
+  NoResult:
+  Main:
+  Vanguard:
+  Fleet:
+  Ships:
+  SurfaceFleet:
+  UnderwaterFleet:
+
 MeowfficerScore:
   Title:
   Refresh:

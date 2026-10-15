@@ -50,6 +50,7 @@ from module.webui.app_developer_settings import DeveloperSettingsMixin
 from module.webui.app_developer_tools import DeveloperToolsMixin
 from module.webui.app_developer_update import DeveloperUpdateMixin
 from module.webui.app_event_tools import EventToolsMixin
+from module.webui.app_fleet_management import FleetManagementMixin
 from module.webui.app_helpers import (
     WEBUI_AUTO_PASSWORD_FILE,
     build_muted_notice,
@@ -425,6 +426,7 @@ def _build_alas_gui_class():
         CommissionIncomeStatisticsMixin,
         ResourceDeltaStatisticsMixin,
         MeowfficerScoreMixin,
+        FleetManagementMixin,
         TaskConfigMixin,
         EventToolsMixin,
         OverviewMixin,
