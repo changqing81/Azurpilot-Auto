@@ -2238,8 +2238,8 @@
       "month": "本月"
     },
     "CommissionNotifyRewardCube": {
-      "name": "Commission.CommissionNotifyRewardCube.name",
-      "help": "Commission.CommissionNotifyRewardCube.help"
+      "name": "委託成功取得魔方推送",
+      "help": "開啟後，獲得魔方獎勵時單獨推送通知；關閉則不推送魔方（鑽石推送不受影響）"
     }
   },
   "Tactical": {

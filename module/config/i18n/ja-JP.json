@@ -2238,8 +2238,8 @@
       "month": "今月"
     },
     "CommissionNotifyRewardCube": {
-      "name": "Commission.CommissionNotifyRewardCube.name",
-      "help": "Commission.CommissionNotifyRewardCube.help"
+      "name": "委託成功時のキューブ獲得通知",
+      "help": "有効にすると、キューブ報酬を獲得した際に個別に通知します。オフの場合はキューブを通知しません（ダイヤの通知には影響しません）。"
     }
   },
   "Tactical": {
