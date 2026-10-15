@@ -10,6 +10,7 @@
 """
 
 from module.config.config import TaskEnd
+from module.config.time_source import now as current_time
 from module.logger import logger
 from module.os.tasks.scheduling import OpsiScheduling
 from module.os_handler.action_point import ActionPointLimit
@@ -26,6 +27,11 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
     CONFIG_PATH_PREVENT_AP_OVERFLOW_UPPER = 'OpsiPreventActionPointOverflow.OpsiPreventActionPointOverflow.ActionPointUpperbound'
     CONFIG_PATH_PREVENT_AP_OVERFLOW_LOWER = 'OpsiPreventActionPointOverflow.OpsiPreventActionPointOverflow.ActionPointLowerbound'
     TASK_NAME_PREVENT_AP_OVERFLOW = 'OpsiPreventActionPointOverflow'
+
+    # 防溢出读数采纳账本记录的最大年龄。行动力每 10 分钟自然回复 1 点，
+    # 30 分钟最多漂移 3 点（换算排程误差 ≤30 分钟）可以接受；更旧的记录
+    # 回退现场读弹窗，避免拿过期读数排程。
+    PREVENT_AP_OVERFLOW_LEDGER_MAX_AGE_SECONDS = ACTION_POINT_RECOVER_SECONDS * 3
 
     def is_prevent_action_point_overflow_enabled(self):
         """判断防止行动力溢出任务是否启用。"""
@@ -69,15 +75,91 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
             task = self.TASK_NAME_SCHEDULING
         return task
 
-    def _get_current_action_point_for_overflow(self):
-        """读取当前真实行动力，仅供防止行动力溢出功能使用。"""
+    def _read_action_point_from_ledger_for_overflow(self):
+        """从行动力账本取防止行动力溢出用的行动力读数。
+
+        账本是记录器，只读最近一次 OCR 真值、不做自然回复推演；
+        账本关闭 / 无记录 / 记录过期 / 时间戳缺失时返回 None。
+
+        Returns:
+            int | None: 当前行动力；None 表示账本读数不可用。
+        """
+        if not self._ap_ledger_enabled():
+            return None
+        try:
+            ledger = self._get_ap_ledger()
+        except Exception:
+            logger.debug('[大世界-防止行动力溢出] 读取行动力账本失败', exc_info=True)
+            return None
+        if ledger is None or ledger.current is None:
+            return None
+        recorded_at = ledger.recorded_at
+        if recorded_at is None:
+            logger.info('[大世界-防止行动力溢出] 账本记录缺少时间戳，按过期处理，改现场读弹窗')
+            return None
+        try:
+            age_seconds = (current_time() - recorded_at).total_seconds()
+        except Exception:
+            logger.debug('[大世界-防止行动力溢出] 账本记录时间戳解析失败，按过期处理', exc_info=True)
+            return None
+        if age_seconds > self.PREVENT_AP_OVERFLOW_LEDGER_MAX_AGE_SECONDS:
+            logger.info(
+                f'[大世界-防止行动力溢出] 账本记录已过期（{age_seconds / 60:.0f} 分钟前），改现场读弹窗'
+            )
+            return None
+
+        current = int(ledger.current)
+        # 与顶栏读数路径（ap_observe_from_map_bar）同一口径同步本轮实例属性，
+        # 供日志与后续消费方使用
+        self._action_point_current = current
+        total_with_box = ledger.total_with_box
+        if total_with_box is not None:
+            self._action_point_total_with_box = int(total_with_box)
+            self._action_point_total = (
+                int(total_with_box)
+                if getattr(self.config, 'OS_ACTION_POINT_BOX_USE', False)
+                else current
+            )
+        else:
+            self._action_point_total = current
+        logger.info(
+            f'[大世界-防止行动力溢出] 防止行动力溢出检查：当前行动力={current}, '
+            f'总行动力={self._action_point_total}（账本记录，{age_seconds / 60:.0f} 分钟前）'
+        )
+        return current
+
+    def _read_action_point_live_for_overflow(self):
+        """现场读行动力弹窗取防止行动力溢出用的读数；读不到有效值返回 None。"""
         self.action_point_enter()
-        self.action_point_safe_get()
+        if not self.action_point_safe_get():
+            # 弹窗没出现：说明当前画面不含行动力数据。仍走一次 quit 兜底
+            # （极端情况下弹窗其实开着但没识别到），但绝不拿未读到的值排程。
+            self.action_point_quit()
+            logger.warning('[大世界-防止行动力溢出] 行动力弹窗未出现，本轮读数作废')
+            return None
         current = int(getattr(self, '_action_point_current', 0) or 0)
         total = int(getattr(self, '_action_point_total', 0) or 0)
         self.action_point_quit()
         logger.info(f'[大世界-防止行动力溢出] 防止行动力溢出检查：当前行动力={current}, 总行动力={total}')
         return current
+
+    def _get_current_action_point_for_overflow(self):
+        """读取当前真实行动力，仅供防止行动力溢出功能使用。
+
+        读取顺序（2026-10-15 事故后调整）：
+        1. 行动力账本最近的记录（记录足够新时）——防溢出检查常在任务收尾
+           运行，此时游戏可能已被任务切换带离大世界，现场弹窗读不到；
+           账本恰好新鲜（任务运行中持续记录顶栏真值），且不会误读整屏；
+        2. 账本不可用/过期时现场读弹窗（弹窗没出现则本轮作废）；
+        3. 都读不到时返回 None，调用方保持原排程，绝不用垃圾值排程。
+
+        Returns:
+            int | None: 当前行动力；None 表示未取得有效读数。
+        """
+        current = self._read_action_point_from_ledger_for_overflow()
+        if current is not None:
+            return current
+        return self._read_action_point_live_for_overflow()
 
     def update_prevent_action_point_overflow_schedule(self, current_ap=None):
         """
@@ -87,10 +169,16 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
         决定，避免把用户主动关闭的任务重新启用（2026-10-14 线上自激问题）。
 
         Args:
-            current_ap (int | None): 当前真实行动力。为 None 时现场 OCR。
+            current_ap (int | None): 当前真实行动力。为 None 时优先读行动力账本、
+                再现场读弹窗；仍读不到时保持原排程不写入。
         """
         if current_ap is None:
             current_ap = self._get_current_action_point_for_overflow()
+        if current_ap is None:
+            # 读数失败时保持原排程：2026-10-15 事故中弹窗超时读出的 0/10
+            # 被用来排程，把防溢出任务推迟到 31 小时后，保护形同虚设。
+            logger.warning('[大世界-防止行动力溢出] 未取得有效行动力读数，保持原排程，不更新下次运行时间')
+            return
         try:
             current_ap = int(current_ap)
         except (TypeError, ValueError):
@@ -181,6 +269,10 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
         started = False
         while True:
             current_ap = self._get_current_action_point_for_overflow()
+            if current_ap is None:
+                logger.warning('[大世界-防止行动力溢出] 未取得有效行动力读数，延迟到服务器刷新后重试')
+                self.config.task_delay(server_update=True)
+                self.config.task_stop()
             if not started:
                 if current_ap < upperbound:
                     logger.info(f'[大世界-防止行动力溢出] 当前行动力未达到上限 ({current_ap} < {upperbound})，更新下次运行时间')
@@ -215,8 +307,11 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
                     )
                     raise
                 try:
-                    current_ap = self._get_current_action_point_for_overflow()
+                    refreshed = self._get_current_action_point_for_overflow()
                 except Exception:
+                    refreshed = None
                     logger.debug('[大世界-防止行动力溢出] 防止行动力溢出任务结束后刷新当前行动力失败，使用运行前数值', exc_info=True)
+                if refreshed is not None:
+                    current_ap = refreshed
                 self.update_prevent_action_point_overflow_schedule(current_ap=current_ap)
                 raise
