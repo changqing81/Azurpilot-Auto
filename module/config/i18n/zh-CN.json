@@ -33,8 +33,8 @@
       "help": ""
     },
     "FleetManagement": {
-      "name": "Menu.FleetManagement.name",
-      "help": "Menu.FleetManagement.help"
+      "name": "舰队管理",
+      "help": ""
     },
     "Tool": {
       "name": "工具",
@@ -371,16 +371,16 @@
       "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先采购本周珍珠，再售卖已有珍珠。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错."
     },
     "FleetInfo": {
-      "name": "Task.FleetInfo.name",
-      "help": "Task.FleetInfo.help"
+      "name": "舰队信息",
+      "help": "查看最近一次舰队扫描结果"
     },
     "FleetScan": {
-      "name": "Task.FleetScan.name",
-      "help": "Task.FleetScan.help"
+      "name": "舰队扫描",
+      "help": "扫描当前编入舰队的舰娘信息"
     },
     "MindCalculatorScan": {
-      "name": "Task.MindCalculatorScan.name",
-      "help": "Task.MindCalculatorScan.help"
+      "name": "心智单元船坞扫描",
+      "help": "扫描国服 1280×720 船坞，结果在心智单元计算器中核对。完成前保留旧数据；会重置船坞筛选。"
     },
     "Daemon": {
       "name": "半自动点击",
@@ -6318,8 +6318,8 @@
   },
   "MindCalculator": {
     "_info": {
-      "name": "MindCalculator._info.name",
-      "help": "MindCalculator._info.help"
+      "name": "心智单元计算器",
+      "help": "统计升至 120 级的心智单元Ⅰ与物资。"
     },
     "MinLevel": {
       "name": "最低扫描等级",
@@ -6330,22 +6330,26 @@
       "help": "包含边界。仅录入此等级及以下的舰船。"
     },
     "Result": {
-      "name": "MindCalculator.Result.name",
-      "help": "MindCalculator.Result.help"
+      "name": "舰船扫描结果",
+      "help": "按实例保存舰船、等级与核对状态。"
+    },
+    "FleetTechRecord": {
+      "name": "舰队科技记录",
+      "help": "按实例保存累计扫描证据、人工校正及阵营科技等级。"
     }
   },
   "FleetInfo": {
     "_info": {
-      "name": "FleetInfo._info.name",
-      "help": "FleetInfo._info.help"
+      "name": "舰队信息",
+      "help": "保存舰队扫描结果；已有可靠读数可被动缩小已校准心情的误差，不追加扫描或等待。"
     },
     "Result": {
-      "name": "FleetInfo.Result.name",
-      "help": "FleetInfo.Result.help"
+      "name": "扫描结果",
+      "help": "按舰种和舰队编号保存的舰娘信息"
     },
     "Record": {
-      "name": "FleetInfo.Record.name",
-      "help": "FleetInfo.Record.help"
+      "name": "扫描时间",
+      "help": "最近一次完成舰队扫描的时间"
     }
   },
   "Daemon": {
@@ -6684,19 +6688,19 @@
       "SearchResultCount": "共 {count} 项结果"
     },
     "FleetManagement": {
-      "StartScan": "Gui.FleetManagement.StartScan",
-      "Scanning": "Gui.FleetManagement.Scanning",
-      "ScanStarted": "Gui.FleetManagement.ScanStarted",
-      "ScanAlreadyRunning": "Gui.FleetManagement.ScanAlreadyRunning",
-      "ScanStartFailed": "Gui.FleetManagement.ScanStartFailed",
-      "LastScan": "Gui.FleetManagement.LastScan",
-      "NoResult": "Gui.FleetManagement.NoResult",
-      "Main": "Gui.FleetManagement.Main",
-      "Vanguard": "Gui.FleetManagement.Vanguard",
-      "Fleet": "Gui.FleetManagement.Fleet",
-      "Ships": "Gui.FleetManagement.Ships",
-      "SurfaceFleet": "Gui.FleetManagement.SurfaceFleet",
-      "UnderwaterFleet": "Gui.FleetManagement.UnderwaterFleet"
+      "StartScan": "开始扫描",
+      "Scanning": "扫描中",
+      "ScanStarted": "舰队扫描已启动",
+      "ScanAlreadyRunning": "当前实例正在运行任务，无法启动舰队扫描",
+      "ScanStartFailed": "舰队扫描启动失败",
+      "LastScan": "最近扫描",
+      "NoResult": "尚未保存舰队扫描结果",
+      "Main": "后排主力",
+      "Vanguard": "前排先锋",
+      "Fleet": "舰队",
+      "Ships": "舰娘",
+      "SurfaceFleet": "水上舰队",
+      "UnderwaterFleet": "水下舰队"
     },
     "MeowfficerScore": {
       "Title": "指挥喵评分报告",

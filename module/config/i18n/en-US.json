@@ -33,8 +33,8 @@
       "help": ""
     },
     "FleetManagement": {
-      "name": "Menu.FleetManagement.name",
-      "help": "Menu.FleetManagement.help"
+      "name": "Fleet Management",
+      "help": ""
     },
     "Tool": {
       "name": "Tools",
@@ -111,8 +111,8 @@
       "help": ""
     },
     "CoalitionScuttle": {
-      "name": "Task.CoalitionScuttle.name",
-      "help": "Task.CoalitionScuttle.help"
+      "name": "Coalition Scuttle",
+      "help": "Farm affinity by having ships sunk in Coalition events. Recommend sortie with multiple fleets; the first fleet sinks. Refer to tutorials for details."
     },
     "MaritimeEscort": {
       "name": "Trade Convoy Plus",
@@ -371,16 +371,16 @@
       "help": "Only supports minitouch. Process pearls every Tuesday at 01:00."
     },
     "FleetInfo": {
-      "name": "Task.FleetInfo.name",
-      "help": "Task.FleetInfo.help"
+      "name": "Fleet Information",
+      "help": "View the latest fleet scan result"
     },
     "FleetScan": {
-      "name": "Task.FleetScan.name",
-      "help": "Task.FleetScan.help"
+      "name": "Fleet Scan",
+      "help": "Scan ships assigned to fleets"
     },
     "MindCalculatorScan": {
-      "name": "Task.MindCalculatorScan.name",
-      "help": "Task.MindCalculatorScan.help"
+      "name": "Cognitive chip dock scan",
+      "help": "Scan a CN dock at 1280×720 and review results in the cognitive chip calculator. Keeps old data until completion; resets dock filters."
     },
     "Daemon": {
       "name": "Semi-Auto Click",
@@ -1686,8 +1686,8 @@
       "use_open_ocean_support": "Use Open Ocean Support"
     },
     "AdvancedConfig": {
-      "name": "Submarine.AdvancedConfig.name",
-      "help": "Submarine.AdvancedConfig.help"
+      "name": "Advanced config",
+      "help": "The advanced config takes effect only when the Submarine Sortie Plan is set to \"Advanced\". The configuration must strictly follow the YAML format.\n\n[Basic parameters]\n- ammo: Total ammunition of the submarine.\n- support: Number of Open Ocean Support uses available.\n- range: Hunting range, composed of 7 strings of length 7. \"N\" means covered; \"O\" means not covered; \"H\" is the submarine position, which only appears at row 4 column 4 (center).\n\n[Rules]\n- Battle index: battle_0 (all battles), battle_N (the Nth battle, 1-based), battle_-N (the Nth from the end). If a battle matches multiple rules, the sortie order is \"summon > hunt > don't sortie\".\n- type: Sortie type. hunt, call.\n- condition: Trigger condition (sortie unconditionally if omitted).\n    ammo: Ammo condition expression, e.g. \">2\", \">=2\", \"=3\". Supported operators: \">\", \">=\", \"<\", \"<=\", \"=\", \"!=\".\n    support: Open Ocean Support count condition expression, e.g. \">2\", \">=2\", \"=3\". Supported operators: \">\", \">=\", \"<\", \"<=\", \"=\", \"!=\".\n    enemy: Target enemy fleet type list, expressed as scale + class. E.g. \"3M\" means a large main fleet. Wildcard \"*\" is supported, e.g. \"3*\" means all large fleets, \"*T\" means all transports.\n    - Scale: 1: small fleet; 2: medium fleet; 3: large fleet; 0: unknown scale.\n    - Class: L: scout fleet; M: main fleet; C: aircraft carrier fleet; T: transport; E: unknown type.\n    in_range (true/false): Whether the submarine is within hunting range. Summoning outside the hunting range consumes Open Ocean Support uses.\n- move: Whether to spend oil to move the submarine to the cheapest fuel position covering the target when out of range (true/false). If Open Ocean Support uses remain, it won't move and will use Open Ocean Support instead."
     }
   },
   "Emotion": {
@@ -2119,12 +2119,12 @@
   },
   "CoalitionScuttle": {
     "_info": {
-      "name": "CoalitionScuttle._info.name",
-      "help": "CoalitionScuttle._info.help"
+      "name": "Coalition scuttle",
+      "help": "Coalition event scuttle settings. Select the position of ships to be sunk."
     },
     "Sacrifice": {
-      "name": "CoalitionScuttle.Sacrifice.name",
-      "help": "CoalitionScuttle.Sacrifice.help",
+      "name": "Sacrificial ship position",
+      "help": "Select the position of ships to be sunk: Vanguard, Flagship, or Vanguard + Flagship",
       "vanguard": "vanguard",
       "flagship": "flagship",
       "vanguard_flagship": "vanguard_flagship"
@@ -3871,22 +3871,22 @@
       "help": "The priority order of tasks for yellow coin replenishment when they are insufficient. Separated by >."
     },
     "MonthEndActionPointCleanupEnable": {
-      "name": "OpsiScheduling.MonthEndActionPointCleanupEnable.name",
-      "help": "OpsiScheduling.MonthEndActionPointCleanupEnable.help",
+      "name": "Enable month-end action point cleanup",
+      "help": "Whether to enable the month-end Action Point cleanup. When enabled, once the days remaining until the Operation Siren reset are at or below the \"Month-end Action Point Cleanup Days\" value, the month-end cleanup mode starts to consume Action Points.",
       "True": "True",
       "False": "False"
     },
     "MonthEndActionPointCleanupDays": {
-      "name": "OpsiScheduling.MonthEndActionPointCleanupDays.name",
-      "help": "OpsiScheduling.MonthEndActionPointCleanupDays.help"
+      "name": "Month-end action point cleanup days",
+      "help": "Start the month-end Action Point cleanup mode when the days remaining until the Operation Siren reset are at or below this value. 0 disables it. When enabled, the cleanup loop repeatedly runs Meowfficer Farming, shop purchases, Obscured Zones and Abyssal Zones to consume Action Points, and summons the Siren Stronghold on the first run."
     },
     "MonthEndActionPointPreserve": {
-      "name": "OpsiScheduling.MonthEndActionPointPreserve.name",
-      "help": "OpsiScheduling.MonthEndActionPointPreserve.help"
+      "name": "Month-end action point preserve",
+      "help": "Action Point preserve value in month-end cleanup mode. If the cross-month daily task is enabled, at least 200 Action Points are reserved. When this value is larger than the minimum reserve, this value is used."
     },
     "MonthEndShopPurchase": {
-      "name": "OpsiScheduling.MonthEndShopPurchase.name",
-      "help": "OpsiScheduling.MonthEndShopPurchase.help",
+      "name": "Month-end shop purchase",
+      "help": "Whether to buy from the Operation Siren shop during month-end Action Point cleanup. When disabled, the cleanup loop skips the shop purchase step.",
       "True": "True",
       "False": "False"
     },
@@ -6318,8 +6318,8 @@
   },
   "MindCalculator": {
     "_info": {
-      "name": "MindCalculator._info.name",
-      "help": "MindCalculator._info.help"
+      "name": "Cognitive chip calculator",
+      "help": "Calculate Cognitive Chips I and coins to reach level 120."
     },
     "MinLevel": {
       "name": "Minimum scan level",
@@ -6330,22 +6330,26 @@
       "help": "Inclusive. Import ships at or below this level."
     },
     "Result": {
-      "name": "MindCalculator.Result.name",
-      "help": "MindCalculator.Result.help"
+      "name": "Ship scan results",
+      "help": "Stores ships, levels and review states per instance."
+    },
+    "FleetTechRecord": {
+      "name": "Fleet technology records",
+      "help": "Stores cumulative scan evidence, manual overrides and faction technology levels per instance."
     }
   },
   "FleetInfo": {
     "_info": {
-      "name": "FleetInfo._info.name",
-      "help": "FleetInfo._info.help"
+      "name": "Fleet information",
+      "help": "Stores fleet scan results. Existing reliable readings can passively reduce uncertainty in calibrated morale without additional scans or waits."
     },
     "Result": {
-      "name": "FleetInfo.Result.name",
-      "help": "FleetInfo.Result.help"
+      "name": "Scan result",
+      "help": "Ships grouped by category and fleet number"
     },
     "Record": {
-      "name": "FleetInfo.Record.name",
-      "help": "FleetInfo.Record.help"
+      "name": "Scan time",
+      "help": "Time when the latest fleet scan completed"
     }
   },
   "Daemon": {
@@ -6684,19 +6688,19 @@
       "SearchResultCount": "{count} results"
     },
     "FleetManagement": {
-      "StartScan": "Gui.FleetManagement.StartScan",
-      "Scanning": "Gui.FleetManagement.Scanning",
-      "ScanStarted": "Gui.FleetManagement.ScanStarted",
-      "ScanAlreadyRunning": "Gui.FleetManagement.ScanAlreadyRunning",
-      "ScanStartFailed": "Gui.FleetManagement.ScanStartFailed",
-      "LastScan": "Gui.FleetManagement.LastScan",
-      "NoResult": "Gui.FleetManagement.NoResult",
-      "Main": "Gui.FleetManagement.Main",
-      "Vanguard": "Gui.FleetManagement.Vanguard",
-      "Fleet": "Gui.FleetManagement.Fleet",
-      "Ships": "Gui.FleetManagement.Ships",
-      "SurfaceFleet": "Gui.FleetManagement.SurfaceFleet",
-      "UnderwaterFleet": "Gui.FleetManagement.UnderwaterFleet"
+      "StartScan": "Start scan",
+      "Scanning": "Scanning",
+      "ScanStarted": "Fleet scan started",
+      "ScanAlreadyRunning": "This instance is already running a task and cannot start a fleet scan",
+      "ScanStartFailed": "Failed to start fleet scan",
+      "LastScan": "Latest scan",
+      "NoResult": "No fleet scan result has been saved",
+      "Main": "Main fleet",
+      "Vanguard": "Vanguard fleet",
+      "Fleet": "Fleet",
+      "Ships": "Ships",
+      "SurfaceFleet": "Surface Fleets",
+      "UnderwaterFleet": "Underwater Fleets"
     },
     "MeowfficerScore": {
       "Title": "Meowfficer Score Report",

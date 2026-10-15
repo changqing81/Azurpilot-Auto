@@ -33,8 +33,8 @@
       "help": ""
     },
     "FleetManagement": {
-      "name": "Menu.FleetManagement.name",
-      "help": "Menu.FleetManagement.help"
+      "name": "艦隊管理",
+      "help": ""
     },
     "Tool": {
       "name": "工具",
@@ -111,8 +111,8 @@
       "help": ""
     },
     "CoalitionScuttle": {
-      "name": "Task.CoalitionScuttle.name",
-      "help": "Task.CoalitionScuttle.help"
+      "name": "聯盟沉船",
+      "help": "聯盟活動中艦船被擊沉後刷取好感度，建議多隊出擊，第一隊就沉，建議看相關教學"
     },
     "MaritimeEscort": {
       "name": "商路護航Plus",
@@ -371,16 +371,16 @@
       "help": "僅支援minitouch。每週二 01:00 自動處理珍珠：先採購本週珍珠，再售賣已有珍珠。金幣一定要夠購買200x220個這是最低要求能一次買光本週珍珠, 否則可能會報錯."
     },
     "FleetInfo": {
-      "name": "Task.FleetInfo.name",
-      "help": "Task.FleetInfo.help"
+      "name": "艦隊資訊",
+      "help": "查看最近一次艦隊掃描結果"
     },
     "FleetScan": {
-      "name": "Task.FleetScan.name",
-      "help": "Task.FleetScan.help"
+      "name": "艦隊掃描",
+      "help": "掃描目前編入艦隊的艦船資訊"
     },
     "MindCalculatorScan": {
-      "name": "Task.MindCalculatorScan.name",
-      "help": "Task.MindCalculatorScan.help"
+      "name": "心智單元船塢掃描",
+      "help": "掃描陸服 1280×720 船塢，結果在心智單元計算器中核對。完成前保留舊資料；會重設船塢篩選。"
     },
     "Daemon": {
       "name": "半自動點選",
@@ -1645,8 +1645,8 @@
       "fleet1_standby_fleet2_all": "一隊待機二隊全清"
     },
     "SkipPreparation": {
-      "name": "Fleet.SkipPreparation.name",
-      "help": "Fleet.SkipPreparation.help"
+      "name": "跳過編隊檢測",
+      "help": "開啟後將跳過編隊介面的艦隊選擇步驟，直接使用遊戲內當前預選的艦隊出擊\n適用於艦隊槽位未完全解鎖的帳號，避免下拉選單檢測卡死\n開啟前請確保遊戲內已手動選好艦隊1和艦隊2"
     }
   },
   "Submarine": {
@@ -1686,8 +1686,8 @@
       "use_open_ocean_support": "使用 遠洋支援"
     },
     "AdvancedConfig": {
-      "name": "Submarine.AdvancedConfig.name",
-      "help": "Submarine.AdvancedConfig.help"
+      "name": "進階設定",
+      "help": "進階設定當且僅當潛艇出擊方案選擇「高級」時生效。設定嚴格遵循 YAML 格式。\n\n【基礎參數】\n- ammo: 潛艇總彈藥數。\n- support: 遠洋支援可用次數。\n- range: 狩獵範圍，由 7 個長度為 7 的字串組成。「N」代表覆蓋範圍；「O」代表未覆蓋範圍；「H」代表潛艇位置，只出現在第4行第4列（中心位置）。\n\n【規則 rules】\n- 戰鬥索引: battle_0（所有戰鬥）、battle_N（第 N 場戰鬥，1 起始）、battle_-N（倒數第 N 場戰鬥）。某場戰鬥如匹配多條規則則會按照「召喚 > 狩獵 > 不出擊」的方式出擊。\n- type: 出擊類型。hunt（狩獵）、call（召喚）。\n- condition: 觸發條件（省略則無條件出擊）。\n    ammo: 彈藥條件表達式，如 「>2」、「>=2」、「=3」。支援的運算子：「>」、「>=」、「<」、「<=」、「=」、「!=」。\n    support: 遠洋支援次數條件表達式，如 「>2」、「>=2」、「=3」。支援的運算子：「>」、「>=」、「<」、「<=」、「=」、「!=」。\n    enemy: 目標敵艦類型列表，採用規模+艦種的方式表示。如 「3M」代表大型主力艦隊。支援萬用字元 「*」，如 「3*」代表所有大型艦隊，「*T」代表所有運輸船。\n    - 規模：1：小型艦隊；2：中型艦隊；3：大型艦隊；0：未知規模。\n    - 艦種：L：偵察艦隊；M：主力艦隊；C：航空艦隊；T：運輸船；E：未知類型。\n    in_range（true/false）: 是否在狩獵範圍內，如不在狩獵範圍內召喚潛艇會消耗遠洋支援次數。\n- move: 範圍不足時是否消耗石油移動潛艇到能覆蓋目標的油耗最小處（true/false），如果遠洋支援次數有剩餘則不會移動而是使用遠洋支援。"
     }
   },
   "Emotion": {
@@ -2119,12 +2119,12 @@
   },
   "CoalitionScuttle": {
     "_info": {
-      "name": "CoalitionScuttle._info.name",
-      "help": "CoalitionScuttle._info.help"
+      "name": "聯盟沉船",
+      "help": "聯盟活動沉船設定，選擇被擊沉艦船位置"
     },
     "Sacrifice": {
-      "name": "CoalitionScuttle.Sacrifice.name",
-      "help": "CoalitionScuttle.Sacrifice.help",
+      "name": "犧牲船位置",
+      "help": "選擇被擊沉的艦船位置，前排/旗艦/前排+旗艦",
       "vanguard": "vanguard",
       "flagship": "flagship",
       "vanguard_flagship": "vanguard_flagship"
@@ -3871,22 +3871,22 @@
       "help": "黃幣不足時，執行補充黃幣任務的優先級順序。使用 > 分隔。"
     },
     "MonthEndActionPointCleanupEnable": {
-      "name": "OpsiScheduling.MonthEndActionPointCleanupEnable.name",
-      "help": "OpsiScheduling.MonthEndActionPointCleanupEnable.help",
+      "name": "啟用月末清理行動力",
+      "help": "是否啟用月末清理行動力功能。開啟後，當距大世界重置剩餘天數小於等於「月末清理行動力天數」時，啟動月末清理模式消耗行動力。",
       "True": "True",
       "False": "False"
     },
     "MonthEndActionPointCleanupDays": {
-      "name": "OpsiScheduling.MonthEndActionPointCleanupDays.name",
-      "help": "OpsiScheduling.MonthEndActionPointCleanupDays.help"
+      "name": "月末清理行動力天數",
+      "help": "距大世界重置剩餘天數小於等於此值時，啟動月末清理行動力模式。0 表示停用。啟用後會循環執行短貓相接、商店購買、隱秘海域、深淵坐標消耗行動力，首次運行時還會調出塞壬要塞。"
     },
     "MonthEndActionPointPreserve": {
-      "name": "OpsiScheduling.MonthEndActionPointPreserve.name",
-      "help": "OpsiScheduling.MonthEndActionPointPreserve.help"
+      "name": "月末清理行動力保留",
+      "help": "月末清理行動力模式下的行動力保留值。如果啟用跨月每日任務，最低預留 200 行動力。當此值大於最低預留時使用此值。"
     },
     "MonthEndShopPurchase": {
-      "name": "OpsiScheduling.MonthEndShopPurchase.name",
-      "help": "OpsiScheduling.MonthEndShopPurchase.help",
+      "name": "月末清理商店購買",
+      "help": "月末清理行動力時是否執行大世界商店購買。關閉後月末清理循環將跳過商店購買步驟。",
       "True": "True",
       "False": "False"
     },
@@ -6318,8 +6318,8 @@
   },
   "MindCalculator": {
     "_info": {
-      "name": "MindCalculator._info.name",
-      "help": "MindCalculator._info.help"
+      "name": "心智單元計算器",
+      "help": "統計升至 120 級的心智單元Ⅰ與物資。"
     },
     "MinLevel": {
       "name": "最低掃描等級",
@@ -6330,22 +6330,26 @@
       "help": "包含邊界。僅匯入此等級及以下的艦船。"
     },
     "Result": {
-      "name": "MindCalculator.Result.name",
-      "help": "MindCalculator.Result.help"
+      "name": "艦船掃描結果",
+      "help": "依實例儲存艦船、等級與核對狀態。"
+    },
+    "FleetTechRecord": {
+      "name": "艦隊科技紀錄",
+      "help": "依實例儲存累計掃描證據、人工校正及陣營科技等級。"
     }
   },
   "FleetInfo": {
     "_info": {
-      "name": "FleetInfo._info.name",
-      "help": "FleetInfo._info.help"
+      "name": "艦隊資訊",
+      "help": "儲存艦隊掃描結果；既有可靠讀值可被動縮小已校準心情的誤差，不追加掃描或等待。"
     },
     "Result": {
-      "name": "FleetInfo.Result.name",
-      "help": "FleetInfo.Result.help"
+      "name": "掃描結果",
+      "help": "依艦種與艦隊編號儲存的艦船資訊"
     },
     "Record": {
-      "name": "FleetInfo.Record.name",
-      "help": "FleetInfo.Record.help"
+      "name": "掃描時間",
+      "help": "最近一次完成艦隊掃描的時間"
     }
   },
   "Daemon": {
@@ -6684,19 +6688,19 @@
       "SearchResultCount": "共 {count} 項結果"
     },
     "FleetManagement": {
-      "StartScan": "Gui.FleetManagement.StartScan",
-      "Scanning": "Gui.FleetManagement.Scanning",
-      "ScanStarted": "Gui.FleetManagement.ScanStarted",
-      "ScanAlreadyRunning": "Gui.FleetManagement.ScanAlreadyRunning",
-      "ScanStartFailed": "Gui.FleetManagement.ScanStartFailed",
-      "LastScan": "Gui.FleetManagement.LastScan",
-      "NoResult": "Gui.FleetManagement.NoResult",
-      "Main": "Gui.FleetManagement.Main",
-      "Vanguard": "Gui.FleetManagement.Vanguard",
-      "Fleet": "Gui.FleetManagement.Fleet",
-      "Ships": "Gui.FleetManagement.Ships",
-      "SurfaceFleet": "Gui.FleetManagement.SurfaceFleet",
-      "UnderwaterFleet": "Gui.FleetManagement.UnderwaterFleet"
+      "StartScan": "開始掃描",
+      "Scanning": "掃描中",
+      "ScanStarted": "艦隊掃描已啟動",
+      "ScanAlreadyRunning": "目前實例正在執行任務，無法啟動艦隊掃描",
+      "ScanStartFailed": "艦隊掃描啟動失敗",
+      "LastScan": "最近掃描",
+      "NoResult": "尚未儲存艦隊掃描結果",
+      "Main": "後排主力",
+      "Vanguard": "前排先鋒",
+      "Fleet": "艦隊",
+      "Ships": "艦船",
+      "SurfaceFleet": "水上艦隊",
+      "UnderwaterFleet": "水下艦隊"
     },
     "MeowfficerScore": {
       "Title": "指揮喵評分報告",
