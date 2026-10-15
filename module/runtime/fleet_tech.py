@@ -68,6 +68,74 @@ def merge_mind(record, ships):
     return output
 
 
+class FleetTechChangeError(ValueError):
+    """人工校正提交不合法时整体拒绝，不产生部分修改。"""
+
+
+def apply_changes(record, changes, nations=None):
+    """应用显式人工校正与阵营科技等级，返回记录副本。
+
+    只有出现在 change 中的键才视为显式提交，其余字段沿用已有值；
+    设置任一正向里程碑都会同时确认已获得，避免出现不一致的组合。
+
+    Args:
+        record: 现有 FleetTechRecord。
+        changes: 人工校正列表，每项形如
+            {'group_type': int, 'owned': bool | None, 'full_star': bool | None,
+             'lv120': bool | None, 'level': int | None, 'restore': bool}。
+        nations: 阵营科技等级 {'1': int | None, ...}，None 表示未知。
+
+    Returns:
+        应用后的新记录，原记录不被修改。
+
+    Raises:
+        FleetTechChangeError: 群组不存在或重复、字段类型或范围非法、
+            恢复自动记录与人工值同时提交、未获得与完成状态冲突、
+            阵营科技等级越界。
+    """
+    output = copy.deepcopy(record)
+    manual = output.setdefault('manual', {})
+    known = {row['group_type'] for row in catalog()['ships']}
+    seen = set()
+    for change in changes or []:
+        gid = change.get('group_type')
+        if type(gid) is not int or gid not in known or gid in seen:
+            raise FleetTechChangeError('舰船群组不存在或重复')
+        seen.add(gid)
+        key = str(gid)
+        explicit = {name: change[name] for name in ('owned', 'full_star', 'lv120', 'level') if name in change}
+        for name in ('owned', 'full_star', 'lv120'):
+            if name in explicit and explicit[name] is not None and type(explicit[name]) is not bool:
+                raise FleetTechChangeError(f'{name} 必须是布尔值或未知')
+        if 'level' in explicit:
+            level = explicit['level']
+            if level is not None and (type(level) is not int or not 1 <= level <= 125):
+                raise FleetTechChangeError('等级必须是 1-125 的整数或未知')
+        if change.get('restore'):
+            if explicit:
+                raise FleetTechChangeError('恢复自动记录不能同时指定人工值')
+            manual.pop(key, None)
+            continue
+        entry = manual.setdefault(key, {})
+        entry.update(explicit)
+        # 设置任一正向里程碑也确认已获得，避免不一致的组合。
+        if explicit.get('level') or explicit.get('lv120') is True or explicit.get('full_star') is True:
+            if 'owned' in explicit and explicit['owned'] is not True:
+                raise FleetTechChangeError('未获得不能同时设置已完成状态')
+            entry['owned'] = True
+        if 'level' in explicit and 'lv120' not in explicit:
+            entry.pop('lv120', None)
+        if explicit.get('owned') is False or ('owned' in explicit and explicit['owned'] is None):
+            entry.update(level=None, lv120=False if explicit['owned'] is False else None,
+                         full_star=False if explicit['owned'] is False else None)
+    for key, value in (nations or {}).items():
+        levels = catalog()['nations'].get(key)
+        if levels is None or (value is not None and (type(value) is not int or not 0 <= value <= len(levels))):
+            raise FleetTechChangeError('阵营科技等级无效')
+        output.setdefault('nations', {})[key] = value
+    return output
+
+
 def ship_type(value):
     """导驱与风帆各形态共用界面分类，但每条加成仅累计一次。"""
     return 1 if value in (20, 21) else 22 if value in (22, 23, 24) else value

@@ -1136,9 +1136,9 @@ class ThemeCssSwapTests(unittest.TestCase):
         )
         all_names = webui_style_names("dark_advanced_material", is_mobile=False)
         # 基础/组件样式在前、主题样式在后，且并集完整
-        self.assertEqual(all_names[:7][0], "alas")
+        self.assertEqual(all_names[:8][0], "alas")
         self.assertEqual(all_names[1], "alas-pc")
-        self.assertEqual(tuple(all_names[7:]), theme_files)
+        self.assertEqual(tuple(all_names[8:]), theme_files)
         for name in ("statistics-alas", "meow-loot-alas", "entry-alas"):
             self.assertIn(name, all_names)
             self.assertNotIn(name, theme_files)

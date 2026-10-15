@@ -117,14 +117,16 @@ class TaskConfigMixin(WebUIMixinBase):
                 _onclick = self.alas_set_group
 
             if task_data.get("menu") == "collapse":
+                if menu == "FleetManagement":
+                    # 对齐上游导航：该组在菜单里只保留一个入口，
+                    # 四个子模块在组入口页进入（FleetManagementMixin.fleet_management_page）。
+                    put_buttons(
+                        [{"label": t(f"Menu.{menu}.name"), "value": menu, "color": "menu"}],
+                        onclick=self.fleet_management_page,
+                    ).style(f"--menu-{menu}--")
+                    continue
                 task_btn_list = []
                 for task in task_data.get("tasks", []):
-                    onclick = _onclick
-                    if menu == "FleetManagement":
-                        onclick = {
-                            "FleetScan": self.fleet_scan_page,
-                            "FleetInfo": self.fleet_info_page,
-                        }.get(task, _onclick)
                     task_btn_list.append(
                         put_buttons(
                             [
@@ -134,7 +136,7 @@ class TaskConfigMixin(WebUIMixinBase):
                                     "color": "menu",
                                 }
                             ],
-                            onclick=onclick,
+                            onclick=_onclick,
                         ).style(f"--menu-{task}--")
                     )
                 put_collapse(title=t(f"Menu.{menu}.name"), content=task_btn_list)

@@ -757,6 +757,8 @@ def webui_style_names(theme=None, is_mobile=None) -> list:
         "meowfficer-score-alas",
         # 短猫相接「收获」区块（物品卡片 + 侵蚀等级明细表）样式
         "meow-loot-alas",
+        # 舰队科技列表页（汇总/筛选/双层表头表格；结构色走 --alas-entry-*）
+        "fleet-tech-alas",
     ]
     styles.extend(webui_theme_style_names(theme))
     return styles

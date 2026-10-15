@@ -1,0 +1,377 @@
+/* ==========================================================================
+   舰队科技列表页（fleet-tech-alas.css）
+   --------------------------------------------------------------------------
+   复刻上游 React 版「舰队科技列表」的 Wiki 式布局：
+   页头按钮 → 汇总区 → 扫描工具条 → 六组筛选栏 → 搜索行 → 双层表头数据表。
+
+   设计约束：
+   1. 本文件不定义主题色常量（表头蓝与行状态色除外，见下）：
+      结构色消费 entry-alas.css 的 --alas-entry-*，换主题不需要动本文件。
+   2. 表头蓝（#4b9bec）是本页身份色（同统计页的明石黄先例），固定；
+      状态行底色用半透明语义色 —— 浅底上呈现上游同款淡色，
+      深色主题下自动压暗，不会出现刺眼白底或亮绿。
+   3. 全部规则限定在 [id^="pywebio-scope-ft_"] 内（页面各区块都是 ft_ 前缀
+      的 scope）；新增类统一 ft- 前缀。
+   4. 表格所在 scope 用 contain 隔离频繁整块重绘（同 meow-loot 做法）。
+   ========================================================================== */
+
+[id^="pywebio-scope-ft_"] {
+    --ft-accent: #4b9bec;
+    --ft-accent-strong: #4a9fe9;
+    --ft-on-accent: #ffffff;
+    --ft-surface: var(--alas-entry-surface, #ffffff);
+    --ft-text: var(--alas-entry-text, #263746);
+    --ft-muted: var(--alas-entry-muted, #687e94);
+    --ft-border: var(--alas-entry-border, #d9e1e8);
+    --ft-divider: var(--alas-entry-divider, #e8eef4);
+    --ft-complete-bg: rgba(48, 220, 170, .30);
+    --ft-unfinished-bg: rgba(94, 160, 235, .22);
+    --ft-pending-bg: rgba(127, 138, 152, .16);
+    /* 行状态与悬停都用叠层（background-image）实现：不覆盖 background-color，
+       悬停时状态色仍在，深浅主题下都自然，也不与主题的 hover 规则打架。 */
+    --ft-row-overlay: transparent;
+    --ft-hover-overlay: rgba(110, 150, 210, .10);
+    margin-bottom: 14px;
+}
+
+#pywebio-scope-ft_table {
+    contain: layout style;
+}
+
+/* 点击桥的隐藏 pin：只保留 DOM 供钩子脚本派发事件（页面把它包在 ft_bridge scope 里） */
+#pywebio-scope-ft_bridge {
+    display: none;
+}
+
+/* --------------------------------------------------------------------------
+   1. 汇总区
+   -------------------------------------------------------------------------- */
+[id^="pywebio-scope-ft_"] .ft-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: var(--ft-text);
+}
+
+[id^="pywebio-scope-ft_"] .ft-summary p {
+    margin: 0 0 8px;
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+[id^="pywebio-scope-ft_"] .ft-summary p:first-child b {
+    font-size: 25px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-summary b,
+[id^="pywebio-scope-ft_"] .ft-summary span {
+    font-variant-numeric: tabular-nums;
+}
+
+[id^="pywebio-scope-ft_"] .ft-summary small {
+    color: var(--ft-muted);
+    line-height: 1.8;
+}
+
+[id^="pywebio-scope-ft_"] .ft-summary > small {
+    text-align: right;
+}
+
+/* --------------------------------------------------------------------------
+   2. 扫描工具条
+   -------------------------------------------------------------------------- */
+[id^="pywebio-scope-ft_"] .ft-toolbar-label {
+    color: var(--ft-muted);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+[id^="pywebio-scope-ft_"] .ft-hint {
+    color: var(--ft-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+#pywebio-scope-ft_toolbar input[type="number"] {
+    width: 84px;
+}
+
+/* --------------------------------------------------------------------------
+   3. 筛选栏（六组 + 功能开关）
+   各组是相邻的独立 scope，视觉上拼成一个连续大框。
+   -------------------------------------------------------------------------- */
+[id^="pywebio-scope-ft_filter_"] {
+    border: 1px solid var(--ft-accent);
+    border-top: 0;
+    background: var(--ft-surface);
+    margin-bottom: 0;
+}
+
+#pywebio-scope-ft_filter_type {
+    border-top: 1px solid var(--ft-accent);
+}
+
+[id^="pywebio-scope-ft_"] .ft-filter-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    height: 100%;
+    padding: 8px 6px;
+    background: linear-gradient(110deg, #4b91ec, #53baec);
+    color: #ffffff;
+    font-size: 15px;
+    text-align: center;
+}
+
+[id^="pywebio-scope-ft_filter_"] .btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 5px 8px;
+    align-items: center;
+}
+
+[id^="pywebio-scope-ft_filter_"] .btn-group > .btn {
+    border-radius: 5px;
+    border: 1px solid var(--ft-border);
+    background: var(--ft-surface);
+    color: var(--ft-text);
+    padding: 7px 11px;
+    font-size: 13px;
+}
+
+[id^="pywebio-scope-ft_filter_"] .btn-group > .btn.btn-primary,
+[id^="pywebio-scope-ft_filter_"] .btn-group > .btn.btn-secondary {
+    border-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   4. 搜索行
+   -------------------------------------------------------------------------- */
+#pywebio-scope-ft_search {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+#pywebio-scope-ft_search input {
+    min-width: 180px;
+    max-width: 360px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-count {
+    color: var(--ft-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   5. 数据表格
+   -------------------------------------------------------------------------- */
+[id^="pywebio-scope-ft_"] .ft-table-wrap {
+    overflow: auto;
+    max-height: 65vh;
+    border: 1px solid var(--ft-accent);
+    background: var(--ft-surface);
+    isolation: isolate;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table {
+    width: 100%;
+    min-width: 1160px;
+    border-collapse: separate;
+    border-spacing: 0;
+    white-space: nowrap;
+    font-size: 13px;
+    display: table !important;
+    margin: 0;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table th {
+    padding: 9px 8px;
+    background: var(--ft-accent);
+    color: var(--ft-on-accent);
+    text-align: center;
+    font-weight: 500;
+    border-right: 1px solid rgba(255, 255, 255, .15);
+}
+
+[id^="pywebio-scope-ft_"] .ft-table thead tr:first-child th {
+    background: var(--ft-accent-strong);
+    font-size: 14px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table th.ft-sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table th.ft-sortable:hover {
+    filter: brightness(1.08);
+}
+
+[id^="pywebio-scope-ft_"] .ft-table th .ft-sort-mark {
+    font-size: 10px;
+    opacity: .85;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table th[aria-sort="ascending"] .ft-sort-mark,
+[id^="pywebio-scope-ft_"] .ft-table th[aria-sort="descending"] .ft-sort-mark {
+    opacity: 1;
+    font-weight: 600;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--ft-divider);
+    text-align: center;
+    color: var(--ft-text);
+    font-variant-numeric: tabular-nums;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-name {
+    text-align: left;
+    min-width: 170px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-num {
+    text-align: right;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-effect {
+    text-align: left;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-status-cell {
+    text-align: left;
+    white-space: nowrap;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table tbody td {
+    background-image: linear-gradient(var(--ft-row-overlay), var(--ft-row-overlay));
+}
+
+[id^="pywebio-scope-ft_"] .ft-table tbody tr:hover td {
+    background-image: linear-gradient(var(--ft-hover-overlay), var(--ft-hover-overlay)),
+        linear-gradient(var(--ft-row-overlay), var(--ft-row-overlay));
+}
+
+[id^="pywebio-scope-ft_"] .ft-table tr.ft-complete td {
+    --ft-row-overlay: var(--ft-complete-bg);
+}
+
+[id^="pywebio-scope-ft_"] .ft-table tr.ft-unfinished td {
+    --ft-row-overlay: var(--ft-unfinished-bg);
+}
+
+[id^="pywebio-scope-ft_"] .ft-table tr.ft-pending td {
+    --ft-row-overlay: var(--ft-pending-bg);
+    color: var(--ft-muted);
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-rarity-R {
+    color: #0785ef;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-rarity-SR,
+[id^="pywebio-scope-ft_"] .ft-table td.ft-rarity-PR {
+    color: #9a46e8;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-rarity-SSR {
+    color: #b17d12;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table td.ft-rarity-UR,
+[id^="pywebio-scope-ft_"] .ft-table td.ft-rarity-DR {
+    color: #c5609d;
+}
+
+[id^="pywebio-scope-ft_"] .ft-status {
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-edit-btn {
+    border: 1px solid var(--ft-border);
+    background: var(--ft-surface);
+    color: var(--ft-text);
+    border-radius: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+[id^="pywebio-scope-ft_"] .ft-edit-btn:hover {
+    border-color: var(--ft-accent);
+    color: var(--ft-accent);
+}
+
+[id^="pywebio-scope-ft_"] .ft-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--ft-muted);
+}
+
+/* --------------------------------------------------------------------------
+   6. 总属性加成视图（scope 自身即容器；关闭时 scope 为空）
+   -------------------------------------------------------------------------- */
+#pywebio-scope-ft_bonuses:not(:empty) {
+    padding: 16px;
+    background: var(--ft-surface);
+    border: 1px solid var(--ft-border);
+    color: var(--ft-text);
+}
+
+#pywebio-scope-ft_bonuses h2 {
+    font-size: 17px;
+    margin: 0 0 12px;
+}
+
+#pywebio-scope-ft_bonuses p {
+    color: var(--ft-muted);
+    font-size: 12px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-bonus-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+    line-height: 1.8;
+}
+
+/* --------------------------------------------------------------------------
+   7. 页脚（表格下方的分页与来源链接）
+   -------------------------------------------------------------------------- */
+#pywebio-scope-ft_table a {
+    color: var(--ft-muted);
+}
+
+@media (max-width: 800px) {
+    [id^="pywebio-scope-ft_"] .ft-summary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    [id^="pywebio-scope-ft_"] .ft-summary > small {
+        text-align: left;
+    }
+
+    [id^="pywebio-scope-ft_"] .ft-filter-label {
+        font-size: 13px;
+    }
+
+    [id^="pywebio-scope-ft_"] .ft-table-wrap {
+        max-height: 70vh;
+    }
+}

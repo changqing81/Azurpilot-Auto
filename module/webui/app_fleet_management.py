@@ -5,6 +5,7 @@ from html import escape
 from module.webui.app_dependencies import (
     BinarySwitchButton,
     deep_get,
+    put_buttons,
     put_html,
     put_scope,
     put_text,
@@ -201,6 +202,36 @@ class FleetManagementMixin(WebUIMixinBase):
 
     def _fleet_scan_running_click(self) -> None:
         toast(t("Gui.FleetManagement.ScanAlreadyRunning"), color="warn")
+
+    @use_scope("content", clear=True)
+    def fleet_management_page(self, value=None) -> None:
+        """舰队管理入口页：四个子模块的进入按钮。
+
+        上游导航把该组收成一个入口、子模块在组内切换；老前端以入口页承接，
+        点击后进入各自页面（舰队科技等即时页，心智扫描进配置页）。
+        """
+        self.init_menu(name="FleetManagement")
+        self.set_title(t("Menu.FleetManagement.name"))
+        put_buttons(
+            [
+                {"label": t("Task.FleetInfo.name"), "value": "FleetInfo", "color": "menu"},
+                {"label": t("Task.FleetScan.name"), "value": "FleetScan", "color": "menu"},
+                {"label": t("Task.FleetTechnology.name"), "value": "FleetTechnology", "color": "menu"},
+                {"label": t("Task.MindCalculatorScan.name"), "value": "MindCalculatorScan", "color": "menu"},
+            ],
+            onclick=self._fleet_management_enter,
+        )
+
+    def _fleet_management_enter(self, value) -> None:
+        """从入口页进入对应子模块；心智扫描没有独立页面，进它的配置页。"""
+        if value == "FleetInfo":
+            self.fleet_info_page(task="FleetInfo")
+        elif value == "FleetScan":
+            self.fleet_scan_page(task="FleetScan")
+        elif value == "FleetTechnology":
+            self.fleet_technology_page(task="FleetTechnology")
+        elif value == "MindCalculatorScan":
+            self.alas_set_group("MindCalculatorScan")
 
     @use_scope("content", clear=True)
     def fleet_scan_page(self, task: str = "FleetScan") -> None:
