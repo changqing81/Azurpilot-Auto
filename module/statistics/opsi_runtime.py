@@ -214,16 +214,23 @@ def finish_meow_search_timer(
     except Exception:
         logger.debug("[统计-大世界] 获取结束行动力失败")
     else:
-        try:
-            record_ap_snapshot(
-                main.config,
-                ap_current=main._action_point_current,
-                # 统计口径使用始终含体力箱的总行动力
-                ap_total=getattr(main, '_action_point_total_with_box', main._action_point_total),
-                source="meow",
-            )
-        except Exception:
-            logger.debug("记录短猫相接行动力快照失败", exc_info=True)
+        ap_current = int(getattr(main, '_action_point_current', 0) or 0)
+        ap_total = int(getattr(main, '_action_point_total_with_box', main._action_point_total) or 0)
+        if ap_current > 0 or ap_total > 0:
+            try:
+                record_ap_snapshot(
+                    main.config,
+                    ap_current=main._action_point_current,
+                    # 统计口径使用始终含体力箱的总行动力
+                    ap_total=getattr(main, '_action_point_total_with_box', main._action_point_total),
+                    source="meow",
+                )
+            except Exception:
+                logger.debug("记录短猫相接行动力快照失败", exc_info=True)
+        else:
+            # 弹窗没出现/数值没加载时属性可能残留类默认值 0：不写快照，
+            # 避免统计图出现插到底的 0 点（2026-10-15 事故同类修复）。
+            logger.debug("[统计-大世界] 行动力未读到有效值（0/未知），跳过短猫行动力快照")
 
     duration = time.time() - search_started_at
     hazard_level = meow_hazard_level_from_runtime(main)
