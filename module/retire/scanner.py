@@ -14,7 +14,7 @@ DHash 感知哈希用于跨页去重判断。
 import os
 import time
 from abc import ABCMeta, abstractmethod
-from collections import deque
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Tuple, Union
 
@@ -39,6 +39,7 @@ from module.retire.assets import (DOCK_CHECK, SHIP_DETAIL_CHECK,
 from module.retire.dock import (CARD_EMOTION_GRIDS, CARD_EMOTION_STATUS_GRIDS, CARD_GRIDS,
                                 CARD_LEVEL_GRIDS, CARD_RARITY_GRIDS, DOCK_SCROLL,
                                 EMOTION_RED, EMOTION_YELLOW, EMOTION_GREEN)
+from module.retire.ship_name import ShipNameMatcher
 
 
 class EmotionDigit(Digit):
@@ -476,6 +477,191 @@ class FleetScanner(Scanner):
 
     def limit_value(self, value) -> int:
         return limit_in(value, 0, 6)
+
+
+class FleetNameScanner(Scanner):
+    """识别船坞舰名，仅依据精确身份或唯一截断补全，未确认时保留原文。"""
+    OCR_LANG = {
+        'cn': 'ppocr_v6',
+        'en': 'ppocr_v6',
+        'jp': 'jp',
+        'tw': 'tw',
+    }
+
+    class NameOcr(Ocr):
+        """提取白色和婚舰粉色名称，统一为黑白图像。"""
+        PINK_LETTER = (255, 170, 206)
+        PINK_THRESHOLD = 108
+        TEXT_ROWS = (4, 23)
+        TEXT_LEFT = 4
+
+        @staticmethod
+        def _remove_edge_noise(image):
+            """移除名称区域左右边缘残留的卡片边框像素。"""
+            count, labels, stats, _ = cv2.connectedComponentsWithStats(
+                (image < 120).astype(np.uint8), connectivity=8
+            )
+            for label in range(1, count):
+                x, _, component_width, _, _ = stats[label]
+                if x == 0 or x + component_width == image.shape[1]:
+                    image[labels == label] = 255
+            return image
+
+        def pre_process(self, image):
+            white = extract_letters(image, letter=self.letter, threshold=self.threshold)
+            pink = extract_letters(image, letter=self.PINK_LETTER, threshold=self.PINK_THRESHOLD)
+            merged = cv2.min(white, pink)
+            merged = merged[self.TEXT_ROWS[0]:self.TEXT_ROWS[1], self.TEXT_LEFT:]
+            return self._remove_edge_noise(merged)
+
+    def __init__(
+        self,
+        grid_shape: Tuple[int, int] = (7, 2),
+        excluded_positions: Tuple[Tuple[int, int], ...] = (),
+    ) -> None:
+        super().__init__()
+        self._results = []
+        card_grids = ButtonGrid(
+            origin=CARD_GRIDS.origin,
+            delta=CARD_GRIDS.delta,
+            button_shape=CARD_GRIDS.button_shape,
+            grid_shape=grid_shape,
+            name='CARD',
+        )
+        self.grids = card_grids.crop(area=(-10, 160, 142, 190), name='SHIP_NAME')
+        self.excluded_positions = set(excluded_positions)
+        self.ocr_model = self.NameOcr(
+            self._buttons(),
+            lang=self.OCR_LANG[server.server],
+            threshold=128,
+            name='FLEET_SHIP_NAME',
+        )
+        self.name_matcher = ShipNameMatcher(server.server)
+
+    def _buttons(self) -> List:
+        return [
+            button.area
+            for x, y, button in self.grids.generate()
+            if (x, y) not in self.excluded_positions
+        ]
+
+    def _scan(self, image) -> List:
+        names = self.ocr_model.ocr(image)
+        names = names if isinstance(names, list) else [names]
+        resolved = [self.name_matcher.resolve(name) for name in names]
+        corrected = [name for name, _ in resolved]
+        unresolved = [i for i, (_, status) in enumerate(resolved) if self.name_matcher.names
+                      if status not in ('exact', 'prefix', 'missing_catalog')]
+        if unresolved:
+            # 同一截图、相同名称裁剪；只对未确认名称追加一次原彩色识别，不放大猜字。
+            regions = [crop(image, self.ocr_model.buttons[i])[
+                self.NameOcr.TEXT_ROWS[0]:self.NameOcr.TEXT_ROWS[1], self.NameOcr.TEXT_LEFT:
+            ] for i in unresolved]
+            retries = self.ocr_model.cnocr.atomic_ocr_for_single_lines(regions, None)
+            for i, retry in zip(unresolved, retries):
+                retry = ''.join(retry)
+                candidate = self.name_matcher.retry_candidate(names[i], retry)
+                if candidate is not None:
+                    corrected[i] = candidate
+                    logger.info(f'[舰队扫描-OCR] 彩色复识别确认: {names[i]!r} -> {candidate!r}')
+                else:
+                    logger.info(f'[舰队扫描-OCR] 名称未确认，保留原文: {names[i]!r}，'
+                                f'依据={resolved[i][1]}，彩色结果={retry!r}')
+        for raw, name, (_, status) in zip(names, corrected, resolved):
+            if raw != name and status in ('exact', 'prefix'):
+                logger.info(f'[舰队扫描-OCR] 舰娘名确认: {raw!r} -> {name!r}，依据={status}')
+            elif status == 'missing_catalog':
+                logger.info(f'[舰队扫描-OCR] 名单不可用，保留原文: {raw!r}')
+        return corrected
+
+    def limit_value(self, value) -> str:
+        return value
+
+    def move(self, vector) -> None:
+        super().move(vector)
+        self.ocr_model.buttons = self._buttons()
+
+
+class FleetEmotionDigit(Digit):
+    """舰队信息专用心情解析：未知为 None，不截位猜数或把空白当零。"""
+
+    def after_process(self, result):
+        if not result or not result.isascii() or not result.isdigit():
+            return None
+        if len(result) > 1 and result.startswith('0'):
+            return None
+        value = int(result)
+        return value if 0 <= value <= 150 else None
+
+
+class FleetEmotionScanner(EmotionScanner):
+    """复用船坞心情区域，按舰队扫描网格读取原始心情值。"""
+
+    def __init__(self, grid_shape=(7, 3), excluded_positions=()):
+        super().__init__()
+        card_grids = ButtonGrid(
+            origin=CARD_GRIDS.origin, delta=CARD_GRIDS.delta,
+            button_shape=CARD_GRIDS.button_shape, grid_shape=grid_shape, name='CARD',
+        )
+        origin = CARD_EMOTION_GRIDS.origin - CARD_GRIDS.origin
+        area = tuple(np.append(origin, origin + CARD_EMOTION_GRIDS.button_shape))
+        self.grids = card_grids.crop(area=area, name='EMOTION')
+        excluded = set(excluded_positions)
+        self.ocr_model = FleetEmotionDigit(
+            [button for x, y, button in self.grids.generate() if (x, y) not in excluded],
+            letter=self.ocr_model.letter, threshold=self.ocr_model.threshold,
+            alphabet='0123456789', name='FLEET_EMOTION_OCR',
+        )
+
+    def _scan(self, image):
+        # 不使用通用 EmotionScanner 的情绪颜色纠正，保留失败空值。
+        return self.ocr_model.ocr(image)
+
+
+class FleetManagementScanner:
+    """扫描当前船坞页面，并按舰队归属聚合舰娘名称、等级与心情。"""
+    def __init__(
+        self,
+        grid_shape: Tuple[int, int] = (7, 3),
+        excluded_positions: Tuple[Tuple[int, int], ...] = (),
+    ) -> None:
+        self.fleet_scanner = FleetScanner(
+            grid_shape=grid_shape,
+            excluded_positions=excluded_positions,
+        )
+        self.name_scanner = FleetNameScanner(
+            grid_shape=grid_shape,
+            excluded_positions=excluded_positions,
+        )
+        self.level_scanner = LevelScanner(
+            grid_shape=grid_shape,
+            excluded_positions=excluded_positions,
+        )
+        self.emotion_scanner = FleetEmotionScanner(
+            grid_shape=grid_shape,
+            excluded_positions=excluded_positions,
+        )
+
+    def scan(self, image) -> Dict[int, List[Dict[str, Union[str, int, None]]]]:
+        """返回按舰队编号分组的舰娘名称、等级与心情 OCR 结果。
+
+        Args:
+            image (np.ndarray): 船坞截图图像。
+
+        Returns:
+            dict: 键为舰队编号，值为包含 name、level 与 emotion 的字典列表。
+                心情识别失败时 emotion 为 None，不影响名称与等级。
+        """
+        fleets = self.fleet_scanner.scan(image, output=False)
+        names = self.name_scanner.scan(image, output=False)
+        levels = self.level_scanner.scan(image, output=False)
+        emotions = self.emotion_scanner.scan(image, output=False)
+        result = defaultdict(list)
+        for index, (fleet, name, level) in enumerate(zip(fleets, names, levels)):
+            if fleet:
+                emotion = emotions[index] if index < len(emotions) else None
+                result[fleet].append({'name': name, 'level': level, 'emotion': emotion})
+        return dict(result)
 
 
 class StatusScanner(Scanner):

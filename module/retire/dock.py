@@ -265,7 +265,8 @@ class Dock(Equipment):
             faction='all',
             rarity='all',
             extra='no_limit',
-            wait_loading=True
+            wait_loading=True,
+            reset_index=False,
     ):
         """
         A faster filter set function.
@@ -285,11 +286,16 @@ class Dock(Equipment):
             extra (str, list):
                 ['no_limit', 'has_skin', 'can_retrofit', 'enhanceable', 'can_limit_break', 'not_level_max', 'can_awaken',
                  'can_awaken_plus', 'special', 'oath_skin', 'unique_augment_module', 'wear_skin', 'oathed', 'not_available'],
+            wait_loading (bool): 是否等待船坞卡片加载完成。默认为 True。
+            reset_index (bool): 在同一面板先选“全部”清除旧舰种，再选择目标舰种；
+                不重置排序及其他筛选。用于需要独立扫描各舰种的流程。
 
         Pages:
             in: page_dock
         """
         self.dock_filter_enter()
+        if reset_index:
+            self.dock_filter.set(sort=None, index='all', faction=None, rarity=None, extra=None)
         self.dock_filter.set(sort=sort, index=index, faction=faction, rarity=rarity, extra=extra)
         self.dock_filter_confirm(wait_loading=wait_loading)
 

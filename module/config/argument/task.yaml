@@ -460,12 +460,22 @@ Island:
       - Scheduler
       - IslandPearlSell
 
+# ==================== Fleet Management ====================
+
+FleetManagement:
+  menu: collapse
+  page: setting
+  tasks:
+    FleetInfo:
+      - FleetInfo
+
 # ==================== Tool ====================
 
 Tool:
   menu: collapse
   page: tool
   tasks:
+    FleetScan: []
     Daemon:
       - Daemon
     OpsiDaemon:

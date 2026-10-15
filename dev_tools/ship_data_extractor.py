@@ -2,6 +2,9 @@
 """
 从 AzurLaneLuaScripts 仓库的 Lua 脚本中提取舰船数据，生成统一 JSON。
 
+使用 --names-only 时，仅生成 assets/ship/ship_names.json：各服统计表名称加改造皮肤名称，
+通过 name_code 解析名称引用，不更新原有舰船属性，也不收录普通皮肤标题。
+
 数据来源：
   - {SERVER}/sharecfgdata/ship_data_statistics.lua  → 属性、名称、面板数据
   - CN/sharecfgdata/ship_data_template.lua          → 模板、装备槽、改造信息
@@ -23,6 +26,7 @@
       "group_type": 10000,
       "is_retrofit": false,
       "retrofit_base_id": null,
+      "retrofit_names": ["舰船名.改"],
       "armor_type": 1,
       "attrs": { "durability": 100, "cannon": 10, "torpedo": 10, ... },
       "attrs_growth": { "durability": 1000, "cannon": 100, ... },
@@ -35,7 +39,7 @@
   }
 
 使用方式：
-  uv run python dev_tools/ship_data_extractor.py
+  uv run python dev_tools/ship_data_extractor.py  # 输出 assets/ship/ship_data.json
   uv run python dev_tools/ship_data_extractor.py --lua-repo D:/AzurLaneLuaScripts
 """
 
@@ -44,6 +48,7 @@ import json
 import os
 import re
 import sys
+import subprocess
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -99,15 +104,33 @@ SERVER_DIRS = {
 # ---------------------------------------------------------------------------
 
 class LuaParser:
-    """简单快速的行级 Lua 解析器。"""
+    """简单快速的行级 Lua 解析器。
+
+    Attributes:
+        text (str): 待解析的 Lua 文本内容。
+        lines (list[str]): 按行切分后的文本列表。
+        pos (int): 当前解析到的行指针位置。
+    """
 
     def __init__(self, text: str):
+        """初始化解析器。
+
+        Args:
+            text (str): 待解析的 Lua 文本内容。
+        """
         self.text = text
         self.lines = text.splitlines()
         self.pos = 0
 
     def skip_to(self, pattern: re.Pattern) -> bool:
-        """移动指针到下一个匹配行，返回是否找到。"""
+        """移动指针到下一个匹配行。
+
+        Args:
+            pattern (re.Pattern): 用于行匹配的正则表达式模式。
+
+        Returns:
+            bool: 是否成功找到匹配行。
+        """
         while self.pos < len(self.lines):
             if pattern.search(self.lines[self.pos]):
                 return True
@@ -115,9 +138,12 @@ class LuaParser:
         return False
 
     def parse_block(self) -> dict:
-        """从当前位置解析一个 Lua table，返回 Python dict。
+        """从当前位置解析一个 Lua 表块并转换为字典。
 
         支持嵌套表（转为 list/dict）、简单值。只处理前两层深度。
+
+        Returns:
+            dict: 解析后的键值对字典。
         """
         result: dict = {}
         line = self.lines[self.pos]
@@ -145,7 +171,14 @@ class LuaParser:
         return self._parse_top_level(block_lines)
 
     def _parse_top_level(self, lines: list[str]) -> dict:
-        """解析顶层 KV（brace_depth=0 相对于块内第一层）。"""
+        """解析顶层键值对映射。
+
+        Args:
+            lines (list[str]): 当前块内部的文本行列表。
+
+        Returns:
+            dict: 提取到的顶层属性键值字典。
+        """
         result: dict = {}
         i = 0
         while i < len(lines):
@@ -171,7 +204,16 @@ class LuaParser:
         return result
 
     def _collect_nested_table(self, lines: list[str], start_i: int, start_line: str) -> tuple[list | dict, int]:
-        """收集嵌套表，返回 (parsed_value, new_index)。"""
+        """收集并解析跨行的嵌套表。
+
+        Args:
+            lines (list[str]): 当前块文本行列表。
+            start_i (int): 嵌套表起始行索引。
+            start_line (str): 包含嵌套表开头的起始行内容。
+
+        Returns:
+            tuple[list | dict, int]: (解析后的嵌套表对象, 嵌套表闭合结束行索引)。
+        """
         clean_start = _remove_string_content(start_line)
         brace_count = clean_start.count("{") - clean_start.count("}")
 
@@ -195,7 +237,14 @@ class LuaParser:
 
 
 def _remove_string_content(line: str) -> str:
-    """移除字符串字面量内容，避免括号计数干扰。"""
+    """移除行内字符串字面量内容，避免引号与括号计数互相干扰。
+
+    Args:
+        line (str): 原始代码文本行。
+
+    Returns:
+        str: 替换字符串字面量为空引号后的文本行。
+    """
     return re.sub(r'"[^"\\]*(?:\\.[^"\\]*)*"', '""', line)
 
 
@@ -204,7 +253,14 @@ _KV_LINE_RE = re.compile(r'^\s*(\w+)\s*=\s*(.*)$')
 
 
 def _parse_value(raw: str) -> int | float | bool | str | None:
-    """将 Lua 字面量转换为 Python 值。"""
+    """将 Lua 字面量字符串解析转换为 Python 对应类型的值。
+
+    Args:
+        raw (str): Lua 原始字面量字符串。
+
+    Returns:
+        int | float | bool | str | None: 解析后的 Python 基础类型数据。
+    """
     raw = raw.strip().rstrip(",").strip().rstrip(",").strip()
     if raw == "" or raw == "nil":
         return None
@@ -225,10 +281,15 @@ def _parse_value(raw: str) -> int | float | bool | str | None:
 
 
 def _parse_lua_table(text: str) -> list | dict:
-    """解析 Lua 表字符串为 Python list 或 dict。
+    """解析 Lua 表字符串为 Python 列表或字典。
 
-    - 纯数字索引 → list
-    - 混合或字符串 key → dict
+    纯数字索引转为 list，包含键值对或混合结构转为 dict。
+
+    Args:
+        text (str): 待解析的 Lua 表字符串。
+
+    Returns:
+        list | dict: 解析后的 Python 集合结构。
     """
     text = text.strip()
     if not text.startswith("{"):
@@ -265,7 +326,14 @@ def _parse_lua_table(text: str) -> list | dict:
 
 
 def _extract_brace_content(text: str) -> str:
-    """提取最外层 {...} 的内容。"""
+    """提取最外层花括号 {...} 内部的文本内容。
+
+    Args:
+        text (str): 包含花括号的表字符串。
+
+    Returns:
+        str: 花括号内部的纯文本。
+    """
     if not text.startswith("{"):
         return text
     depth = 0
@@ -280,7 +348,14 @@ def _extract_brace_content(text: str) -> str:
 
 
 def _split_table_parts(inner: str) -> list[str]:
-    """按逗号拆分表内容，正确处理嵌套括号和引号。"""
+    """按逗号拆分表内部成员，正确识别并跳过嵌套括号和字符串引号。
+
+    Args:
+        inner (str): 表花括号内部的字符串。
+
+    Returns:
+        list[str]: 拆分后的独立元素表达式列表。
+    """
     parts = []
     depth = 0
     in_string = False
@@ -309,9 +384,13 @@ _SHIP_ENTRY_RE = re.compile(r'\[(\d+)\]\s*=\s*\{')
 
 
 def parse_lua_ship_blocks(filepath: str) -> dict[int, dict]:
-    """解析 ship_data_statistics 或 ship_data_template 的舰船块。
+    """解析 ship_data_statistics 或 ship_data_template 的舰船配置块。
 
-    每块格式: _G.pg.base.xxx[ship_id] = { ... }
+    Args:
+        filepath (str): Lua 数据文件的绝对或相对路径。
+
+    Returns:
+        dict[int, dict]: 舰船 ID 映射到属性字典的字典。
     """
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
@@ -344,7 +423,14 @@ def parse_lua_ship_blocks(filepath: str) -> dict[int, dict]:
 # ---------------------------------------------------------------------------
 
 def parse_ship_data_by_type(filepath: str) -> dict[int, str]:
-    """返回 {type_id: type_name}。"""
+    """解析 ship_data_by_type.lua 提取舰种类型 ID 与类型名称映射。
+
+    Args:
+        filepath (str): ship_data_by_type.lua 文件路径。
+
+    Returns:
+        dict[int, str]: 舰种类型 ID 对应类型中文名称的映射字典。
+    """
     with open(filepath, "r", encoding="utf-8") as f:
         text = f.read()
     type_blocks = re.findall(
@@ -364,12 +450,38 @@ def parse_ship_data_by_type(filepath: str) -> dict[int, str]:
 # ---------------------------------------------------------------------------
 
 def _index_arr(arr: list, idx1: int) -> int | float | None:
-    """从 1-based Lua 数组中取值。"""
+    """从 1-based 的 Lua 数组中安全提取对应下标的值。
+
+    Args:
+        arr (list): 待检索的列表。
+        idx1 (int): 1-based 数组索引。
+
+    Returns:
+        int | float | None: 取出的对应元素值，越界或空数组时返回 None。
+    """
     return arr[idx1 - 1] if arr and len(arr) >= idx1 else None
 
 
+def resolve_ship_name(name, codes, server):
+    """解析舰船名和改造皮肤名中的 namecode，缺少资料时明确报错。"""
+    def replace(match):
+        value = codes.get(int(match.group(1)), {}).get('name')
+        if not isinstance(value, str) or not value:
+            raise ValueError(f'{server}: 未解析的名称引用 {match.group(0)}')
+        return value
+
+    return re.sub(r'\{namecode:(\d+)\}', replace, name).strip()
+
+
 def extract_ship_data(lua_repo: str) -> dict:
-    """主提取函数。"""
+    """解析各服 Lua 脚本并提取汇总全部舰船数据为标准结构。
+
+    Args:
+        lua_repo (str): AzurLaneLuaScripts 仓库根目录路径。
+
+    Returns:
+        dict: 以 ship_id 为键的舰船完整元数据字典。
+    """
     repo = Path(lua_repo)
 
     # ---- 1) CN statistics（主数据） ----
@@ -407,6 +519,20 @@ def extract_ship_data(lua_repo: str) -> dict:
         gt = tpl.get("group_type")
         if gt is not None:
             group_map.setdefault(gt, []).append(ship_id)
+
+    # 改造名来自皮肤表，普通属性表通常仍保留基础舰名。
+    retrofit_names: dict[int, set[str]] = {}
+    cn_codes = parse_lua_ship_blocks(str(repo / 'CN/sharecfg/name_code.lua'))
+    skin_files = [repo / 'CN/sharecfg/ship_skin_template.lua']
+    skin_files.extend(sorted((repo / 'CN/sharecfg/ship_skin_template_sublist').glob('*.lua')))
+    for path in skin_files:
+        for skin in parse_lua_ship_blocks(str(path)).values():
+            if skin.get('skin_type') == 2 and isinstance(skin.get('name'), str):
+                ship_group = skin.get('ship_group')
+                if not ship_group:
+                    continue
+                name = resolve_ship_name(skin['name'], cn_codes, 'cn')
+                retrofit_names.setdefault(ship_group, set()).add(name)
 
     # ---- 6) 构建 english_name → ship_id 映射（用于 II 型舰检测） ----
     en_name_index: dict[str, list[int]] = {}
@@ -466,6 +592,7 @@ def extract_ship_data(lua_repo: str) -> dict:
                 non_retro = [
                     sid for sid in siblings
                     if sid in cn_stats
+                    and sid // 10 == group_type
                     and "改" not in cn_stats[sid].get("name", "")
                 ]
                 if non_retro:
@@ -509,6 +636,12 @@ def extract_ship_data(lua_repo: str) -> dict:
             "oil_at_end": tpl.get("oil_at_end"),
             "max_level": tpl.get("max_level"),
         }
+        if 'Little-series' in stats.get('tag_list', []):
+            entry['is_child'] = True
+        if group_type in retrofit_names and not is_retrofit:
+            base_ids = [sid for sid in group_map[group_type] if sid // 10 == group_type]
+            if base_ids and ship_id == max(base_ids):
+                entry['retrofit_names'] = sorted(retrofit_names[group_type])
         output[str(ship_id)] = entry
 
     if skipped_types:
@@ -522,7 +655,32 @@ def extract_ship_data(lua_repo: str) -> dict:
     return output
 
 
+def extract_ship_names(lua_repo: str) -> dict[str, list[str]]:
+    """提取各服舰名与改造名，解析 namecode，不收录普通皮肤标题。"""
+    output = {}
+    for server in ('cn', 'en', 'jp', 'tw'):
+        root = Path(lua_repo) / SERVER_DIRS[server]
+        codes = parse_lua_ship_blocks(str(root / 'sharecfg/name_code.lua'))
+
+        stats = parse_lua_ship_blocks(str(root / 'sharecfgdata/ship_data_statistics.lua'))
+        names = {resolve_ship_name(entry['name'], codes, server)
+                 for entry in stats.values() if isinstance(entry.get('name'), str)}
+        # 当前版本将皮肤分散到 sublist；同时支持旧版内联表。
+        skin_files = [root / 'sharecfg/ship_skin_template.lua']
+        skin_files.extend(sorted((root / 'sharecfg/ship_skin_template_sublist').glob('*.lua')))
+        for path in skin_files:
+            for skin in parse_lua_ship_blocks(str(path)).values():
+                if skin.get('skin_type') == 2 and isinstance(skin.get('name'), str):
+                    names.add(resolve_ship_name(skin['name'], codes, server))
+        output[server] = sorted(name for name in names if any(c.isalnum() for c in name))
+        if not output[server]:
+            raise ValueError(f'{server}: 舰船名称名单为空')
+        print(f'[{server}] {len(output[server])} 个舰船及改造名称')
+    return output
+
+
 def main():
+    """解析命令行参数并执行舰船数据提取与 JSON 导出。"""
     parser = argparse.ArgumentParser(description="从 AzurLaneLuaScripts 提取舰船数据生成 JSON")
     parser.add_argument(
         "--lua-repo", type=str,
@@ -530,9 +688,18 @@ def main():
         help="AzurLaneLuaScripts 仓库路径",
     )
     parser.add_argument("-o", "--output", type=str, default=None, help="输出路径")
+    parser.add_argument('--names-only', action='store_true', help='仅导出舰名及改造名，不更新舰船属性')
+    parser.add_argument('--fleet-tech-only', action='store_true', help='仅导出图鉴编号、舰队科技点和属性加成')
     args = parser.parse_args()
 
-    output_path = Path(args.output) if args.output else Path(__file__).resolve().parent / "ship_data.json"
+    if args.output:
+        output_path = Path(args.output)
+    elif args.names_only:
+        output_path = Path(__file__).resolve().parents[1] / 'assets/ship/ship_names.json'
+    elif args.fleet_tech_only:
+        output_path = Path(__file__).resolve().parents[1] / 'assets/ship/fleet_tech.json'
+    else:
+        output_path = Path(__file__).resolve().parents[1] / 'assets/ship/ship_data.json'
 
     if not os.path.isdir(args.lua_repo):
         print(f"错误: Lua 脚本仓库不存在: {args.lua_repo}", file=sys.stderr)
@@ -544,7 +711,10 @@ def main():
         sys.exit(1)
 
     try:
-        data = extract_ship_data(args.lua_repo)
+        if args.names_only and args.fleet_tech_only:
+            raise ValueError('不能同时选择两种单独导出模式')
+        data = (extract_ship_names(args.lua_repo) if args.names_only else
+                extract_fleet_tech(args.lua_repo) if args.fleet_tech_only else extract_ship_data(args.lua_repo))
     except Exception:
         import traceback
         traceback.print_exc()
@@ -553,6 +723,11 @@ def main():
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+    if args.names_only or args.fleet_tech_only:
+        label = '舰队科技资料' if args.fleet_tech_only else '名称名单'
+        print(f'完成! {label}输出: {output_path}')
+        return
 
     kb = output_path.stat().st_size / 1024
     print(f"\n完成! 输出: {output_path} ({kb:.1f} KB)")
@@ -569,6 +744,68 @@ def main():
     print(f"  改造舰: {len(ret)} 条")
     t2 = [s for s in data.values() if s.get("is_type2")]
     print(f"  II型舰: {len(t2)} 条")
+
+
+def extract_fleet_tech(lua_repo: str) -> dict:
+    """按图鉴群组提取科技索引；舰船名称和基础属性仍复用共享资料。"""
+    root = Path(lua_repo)
+    source = root / 'CN/sharecfg'
+    groups = parse_lua_ship_blocks(str(source / 'ship_data_group.lua'))
+    tech = parse_lua_ship_blocks(str(source / 'fleet_tech_ship_template.lua'))
+    blueprints = parse_lua_ship_blocks(str(source / 'ship_data_blueprint.lua'))
+    rows, seen = [], set()
+    for group in groups.values():
+        if 'group_type' not in group or group.get('hide') != 0:
+            continue
+        gid = group['group_type']
+        if gid in seen:
+            raise ValueError(f'图鉴群组重复：{gid}')
+        seen.add(gid)
+        entry = dict(group_type=gid, code=group['code'], handbook_type=group['handbook_type'],
+                     blueprint=gid in blueprints, technology=None)
+        if gid in tech:
+            fields = ('pt_get', 'pt_upgrage', 'pt_level', 'max_star', 'add_get_shiptype',
+                      'add_get_attr', 'add_get_value', 'add_level_shiptype', 'add_level_attr', 'add_level_value')
+            entry['technology'] = {key: tech[gid][key] for key in fields}
+            for key, value in entry['technology'].items():
+                if key.endswith('shiptype'):
+                    if not isinstance(value, list) or not value or any(type(t) is not int or t < 1 for t in value):
+                        raise ValueError(f'{gid}: {key} 必须为舰种编号列表')
+                elif type(value) is not int or value < 0:
+                    raise ValueError(f'{gid}: {key} 必须为非负整数')
+        rows.append(entry)
+    if not rows or set(tech) - seen or len({(row['handbook_type'], row['code']) for row in rows}) != len(rows):
+        raise ValueError('科技条目缺少对应图鉴群组或图鉴为空')
+
+    def nested(value):
+        # 旧行级解析器保留深层表为文本，仅在这里递归解析阵营加成数组。
+        if isinstance(value, str) and value.strip().startswith('{'):
+            value = _parse_lua_table(value)
+        return [nested(item) for item in value] if isinstance(value, list) else value
+
+    nations = {}
+    templates = parse_lua_ship_blocks(str(source / 'fleet_tech_template.lua'))
+    for group in parse_lua_ship_blocks(str(source / 'fleet_tech_group.lua')).values():
+        if 'techs' not in group:
+            continue
+        levels = [nested(templates[tid]['add']) for tid in group['techs']]
+        for effects in levels:
+            if not isinstance(effects, list):
+                raise ValueError(f"阵营 {group['id']} 的科技加成必须为列表")
+            for effect in effects:
+                if (not isinstance(effect, list) or len(effect) != 3
+                        or not isinstance(effect[0], list) or not effect[0]
+                        or any(type(t) is not int or t < 1 for t in effect[0])
+                        or type(effect[1]) is not int or effect[1] < 1
+                        or type(effect[2]) is not int or effect[2] < 0):
+                    raise ValueError(f"阵营 {group['id']} 的科技加成格式无效")
+        nations[str(group['id'])] = levels
+    commit = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True,
+                            text=True, check=True).stdout.strip()
+    date = subprocess.run(['git', '-C', str(root), 'log', '-1', '--format=%cs'], capture_output=True,
+                          text=True, check=True).stdout.strip()
+    return dict(version=1, source_commit=commit, updated_at=date,
+                ships=sorted(rows, key=lambda row: (row['handbook_type'], row['code'])), nations=nations)
 
 
 if __name__ == "__main__":
