@@ -472,6 +472,8 @@ FleetManagement:
     FleetTechnology: []
     MindCalculatorScan:
       - MindCalculator
+    FleetTechScan:
+      - FleetTech
 
 # ==================== Tool ====================
 

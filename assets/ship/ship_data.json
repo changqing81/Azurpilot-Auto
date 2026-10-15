@@ -51797,7 +51797,10 @@
     ],
     "oil_at_start": 1,
     "oil_at_end": 9,
-    "max_level": 100
+    "max_level": 100,
+    "retrofit_names": [
+      "勇敢·改"
+    ]
   },
   "201191": {
     "name": {
@@ -60323,7 +60326,10 @@
     ],
     "oil_at_start": 1,
     "oil_at_end": 11,
-    "max_level": 100
+    "max_level": 100,
+    "retrofit_names": [
+      "贝尔法斯特·改"
+    ]
   },
   "202131": {
     "name": {
@@ -142845,7 +142851,10 @@
     ],
     "oil_at_start": 1,
     "oil_at_end": 11,
-    "max_level": 100
+    "max_level": 100,
+    "retrofit_names": [
+      "希佩尔海军上将·改"
+    ]
   },
   "403021": {
     "name": {

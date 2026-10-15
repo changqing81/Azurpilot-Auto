@@ -20,8 +20,8 @@ def dispatch(request):
         from module.config.deep import deep_get
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'fixture.json'
-            path.write_text(json.dumps({'MindCalculatorScan': {'MindCalculator': {
-                'Result': {'ships': ships}, 'FleetTechRecord': request.get('record', {}),
+            path.write_text(json.dumps({'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': ships}}},
+                'FleetTechScan': {'FleetTech': {'Record': request.get('record', {}),
                 'MinLevel': request.get('min_level', 95), 'MaxLevel': request.get('max_level', 125),
             }}}), encoding='utf-8')
             configs = SimpleNamespace(path=lambda _: path, lock=threading.RLock(),
@@ -35,7 +35,7 @@ def dispatch(request):
                 result = service.sync_mind(request['instance'])
             elif action == 'tech.patch':
                 result = service.patch(request['instance'], request['revision'],
-                                       [FleetTechChange.model_validate(c) for c in request['changes']], request['nations'])
+                                       [FleetTechChange.model_validate(c) for c in request.get('changes', [])], request.get('nations', {}))
             else:
                 raise ValueError('未知科技模拟操作')
             return dict(result=result, record=deep_get(configs.read('')[0], RECORD_PATH, {}))

@@ -136,7 +136,8 @@
       "FleetInfo",
       "FleetScan",
       "FleetTechnology",
-      "MindCalculatorScan"
+      "MindCalculatorScan",
+      "FleetTechScan"
     ]
   },
   "Tool": {

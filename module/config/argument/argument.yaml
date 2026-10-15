@@ -2257,6 +2257,18 @@ MindCalculator:
     value: {}
     display: hide
 
+FleetTech:
+  MinLevel:
+    value: 95
+    validate: "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
+  MaxLevel:
+    value: 125
+    validate: "^[1-9][0-9]?$|^1[01][0-9]$|^12[0-5]$"
+  Record:
+    type: stored
+    value: {}
+    display: hide
+
 FleetInfo:
   Result:
     type: stored

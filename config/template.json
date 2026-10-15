@@ -3596,6 +3596,16 @@
       "Storage": {}
     }
   },
+  "FleetTechScan": {
+    "FleetTech": {
+      "MinLevel": 95,
+      "MaxLevel": 125,
+      "Record": {}
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
   "Daemon": {
     "Daemon": {
       "EnterMap": true

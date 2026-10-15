@@ -523,9 +523,11 @@ def extract_ship_data(lua_repo: str) -> dict:
     # 改造名来自皮肤表，普通属性表通常仍保留基础舰名。
     retrofit_names: dict[int, set[str]] = {}
     cn_codes = parse_lua_ship_blocks(str(repo / 'CN/sharecfg/name_code.lua'))
-    skin_files = [repo / 'CN/sharecfg/ship_skin_template.lua']
+    skin_files = [repo / 'CN/sharecfg/ship_skin_template.lua', repo / 'CN/sharecfgdata/ship_skin_template.lua']
     skin_files.extend(sorted((repo / 'CN/sharecfg/ship_skin_template_sublist').glob('*.lua')))
     for path in skin_files:
+        if not path.is_file():
+            continue
         for skin in parse_lua_ship_blocks(str(path)).values():
             if skin.get('skin_type') == 2 and isinstance(skin.get('name'), str):
                 ship_group = skin.get('ship_group')
