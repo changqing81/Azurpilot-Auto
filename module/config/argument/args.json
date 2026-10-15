@@ -19104,6 +19104,16 @@
       }
     }
   },
+  "FleetTechnology": {
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
   "MindCalculatorScan": {
     "MindCalculator": {
       "MinLevel": {

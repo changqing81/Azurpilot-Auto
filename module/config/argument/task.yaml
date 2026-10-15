@@ -469,6 +469,7 @@ FleetManagement:
     FleetInfo:
       - FleetInfo
     FleetScan: []
+    FleetTechnology: []
     MindCalculatorScan:
       - MindCalculator
 
