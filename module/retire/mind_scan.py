@@ -20,6 +20,18 @@ from module.ui.page import page_dock
 
 
 class MindCalculatorScan(Dock):
+    evidence_folder = 'mind_scan'
+    scan_label = '心智扫描'
+
+    def _make_merger(self):
+        return ScanMerger()
+
+    def _read_cards(self, image, source, names, levels):
+        return recognize_cards(image, source, name_ocr=names, level_ocr=levels)
+
+    def _check_scan_page(self, cards, at_bottom):
+        """特定扫描器可追加完整遍历约束，心智范围扫描保持原有语义。"""
+
     def run(self):
         """扫描指定等级范围；三排确认低于下限后结束，完成前保留旧结果。
 
@@ -75,12 +87,6 @@ class MindCalculatorScan(Dock):
                 import copy
                 deep_set(self.config._loaded_data, RESULT_PATH, copy.deepcopy(deep_get(latest, RESULT_PATH, {})))
             self.config.modified[RESULT_PATH] = dict(ships=ships, updated_at=datetime.now().isoformat(timespec='seconds'))
-            from module.runtime.fleet_tech import RECORD_PATH, merge_mind
-            record = deep_get(latest, RECORD_PATH, {})
-            merged = merge_mind(record, ships)
-            if hasattr(self.config, '_loaded_data'):
-                deep_set(self.config._loaded_data, RECORD_PATH, record)
-            self.config.modified[RECORD_PATH] = merged
             self.config.save()
         self._prune_scan_evidence()
         result = calculate(ships)
@@ -104,7 +110,7 @@ class MindCalculatorScan(Dock):
     def _save_scan_evidence(self, image):
         """保存核对原帧；诊断写盘失败不影响扫描继续。"""
         from time import time_ns
-        path = Path(logger.log_file or 'log/alas.txt').parent / 'mind_scan' / self.config.config_name / f'{time_ns()}.png'
+        path = Path(logger.log_file or 'log/alas.txt').parent / self.evidence_folder / self.config.config_name / f'{time_ns()}.png'
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             image.save(path)
@@ -119,13 +125,13 @@ class MindCalculatorScan(Dock):
 
     def _prune_scan_evidence(self):
         """成功提交后只保留本轮诊断；停止或冲突时不删除旧清单的原帧。"""
-        if Path('cache/mind-scan-diagnostics').is_file():
+        if Path(f'cache/{self.evidence_folder.replace("_", "-")}-diagnostics').is_file():
             return
         log_root = Path(logger.log_file or 'log/alas.txt').parent.resolve()
-        root = log_root / 'mind_scan' / self.config.config_name
+        root = log_root / self.evidence_folder / self.config.config_name
         try:
             root = root.resolve()
-            root.relative_to(log_root / 'mind_scan')
+            root.relative_to(log_root / self.evidence_folder)
             if not root.is_dir():
                 return
             current = {path.stem for path in getattr(self, '_scan_evidence_paths', set())}
@@ -159,9 +165,9 @@ class MindCalculatorScan(Dock):
 
     def _scan_pages(self, names, levels):
         """分段核验三排位移，目标位置连续稳定后识别整页，末页确认到底。"""
-        merger = ScanMerger()
-        diagnostic_pages = Path('cache/mind-scan-diagnostics').is_file()
-        policy = getattr(self, '_policy', ScanPolicy(95, 120))
+        merger = self._make_merger()
+        diagnostic_pages = Path(f'cache/{self.evidence_folder.replace("_", "-")}-diagnostics').is_file()
+        policy = getattr(self, '_policy', ScanPolicy(95, 125))
         previous = None
         stable = Timer(.6, count=3).start()
         drag = Timer(.8).start()
@@ -213,9 +219,11 @@ class MindCalculatorScan(Dock):
                            and abs(visible_rows[0] + merger.offset - origin_y - target) <= 6)
                 if target is None or aligned or abs(target - merger.offset) <= 3 or at_bottom:
                     try:
-                        cards = recognize_cards(image, f'自动扫描第 {page + 1} 页', name_ocr=names, level_ocr=levels)
+                        cards = self._read_cards(image, f'自动扫描第 {page + 1} 页', names, levels)
+                        self._check_scan_page(cards, at_bottom)
                         invalid = [card for card in cards if not card.level_reliable]
-                        uncertain_names = [card for card in cards if card.ship['review'] and card.level_reliable]
+                        uncertain_names = [card for card in cards if card.ship['review'] and card.level_reliable
+                                           and not card.ship.get('identity_ambiguous')]
                         uncertain_fleets = [card for card in cards if card.fleet < 0]
                         # 复核本页与前一船位的边界；已接受的历史疑点留在累计
                         # 船位中供早停检查，不让每个后续页反复重读同一个疑点。
@@ -266,13 +274,14 @@ class MindCalculatorScan(Dock):
                                                      source=f'{location}；{note}，待人工核对{evidence}；{card.ship["source"]}'[:200])
                                     # 未确认名称保留实际 OCR 读数供人工定位；review
                                     # 标记仍使其独立保留，不能作为已确认身份合并或计费。
-                                logger.warning(f'[心智扫描] {reason}重读仍未确认：{locations}；已标记待核对，继续扫描')
+                                logger.warning(f'[{self.scan_label}] {reason}重读仍未确认：{locations}；已标记待核对，继续扫描')
                             else:
                                 logger.warning(f'{reason}未确认，重新截图核对（{read_attempts}/3）：{locations}')
                                 previous = None
                                 stable.reset()
                                 waiting.reset()
                                 continue
+                        previous_slots = len(merger.slots)
                         merger.add(image, cards)
                         last_page_image = image
                         # 置顶编队读数影响整次早停，保留其原帧和最终卡位数据，
@@ -295,26 +304,31 @@ class MindCalculatorScan(Dock):
                     evidence_path = ''
                     evidence_frame = None
                     page += 1
-                    if page == 1:
+                    if len(merger.slots) > previous_slots:
+                        # 新页经位移与网格核验后已完成读取；有界 OCR 复读的耗时
+                        # 不应占用下一段滚动的期限，重复旧船位仍不能续期。
                         progress.reset()
                     if len(merger.slots) > 5000:
                         raise MindCalculatorScanError('识别卡片超过 5000，请核对船坞布局，保留旧扫描结果')
                     logger.attr('扫描页', page)
                     logger.attr('识别卡片', len(merger.slots))
-                    logger.attr('范围内舰船（同名取最高）', len(merger.ships(policy.min_level, policy.max_level)))
+                    identity_label = '按群组取最高' if getattr(merger, 'group_identity', False) else '同名取最高'
+                    logger.attr(f'范围内舰船（{identity_label}）', len(merger.ships(policy.min_level, policy.max_level)))
                     logger.attr('本页等级', ','.join(str(card.ship['level']) for card in cards))
                     logger.attr('本页编队', ','.join(str(card.fleet) for card in cards))
                     logger.attr('本页识别摘要', sha256(json.dumps(
                         [dict(ship=card.ship, fleet=card.fleet, level_reliable=card.level_reliable) for card in cards],
                         ensure_ascii=False, sort_keys=True).encode()).hexdigest())
-                    logger.info(f'[心智扫描] 第 {page} 页，已读取 {len(merger.slots)} 格，'
-                                f'范围内 {len(merger.ships(policy.min_level, policy.max_level))} 艘（同名取最高）')
+                    logger.info(f'[{self.scan_label}] 第 {page} 页，已读取 {len(merger.slots)} 格，'
+                                f'范围内 {len(merger.ships(policy.min_level, policy.max_level))} 艘（{identity_label}）')
                     if policy.can_stop(cards, merger.slots):
-                        logger.info(f'[心智扫描] 连续三排共 {len(cards)} 艘均低于 {policy.min_level} 级，已核实等级降序，扫描结束')
+                        self._scan_metadata = dict(reached_bottom=False, physical_count=len(merger.slots))
+                        logger.info(f'[{self.scan_label}] 连续三排共 {len(cards)} 艘均低于 {policy.min_level} 级，已核实等级降序，扫描结束')
                         break
                     logger.attr('早停检查', policy.stop_reason(cards, merger.slots))
                     if at_bottom:
-                        logger.info(f'[心智扫描] 已确认滚动条底部（{thumb[-1] + 1}/{DOCK_SCROLL.total}px），扫描结束')
+                        self._scan_metadata = dict(reached_bottom=True, physical_count=len(merger.slots))
+                        logger.info(f'[{self.scan_label}] 已确认滚动条底部（{thumb[-1] + 1}/{DOCK_SCROLL.total}px），扫描结束')
                         break
                     rows = sorted({card.y for card in cards})
                     if len(rows) != 3:

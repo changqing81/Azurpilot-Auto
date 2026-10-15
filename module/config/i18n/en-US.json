@@ -382,6 +382,10 @@
       "name": "Cognitive chip dock scan",
       "help": "Scan a CN dock at 1280×720 and review results in the cognitive chip calculator. Keeps old data until completion; resets dock filters."
     },
+    "FleetTechScan": {
+      "name": "Fleet technology scan",
+      "help": "Record ship identities and levels independently of cognitive chip exclusions."
+    },
     "Daemon": {
       "name": "Semi-Auto Click",
       "help": ""
@@ -6336,6 +6340,24 @@
     "FleetTechRecord": {
       "name": "Fleet technology records",
       "help": "Stores cumulative scan evidence, manual overrides and faction technology levels per instance."
+    }
+  },
+  "FleetTech": {
+    "_info": {
+      "name": "Technology scan",
+      "help": "Defaults to 95–125. Only a complete unfiltered 1–125 scan can confirm absence."
+    },
+    "MinLevel": {
+      "name": "Minimum level",
+      "help": "Inclusive; preserve existing records outside the range."
+    },
+    "MaxLevel": {
+      "name": "Maximum level",
+      "help": "Inclusive, up to level 125."
+    },
+    "Record": {
+      "name": "Fleet technology records",
+      "help": "Store groups, manual corrections, level toggle history and scan coverage per instance."
     }
   },
   "FleetInfo": {

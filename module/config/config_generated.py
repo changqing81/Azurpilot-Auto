@@ -1070,6 +1070,11 @@ class GeneratedConfig:
     MindCalculator_Result = {}
     MindCalculator_FleetTechRecord = {}
 
+    # 配置组 `FleetTech`
+    FleetTech_MinLevel = 95
+    FleetTech_MaxLevel = 125
+    FleetTech_Record = {}
+
     # 配置组 `FleetInfo`
     FleetInfo_Result = {}
     FleetInfo_Record = datetime.datetime(2020, 1, 1, 0, 0)

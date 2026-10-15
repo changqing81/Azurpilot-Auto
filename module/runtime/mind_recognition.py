@@ -233,7 +233,10 @@ def _has_name_ellipsis(region):
         right, other_top, other_w, other_h, other_area = second
         if (3 <= right - left <= 7 and right >= width - 20 and abs(top + h - other_top - other_h) <= 1
                 and mask[:, left - 2:width - 10].sum() == area + other_area):
-            return True
+            # 双点应紧邻正文；短名右侧大块空白中的立绘亮点不能证明名称截断。
+            if any(x + w <= left - 2 and left - x - w <= height + 1 and h >= 5 and area >= 8
+                   for x, y, w, h, area in stats[1:count]):
+                return True
     return False
 
 
@@ -310,7 +313,7 @@ def aircraft_icon(pixels, x, y):
     return cv2.minMaxLoc(cv2.matchTemplate(white, _aircraft_icon(), cv2.TM_CCOEFF_NORMED))[1] >= .85
 
 
-def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_origins=None):
+def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_origins=None, identity=None):
     """识别连续三行；自动扫描与上传共用相同网格、名单和等级校验。"""
     from module.ocr.al_ocr import AlOcr, OcrSettings
     from module.retire.dock import CARD_GRIDS
@@ -371,27 +374,37 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
     for index, (x, y, col) in enumerate(boxes):
         candidates = [str(names[index]).strip()]
         ellipsis = _has_name_ellipsis(name_images[index])
-        info, name_note = _match_name(candidates, frame_rarities[index], ellipsis=ellipsis)
         is_meta = meta_frame(pixels, x, y)
+        context = {}
+        if identity is not None:
+            from module.runtime.fleet_tech_identity import aviation_icon, surface_icon
+            context = dict(meta_frame=is_meta, aviation=aviation_icon(pixels, x, y),
+                           surface=surface_icon(pixels, x, y))
+
+        def match_names(texts, rarity, *, ellipsis=False):
+            return identity.match(texts, rarity, ellipsis=ellipsis, **context) if identity is not None \
+                else _match_name(texts, rarity, ellipsis=ellipsis)
+
+        info, name_note = match_names(candidates, frame_rarities[index], ellipsis=ellipsis)
         if info and is_meta and info.get('group') != 'META':
             # META 名称条可能只容纳普通舰全名；不能让该精确前缀绕过边框证据。
             info = None
         # 同一名称存在 II 型时，即使首读命中基础型也核对后缀，避免错并舰船。
         has_second_type = info and find_ship(info['name'] + 'II')
-        if not info or has_second_type:
+        if not info or has_second_type or identity is not None and identity.needs_retry(info):
             region = name_images[index]
             reader = _scanners()[1]
             color = region[reader.TEXT_ROWS[0]:reader.TEXT_ROWS[1], reader.TEXT_LEFT:]
             candidates.extend(name_ocr.ocr_for_single_lines([color, cv2.resize(_name_image(region), None, fx=2, fy=2,
                                                                                interpolation=cv2.INTER_CUBIC)]))
-            info, name_note = _match_name(candidates, frame_rarities[index], ellipsis=ellipsis)
+            info, name_note = match_names(candidates, frame_rarities[index], ellipsis=ellipsis)
         if not info and second_type_family(candidates):
             # 实图中细罗马字形经平滑放大可能并成 I；只对未确认家族补充不平滑的字图。
             clean = _name_image(name_images[index])
             candidates.extend(name_ocr.ocr_for_single_lines([
                 cv2.resize(clean, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
                 for scale in (2, 3)]))
-            info, name_note = _match_name(candidates, frame_rarities[index], ellipsis=ellipsis)
+            info, name_note = match_names(candidates, frame_rarities[index], ellipsis=ellipsis)
         if (info and find_ship(info['name'] + 'II')
                 and any(normalize_name(text).endswith('i') and second_type_family([text]) for text in candidates)):
             # 原图出现未确认的罗马后缀时，不能因另一次漏读后缀而接受基础型。
@@ -401,7 +414,7 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
             candidates.extend(name_ocr.ocr_for_single_lines([
                 cv2.resize(clean, None, fx=scale, fy=scale, interpolation=cv2.INTER_NEAREST)
                 for scale in (2, 3)]))
-            info, name_note = _match_name(candidates, frame_rarities[index], ellipsis=ellipsis)
+            info, name_note = match_names(candidates, frame_rarities[index], ellipsis=ellipsis)
             if info and find_ship(info['name'] + 'II'):
                 info, name_note = None, '罗马后缀未确认，不能将存疑读数当作基础型舰船'
         if not info and len(normalize_name(candidates[0])) == 1 and not ellipsis:
@@ -413,8 +426,8 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
                 for shift in (0, 2, 4) for margin in (4, 8) for scale in (2, 3)])
             previous_note = name_note
             candidates.extend(retry_reads)
-            info, name_note = _match_name(candidates, frame_rarities[index])
-            confirmed = [_match_name([text], frame_rarities[index])[0] for text in retry_reads]
+            info, name_note = match_names(candidates, frame_rarities[index])
+            confirmed = [match_names([text], frame_rarities[index])[0] for text in retry_reads]
             if not info or not any(all(item and item['name'] == info['name'] for item in confirmed[start:start+2])
                                    for start in range(0, len(confirmed)-1, 2)):
                 info, name_note = None, previous_note
@@ -431,16 +444,43 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
                 for scale in (2, 3)])
             previous_note = name_note
             candidates.extend(retry_reads)
-            info, name_note = _match_name(candidates, frame_rarities[index])
-            confirmed = [_match_name([text], frame_rarities[index])[0] for text in retry_reads]
+            info, name_note = match_names(candidates, frame_rarities[index])
+            confirmed = [match_names([text], frame_rarities[index])[0] for text in retry_reads]
             if not info or sum(bool(item and item['name'] == info['name']) for item in confirmed) < 2:
                 info, name_note = None, previous_note
+        if identity is not None and (not info or identity.needs_retry(info)):
+            # 特殊版本不能因首读遗漏“小”或兵装后缀而并入普通舰；有限相位复读仍取原字图。
+            candidates.extend(name_ocr.ocr_for_single_lines([
+                cv2.resize(_name_image(name_images[index][shift:]), None, fx=2, fy=2,
+                           interpolation=cv2.INTER_NEAREST)
+                for shift in (1, 2, 3, 4)]))
+            info, name_note = match_names(candidates, frame_rarities[index], ellipsis=ellipsis)
         if info and is_meta and info.get('group') != 'META':
             info = None
+        if identity is not None and not info and '同名同舰种' not in name_note:
+            # 小字抗锯齿会丢失细笔画或粘连罗马后缀；只对失败读数做有界复读。
+            # 两种笔画处理都独立确认同一群组后才采用，不替换任何特定舰名。
+            kernel = np.ones((2, 2), np.uint8)
+            for shift in (0, 1, -1, 2, -2, 3, -3, 4, -4):
+                region = pixels[y + 160 + shift:y + 190 + shift, x - 10:x + 142]
+                clean = cv2.resize(_name_image(region), None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                rereads = name_ocr.ocr_for_single_lines([cv2.erode(clean, kernel), cv2.dilate(clean, kernel)])
+                proof = [match_names([text], frame_rarities[index], ellipsis=ellipsis)[0] for text in rereads]
+                if (all(proof) and len({item['group_type'] for item in proof}) == 1
+                        and (not frame_rarities[index] or proof[0]['base_rarity'] == frame_rarities[index]
+                             or proof[0].get('group') in ('改造', 'META'))):
+                    candidates.extend(rereads)
+                    info, name_note = match_names(candidates, frame_rarities[index], ellipsis=ellipsis)
+                    if info:
+                        break
         if not info:
-            from module.runtime.mind_name import match_lua_name
-            matched, match_note = match_lua_name(candidates, frame_rarities[index], ellipsis=ellipsis,
-                                                 meta_frame=is_meta, aviation=aircraft_icon(pixels, x, y))
+            if identity is not None:
+                matched, match_note = identity.match(candidates, frame_rarities[index], ellipsis=ellipsis,
+                                                    fuzzy=True, **context)
+            else:
+                from module.runtime.mind_name import match_lua_name
+                matched, match_note = match_lua_name(candidates, frame_rarities[index], ellipsis=ellipsis,
+                                                     meta_frame=is_meta, aviation=aircraft_icon(pixels, x, y))
             if matched:
                 info, name_note = matched, match_note
             elif '罗马后缀未确认' not in name_note:
@@ -460,6 +500,11 @@ def recognize_cards(image, source='', *, name_ocr=None, level_ocr=None, row_orig
         ship = dict(name=name[:100], level=value, rarity=info['rarity'] if info else frame_rarities[index],
                     base_rarity=base_rarity, excluded=False, review=review,
                     source='；'.join([source, *notes]).strip('；')[:200])
+        if identity is not None:
+            ship.update(group_type=info['group_type'] if info else None,
+                        type=info['type'] if info else None,
+                        candidates=identity.candidates(candidates, ellipsis=ellipsis) if not info else [],
+                        identity_ambiguous='同名同舰种' in name_note)
         quality = (4 if info else 0) + (2 if reliable else 0)
         cards.append(Card(x, y, col, ship, quality, reliable, fleets[index], tuple(candidates), ellipsis))
     return cards
@@ -562,10 +607,11 @@ def estimate_scroll(previous, current):
 
 class ScanMerger:
     """按格子核验滚动，输出时再对同名舰船取最高等级。"""
-    def __init__(self):
+    def __init__(self, group_identity=False):
         self.previous = None
         self.offset = 0
         self.slots = []
+        self.group_identity = group_identity
 
     def advance(self, image):
         """中间截图只累计位移，保证三排推进始终有重叠区域可核验。"""
@@ -601,9 +647,18 @@ class ScanMerger:
                 if selected.fleet < 0 <= card.fleet and card.level_reliable:
                     # 同一物理船位的新帧补齐编队证据，保留原人工核对标记。
                     selected.fleet = card.fleet
-                if previous.ship['name'] != card.ship['name'] or previous.ship['level'] != card.ship['level']:
+                name_conflict = previous.ship['name'] != card.ship['name']
+                if self.group_identity:
+                    # 相同群组的改造名、后缀读法不同不构成身份冲突；不同群组不能互相覆盖。
+                    before_gid, after_gid = previous.ship.get('group_type'), card.ship.get('group_type')
+                    name_conflict = before_gid is not None and after_gid is not None and before_gid != after_gid
+                if name_conflict or previous.ship['level'] != card.ship['level']:
                     selected.ship['source'] = (selected.ship['source'] + '；跨屏读数不一致，请核对')[:200]
                     selected.ship['review'] = True
+                    if self.group_identity and name_conflict:
+                        selected.ship['candidates'] = sorted({before_gid, after_gid})
+                        selected.ship['group_type'] = None
+                        selected.ship['identity_ambiguous'] = True
                 if previous.level_reliable and card.level_reliable and previous.ship['level'] != card.ship['level']:
                     selected.level_reliable = False
             else:
@@ -612,7 +667,17 @@ class ScanMerger:
 
     def ships(self, min_level=1, max_level=125):
         # 疑难卡位必须进入核对清单；不能按存疑身份/等级静默过滤或计费。
-        return highest_ships([card.ship if card.level_reliable else dict(card.ship, level=0, review=True)
-                              for card, _ in sorted(self.slots, key=lambda item: (item[1], item[0].col))
-                              if not card.level_reliable or card.ship['review']
-                              or min_level <= card.ship['level'] <= max_level])
+        ships = [card.ship if card.level_reliable else dict(card.ship, level=0, review=True)
+                 for card, _ in sorted(self.slots, key=lambda item: (item[1], item[0].col))
+                 if not card.level_reliable or card.ship['review'] and not self.group_identity
+                 or min_level <= card.ship['level'] <= max_level]
+        if not self.group_identity:
+            return highest_ships(ships)
+        confirmed, reviews = {}, []
+        for ship in ships:
+            gid = ship.get('group_type')
+            if ship.get('review') or gid is None:
+                reviews.append(ship)
+            elif gid not in confirmed or ship['level'] > confirmed[gid]['level']:
+                confirmed[gid] = ship
+        return [*confirmed.values(), *reviews]

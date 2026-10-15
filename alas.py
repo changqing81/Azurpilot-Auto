@@ -575,7 +575,7 @@ class AzurLaneAutoScript:
             return True
         except MindCalculatorScanError as e:
             logger.error_context(
-                title='心智单元船坞扫描未完成', reason=str(e), exc=e,
+                title='舰船科技扫描未完成' if command == 'fleet_tech_scan' else '心智单元船坞扫描未完成', reason=str(e), exc=e,
                 impact='本次扫描结束，保留上次完整舰船清单，不重启模拟器。',
                 action='查看错误截图和具体原因，确认船坞布局及控制方式后重新启动扫描。',
                 level=50,
@@ -1470,6 +1470,10 @@ class AzurLaneAutoScript:
     def mind_calculator_scan(self):
         from module.retire.mind_scan import MindCalculatorScan
         MindCalculatorScan(config=self.config, device=self.device, task="MindCalculatorScan").run()
+
+    def fleet_tech_scan(self):
+        from module.retire.fleet_tech_scan import FleetTechScan
+        FleetTechScan(config=self.config, device=self.device, task="FleetTechScan").run()
 
     def game_manager(self):
         from module.daemon.game_manager import GameManager

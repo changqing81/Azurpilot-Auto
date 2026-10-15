@@ -135,7 +135,8 @@
     "tasks": [
       "FleetInfo",
       "FleetScan",
-      "MindCalculatorScan"
+      "MindCalculatorScan",
+      "FleetTechScan"
     ]
   },
   "Tool": {

@@ -349,6 +349,43 @@ class ScanLoopRegressionTests(unittest.TestCase):
         self.assertEqual(ships[11]['name'], '纳希莫夫海军上')
         self.assertTrue(self.scanner._policy.sort_valid)
 
+    def test_bounded_slow_name_review_on_a_new_page_does_not_count_as_scroll_stagnation(self):
+        recognize = self.recognize
+
+        def screenshot():
+            self.now += .1
+            self.captures += 1
+            self.scanner.device.image = self.images[self.position]
+
+        self.scanner.device.screenshot.side_effect = screenshot
+        stable_pixels = self.scanner._stable_pixels
+        settle_frames = 0
+
+        def settling_pixels(image):
+            nonlocal settle_frames
+            if self.position == 908:
+                settle_frames += 1
+                if settle_frames <= 12:
+                    return np.full((2, 2), settle_frames % 2 * 255, np.uint8)
+            return stable_pixels(image)
+
+        self.scanner._stable_pixels = settling_pixels
+
+        def slow_review(*args, **kwargs):
+            cards = recognize(*args, **kwargs)
+            if self.position == 681:
+                self.now += 9
+                cards[11].ship.update(name='未确认舰名', review=True)
+                cards[11].quality = 2
+            return cards
+
+        with patch('module.retire.mind_scan.recognize_cards', side_effect=slow_review):
+            ships = self.scan()
+        self.assertEqual(self.reads, [0, 681, 681, 681, 1362])
+        self.assertEqual(sum(ship['review'] for ship in ships), 1)
+        self.assertTrue(self.scanner._policy.sort_valid)
+        self.assertLess(self.position, self.bottom)
+
     def test_persistent_sort_level_or_fleet_doubt_continues_to_real_bottom(self):
         for kind in ('order', 'level', 'fleet'):
             with self.subTest(kind=kind):
