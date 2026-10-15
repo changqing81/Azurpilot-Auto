@@ -32,6 +32,10 @@
       "name": "岛屿计划",
       "help": ""
     },
+    "FleetManagement": {
+      "name": "Menu.FleetManagement.name",
+      "help": "Menu.FleetManagement.help"
+    },
     "Tool": {
       "name": "工具",
       "help": ""
@@ -365,6 +369,18 @@
     "IslandPearlSell": {
       "name": "每周珍珠采购与售卖",
       "help": "仅支持minitouch。每周二 01:00 自动处理珍珠：先采购本周珍珠，再售卖已有珍珠。金币一定要够购买200x220个这是最低要求能一次买光本周珍珠, 否则可能会报错."
+    },
+    "FleetInfo": {
+      "name": "Task.FleetInfo.name",
+      "help": "Task.FleetInfo.help"
+    },
+    "FleetScan": {
+      "name": "Task.FleetScan.name",
+      "help": "Task.FleetScan.help"
+    },
+    "MindCalculatorScan": {
+      "name": "Task.MindCalculatorScan.name",
+      "help": "Task.MindCalculatorScan.help"
     },
     "Daemon": {
       "name": "半自动点击",
@@ -6300,6 +6316,30 @@
       "help": "多个加成餐品时按过滤顺序优先替换第一个；替换槽位从餐品5→1倒查替换最后一个非空餐品\n可用餐品key对照：cheese:芝士, strawberry_milkshake:草莓奶绿, morning_light:晨光活力组合, wake_up_call:醒神套餐, fruity_fruitier:果香双杯乐\n示例：fruity_fruitier > wake_up_call > 30 > morning_light > strawberry_milkshake > 20 > cheese > 10"
     }
   },
+  "MindCalculator": {
+    "_info": {
+      "name": "MindCalculator._info.name",
+      "help": "MindCalculator._info.help"
+    },
+    "Result": {
+      "name": "MindCalculator.Result.name",
+      "help": "MindCalculator.Result.help"
+    }
+  },
+  "FleetInfo": {
+    "_info": {
+      "name": "FleetInfo._info.name",
+      "help": "FleetInfo._info.help"
+    },
+    "Result": {
+      "name": "FleetInfo.Result.name",
+      "help": "FleetInfo.Result.help"
+    },
+    "Record": {
+      "name": "FleetInfo.Record.name",
+      "help": "FleetInfo.Record.help"
+    }
+  },
   "Daemon": {
     "_info": {
       "name": "半自动点击",
@@ -6634,6 +6674,21 @@
       "SearchPlaceholder": "搜索配置",
       "SearchNoResult": "未找到匹配的配置",
       "SearchResultCount": "共 {count} 项结果"
+    },
+    "FleetManagement": {
+      "StartScan": "Gui.FleetManagement.StartScan",
+      "Scanning": "Gui.FleetManagement.Scanning",
+      "ScanStarted": "Gui.FleetManagement.ScanStarted",
+      "ScanAlreadyRunning": "Gui.FleetManagement.ScanAlreadyRunning",
+      "ScanStartFailed": "Gui.FleetManagement.ScanStartFailed",
+      "LastScan": "Gui.FleetManagement.LastScan",
+      "NoResult": "Gui.FleetManagement.NoResult",
+      "Main": "Gui.FleetManagement.Main",
+      "Vanguard": "Gui.FleetManagement.Vanguard",
+      "Fleet": "Gui.FleetManagement.Fleet",
+      "Ships": "Gui.FleetManagement.Ships",
+      "SurfaceFleet": "Gui.FleetManagement.SurfaceFleet",
+      "UnderwaterFleet": "Gui.FleetManagement.UnderwaterFleet"
     },
     "MeowfficerScore": {
       "Title": "指挥喵评分报告",

@@ -306,7 +306,6 @@
           "en-3",
           "en-4",
           "en-5",
-          "en-6",
           "jp-0",
           "jp-1",
           "jp-2",
@@ -324,12 +323,7 @@
           "jp-14",
           "jp-15",
           "jp-16",
-          "jp-17",
-          "tw-0",
-          "tw-1",
-          "tw-2",
-          "tw-3",
-          "tw-4"
+          "jp-17"
         ]
       },
       "ScreenshotMethod": {
@@ -345,8 +339,7 @@
           "DroidCast",
           "DroidCast_raw",
           "nemu_ipc",
-          "ldopengl",
-          "azurpilot_android"
+          "ldopengl"
         ]
       },
       "ControlMethod": {
@@ -357,11 +350,8 @@
           "uiautomator2",
           "minitouch",
           "Hermit",
-          "MaaTouch",
-          "nemu_ipc",
-          "azurpilot_android"
-        ],
-        "help": "nemu_ipc 需与截图方式配套使用（截图选 nemu_ipc 时启动会自动联动）。注意：nemu_ipc 触控走模拟器内部 RPC，低性能电脑上滑动易丢步、拖拽易变形，调用偶发挂死会丢失点击；滑动或拖拽异常时请改回 minitouch / MaaTouch。"
+          "MaaTouch"
+        ]
       },
       "GameSettings": {
         "type": "checkbox",
@@ -459,53 +449,14 @@
         "type": "checkbox",
         "value": false
       },
-      "TaskRestartLimit": {
+      "SaveErrorCount": {
         "type": "input",
-        "value": 3,
-        "validate": [
-          0,
-          999
-        ]
-      },
-      "SaveErrorRetentionDays": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          0,
-          3650
-        ]
-      },
-      "SaveErrorBackUpMethod": {
-        "type": "select",
-        "value": "zip",
-        "option": [
-          "delete",
-          "zip",
-          "copy"
-        ]
-      },
-      "SaveErrorZipMethod": {
-        "type": "select",
-        "value": "zip",
-        "option": [
-          "bz2",
-          "gzip",
-          "xz",
-          "zip"
-        ]
+        "value": 30
       },
       "OnePushConfig": {
         "type": "textarea",
         "value": "provider: null",
         "mode": "yaml"
-      },
-      "LowPushMode": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
       },
       "ScreenshotLength": {
         "type": "input",
@@ -535,37 +486,9 @@
           10
         ]
       },
-      "WatchdogEnable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "WatchdogTaskEnable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "WatchdogTaskTimeout": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          0,
-          99999
-        ]
-      },
-      "RestartOperationTimeoutEnable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "RestartOperationTimeout": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          10,
-          600
-        ]
-      },
       "LlmAnalysis": {
         "type": "checkbox",
-        "value": false
+        "value": true
       },
       "LlmApiKey": {
         "type": "textarea",
@@ -581,7 +504,7 @@
         "valuetype": "str"
       }
     },
-    "DailySummary": {
+    "TaskFailureProtection": {
       "Enable": {
         "type": "checkbox",
         "value": false,
@@ -590,10 +513,61 @@
           false
         ]
       },
-      "TriggerTime": {
+      "PushNotify": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "MaxFailures": {
         "type": "input",
-        "value": "20:00",
-        "valuetype": "str"
+        "value": 3,
+        "validate": [
+          1,
+          10
+        ]
+      },
+      "TimeWindowHours": {
+        "type": "input",
+        "value": 24,
+        "validate": [
+          1,
+          168
+        ]
+      },
+      "WatchdogEnable": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "WatchdogLogTimeout": {
+        "type": "input",
+        "value": 300,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "WatchdogTaskTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          0,
+          99999
+        ]
+      },
+      "RestartOperationTimeout": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          1,
+          99999
+        ]
       }
     },
     "Optimization": {
@@ -684,7 +658,7 @@
       },
       "CloseEmulatorDuringLongWait": {
         "type": "checkbox",
-        "value": false,
+        "value": true,
         "option": [
           true,
           false
@@ -731,68 +705,17 @@
         "type": "input",
         "value": "./screenshots"
       },
-      "RetentionDays": {
-        "type": "input",
-        "value": 0,
-        "validate": [
-          0,
-          3650
-        ]
-      },
-      "BackUpMethod": {
-        "type": "select",
-        "value": "zip",
-        "option": [
-          "delete",
-          "zip",
-          "copy"
-        ]
-      },
-      "ZipMethod": {
-        "type": "select",
-        "value": "zip",
-        "option": [
-          "bz2",
-          "gzip",
-          "xz",
-          "zip"
-        ]
-      },
-      "AzurStatsID": {
-        "type": "input",
-        "value": null
-      },
-      "API": {
-        "type": "select",
-        "value": "default",
-        "option": [
-          "default",
-          "cn_gz_reverse_proxy"
-        ]
-      },
       "ResearchRecord": {
         "type": "select",
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
+          "save"
         ]
       },
       "CommissionRecord": {
         "type": "select",
         "value": "do_not",
-        "option": [
-          "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
-        ]
-      },
-      "CommissionIncomeScreenshot": {
-        "type": "select",
-        "value": "save",
         "option": [
           "do_not",
           "save"
@@ -808,82 +731,90 @@
       },
       "OpsiHazard1Leveling": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiMeowfficerFarming": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiDaily": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiObscure": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiAbyssal": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiStronghold": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiExplore": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
         ]
       },
       "OpsiOther": {
         "type": "select",
-        "value": "upload",
+        "value": "local",
         "option": [
           "do_not",
           "save",
-          "upload",
-          "save_and_upload"
+          "local",
+          "save_and_local"
+        ]
+      },
+      "OpsiShopRecord": {
+        "type": "select",
+        "value": "do_not",
+        "option": [
+          "do_not",
+          "save"
         ]
       },
       "MeowfficerBuy": {
@@ -899,31 +830,7 @@
         "value": "do_not",
         "option": [
           "do_not",
-          "save",
-          "upload",
-          "save_and_upload"
-        ]
-      },
-      "TelemetryReport": {
-        "type": "checkbox",
-        "value": true
-      },
-      "BugReport": {
-        "type": "checkbox",
-        "value": true
-      }
-    },
-    "Backup": {
-      "Enable": {
-        "type": "checkbox",
-        "value": true
-      },
-      "KeepDays": {
-        "type": "input",
-        "value": 7,
-        "validate": [
-          1,
-          3650
+          "save"
         ]
       }
     },
@@ -942,14 +849,6 @@
         "validate": [
           1,
           24
-        ]
-      },
-      "DeepRestartAfterFailures": {
-        "type": "input",
-        "value": 0,
-        "validate": [
-          0,
-          10
         ]
       }
     },
@@ -1025,10 +924,6 @@
       "CheckPerCategory": {
         "type": "input",
         "value": 5
-      },
-      "KeepCommonCV": {
-        "type": "checkbox",
-        "value": true
       }
     },
     "OldRetire": {
@@ -1068,22 +963,13 @@
       },
       "FleetValue": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "FleetRecord": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "FleetRecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "FleetControl": {
         "type": "select",
@@ -1113,24 +999,10 @@
         "value": false
       }
     },
-    "OilControl": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false
-      },
-      "Target": {
-        "type": "input",
-        "value": 24000,
-        "validate": [
-          1000,
-          24999
-        ]
-      }
-    },
     "YukikazeTaskManager": {
       "TaskPriorityAdjustment": {
         "type": "task_priority",
-        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward > StorageStatistics\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore > OpsiExploreCleanup\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
+        "value": "Restart\n> OpsiCrossMonth\n> Commission > Tactical > Research\n> Exercise\n> Dorm > Meowfficer > Guild > Gacha\n> Reward\n> ShopFrequent > ShopOnce > Shipyard > Freebies\n> PrivateQuarters\n> OpsiExplore\n> OpsiPreventActionPointOverflow\n> Minigame > Awaken\n> OpsiAshBeacon\n> OpsiDaily > OpsiShop > OpsiVoucher > EventShop\n> OpsiAbyssal > OpsiStronghold > OpsiObscure > OpsiArchive\n> Daily > Hard > OpsiAshBeacon > OpsiAshAssist > OpsiMonthBoss\n> Sos > EventSp > EventA > EventB > EventC > EventD\n> RaidDaily > CoalitionSp > WarArchives > MaritimeEscort\n> IslandPlan\n> IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant\n> IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture\n> IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation\n> Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3\n> OpsiScheduling\n> OpsiMeowfficerFarming\n> GemsFarming\n> Ambush11\n> OpsiHazard1Leveling\n> ThreeOilLowCost\n> OperationHandover"
       }
     },
     "Storage": {
@@ -1347,13 +1219,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -1382,6 +1254,36 @@
       "ReachLevel": {
         "type": "input",
         "value": 0
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -1541,28 +1443,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -1593,22 +1482,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -1804,13 +1684,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -1839,6 +1719,36 @@
       "ReachLevel": {
         "type": "input",
         "value": 0
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -1998,28 +1908,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -2050,22 +1947,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -2261,13 +2149,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -2296,6 +2184,36 @@
       "ReachLevel": {
         "type": "input",
         "value": 0
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -2455,28 +2373,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -2507,22 +2412,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -2879,13 +2775,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -2919,6 +2815,36 @@
         "type": "input",
         "value": 0,
         "display": "hide"
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -3053,7 +2979,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "2_grid_to_boss",
+        "value": "use_open_ocean_support",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -3078,28 +3004,15 @@
         ],
         "display": "hide"
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -3134,20 +3047,12 @@
       "Fleet2Value": {
         "type": "input",
         "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "display": "hide"
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
         "display": "hide"
       },
       "Fleet2Control": {
@@ -3474,13 +3379,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -3514,6 +3419,36 @@
         "type": "input",
         "value": 0,
         "display": "hide"
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -3648,7 +3583,7 @@
       },
       "DistanceToBoss": {
         "type": "select",
-        "value": "2_grid_to_boss",
+        "value": "use_open_ocean_support",
         "option": [
           "to_boss_position",
           "1_grid_to_boss",
@@ -3673,28 +3608,15 @@
         ],
         "display": "hide"
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -3728,22 +3650,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -4027,13 +3940,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4067,6 +3980,36 @@
         "type": "input",
         "value": 0,
         "display": "hide"
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -4224,28 +4167,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -4276,22 +4206,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -4338,7 +4259,7 @@
       },
       "TimeLimit": {
         "type": "datetime",
-        "value": "2023-01-01 00:00:00",
+        "value": "2020-01-01 00:00:00",
         "validate": "datetime"
       }
     },
@@ -4532,13 +4453,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -4567,6 +4488,36 @@
       "ReachLevel": {
         "type": "input",
         "value": 0
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -4726,28 +4677,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -4778,22 +4716,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -5037,13 +4966,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5072,6 +5001,36 @@
       "ReachLevel": {
         "type": "input",
         "value": 0
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -5231,28 +5190,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -5283,22 +5229,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -5541,13 +5478,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -5576,6 +5513,36 @@
       "ReachLevel": {
         "type": "input",
         "value": 0
+      }
+    },
+    "LowCostCheck": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "OilLimit": {
+        "type": "input",
+        "value": 800,
+        "validate": [
+          500,
+          5000
+        ]
+      },
+      "Window": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          0.5,
+          1,
+          1.5,
+          2,
+          2.5,
+          3
+        ]
       }
     },
     "Fleet": {
@@ -5735,28 +5702,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -5787,22 +5741,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -6035,13 +5980,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6086,28 +6031,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -6138,23 +6070,14 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "stored",
+        "type": "input",
         "value": 119,
-        "validate": [
-          0,
-          150
-        ],
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "stored",
+        "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
         "display": "hide"
       },
       "Fleet2Control": {
@@ -6341,13 +6264,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6535,28 +6458,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -6587,22 +6497,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -6704,13 +6605,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -6756,28 +6657,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -6811,23 +6699,14 @@
         "display": "hide"
       },
       "Fleet2Value": {
-        "type": "stored",
+        "type": "input",
         "value": 119,
-        "validate": [
-          0,
-          150
-        ],
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "stored",
+        "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
         "display": "hide"
       },
       "Fleet2Control": {
@@ -7025,13 +6904,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -7076,28 +6955,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -7127,23 +6993,14 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "stored",
+        "type": "input",
         "value": 119,
-        "validate": [
-          0,
-          150
-        ],
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "stored",
+        "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
         "display": "hide"
       },
       "Fleet2Control": {
@@ -7351,13 +7208,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -7402,28 +7259,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -7454,22 +7298,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -8073,13 +7908,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8311,28 +8146,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -8363,22 +8185,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -8634,13 +8447,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -8833,28 +8646,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -8885,22 +8685,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -9156,13 +8947,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -9355,28 +9146,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -9407,22 +9185,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -9678,13 +9447,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -9877,28 +9646,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -9929,22 +9685,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -10200,13 +9947,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10399,28 +10146,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -10451,22 +10185,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -10712,13 +10437,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -10912,28 +10637,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -10964,22 +10676,13 @@
       },
       "Fleet2Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet2Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet2Control": {
         "type": "select",
@@ -11202,13 +10905,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -11254,28 +10957,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -11305,23 +10995,14 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "stored",
+        "type": "input",
         "value": 119,
-        "validate": [
-          0,
-          150
-        ],
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "stored",
+        "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
         "display": "hide"
       },
       "Fleet2Control": {
@@ -11520,13 +11201,13 @@
         "type": "input",
         "value": 1000
       },
-      "OilLimitHardFloor": {
-        "type": "input",
-        "value": 500
-      },
       "CoinLimit": {
         "type": "input",
         "value": 0
+      },
+      "CoinLimit_Enable": {
+        "type": "checkbox",
+        "value": false
       },
       "RunCount": {
         "type": "input",
@@ -11571,28 +11252,15 @@
           "calculate_ignore"
         ]
       },
-      "IgnoreShipwreck": {
-        "type": "checkbox",
-        "value": false
-      },
       "Fleet1Value": {
         "type": "input",
-        "value": 119,
-        "validate": [
-          0,
-          150
-        ]
+        "value": 119
       },
       "Fleet1Record": {
         "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "disabled"
-      },
-      "Fleet1RecoveryState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       },
       "Fleet1Control": {
         "type": "select",
@@ -11622,23 +11290,14 @@
         "value": false
       },
       "Fleet2Value": {
-        "type": "stored",
+        "type": "input",
         "value": 119,
-        "validate": [
-          0,
-          150
-        ],
         "display": "hide"
       },
       "Fleet2Record": {
-        "type": "stored",
+        "type": "datetime",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
-        "display": "hide"
-      },
-      "Fleet2RecoveryState": {
-        "type": "stored",
-        "value": null,
         "display": "hide"
       },
       "Fleet2Control": {
@@ -11685,7 +11344,7 @@
     "Scheduler": {
       "Enable": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "option": [
           true,
           false
@@ -11782,11 +11441,11 @@
         "type": "checkbox",
         "value": false
       },
-      "CommissionNotifyReward": {
+      "NotifyReward": {
         "type": "checkbox",
-        "value": false
+        "value": true
       },
-      "CommissionNotifyRewardStatistics": {
+      "NotifyRewardStatistics": {
         "type": "checkbox",
         "value": true
       },
@@ -11815,35 +11474,9 @@
           "month"
         ]
       },
-      "AutoPickShip": {
+      "CommissionNotifyRewardCube": {
         "type": "checkbox",
         "value": false
-      },
-      "PickMinRarity": {
-        "type": "select",
-        "value": "rare",
-        "option": [
-          "common",
-          "rare",
-          "elite",
-          "super_rare"
-        ]
-      },
-      "PickLevelOrder": {
-        "type": "select",
-        "value": "low_first",
-        "option": [
-          "low_first",
-          "high_first"
-        ]
-      },
-      "NoFreeShipPolicy": {
-        "type": "select",
-        "value": "skip",
-        "option": [
-          "skip",
-          "use_fleet"
-        ]
       }
     },
     "Storage": {
@@ -11965,19 +11598,7 @@
       },
       "MinLevel": {
         "type": "input",
-        "value": 50,
-        "validate": [
-          0,
-          125
-        ]
-      },
-      "MaxLevel": {
-        "type": "input",
-        "value": 0,
-        "validate": [
-          0,
-          125
-        ]
+        "value": 50
       }
     },
     "Storage": {
@@ -11993,7 +11614,7 @@
     "Scheduler": {
       "Enable": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "option": [
           true,
           false
@@ -12042,6 +11663,14 @@
       }
     },
     "Research": {
+      "BatchMode": {
+        "type": "checkbox",
+        "value": false
+      },
+      "MaintainFill": {
+        "type": "checkbox",
+        "value": false
+      },
       "UseCube": {
         "type": "select",
         "value": "only_05_hour",
@@ -12120,77 +11749,6 @@
       "CustomFilter": {
         "type": "textarea",
         "value": "S9-DR0.5 > S9-PRY0.5 > S9-Q0.5 > S9-H0.5 > Q0.5 > S9-DR2.5\n> S9-G1.5 > S9-Q1 > S9-DR5 > 0.5 > S9-G4 > S9-Q2 > S9-PRY2.5 > reset\n> S9-DR8 > Q1 > 1 > S9-E-315 > S9-G2.5 > G1.5 > 1.5 > S9-E-031\n> S9-Q4 > Q2 > E2 > 2 > DR2.5 > PRY2.5 > G2.5 > 2.5 > S9-PRY5\n> S9-PRY8 > Q4 > G4 > 4 > S9-C6 > DR5 > PRY5 > 5 > C6 > 6 > S9-C8\n> S9-C12 > DR8 > PRY8 > C8 > 8 > C12 > 12"
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "StorageStatistics": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "PushNotification": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "input",
-        "value": "StorageStatistics",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": 10080,
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": 60,
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "04:00",
-        "display": "hide"
-      },
-      "Sensitive": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      }
-    },
-    "StorageStatistics": {
-      "RunIntervalDays": {
-        "type": "input",
-        "value": 7,
-        "validate": [
-          1,
-          3650
-        ]
       }
     },
     "Storage": {
@@ -12519,7 +12077,7 @@
     "Scheduler": {
       "Enable": {
         "type": "checkbox",
-        "value": true,
+        "value": false,
         "option": [
           true,
           false
@@ -12733,10 +12291,6 @@
       "LowFavorabilityPriority": {
         "type": "checkbox",
         "value": false
-      },
-      "FavouriteOnly": {
-        "type": "checkbox",
-        "value": true
       },
       "BackupEnable": {
         "type": "checkbox",
@@ -13229,6 +12783,10 @@
           1,
           2
         ]
+      },
+      "UseRecommendFleet": {
+        "type": "checkbox",
+        "value": false
       }
     },
     "Storage": {
@@ -13966,6 +13524,26 @@
         "type": "checkbox",
         "value": true
       },
+      "TicketAmount": {
+        "type": "select",
+        "value": 1,
+        "option": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ]
+      },
+      "ClearTicket": {
+        "type": "checkbox",
+        "value": true
+      },
       "UseDrill": {
         "type": "checkbox",
         "value": false
@@ -14230,8 +13808,7 @@
           "new_jersey",
           "taihou",
           "aegir",
-          "nakhimov",
-          "implacable"
+          "nakhimov"
         ]
       }
     },
@@ -14320,6 +13897,18 @@
         ]
       },
       "SkipStrategicSearchCheck": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ActionPointLedgerEnabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "ActionPointTierBox": {
+        "type": "checkbox",
+        "value": false
+      },
+      "SkipScanOnUnsafeZone": {
         "type": "checkbox",
         "value": false
       }
@@ -14561,109 +14150,10 @@
         "type": "checkbox",
         "value": false
       },
-      "MeowfficerCleanup": {
-        "type": "checkbox",
-        "value": false,
-        "display": "hide"
-      },
-      "MeowfficerCleanupState": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
-      },
       "ExploreProgress": {
         "type": "textarea",
         "value": "",
         "display": "disabled"
-      }
-    },
-    "OpsiFleet": {
-      "Fleet": {
-        "type": "select",
-        "value": 1,
-        "option": [
-          1,
-          2,
-          3,
-          4
-        ]
-      },
-      "Submarine": {
-        "type": "checkbox",
-        "value": false
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "OpsiExploreCleanup": {
-    "Scheduler": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "PushNotification": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "NextRun": {
-        "type": "datetime",
-        "value": "2020-01-01 00:00:00",
-        "validate": "datetime"
-      },
-      "Command": {
-        "type": "input",
-        "value": "OpsiExploreCleanup",
-        "display": "hide"
-      },
-      "SuccessInterval": {
-        "type": "input",
-        "value": 0,
-        "display": "hide"
-      },
-      "FailureInterval": {
-        "type": "input",
-        "value": 30,
-        "display": "hide"
-      },
-      "ServerUpdate": {
-        "type": "input",
-        "value": "00:00",
-        "display": "hide"
-      },
-      "Sensitive": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      }
-    },
-    "OpsiExploreCleanup": {
-      "Progress": {
-        "type": "textarea",
-        "value": "",
-        "display": "disabled"
-      },
-      "State": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
       }
     },
     "OpsiFleet": {
@@ -14744,6 +14234,10 @@
       }
     },
     "OpsiShop": {
+      "BuyActionPoint": {
+        "type": "checkbox",
+        "value": false
+      },
       "PresetFilter": {
         "type": "select",
         "value": "max_benefit_meta",
@@ -14910,11 +14404,6 @@
         "value": false
       },
       "MissionZones": {
-        "type": "stored",
-        "value": null,
-        "display": "hide"
-      },
-      "DeferredMissions": {
         "type": "stored",
         "value": null,
         "display": "hide"
@@ -15424,8 +14913,7 @@
       },
       "TargetZone": {
         "type": "input",
-        "value": "0",
-        "mode": "text"
+        "value": 0
       },
       "StayInZone": {
         "type": "checkbox",
@@ -15576,8 +15064,13 @@
         "value": 200
       },
       "ExecuteFixedPatrolScan": {
-        "type": "checkbox",
-        "value": false
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          1,
+          2
+        ]
       },
       "SkipHpCheck": {
         "type": "checkbox",
@@ -15690,6 +15183,14 @@
           false
         ]
       },
+      "AnyShipReached": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
       "CooldownHours": {
         "type": "select",
         "value": 24,
@@ -15768,10 +15269,6 @@
       }
     },
     "OpsiScheduling": {
-      "BuyActionPoint": {
-        "type": "checkbox",
-        "value": false
-      },
       "UseSmartSchedulingOperationCoinsPreserve": {
         "type": "checkbox",
         "value": true,
@@ -15828,10 +15325,6 @@
         "type": "textarea",
         "value": "OpsiStronghold > OpsiObscure > OpsiAbyssal > OpsiMeowfficerFarming"
       },
-      "ObscureAbyssalCheckDelayDays": {
-        "type": "input",
-        "value": 0
-      },
       "MonthEndActionPointCleanupEnable": {
         "type": "checkbox",
         "value": false,
@@ -15848,11 +15341,6 @@
         "type": "input",
         "value": 0
       },
-      "MonthEndMeowTargetZone": {
-        "type": "input",
-        "value": "0",
-        "mode": "text"
-      },
       "MonthEndShopPurchase": {
         "type": "checkbox",
         "value": true,
@@ -15860,25 +15348,35 @@
           true,
           false
         ]
-      }
-    },
-    "OpsiSmartExplore": {
-      "Enable": {
-        "type": "checkbox",
-        "value": false
       },
-      "EventCleanup": {
-        "type": "checkbox",
-        "value": false
+      "BuyActionPointMode": {
+        "type": "select",
+        "value": "off",
+        "option": [
+          "off",
+          "hazard1_leveling",
+          "meowfficer_farming"
+        ]
       },
-      "ForceRun": {
-        "type": "checkbox",
-        "value": false
+      "BuyActionPointUpperThreshold": {
+        "type": "input",
+        "value": 200
       },
-      "Progress": {
-        "type": "textarea",
-        "value": "",
-        "display": "disabled"
+      "BuyActionPointLowerThreshold": {
+        "type": "input",
+        "value": 100
+      },
+      "BuyActionPointMonthWeeks": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
       }
     },
     "Storage": {
@@ -16022,97 +15520,32 @@
         ]
       }
     },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "OpsiSimulator": {
-    "OpsiSimulatorParameters": {
-      "Samples": {
-        "type": "input",
-        "value": 100000
-      },
-      "Draw": {
-        "type": "select",
-        "value": "do_not",
-        "option": [
-          "do_not",
-          "single_sample",
-          "multi_sample"
-        ]
-      },
-      "TotalTime": {
-        "type": "input",
-        "value": 0
-      },
-      "TimeUseRatio": {
-        "type": "input",
-        "value": 0.8,
-        "validate": [
-          0,
-          1
-        ]
-      },
-      "InitialAp": {
-        "type": "input",
-        "value": 0
-      },
-      "InitialCoin": {
-        "type": "input",
-        "value": 0
-      },
-      "MeowHazardLevel": {
-        "type": "select",
-        "value": "level5",
-        "option": [
-          "level3",
-          "level5"
-        ]
-      },
-      "CrossWeek": {
+    "OpsiCrossMonth": {
+      "ActionPointCleanupEnable": {
         "type": "checkbox",
         "value": true
       },
-      "BuyAp": {
+      "ActionPointPreserve": {
+        "type": "input",
+        "value": 50
+      },
+      "PushNotify": {
         "type": "checkbox",
         "value": true
       },
-      "Cl1Coin": {
-        "type": "input",
-        "value": 170
-      },
-      "Meow3Coin": {
-        "type": "input",
-        "value": 750
-      },
-      "Meow5Coin": {
-        "type": "input",
-        "value": 1700
-      },
-      "AkashiProbability": {
-        "type": "input",
-        "value": 0.05
-      },
-      "Cl1Time": {
-        "type": "input",
-        "value": 0
-      },
-      "Meow3Time": {
-        "type": "input",
-        "value": 0
-      },
-      "Meow5Time": {
-        "type": "input",
-        "value": 0
-      },
-      "Deterministic": {
+      "StopAfterComplete": {
         "type": "checkbox",
         "value": false
+      },
+      "RehearsalDebug": {
+        "type": "select",
+        "value": "off",
+        "option": [
+          "off",
+          "cleanup",
+          "full"
+        ],
+        "display": "hide"
       }
     },
     "Storage": {
@@ -16125,6 +15558,57 @@
     }
   },
   "IslandPlan": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "IslandPlan",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
     "IslandPlan": {
       "Season": {
         "type": "select",
@@ -16135,6 +15619,150 @@
           "autumn",
           "winter"
         ]
+      },
+      "IntervalHours": {
+        "type": "input",
+        "value": 12
+      },
+      "RespectSubTaskTimes": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableAirDrop": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableDailyGather": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableCargoPreparation": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableDailyOrder": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableDailyInteract": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableFarm": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableRancher": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableMineForest": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnablePearlSell": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableManufacture": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableRestaurant": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableTeahouse": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableGrill": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableJuuEatery": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableJuuCoffee": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "EnableBusiness": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "TaskOrder": {
+        "type": "textarea",
+        "value": "IslandAirDrop > IslandDailyGather > IslandCargoPreparation\n> IslandDailyOrder > IslandDailyInteract\n> IslandFarm > IslandRancher > IslandMineForest\n> IslandPearlSell > IslandManufacture\n> IslandRestaurant > IslandTeahouse > IslandGrill\n> IslandJuuEatery > IslandJuuCoffee\n> IslandBusiness"
       }
     },
     "Storage": {
@@ -19455,356 +19083,6 @@
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
         "display": "hide"
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "RunParams": {
-    "Watchdog": {
-      "CheckInterval": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          5,
-          600
-        ]
-      },
-      "DailySummaryCheckInterval": {
-        "type": "input",
-        "value": 1,
-        "validate": [
-          1,
-          60
-        ]
-      }
-    },
-    "Reboot": {
-      "Tries": {
-        "type": "input",
-        "value": 3,
-        "validate": [
-          1,
-          10
-        ]
-      },
-      "FirstTryWaitSeconds": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          5,
-          300
-        ]
-      },
-      "SubsequentTryWaitSeconds": {
-        "type": "input",
-        "value": 20,
-        "validate": [
-          5,
-          300
-        ]
-      },
-      "ObserveSeconds": {
-        "type": "input",
-        "value": 180,
-        "validate": [
-          30,
-          600
-        ]
-      },
-      "ObserveInterval": {
-        "type": "input",
-        "value": 15,
-        "validate": [
-          1,
-          60
-        ]
-      }
-    },
-    "Device": {
-      "EmulatorStartProgressInterval": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          10,
-          300
-        ]
-      },
-      "EmulatorStartDialogCheckInterval": {
-        "type": "input",
-        "value": 2,
-        "validate": [
-          1,
-          30
-        ]
-      },
-      "Mumu12StatePollInterval": {
-        "type": "input",
-        "value": 2,
-        "validate": [
-          1,
-          30
-        ]
-      },
-      "Mumu12StopWaitTimeout": {
-        "type": "input",
-        "value": 60,
-        "validate": [
-          10,
-          300
-        ]
-      },
-      "Mumu12DeepWaitTimeout": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          10,
-          120
-        ]
-      }
-    },
-    "ScreenRecord": {
-      "StartTimeout": {
-        "type": "input",
-        "value": 0.6,
-        "validate": [
-          0.1,
-          60
-        ]
-      },
-      "StopTimeout": {
-        "type": "input",
-        "value": 6.0,
-        "validate": [
-          1,
-          120
-        ]
-      },
-      "PollInterval": {
-        "type": "input",
-        "value": 0.2,
-        "validate": [
-          0.05,
-          5
-        ]
-      },
-      "TranscodeBaseTimeout": {
-        "type": "input",
-        "value": 60.0,
-        "validate": [
-          10,
-          3600
-        ]
-      },
-      "TranscodeMaxTimeout": {
-        "type": "input",
-        "value": 600.0,
-        "validate": [
-          60,
-          7200
-        ]
-      }
-    },
-    "UiWait": {
-      "IslandMapConfirmWait": {
-        "type": "input",
-        "value": 3,
-        "validate": [
-          1,
-          60
-        ]
-      },
-      "IslandMapDestinationWait": {
-        "type": "input",
-        "value": 45,
-        "validate": [
-          10,
-          600
-        ]
-      },
-      "IslandMapConfirmRetryWait": {
-        "type": "input",
-        "value": 10,
-        "validate": [
-          1,
-          60
-        ]
-      },
-      "IslandCharacterConfirmRetryWait": {
-        "type": "input",
-        "value": 3,
-        "validate": [
-          1,
-          60
-        ]
-      },
-      "IslandEntryRetryWait": {
-        "type": "input",
-        "value": 3,
-        "validate": [
-          1,
-          60
-        ]
-      },
-      "PqInteractButtonTimeout": {
-        "type": "input",
-        "value": 24,
-        "validate": [
-          5,
-          120
-        ]
-      },
-      "PqInteractClickWait": {
-        "type": "input",
-        "value": 8,
-        "validate": [
-          2,
-          60
-        ]
-      },
-      "PqInteractStartTimeout": {
-        "type": "input",
-        "value": 24,
-        "validate": [
-          5,
-          120
-        ]
-      },
-      "PqInteractEndTimeout": {
-        "type": "input",
-        "value": 40,
-        "validate": [
-          10,
-          300
-        ]
-      },
-      "PqInteractExitTimeout": {
-        "type": "input",
-        "value": 24,
-        "validate": [
-          5,
-          120
-        ]
-      },
-      "GachaPrepSubmitWait": {
-        "type": "input",
-        "value": 10,
-        "validate": [
-          2,
-          120
-        ]
-      },
-      "GachaPrepTimeout": {
-        "type": "input",
-        "value": 90,
-        "validate": [
-          10,
-          600
-        ]
-      },
-      "ChannelFloatHoldDuration": {
-        "type": "input",
-        "value": 0.2,
-        "validate": [
-          0.05,
-          5
-        ]
-      },
-      "ChannelFloatMaxAttempts": {
-        "type": "input",
-        "value": 4,
-        "validate": [
-          1,
-          20
-        ]
-      },
-      "GuildSupplyMaxRetry": {
-        "type": "input",
-        "value": 2,
-        "validate": [
-          1,
-          10
-        ]
-      },
-      "GuildExchangeBugRetry": {
-        "type": "input",
-        "value": 5,
-        "validate": [
-          1,
-          20
-        ]
-      },
-      "BuyFurnitureCheckIntervalDays": {
-        "type": "input",
-        "value": 6,
-        "validate": [
-          1,
-          30
-        ]
-      },
-      "AutoEquipAfterEquipWait": {
-        "type": "input",
-        "value": 3,
-        "validate": [
-          1,
-          30
-        ]
-      },
-      "CommissionSkipTimeout": {
-        "type": "input",
-        "value": 90,
-        "validate": [
-          10,
-          600
-        ]
-      },
-      "CommissionRewardScreenshotKeep": {
-        "type": "input",
-        "value": 50,
-        "validate": [
-          5,
-          500
-        ]
-      }
-    },
-    "Handover": {
-      "ConsumeRetryMinutes": {
-        "type": "input",
-        "value": 30,
-        "validate": [
-          5,
-          240
-        ]
-      },
-      "MaintainLeadMinutes": {
-        "type": "input",
-        "value": 10,
-        "validate": [
-          2,
-          60
-        ]
-      },
-      "MaintainCheckMinutes": {
-        "type": "input",
-        "value": 120,
-        "validate": [
-          15,
-          720
-        ]
-      },
-      "ConflictRetryMinutes": {
-        "type": "input",
-        "value": 15,
-        "validate": [
-          5,
-          120
-        ]
       }
     },
     "Storage": {

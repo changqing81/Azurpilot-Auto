@@ -58,7 +58,6 @@
       "Commission",
       "Tactical",
       "Research",
-      "StorageStatistics",
       "Dorm",
       "Meowfficer",
       "Guild",
@@ -92,7 +91,6 @@
       "OpsiAshBeacon",
       "OpsiAshAssist",
       "OpsiExplore",
-      "OpsiExploreCleanup",
       "OpsiShop",
       "OpsiVoucher",
       "OpsiDaily",
@@ -105,8 +103,7 @@
       "OpsiHazard1Leveling",
       "OpsiScheduling",
       "OpsiPreventActionPointOverflow",
-      "OpsiCrossMonth",
-      "OpsiSimulator"
+      "OpsiCrossMonth"
     ]
   },
   "Island": {
@@ -137,13 +134,6 @@
     "page": "setting",
     "tasks": [
       "FleetInfo"
-    ]
-  },
-  "RunParams": {
-    "menu": "collapse",
-    "page": "setting",
-    "tasks": [
-      "RunParams"
     ]
   },
   "Tool": {
