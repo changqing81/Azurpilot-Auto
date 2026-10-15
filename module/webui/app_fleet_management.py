@@ -217,6 +217,7 @@ class FleetManagementMixin(WebUIMixinBase):
                 {"label": t("Task.FleetInfo.name"), "value": "FleetInfo", "color": "menu"},
                 {"label": t("Task.FleetScan.name"), "value": "FleetScan", "color": "menu"},
                 {"label": t("Task.FleetTechnology.name"), "value": "FleetTechnology", "color": "menu"},
+                {"label": t("Task.FleetTechScan.name"), "value": "FleetTechScan", "color": "menu"},
                 {"label": t("Task.MindCalculatorScan.name"), "value": "MindCalculatorScan", "color": "menu"},
             ],
             onclick=self._fleet_management_enter,
@@ -230,8 +231,9 @@ class FleetManagementMixin(WebUIMixinBase):
             self.fleet_scan_page(task="FleetScan")
         elif value == "FleetTechnology":
             self.fleet_technology_page(task="FleetTechnology")
-        elif value == "MindCalculatorScan":
-            self.alas_set_group("MindCalculatorScan")
+        elif value in ("MindCalculatorScan", "FleetTechScan"):
+            # 两个扫描任务没有独立页面，进各自配置页。
+            self.alas_set_group(value)
 
     @use_scope("content", clear=True)
     def fleet_scan_page(self, task: str = "FleetScan") -> None:

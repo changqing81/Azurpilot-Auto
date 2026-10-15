@@ -49,14 +49,14 @@ class _Harness(FleetManagementMixin):
         self.calls.append(('page', 'FleetTechnology'))
 
     def alas_set_group(self, task=None, expand_group=None):
-        self.calls.append(('page', 'MindCalculatorScan'))
+        self.calls.append(('page', task))
 
 
 class FleetManagementEntranceTest(unittest.TestCase):
     def test_enter_dispatches_to_sub_pages(self):
-        """四个入口各自进入对应页面；未知值不动作。"""
+        """五个入口各自进入对应页面；未知值不动作。"""
         harness = _Harness()
-        for value in ('FleetInfo', 'FleetScan', 'FleetTechnology', 'MindCalculatorScan'):
+        for value in ('FleetInfo', 'FleetScan', 'FleetTechnology', 'FleetTechScan', 'MindCalculatorScan'):
             harness.calls.clear()
             harness._fleet_management_enter(value)
             self.assertEqual(harness.calls, [('page', value)])
@@ -64,8 +64,8 @@ class FleetManagementEntranceTest(unittest.TestCase):
         harness._fleet_management_enter('bogus')
         self.assertEqual(harness.calls, [])
 
-    def test_entrance_page_renders_four_menu_buttons(self):
-        """入口页：组名高亮 + 四个 menu 色按钮（按真签名校验渲染调用）。"""
+    def test_entrance_page_renders_five_menu_buttons(self):
+        """入口页：组名高亮 + 五个 menu 色按钮（按真签名校验渲染调用）。"""
         harness = _Harness()
         buttons = []
 
@@ -79,13 +79,13 @@ class FleetManagementEntranceTest(unittest.TestCase):
             FleetManagementMixin.fleet_management_page.__wrapped__(harness)
         self.assertEqual(harness.calls, [('init_menu', 'FleetManagement')])
         self.assertEqual([item['value'] for item in buttons],
-                         ['FleetInfo', 'FleetScan', 'FleetTechnology', 'MindCalculatorScan'])
+                         ['FleetInfo', 'FleetScan', 'FleetTechnology', 'FleetTechScan', 'MindCalculatorScan'])
         self.assertTrue(all(item['color'] == 'menu' for item in buttons))
 
     def test_menu_highlight_alias_covers_group_tasks(self):
         """子页面高亮归并到组入口按钮（菜单里没有它们的独立按钮）。"""
         from module.webui.base import Frame
-        for task in ('FleetInfo', 'FleetScan', 'FleetTechnology', 'MindCalculatorScan'):
+        for task in ('FleetInfo', 'FleetScan', 'FleetTechnology', 'FleetTechScan', 'MindCalculatorScan'):
             self.assertEqual(Frame.MENU_HIGHLIGHT_ALIAS.get(task), 'FleetManagement')
 
 

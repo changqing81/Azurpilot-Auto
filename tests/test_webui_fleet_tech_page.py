@@ -192,8 +192,8 @@ class FleetTechPageTest(unittest.TestCase):
     def test_load_assembles_report_from_instance_config(self):
         """实例配置与真 tech.report 的装配：revision 由 report 自带，不重复传参。"""
         from module.runtime import fleet_tech as real_tech
-        fake = {'MindCalculatorScan': {'MindCalculator': {
-            'MinLevel': 96, 'MaxLevel': 120, 'FleetTechRecord': {'observed': {'10102': 125}}}}}
+        fake = {'FleetTechScan': {'FleetTech': {
+            'MinLevel': 96, 'MaxLevel': 120, 'Record': {'observed': {'10102': 125}}}}}
         with patch(f'{MODULE}.load_config') as load_config:
             load_config.return_value.read_file.return_value = fake
             catalog, report = self.harness._ft_load(force=True)
@@ -332,7 +332,7 @@ class FleetTechPageTest(unittest.TestCase):
                 patch(f'{MODULE}.toast'):
             h._ft_scan_start()
         self.assertEqual(written, [(MIN_LEVEL_PATH, 96), (MAX_LEVEL_PATH, 120)])
-        h.alas.start.assert_called_once_with('MindCalculatorScan')
+        h.alas.start.assert_called_once_with('FleetTechScan')
 
     def test_scan_start_rejects_invalid_range(self):
         """非法范围（越界/倒挂/非数字/空）只提示，不写配置不启动。"""
@@ -388,8 +388,8 @@ class FleetTechPageTest(unittest.TestCase):
 class FleetTechRenderSmokeTest(unittest.TestCase):
     """全流程渲染冒烟：每个 PyWebIO 调用都通过真函数签名校验。"""
 
-    FAKE_DATA = {'MindCalculatorScan': {'MindCalculator': {
-        'MinLevel': 95, 'MaxLevel': 125, 'FleetTechRecord': {}}}}
+    FAKE_DATA = {'FleetTechScan': {'FleetTech': {
+        'MinLevel': 95, 'MaxLevel': 125}}}
 
     def test_full_render_passes_real_api_signatures(self):
         from module.webui import app_fleet_technology as module

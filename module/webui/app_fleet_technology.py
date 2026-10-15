@@ -39,8 +39,10 @@ from module.webui.base import render_locked
 
 RECORD_PATH = tech.RECORD_PATH
 RESULT_PATH = 'MindCalculatorScan.MindCalculator.Result'
-MIN_LEVEL_PATH = 'MindCalculatorScan.MindCalculator.MinLevel'
-MAX_LEVEL_PATH = 'MindCalculatorScan.MindCalculator.MaxLevel'
+# 扫描范围随扫描任务走：#1230 起科技扫描是独立任务 FleetTechScan。
+MIN_LEVEL_PATH = 'FleetTechScan.FleetTech.MinLevel'
+MAX_LEVEL_PATH = 'FleetTechScan.FleetTech.MaxLevel'
+SCAN_TASK = 'FleetTechScan'
 
 BRIDGE_PIN = 'ft_bridge_pin'
 FILTER_TITLES = {'type': 'Category', 'rarity': 'Rarity', 'nation': 'Nation',
@@ -122,7 +124,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
         """读取实例配置与离线目录；会话内缓存，重载或写入后刷新。"""
         if self._ft_catalog is None or force:
             data = load_config(self.alas_name).read_file(self.alas_name)
-            record = deep_get(data, RECORD_PATH, {})
+            record = tech.read_record(data)
             # report 自带 revision；只补实例与扫描范围，避免重复关键字。
             report = dict(instance=self.alas_name,
                           min_level=deep_get(data, MIN_LEVEL_PATH, 95) or 95,
@@ -200,20 +202,19 @@ class FleetTechnologyMixin(WebUIMixinBase):
             put_html(view.summary_html(self._ft_catalog, self._ft_report, self._ft_rows))
 
     def _ft_render_toolbar(self):
-        """扫描参数、扫描/同步按钮与状态提示；按钮状态由 task_handler 轮询。"""
+        """扫描参数、扫描/同步按钮与状态提示；按钮状态由 task_handler 轮询。
+
+        元素顺序输出（不用 put_row），由 ft_toolbar 的 flex-wrap 排布，窄屏自然换行。
+        """
         report = self._ft_report
         with use_scope('ft_toolbar', clear=True):
-            put_row(
-                [put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.Low")}</span>'),
-                 put_input(name='ft_min_level', type='number', value=str(report['min_level'])),
-                 put_html('<span class="ft-toolbar-label" style="width:8px;"></span>'),
-                 put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.High")}</span>'),
-                 put_input(name='ft_max_level', type='number', value=str(report['max_level'])),
-                 put_scope('ft_scan_button'),
-                 put_buttons([{'label': t('Gui.FleetTechnology.Sync'), 'value': 'sync'}],
-                             onclick=self._ft_on_sync)],
-            )
-            put_scope('ft_toolbar_status')
+            put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.Low")}</span>')
+            put_input(name='ft_min_level', type='number', value=str(report['min_level']))
+            put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.High")}</span>')
+            put_input(name='ft_max_level', type='number', value=str(report['max_level']))
+            put_scope('ft_scan_button')
+            put_buttons([{'label': t('Gui.FleetTechnology.Sync'), 'value': 'sync'}],
+                        onclick=self._ft_on_sync)
             put_html(f'<div class="ft-hint">{t("Gui.FleetTechnology.Hint")}</div>')
         button = BinarySwitchButton(
             get_state=self._ft_scan_running,
@@ -453,7 +454,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
             with config_transaction(filepath_config(self.alas_name)):
                 config = load_config(self.alas_name)
                 data = config.read_file(self.alas_name)
-                record = deep_get(data, RECORD_PATH, {})
+                record = tech.read_record(data)
                 if tech.revision(record) != self._ft_revision:
                     return t('Gui.FleetTechnology.Conflict')
                 updated = tech.apply_changes(record, changes, nations)
@@ -606,7 +607,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
         except (TimeoutError, OSError) as exc:
             toast(f'{t("Gui.FleetManagement.ScanStartFailed")}：{exc}', color='error')
             return
-        self.alas.start('MindCalculatorScan')
+        self.alas.start(SCAN_TASK)
         if self._ft_scan_running():
             toast(t('Gui.FleetManagement.ScanStarted'), color='info')
         else:
@@ -619,7 +620,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
             with config_transaction(filepath_config(self.alas_name)):
                 config = load_config(self.alas_name)
                 data = config.read_file(self.alas_name)
-                record = deep_get(data, RECORD_PATH, {})
+                record = tech.read_record(data)
                 result = deep_get(data, RESULT_PATH, {})
                 ships = result.get('ships', []) if isinstance(result, dict) else []
                 if not ships:

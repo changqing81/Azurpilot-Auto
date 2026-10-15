@@ -255,6 +255,7 @@ class Frame(Base):
         "FleetInfo": "FleetManagement",
         "FleetScan": "FleetManagement",
         "FleetTechnology": "FleetManagement",
+        "FleetTechScan": "FleetManagement",
         "MindCalculatorScan": "FleetManagement",
     }
 

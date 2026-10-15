@@ -13,7 +13,7 @@ from module.webui.lang import t
 TYPE_ORDER = (1, 2, 3, 18, 4, 5, 7, 6, 13, 12, 10, 8, 17, 19, 22)
 ATTR_ORDER = (1, 2, 3, 4, 5, 6, 9, 8, 12)
 RARITY_ORDER = ('N', 'R', 'SR', 'SSR', 'UR', 'PR', 'DR')
-STATUS_ORDER = ('incomplete', 'unfinished', 'unowned', 'owned', 'complete', 'pending')
+STATUS_ORDER = ('incomplete', 'unfinished', 'unowned', 'owned', 'complete')
 FRONT_TYPES = (1, 2, 3, 18)
 BACK_TYPES = (4, 5, 6, 7, 10, 12, 13)
 

@@ -30,10 +30,11 @@ class FleetTechRuntimeTests(unittest.TestCase):
                     self.assertIsInstance(attr, int)
                     self.assertIsInstance(value, int)
 
-    def test_unknown_is_distinct_from_not_obtained(self):
+    def test_unrecorded_defaults_to_not_obtained(self):
+        """#1230 起无证据默认未获得：空记录即未获得，不再有「待记录」。"""
         row = tech.report({})['ships'][0]
-        self.assertIsNone(row['owned'])
-        self.assertEqual(row['status'], 'pending')
+        self.assertIs(row['owned'], False)
+        self.assertEqual(row['status'], 'unowned')
 
     def test_partial_scan_retirement_and_125_keep_history(self):
         record = tech.merge_mind({}, [ship(), ship('卡辛', 95)])
@@ -75,14 +76,14 @@ class FleetTechRuntimeTests(unittest.TestCase):
         record['nations']['1'] = 2
         self.assertEqual(tech.report(record)['bonuses']['7']['5'], 1)
 
-    def test_new_catalog_ships_start_unknown_without_mutating_records(self):
+    def test_new_catalog_ships_default_to_not_obtained(self):
         record = tech.merge_mind({}, [ship()])
         original = copy.deepcopy(record)
         data = copy.deepcopy(tech.catalog())
         row = dict(data['ships'][0], group_type=99999999)
         data['ships'].append(row)
         with patch.object(tech, 'catalog', return_value=data):
-            self.assertEqual(tech.report(record)['ships'][-1]['status'], 'pending')
+            self.assertEqual(tech.report(record)['ships'][-1]['status'], 'unowned')
         self.assertEqual(record, original)
 
 
@@ -99,7 +100,7 @@ class FleetTechApplyChangesTests(unittest.TestCase):
         row = self.row(record)
         self.assertTrue(row['full_star'])
         self.assertTrue(row['owned'])
-        self.assertIsNone(row['lv120'])
+        self.assertFalse(row['lv120'])
         record = tech.apply_changes({}, [{'group_type': self.GID, 'level': 100}])
         row = self.row(record)
         self.assertTrue(row['owned'])
@@ -126,9 +127,9 @@ class FleetTechApplyChangesTests(unittest.TestCase):
         record = tech.apply_changes(base, [{'group_type': self.GID, 'owned': None}])
         row = self.row(record)
         self.assertIsNone(row['level'])
-        self.assertIsNone(row['lv120'])
-        self.assertIsNone(row['full_star'])
-        self.assertEqual(row['status'], 'pending')
+        self.assertFalse(row['lv120'])
+        self.assertFalse(row['full_star'])
+        self.assertEqual(row['status'], 'unowned')
 
     def test_level_without_lv120_falls_back_to_derivation(self):
         base = tech.apply_changes({}, [{'group_type': self.GID, 'lv120': False}])
@@ -142,7 +143,7 @@ class FleetTechApplyChangesTests(unittest.TestCase):
         base = tech.apply_changes({}, [{'group_type': self.GID, 'owned': False}])
         restored = tech.apply_changes(base, [{'group_type': self.GID, 'restore': True}])
         self.assertNotIn('10102', restored.get('manual', {}))
-        self.assertIsNone(self.row(restored)['owned'])
+        self.assertFalse(self.row(restored)['owned'])
         with self.assertRaises(tech.FleetTechChangeError):
             tech.apply_changes(base, [{'group_type': self.GID, 'restore': True, 'owned': True}])
         with self.assertRaises(tech.FleetTechChangeError):
