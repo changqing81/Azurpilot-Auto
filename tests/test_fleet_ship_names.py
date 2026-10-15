@@ -124,12 +124,10 @@ class ShipNameTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '未解析的名称引用'):
                 extract_ship_names(directory)
 
-    def test_real_name_crops_and_final_config_write(self):
+    def test_real_name_crops(self):
+        # 本地未收编 module.api（上游 ConfigService 落盘那半段已剪），只保留识别链路的真机夹具断言。
         from module.base.utils import load_image
-        from module.config.config import AzurLaneConfig
-        from module.api.config_service import ConfigService
         from module.retire.fleet_management import FleetManagement
-        from tests.test_api import fixture
 
         scanner = FleetManagementScanner()
         # 夹具保留真实名称、舰队标识、等级和心情裁剪，四条识别链路全部实测。
@@ -146,22 +144,8 @@ class ShipNameTests(unittest.TestCase):
         self.assertEqual(names['main'][12], '胜利·META')
         self.assertEqual(names['main'][15], '独角兽.改')
         self.assertEqual(names['submarine'][2], '松鲷')
-        with tempfile.TemporaryDirectory() as directory:
-            service = ConfigService(fixture(directory))
-            worker = AzurLaneConfig.__new__(AzurLaneConfig)
-            worker.config_name = 'testpilot'
-            worker.data = service.get('testpilot')['values']
-            worker._loaded_data = copy.deepcopy(worker.data)
-            worker.modified, worker.bound = {}, {}
-            runner = FleetManagement.__new__(FleetManagement)
-            runner.config = worker
-            path = str(service.path('testpilot'))
-            with patch('module.config.config.filepath_config', return_value=path), \
-                    patch('module.config.config_updater.filepath_config', return_value=path):
-                runner._save_result(result)
-            self.assertEqual(service.get('testpilot')['values']['FleetInfo']['FleetInfo']['Result'], result)
-            victory = next(ship for ship in result['main']['1'] if ship['name'] == '胜利·META')
-            self.assertEqual(victory, {'name': '胜利·META', 'level': 119, 'emotion': 150})
+        victory = next(ship for ship in result['main']['1'] if ship['name'] == '胜利·META')
+        self.assertEqual(victory, {'name': '胜利·META', 'level': 119, 'emotion': 150})
 
 
 if __name__ == '__main__':

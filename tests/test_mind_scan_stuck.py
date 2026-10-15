@@ -14,9 +14,30 @@ from module.exception import GameStuckError, MindCalculatorScanError
 from module.retire.mind_scan import MindCalculatorScan
 from module.retire.scanner import FleetScanner
 from module.runtime.mind_calculator import calculate
-from module.runtime.mind_recognition import (ScanMerger, ScanPolicy, _has_name_ellipsis, _match_name, _name_image,
-                                           fleet_status, grid_rows, recognize_cards)
-from tests.test_mind_scan import FIXTURES, cards_for_levels
+from module.runtime.mind_recognition import (Card, ScanMerger, ScanPolicy, _has_name_ellipsis, _match_name,
+                                             _name_image, fleet_status, grid_rows, recognize_cards)
+
+
+# 本地未收编依赖 module.api 的 tests/test_mind_scan.py，此处内联其两个共用夹具。
+FIXTURES = Path(__file__).parent / 'fixtures'
+
+
+def cards_for_levels(levels, fleet=0):
+    return [Card(93 + col * 165, 65 + row * 227, col,
+                 dict(name='拉菲', level=level, rarity='SR', source='', review=False), 6, True, fleet)
+            for index, level in enumerate(levels) for row, col in [divmod(index, 7)]]
+
+
+def scroll_frames(offsets):
+    rng = np.random.default_rng(20261010)
+    # 随机纹理模拟不同卡面，原图提供超过一屏的内容以核对实际位移。
+    content = rng.integers(30, 230, (max(offsets) + 575, 1140, 3), dtype=np.uint8)
+    frames = []
+    for offset in offsets:
+        frame = np.zeros((720, 1280, 3), dtype=np.uint8)
+        frame[65:640, 85:1225] = content[offset:offset + 575]
+        frames.append(frame)
+    return frames
 
 
 class BadgeRegressionTests(unittest.TestCase):
@@ -249,7 +270,6 @@ class NamePhaseRegressionTests(unittest.TestCase):
 
 class ScanLoopRegressionTests(unittest.TestCase):
     def setUp(self):
-        from tests.test_mind_calculator import RecognitionTests
         self.scanner = MindCalculatorScan.__new__(MindCalculatorScan)
         self.scanner.config = SimpleNamespace(Emulator_ControlMethod='MaaTouch', config_name='testpilot')
         self.scanner.device = Mock()
@@ -262,7 +282,7 @@ class ScanLoopRegressionTests(unittest.TestCase):
         self.bottom = 2043
         self.captures, self.reads = 0, []
         offsets = list(range(0, self.bottom + 1, 227))
-        self.images = dict(zip(offsets, RecognitionTests.scroll_frames(offsets)))
+        self.images = dict(zip(offsets, scroll_frames(offsets)))
         self.page_calls = {}
         self.kind = ''
         self.stalled = False

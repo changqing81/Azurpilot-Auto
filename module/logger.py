@@ -810,6 +810,9 @@ logger.set_func_logger = set_func_logger
 logger.rule = rule
 logger.print = print
 logger.log_file: str
+# 属性必须始终存在：set_file_logger 在「已有同名处理器」或 SKIP_PROCESS_NAMES 时会提前
+# return，此时 log_file 不会被赋值，而 mind_scan 等调用方靠 `logger.log_file or 回退路径` 兜底。
+logger.log_file = None
 
 logger.set_file_logger()
 logger.hr('启动', level=0)
