@@ -554,12 +554,21 @@ class ActionPointHandler(UI, MapEventHandler):
         """
         安全获取行动力信息。
 
-        等待行动力弹窗完全加载，并处理可能的地图事件。
+        等待行动力弹窗完全加载，并处理可能的地图事件。弹窗没有出现时本轮
+        直接作废：不能按弹窗坐标去 OCR 无关画面，否则整屏垃圾数字会被当成
+        真值落盘（2026-10-15 事故：任务被抢占退出大世界后仍读，读出
+        0/1/2/7/22 并污染 Dashboard、统计图与行动力账本）。
+
+        Returns:
+            bool: True = 弹窗出现且数值已读到；False = 弹窗未出现或数值
+                始终未加载，本轮读数作废（不更新行动力属性）。
         """
         timeout = Timer(3, count=6).start()
+        popup_visible = False
         for _ in self.loop():
             # 结束
             if self.is_current_ap_visible():
+                popup_visible = True
                 break
             if timeout.reached():
                 logger.warning('[大世界-行动点] 获取行动点超时')
@@ -568,6 +577,10 @@ class ActionPointHandler(UI, MapEventHandler):
             if self.handle_map_event():
                 timeout.reset()
                 continue
+
+        if not popup_visible:
+            logger.warning('[大世界-行动点] 行动力弹窗未出现，本轮读数作废')
+            return False
 
         skip_first_screenshot = True
         timeout = Timer(1, count=2).start()
@@ -579,7 +592,7 @@ class ActionPointHandler(UI, MapEventHandler):
 
             if timeout.reached():
                 logger.warning('[大世界-行动点] 获取行动点超时')
-                break
+                return False
             # 处理行动力弹窗上方的强制地图事件
             if self.handle_map_event():
                 timeout.reset()
@@ -595,7 +608,7 @@ class ActionPointHandler(UI, MapEventHandler):
             # 拥有药剂
             if sum(boxes) > 0:
                 if oil > 100:
-                    break
+                    return True
                 else:
                     # [11, 0, 1, 0]
                     continue
@@ -603,7 +616,7 @@ class ActionPointHandler(UI, MapEventHandler):
             # 页面未完全加载时可能为 0 或 1
             # [1, 0, 0, 0]
             if oil > 100:
-                break
+                return True
 
     @staticmethod
     def action_point_get_cost(zone, pinned):
