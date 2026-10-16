@@ -156,6 +156,10 @@ FleetTechnology:
   Collaboration:
   Prev:
   Next:
+  TabTech:
+  TabInfo:
+  TabMind:
+  MindComingSoon:
   Rarity:
   Rarity.N:
   Rarity.R:
@@ -227,6 +231,84 @@ FleetTechnology:
   Nation.114:
   Nation.115:
   Nation.117:
+
+MindCalculator:
+  Hint:
+  CatalogSource:
+  MinLevel:
+  MaxLevel:
+  Scan:
+  Scanning:
+  ScanStarted:
+  ScanHint:
+  Mind:
+  Gold:
+  Included:
+  MergedCount:
+  Review:
+  ReviewHint:
+  Excluded:
+  Merged:
+  Summary:
+  Ships:
+  LevelEditHint:
+  Search:
+  FilterMin:
+  FilterMax:
+  FilterRarity:
+  AllRarities:
+  Filter:
+  Name:
+  Level:
+  BaseRarity:
+  Status:
+  Actions:
+  Delete:
+  Edit:
+  EditTitle:
+  Add:
+  AutoRarity:
+  Save:
+  Saved:
+  Reload:
+  TooMany:
+  UnknownLevel:
+  InvalidRange:
+  SaveConflict:
+  ChooseRarity:
+  MindTarget:
+  GoldRate:
+  ListUpdated:
+  All:
+  RowCount:
+  Empty:
+  Previous:
+  Next:
+  Rarity:
+  Rarity.N:
+  Rarity.R:
+  Rarity.SR:
+  Rarity.SSR:
+  Rarity.UR:
+  Status.Included:
+  Status.Merged:
+  Status.Review:
+  Status.Excluded:
+  Stage0:
+  Stage1:
+  Stage2:
+  Stage3:
+  Stage4:
+  Stage5:
+  Import:
+  Screenshots:
+  ImportProgress:
+  ImportComplete:
+  ImportFailed:
+  ExportJson:
+  ExportCsv:
+  ExportReady:
+  Cancel:
 
 MeowfficerScore:
   Title:
