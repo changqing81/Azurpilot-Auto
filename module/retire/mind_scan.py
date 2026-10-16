@@ -305,23 +305,31 @@ class MindCalculatorScan(Dock):
                         logger.warning('船坞滚动条暂未确认，继续核验卡片位移，本帧不据此判断到底')
                 at_bottom = thumb is not None and thumb[-1] >= DOCK_SCROLL.total - 2
                 visible_rows = grid_rows(self.device.image)
-                # 滚动/弹动动画的中间帧卡片网格不完整（两次真机事故现场均为
-                # 2 行：visible_rows=[93,320] / [95,322]），其位移不是整数行，
-                # 拿去估算同样会得到「没有明确的重叠位移」。完整页恒为三排，
-                # 最后一页由滚动条到底放行。
-                if len(visible_rows) != 3 and not at_bottom:
-                    logger.debug(f'[扫描帧] 卡片网格未满三排（{len(visible_rows)} 行），等待滚动动画结束')
-                    previous = None
-                    stable.reset()
-                    continue
                 waiting.reset()
                 try:
                     moved = merger.advance(image, bounds=motion.bounds(thumb, last_drag), after_drag=last_drag is not None)
                 except ValueError as exc:
                     # 滚动条到底后的空拖在视觉上没有可唯一估算的位移（画面不再变化）：
                     # 本页按「底部页」收尾，不再升级为致命错误，避免整轮扫描白扫。
+                    # 停位落在两行之间（拖拽距离被触控阈值吃掉：实测请求 227px 只滚
+                    # 209px，画面只显示两排完整卡片）时位移估算同样失去唯一解；此类
+                    # 停位按网格相位补一次校正拖动即可回到整行，不能重试到终止。
+                    mismatch = None
+                    if not at_bottom and origin_y is not None and 0 < len(visible_rows) < 3:
+                        offset = (visible_rows[0] - origin_y) % pitch
+                        mismatch = offset - pitch if offset > pitch / 2 else offset
                     if at_bottom:
                         moved = 0
+                    elif mismatch is not None and abs(mismatch) >= 8:
+                        attempts += 1
+                        if attempts >= 8:
+                            raise MindCalculatorScanError('船坞三排定位未能停在目标位置，请检查控制方式') from exc
+                        logger.warning(f'停位不在整行上（错位 {mismatch:+d}px），补一次校正拖动')
+                        last_drag = self._drag_rows(int(mismatch))
+                        drag.reset()
+                        stable.reset()
+                        previous = None
+                        continue
                     else:
                         motion_retries += 1
                         if motion_retries < 3:

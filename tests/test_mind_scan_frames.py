@@ -162,25 +162,26 @@ class BlankFrameRegressionTests(unittest.TestCase):
         self.assertEqual(merger.offset, 0)
         self.assertTrue(scanner._scan_metadata['reached_bottom'])
 
-    def test_scroll_animation_frames_with_partial_grid_are_skipped(self):
-        """滚动动画中间帧（网格仅两行）不得进入位移估算。
+    def test_settled_between_rows_position_is_measured_instead_of_stalling(self):
+        """拖拽后停在两行之间（真机请求 227px 只滚 209px）必须照常测位移，不得死等。
 
-        真机现场（10:38 / 11:45 两次都在第 47 页崩）：拖拽后稳定检测挑中的
-        恰是半位移画面（visible_rows=[93,320] 只两行），位移不是整数行，
-        拿去估算必判「没有明确的重叠位移」，整轮白扫。
+        真机现场（2026-10-16 13:07）：第 1 页后拖拽只滚了 209px，画面只显示
+        两排完整卡片（visible_rows=[93,320]）。稳定检测选中的正是这个静止停位，
+        若把它当作「动画中间帧」剔除，循环既不拖拽也不读页，20 秒后被 progress
+        的「没有继续滚动」兜底击杀整轮扫描。该帧本身可被位移估算正确处理
+        （对真机两帧实测 estimate_scroll=209），必须让它进入估算。
         """
         real = np.array(Image.open(FIXTURES / 'mind_dock_stuck.png').convert('RGB'))
-        partial = np.roll(real, -114, axis=0)  # 卡片半位移的滚动中途帧
+        misaligned = np.roll(real, -209, axis=0)  # 请求 227px、实际只滚 209px 的停位
         mid_thumb = np.arange(400, 480)
         bottom_thumb = np.arange(930, 1000)
-        script = ([(real, mid_thumb)] * 4  # 第一页读完
-                  + [(partial, mid_thumb)] * 4  # 动画段：网格报告两行（修复点）
-                  + [(real, mid_thumb)] * 4  # 画面恢复完整三排
+        script = ([(real, mid_thumb)] * 4  # 第一页读完，拖拽一页
+                  + [(misaligned, mid_thumb)] * 4  # 两排停位：必须被测量而不是死等
                   + [(real, bottom_thumb)] * 4)  # 到底收尾
         device = ScriptedDevice(script)
 
         def fake_grid_rows(image):
-            # 当帧是 script[k] 时 device.index == k + 1；动画段即 script[4..7]。
+            # 当帧是 script[k] 时 device.index == k + 1；两排停位段即 script[4..7]。
             if 5 <= min(device.index, len(script) - 1) <= 8:
                 return [93, 320]
             return grid_rows(image)
@@ -203,10 +204,50 @@ class BlankFrameRegressionTests(unittest.TestCase):
                 patch('module.retire.mind_scan.grid_rows', fake_grid_rows):
             scanner._scan_pages(None, None)
 
-        for frame in merger.frames:
-            self.assertFalse(np.array_equal(np.array(frame), partial))
+        # 两排停位确实进入了位移估算（修复前会被剔除并卡死到 progress 兜底）。
+        self.assertTrue(any(np.array_equal(np.array(frame), misaligned) for frame in merger.frames))
         self.assertEqual(len(reads), 2)
         self.assertEqual(drags, [227, 227])
+        self.assertTrue(scanner._scan_metadata['reached_bottom'])
+
+    def test_unmeasurable_between_rows_position_gets_a_corrective_drag(self):
+        """两排停位即使位移无法估算，也按网格相位补拖校正，而不是重试到白扫终止。"""
+        real = np.array(Image.open(FIXTURES / 'mind_dock_stuck.png').convert('RGB'))
+        noise = np.random.default_rng(20261016).integers(150, 256, (720, 1280, 3), dtype=np.uint8)
+        mid_thumb = np.arange(400, 480)
+        bottom_thumb = np.arange(930, 1000)
+        script = ([(real, mid_thumb)] * 4  # 第一页读完，拖拽一页
+                  + [(noise, mid_thumb)] * 4  # 两排停位且位移不可估算
+                  + [(real, bottom_thumb)] * 4)  # 恢复并到底收尾
+        device = ScriptedDevice(script)
+
+        def fake_grid_rows(image):
+            if 5 <= min(device.index, len(script) - 1) <= 8:
+                return [93, 320]
+            return grid_rows(image)
+
+        reads, drags = [], []
+        scanner = object.__new__(FleetTechScan)
+        scanner.device = device
+        scanner.appear = lambda target: target is page_dock.check_button
+        scanner.handle_popup_confirm = lambda: False
+        scanner._policy = ScanPolicy(95, 125, sorted_desc=True)
+        scanner._drag_rows = drags.append
+        scanner._read_cards = lambda image, source, names, levels: reads.append(image) or [
+            dock_card(row, col) for row in range(3) for col in range(7)]
+        scanner._save_scan_evidence = lambda image: ''
+        merger = SpyMerger()
+        scanner._make_merger = lambda: merger
+
+        with patch('module.retire.mind_scan.Timer', fake_timer), \
+                patch('module.retire.mind_scan.DOCK_SCROLL', FakeScroll(device)), \
+                patch('module.retire.mind_scan.grid_rows', fake_grid_rows):
+            scanner._scan_pages(None, None)
+
+        # 第二笔拖拽是相位校正量 (93 - 80) % 227 = 13px（origin_y 取第 1 页卡片
+        # 行位 80），而不是继续拖整行或直接报错终止。
+        self.assertEqual(drags, [227, 13])
+        self.assertEqual(len(reads), 2)
         self.assertTrue(scanner._scan_metadata['reached_bottom'])
 
     def test_interleaved_blank_frames_do_not_stall_stability(self):
