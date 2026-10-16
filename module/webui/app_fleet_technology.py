@@ -56,7 +56,12 @@ NATION_ROW_SIZE = 4
 
 
 def build_fleet_tech_bridge_script(pin_name):
-    """生成把表格钩子点击（排序/编辑入口/页签/心智清单行）转发给隐藏 pin 的浏览器脚本。"""
+    """生成把表格钩子点击（排序/编辑入口/页签/心智清单行）转发给隐藏 pin 的浏览器脚本。
+
+    除 ``click`` 外再绑 ``touchend``（500ms 去重）：手机浏览器在容器可滑动、
+    或手指带一点位移时会把轻点判成滑动而**根本不发 click**，表现为「点了
+    完全没反应」（2026-10-16 真机反馈；鼠标路径实测正常，差异在触摸手势）。
+    """
     return f"""
         (function () {{
             var listenerName = "__alasFleetTechClick";
@@ -72,26 +77,38 @@ def build_fleet_tech_bridge_script(pin_name):
                 ["data-mc-del", "mdel"]
             ];
 
-            window[listenerName] = function (event) {{
+            function push(event) {{
                 var source = event.target;
-                if (!(source instanceof Element)) return;
+                if (!(source instanceof Element)) return false;
                 for (var i = 0; i < hooks.length; i++) {{
                     var hook = source.closest("[" + hooks[i][0] + "]");
                     if (!hook) continue;
-                    event.preventDefault();
 
                     var bridge = document.querySelector(
                         'input[name="' + {json.dumps(pin_name)} + '"]'
                     );
-                    if (!bridge) return;
+                    if (!bridge) return false;
 
                     bridge.value = hooks[i][1] + "|" + hook.getAttribute(hooks[i][0]);
                     bridge.dispatchEvent(new Event("input", {{bubbles: true}}));
                     bridge.dispatchEvent(new Event("change", {{bubbles: true}}));
-                    return;
+                    return true;
                 }}
+                return false;
+            }}
+
+            var lastFire = 0;
+            window[listenerName] = function (event) {{
+                // touchend 之后浏览器往往还会补一次 click：500ms 内只认第一个。
+                var now = Date.now();
+                if (now - lastFire < 500) return;
+                if (!push(event)) return;
+                lastFire = now;
+                try {{ event.preventDefault(); }} catch (e) {{}}
             }};
+
             document.addEventListener("click", window[listenerName]);
+            document.addEventListener("touchend", window[listenerName], {{passive: false}});
         }})();
     """
 
