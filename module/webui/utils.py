@@ -489,6 +489,17 @@ def get_generator(func: Callable):
     return g
 
 
+def scan_window_active(started: float | None, window: float) -> bool:
+    """扫描按钮「扫描中」时间窗：``started`` 为空表示从未启动，判为未运行。
+
+    不能写成 ``time.monotonic() - started < window`` 并把缺省值取 0.0——
+    ``time.monotonic()`` 是开机以来的秒数，CI runner 这类刚开机的机器上
+    不足 window 秒，未启动也会被判成运行中，按钮直接早退（2026-10-16 CI
+    unittest 实测：写配置与启动任务全被跳过）。
+    """
+    return started is not None and (time.monotonic() - started) < window
+
+
 def filepath_css(filename):
     return f"./assets/gui/css/{filename}.css"
 

@@ -19,6 +19,7 @@ from module.webui.app_dependencies import (
 )
 from module.webui.app_types import WebUIMixinBase
 from module.webui.instance_action import spawn_instance_action
+from module.webui.utils import scan_window_active
 
 
 class FleetManagementMixin(WebUIMixinBase):
@@ -224,8 +225,8 @@ class FleetManagementMixin(WebUIMixinBase):
         alas = getattr(self, "alas", None)
         if alas is not None and getattr(alas, "_ui_action_running", False):
             return True
-        started = getattr(self, "_fleet_scan_started_at", 0.0)
-        return (time.monotonic() - started) < SCAN_WINDOW_SECONDS
+        started = getattr(self, "_fleet_scan_started_at", None)
+        return scan_window_active(started, SCAN_WINDOW_SECONDS)
 
     def _fleet_scan_start(self) -> None:
         if self._fleet_scan_running():

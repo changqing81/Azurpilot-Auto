@@ -23,7 +23,7 @@ from module.webui.fastapi import (
     SafeWebSocketConnection,
     WEBSOCKET_MAX_PENDING_MESSAGES,
 )
-from module.webui.utils import Task, TaskHandler
+from module.webui.utils import Task, TaskHandler, scan_window_active
 from module.webui.widgets import RichLog
 
 
@@ -202,6 +202,21 @@ class TestTaskHandlerScheduling(unittest.TestCase):
             self.assertTrue(second_call.wait(timeout=1))
         finally:
             handler.stop()
+
+
+class TestScanWindowActive(unittest.TestCase):
+    """扫描按钮「扫描中」时间窗：CI runner 开机不足窗口秒数时也不得误判。"""
+
+    def test_never_started_is_not_running_even_on_fresh_boot(self):
+        """started 为空（从未启动）必须判为未运行——monotonic 是开机秒数。
+
+        现场：2026-10-16 CI unittest 失败——缺省值取 0.0 时，
+        `time.monotonic() - 0.0 < 600` 在刚开机的 runner 上恒真。
+        """
+        with patch('module.webui.utils.time.monotonic', return_value=42.0):
+            self.assertFalse(scan_window_active(None, 600))
+            self.assertTrue(scan_window_active(42.0, 600))
+            self.assertFalse(scan_window_active(42.0 - 601, 600))
 
 
 class TestRichLogRendering(unittest.TestCase):

@@ -38,6 +38,7 @@ from module.webui.app_dependencies import (
 )
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.webui.utils import scan_window_active
 
 RECORD_PATH = tech.RECORD_PATH
 RESULT_PATH = 'MindCalculatorScan.MindCalculator.Result'
@@ -709,8 +710,8 @@ class FleetTechnologyMixin(WebUIMixinBase):
         alas = getattr(self, 'alas', None)
         if alas is not None and getattr(alas, '_ui_action_running', False):
             return True
-        started = getattr(self, '_ft_scan_started_at', 0.0)
-        return (time.monotonic() - started) < SCAN_WINDOW_SECONDS
+        started = getattr(self, '_ft_scan_started_at', None)
+        return scan_window_active(started, SCAN_WINDOW_SECONDS)
 
     def _ft_scan_running_click(self):
         toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')

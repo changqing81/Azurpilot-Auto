@@ -414,6 +414,28 @@ class FleetTechPageTest(unittest.TestCase):
         h._ft_scan_started_at = time.monotonic() - 601
         self.assertFalse(h._ft_scan_running())
 
+    def test_scan_running_false_when_never_started_on_fresh_boot(self):
+        """未启动过扫描时必须判为未运行——即便开机不足窗口秒数（CI runner）。
+
+        现场：2026-10-16 CI unittest——`getattr(..., '_ft_scan_started_at', 0.0)`
+        配 `time.monotonic()`（开机以来的秒数），runner 开机不足 600 秒窗口时
+        `monotonic() - 0.0 < 600` 恒真，扫描按钮被判成「扫描中」直接早退，
+        既不写等级范围也不启动任务。
+        """
+        h = self.harness
+        h.alas = MagicMock()
+        h.alas.alive = False
+        h.alas._ui_action_running = False
+        written = []
+        with patch(f'{MODULE}.time.monotonic', return_value=42.0), \
+                patch(f'{MODULE}.pin', _FakePin({'ft_min_level': '96', 'ft_max_level': '120'})), \
+                patch.object(h, '_ft_write_config', side_effect=lambda changes: written.extend(changes)), \
+                patch(f'{MODULE}.toast'):
+            self.assertFalse(h._ft_scan_running())
+            h._ft_scan_start()
+        self.assertEqual(written, [(MIN_LEVEL_PATH, 96), (MAX_LEVEL_PATH, 120)])
+        h.alas.start.assert_called_once_with('FleetTechScan')
+
     def test_scan_start_uses_stop_then_start_when_alive(self):
         """实例存活时扫描走两段式：停（后台等收尾）→ 以扫描任务启动。"""
         h = self.harness

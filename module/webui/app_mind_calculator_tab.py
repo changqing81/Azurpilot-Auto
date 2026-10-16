@@ -43,6 +43,7 @@ from module.webui.app_dependencies import (
 )
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.webui.utils import scan_window_active
 
 RESULT_PATH = mind_calc.RESULT_PATH
 MIN_LEVEL_PATH = 'MindCalculatorScan.MindCalculator.MinLevel'
@@ -516,8 +517,8 @@ class MindCalculatorTabMixin(WebUIMixinBase):
 
     def _mc_scan_running(self):
         """扫描按钮的运行窗；语义见 FleetManagementMixin._fleet_scan_running。"""
-        started = getattr(self, '_mc_scan_started_at', 0.0)
-        return (time.monotonic() - started) < SCAN_WINDOW_SECONDS
+        started = getattr(self, '_mc_scan_started_at', None)
+        return scan_window_active(started, SCAN_WINDOW_SECONDS)
 
     def _mc_scan_running_click(self):
         toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')
