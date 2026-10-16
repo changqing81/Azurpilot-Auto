@@ -152,6 +152,31 @@ class TestTaskHandlerScheduling(unittest.TestCase):
         finally:
             handler.stop()
 
+    def test_finished_generator_is_removed_without_error_log(self):
+        """任务生成器正常跑完（一次性任务 return）不得打成 ERROR 堆栈。
+
+        现场：2026-10-16 00:34 / 09:04 GUI 日志出现 StopIteration + 完整
+        traceback 的 ERROR（任务处理器把「生成器结束」当成异常）。
+        """
+        handler = TaskHandler()
+
+        def once():
+            yield  # 预激：Task.__init__ 的 send(None) 停在这里
+            return  # 第一次执行即结束 → StopIteration
+
+        task = Task(once(), delay=60, name="once")
+        handler.add_task(task)
+        with patch('module.webui.utils.logger') as log:
+            handler.start()
+            try:
+                deadline = time.time() + 2
+                while task in handler.tasks and time.time() < deadline:
+                    time.sleep(0.02)
+            finally:
+                handler.stop()
+        self.assertNotIn(task, handler.tasks)
+        log.exception.assert_not_called()
+
     def test_wake_during_execution_is_not_lost(self):
         first_call_started = threading.Event()
         release_first_call = threading.Event()

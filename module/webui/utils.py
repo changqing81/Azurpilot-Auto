@@ -300,6 +300,12 @@ class TaskHandler:
                 self._task = task
                 task.running = True
                 task.send(self)
+            except StopIteration:
+                # 任务生成器正常跑完（一次性任务 return）：属完成而非错误，
+                # 落到通用分支会把 StopIteration 打成 ERROR 堆栈（纯噪音），
+                # 与上面会话失效分支同一治理思路。
+                logger.debug(f"任务 {task.name} 的生成器已结束，移除任务")
+                self.remove_task(task, nowait=True)
             except SessionException as e:
                 # 会话失效有两种：SessionClosedException（已关闭）与
                 # SessionNotFoundException（当前线程无活动会话，如关闭页面后
