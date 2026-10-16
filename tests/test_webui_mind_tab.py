@@ -7,7 +7,7 @@ script 模式服务器 fallback 并永久阻塞（见 test_bridge_tab 的说明�
 import inspect
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from pywebio import input as pywebio_input
 from pywebio import output as pywebio_output
@@ -15,7 +15,11 @@ from pywebio import pin as pywebio_pin
 
 from module.runtime import mind_calculator as mind_calc
 from module.webui import mind_calculator_view as view
-from module.webui.app_mind_calculator_tab import MindCalculatorTabMixin
+from module.webui.app_mind_calculator_tab import (
+    MAX_LEVEL_PATH,
+    MIN_LEVEL_PATH,
+    MindCalculatorTabMixin,
+)
 
 MODULE = 'module.webui.app_mind_calculator_tab'
 
@@ -241,6 +245,10 @@ class _MindHarness(MindCalculatorTabMixin):
 
     @property
     def alas(self):
+        override = getattr(self, '_alas_override', None)
+        if override is not None:
+            return override
+
         class _Alas:
             alive = False
 
@@ -248,6 +256,11 @@ class _MindHarness(MindCalculatorTabMixin):
                 self.started = task
 
         return _Alas()
+
+    @alas.setter
+    def alas(self, value):
+        """允许用例注入可断言的替身（默认仍是活的 _Alas 桩）。"""
+        self._alas_override = value
 
     @property
     def alas_config(self):
@@ -261,6 +274,15 @@ class _MindHarness(MindCalculatorTabMixin):
 
     def _fleet_scan_running(self):
         return False
+
+    def _start_scan_task(self, task):
+        """与 FleetManagementMixin 同一契约的替身：用例必须显式打桩。
+
+        真实现是「worker 存活时先停（后台等待收尾）再以扫描任务启动」的
+        两段式；心智页不得绕过它直接 ``alas.start``（worker 存活时那是
+        no-op，会静默不启动还弹「已启动」）。
+        """
+        raise AssertionError('用例必须打桩 _start_scan_task')
 
     def _ft_write_config(self, changes):
         pass
@@ -384,6 +406,51 @@ class MindIoCallbackTest(unittest.TestCase):
             h._mc_add_popup('add')  # 真按 put_buttons 的调用约定传值
             h._mc_add_popup()  # 直接调用同样可用（默认参数）
         self.assertEqual(put_buttons.call_count, 2)
+
+
+class MindScanStartTest(unittest.TestCase):
+    """扫描按钮：写等级范围 → 走通用两段式启动（worker 存活时先停后启）。"""
+
+    def setUp(self):
+        self.h = _MindHarness()
+        self.h.alas = MagicMock()
+        self.h.alas.alive = False
+        self.h.alas._ui_action_running = False
+
+    def test_scan_start_writes_range_and_delegates_to_start_scan_task(self):
+        """2026-10-16 修复：原实现直接 alas.start（worker 存活时 no-op 还弹已启动）。"""
+        written = []
+        with patch(f'{MODULE}.pin', _FakePin({'mc_min_level': '96', 'mc_max_level': '120'})), \
+                patch.object(self.h, '_ft_write_config',
+                             side_effect=lambda changes: written.extend(changes)), \
+                patch.object(self.h, '_start_scan_task', return_value=True) as start_task, \
+                patch(f'{MODULE}.toast'):
+            self.h._mc_scan_start()
+        self.assertEqual(written, [(MIN_LEVEL_PATH, 96), (MAX_LEVEL_PATH, 120)])
+        start_task.assert_called_once_with('MindCalculatorScan')
+        # 不得绕过两段式直接启动：worker 存活时那会静默失败。
+        self.h.alas.start.assert_not_called()
+
+    def test_scan_start_busy_instance_warns_without_starting(self):
+        """两段式启动被拒（已有实例操作在进行）时只提示，不二次启动。"""
+        with patch(f'{MODULE}.pin', _FakePin({'mc_min_level': '96', 'mc_max_level': '120'})), \
+                patch.object(self.h, '_ft_write_config'), \
+                patch.object(self.h, '_start_scan_task', return_value=False), \
+                patch(f'{MODULE}.toast') as toast:
+            self.h._mc_scan_start()
+        toast.assert_called_once_with('Gui.FleetManagement.ScanAlreadyRunning', color='warn')
+        self.h.alas.start.assert_not_called()
+
+    def test_scan_start_rejects_invalid_range(self):
+        """非法范围（倒挂）只提示，不写配置不启动。"""
+        with patch(f'{MODULE}.pin', _FakePin({'mc_min_level': '120', 'mc_max_level': '95'})), \
+                patch.object(self.h, '_ft_write_config') as write, \
+                patch.object(self.h, '_start_scan_task') as start_task, \
+                patch(f'{MODULE}.toast') as toast:
+            self.h._mc_scan_start()
+        write.assert_not_called()
+        start_task.assert_not_called()
+        toast.assert_called_once_with('Gui.MindCalculator.InvalidRange', color='error')
 
 
 if __name__ == '__main__':

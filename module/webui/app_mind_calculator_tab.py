@@ -524,7 +524,12 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')
 
     def _mc_scan_start(self):
-        """校验等级范围 → 写配置 → 启动心智单元船坞扫描。"""
+        """校验等级范围 → 写配置 → 启动心智单元船坞扫描。
+
+        启动与舰队科技页同一套语义：worker 存活时先停（后台等待收尾）再以
+        扫描任务启动。``ProcessManager.start`` 在 worker 存活时是 no-op，
+        直接调用会「静默不启动还弹已启动」（2026-10-16 实测踩过）。
+        """
         if self._mc_scan_running():
             toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')
             return
@@ -539,7 +544,9 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             toast(t('Gui.MindCalculator.InvalidRange'), color='error')
             return
         self._ft_write_config([(MIN_LEVEL_PATH, low), (MAX_LEVEL_PATH, high)])
-        self.alas.start(SCAN_TASK)
+        if not self._start_scan_task(SCAN_TASK):
+            toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')
+            return
         if bool(getattr(self, 'alas', None) and self.alas.alive):
             self._mc_scan_started_at = time.monotonic()
             toast(t('Gui.MindCalculator.ScanStarted'), color='info')
