@@ -135,7 +135,6 @@
     "tasks": [
       "FleetInfo",
       "FleetScan",
-      "FleetTechnology",
       "MindCalculatorScan",
       "FleetTechScan"
     ]

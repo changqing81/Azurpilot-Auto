@@ -1,12 +1,13 @@
 """WebUI 统计页装配器。
 
 改版要点（对应 statistics-v2 原型）：
-    页头（标题 + 刷新）→ 下划线页签 → 四个面板
-    大世界 / 委托 / 科研（预留） / 资源
+    页头（标题 + 刷新）→ 下划线页签 → 六个面板
+    大世界 / 委托 / 科研（预留） / 资源 / 科技列表 / 心智计算器
 
 实现方式刻意保持「零侵入」：各统计子视图（ap_chart / opsi_stats /
-commission_income / resource_delta / ship_exp_table）的渲染代码一行未改，
-仍然往同名 scope 里输出。本模块只负责
+commission_income / resource_delta / ship_exp_table）以及舰队科技列表与
+心智计算器（ft_tech / ft_mind）的渲染代码一行未改，仍然往同名 scope 里输出。
+本模块只负责
 
     1. 在 statistics-content 里铺好页头、页签和一个空的面板容器；
     2. 用一段 JS 把已存在的 scope 元素搬进对应面板，并接上页签交互。
@@ -27,14 +28,17 @@ from module.webui.app_dependencies import (
     put_button,
     put_buttons,
     put_html,
+    put_input,
     put_scope,
     run_js,
     t,
     toast,
     use_scope,
 )
+from module.webui.app_fleet_technology import BRIDGE_PIN, build_fleet_tech_bridge_script
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.webui.fleet_tech_view import STAT_PANELS
 
 
 # 面板顺序即页签顺序。元组为 (面板 id, 页签文案 i18n 键, 徽标 i18n 键或 None)
@@ -43,6 +47,9 @@ _STAT_TABS = (
     ("commission", "Gui.Stat.TabCommission", None),
     ("research", "Gui.Stat.TabResearch", "Gui.Stat.TabResearchBadge"),
     ("resource", "Gui.Stat.TabResource", None),
+    # 舰队科技列表 / 心智计算器：内容宿主 scope 分别为 ft_tech / ft_mind，
+    # 由 FleetTechnologyMixin 渲染（见 app_fleet_technology）。
+    *((panel, key, None) for panel, key in STAT_PANELS),
 )
 
 # 页头「数据源」状态：最新写入超过这么多天就提示未更新。
@@ -63,6 +70,9 @@ _STAT_PANEL_SCOPES = {
     "commission": ("commission_income",),
     "research": (),
     "resource": ("resource_delta",),
+    # 面板内容整块搬入：ft_tech / ft_mind 由舰队科技 Mixin 渲染（内容不变）。
+    "fleet": ("ft_tech",),
+    "mind": ("ft_mind",),
 }
 
 # 科研占位块在 DOM 里的 id，会被搬进 research 面板
@@ -108,10 +118,16 @@ class StatisticsPageMixin(WebUIMixinBase):
             self._mount_statistics_page(cache_key)
         else:
             self._refresh_statistics_if_changed()
+            # 面板常驻：切页会随 pending_delete 清掉两个扫描开关的轮询任务，
+            # 每次进入补画一次工具栏（登记按任务名幂等，不会叠加）。
+            self._ft_render_scan_controls()
 
         # 原先的 5 个任务会在进页后立即各重绘一次。现在仅轮询本地数据源
         # 版本并提示存在新数据，不再打断用户正在查看的图表状态。
         self.task_handler.add(self._refresh_statistics_if_changed, 15, True, group="slow")
+        # 科技记录 / 心智清单被扫描任务外部写入时自动刷新两个面板（方法内
+        # 自带「不在统计页就不重绘」的守卫）。
+        self.task_handler.add(self._ft_data_refresh, 5, True)
 
     def _mount_statistics_page(self, cache_key) -> None:
         """为当前实例首次创建统计内容。"""
@@ -150,12 +166,19 @@ class StatisticsPageMixin(WebUIMixinBase):
                 put_scope("resource_delta", [])
                 put_scope("ship_exp_table", [])
                 put_html(self._build_research_placeholder_html())
+                # 舰队科技列表 / 心智计算器的内容宿主（整块搬进各自面板），
+                # 外加点击桥的隐藏 pin（ft_bridge 由舰队皮肤隐藏）。
+                put_scope("ft_tech", [])
+                put_scope("ft_mind", [])
+                put_scope("ft_bridge", [put_input(name=BRIDGE_PIN, value="")])
 
             self._statistics_cache_key = cache_key
+            self._ft_bind_callbacks()
+            run_js(build_fleet_tech_bridge_script(BRIDGE_PIN))
             # 先分页归位再渲染：体力图表的 canvas 在绘制时读取容器宽度，
             # 若此时还不在激活面板里会量到 0 宽。
             self._layout_statistics_panels()
-            self._render_statistics_sections()
+            self._render_statistics_sections(force=True)
             self._statistics_source_signature = (
                 self._get_statistics_source_signature()
             )
@@ -170,7 +193,7 @@ class StatisticsPageMixin(WebUIMixinBase):
             if getattr(self, "_statistics_cache_key", None) is None:
                 return
 
-            self._render_statistics_sections()
+            self._render_statistics_sections(force=True)
             self._statistics_source_signature = (
                 self._get_statistics_source_signature()
             )
@@ -505,13 +528,18 @@ class StatisticsPageMixin(WebUIMixinBase):
             defaultPanel=_DEFAULT_PANEL,
         )
 
-    def _render_statistics_sections(self) -> None:
-        """统一刷新各统计子视图。"""
+    def _render_statistics_sections(self, force: bool = False) -> None:
+        """统一刷新各统计子视图（舰队两个面板整块重绘，登记任务按名幂等）。
+
+        force=True 时先重读舰队面板的数据（挂载与点「刷新」时用）。
+        """
         self._render_ap_chart()
         self._render_opsi_stats()
         self._render_resource_delta()
         self._render_ship_exp()
         self._render_commission_income()
+        self._ft_render_tech_panel(force=force)
+        self._ft_render_mind_panel(force=force)
 
     # ------------------------------------------------------------------
     # 查看月份：体力图 / 侵蚀一卡片 / 大世界收获 三处共用

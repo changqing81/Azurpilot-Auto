@@ -62,7 +62,7 @@ class _FakeOutput:
 
 class _FakeSwitchButton:
     def __init__(self, **kwargs):
-        pass
+        self.name = kwargs.get('scope', '')
 
     def g(self):
         return _FakeOutput('switch')
@@ -133,7 +133,7 @@ class MindTabTest(unittest.TestCase):
                 patch(f'{MODULE}.put_input', side_effect=lambda *a, **kw: _FakeOutput('input')), \
                 patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
                 patch(f'{MODULE}.put_row', side_effect=lambda *a, **kw: _FakeOutput('row')), \
-                patch(f'{MODULE}.put_buttons', side_effect=lambda *a, **kw: _FakeOutput('buttons')), \
+                patch(f'{MODULE}.put_buttons', side_effect=lambda *a, **kw: _FakeOutput('buttons')) as put_buttons, \
                 patch(f'{MODULE}.BinarySwitchButton', _FakeSwitchButton), \
                 patch(f'{MODULE}.pin_on_change'), \
                 patch(f'{MODULE}.load_config') as load_config:
@@ -143,9 +143,14 @@ class MindTabTest(unittest.TestCase):
                     'Result': {'ships': _ships(), 'updated_at': '2026-10-16T00:00:00'}}}}
             self.harness._ft_render_mind_tab()
         names = [call.args[0] for call in put_scope.call_args_list if call.args]
-        for required in ('ft_mind_toolbar', 'ft_mind_filters', 'ft_mind_list', 'ft_mind_add',
+        for required in ('ft_mind_toolbar', 'ft_mind_filters', 'ft_mind_list',
                          'ft_mind_scan_button'):
             self.assertIn(required, names)
+        # 添加舰船已并入筛选行（不再有独立的 ft_mind_add 行）
+        self.assertNotIn('ft_mind_add', names)
+        button_values = [button.get('value') for call in put_buttons.call_args_list if call.args
+                         for button in (call.args[0] or [])]
+        self.assertIn('add', button_values)
         htmls = [call.args[0] for call in put_html.call_args_list if call.args]
         self.assertTrue(any('ft-stats' in text for text in htmls))
         self.assertTrue(any('ft-mind-intro' in text for text in htmls))
@@ -239,6 +244,11 @@ class _MindHarness(MindCalculatorTabMixin):
         class _Handler:
             @staticmethod
             def add(*args, **kwargs):
+                return None
+
+            @staticmethod
+            def get_task(name):
+                """没有已登记任务：扫描开关每次渲染都会登记（真机行为）。"""
                 return None
 
         return _Handler()
@@ -409,23 +419,30 @@ class MindIoCallbackTest(unittest.TestCase):
 
 
     def test_filter_row_labels_level_inputs(self):
-        """等级筛选输入框必须带文案。
+        """等级筛选输入框必须带文案，且添加/导入/导出按钮与筛选控件同排。
 
         现场：2026-10-16 用户截图——搜索行右侧出现两个无标签的空盒子，
-        因为 mc_min/mc_max 两个 put_input 连 label/placeholder 都没给。
+        因为 mc_min/mc_max 两个 put_input 连 label/placeholder 都没给；
+        同日用户要求「添加舰船」及导入导出按钮组上移进这一行。
         """
         h = _MindHarness()
         h._mc_state()
         captured = []
+        buttons = []
         with patch(f'{MODULE}.t', side_effect=lambda key, **kw: key), \
                 patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
                 patch(f'{MODULE}.put_input',
                       side_effect=lambda *a, **kw: captured.append(kw) or _FakeOutput('input')), \
-                patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')):
+                patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
+                patch(f'{MODULE}.put_buttons',
+                      side_effect=lambda *a, **kw: buttons.append(a[0] if a else []) or _FakeOutput('buttons')):
             h._mc_render_filters()
         labels = {item['name']: item.get('label') for item in captured if 'name' in item}
         self.assertEqual(labels.get('mc_min'), 'Gui.MindCalculator.FilterMin')
         self.assertEqual(labels.get('mc_max'), 'Gui.MindCalculator.FilterMax')
+        values = [button.get('value') for group in buttons for button in group]
+        for expected in ('add', 'import', 'shots', 'json', 'csv'):
+            self.assertIn(expected, values)
 
 
     def test_edit_popup_reads_computed_status(self):

@@ -1,7 +1,7 @@
-"""舰队科技列表页的筛选、排序、分页与表格 HTML；纯逻辑便于单测。
+"""舰队科技列表与心智计算器的筛选、排序、分页与表格 HTML；纯逻辑便于单测。
 
 额外约定：单元格钩子用 ``data-ft-sort`` / ``data-ft-edit`` 标记，
-由页面 Mixin 注入的脚本代理成隐藏 pin 事件（见 app_fleet_technology）。
+由 Mixin 注入的脚本代理成隐藏 pin 事件（见 app_fleet_technology）。
 """
 from html import escape as html_escape
 
@@ -20,20 +20,13 @@ BACK_TYPES = (4, 5, 6, 7, 10, 12, 13)
 PAGE_SIZE = 50
 FILTER_GROUPS = ('type', 'rarity', 'nation', 'bonusType', 'attr', 'status')
 SORT_KEYS = ('code', 'name', 'nation', 'type', 'pt_get', 'pt_upgrage', 'pt_level', 'total', 'get', 'level')
-TABS = ('tech', 'mind')
+# 统计页里的两个页签：(面板 id, 文案 i18n 键)。由统计页装配器追加到它自己的页签
+# 表之后；内容宿主 scope 为 ft_tech / ft_mind（见 app_statistics_page）。
+STAT_PANELS = (
+    ('fleet', 'Gui.FleetTechnology.TabTech'),
+    ('mind', 'Gui.FleetTechnology.TabMind'),
+)
 _NAME_LANGUAGE_KEYS = {'zh-CN': 'cn', 'zh-TW': 'tw', 'en-US': 'en', 'ja-JP': 'jp'}
-
-
-def tabs_html(active):
-    """页签行：data-ft-tab 钩子经点击桥转发切换。"""
-    labels = {'tech': 'Gui.FleetTechnology.TabTech',
-              'mind': 'Gui.FleetTechnology.TabMind'}
-    items = ''.join(
-        f'<button type="button" class="ft-tab{" active" if key == active else ""}" role="tab"'
-        f' aria-selected="{str(key == active).lower()}" data-ft-tab="{key}">{t(labels[key])}</button>'
-        for key in TABS
-    )
-    return f'<div class="ft-tabs" role="tablist">{items}</div>'
 
 
 def combine_rows(catalog, report):

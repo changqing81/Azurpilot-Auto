@@ -344,6 +344,18 @@ class RichLog:
             pass
 
 
+def add_switch_button_task(task_handler, button, delay=1, pending_delete=True) -> None:
+    """登记二态开关按钮的轮询任务，按任务名幂等。
+
+    ``Switch.g()`` 的任务名约定为 ``Switch_{name}_refresh``（BinarySwitchButton
+    以 scope 作为 name）；重画工具栏会重新构造按钮，按名字查重可避免每次
+    重画都叠加一个 1 秒轮询任务（Task 没有 __eq__，实例判重拦不住）。
+    """
+    name = f'Switch_{button.name}_refresh'
+    if task_handler.get_task(name) is None:
+        task_handler.add(button.g(), delay, pending_delete)
+
+
 class BinarySwitchButton(Switch):
     def __init__(
             self,

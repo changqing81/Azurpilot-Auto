@@ -68,6 +68,11 @@ class _Harness(FleetManagementMixin, FleetTechnologyMixin):
             def add(*args, **kwargs):
                 return None
 
+            @staticmethod
+            def get_task(name):
+                """没有已登记任务：扫描开关每次渲染都会登记（真机行为）。"""
+                return None
+
         return _Handler()
 
     def _ft_render_filter_group(self, key):
@@ -119,10 +124,10 @@ class _FakeOutput:
 
 
 class _FakeSwitchButton:
-    """BinarySwitchButton 替身（构造参数忽略）。"""
+    """BinarySwitchButton 替身（构造参数只取 scope 作为任务名）。"""
 
     def __init__(self, **kwargs):
-        pass
+        self.name = kwargs.get('scope', '')
 
     def g(self):
         return _FakeOutput('switch')
@@ -154,7 +159,6 @@ _CHECKED_API = {
     'put_input': pywebio_pin.put_input,
     'put_select': pywebio_pin.put_select,
     'use_scope': pywebio_output.use_scope,
-    'run_js': pywebio_session.run_js,
     'toast': pywebio_output.toast,
     'pin_on_change': pywebio_pin.pin_on_change,
     'clear': pywebio_output.clear,
@@ -502,39 +506,47 @@ class FleetTechPageTest(unittest.TestCase):
             result = h._ft_save_changes([{'group_type': 1}])
         self.assertEqual(result, '舰船群组不存在或重复')
 
-    def test_bridge_tab_switches_and_keeps_state(self):
-        """页签切换：重绘页签行与内容；同页签不重绘；未知页签忽略。
+    def test_tech_panel_renders_content_into_ft_tech_container(self):
+        """科技列表面板：整块内容渲染进 ft_tech 容器（入口已迁到统计页页签）。
 
-        拦截 _ft_render_tab_content 而非子方法：真 use_scope 在无会话线程
-        会触发 pywebio 的 script 模式服务器 fallback 并永久阻塞（见
-        session/__init__.py get_current_session 的回退逻辑）。
+        真 use_scope 在无会话线程会触发 pywebio 的 script 模式服务器 fallback
+        并永久阻塞，这里打桩并核对容器名。
         """
+        from contextlib import nullcontext
+
         h = self.harness
-        h._ft_render_tabs = lambda: h.render_log.append('tabs')
+        scopes = []
+        h._ft_render_tech_tab = lambda: h.render_log.append('tech_tab')
+        fake_data = {'FleetTechScan': {'FleetTech': {'MinLevel': 95, 'MaxLevel': 125}}}
+        with patch(f'{MODULE}.load_config') as load_config, \
+                patch(f'{MODULE}.use_scope',
+                      side_effect=lambda name, **kw: scopes.append(name) or nullcontext()):
+            load_config.return_value.read_file.return_value = fake_data
+            h._ft_render_tech_panel()
+        self.assertEqual(scopes, ['ft_tech'])
+        self.assertEqual(h.render_log, ['tech_tab'])
 
-        def fake_content():
-            h.render_log.append(f'tab:{h._ft_tab}')
-
-        h._ft_render_tab_content = fake_content
-        h._ft_on_bridge('tab|mind')
-        self.assertEqual(h._ft_tab, 'mind')
-        self.assertEqual(h.render_log, ['tabs', 'tab:mind'])
-        h._ft_on_bridge('tab|mind')
-        self.assertEqual(h.render_log, ['tabs', 'tab:mind'])
-        h._ft_on_bridge('tab|tech')
-        self.assertEqual(h._ft_tab, 'tech')
-        h._ft_on_bridge('tab|bogus')
-        self.assertEqual(h._ft_tab, 'tech')
+    def test_scan_controls_repaint_both_toolbars(self):
+        """统计页每次进入补画两个工具栏（切页清掉了扫描开关的轮询任务）。"""
+        h = self.harness
+        h._ft_render_toolbar = lambda: h.render_log.append('tech_toolbar')
+        h._mc_render_toolbar = lambda: h.render_log.append('mind_toolbar')
+        h._ft_render_scan_controls()
+        self.assertEqual(h.render_log, ['tech_toolbar', 'mind_toolbar'])
 
     def test_data_refresh_detects_external_writes(self):
-        """周期刷新：基线建立后记录/清单变化才重绘，无变化不重绘。"""
+        """周期刷新：基线建立后科技记录/心智清单变化才重绘，别的写入不触发。"""
         h = self.harness
         h._ft_state()
+        h.page = 'Stat'
         base = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125}}}},
                 'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
         changed = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125,
                                                                           '10103': 95}}}},
                    'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        fleet_only = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125}}}},
+                      'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}},
+                      'FleetInfo': {'FleetInfo': {'Record': '2099-01-01 00:00'}}}
         with patch(f'{MODULE}.load_config') as load_config, \
                 patch.object(h, '_ft_refresh_render') as render:
             load_config.return_value.read_file.return_value = base
@@ -542,9 +554,31 @@ class FleetTechPageTest(unittest.TestCase):
             render.assert_not_called()
             h._ft_data_refresh()
             render.assert_not_called()
+            # 舰队信息已不再由这两个面板展示：只有它的写入不再触发重绘。
+            load_config.return_value.read_file.return_value = fleet_only
+            h._ft_data_refresh()
+            render.assert_not_called()
             load_config.return_value.read_file.return_value = changed
             h._ft_data_refresh()
             render.assert_called_once()
+
+    def test_data_refresh_skips_rendering_outside_statistics_page(self):
+        """不在统计页时后台探测不重绘（同页内 15 秒任务的守卫）。"""
+        h = self.harness
+        h._ft_state()
+        h.page = 'Overview'
+        first = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125}}}},
+                 'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        changed = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125,
+                                                                          '10103': 95}}}},
+                   'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        with patch(f'{MODULE}.load_config') as load_config, \
+                patch.object(h, '_ft_refresh_render') as render:
+            load_config.return_value.read_file.return_value = first
+            h._ft_data_refresh()
+            load_config.return_value.read_file.return_value = changed
+            h._ft_data_refresh()
+            render.assert_not_called()
 
 
 class FleetTechRenderSmokeTest(unittest.TestCase):
@@ -570,27 +604,24 @@ class FleetTechRenderSmokeTest(unittest.TestCase):
             load_config = stack.enter_context(patch.object(module, 'load_config'))
             load_config.return_value.read_file.return_value = self.FAKE_DATA
 
-            raw = FleetTechnologyMixin.fleet_technology_page.__wrapped__
-            raw(harness)                                  # 初次渲染（科技列表页签）
-            raw(harness, 'FleetManagement')               # 组入口进入（标题用组名）
-            harness._ft_on_bridge('tab|mind')             # 页签切换：心智计算器
-            harness._ft_on_bridge('tab|tech')             # 切回科技列表
+            # 统计页挂载：科技列表面板整块渲染（入口迁移后不再有独立页面外壳）。
+            raw = FleetTechnologyMixin._ft_render_tech_panel
+            raw(harness, True)                            # 初次渲染（force 重读配置）
             harness._ft_edit = True                       # 编辑列 + 加成视图 + 阶段选择
             harness._ft_bonuses = True
             harness._ft_extra = True
-            raw(harness)                                  # 重入渲染
+            raw(harness, True)                            # 重入渲染
             FleetTechnologyMixin._ft_edit_popup(harness, 10102)        # 弹窗表单
 
         names = [item[0] for item in record]
+        # pin_on_change 由统计页挂载时绑定（见 test_webui_statistics_page），
+        # 面板渲染本身只画内容。
         for required in ('put_scope', 'put_buttons', 'put_select', 'put_input',
-                         'pin_on_change', 'run_js', 'popup'):
+                         'use_scope', 'popup'):
             self.assertIn(required, names)
-        bridges = [kwargs for name, _, kwargs in record
-                   if name == 'put_input' and kwargs.get('name') == BRIDGE_PIN]
-        self.assertTrue(bridges, '点击桥 pin 必须渲染')
-        tabs = [args for name, args, kwargs in record
-                if name == 'put_html' and args and 'data-ft-tab' in str(args[0])]
-        self.assertTrue(tabs, '页签行必须渲染')
+        panels = [args for name, args, kwargs in record
+                  if name == 'use_scope' and args and args[0] == 'ft_tech']
+        self.assertTrue(panels, '科技列表面板必须渲染进 ft_tech 容器')
 
 
 class FleetTechI18nTest(unittest.TestCase):

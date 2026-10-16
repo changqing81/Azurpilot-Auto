@@ -3585,11 +3585,6 @@
       "Storage": {}
     }
   },
-  "FleetTechnology": {
-    "Storage": {
-      "Storage": {}
-    }
-  },
   "MindCalculatorScan": {
     "MindCalculator": {
       "MinLevel": 95,

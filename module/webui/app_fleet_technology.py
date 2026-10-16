@@ -1,9 +1,10 @@
-"""舰队科技列表页：浏览筛选、人工校正与心智扫描联动（PyWebIO 版）。
+"""舰队科技列表与心智计算器：浏览筛选、人工校正与心智扫描联动（PyWebIO 版）。
 
-复刻上游 React 版「舰队科技列表」的布局与交互；颜色走主题变量，
-表格内的排序与编辑入口通过隐藏 pin 事件桥（见 ``build_fleet_tech_bridge_script``）
-转发给服务端回调。所有配置写入都包在 ``config_transaction`` 内，
-与运行中的脚本（心智扫描收尾会写同一文件）互斥。
+内容挂在统计页的两个页签里（面板 scope ``ft_tech`` / ``ft_mind``，
+见 ``app_statistics_page``）；颜色走主题变量，表格内的排序与编辑入口
+通过隐藏 pin 事件桥（见 ``build_fleet_tech_bridge_script``）转发给服务端
+回调。所有配置写入都包在 ``config_transaction`` 内，与运行中的脚本
+（心智扫描收尾会写同一文件）互斥。
 """
 import json
 import time
@@ -31,7 +32,6 @@ from module.webui.app_dependencies import (
     put_row,
     put_scope,
     put_select,
-    run_js,
     t,
     toast,
     use_scope,
@@ -39,6 +39,7 @@ from module.webui.app_dependencies import (
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
 from module.webui.utils import scan_window_active
+from module.webui.widgets import add_switch_button_task
 
 RECORD_PATH = tech.RECORD_PATH
 RESULT_PATH = 'MindCalculatorScan.MindCalculator.Result'
@@ -56,7 +57,7 @@ NATION_ROW_SIZE = 4
 
 
 def build_fleet_tech_bridge_script(pin_name):
-    """生成把表格钩子点击（排序/编辑入口/页签/心智清单行）转发给隐藏 pin 的浏览器脚本。
+    """生成把表格钩子点击（排序/编辑入口/心智清单行）转发给隐藏 pin 的浏览器脚本。
 
     除 ``click`` 外再绑 ``touchend``（500ms 去重）：手机浏览器在容器可滑动、
     或手指带一点位移时会把轻点判成滑动而**根本不发 click**，表现为「点了
@@ -67,12 +68,11 @@ def build_fleet_tech_bridge_script(pin_name):
             var listenerName = "__alasFleetTechClick";
             if (window[listenerName]) return;
 
-            // 钩子属性 → 事件桥前缀；心智清单行的编辑/删除（medit/mdel）也在
-            // 同一页面上（页签工作台），漏掉它们会让行内按钮点了毫无反应。
+            // 钩子属性 → 事件桥前缀；心智清单行的编辑/删除（medit/mdel）与
+            // 科技表格排序/编辑入口共用一个 document 级委托，与所在页面无关。
             var hooks = [
                 ["data-ft-sort", "sort"],
                 ["data-ft-edit", "edit"],
-                ["data-ft-tab", "tab"],
                 ["data-mc-edit", "medit"],
                 ["data-mc-del", "mdel"]
             ];
@@ -162,7 +162,7 @@ def _ft_pin_text(name):
 
 
 class FleetTechnologyMixin(WebUIMixinBase):
-    """「舰队管理 → 舰队科技」页面的会话控制器。"""
+    """统计页「科技列表」面板的会话控制器。"""
 
     # ---------- 状态与数据 ----------
 
@@ -170,7 +170,6 @@ class FleetTechnologyMixin(WebUIMixinBase):
         """惰性初始化页面状态；切换实例时整体重置。"""
         if getattr(self, '_ft_instance', None) != self.alas_name or not hasattr(self, '_ft_filters'):
             self._ft_instance = self.alas_name
-            self._ft_tab = 'tech'
             self._ft_filters = {}
             self._ft_query = ''
             self._ft_scope = 'all'
@@ -212,65 +211,56 @@ class FleetTechnologyMixin(WebUIMixinBase):
                 deep_set(data, path, value)
             State.config_updater.write_file(self.alas_name, data, get_config_mod(self.alas_name))
 
-    # ---------- 页面 ----------
+    # ---------- 统计页面板 ----------
 
-    @use_scope('content', clear=True)
-    def fleet_technology_page(self, task='FleetTechnology'):
-        """舰队科技页签工作台：科技列表 / 心智计算器。
+    def _ft_render_tech_panel(self, force=False):
+        """统计页「科技列表」面板：整块内容渲染进 ft_tech 容器。
 
-        菜单「舰队管理」组入口以 ``task='FleetManagement'`` 进入（标题用组名），
-        其余调用保持 'FleetTechnology' 兼容。
+        内容不变（汇总/筛选/搜索/扫描行/加成/表格），只是宿主从工作台页签
+        换成统计页的面板；表格钩子仍走 document 级点击桥。force=True 时
+        重读实例配置与科技记录（挂载与手动刷新用）。
         """
-        self.init_menu(name=task)
-        self.set_title(t('Menu.FleetManagement.name') if task == 'FleetManagement'
-                       else t(f'Task.{task}.name'))
         self._ft_state()
-        self._ft_load(force=True)
+        self._ft_load(force=force)
+        with use_scope('ft_tech', clear=True):
+            self._ft_render_tech_tab()
 
-        put_scope('ft_tabs')
-        put_scope('ft_tab_content')
+    def _ft_render_mind_panel(self, force=False):
+        """统计页「心智计算器」面板（渲染由 MindCalculatorTabMixin 承接）。"""
+        if force and hasattr(self, '_mc_state'):
+            self._mc_state()
+            self._mc_load(force=True)
+        self._ft_render_mind_tab()
 
-        with use_scope('ft_bridge', clear=True):
-            put_input(name=BRIDGE_PIN, value='')
-        self._ft_bind_callbacks()
-        run_js(build_fleet_tech_bridge_script(BRIDGE_PIN))
-        # 扫描/同步等外部写入后自动刷新数字（页面切换时随 pending_delete 清理）。
-        self.task_handler.add(self._ft_data_refresh, 5, True)
+    def _ft_render_scan_controls(self):
+        """重画两个扫描开关所在工具栏，顺带补登记轮询任务。
 
-        self._ft_render_tabs()
-        self._ft_render_tab_content()
-
-    def _ft_render_tabs(self):
-        """页签行：左侧页签、右端「重新载入」；整行由 ft_tabs 的 flex 排布。"""
-        with use_scope('ft_tabs', clear=True):
-            put_html(view.tabs_html(self._ft_tab))
-            put_buttons([{'label': t('Gui.FleetTechnology.Reload'), 'value': 'reload'}],
-                        onclick=self._ft_on_reload, small=True)
-
-    def _ft_render_tab_content(self):
-        """渲染当前页签；切换页签只重绘这里（筛选/页码等状态跨切换保留）。"""
-        with use_scope('ft_tab_content', clear=True):
-            if self._ft_tab == 'mind':
-                self._ft_render_mind_tab()
-            else:
-                self._ft_render_tech_tab()
+        统计页每次进入时调用：切页会随 pending_delete 清掉扫描开关的
+        1 秒轮询任务，重画工具栏即重新登记（登记按任务名幂等，不会叠加）。
+        """
+        self._ft_render_toolbar()
+        if hasattr(self, '_mc_render_toolbar'):
+            self._mc_render_toolbar()
 
     def _ft_data_refresh(self):
-        """周期任务：科技记录 / 舰队信息 / 心智清单被外部写入时自动刷新。
+        """周期任务：科技记录 / 心智清单被外部写入时自动刷新面板。
 
-        扫描任务完成、页面之外的同步都会改变这些数据；比对记录 revision
-        与扫描时间戳（读盘走 mtime 缓存），有变化才重绘当前页签。
+        扫描任务完成、面板之外的同步都会改变这些数据；比对记录 revision
+        与扫描时间戳（读盘走 mtime 缓存），有变化才重绘。
         """
+        if getattr(self, 'page', None) != 'Stat':
+            # 统计页常驻但可能不可见：不在统计页时不重绘（同页内 15 秒
+            # 后台探测的既有约定）。
+            return
         try:
             data = load_config(self.alas_name).read_file(self.alas_name)
             record_revision = tech.revision(tech.read_record(data))
-            fleet_record = str(deep_get(data, 'FleetInfo.FleetInfo.Record', '') or '')
             stored = deep_get(data, RESULT_PATH, {})
             ships = stored.get('ships', []) if isinstance(stored, dict) else []
             result_revision = mind_calc.revision(ships)
         except Exception:
             return
-        current = (record_revision, fleet_record, result_revision)
+        current = (record_revision, result_revision)
         baseline = getattr(self, '_ft_refresh_baseline', None)
         self._ft_refresh_baseline = current
         if baseline is None or current == baseline:
@@ -279,11 +269,16 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
     @render_locked
     def _ft_refresh_render(self):
-        """外部写入后重绘当前页签；汇总数字随之更新。"""
+        """外部写入后重绘两个面板；汇总数字随之更新。
+
+        两个面板在统计页里常驻显示（不像旧工作台页只渲染当前页签），
+        所以一次刷新同时更新科技列表与心智计算器。
+        """
         self._ft_load(force=True)
-        if self._ft_tab == 'mind' and hasattr(self, '_mc_load'):
+        if hasattr(self, '_mc_load'):
             self._mc_load(force=True)
-        self._ft_render_tab_content()
+        self._ft_render_tech_panel()
+        self._ft_render_mind_panel()
 
     def _ft_render_tech_tab(self):
         """科技列表（汇总/筛选/搜索/扫描行/加成/表格）。
@@ -304,11 +299,6 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_render_stage()
         self._ft_render_bonuses()
         self._ft_render_table()
-
-    def _ft_render_mind_tab(self):
-        """心智计算器：第二阶段交付（runtime 计算与识别已就绪，缺清单 UI）。"""
-        with use_scope('ft_mind', clear=True):
-            put_html(f'<div class="ft-empty">{t("Gui.FleetTechnology.MindComingSoon")}</div>')
 
     def _ft_bind_callbacks(self):
         """注册一次性 pin 回调；页面重入不重复绑定。
@@ -356,7 +346,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
             color_off='on',
             scope='ft_scan_button',
         )
-        self.task_handler.add(button.g(), 1, True)
+        add_switch_button_task(self.task_handler, button)
 
     def _ft_render_filters(self):
         """六组筛选 + 功能开关；每组独立 scope，点击只重绘受影响的组。"""
@@ -497,7 +487,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
     @render_locked
     def _ft_on_bridge(self, value):
-        """表格钩子点击（排序 / 编辑入口 / 页签切换）经隐藏 pin 转发到此。"""
+        """表格钩子点击（排序 / 编辑入口 / 心智清单行）经隐藏 pin 转发到此。"""
         kind, _, item = str(value or '').partition('|')
         if kind == 'sort' and item in view.SORT_KEYS:
             if self._ft_sort_key == item:
@@ -511,12 +501,8 @@ class FleetTechnologyMixin(WebUIMixinBase):
                 self._ft_edit_popup(int(item))
             except ValueError:
                 return
-        elif kind == 'tab' and item in view.TABS and self._ft_tab != item:
-            self._ft_tab = item
-            self._ft_render_tabs()
-            self._ft_render_tab_content()
         elif kind in ('medit', 'mdel'):
-            # 心智计算器页签的行编辑 / 删除，由其 Mixin 承接。
+            # 心智计算器清单行的编辑 / 删除，由其 Mixin 承接。
             self._mc_on_bridge(value)
 
     @render_locked
@@ -582,13 +568,6 @@ class FleetTechnologyMixin(WebUIMixinBase):
             self._ft_stage = value
             self._ft_page = 0
             self._ft_render_table()
-
-    @render_locked
-    def _ft_on_reload(self, value):
-        self._ft_load(force=True)
-        self._ft_render_summary()
-        self._ft_render_table()
-        self._ft_render_bonuses()
 
     # ---------- 人工校正 ----------
 

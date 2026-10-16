@@ -44,6 +44,7 @@ from module.webui.app_dependencies import (
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
 from module.webui.utils import scan_window_active
+from module.webui.widgets import add_switch_button_task
 
 RESULT_PATH = mind_calc.RESULT_PATH
 MIN_LEVEL_PATH = 'MindCalculatorScan.MindCalculator.MinLevel'
@@ -56,7 +57,7 @@ STATUS_OPTIONS = ('included', 'review', 'excluded')
 
 
 class MindCalculatorTabMixin(WebUIMixinBase):
-    """「舰队科技 → 心智计算器」页签的会话控制器。"""
+    """统计页「心智计算器」页签的会话控制器。"""
 
     # ---------- 状态与数据 ----------
 
@@ -123,8 +124,6 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             put_html(mind_view.summary_table_html(self._mc_result))
             put_scope('ft_mind_filters')
             put_scope('ft_mind_list')
-            put_scope('ft_mind_add')
-            put_scope('ft_mind_io')
             if not getattr(self, '_mc_callbacks_bound', False):
                 pin_on_change(name='mc_query', onchange=self._mc_on_query, clear=True, serial_mode=True)
                 for kind in ('status', 'rarity', 'min', 'max'):
@@ -135,8 +134,6 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             self._mc_render_toolbar()
             self._mc_render_filters()
             self._mc_render_list()
-            self._mc_render_add_button()
-            self._mc_render_io()
 
     def _mc_render_toolbar(self):
         """扫描范围与扫描船坞开关（驱动 MindCalculatorScan 产出清单）。"""
@@ -160,10 +157,14 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             color_off='on',
             scope='ft_mind_scan_button',
         )
-        self.task_handler.add(button.g(), 1, True)
+        add_switch_button_task(self.task_handler, button)
 
     def _mc_render_filters(self):
-        """清单过滤行：搜索 + 状态 + 基础稀有度 + 等级范围。"""
+        """清单操作行：搜索 + 状态 + 基础稀有度 + 等级范围 + 添加 / 导入 / 导出。
+
+        添加舰船与导入导出按钮组与筛选控件同排（原为清单下方的独立两行，
+        用户要求上移），窄屏由 flex-wrap 自然换行。
+        """
         statuses, rarities = mind_view.filter_options()
         with use_scope('ft_mind_filters', clear=True):
             put_input(name='mc_query', value=self._mc_query,
@@ -184,6 +185,14 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                       label=t('Gui.MindCalculator.FilterMin'), value=self._mc_min)
             put_input(name='mc_max', type='number',
                       label=t('Gui.MindCalculator.FilterMax'), value=self._mc_max)
+            put_buttons([{'label': t('Gui.MindCalculator.Add'), 'value': 'add'}],
+                        onclick=self._mc_add_popup)
+            put_buttons(
+                [{'label': t('Gui.MindCalculator.Import'), 'value': 'import'},
+                 {'label': t('Gui.MindCalculator.Screenshots'), 'value': 'shots'},
+                 {'label': t('Gui.MindCalculator.ExportJson'), 'value': 'json'},
+                 {'label': t('Gui.MindCalculator.ExportCsv'), 'value': 'csv'}],
+                onclick=self._mc_on_io)
 
     def _mc_render_list(self):
         """过滤后的清单表 + 分页 + 计数；筛选/翻页后只重绘这里。"""
@@ -206,11 +215,6 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                  put_html(f'<span class="ft-count">{t("Gui.MindCalculator.RowCount", count=len(rows))}</span>')],
                 size='auto 1fr',
             )
-
-    def _mc_render_add_button(self):
-        with use_scope('ft_mind_add', clear=True):
-            put_buttons([{'label': t('Gui.MindCalculator.Add'), 'value': 'add'}],
-                        onclick=self._mc_add_popup)
 
     # ---------- 交互 ----------
 
@@ -408,16 +412,6 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                         onclick=[save], scope=scope)
 
     # ---------- 导入 / 导出 ----------
-
-    def _mc_render_io(self):
-        """导入 / 导出按钮组（清单文件与船坞截图）。"""
-        with use_scope('ft_mind_io', clear=True):
-            put_buttons(
-                [{'label': t('Gui.MindCalculator.Import'), 'value': 'import'},
-                 {'label': t('Gui.MindCalculator.Screenshots'), 'value': 'shots'},
-                 {'label': t('Gui.MindCalculator.ExportJson'), 'value': 'json'},
-                 {'label': t('Gui.MindCalculator.ExportCsv'), 'value': 'csv'}],
-                onclick=self._mc_on_io, small=True)
 
     @render_locked
     def _mc_on_io(self, value):

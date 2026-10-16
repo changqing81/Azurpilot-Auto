@@ -18,6 +18,9 @@ class _TaskHandlerStub:
     def add(self, func, delay, pending_delete=False, group="fast"):
         self.added.append((func, delay, pending_delete))
 
+    def get_task(self, name):
+        return None
+
 
 class _StatisticsHarness(StatisticsPageMixin):
     def __init__(self):
@@ -59,6 +62,25 @@ class _StatisticsHarness(StatisticsPageMixin):
     def _render_commission_income(self):
         self.rendered.append("commission")
 
+    # 舰队科技 / 心智计算器的面板入口（真实现由 FleetTechnologyMixin 提供）
+    def _ft_state(self):
+        return None
+
+    def _ft_bind_callbacks(self):
+        return None
+
+    def _ft_render_tech_panel(self, force=False):
+        self.rendered.append("tech")
+
+    def _ft_render_mind_panel(self, force=False):
+        self.rendered.append("mind")
+
+    def _ft_render_scan_controls(self):
+        self.rendered.append("scan_controls")
+
+    def _ft_data_refresh(self):
+        return None
+
 
 class TestStatisticsPageCache(unittest.TestCase):
     def setUp(self):
@@ -82,6 +104,11 @@ class TestStatisticsPageCache(unittest.TestCase):
                 "module.webui.app_statistics_page.put_html",
                 return_value=_OutputStub(),
             ),
+            # 舰队内容的宿主与点击桥 pin 也走真输出函数：同样需要无会话桩。
+            patch(
+                "module.webui.app_statistics_page.put_input",
+                return_value=_OutputStub(),
+            ),
             # lang.t() 支持占位符参数（内部会 .format()），页头的
             # 「数据截至 {time} · 实例 {instance}」就依赖这一点，所以桩要收下 kwargs。
             patch(
@@ -100,19 +127,27 @@ class TestStatisticsPageCache(unittest.TestCase):
     def test_reopening_unchanged_page_reuses_existing_render(self):
         self.gui.alas_set_stat()
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission"],
+            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
             self.gui.rendered,
         )
 
         self.gui.rendered.clear()
         self.gui.alas_set_stat()
 
-        self.assertEqual([], self.gui.rendered)
-        self.assertEqual(2, len(self.gui.task_handler.added))
-        for callback, delay, pending_delete in self.gui.task_handler.added:
-            self.assertEqual("_refresh_statistics_if_changed", callback.__name__)
-            self.assertEqual(15, delay)
-            self.assertTrue(pending_delete)
+        # 面板原样复用；只补画两个扫描开关所在工具栏（切页清掉了它们的轮询任务）。
+        self.assertEqual(["scan_controls"], self.gui.rendered)
+        self.assertEqual(4, len(self.gui.task_handler.added))
+        self.assertEqual(
+            [
+                ("_refresh_statistics_if_changed", 15, True),
+                ("_ft_data_refresh", 5, True),
+            ]
+            * 2,
+            [
+                (callback.__name__, delay, pending_delete)
+                for callback, delay, pending_delete in self.gui.task_handler.added
+            ],
+        )
 
     def test_local_data_change_marks_refresh_without_replacing_sections(self):
         self.gui.alas_set_stat()
@@ -127,7 +162,7 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui._refresh_statistics_page()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission"],
+            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
             self.gui.rendered,
         )
         self.assertEqual("v2", self.gui._statistics_source_signature)
@@ -141,7 +176,7 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.alas_set_stat()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission"],
+            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
             self.gui.rendered,
         )
         self.assertEqual(
@@ -163,6 +198,76 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui._refresh_statistics_if_changed()
 
         self.assertEqual([], self.gui.rendered)
+
+
+class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
+    """舰队科技 / 心智计算器以统计页页签的形式挂载（2026-10-16 入口迁移）。"""
+
+    def setUp(self):
+        self.gui = _StatisticsHarness()
+        self.patches = (
+            patch(
+                "module.webui.app_statistics_page.use_scope",
+                side_effect=lambda *_args, **_kwargs: nullcontext(),
+            ),
+            patch("module.webui.app_statistics_page.run_js"),
+            patch(
+                "module.webui.app_statistics_page.t",
+                side_effect=lambda key, *args, **kwargs: key,
+            ),
+        )
+        for active_patch in self.patches:
+            active_patch.start()
+
+    def tearDown(self):
+        for active_patch in reversed(self.patches):
+            active_patch.stop()
+
+    def test_tab_table_appends_the_two_fleet_panels(self):
+        from module.webui.app_statistics_page import _STAT_PANEL_SCOPES, _STAT_TABS
+
+        self.assertEqual(
+            [
+                ("opsi", "Gui.Stat.TabOpsi"),
+                ("commission", "Gui.Stat.TabCommission"),
+                ("research", "Gui.Stat.TabResearch"),
+                ("resource", "Gui.Stat.TabResource"),
+                ("fleet", "Gui.FleetTechnology.TabTech"),
+                ("mind", "Gui.FleetTechnology.TabMind"),
+            ],
+            [(panel, key) for panel, key, _badge in _STAT_TABS],
+        )
+        self.assertEqual(("ft_tech",), _STAT_PANEL_SCOPES["fleet"])
+        self.assertEqual(("ft_mind",), _STAT_PANEL_SCOPES["mind"])
+
+    def test_mount_declares_fleet_scopes_tabs_and_bridge_pin(self):
+        from module.webui import app_statistics_page as page
+
+        scopes, inputs, htmls = [], [], []
+        with patch.object(
+            page,
+            "put_scope",
+            side_effect=lambda name, *args, **kwargs: scopes.append(name) or _OutputStub(),
+        ), patch.object(
+            page,
+            "put_input",
+            side_effect=lambda *args, **kwargs: inputs.append(kwargs.get("name")) or _OutputStub(),
+        ), patch.object(
+            page,
+            "put_html",
+            side_effect=lambda html, *args, **kwargs: htmls.append(html) or _OutputStub(),
+        ), patch.object(page, "put_button", return_value=_OutputStub()):
+            self.gui.alas_set_stat()
+
+        self.assertIn("ft_tech", scopes)
+        self.assertIn("ft_mind", scopes)
+        self.assertIn("ft_bridge", scopes)
+        self.assertEqual(["ft_bridge_pin"], inputs)
+        tabs_html = next(html for html in htmls if "st-tabs" in html)
+        for panel in ("fleet", "mind"):
+            self.assertIn(f'data-panel="{panel}"', tabs_html)
+        self.assertIn("Gui.FleetTechnology.TabTech", tabs_html)
+        self.assertIn("Gui.FleetTechnology.TabMind", tabs_html)
 
 
 class TestDeltaTimelineTranslationPlaceholders(unittest.TestCase):

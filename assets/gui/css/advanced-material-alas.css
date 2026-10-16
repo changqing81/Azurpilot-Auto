@@ -1801,20 +1801,19 @@ button[style*="--menu-Overview--"] {
 	--meow-thunder: #0ea5e9;
 }
 
-/* 舰队科技页（fleet-tech-alas.css）：页面背景是壁纸，区块面（页签/汇总/
-   搜索/扫描/心智列表/表格）已在页面 CSS 里垫好 --ft-surface（浅=白卡、
-   暗=深卡），这里补轻量毛玻璃。半径特意压到 12px：本页有 8 个面板，
-   40px 级别的 backdrop-filter 叠这么多个会把渲染拖垮（本仓库有过
-   blur 78→9 的渲染风暴前科，实测截图面都会超时）。明暗两张高级材质
-   共用本条，颜色值由 dark-advanced-material-overrides-alas.css 覆盖。 */
-#pywebio-scope-ft_tabs,
+/* 舰队科技列表 / 心智计算器（fleet-tech-alas.css，内容挂在统计页面板里）：
+   页面背景是壁纸，区块面（汇总/搜索/扫描/心智列表/表格）已在页面 CSS 里
+   垫好 --ft-surface（浅=白卡、暗=深卡），这里补轻量毛玻璃。半径特意压到
+   12px：本页有 8 个面板，40px 级别的 backdrop-filter 叠这么多个会把渲染
+   拖垮（本仓库有过 blur 78→9 的渲染风暴前科，实测截图面都会超时）。
+   明暗两张高级材质共用本条，颜色值由 dark-advanced-material-overrides-alas.css
+   覆盖。 */
 #pywebio-scope-ft_summary:not(:empty),
 #pywebio-scope-ft_search:not(:empty),
 #pywebio-scope-ft_toolbar:not(:empty),
 #pywebio-scope-ft_mind_list,
 #pywebio-scope-ft_mind_filters,
 #pywebio-scope-ft_mind_toolbar,
-#pywebio-scope-ft_mind_io,
 [id^="pywebio-scope-ft_"] .ft-table-wrap {
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);

@@ -362,7 +362,8 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 	box-shadow: none !important;
 }
 
-/* 舰队科技页（fleet-tech-alas.css）：--alas-entry-surface 在透明主题下是
+/* 舰队科技列表 / 心智计算器（fleet-tech-alas.css，内容挂在统计页面板里）：
+   --alas-entry-surface 在透明主题下是
    transparent，表格/筛选栏/加成区会直接压在壁纸上。这里铺半透明白底做蒙版
    （与统计页白卡同款 0.62 + blur40），既保留通透观感又保证数据可读；
    页面各区块都在蒙版上，整段关掉白色描边避免发糊。 */
@@ -378,19 +379,21 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 [id^="pywebio-scope-ft_"] .ft-table-wrap,
 [id^="pywebio-scope-ft_filter_"],
 #pywebio-scope-ft_bonuses:not(:empty),
-#pywebio-scope-ft_tabs,
 #pywebio-scope-ft_search:not(:empty),
 #pywebio-scope-ft_mind_list,
 #pywebio-scope-ft_mind_filters,
-#pywebio-scope-ft_mind_toolbar,
-#pywebio-scope-ft_mind_io {
+#pywebio-scope-ft_mind_toolbar {
 	background: rgba(255, 255, 255, 0.62);
 	backdrop-filter: blur(40px);
 	-webkit-backdrop-filter: blur(40px);
 }
 
+/* 舰队内容已挂进统计页；文字描边/阴影清理要同时覆盖两个内容容器，
+   否则玻璃主题下漏出的描边会让表格与按钮发糊。 */
 #pywebio-scope-content [id^="pywebio-scope-ft_"],
-#pywebio-scope-content [id^="pywebio-scope-ft_"] * {
+#pywebio-scope-content [id^="pywebio-scope-ft_"] *,
+#pywebio-scope-statistics-content [id^="pywebio-scope-ft_"],
+#pywebio-scope-statistics-content [id^="pywebio-scope-ft_"] * {
 	-webkit-text-stroke: 0;
 	text-shadow: none;
 }

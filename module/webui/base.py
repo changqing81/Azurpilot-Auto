@@ -250,15 +250,6 @@ class Frame(Base):
         if js_parts:
             run_js("".join(js_parts))
 
-    # 舰队管理组的子页面共享组入口按钮的高亮（该组在菜单里只保留一个入口）。
-    MENU_HIGHLIGHT_ALIAS = {
-        "FleetInfo": "FleetManagement",
-        "FleetScan": "FleetManagement",
-        "FleetTechnology": "FleetManagement",
-        "FleetTechScan": "FleetManagement",
-        "MindCalculatorScan": "FleetManagement",
-    }
-
     def init_menu(self, collapse_menu: bool = True, name: str = None, *, skip_clear: bool = False) -> None:
         """
         菜单按钮点击时的初始化回调。
@@ -298,11 +289,9 @@ class Frame(Base):
                 )
 
             if name:
-                # 组内子页面归并到组入口按钮的高亮。
-                highlight = self.MENU_HIGHLIGHT_ALIAS.get(name, name)
                 js_parts.append(
                     "$('button.btn-menu').removeClass('btn-menu-active');\n"
-                    "$('div[style*=\"--menu-" + highlight + "--\"]>button').addClass('btn-menu-active');\n"
+                    "$('div[style*=\"--menu-" + name + "--\"]>button').addClass('btn-menu-active');\n"
                 )
 
             # 骨架屏：点击菜单的下一帧先画出占位，**真实内容落地后自动撤掉**。
@@ -410,9 +399,6 @@ class Frame(Base):
         }
         if name in named:
             return named[name]
-        if name == "FleetManagement":
-            # 惰性取方法：替身组合可能没有舰队科技页。组入口直达页签工作台。
-            return self.fleet_technology_page
         for task_data in (getattr(self, "ALAS_MENU", None) or {}).values():
             if not isinstance(task_data, dict):
                 continue
@@ -422,8 +408,7 @@ class Frame(Base):
                 return lambda task=name: self.alas_daemon_overview(task)
             # 舰队管理的特判页是即时渲染页而非配置页；按名惰性取方法，
             # 避免替身/精简组合缺少这些页面时在字典构造期就报 AttributeError。
-            special = {'FleetScan': 'fleet_scan_page', 'FleetInfo': 'fleet_info_page',
-                       'FleetTechnology': 'fleet_technology_page'}
+            special = {'FleetScan': 'fleet_scan_page', 'FleetInfo': 'fleet_info_page'}
             if name in special:
                 return getattr(self, special[name])
             return lambda task=name: self.alas_set_group(task)

@@ -118,12 +118,9 @@ class TaskConfigMixin(WebUIMixinBase):
 
             if task_data.get("menu") == "collapse":
                 if menu == "FleetManagement":
-                    # 对齐上游导航：该组在菜单里只保留一个入口，点击直接进入
-                    # 舰队科技页签工作台（科技列表 / 舰队信息 / 心智计算器）。
-                    put_buttons(
-                        [{"label": t(f"Menu.{menu}.name"), "value": menu, "color": "menu"}],
-                        onclick=self.fleet_technology_page,
-                    ).style(f"--menu-{menu}--")
+                    # 该组的内容（科技列表 / 心智计算器）已迁入统计页页签，
+                    # 侧栏不再保留入口（2026-10-16 用户裁定）；组内四个任务的
+                    # 配置页与之前一样，仍可通过「搜索配置」进入。
                     continue
                 task_btn_list = []
                 for task in task_data.get("tasks", []):

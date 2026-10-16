@@ -1,8 +1,8 @@
 /* ==========================================================================
-   舰队科技列表页（fleet-tech-alas.css）
+   舰队科技列表与心智计算器（fleet-tech-alas.css）
    --------------------------------------------------------------------------
-   复刻上游 React 版「舰队科技列表」的 Wiki 式布局：
-   页头按钮 → 汇总区 → 扫描工具条 → 六组筛选栏 → 搜索行 → 双层表头数据表。
+   内容挂在统计页的两个面板里（页面头部与页签由统计页提供）：
+   汇总区 → 六组筛选栏 → 搜索行 → 扫描工具条 → 双层表头数据表。
 
    设计约束：
    1. 本文件不定义主题色常量（表头蓝与行状态色除外，见下）：
@@ -57,13 +57,12 @@
 
 /* --------------------------------------------------------------------------
    0. 区块面（浅色=白、暗色=深灰、玻璃主题=卡片玻璃＋模糊）
-   高级材质/透明主题里页面背景是壁纸：页签、汇总数字、搜索/扫描行、表格行
+   高级材质/透明主题里页面背景是壁纸：汇总数字、搜索/扫描行、表格行
    （行状态是半透明浅色叠层）直接浮在壁纸上会看不清甚至糊成一片
    （2026-10-16 用户反馈）。每个区块各垫一张面，与统计页和透明主题既有做法
    一致；浅色主题下 --ft-surface 即白底，观感与原来一致。主题层只补玻璃
    模糊（advanced-material-alas.css / transparent-alas.css）。
    -------------------------------------------------------------------------- */
-#pywebio-scope-ft_tabs,
 #pywebio-scope-ft_summary:not(:empty),
 #pywebio-scope-ft_search:not(:empty),
 #pywebio-scope-ft_toolbar:not(:empty),
@@ -72,21 +71,23 @@
     border-radius: 10px;
 }
 
-#pywebio-scope-ft_tabs {
-    padding: 4px 10px 0;
+#pywebio-scope-ft_search:not(:empty) {
+    padding: 6px 12px;
 }
 
-#pywebio-scope-ft_search:not(:empty) {
+/* 扫描行与搜索行/心智各面板同类：垫面内也要有同量内边距，
+   否则清掉控件外边距后按钮会贴着面的上下沿。 */
+#pywebio-scope-ft_toolbar:not(:empty) {
     padding: 6px 12px;
 }
 
 /* 心智计算器页签：表格走 .ft-table-scroll（科技列表用的是 .ft-table-wrap），
    列表/筛选/工具条原本没有面 —— 玻璃主题下行状态（半透明浅色）压在亮壁纸上
-   同样会糊掉，这里与科技列表一起垫面。 */
+   同样会糊掉，这里与科技列表一起垫面。
+   导入/导出按钮组已并入筛选行（2026-10-16 用户要求），不再单垫一面。 */
 #pywebio-scope-ft_mind_list,
 #pywebio-scope-ft_mind_filters,
-#pywebio-scope-ft_mind_toolbar,
-#pywebio-scope-ft_mind_io {
+#pywebio-scope-ft_mind_toolbar {
     background: var(--ft-surface);
     border-radius: 10px;
     padding: 6px 12px;
@@ -129,72 +130,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   1a. 页签行（科技列表 / 舰队信息 / 心智计算器）
-   -------------------------------------------------------------------------- */
-/* 页签行：页签居左、重新载入居右，同一行；窄屏页签区可横滑，按钮不收缩。 */
-#pywebio-scope-ft_tabs {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-[id^="pywebio-scope-ft_"] .ft-tabs {
-    display: flex;
-    gap: 24px;
-    border-bottom: 1px solid var(--ft-divider);
-    padding: 0 2px;
-    /* 页签在条内换行：条被压窄时（手机/窄栏）页签不再被裁掉半个，
-       每个页签都完整可见、可点（被裁区域 elementFromPoint 命中不到，
-       表现为「点不中」）。
-       不再横向滚动：overflow 保持 visible —— 可滑动容器会把手势稍移的
-       轻点判成滑动而**不产生 click**，手机上表现为「完全没反应」。 */
-    flex-wrap: wrap;
-    overflow: visible;
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-#pywebio-scope-ft_tabs > *:not(.ft-tabs) {
-    flex: 0 0 auto;
-    white-space: nowrap;
-}
-
-[id^="pywebio-scope-ft_"] .ft-tab {
-    border: 0;
-    background: transparent;
-    color: var(--ft-muted);
-    font-size: 14px;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    white-space: nowrap;
-    cursor: pointer;
-    /* 页签是页签条的 flex 项：默认 flex-shrink:1 会被压得比文字还窄，
-       标签裁字、可点区域缩成细条（手机端点不中「心智计算器」）。 */
-    flex: 0 0 auto;
-    /* 触摸目标：抬到 44px 高、消掉双击缩放的 300ms 延迟，
-       轻点不会被当成滚动/缩放而丢掉 click。 */
-    display: inline-flex;
-    align-items: center;
-    min-height: 44px;
-    padding: 0 6px;
-    touch-action: manipulation;
-}
-
-[id^="pywebio-scope-ft_"] .ft-tab:hover {
-    color: var(--ft-text);
-}
-
-[id^="pywebio-scope-ft_"] .ft-tab.active {
-    color: var(--ft-accent);
-    border-color: var(--ft-accent);
-    font-weight: 500;
-}
-
-[id^="pywebio-scope-ft_"] .ft-tab.active:hover {
-    color: var(--ft-accent);
-}
-
-/* --------------------------------------------------------------------------
    2. 扫描工具条
    -------------------------------------------------------------------------- */
 [id^="pywebio-scope-ft_"] .ft-toolbar-label {
@@ -218,7 +153,7 @@
 #pywebio-scope-ft_toolbar {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     gap: 6px 10px;
     margin: 2px 0 10px;
 }
@@ -588,7 +523,7 @@
 #pywebio-scope-ft_mind_filters {
     display: flex;
     flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     gap: 6px 10px;
 }
 
@@ -599,6 +534,77 @@
 
 #pywebio-scope-ft_mind_toolbar .ft-hint {
     flex-basis: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   2a. 扫描/筛选行的行内对齐
+   PyWebIO 给每个输入/下拉/按钮各包一层 bootstrap .form-group，主题又给
+   按钮 4px、输入/下拉 6px 的上下外边距：flex 行里这些零碎外边距互相叠加，
+   控件上沿高低不一（实测按钮比输入框高出近 7px，用户反馈「歪七扭八」）。
+   这里统一：包裹层清掉全部外边距、隐藏 PyWebIO 的空反馈/帮助占位，
+   行内控件定同高，行底对齐（flex-end）让整行控件落在同一条上下沿上；
+   工具条里的纯文字（标签/破折号/提示）垂直居中于控件行。
+
+   注意包裹层保持块级、不要改成 flex 列：导入/导出按钮组是「一组按钮
+   共用一个 .form-group」，列向会把它们竖着堆起来（2026-10-16 复刻页实测）。
+   -------------------------------------------------------------------------- */
+#pywebio-scope-ft_toolbar > *,
+#pywebio-scope-ft_mind_toolbar > *,
+#pywebio-scope-ft_mind_filters > * {
+    flex: 0 0 auto;
+    min-width: 0;
+    margin: 0 !important;
+}
+
+#pywebio-scope-ft_toolbar .form-group,
+#pywebio-scope-ft_mind_toolbar .form-group,
+#pywebio-scope-ft_mind_filters .form-group {
+    margin: 0 !important;
+}
+
+#pywebio-scope-ft_toolbar .form-group > .invalid-feedback,
+#pywebio-scope-ft_toolbar .form-group > .valid-feedback,
+#pywebio-scope-ft_toolbar .form-group > small,
+#pywebio-scope-ft_mind_toolbar .form-group > .invalid-feedback,
+#pywebio-scope-ft_mind_toolbar .form-group > .valid-feedback,
+#pywebio-scope-ft_mind_toolbar .form-group > small,
+#pywebio-scope-ft_mind_filters .form-group > .invalid-feedback,
+#pywebio-scope-ft_mind_filters .form-group > .valid-feedback,
+#pywebio-scope-ft_mind_filters .form-group > small {
+    display: none !important;
+}
+
+#pywebio-scope-ft_toolbar .form-control,
+#pywebio-scope-ft_mind_toolbar .form-control,
+#pywebio-scope-ft_mind_filters .form-control,
+#pywebio-scope-ft_toolbar select,
+#pywebio-scope-ft_mind_toolbar select,
+#pywebio-scope-ft_mind_filters select,
+#pywebio-scope-ft_toolbar .form-group > .btn,
+#pywebio-scope-ft_mind_toolbar .form-group > .btn,
+#pywebio-scope-ft_mind_filters .form-group > .btn {
+    height: 38px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+}
+
+/* 只覆盖动作按钮：选择框的 .dropdown-toggle 是插件隐藏的替身，
+   不能被这里的 display 规则重新显示（选择器必须绕开 .bootstrap-select）。 */
+#pywebio-scope-ft_toolbar .form-group > .btn,
+#pywebio-scope-ft_mind_toolbar .form-group > .btn,
+#pywebio-scope-ft_mind_filters .form-group > .btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 18px !important;
+}
+
+#pywebio-scope-ft_toolbar > .ft-toolbar-label,
+#pywebio-scope-ft_toolbar > .ft-range-dash,
+#pywebio-scope-ft_toolbar > .ft-hint,
+#pywebio-scope-ft_mind_toolbar > .ft-toolbar-label,
+#pywebio-scope-ft_mind_toolbar > .ft-hint {
+    align-self: center;
 }
 
 [id^="pywebio-scope-ft_"] .ft-table-scroll {
@@ -666,23 +672,9 @@
         max-height: 70vh;
     }
 
-    /* 页签行：窄屏下页签在条内换行（见 .ft-tabs），重新载入留在同一行右侧，
-       不再单独占一行；按钮本身不收缩。 */
-    #pywebio-scope-ft_tabs {
-        gap: 6px 8px;
-    }
-
-    [id^="pywebio-scope-ft_"] .ft-tabs {
-        gap: 12px 16px;
-    }
-
     /* 搜索行：手机上搜索框占满整行，下拉与计数换行跟上 */
     #pywebio-scope-ft_search > *:has(input) {
         width: 100%;
-    }
-
-    [id^="pywebio-scope-ft_"] .ft-tabs {
-        gap: 16px;
     }
 
     /* 扫描行：输入框与按钮换行时保持紧凑 */
