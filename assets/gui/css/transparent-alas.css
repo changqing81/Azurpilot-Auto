@@ -377,7 +377,9 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 
 [id^="pywebio-scope-ft_"] .ft-table-wrap,
 [id^="pywebio-scope-ft_filter_"],
-#pywebio-scope-ft_bonuses:not(:empty) {
+#pywebio-scope-ft_bonuses:not(:empty),
+#pywebio-scope-ft_tabs,
+#pywebio-scope-ft_search:not(:empty) {
 	background: rgba(255, 255, 255, 0.62);
 	backdrop-filter: blur(40px);
 	-webkit-backdrop-filter: blur(40px);

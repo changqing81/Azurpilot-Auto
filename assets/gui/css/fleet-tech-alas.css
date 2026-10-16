@@ -44,6 +44,31 @@
 }
 
 /* --------------------------------------------------------------------------
+   0. 区块面（浅色=白、暗色=深灰、玻璃主题=卡片玻璃＋模糊）
+   高级材质/透明主题里页面背景是壁纸：页签、汇总数字、搜索/扫描行、表格行
+   （行状态是半透明浅色叠层）直接浮在壁纸上会看不清甚至糊成一片
+   （2026-10-16 用户反馈）。每个区块各垫一张面，与统计页和透明主题既有做法
+   一致；浅色主题下 --ft-surface 即白底，观感与原来一致。主题层只补玻璃
+   模糊（advanced-material-alas.css / transparent-alas.css）。
+   -------------------------------------------------------------------------- */
+#pywebio-scope-ft_tabs,
+#pywebio-scope-ft_summary:not(:empty),
+#pywebio-scope-ft_search:not(:empty),
+#pywebio-scope-ft_toolbar:not(:empty),
+[id^="pywebio-scope-ft_"] .ft-table-wrap {
+    background: var(--ft-surface);
+    border-radius: 10px;
+}
+
+#pywebio-scope-ft_tabs {
+    padding: 4px 10px 0;
+}
+
+#pywebio-scope-ft_search:not(:empty) {
+    padding: 6px 12px;
+}
+
+/* --------------------------------------------------------------------------
    1. 汇总区
    -------------------------------------------------------------------------- */
 [id^="pywebio-scope-ft_"] .ft-summary {
@@ -248,10 +273,12 @@
 
 #pywebio-scope-ft_search > *:has(input) {
     width: 320px;
+    max-width: 100%;
 }
 
 #pywebio-scope-ft_search .bootstrap-select {
     width: 150px;
+    max-width: 100%;
 }
 
 #pywebio-scope-ft_search input,
