@@ -13,6 +13,7 @@ from unittest.mock import Mock, patch
 import numpy as np
 from PIL import Image
 
+from module.exception import GameStuckError
 from module.retire.fleet_tech_scan import FleetTechScan
 from module.retire.mind_scan import MindCalculatorScan
 from module.runtime.mind_recognition import Card, ScanMerger, ScanPolicy, grid_rows
@@ -105,6 +106,33 @@ class FakeScroll:
 
     def at_top(self, main):
         return True
+
+
+class AccessTimer:
+    """按 reached() 访问次数到期的假计时器，模拟看门狗访问超限（真机还有 20 秒条件）。"""
+
+    def __init__(self, count):
+        self.count = count
+        self.calls = 0
+
+    def start(self):
+        self.calls = 0
+        return self
+
+    def reset(self):
+        self.calls = 0
+
+    def reached(self):
+        self.calls += 1
+        return self.calls > self.count
+
+
+def fake_timer_watchdog_ready(limit, count=0):
+    """progress 看门狗按访问次数提前到期：验证零位移链形成后它必须让位给
+    5 次零位移的到底裁决，而不是抢先报 GameStuckError。"""
+    if limit == 60:
+        return AccessTimer(10)
+    return fake_timer(limit, count)
 
 
 class SpyMerger(ScanMerger):
@@ -299,6 +327,61 @@ class BlankFrameRegressionTests(unittest.TestCase):
         only_scroll = np.zeros((720, 1280, 3), np.uint8)
         only_scroll[482:559, 1238:1250] = (247, 211, 66)
         self.assertFalse(MindCalculatorScan._frame_has_content(MindCalculatorScan._stable_pixels(only_scroll)))
+
+
+class StalledBottomTests(unittest.TestCase):
+    """列表到头时拖动零位移：连续 5 次零位移 + 滚动条位于底部 → 正常收尾。
+
+    真机现场（2026-10-16 20:33，FleetTechScan 1–125）：第 43 页全是 1 级船
+    （等级降序列表的尾部），拖拽只滚 124px 撞到列表尽头，之后 7 次 227px
+    拖拽零位移；滚动条最低只到轨道 ~97.5%，永远达不到 total-2 的死判据，
+    整轮扫描被当时的 20 秒看门狗误杀成 GameStuckError 并重启游戏。
+    """
+
+    # 列表尽头实测的滑块停位（位置 ~0.97），未到 FakeScroll.total-2，原始判据不触发
+    NEAR_BOTTOM_THUMB = np.arange(902, 972)
+    MID_THUMB = np.arange(400, 480)
+
+    def _scan(self, thumb, timer=fake_timer):
+        real = np.array(Image.open(FIXTURES / 'mind_dock_stuck.png').convert('RGB'))
+        script = ([(real, thumb)] * 4              # 第一页读完，拖拽一页
+                  + [(real, thumb)] * 4 * 5)       # 列表到头：连续 5 次拖动零位移
+        device = ScriptedDevice(script)
+        reads, drags = [], []
+        scanner = object.__new__(FleetTechScan)
+        scanner.device = device
+        scanner.appear = lambda target: target is page_dock.check_button
+        scanner.handle_popup_confirm = lambda: False
+        scanner._policy = ScanPolicy(95, 125, sorted_desc=True)
+        scanner._drag_rows = lambda distance: drags.append(distance) or (distance, True)
+        scanner._read_cards = lambda image, source, names, levels: reads.append(image) or [
+            dock_card(row, col) for row in range(3) for col in range(7)]
+        scanner._save_scan_evidence = lambda image: ''
+        merger = SpyMerger()
+        scanner._make_merger = lambda: merger
+        with patch('module.retire.mind_scan.Timer', timer), \
+                patch('module.retire.mind_scan.DOCK_SCROLL', FakeScroll(device)):
+            scanner._scan_pages(None, None)
+        return scanner, reads, drags
+
+    def test_zero_movement_at_list_end_finishes_as_reached_bottom(self):
+        scanner, reads, drags = self._scan(self.NEAR_BOTTOM_THUMB)
+        # 第 5 次零位移即裁决收尾：恰好 5 次拖拽，末页读取后正常结束、不报卡死。
+        self.assertEqual(drags, [227] * 5)
+        self.assertEqual(len(reads), 2)
+        self.assertTrue(scanner._scan_metadata['reached_bottom'])
+
+    def test_zero_movement_with_slider_mid_list_still_raises_game_stuck(self):
+        with self.assertRaises(GameStuckError) as ctx:
+            self._scan(self.MID_THUMB)
+        self.assertIn('尚未确认到底', str(ctx.exception))
+
+    def test_ready_watchdog_defers_to_zero_drag_verdict(self):
+        """看门狗访问超限也不能抢先报卡死：零位移链形成后由滑块裁决。"""
+        scanner, reads, drags = self._scan(self.NEAR_BOTTOM_THUMB, timer=fake_timer_watchdog_ready)
+        self.assertEqual(drags, [227] * 5)
+        self.assertEqual(len(reads), 2)
+        self.assertTrue(scanner._scan_metadata['reached_bottom'])
 
 
 class ScanStuckGuardTests(unittest.TestCase):

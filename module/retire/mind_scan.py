@@ -32,6 +32,13 @@ class MindCalculatorScan(Dock):
     # 真卡死由它们兜底，这里放宽到 10 分钟等价于扫描期间停用该通用检测。
     SCAN_IMAGE_STUCK_LIMIT = 600
 
+    # 列表到底的收尾判据：拖动连续多次经图像核验零位移，且滚动条位于底部
+    # 区间。实测（2026-10-16）列表尽头时滑块最低只到轨道 ~97.5%，永远达不到
+    # 「贴到 total-2」的死判据，1–125 全量扫描每到列表尾都被当时的 20 秒
+    # 看门狗误杀成 GameStuckError 并重启游戏。
+    BOTTOM_ZERO_DRAG_LIMIT = 5
+    BOTTOM_POSITION_MIN = 0.95
+
     def _make_merger(self):
         return ScanMerger()
 
@@ -212,6 +219,20 @@ class MindCalculatorScan(Dock):
                     return np.arange(thumb[0], thumb[-1] + 1)
         raise MindCalculatorScanError('船坞滚动条被遮挡，无法确认底部，保留旧扫描结果')
 
+    def _dock_scroll_position(self, thumb):
+        """由已核验的滑块行索引推算滚动进度，口径与 Scroll.cal_position 一致。
+
+        无法换算（未识别到滑块或滑块长度不合法）时返回 None。
+        """
+        if thumb is None:
+            return None
+        length = len(thumb)
+        if not 0 < length < DOCK_SCROLL.total:
+            return None
+        middle = float(np.mean(thumb))
+        position = (middle - length / 2) / (DOCK_SCROLL.total - length)
+        return min(max(position, 0.0), 1.0)
+
     def _recover_page_cards(self, image, cards, at_bottom):
         """有可靠行位和同排实际卡片证据时，将局部缺格保留为未知卡位。"""
         rows = grid_rows(np.array(image))
@@ -253,6 +274,7 @@ class MindCalculatorScan(Dock):
         merger = self._make_merger()
         motion, last_drag = ScrollMotion(), None
         motion_retries = scroll_failures = 0
+        zero_drags = 0
         diagnostic_pages = Path(f'cache/{self.evidence_folder.replace("_", "-")}-diagnostics').is_file()
         policy = getattr(self, '_policy', ScanPolicy(95, 125))
         previous = None
@@ -265,14 +287,20 @@ class MindCalculatorScan(Dock):
         evidence_frame = None
         last_page_image = None
         page = 0
-        progress = Timer(20, count=10).start()
+        # 「无位移」看门狗：60 秒内没有任何经核验的位移才算异常（用户 2026-10-16 裁定，
+        # 原 20 秒在慢速模拟器上离 5 次零位移的裁决太近）。零位移链形成期间它让位给
+        # BOTTOM_ZERO_DRAG_LIMIT 的到底裁决，见循环内的期限检查。
+        progress = Timer(60, count=10).start()
         waiting = Timer(30).start()
         while True:
             self.device.screenshot()
+            stalled_bottom = False
             # 所有前置分支都经过期限检查，动画、页面丢失或反复弹窗不能无限续期。
             if waiting.reached():
                 raise MindCalculatorScanError('船坞画面 30 秒内未能稳定或页面已丢失，保留旧扫描结果')
-            if page and not read_attempts and progress.reached():
+            if page and not read_attempts and not zero_drags and progress.reached():
+                # 零位移链正在形成时让位给 BOTTOM_ZERO_DRAG_LIMIT 的到底裁决，
+                # 否则看门狗会比裁决先开火：列表到头时拖拽本来就测不到位移。
                 raise GameStuckError('船坞扫描画面没有继续滚动，尚未确认到底')
             if self.appear(page_dock.check_button):
                 pixels = self._stable_pixels(self.device.image)
@@ -306,8 +334,9 @@ class MindCalculatorScan(Dock):
                 at_bottom = thumb is not None and thumb[-1] >= DOCK_SCROLL.total - 2
                 visible_rows = grid_rows(self.device.image)
                 waiting.reset()
+                after_drag = last_drag is not None
                 try:
-                    moved = merger.advance(image, bounds=motion.bounds(thumb, last_drag), after_drag=last_drag is not None)
+                    moved = merger.advance(image, bounds=motion.bounds(thumb, last_drag), after_drag=after_drag)
                 except ValueError as exc:
                     # 滚动条到底后的空拖在视觉上没有可唯一估算的位移（画面不再变化）：
                     # 本页按「底部页」收尾，不再升级为致命错误，避免整轮扫描白扫。
@@ -345,10 +374,24 @@ class MindCalculatorScan(Dock):
                 motion.accept(thumb, moved, hinted=merger.motion_hint_used)
                 last_drag = None
                 if moved:
+                    zero_drags = 0
                     progress.reset()
                     # 只有已核实的位移才清除连击历史，停滞仍沿用设备检测和超时恢复。
                     self.device.click_record_clear()
                     logger.attr('船坞实际位移', f'{moved:+d}px，累计 {merger.offset}px')
+                elif after_drag:
+                    # 拖动后画面零位移可能是列表到头，也可能是真卡死：连数累计，
+                    # 到 BOTTOM_ZERO_DRAG_LIMIT 次后用滚动条位置裁决。
+                    zero_drags += 1
+                    if zero_drags >= self.BOTTOM_ZERO_DRAG_LIMIT:
+                        position = self._dock_scroll_position(thumb)
+                        if position is not None and position >= self.BOTTOM_POSITION_MIN:
+                            stalled_bottom = True
+                            at_bottom = True
+                            logger.info(f'[{self.scan_label}] 连续 {zero_drags} 次拖动无位移，'
+                                        f'滚动条位于底部（{position:.0%}），按已到底收尾')
+                        else:
+                            raise GameStuckError('船坞扫描画面没有继续滚动，尚未确认到底')
                 aligned = (target is not None and len(visible_rows) == 3
                            and abs(visible_rows[0] + merger.offset - origin_y - target) <= 6)
                 if target is None or aligned or abs(target - merger.offset) <= 3 or at_bottom:
@@ -451,6 +494,7 @@ class MindCalculatorScan(Dock):
                     except ValueError as exc:
                         raise MindCalculatorScanError(str(exc)) from exc
                     read_attempts = 0
+                    zero_drags = 0
                     evidence_path = ''
                     evidence_frame = None
                     page += 1
@@ -478,7 +522,10 @@ class MindCalculatorScan(Dock):
                     logger.attr('早停检查', policy.stop_reason(cards, merger.slots))
                     if at_bottom:
                         self._scan_metadata = dict(reached_bottom=True, physical_count=len(merger.slots))
-                        logger.info(f'[{self.scan_label}] 已确认滚动条底部（{thumb[-1] + 1}/{DOCK_SCROLL.total}px），扫描结束')
+                        if stalled_bottom:
+                            logger.info(f'[{self.scan_label}] 连续拖动无位移且滚动条位于底部，已确认到底，扫描结束')
+                        else:
+                            logger.info(f'[{self.scan_label}] 已确认滚动条底部（{thumb[-1] + 1}/{DOCK_SCROLL.total}px），扫描结束')
                         break
                     rows = sorted({card.y for card in cards})
                     if len(rows) != 3:
