@@ -94,7 +94,10 @@
     gap: 24px;
     border-bottom: 1px solid var(--ft-divider);
     padding: 0 2px;
+    /* 只留横向滚动：overflow-x:auto 会把 overflow-y 也变成 auto，
+       纵向溢出 1px 就会在页签条尾部挤出一条多余滚动条。 */
     overflow-x: auto;
+    overflow-y: hidden;
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -221,6 +224,11 @@
 /* --------------------------------------------------------------------------
    4. 搜索行
    -------------------------------------------------------------------------- */
+/* 搜索行：一行排成「搜索框 + 科技条目 + 计数」。
+   PyWebIO 把每个输入/下拉各包一层 block 容器（.form-group /
+   .bootstrap-select），内层控件吃 Bootstrap 的 width:100%，作为 flex 项时
+   每个控件都会顶满整行（搜索框独占一行、下拉再占一行）。这里把容器收回
+   内容宽、控件定宽，整行排开；窄屏由 flex-wrap 自然换行。 */
 #pywebio-scope-ft_search {
     display: flex;
     align-items: center;
@@ -228,9 +236,34 @@
     flex-wrap: wrap;
 }
 
-#pywebio-scope-ft_search input {
-    min-width: 180px;
-    max-width: 360px;
+#pywebio-scope-ft_search > * {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+}
+
+#pywebio-scope-ft_search > *:has(input) {
+    width: 320px;
+}
+
+#pywebio-scope-ft_search .bootstrap-select {
+    width: 150px;
+}
+
+#pywebio-scope-ft_search input,
+#pywebio-scope-ft_search select {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+}
+
+#pywebio-scope-ft_search label {
+    margin: 0;
+    white-space: nowrap;
 }
 
 [id^="pywebio-scope-ft_"] .ft-count {
@@ -573,6 +606,11 @@
     /* 页签行收窄：页签横滑、重新载入不挤压页签 */
     #pywebio-scope-ft_tabs {
         gap: 8px;
+    }
+
+    /* 搜索行：手机上搜索框占满整行，下拉与计数换行跟上 */
+    #pywebio-scope-ft_search > *:has(input) {
+        width: 100%;
     }
 
     [id^="pywebio-scope-ft_"] .ft-tabs {
