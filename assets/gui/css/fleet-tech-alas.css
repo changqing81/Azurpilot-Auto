@@ -38,13 +38,16 @@
     contain: layout style;
 }
 
-/* 行本身必须透明：shell 的 markdown-body 给 tr 打了白底，暗色/玻璃主题下
-   浅色文字压在白底行上直接糊掉（td 的状态叠层是半透明的，白底上只剩淡色；
-   实测 tr = rgb(255,255,255)、文字 = rgb(244,248,255)，2026-10-16 用户
-   反馈「表格完全不能看」）。行色统一交回 td 的 --ft-row-overlay 叠层，
-   叠在主题表面（白底/深卡/玻璃卡）上。 */
-[id^="pywebio-scope-ft_"] .ft-table tr {
+/* 行本身必须透明：PyWebIO 自带 markdown.min.css 给了 tr 白底
+   （.markdown-body table tr{background:#fff}）**外加偶数行浅灰斑马**
+   （tr:nth-child(2n){background:#f6f8fa}），还有一条 1px 浅色行分隔线。
+   暗色/玻璃主题下浅色文字压在白底上糊掉，只清白底还会留下刺眼的
+   黑灰斑马（2026-10-16 用户反馈）。行色统一交回 td 的 --ft-row-overlay
+   叠层、叠在主题表面上；分隔线交给页面自己的 --ft-divider。 */
+[id^="pywebio-scope-ft_"] .ft-table tr,
+[id^="pywebio-scope-ft_"] .ft-table tr:nth-child(2n) {
     background-color: transparent;
+    border-top-color: transparent;
 }
 
 /* 点击桥的隐藏 pin：只保留 DOM 供钩子脚本派发事件（页面把它包在 ft_bridge scope 里） */
