@@ -14,11 +14,10 @@ from module.exception import GameStuckError, MindCalculatorScanError
 from module.retire.mind_scan import MindCalculatorScan
 from module.retire.scanner import FleetScanner
 from module.runtime.mind_calculator import calculate
-from module.runtime.mind_recognition import (Card, ScanMerger, ScanPolicy, _has_name_ellipsis, _match_name,
-                                             _name_image, fleet_status, grid_rows, recognize_cards)
+from module.runtime.mind_recognition import (Card, ScanMerger, ScanPolicy, _has_name_ellipsis, _match_name, _name_image,
+                                           fleet_status, grid_rows, recognize_cards)
 
-
-# 本地未收编依赖 module.api 的 tests/test_mind_scan.py，此处内联其两个共用夹具。
+# 本地剪除 tests/test_mind_scan.py（依赖 module.api）后内联其共用夹具。
 FIXTURES = Path(__file__).parent / 'fixtures'
 
 
@@ -268,6 +267,78 @@ class NamePhaseRegressionTests(unittest.TestCase):
             self.assertFalse(_has_name_ellipsis(pixels[index * 30:(index + 1) * 30]), index)
 
 
+class ScrollThumbRegressionTests(unittest.TestCase):
+    def setUp(self):
+        from module.retire.dock import DOCK_SCROLL
+        self.scroll = DOCK_SCROLL
+        self.strip = np.array(Image.open(FIXTURES / 'mind_dock_scroll_gap.png').convert('RGB'))
+
+    def scanner(self, scanner_type=MindCalculatorScan, strip=None):
+        scanner = scanner_type.__new__(scanner_type)
+        pixels = np.zeros((720, 1280, 3), np.uint8)
+        x1, y1, x2, y2 = self.scroll.area
+        pixels[y1:y2, x1:x2] = self.strip if strip is None else strip
+        scanner.device = SimpleNamespace(image=pixels)
+        return scanner
+
+    def test_real_threshold_tie_is_accepted_by_both_scan_tasks(self):
+        from module.retire.fleet_tech_scan import FleetTechScan
+        from module.base.utils import color_similarity_2d
+        self.assertEqual(np.max(color_similarity_2d(self.strip[78:79], color=self.scroll.color)),
+                         self.scroll.color_threshold)
+        for task in (MindCalculatorScan, FleetTechScan):
+            with self.subTest(task=task.__name__):
+                scanner = self.scanner(task)
+                strict = np.flatnonzero(self.scroll.match_color(scanner))
+                self.assertEqual(strict.tolist(), list(range(3, 78)) + [79])
+                np.testing.assert_array_equal(scanner._dock_scroll_thumb(), np.arange(3, 80))
+
+    def test_occlusion_multiple_gaps_and_separate_bottom_speck_are_rejected(self):
+        for kind in ('dark_row', 'two_rows', 'two_gaps', 'bottom_speck'):
+            with self.subTest(kind=kind):
+                strip = self.strip.copy()
+                if kind == 'dark_row':
+                    strip[78] = 0
+                elif kind == 'two_rows':
+                    strip[77] = strip[78]
+                elif kind == 'two_gaps':
+                    strip[40] = strip[78]
+                else:
+                    strip[-1] = self.scroll.color
+                with self.assertRaisesRegex(MindCalculatorScanError, '被遮挡'):
+                    self.scanner(strip=strip)._dock_scroll_thumb()
+
+    def test_contiguous_thumb_and_empty_track_keep_existing_behavior(self):
+        strip = self.strip.copy()
+        strip[78] = self.scroll.color
+        np.testing.assert_array_equal(self.scanner(strip=strip)._dock_scroll_thumb(), np.arange(3, 80))
+        with self.assertRaisesRegex(MindCalculatorScanError, '无法识别'):
+            self.scanner(strip=np.zeros_like(strip))._dock_scroll_thumb()
+
+    def test_gap_repair_does_not_extend_a_near_bottom_endpoint(self):
+        for end in (self.scroll.total - 4, self.scroll.total - 1):
+            with self.subTest(endpoint=end):
+                strip = np.zeros_like(self.strip)
+                strip[end - 76:end + 1] = self.strip[3:80]
+                scanner = self.scanner(strip=strip)
+                strict = np.flatnonzero(self.scroll.match_color(scanner))
+                repaired = scanner._dock_scroll_thumb()
+                self.assertEqual((repaired[0], repaired[-1]), (strict[0], strict[-1]))
+                self.assertEqual(repaired[-1] >= self.scroll.total - 2, end == self.scroll.total - 1)
+
+    def test_threshold_row_cannot_bridge_a_separate_bottom_speck(self):
+        strip = np.zeros_like(self.strip)
+        strip[-77:] = self.strip[3:80]
+        strip[-1] = 0
+        strip[-1, 0] = self.scroll.color
+        scanner = self.scanner(strip=strip)
+        strict = np.flatnonzero(self.scroll.match_color(scanner))
+        self.assertEqual(strict[-1], self.scroll.total - 1)
+        self.assertEqual(strict[-2], self.scroll.total - 3)
+        with self.assertRaisesRegex(MindCalculatorScanError, '被遮挡'):
+            scanner._dock_scroll_thumb()
+
+
 class ScanLoopRegressionTests(unittest.TestCase):
     def setUp(self):
         self.scanner = MindCalculatorScan.__new__(MindCalculatorScan)
@@ -339,6 +410,31 @@ class ScanLoopRegressionTests(unittest.TestCase):
         self.assertFalse(any(ship['review'] for ship in ships))
         self.assertTrue(self.scanner._policy.sort_valid)
 
+    def test_real_scroll_sampling_gap_continues_without_claiming_bottom(self):
+        from module.retire.dock import DOCK_SCROLL
+        strip = np.array(Image.open(FIXTURES / 'mind_dock_scroll_gap.png').convert('RGB'))
+        x1, y1, x2, y2 = DOCK_SCROLL.area
+        for image in self.images.values():
+            image[y1:y2, x1:x2] = strip
+        with patch('module.retire.mind_scan.DOCK_SCROLL', DOCK_SCROLL):
+            ships = self.scan()
+        self.assertEqual(self.reads, [0, 681, 1362])
+        self.assertEqual(len(ships), 42)
+        self.assertFalse(self.scanner._scan_metadata['reached_bottom'])
+
+    def test_real_scroll_occlusion_does_not_block_independently_verified_range_scan(self):
+        from module.retire.dock import DOCK_SCROLL
+        strip = np.array(Image.open(FIXTURES / 'mind_dock_scroll_gap.png').convert('RGB'))
+        strip[78] = 0
+        x1, y1, x2, y2 = DOCK_SCROLL.area
+        for image in self.images.values():
+            image[y1:y2, x1:x2] = strip
+        with patch('module.retire.mind_scan.DOCK_SCROLL', DOCK_SCROLL):
+            ships = self.scan()
+        self.assertEqual(self.reads, [0, 681, 1362])
+        self.assertEqual(len(ships), 42)
+        self.assertFalse(self.scanner._scan_metadata['reached_bottom'])
+
     def test_local_name_failure_continues_and_preserves_safe_early_stop(self):
         self.kind = 'name'
         ships = self.scan()
@@ -386,16 +482,17 @@ class ScanLoopRegressionTests(unittest.TestCase):
         self.assertTrue(self.scanner._policy.sort_valid)
         self.assertLess(self.position, self.bottom)
 
-    def test_persistent_sort_level_or_fleet_doubt_continues_to_real_bottom(self):
+    def test_local_sort_level_or_fleet_doubt_does_not_poison_later_clean_pages(self):
         for kind in ('order', 'level', 'fleet'):
             with self.subTest(kind=kind):
                 self.setUp()
                 self.kind = kind
                 ships = self.scan()
-                self.assertEqual(self.reads, [0, 0, 0, 681, 1362, 2043])
-                self.assertEqual(self.position, self.bottom)
+                self.assertEqual(self.reads, [0, 0, 0, 681, 1362])
+                self.assertLess(self.position, self.bottom)
                 self.assertTrue(any(ship['review'] for ship in ships))
-                self.assertFalse(self.scanner._policy.sort_valid)
+                self.assertTrue(self.scanner._policy.sort_valid)
+                self.assertLessEqual(sum(ship['review'] for ship in ships), 2)
                 if kind == 'level':
                     unknown = [ship for ship in ships if ship['level'] == 0]
                     self.assertEqual(len(unknown), 1)
@@ -429,6 +526,7 @@ class ScanLoopRegressionTests(unittest.TestCase):
     def test_near_bottom_without_endpoint_does_not_save_partial_result(self):
         self.show_bottom = False
         self.kind = 'level'
+        self.scanner._policy = ScanPolicy(1, 125, True)
         with self.assertRaises((MindCalculatorScanError, GameStuckError)):
             self.scan()
         self.assertEqual(self.position, self.bottom)

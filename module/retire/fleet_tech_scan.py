@@ -28,14 +28,6 @@ class FleetTechScan(MindCalculatorScan):
     def _read_cards(self, image, source, names, levels):
         return recognize_cards(image, source, name_ocr=names, level_ocr=levels, identity=self._identity)
 
-    def _check_scan_page(self, cards, at_bottom):
-        rows = sorted({card.y for card in cards})
-        columns = [{card.col for card in cards if card.y == y} for y in rows]
-        if (not columns or any(cols != set(range(7)) for cols in columns[:-1])
-                or columns[-1] != set(range(len(columns[-1])))
-                or not at_bottom and (len(rows) != 3 or len(cards) != 21)):
-            raise ValueError('科技扫描卡片未完整加载或存在缺格，保留旧记录')
-
     def _close_search(self):
         """以已关闭搜索按钮确认恢复，不能把带关键词的船坞视为完整范围。
 

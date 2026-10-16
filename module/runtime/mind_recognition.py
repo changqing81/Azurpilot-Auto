@@ -2,7 +2,7 @@
 
 参考原计算器 OcrService / AutoScanService 的分层流程，适配 AP 的 1280×720 船坞。
 """
-from collections import Counter
+from collections import Counter, deque
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -535,7 +535,7 @@ class ScanPolicy:
             location = f'{card.y}px 行第 {card.col + 1} 列（{card.ship["name"]}）'
             if card.fleet < 0 or not card.level_reliable:
                 conflicts.append((card, f'{location}的编队或等级未确认'))
-                previous = None
+                previous, ordinary = None, False
                 continue
             if card.fleet:
                 if ordinary:
@@ -543,6 +543,8 @@ class ScanPolicy:
                     conflicts.append((card, note))
                     if previous is not None:
                         conflicts.append((previous, note))
+                    # 冲突只涉及交界的两张卡；不能让一次标记误读污染后续编队。
+                    previous, ordinary = None, False
             elif not ordinary:
                 ordinary, previous = True, None
             if previous is not None and card.ship['level'] > previous.ship['level']:
@@ -551,18 +553,36 @@ class ScanPolicy:
             previous = card
         return conflicts
 
+    def _recent_slots(self, slots):
+        """历史疑点保留在原卡位；早停只使用最后一个疑点之后的连续证据。"""
+        ordered = sorted(slots, key=lambda item: (item[1], item[0].col))
+        doubtful = {id(card) for card, _ in self.sort_conflicts(ordered)}
+        last = max((index for index, (card, _) in enumerate(ordered) if id(card) in doubtful), default=-1)
+        return ordered[last + 1:]
+
     def can_stop(self, cards, slots):
-        # 排序状态由当前累计船位重新推导；新帧纠正同一船位后可恢复，
-        # 未纠正的历史疑点仍会拒绝早停，不能靠翻页清除它。
-        self.sort_valid = not bool(self.sort_issue(slots))
+        recent = self._recent_slots(slots)
+        self.sort_valid = self._current_confirmed(cards, slots, recent)
         return not self.stop_reason(cards, slots)
+
+    @staticmethod
+    def _current_confirmed(cards, slots, recent):
+        if not cards or not slots:
+            return False
+        # 重叠页可能保留前一帧质量相同的 Card 对象；依据物理卡位而非对象身份。
+        offset = max(y for _, y in slots) - max(card.y for card in cards)
+        return all(any(old.col == card.col and abs(y - card.y - offset) <= 12 for old, y in recent)
+                   for card in cards)
 
     def stop_reason(self, cards, slots):
         """返回拒绝早停的证据，空字符串表示完整三行已确认越过下限。"""
         if not self.sorted_desc:
             return '尚未确认等级降序'
-        if issue := self.sort_issue(slots):
-            return f'累计排序待核对：{issue}'
+        recent = self._recent_slots(slots)
+        if not self._current_confirmed(cards, slots, recent):
+            return '当前页包含未确认编队、等级或排序卡位'
+        if issue := self.sort_issue(recent):
+            return f'当前连续船位排序待核对：{issue}'
         rows = {}
         for card in cards:
             rows.setdefault(card.y, []).append(card)
@@ -578,15 +598,65 @@ class ScanPolicy:
         return ''
 
 
-def estimate_scroll(previous, current):
+class ScrollMotion:
+    """用独立滑块运动约束重复卡片的候选，不把触控距离当成真实位移。"""
+
+    def __init__(self, row_pitch=180):
+        self.thumb = None
+        self.ratios = deque(maxlen=8)
+        self.row_pitch = row_pitch
+
+    def bounds(self, thumb, drag):
+        if drag is not None:
+            extent = abs(drag[0]) + 6
+            if drag[1] and extent < self.row_pitch / 2:
+                # 小距离按住拖动不能跨越整行别名；保留零和反向候选，
+                # 最终位移仍须图像唯一确认，不依赖滑块的亚像素移动。
+                return -int(extent), int(extent)
+        if thumb is None or self.thumb is None or drag is None:
+            return None
+        delta = np.asarray(thumb[[0, -1]]) - self.thumb
+        # 两个端点必须同向移动；长度变化或单端闪光不能证明船坞滚动。
+        if not (np.all(delta >= 1) or np.all(delta <= -1)) or abs(delta[0] - delta[1]) > 2:
+            return None
+        distance, held = drag
+        direction = 1 if delta.mean() > 0 else -1
+        if distance * direction <= 0:
+            return None
+        low, high = 1., min(454., abs(distance) + 6.) if held else 454.
+        if len(self.ratios) >= 2:
+            ratio = float(np.median(self.ratios))
+            expected = abs(float(delta.mean())) * ratio
+            tolerance = ratio * 1.5 + expected * .1 + 6
+            low, high = max(low, expected - tolerance), min(high, expected + tolerance)
+        elif not held:
+            return None
+        if low > high:
+            return None
+        lower, upper = int(np.ceil(low)), int(np.floor(high))
+        return (lower, upper) if direction > 0 else (-upper, -lower)
+
+    def accept(self, thumb, moved, *, hinted=False):
+        if thumb is not None and self.thumb is not None and moved and not hinted:
+            ends = thumb[[0, -1]] - self.thumb
+            delta = float(np.mean(ends))
+            coherent = (np.all(ends >= 1) or np.all(ends <= -1)) and abs(ends[0] - ends[1]) <= 2
+            if coherent and abs(delta) >= 2 and delta * moved > 0 and abs(moved) >= 40:
+                self.ratios.append(abs(moved / delta))
+        self.thumb = np.asarray(thumb[[0, -1]]).copy() if thumb is not None else None
+
+
+def estimate_scroll(previous, current, bounds=None, check_zero=False):
     """用重叠区域核验正负位移；没有唯一证据时终止而不猜测漏页。"""
     # 先取原有采样列再转浮点，使内层逐位移比较读取连续内存；候选和阈值不变。
     before = cv2.cvtColor(previous[65:640, 85:1225], cv2.COLOR_RGB2GRAY)[:, ::8].astype(np.float32)
     after = cv2.cvtColor(current[65:640, 85:1225], cv2.COLOR_RGB2GRAY)[:, ::8].astype(np.float32)
-    if np.mean(np.abs(before - after)) < 1:
+    if not check_zero and np.mean(np.abs(before - after)) < 1 and (bounds is None or bounds[0] <= 0 <= bounds[1]):
         return 0
     scores = []
     for shift in range(-454, 455):
+        if bounds is not None and not bounds[0] <= shift <= bounds[1]:
+            continue
         if shift > 0:
             a, b = before[shift:][::2], after[:-shift][::2]
         elif shift < 0:
@@ -597,9 +667,11 @@ def estimate_scroll(previous, current):
         active = np.maximum(a, b) > 35
         error = float(np.abs(a - b)[active].mean()) if active.sum() > 300 else float('inf')
         scores.append((error, shift))
+    if not scores:
+        raise ValueError('滚动条运动与船坞卡片位移不一致')
     scores.sort()
     best, shift = scores[0]
-    other = min(score for score, candidate in scores if abs(candidate - shift) > 10)
+    other = min((score for score, candidate in scores if abs(candidate - shift) > 10), default=float('inf'))
     if best > 20 or other < best + 2:
         raise ValueError('相邻船坞截图没有明确的重叠位移，停止扫描以免漏船')
     return shift
@@ -612,11 +684,24 @@ class ScanMerger:
         self.offset = 0
         self.slots = []
         self.group_identity = group_identity
+        self.motion_hint_used = False
 
-    def advance(self, image):
+    def advance(self, image, bounds=None, after_drag=False):
         """中间截图只累计位移，保证三排推进始终有重叠区域可核验。"""
         pixels = np.array(normalize_screenshot(image))
-        shift = estimate_scroll(self.previous, pixels) if self.previous is not None else 0
+        self.motion_hint_used = False
+        shift = 0
+        if self.previous is not None:
+            try:
+                shift = estimate_scroll(self.previous, pixels, check_zero=after_drag)
+            except ValueError:
+                if bounds is None:
+                    raise
+                shift = estimate_scroll(self.previous, pixels, bounds=bounds, check_zero=True)
+                self.motion_hint_used = True
+            else:
+                if bounds is not None and not bounds[0] <= shift <= bounds[1]:
+                    raise ValueError('卡片位移与独立滚动证据不一致')
         self.offset += shift
         self.previous = pixels.copy()
         return shift

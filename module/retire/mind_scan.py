@@ -1,4 +1,5 @@
 """复用 AP 设备和船坞导航的心智单元扫描任务。"""
+from contextlib import nullcontext
 from datetime import datetime
 from hashlib import sha256
 import json
@@ -10,18 +11,26 @@ from PIL import Image
 
 import module.config.server as server
 from module.base.timer import Timer
+from module.base.utils import color_similarity_2d
 from module.exception import GameStuckError, MindCalculatorScanError
 from module.logger import logger
 from module.retire.assets import DOCK_EMPTY
 from module.retire.dock import CARD_GRIDS, DOCK_SCROLL, Dock
 from module.runtime.mind_calculator import RESULT_PATH, calculate, revision
-from module.runtime.mind_recognition import ScanMerger, ScanPolicy, grid_rows, recognize_cards
+from module.runtime.mind_recognition import Card, ScanMerger, ScanPolicy, ScrollMotion, grid_rows, recognize_cards
 from module.ui.page import page_dock
 
 
 class MindCalculatorScan(Dock):
     evidence_folder = 'mind_scan'
     scan_label = '心智扫描'
+
+    # 扫描期间放宽设备层「截图未变化」卡死判定的上限（默认 30 秒）。
+    # 读页与 OCR 复读时画面天然静止（无操作、无滚动），慢速复读可耗时
+    # 30~40 秒，与默认阈值擦线：2026-10-16 实测一次 36 秒被杀、一次
+    # 28.8 秒侥幸存活。扫描自身的 waiting/progress/attempts 超时完备，
+    # 真卡死由它们兜底，这里放宽到 10 分钟等价于扫描期间停用该通用检测。
+    SCAN_IMAGE_STUCK_LIMIT = 600
 
     def _make_merger(self):
         return ScanMerger()
@@ -30,7 +39,13 @@ class MindCalculatorScan(Dock):
         return recognize_cards(image, source, name_ocr=names, level_ocr=levels)
 
     def _check_scan_page(self, cards, at_bottom):
-        """特定扫描器可追加完整遍历约束，心智范围扫描保持原有语义。"""
+        """检查已加载行列；真实末页允许最后一排末尾不足七艘。"""
+        rows = sorted({card.y for card in cards})
+        columns = [{card.col for card in cards if card.y == y} for y in rows]
+        if (not columns or any(cols != set(range(7)) for cols in columns[:-1])
+                or columns[-1] != set(range(len(columns[-1])))
+                or not at_bottom and (len(rows) != 3 or len(cards) != 21)):
+            raise ValueError('扫描卡片未完整加载或存在缺格')
 
     def run(self):
         """扫描指定等级范围；三排确认低于下限后结束，完成前保留旧结果。
@@ -107,6 +122,15 @@ class MindCalculatorScan(Dock):
         signature[55:715, 1238:1250] = gray[55:715, 1238:1250]
         return signature
 
+    # 稳定采样区（卡片行带 + 滚动条列）里亮像素的下限。真实船坞帧约 9 万，
+    # 而切页转场黑屏 / MuMu 偶发全黑帧为 0，只剩滚动条的帧约 900。
+    FRAME_CONTENT_MIN_PIXELS = 2000
+
+    @classmethod
+    def _frame_has_content(cls, signature):
+        """稳定采样区里有足量亮像素才视为可估算位移的船坞画面。"""
+        return int(np.count_nonzero(signature > 100)) >= cls.FRAME_CONTENT_MIN_PIXELS
+
     def _save_scan_evidence(self, image):
         """保存核对原帧；诊断写盘失败不影响扫描继续。"""
         from time import time_ns
@@ -162,10 +186,73 @@ class MindCalculatorScan(Dock):
                 raise MindCalculatorScanError('当前控制方式无法进行船坞小距离校正，请改用 MaaTouch 等支持拖拽的控制方式')
             # 不使用 Device.drag 的不支持分支，避免其松手后回退点击舰船。
             self.device.swipe(start, end, duration=.6, name='心智单元船坞三排定位')
+        return distance, supported
+
+    def _dock_scroll_thumb(self):
+        """核实滑块连续性，仅容许一个颜色恰在阈值上的内部采样缺口。"""
+        if not DOCK_SCROLL.appear(self):
+            raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
+        mask = np.asarray(DOCK_SCROLL.match_color(self), dtype=bool)
+        thumb = np.flatnonzero(mask)
+        if len(thumb):
+            gaps = np.flatnonzero(~mask[thumb[0]:thumb[-1] + 1]) + thumb[0]
+            if not len(gaps):
+                return thumb
+            if len(gaps) == 1:
+                # 只在一个阈值边界行内补抗锯齿像素，前后行仍用严格颜色。
+                # 三行须八邻接连通，不用固定横向跨度猜圆角的采样相位。
+                gap = gaps[0]
+                pixels = self.image_crop(DOCK_SCROLL.area, copy=False)[gap - 1:gap + 2]
+                scores = color_similarity_2d(pixels, color=DOCK_SCROLL.color)
+                above = np.flatnonzero(scores[0] > DOCK_SCROLL.color_threshold)
+                bridge = np.flatnonzero(scores[1] >= DOCK_SCROLL.color_threshold - 3)
+                below = np.flatnonzero(scores[2] > DOCK_SCROLL.color_threshold)
+                if (scores[1].max() == DOCK_SCROLL.color_threshold
+                        and any(np.any(abs(above - col) <= 1) and np.any(abs(below - col) <= 1) for col in bridge)):
+                    return np.arange(thumb[0], thumb[-1] + 1)
+        raise MindCalculatorScanError('船坞滚动条被遮挡，无法确认底部，保留旧扫描结果')
+
+    def _recover_page_cards(self, image, cards, at_bottom):
+        """有可靠行位和同排实际卡片证据时，将局部缺格保留为未知卡位。"""
+        rows = grid_rows(np.array(image))
+        if not cards or not rows or not at_bottom and len(rows) != 3:
+            return None
+        if any(not any(card.y == y for card in cards) for y in rows):
+            return None
+        recovered = list(cards)
+        for y in rows:
+            present = {card.col for card in cards if card.y == y}
+            end = max(present) + 1 if at_bottom and y == rows[-1] else 7
+            for col in set(range(end)) - present:
+                x = round(float(CARD_GRIDS.origin[0] + col * CARD_GRIDS.delta[0]))
+                recovered.append(Card(x, y, col, dict(
+                    name=f'待核对舰船（{y}px 第 {col + 1} 列）', level=0, rarity='', base_rarity='',
+                    excluded=False, review=True, group_type=None, type=None, candidates=[], identity_ambiguous=True,
+                    source='当前卡位三帧仍未加载，保留位置待核对'), fleet=-1))
+        return sorted(recovered, key=lambda card: (card.y, card.col))
+
+    def _scan_stuck_guard(self):
+        """扫描期间放宽设备层「截图未变化」卡死检测（见 SCAN_IMAGE_STUCK_LIMIT）。
+
+        替身设备（单测 Mock / 精简对象）可能没有可用的上下文协议，
+        静默降级为不覆盖，扫描逻辑本身不依赖该覆盖。
+        """
+        override = getattr(self.device, 'stuck_timeout_override', None)
+        if callable(override):
+            candidate = override(image_stuck=self.SCAN_IMAGE_STUCK_LIMIT)
+            if hasattr(candidate, '__enter__') and hasattr(candidate, '__exit__'):
+                return candidate
+        return nullcontext()
 
     def _scan_pages(self, names, levels):
         """分段核验三排位移，目标位置连续稳定后识别整页，末页确认到底。"""
+        with self._scan_stuck_guard():
+            return self._scan_pages_impl(names, levels)
+
+    def _scan_pages_impl(self, names, levels):
         merger = self._make_merger()
+        motion, last_drag = ScrollMotion(), None
+        motion_retries = scroll_failures = 0
         diagnostic_pages = Path(f'cache/{self.evidence_folder.replace("_", "-")}-diagnostics').is_file()
         policy = getattr(self, '_policy', ScanPolicy(95, 125))
         previous = None
@@ -189,6 +276,16 @@ class MindCalculatorScan(Dock):
                 raise GameStuckError('船坞扫描画面没有继续滚动，尚未确认到底')
             if self.appear(page_dock.check_button):
                 pixels = self._stable_pixels(self.device.image)
+                # 切页转场与截图坏帧（MuMu 偶发全黑帧）里卡片区尚未渲染，
+                # 稳定采样区几乎全是暗像素。坏帧既不能作为稳定基准
+                # （previous），也不能打断好帧之间的稳定计数：反复出现的
+                # 坏帧会让画面永远凑不满连续三帧稳定，最后被 progress 的
+                # 「没有继续滚动」兜底误杀整轮扫描（2026-10-16 实测）。
+                # 这里只剔除当前帧，previous/stable 保持原状等真画面出现；
+                # 画面确实变化时由上一分支的差异检测自行更新基准。
+                if not self._frame_has_content(pixels):
+                    logger.debug('[扫描帧] 画面无有效内容（转场/坏帧），等待重新渲染')
+                    continue
                 # 保留全像素平均差及原阈值，避免整帧浮点转换产生大块临时分配。
                 if (previous is None or pixels.shape != previous.shape
                         or cv2.mean(cv2.absdiff(pixels, previous))[0] > 1):
@@ -197,36 +294,81 @@ class MindCalculatorScan(Dock):
                     continue
                 if not stable.reached():
                     continue
-                waiting.reset()
                 image = Image.fromarray(self.device.image)
                 try:
-                    moved = merger.advance(image)
+                    thumb = self._dock_scroll_thumb()
+                    scroll_failures = 0
+                except MindCalculatorScanError:
+                    thumb = None
+                    scroll_failures += 1
+                    if scroll_failures in (1, 3):
+                        logger.warning('船坞滚动条暂未确认，继续核验卡片位移，本帧不据此判断到底')
+                at_bottom = thumb is not None and thumb[-1] >= DOCK_SCROLL.total - 2
+                visible_rows = grid_rows(self.device.image)
+                # 滚动/弹动动画的中间帧卡片网格不完整（两次真机事故现场均为
+                # 2 行：visible_rows=[93,320] / [95,322]），其位移不是整数行，
+                # 拿去估算同样会得到「没有明确的重叠位移」。完整页恒为三排，
+                # 最后一页由滚动条到底放行。
+                if len(visible_rows) != 3 and not at_bottom:
+                    logger.debug(f'[扫描帧] 卡片网格未满三排（{len(visible_rows)} 行），等待滚动动画结束')
+                    previous = None
+                    stable.reset()
+                    continue
+                waiting.reset()
+                try:
+                    moved = merger.advance(image, bounds=motion.bounds(thumb, last_drag), after_drag=last_drag is not None)
                 except ValueError as exc:
-                    raise MindCalculatorScanError(str(exc)) from exc
+                    # 滚动条到底后的空拖在视觉上没有可唯一估算的位移（画面不再变化）：
+                    # 本页按「底部页」收尾，不再升级为致命错误，避免整轮扫描白扫。
+                    if at_bottom:
+                        moved = 0
+                    else:
+                        motion_retries += 1
+                        if motion_retries < 3:
+                            logger.warning(f'当前滚动位移待确认，重新截图核对（{motion_retries}/3）')
+                            previous = None
+                            stable.reset()
+                            waiting.reset()
+                            continue
+                        raise MindCalculatorScanError(str(exc)) from exc
+                motion_retries = 0
+                if merger.motion_hint_used:
+                    logger.attr('重复卡片位移核验', f'{moved:+d}px，已结合独立滑块运动确认')
+                motion.accept(thumb, moved, hinted=merger.motion_hint_used)
+                last_drag = None
                 if moved:
                     progress.reset()
                     # 只有已核实的位移才清除连击历史，停滞仍沿用设备检测和超时恢复。
                     self.device.click_record_clear()
                     logger.attr('船坞实际位移', f'{moved:+d}px，累计 {merger.offset}px')
-                if not DOCK_SCROLL.appear(self):
-                    raise MindCalculatorScanError('无法识别船坞滚动条，保留旧扫描结果')
-                thumb = np.flatnonzero(DOCK_SCROLL.match_color(self))
-                if not len(thumb) or thumb[-1] - thumb[0] + 1 != len(thumb):
-                    raise MindCalculatorScanError('船坞滚动条被遮挡，无法确认底部，保留旧扫描结果')
-                at_bottom = len(thumb) and thumb[-1] >= DOCK_SCROLL.total - 2
-                visible_rows = grid_rows(self.device.image)
                 aligned = (target is not None and len(visible_rows) == 3
                            and abs(visible_rows[0] + merger.offset - origin_y - target) <= 6)
                 if target is None or aligned or abs(target - merger.offset) <= 3 or at_bottom:
                     try:
-                        cards = self._read_cards(image, f'自动扫描第 {page + 1} 页', names, levels)
-                        self._check_scan_page(cards, at_bottom)
+                        cards = []
+                        try:
+                            cards = self._read_cards(image, f'自动扫描第 {page + 1} 页', names, levels)
+                            self._check_scan_page(cards, at_bottom)
+                        except ValueError:
+                            read_attempts += 1
+                            if read_attempts < 3:
+                                logger.warning(f'当前页卡片未完整加载，重新截图核对（{read_attempts}/3）')
+                                previous = None
+                                stable.reset()
+                                waiting.reset()
+                                continue
+                            cards = self._recover_page_cards(image, cards, at_bottom)
+                            if cards is None:
+                                raise
+                            self._check_scan_page(cards, at_bottom)
+                            read_attempts = 2
+                            logger.warning('当前页局部缺格已保留为待核对卡位，继续处理其余舰船')
                         invalid = [card for card in cards if not card.level_reliable]
                         uncertain_names = [card for card in cards if card.ship['review'] and card.level_reliable
                                            and not card.ship.get('identity_ambiguous')]
                         uncertain_fleets = [card for card in cards if card.fleet < 0]
-                        # 复核本页与前一船位的边界；已接受的历史疑点留在累计
-                        # 船位中供早停检查，不让每个后续页反复重读同一个疑点。
+                        # 复核本页与前一船位的边界；历史疑点保留在原卡位，
+                        # 不让单点读数问题持续污染后续完整页面的早停证据。
                         current_slots = [[card, card.y + merger.offset] for card in cards]
                         first = min((y, card.col) for card, y in current_slots)
                         preceding = [slot for slot in merger.slots if (slot[1], slot[0].col) < first]
@@ -284,7 +426,7 @@ class MindCalculatorScan(Dock):
                         previous_slots = len(merger.slots)
                         merger.add(image, cards)
                         last_page_image = image
-                        # 置顶编队读数影响整次早停，保留其原帧和最终卡位数据，
+                        # 置顶编队读数影响当前边界，保留其原帧和最终卡位数据，
                         # 便于区分编号误读、透明背景与排序冲突；普通正常页不写图。
                         if (diagnostic_pages or any(card.fleet > 0 for card in cards) or evidence_path) and evidence_frame is not image:
                             evidence_path = self._save_scan_evidence(image)
@@ -339,6 +481,7 @@ class MindCalculatorScan(Dock):
                         origin_y = rows[0]
                         if not 180 <= pitch <= 250 or max(abs(distances - pitch)) > 3:
                             raise MindCalculatorScanError('无法确认船坞实际行距，保留旧扫描结果')
+                        motion.row_pitch = pitch
                         logger.attr('船坞行距', f'{pitch}px，三排 {3 * pitch}px')
                     expected_offset = (page - 1) * 3 * pitch
                     if any(abs(y + merger.offset - origin_y - expected_offset - index * pitch) > 6
@@ -354,7 +497,7 @@ class MindCalculatorScan(Dock):
                     if attempts >= 8:
                         raise MindCalculatorScanError('船坞三排定位未能停在目标位置，请检查控制方式')
                     remaining = target - merger.offset
-                    self._drag_rows(int(np.clip(remaining, -pitch, pitch)))
+                    last_drag = self._drag_rows(int(np.clip(remaining, -pitch, pitch)))
                     attempts += 1
                     drag.reset()
                     stable.reset()

@@ -43,8 +43,38 @@ class FleetTechRuntimeTests(unittest.TestCase):
         self.assertEqual(record['observed']['10102'], 125)
         row = next(row for row in tech.report(record)['ships'] if row['group_type'] == 10102)
         self.assertEqual(row['status'], 'complete')
-        self.assertIsNone(row['full_star'])
-        self.assertEqual(row['points'], 8)
+        self.assertTrue(row['full_star'])
+        self.assertEqual(row['points'], 15)
+
+    def test_full_star_default_is_strictly_above_100_and_does_not_write_records(self):
+        for level, star, points, pending in [(99, None, 3, 1), (100, None, 3, 1),
+                                             (101, True, 10, 0), (120, True, 15, 0), (125, True, 15, 0)]:
+            with self.subTest(level=level):
+                record = {'observed': {'10102': level}}
+                original = copy.deepcopy(record)
+                result = tech.report(record)
+                row = next(row for row in result['ships'] if row['group_type'] == 10102)
+                self.assertIs(row['full_star'], star)
+                self.assertEqual(result['confirmed_points'], points)
+                self.assertEqual(result['pending_star'], pending)
+                self.assertEqual(record, original)
+
+    def test_full_star_default_respects_current_level_absence_and_manual_values(self):
+        cases = [
+            ({'current': {'10102': 100}}, None),
+            ({'absent': ['10102']}, False),
+            ({'manual': {'10102': {'owned': False}}}, False),
+            ({'manual': {'10102': {'level': 100}}}, None),
+            ({'manual': {'10102': {'level': 101}}}, True),
+            ({'manual': {'10102': {'full_star': False}}}, False),
+            ({'current': {'10102': 100}, 'manual': {'10102': {'full_star': True}}}, True),
+            ({'manual': {'10102': {'full_star': None}}}, True),
+        ]
+        for values, expected in cases:
+            with self.subTest(values=values):
+                record = {'observed': {'10102': 125}, **values}
+                row = tech.progress(record, 10102)
+                self.assertIs(row['full_star'], expected)
 
     def test_uncertain_unknown_and_zero_are_ignored_but_cost_exclusion_is_not(self):
         record = tech.merge_mind({}, [dict(ship(), review=True), ship('未来舰'), ship('卡辛', 0),

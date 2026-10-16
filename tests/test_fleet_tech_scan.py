@@ -1,8 +1,6 @@
 """科技独立扫描、稳定身份和持久化快捷操作的针对性回归。"""
 import copy
-import json
 from pathlib import Path
-import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, call, patch
@@ -10,7 +8,6 @@ from unittest.mock import Mock, call, patch
 import numpy as np
 from PIL import Image
 
-from module.config.deep import deep_get, deep_set
 from module.runtime import fleet_tech as tech
 from module.runtime.fleet_tech_identity import FleetTechIdentity, surface_icon
 from module.runtime.mind_recognition import Card, ScanMerger, aircraft_icon, color_rows, recognize_cards
@@ -28,6 +25,91 @@ def merge(record, ships, **extra):
     params.update(extra)
     return tech.merge_scan(record, ships, **params)
 
+
+class FleetTechRecordTests(unittest.TestCase):
+    def test_latest_snapshot_replaces_smaller_and_empty_results_without_erasing_manual_history(self):
+        record = merge({}, [observed(10102, 125), observed(10103, 120)])
+        record['manual'] = {'10103': {'owned': True, 'level': 125, 'lv120': True}}
+        before = copy.deepcopy(record['manual'])
+        reduced = merge(record, [observed(10102, 100)])
+        self.assertEqual(reduced['last_scan']['ships'], [(10102, 100)])
+        self.assertEqual(reduced['current']['10102'], 125)
+        self.assertEqual(reduced['manual'], before)
+        empty = merge(reduced, [])
+        self.assertEqual(empty['last_scan']['ships'], [])
+        self.assertEqual(empty['last_scan']['matched_count'], 0)
+        self.assertEqual(empty['current'], reduced['current'])
+        self.assertEqual(empty['manual'], before)
+
+    def test_owned_and_completion_targets_are_independent_and_idempotent(self):
+        record = {}
+        tech.toggle(record, 10102, 'owned', True)
+        self.assertEqual((tech.progress(record, 10102)['owned'], tech.progress(record, 10102)['lv120']), (True, False))
+        tech.toggle(record, 10102, 'complete', True)
+        saved = copy.deepcopy(record)
+        tech.toggle(record, 10102, 'complete', True)
+        self.assertEqual(record, saved)
+        tech.toggle(record, 10102, 'owned', False)
+        self.assertEqual((tech.progress(record, 10102)['owned'], tech.progress(record, 10102)['lv120']), (False, False))
+        tech.toggle(record, 10102, 'owned', True)
+        self.assertEqual(tech.progress(record, 10102)['level'], 120)
+        self.assertFalse(tech.progress(record, 10103)['owned'])
+
+    def test_completion_on_unowned_ship_confirms_ownership_without_contradiction(self):
+        record = {}
+        tech.toggle(record, 10224, 'complete', True)
+        state = tech.progress(record, 10224)
+        self.assertEqual((state['owned'], state['lv120'], state['level']), (True, True, 120))
+        tech.toggle(record, 10224, 'complete', False)
+        self.assertEqual(tech.progress(record, 10224)['level'], 100)
+
+    def test_partial_filtered_uncertain_and_count_mismatch_scans_never_clear_old_evidence(self):
+        original = dict(observed={'10103': 125})
+        for params, ships in [({}, [observed(10102, 120)]),
+                              ({'min_level': 1, 'reached_bottom': True, 'filters_clear': False}, [observed(10102, 120)]),
+                              ({'min_level': 1, 'reached_bottom': True, 'physical_count': 1}, [observed(10102, 120)]),
+                              ({'min_level': 1, 'reached_bottom': True, 'expected_count': None}, [observed(10102, 120)]),
+                              ({'min_level': 1, 'reached_bottom': True}, [observed(10102, 120), dict(name='约克', level=120, review=True)])]:
+            with self.subTest(params=params):
+                result = merge(original, ships, **params)
+                self.assertFalse(result['last_scan']['complete'])
+                self.assertTrue(tech.progress(result, 10103)['owned'])
+                self.assertTrue(tech.progress(result, 10102)['owned'])
+        self.assertEqual(original, dict(observed={'10103': 125}))
+
+    def test_known_outside_range_review_is_not_imported_but_unknown_level_is_retained(self):
+        result = merge({}, [dict(name='约克', level=56, review=True), dict(name='未读到', level=0, review=True)])
+        self.assertEqual([row['level'] for row in result['review_ships']], [0])
+
+    def test_partial_scan_of_lower_copy_preserves_existing_highest_level(self):
+        original = dict(observed={'10102': 125}, current={'10102': 125})
+        partial = merge(original, [observed(10102, 105)], max_level=115)
+        self.assertEqual(tech.progress(partial, 10102)['level'], 125)
+        self.assertEqual(partial['last_scan']['ships'], [(10102, 105)])
+        uncertain = merge(original, [observed(10102, 105)], min_level=1, reached_bottom=True, expected_count=None)
+        self.assertEqual(tech.progress(uncertain, 10102)['level'], 125)
+        complete = merge(original, [observed(10102, 105)], min_level=1, reached_bottom=True)
+        self.assertEqual(tech.progress(complete, 10102)['level'], 105)
+
+    def test_complete_scan_confirms_absence_but_preserves_manual_override_and_history(self):
+        record = dict(observed={'10103': 125, '10104': 105}, manual={'10104': dict(owned=True, level=105)})
+        result = merge(record, [observed(10102, 120)], min_level=1, reached_bottom=True)
+        self.assertTrue(result['last_scan']['complete'])
+        self.assertFalse(tech.progress(result, 10103)['owned'])
+        self.assertTrue(tech.progress(result, 10104)['owned'])
+        self.assertEqual(result['observed']['10103'], 125)
+        again = merge(result, [observed(10103, 99)])
+        self.assertTrue(tech.progress(again, 10103)['owned'])
+        self.assertEqual(tech.progress(again, 10103)['level'], 99)
+        self.assertEqual(again['observed']['10103'], 125)
+
+    def test_scan_fingerprint_is_stable_by_group_and_highest_current_copy(self):
+        ships = [observed(30507, 120), observed(30702, 120), observed(30702, 105), observed(10224, 99)]
+        first = merge({}, ships)
+        second = merge(first, list(reversed(ships)), updated_at='later')
+        self.assertEqual(first['last_scan']['fingerprint'], second['last_scan']['fingerprint'])
+        self.assertEqual(second['last_scan']['matched_count'], 3)
+        self.assertEqual(second['current'], {'10224': 99, '30702': 120, '30507': 120})
 
 class FleetTechIdentityTests(unittest.TestCase):
     @classmethod
