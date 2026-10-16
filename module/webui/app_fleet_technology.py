@@ -98,10 +98,26 @@ def build_fleet_tech_bridge_script(pin_name):
             }}
 
             var lastFire = 0;
+            var touchStart = null;
+            // 记录起手位置：touchend 兜底必须自己甄别轻点与滑动
+            // （浏览器正是靠“位移超阈值不发 click”做到这一点，兜底绕过了它）。
+            document.addEventListener("touchstart", function (event) {{
+                var t = event.changedTouches && event.changedTouches[0];
+                touchStart = t ? {{ x: t.clientX, y: t.clientY }} : null;
+            }}, {{ passive: true }});
+
             window[listenerName] = function (event) {{
                 // touchend 之后浏览器往往还会补一次 click：500ms 内只认第一个。
                 var now = Date.now();
                 if (now - lastFire < 500) return;
+                if (event.type === "touchend") {{
+                    var t = event.changedTouches && event.changedTouches[0];
+                    if (!touchStart || !t) return;
+                    if (Math.abs(t.clientX - touchStart.x) > 12
+                            || Math.abs(t.clientY - touchStart.y) > 12) {{
+                        return;  // 手指挪过 12px：这是滚动，不是轻点
+                    }}
+                }}
                 if (!push(event)) return;
                 lastFire = now;
                 try {{ event.preventDefault(); }} catch (e) {{}}
