@@ -88,19 +88,7 @@ class _Harness(FleetManagementMixin, FleetTechnologyMixin):
     def _ft_render_summary(self):
         self.render_log.append('summary')
 
-    # FleetManagementMixin 的信息页依赖（页签框架复用它们）。
-    def _fleet_info_html(self, result, record):
-        self.render_log.append('fleet_info_html')
-        return '<div class="fleet-info">fleet-info-html</div>'
-
-    def _fleet_scan_running(self):
-        return False
-
-    def _fleet_scan_start(self):
-        pass
-
-    def _fleet_scan_running_click(self):
-        pass
+    # FleetManagementMixin 的信息页依赖（旧舰队信息页签已下线，仅 FleetInfo 任务页仍用）。
 
     @property
     def alas_config(self):
@@ -528,48 +516,15 @@ class FleetTechPageTest(unittest.TestCase):
             h.render_log.append(f'tab:{h._ft_tab}')
 
         h._ft_render_tab_content = fake_content
-        h._ft_on_bridge('tab|info')
-        self.assertEqual(h._ft_tab, 'info')
-        self.assertEqual(h.render_log, ['tabs', 'tab:info'])
-        h._ft_on_bridge('tab|info')
-        self.assertEqual(h.render_log, ['tabs', 'tab:info'])
+        h._ft_on_bridge('tab|mind')
+        self.assertEqual(h._ft_tab, 'mind')
+        self.assertEqual(h.render_log, ['tabs', 'tab:mind'])
+        h._ft_on_bridge('tab|mind')
+        self.assertEqual(h.render_log, ['tabs', 'tab:mind'])
         h._ft_on_bridge('tab|tech')
         self.assertEqual(h._ft_tab, 'tech')
         h._ft_on_bridge('tab|bogus')
         self.assertEqual(h._ft_tab, 'tech')
-
-    def test_info_tab_renders_scan_toggle_and_empty_hint(self):
-        """舰队信息页签（无扫描结果）：扫描开关 scope + 空结果提示。
-
-        use_scope 同样需要桩（真实现会走 script 模式 fallback 卡死）。
-        """
-        h = self.harness
-        with patch(f'{MODULE}.put_html', side_effect=lambda html: _FakeOutput(html)) as put_html, \
-                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)) as put_scope, \
-                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
-                patch(f'{MODULE}.BinarySwitchButton', _FakeSwitchButton):
-            h._ft_render_info_tab()
-        texts = [call.args[0] for call in put_html.call_args_list if call.args]
-        self.assertTrue(any('Gui.FleetManagement.NoResult' in text for text in texts))
-        scopes = [call.args[0] for call in put_scope.call_args_list if call.args]
-        self.assertIn('ft_info_scan_button', scopes)
-
-    def test_info_tab_renders_fleets_with_result(self):
-        """舰队信息页签（有扫描结果）：渲染编队展示 HTML。"""
-        h = self.harness
-        h._alas_config_data = {'FleetInfo': {'FleetInfo': {
-            'Result': {'vanguard': {'1': [{'name': '杜威', 'level': 120}]}},
-            'Record': '2026-10-15 18:35'}}}
-        with patch(f'{MODULE}.put_html', side_effect=lambda html: _FakeOutput(html)) as put_html, \
-                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)) as put_scope, \
-                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
-                patch(f'{MODULE}.BinarySwitchButton', _FakeSwitchButton):
-            h._ft_render_info_tab()
-        texts = [call.args[0] for call in put_html.call_args_list if call.args]
-        self.assertTrue(any('fleet-info-html' in text for text in texts))
-        self.assertTrue(any('Gui.FleetManagement.LastScan' in text or 'fleet-info' in text
-                            for text in texts))
-
 
     def test_data_refresh_detects_external_writes(self):
         """周期刷新：基线建立后记录/清单变化才重绘，无变化不重绘。"""
@@ -614,12 +569,11 @@ class FleetTechRenderSmokeTest(unittest.TestCase):
                                       side_effect=lambda key, **kw: key))
             load_config = stack.enter_context(patch.object(module, 'load_config'))
             load_config.return_value.read_file.return_value = self.FAKE_DATA
-            harness._alas_config_data = self.FAKE_DATA  # 舰队信息页签的编队数据
 
             raw = FleetTechnologyMixin.fleet_technology_page.__wrapped__
             raw(harness)                                  # 初次渲染（科技列表页签）
             raw(harness, 'FleetManagement')               # 组入口进入（标题用组名）
-            harness._ft_on_bridge('tab|info')             # 页签切换：舰队信息
+            harness._ft_on_bridge('tab|mind')             # 页签切换：心智计算器
             harness._ft_on_bridge('tab|tech')             # 切回科技列表
             harness._ft_edit = True                       # 编辑列 + 加成视图 + 阶段选择
             harness._ft_bonuses = True
@@ -637,7 +591,6 @@ class FleetTechRenderSmokeTest(unittest.TestCase):
         tabs = [args for name, args, kwargs in record
                 if name == 'put_html' and args and 'data-ft-tab' in str(args[0])]
         self.assertTrue(tabs, '页签行必须渲染')
-        self.assertIn('fleet_info_html', harness.render_log)
 
 
 class FleetTechI18nTest(unittest.TestCase):

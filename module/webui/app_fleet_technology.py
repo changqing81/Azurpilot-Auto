@@ -183,7 +183,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
     @use_scope('content', clear=True)
     def fleet_technology_page(self, task='FleetTechnology'):
-        """舰队科技页签工作台：科技列表 / 舰队信息 / 心智计算器。
+        """舰队科技页签工作台：科技列表 / 心智计算器。
 
         菜单「舰队管理」组入口以 ``task='FleetManagement'`` 进入（标题用组名），
         其余调用保持 'FleetTechnology' 兼容。
@@ -217,9 +217,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
     def _ft_render_tab_content(self):
         """渲染当前页签；切换页签只重绘这里（筛选/页码等状态跨切换保留）。"""
         with use_scope('ft_tab_content', clear=True):
-            if self._ft_tab == 'info':
-                self._ft_render_info_tab()
-            elif self._ft_tab == 'mind':
+            if self._ft_tab == 'mind':
                 self._ft_render_mind_tab()
             else:
                 self._ft_render_tech_tab()
@@ -273,29 +271,6 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_render_stage()
         self._ft_render_bonuses()
         self._ft_render_table()
-
-    def _ft_render_info_tab(self):
-        """舰队信息：编队展示 + 舰队扫描开关（对齐上游 FleetInfoPage 的页内扫描）。"""
-        with use_scope('ft_info', clear=True):
-            put_scope('ft_info_scan_button')
-            config = self.alas_config.read_file(self.alas_name)
-            result = deep_get(config, 'FleetInfo.FleetInfo.Result', default={})
-            record = deep_get(config, 'FleetInfo.FleetInfo.Record', default=None)
-            if not isinstance(result, dict) or not result:
-                put_html(f'<div class="ft-empty">{t("Gui.FleetManagement.NoResult")}</div>')
-            else:
-                put_html(self._fleet_info_html(result, record))
-        button = BinarySwitchButton(
-            get_state=self._fleet_scan_running,
-            label_on=t('Gui.FleetManagement.Scanning'),
-            label_off=t('Gui.FleetManagement.StartScan'),
-            onclick_on=self._fleet_scan_running_click,
-            onclick_off=self._fleet_scan_start,
-            color_on='off',
-            color_off='on',
-            scope='ft_info_scan_button',
-        )
-        self.task_handler.add(button.g(), 1, True)
 
     def _ft_render_mind_tab(self):
         """心智计算器：第二阶段交付（runtime 计算与识别已就绪，缺清单 UI）。"""
