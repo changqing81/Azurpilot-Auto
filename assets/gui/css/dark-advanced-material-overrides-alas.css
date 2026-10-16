@@ -8,6 +8,9 @@ html:root {
 	--alas-apple-card-bg-solid: #111827;
 	/* 日志实底：与亮色 --alas-log-bg 对应（日志区禁用 backdrop-filter） */
 	--alas-log-bg: rgba(15, 23, 42, 0.93);
+	/* 高频小卡实底：与亮色 --alas-apple-bar-bg 对应（队列/时钟条/截图区/
+	   总览分组卡禁用 backdrop-filter，语义同日志区） */
+	--alas-apple-bar-bg: rgba(15, 23, 42, 0.93);
 	--alas-apple-glass-border: rgba(148, 163, 184, 0.24);
 	--alas-apple-text: #f4f8ff;
 	--alas-apple-text-secondary: #d2dceb;

@@ -43,6 +43,10 @@ html:root {
 	/* 日志区实底：日志禁用 backdrop-filter 后用高不透明底保文字对比度。
 	   暗色主题在 dark-advanced-material-overrides-alas.css 里覆盖此变量。 */
 	--alas-log-bg: rgba(255, 255, 255, 0.93);
+	/* 高频小卡实底：队列/时钟条/截图区/总览分组卡每次内容更新都会重新合成
+	   模糊层（与日志区同一问题），改用高不透明实底近似玻璃观感。
+	   暗色主题在 dark-advanced-material-overrides-alas.css 里覆盖此变量。 */
+	--alas-apple-bar-bg: rgba(255, 255, 255, 0.93);
 	--alas-apple-glass-border: rgba(255, 255, 255, 0.4);
 	--alas-apple-text: #1d1d1f;
 	--alas-apple-text-secondary: #86868b;
@@ -439,19 +443,37 @@ body #pywebio-scope-ap_chart [style*="--ap-chart-md3-segment-"] .btn-group {
    更新频率最高的区域（日志每秒增量 append），backdrop-filter 会让每次
    内容变更都伴随昂贵的模糊层合成，且日志卡片做入场动画时每帧都要重新
    采样背景 —— 实测是「来回切页卡死」的最大单项来源。日志区在下方
-   「10. 日志区域」走实底 + contain 隔离的轻量样式。 */
+   「10. 日志区域」走实底 + contain 隔离的轻量样式。
+   同理，本组里同样按秒级刷新的小卡（调度队列 / 时钟条 / 截图预览 /
+   总览分组卡）已在下方拆出为 --alas-apple-bar-bg 实底样式。 */
 [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(#pywebio-scope-aside):not(#pywebio-scope-navigator),
+#pywebio-scope-log-bar {
+	background-color: var(--alas-apple-card-bg) !important;
+	backdrop-filter: blur(16px) saturate(180%);
+	-webkit-backdrop-filter: blur(16px) saturate(180%);
+	border-radius: var(--radius-lg) !important;
+	border: 1px solid var(--alas-apple-glass-border) !important;
+	box-shadow: var(--alas-apple-shadow) !important;
+	padding: var(--spacing-md) !important;
+	margin-bottom: var(--spacing-md) !important;
+	transition: box-shadow var(--ease-spring-normal), transform var(--ease-spring-fast) !important;
+	animation: ios-slide-up var(--ease-spring-normal) both;
+}
+
+/* 按秒刷新卡片：缩放/等待队列、调度器与统计条、截图预览、总览分组卡。
+   这些区域每次内容更新都带着 backdrop-filter 重新合成（实测长任务每
+   2~5 秒一次、单次 165~219ms 起），改用 --alas-apple-bar-bg 实底，
+   外观近似玻璃但不再有模糊层合成；与日志区的既有处置保持同一套路。 */
 #pywebio-scope-running,
 #pywebio-scope-pending,
 #pywebio-scope-waiting,
 #pywebio-scope-scheduler-bar,
 #pywebio-scope-stat-bar,
 #pywebio-scope-image-container,
-#pywebio-scope-log-bar,
 #pywebio-scope-groups>*:not(#pywebio-scope-navigator) {
-	background-color: var(--alas-apple-card-bg) !important;
-	backdrop-filter: blur(16px) saturate(180%);
-	-webkit-backdrop-filter: blur(16px) saturate(180%);
+	background-color: var(--alas-apple-bar-bg) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
 	border-radius: var(--radius-lg) !important;
 	border: 1px solid var(--alas-apple-glass-border) !important;
 	box-shadow: var(--alas-apple-shadow) !important;
