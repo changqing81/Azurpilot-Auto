@@ -289,6 +289,15 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         """行编辑弹窗：等级与状态（计入/待核对/排除），保存即写盘。"""
         ship = self._mc_ships[index]
         title = f'{t("Gui.MindCalculator.EditTitle")} · {ship.get("name", "")}'
+        # 状态是运行时按「显式排除 / 待核对 / 等级与稀有度 / 自动排除」推出来的
+        # 计算字段（mind_calculator.calculate），原始记录里只有 excluded/review
+        # 两个布尔位；弹窗初值必须取计算行，直接读 ship['status'] 会 KeyError
+        # （2026-10-16 17:44 用户点「编辑」即报错现场）。同名合并等非可选态
+        # 回落到「计入」。
+        computed = dict(mind_view.calculate_rows(self._mc_ships)[1]).get(index, {})
+        status = computed.get('status')
+        if status not in STATUS_OPTIONS:
+            status = 'included'
         with popup(title) as scope:
 
             def save():
@@ -304,8 +313,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                 options=[{'label': t('Gui.MindCalculator.Included'), 'value': 'included'},
                          {'label': t('Gui.MindCalculator.Review'), 'value': 'review'},
                          {'label': t('Gui.MindCalculator.Excluded'), 'value': 'excluded'}],
-                value='included' if ship['status'] == 'included' else
-                      'review' if ship['status'] == 'review' else 'excluded',
+                value=status,
                 scope=scope,
             )
             put_scope('ft_mind_edit_error', scope=scope)

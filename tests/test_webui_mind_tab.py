@@ -428,6 +428,28 @@ class MindIoCallbackTest(unittest.TestCase):
         self.assertEqual(labels.get('mc_max'), 'Gui.MindCalculator.FilterMax')
 
 
+    def test_edit_popup_reads_computed_status(self):
+        """弹窗初值必须来自计算行：原始记录只有 excluded/review，没有 status。
+
+        现场：2026-10-16 17:44 用户点「编辑」→ KeyError('status')（桥修好后
+        第一次真正走到弹窗）。同时校验三态映射：待核对/排除/计入。
+        """
+        h = _MindHarness()
+        h._mc_state()
+        h._mc_ships = _ships()  # 贝利 review=True、拉菲 excluded=True
+        captured = []
+        with patch(f'{MODULE}.popup', side_effect=lambda *a, **kw: _FakeOutput('popup')), \
+                patch(f'{MODULE}.put_input', side_effect=lambda *a, **kw: _FakeOutput('input')), \
+                patch(f'{MODULE}.put_select',
+                      side_effect=lambda *a, **kw: captured.append(kw) or _FakeOutput('select')), \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.put_buttons', side_effect=lambda *a, **kw: _FakeOutput('buttons')):
+            h._mc_edit_popup(2)  # 贝利：review
+            h._mc_edit_popup(3)  # 拉菲：excluded
+            h._mc_edit_popup(0)  # 杜威：included
+        self.assertEqual([item['value'] for item in captured], ['review', 'excluded', 'included'])
+
+
 class MindScanStartTest(unittest.TestCase):
     """扫描按钮：写等级范围 → 走通用两段式启动（worker 存活时先停后启）。"""
 
