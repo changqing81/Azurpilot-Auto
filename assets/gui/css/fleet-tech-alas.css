@@ -38,6 +38,15 @@
     contain: layout style;
 }
 
+/* 行本身必须透明：shell 的 markdown-body 给 tr 打了白底，暗色/玻璃主题下
+   浅色文字压在白底行上直接糊掉（td 的状态叠层是半透明的，白底上只剩淡色；
+   实测 tr = rgb(255,255,255)、文字 = rgb(244,248,255)，2026-10-16 用户
+   反馈「表格完全不能看」）。行色统一交回 td 的 --ft-row-overlay 叠层，
+   叠在主题表面（白底/深卡/玻璃卡）上。 */
+[id^="pywebio-scope-ft_"] .ft-table tr {
+    background-color: transparent;
+}
+
 /* 点击桥的隐藏 pin：只保留 DOM 供钩子脚本派发事件（页面把它包在 ft_bridge scope 里） */
 #pywebio-scope-ft_bridge {
     display: none;
@@ -65,6 +74,18 @@
 }
 
 #pywebio-scope-ft_search:not(:empty) {
+    padding: 6px 12px;
+}
+
+/* 心智计算器页签：表格走 .ft-table-scroll（科技列表用的是 .ft-table-wrap），
+   列表/筛选/工具条原本没有面 —— 玻璃主题下行状态（半透明浅色）压在亮壁纸上
+   同样会糊掉，这里与科技列表一起垫面。 */
+#pywebio-scope-ft_mind_list,
+#pywebio-scope-ft_mind_filters,
+#pywebio-scope-ft_mind_toolbar,
+#pywebio-scope-ft_mind_io {
+    background: var(--ft-surface);
+    border-radius: 10px;
     padding: 6px 12px;
 }
 
