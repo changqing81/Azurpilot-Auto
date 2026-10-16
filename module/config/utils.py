@@ -336,18 +336,37 @@ def path_to_arg(path):
     return path.replace('.', '_')
 
 
-def dict_to_kv(dictionary, allow_none=True):
+def summarize_value(value, max_text=60):
+    """把配置值压成日志友好的短摘要：容器只报规模，长文本截断。
+
+    高频保存日志（侵蚀1 / 智能调度一轮里多次保存）中，账本状态这类嵌套
+    结构整坨 repr 会刷出成百字符的长行；键名仍完整保留，值按规模概览。
+    """
+    if isinstance(value, dict):
+        return f'<dict {len(value)} 键>'
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return f'<{type(value).__name__} {len(value)} 项>'
+    if isinstance(value, str) and len(value) > max_text:
+        return f'{value[:max_text]}…（共 {len(value)} 字符）'
+    return repr(value)
+
+
+def dict_to_kv(dictionary, allow_none=True, summarize=False):
     """
     将字典转换为 key=value 格式的字符串。
 
     Args:
         dictionary: 如 `{'path': 'Scheduler.ServerUpdate', 'value': True}`。
         allow_none (bool): 是否包含值为 None 的键。
+        summarize (bool): 为 True 时容器值只报规模、长字符串截断（见
+            ``summarize_value``），供高频保存日志使用；默认 False 保持
+            完整 repr，WebUI 手动保存等按需查看的场景不受影响。
 
     Returns:
         str: 如 `path='Scheduler.ServerUpdate', value=True`。
     """
-    return ', '.join([f'{k}={repr(v)}' for k, v in dictionary.items() if allow_none or v is not None])
+    formatter = summarize_value if summarize else repr
+    return ', '.join([f'{k}={formatter(v)}' for k, v in dictionary.items() if allow_none or v is not None])
 
 
 def server_timezone() -> timedelta:

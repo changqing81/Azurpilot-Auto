@@ -140,7 +140,13 @@ class OSStatus(UI):
             if cache is not None:
                 value, cached_at = cache
                 if time.time() - cached_at < 30:
-                    logger.info(f'[大世界处理-状态] 黄币(缓存): {value}')
+                    # 同一份缓存只报一次：一轮结束会连读三次，其余命中降为
+                    # debug，避免同一数值反复刷行（新缓存写入会有新的时间戳）。
+                    if getattr(self.config, '_yellow_coins_cache_logged_at', None) != cached_at:
+                        self.config._yellow_coins_cache_logged_at = cached_at
+                        logger.info(f'[大世界处理-状态] 黄币(缓存): {value}')
+                    else:
+                        logger.debug(f'[大世界处理-状态] 黄币(缓存命中): {value}')
                     return value
         yellow_coins = 0
         timeout = Timer(5, count=10).start()  # 增加超时时间和重试次数

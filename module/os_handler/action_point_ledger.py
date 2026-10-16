@@ -69,6 +69,7 @@ class ActionPointLedger:
             return False
         at = at or current_time()
         previous_current = self.current
+        previous_total = self.total_with_box
 
         self.current = current
         if total_with_box is not None:
@@ -89,7 +90,12 @@ class ActionPointLedger:
         self.box = tuple(box) if box is not None else self.box
         self.recorded_at = at
         self.source = source
-        logger.attr('AP账本', f'记录({source}) 当前={self.current} 总(含箱)={self.total_with_box}')
+        # 同一读数被反复记录（顶栏/弹窗复核、跨轮重复读）时不再刷屏：
+        # 只有值真正变化才记 info，重复记录降为 debug 备查。
+        if (self.current, self.total_with_box) != (previous_current, previous_total):
+            logger.attr('AP账本', f'记录({source}) 当前={self.current} 总(含箱)={self.total_with_box}')
+        else:
+            logger.debug(f'[AP账本] 记录({source}) 与上次一致：当前={self.current} 总(含箱)={self.total_with_box}')
         return True
 
     # -------------------- 判定 --------------------

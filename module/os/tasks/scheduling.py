@@ -2335,7 +2335,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             if ledger is not None:
                 ap_checked = not ledger.need_popup(
                     cost=120, preserve=int(ap_preserve or 0))
-                logger.info(f'[AP账本] 侵蚀1开工预判: ap_checked={ap_checked}')
+                # 每轮都会走到这里：判定成功（常态）降为 debug 避免刷屏，
+                # 只有账本不足以判定、要回退检查时才记 info。
+                if ap_checked:
+                    logger.debug('[AP账本] 侵蚀1开工预判: 账本判定行动力充足，跳过开工弹窗')
+                else:
+                    logger.info('[AP账本] 侵蚀1开工预判: 账本不足以判定，回退缓存/弹窗检查')
         if not ap_checked:
             # 检查缓存行动力是否充足（>=120 且缓存 < 60 秒）
             cached = getattr(self, '_ap_cache', (None, None, None))

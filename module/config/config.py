@@ -258,7 +258,14 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             func_list.insert(0, "Alas")
         if "General" not in func_list:
             func_list.insert(0, "General")
-        logger.info(f"[配置] 绑定任务 {func_list}")
+        # 同一配置对象反复绑定同一组任务（侵蚀1/智能调度每轮都会重绑）时不再
+        # 重复刷行：只在绑定集合变化时记 info，其余降为 debug 备查。
+        bound_signature = tuple(func_list)
+        if getattr(self, '_bound_tasks_logged', None) != bound_signature:
+            self._bound_tasks_logged = bound_signature
+            logger.info(f"[配置] 绑定任务 {func_list}")
+        else:
+            logger.debug(f"[配置] 绑定任务 {func_list}")
 
         # 绑定参数
         visited = set()
@@ -411,7 +418,8 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             deep_set(self.data, keys=path, value=value)
 
         logger.info(
-            f"[配置] 保存配置 {filepath_config(self.config_name, mod_name)}, {dict_to_kv(self.modified)}"
+            f"[配置] 保存配置 {filepath_config(self.config_name, mod_name)}, "
+            f"{dict_to_kv(self.modified, summarize=True)}"
         )
         # 不要使用 self.modified = {}，那会创建新对象。
         self.modified.clear()
