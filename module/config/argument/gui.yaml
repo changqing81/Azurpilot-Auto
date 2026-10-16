@@ -111,6 +111,7 @@ FleetTechnology:
   'None':
   Low:
   High:
+  ScanRange:
   Scan:
   Sync:
   SyncEmpty:

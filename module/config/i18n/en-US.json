@@ -6742,6 +6742,7 @@
       "None": "No technology",
       "Low": "Minimum level",
       "High": "Maximum level",
+      "ScanRange": "Scan range",
       "Scan": "Scan dock",
       "Sync": "Sync saved dock scan",
       "SyncEmpty": "No saved dock scan yet. Run the mind calculator scan first.",

@@ -194,13 +194,6 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_state()
         self._ft_load(force=True)
 
-        with use_scope('ft_head', clear=True):
-            put_row(
-                [put_html('<span></span>'),
-                 put_buttons([{'label': t('Gui.FleetTechnology.Reload'), 'value': 'reload'}],
-                             onclick=self._ft_on_reload, small=True)],
-                size='1fr auto',
-            )
         put_scope('ft_tabs')
         put_scope('ft_tab_content')
 
@@ -215,8 +208,11 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_render_tab_content()
 
     def _ft_render_tabs(self):
+        """页签行：左侧页签、右端「重新载入」；整行由 ft_tabs 的 flex 排布。"""
         with use_scope('ft_tabs', clear=True):
             put_html(view.tabs_html(self._ft_tab))
+            put_buttons([{'label': t('Gui.FleetTechnology.Reload'), 'value': 'reload'}],
+                        onclick=self._ft_on_reload, small=True)
 
     def _ft_render_tab_content(self):
         """渲染当前页签；切换页签只重绘这里（筛选/页码等状态跨切换保留）。"""
@@ -259,14 +255,18 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_render_tab_content()
 
     def _ft_render_tech_tab(self):
-        """科技列表（原有主体：汇总/工具条/筛选/搜索/加成/表格）。"""
+        """科技列表（汇总/筛选/搜索/扫描行/加成/表格）。
+
+        扫描范围与两个动作放在搜索行之下、表格之上：上方只剩浏览用的
+        汇总与筛选，扫描控件紧贴数据区。
+        """
         put_scope('ft_summary')
-        self._ft_render_toolbar()
         put_scope('ft_filters')
         self._ft_render_filters()
         put_scope('ft_stage')
         put_scope('ft_search')
         self._ft_render_search()
+        self._ft_render_toolbar()
         put_scope('ft_bonuses')
         put_scope('ft_table')
         self._ft_render_summary()
@@ -322,20 +322,22 @@ class FleetTechnologyMixin(WebUIMixinBase):
             put_html(view.summary_html(self._ft_catalog, self._ft_report, self._ft_rows))
 
     def _ft_render_toolbar(self):
-        """扫描参数、扫描/同步按钮与状态提示；按钮状态由 task_handler 轮询。
+        """扫描范围与扫描/同步按钮（紧凑一行，位于搜索行与表格之间）。
 
         元素顺序输出（不用 put_row），由 ft_toolbar 的 flex-wrap 排布，窄屏自然换行。
         """
         report = self._ft_report
         with use_scope('ft_toolbar', clear=True):
-            put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.Low")}</span>')
-            put_input(name='ft_min_level', type='number', value=str(report['min_level']))
-            put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.High")}</span>')
-            put_input(name='ft_max_level', type='number', value=str(report['max_level']))
+            put_html(f'<span class="ft-toolbar-label">{t("Gui.FleetTechnology.ScanRange")}</span>')
+            put_input(name='ft_min_level', type='number', value=str(report['min_level']),
+                      placeholder=t('Gui.FleetTechnology.Low'))
+            put_html('<span class="ft-range-dash">–</span>')
+            put_input(name='ft_max_level', type='number', value=str(report['max_level']),
+                      placeholder=t('Gui.FleetTechnology.High'))
             put_scope('ft_scan_button')
             put_buttons([{'label': t('Gui.FleetTechnology.Sync'), 'value': 'sync'}],
-                        onclick=self._ft_on_sync)
-            put_html(f'<div class="ft-hint">{t("Gui.FleetTechnology.Hint")}</div>')
+                        onclick=self._ft_on_sync, small=True)
+            put_html(f'<span class="ft-hint">{t("Gui.FleetTechnology.Hint")}</span>')
         button = BinarySwitchButton(
             get_state=self._ft_scan_running,
             label_on=t('Gui.FleetManagement.Scanning'),

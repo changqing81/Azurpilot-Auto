@@ -82,12 +82,26 @@
 /* --------------------------------------------------------------------------
    1a. 页签行（科技列表 / 舰队信息 / 心智计算器）
    -------------------------------------------------------------------------- */
+/* 页签行：页签居左、重新载入居右，同一行；窄屏页签区可横滑，按钮不收缩。 */
+#pywebio-scope-ft_tabs {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 [id^="pywebio-scope-ft_"] .ft-tabs {
     display: flex;
     gap: 24px;
-    border-bottom: 1px solid var(--ft-line);
+    border-bottom: 1px solid var(--ft-divider);
     padding: 0 2px;
     overflow-x: auto;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+#pywebio-scope-ft_tabs > *:not(.ft-tabs) {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 [id^="pywebio-scope-ft_"] .ft-tab {
@@ -131,19 +145,27 @@
     line-height: 1.7;
 }
 
+[id^="pywebio-scope-ft_"] .ft-range-dash {
+    color: var(--ft-muted);
+    font-size: 13px;
+    margin: 0 1px;
+}
+
 #pywebio-scope-ft_toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px 10px;
+    margin: 2px 0 10px;
 }
 
 #pywebio-scope-ft_toolbar input[type="number"] {
-    width: 84px;
+    width: 58px;
 }
 
 #pywebio-scope-ft_toolbar .ft-hint {
-    flex-basis: 100%;
+    flex: 0 1 auto;
+    margin-left: 2px;
 }
 
 /* --------------------------------------------------------------------------
@@ -548,8 +570,22 @@
         max-height: 70vh;
     }
 
+    /* 页签行收窄：页签横滑、重新载入不挤压页签 */
+    #pywebio-scope-ft_tabs {
+        gap: 8px;
+    }
+
     [id^="pywebio-scope-ft_"] .ft-tabs {
         gap: 16px;
+    }
+
+    /* 扫描行：输入框与按钮换行时保持紧凑 */
+    #pywebio-scope-ft_toolbar {
+        gap: 6px 8px;
+    }
+
+    #pywebio-scope-ft_toolbar input[type="number"] {
+        width: 52px;
     }
 
     [id^="pywebio-scope-ft_"] .ft-stats {
