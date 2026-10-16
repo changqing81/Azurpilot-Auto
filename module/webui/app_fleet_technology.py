@@ -399,18 +399,25 @@ class FleetTechnologyMixin(WebUIMixinBase):
             )
 
     def _ft_render_search(self):
-        """搜索框 + 科技条目范围 + 计数子 scope（计数可单独重绘）。"""
-        put_input(name='ft_query', value=self._ft_query,
-                  placeholder=t('Gui.FleetTechnology.Search'))
-        put_select(
-            name='ft_scope',
-            label=t('Gui.FleetTechnology.Scope'),
-            options=[{'label': t('Gui.FleetTechnology.All'), 'value': 'all'},
-                     {'label': t('Gui.FleetTechnology.Tech'), 'value': 'tech'},
-                     {'label': t('Gui.FleetTechnology.None'), 'value': 'none'}],
-            value=self._ft_scope,
-        )
-        put_scope('ft_count')
+        """搜索框 + 科技条目范围 + 计数子 scope（计数可单独重绘）。
+
+        必须显式 use_scope：``put_scope('ft_search')`` 的同名声明在重绘时会被
+        PyWebIO 忽略、光标仍停在父级，随后 put_input/put_select 会落到
+        ft_tab_content 里（曾使 #pywebio-scope-ft_search 恒为空、控件各自
+        独占整行）。其余 _ft_render_* 都用 use_scope，这里是遗漏的一处。
+        """
+        with use_scope('ft_search', clear=True):
+            put_input(name='ft_query', value=self._ft_query,
+                      placeholder=t('Gui.FleetTechnology.Search'))
+            put_select(
+                name='ft_scope',
+                label=t('Gui.FleetTechnology.Scope'),
+                options=[{'label': t('Gui.FleetTechnology.All'), 'value': 'all'},
+                         {'label': t('Gui.FleetTechnology.Tech'), 'value': 'tech'},
+                         {'label': t('Gui.FleetTechnology.None'), 'value': 'none'}],
+                value=self._ft_scope,
+            )
+            put_scope('ft_count')
 
     def _ft_render_bonuses(self):
         """总属性加成视图：各阵营科技等级录入 + 属性加成网格。"""

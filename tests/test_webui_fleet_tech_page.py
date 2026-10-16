@@ -370,6 +370,24 @@ class FleetTechPageTest(unittest.TestCase):
 
     # ---------- 扫描启动 ----------
 
+    def test_search_row_renders_inside_its_scope(self):
+        """搜索控件必须显式开 ft_search 作用域。
+
+        现场：2026-10-16 搜索行整行竖排（每个控件独占一行）——重绘时
+        ``put_scope('ft_search')`` 的同名声明被 PyWebIO 忽略、光标停在父级，
+        put_input/put_select 落进了 ft_tab_content，#pywebio-scope-ft_search
+        恒为空，flex/宽度规则全部落空。其余 _ft_render_* 都用 use_scope，
+        这里是唯一遗漏处。
+        """
+        h = self.harness
+        h._ft_state()
+        with patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)) as use_scope, \
+                patch(f'{MODULE}.put_input', side_effect=lambda *a, **kw: _FakeOutput('input')), \
+                patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)):
+            h._ft_render_search()
+        use_scope.assert_called_once_with('ft_search', clear=True)
+
     def test_scan_start_reads_pin_writes_range_and_runs(self):
         """扫描按钮：读 pin 输入的等级范围 → 写配置 → 启动心智扫描任务。"""
         h = self.harness
