@@ -178,11 +178,40 @@ class StatisticsPageMixin(WebUIMixinBase):
             # 先分页归位再渲染：体力图表的 canvas 在绘制时读取容器宽度，
             # 若此时还不在激活面板里会量到 0 宽。
             self._layout_statistics_panels()
-            self._render_statistics_sections(force=True)
+            # 各分区改后台首跑（同总览仪表盘）：同步渲染整页实测 3.6 秒，
+            # 骨架（页头/页签/空面板）落地后再填充，进场观感从秒级变即时。
             self._statistics_source_signature = (
                 self._get_statistics_source_signature()
             )
             self._statistics_refresh_pending = False
+            self._queue_statistics_fill()
+
+    def _queue_statistics_fill(self) -> None:
+        """把各分区渲染排进后台首跑；重复入队用标志位去重。
+
+        填充任务为一次性生成器（跑完即挂起），随切页 pending_delete 清理；
+        执行前校验仍在统计页，避免向已清空的 scope 写孤儿容器（同仪表盘守卫）。
+        """
+        if getattr(self, "_statistics_fill_queued", False):
+            return
+        self._statistics_fill_queued = True
+        self.task_handler.add(self._fill_statistics_sections, 0.05, True, group="slow")
+
+    def _fill_statistics_sections(self):
+        yield
+        self._statistics_fill_queued = False
+        if getattr(self, "page", None) != "Stat":
+            return
+        with self._page_lock:
+            if getattr(self, "_statistics_cache_key", None) is None:
+                return
+            self._render_statistics_sections(force=True)
+        # 填充一次即安静：把自身节奏调长，避免每秒空转（任务随切页被清理）。
+        task = getattr(self.task_handler, "_task", None)
+        if task is not None:
+            task.delay = 3600
+        while True:
+            yield
 
     @render_locked
     def _refresh_statistics_page(self) -> None:
@@ -193,11 +222,13 @@ class StatisticsPageMixin(WebUIMixinBase):
             if getattr(self, "_statistics_cache_key", None) is None:
                 return
 
-            self._render_statistics_sections(force=True)
             self._statistics_source_signature = (
                 self._get_statistics_source_signature()
             )
             self._set_statistics_refresh_pending(False)
+            # 刷新同样走后台填充：点击立即返回，各分区在任务里重绘
+            # （同步版整页实测 0.9 秒，按钮期间页面无响应）。
+            self._queue_statistics_fill()
 
     def _refresh_statistics_if_changed(self) -> None:
         """检测当前实例的本地统计数据变化并更新刷新提示。"""
@@ -451,6 +482,7 @@ class StatisticsPageMixin(WebUIMixinBase):
                 /* 4) 页签交互 */
                 var tabs = tabsBox.querySelectorAll(".st-tab");
                 var indicator = document.getElementById("statistics-tab-indicator");
+                var resizeQueued = false;
 
                 function moveIndicator(tab) {
                     if (!indicator || !tab) return;
@@ -461,6 +493,18 @@ class StatisticsPageMixin(WebUIMixinBase):
 
                 function activate(id, remember) {
                     if (PANEL_ORDER.indexOf(id) === -1) id = DEFAULT_PANEL;
+                    /* 先量页签指示条再切面板：面板类名切换会让新面板首次参与
+                       布局，此时 moveIndicator 里读 offsetWidth 会同步强制完成
+                       整页布局（实测科技列表 / 心智计算器这类大面板每次冷切换
+                       阻塞主线程约 0.5 秒）。页签几何只与页签自身有关，提前算，
+                       面板的布局与绘制交给浏览器异步完成。 */
+                    var target = null;
+                    for (var s = 0; s < tabs.length; s++) {
+                        if (tabs[s].getAttribute("data-panel") === id) {
+                            target = tabs[s];
+                        }
+                    }
+                    moveIndicator(target);
                     for (var i = 0; i < PANEL_ORDER.length; i++) {
                         var panel = document.getElementById(
                             "st-panel-" + PANEL_ORDER[i]
@@ -476,11 +520,27 @@ class StatisticsPageMixin(WebUIMixinBase):
                         var on = tabs[t].getAttribute("data-panel") === id;
                         tabs[t].setAttribute("aria-selected", on ? "true" : "false");
                         tabs[t].setAttribute("tabindex", on ? "0" : "-1");
-                        if (on) moveIndicator(tabs[t]);
                     }
                     if (remember !== false) window[STORAGE_KEY] = id;
-                    /* 图表按容器宽度绘制，切回来时按新宽度重绘一次 */
-                    window.dispatchEvent(new Event("resize"));
+                    /* 收尾放在下一帧：页面高度变化会增减滚动条、挪动页签位置，
+                       届时校正一次指示条；图表也要按新宽度重绘一次。放在 rAF
+                       里避免在点击处理中同步强制整页布局。 */
+                    if (!resizeQueued) {
+                        resizeQueued = true;
+                        var settle = function () {
+                            resizeQueued = false;
+                            var selected = tabsBox.querySelector(
+                                '.st-tab[aria-selected="true"]'
+                            );
+                            moveIndicator(selected);
+                            window.dispatchEvent(new Event("resize"));
+                        };
+                        if (window.requestAnimationFrame) {
+                            window.requestAnimationFrame(settle);
+                        } else {
+                            settle();
+                        }
+                    }
                 }
 
                 if (!tabsBox.dataset.bound) {

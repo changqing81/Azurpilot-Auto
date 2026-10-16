@@ -246,7 +246,8 @@ class TestRichLogRendering(unittest.TestCase):
             log.extend("<pre>一行日志</pre>")
 
         js = run_js.call_args[0][0]
-        self.assertIn('document.querySelector("#pywebio-scope-log>div")', js)
+        self.assertIn('document.getElementById("pywebio-scope-log")', js)
+        self.assertIn('scope.querySelector(":scope>div")', js)
         # 内容注入：整块 innerHTML，块级分组后整删
         self.assertIn("chunk.innerHTML = text", js)
         self.assertIn("box.appendChild(chunk)", js)
@@ -264,15 +265,50 @@ class TestRichLogRendering(unittest.TestCase):
 
         run_js.assert_not_called()
 
-    def test_extend_keeps_scrolling_when_keep_bottom(self):
+    def test_extend_defers_scroll_into_next_frame(self):
+        """自动滚动不得在更新任务里同步读 scrollHeight。
+
+        本机实测：0.5 秒一拍的日志如果同步滚动，每拍强制一次整页布局
+        （约 100~200ms），等于常驻五分之一的主线程占用。滚动改到
+        requestAnimationFrame 里搭车完成；页面隐藏时 rAF 不触发，
+        回到页面由 visibilitychange 补一次。
+        """
         log = RichLog("log")
         log.keep_bottom = True
 
         with patch("module.webui.widgets.run_js", autospec=True) as run_js:
             log.extend("<pre>x</pre>")
 
-        self.assertEqual(run_js.call_count, 2)
-        self.assertIn("scrollTop", run_js.call_args_list[1][0][0])
+        self.assertEqual(run_js.call_count, 1)
+        js = run_js.call_args[0][0]
+        self.assertIn("keep = true", js)
+        self.assertIn("requestAnimationFrame", js)
+        self.assertIn("scope.scrollTop = scope.scrollHeight", js)
+        self.assertIn("visibilitychange", js)
+
+    def test_extend_without_keep_bottom_marks_scroll_disabled(self):
+        log = RichLog("log")
+        log.keep_bottom = False
+
+        with patch("module.webui.widgets.run_js", autospec=True) as run_js:
+            log.extend("<pre>x</pre>")
+
+        js = run_js.call_args[0][0]
+        self.assertIn("keep = false", js)
+        # 滚动写入只有一处（受 keep 守卫的 rAF / visibilitychange 补滚）。
+        self.assertEqual(1, js.count("scope.scrollTop = scope.scrollHeight"))
+
+    def test_scroll_js_defers_to_next_frame(self):
+        log = RichLog("log")
+
+        with patch("module.webui.widgets.run_js", autospec=True) as run_js:
+            log.scroll()
+
+        js = run_js.call_args[0][0]
+        self.assertIn("requestAnimationFrame", js)
+        self.assertIn("scope.scrollTop = scope.scrollHeight", js)
+        # 不允许同步读 scrollHeight 强制布局的旧写法。
+        self.assertNotIn("prop(", js)
 
     def test_dom_limit_leaves_room_for_full_reset_render(self):
         # reset() 全量首显（400 条）只占 1 块，chunk 上限必须远大于 1，

@@ -211,10 +211,18 @@ class RichLog:
     def extend(self, text):
         if text:
             # 用 % 格式化而非 str.format：JS 里大量 {} 会被 format 当成占位符。
+            # 自动滚动放到下一帧执行：更新任务里同步读 scrollHeight / 写
+            # scrollTop 会立刻强制一次整页布局（本机实测约 100~200ms，日志
+            # 每 0.5 秒一拍，等于常驻五分之一的主线程占用，是总览"一直在卡"
+            # 的最大单项）。rAF 里布局本来就要做，滚动搭车完成，不额外强制；
+            # 页面隐藏时 rAF 不触发（此时滚动不可见），回到页面由
+            # visibilitychange 补一次，行为与原来一致。
             run_js(
                 (
                     "(function () {"
-                    'var box = document.querySelector("#pywebio-scope-%s>div");'
+                    'var scope = document.getElementById("pywebio-scope-%s");'
+                    "if (!scope) return;"
+                    'var box = scope.querySelector(":scope>div");'
                     "if (!box) return;"
                     'var chunk = document.createElement("div");'
                     'chunk.className = "alas-log-chunk";'
@@ -226,13 +234,28 @@ class RichLog:
                     "for (var i = 0; i < n - %d; i++) "
                     "box.removeChild(box.firstElementChild);"
                     "}"
+                    "var keep = %s;"
+                    "window.__alasLogKeep = keep;"
+                    "window.__alasLogScope = scope;"
+                    "if (!window.__alasLogVis) {"
+                    "window.__alasLogVis = 1;"
+                    'document.addEventListener("visibilitychange", function () {'
+                    "if (document.hidden || !window.__alasLogKeep) return;"
+                    "var s = window.__alasLogScope;"
+                    "if (s) s.scrollTop = s.scrollHeight;"
+                    "});"
+                    "}"
+                    "if (keep && window.requestAnimationFrame) {"
+                    "requestAnimationFrame(function () {"
+                    "if (window.__alasLogKeep) scope.scrollTop = scope.scrollHeight;"
+                    "});"
+                    "}"
                     "})();"
                 )
-                % (self.scope, self.dom_max_chunks, self.dom_max_chunks),
+                % (self.scope, self.dom_max_chunks, self.dom_max_chunks,
+                   "true" if self.keep_bottom else "false"),
                 text=str(text),
             )
-            if self.keep_bottom:
-                self.scroll()
 
     def set_dashboard_display(self, b: bool) -> None:
         # use for lambda callback function. Copied.
@@ -243,9 +266,18 @@ class RichLog:
         run_js(f"""$("#pywebio-scope-{self.scope}>div").empty();""")
 
     def scroll(self) -> None:
+        # 与 extend 的收尾同一策略：滚动放到下一帧做，避免在调用线程里
+        # 同步读 scrollHeight 强制整页布局（用户点击路径也要快）。
         run_js(
-            """$("#pywebio-scope-{scope}").scrollTop($("#pywebio-scope-{scope}").prop("scrollHeight"));
-        """.format(
+            """(function () {{
+            var scope = document.getElementById("pywebio-scope-{scope}");
+            if (!scope) return;
+            if (window.requestAnimationFrame) {{
+                requestAnimationFrame(function () {{ scope.scrollTop = scope.scrollHeight; }});
+            }} else {{
+                scope.scrollTop = scope.scrollHeight;
+            }}
+        }})();""".format(
                 scope=self.scope
             )
         )
