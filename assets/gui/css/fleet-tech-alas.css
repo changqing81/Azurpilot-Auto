@@ -144,11 +144,12 @@
     border-bottom: 1px solid var(--ft-divider);
     padding: 0 2px;
     /* 页签在条内换行：条被压窄时（手机/窄栏）页签不再被裁掉半个，
-       每个页签都完整可见、可点（裁剪掉的区域 elementFromPoint 命中不到，
-       表现为「点不中」）。换行后没有横向溢出，滚动条也不会出现。 */
+       每个页签都完整可见、可点（被裁区域 elementFromPoint 命中不到，
+       表现为「点不中」）。
+       不再横向滚动：overflow 保持 visible —— 可滑动容器会把手势稍移的
+       轻点判成滑动而**不产生 click**，手机上表现为「完全没反应」。 */
     flex-wrap: wrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
     flex: 1 1 auto;
     min-width: 0;
 }
@@ -163,7 +164,6 @@
     background: transparent;
     color: var(--ft-muted);
     font-size: 14px;
-    padding: 7px 2px 9px;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
     white-space: nowrap;
@@ -171,6 +171,13 @@
     /* 页签是页签条的 flex 项：默认 flex-shrink:1 会被压得比文字还窄，
        标签裁字、可点区域缩成细条（手机端点不中「心智计算器」）。 */
     flex: 0 0 auto;
+    /* 触摸目标：抬到 44px 高、消掉双击缩放的 300ms 延迟，
+       轻点不会被当成滚动/缩放而丢掉 click。 */
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 6px;
+    touch-action: manipulation;
 }
 
 [id^="pywebio-scope-ft_"] .ft-tab:hover {
