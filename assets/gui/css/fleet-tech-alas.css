@@ -143,8 +143,10 @@
     gap: 24px;
     border-bottom: 1px solid var(--ft-divider);
     padding: 0 2px;
-    /* 只留横向滚动：overflow-x:auto 会把 overflow-y 也变成 auto，
-       纵向溢出 1px 就会在页签条尾部挤出一条多余滚动条。 */
+    /* 页签在条内换行：条被压窄时（手机/窄栏）页签不再被裁掉半个，
+       每个页签都完整可见、可点（裁剪掉的区域 elementFromPoint 命中不到，
+       表现为「点不中」）。换行后没有横向溢出，滚动条也不会出现。 */
+    flex-wrap: wrap;
     overflow-x: auto;
     overflow-y: hidden;
     flex: 1 1 auto;
@@ -657,20 +659,14 @@
         max-height: 70vh;
     }
 
-    /* 页签行：手机上换行排 —— 页签独占整行（三个都在、都能点），
-       重新载入移到第二行右侧，不再和页签抢宽度把标签挤掉。 */
+    /* 页签行：窄屏下页签在条内换行（见 .ft-tabs），重新载入留在同一行右侧，
+       不再单独占一行；按钮本身不收缩。 */
     #pywebio-scope-ft_tabs {
-        flex-wrap: wrap;
         gap: 6px 8px;
     }
 
-    #pywebio-scope-ft_tabs > *:not(.ft-tabs) {
-        margin-left: auto;
-    }
-
     [id^="pywebio-scope-ft_"] .ft-tabs {
-        flex: 1 1 100%;
-        gap: 14px;
+        gap: 12px 16px;
     }
 
     /* 搜索行：手机上搜索框占满整行，下拉与计数换行跟上 */
