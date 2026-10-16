@@ -80,6 +80,43 @@
 }
 
 /* --------------------------------------------------------------------------
+   1a. 页签行（科技列表 / 舰队信息 / 心智计算器）
+   -------------------------------------------------------------------------- */
+[id^="pywebio-scope-ft_"] .ft-tabs {
+    display: flex;
+    gap: 24px;
+    border-bottom: 1px solid var(--ft-line);
+    padding: 0 2px;
+    overflow-x: auto;
+}
+
+[id^="pywebio-scope-ft_"] .ft-tab {
+    border: 0;
+    background: transparent;
+    color: var(--ft-muted);
+    font-size: 14px;
+    padding: 7px 2px 9px;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+[id^="pywebio-scope-ft_"] .ft-tab:hover {
+    color: var(--ft-text);
+}
+
+[id^="pywebio-scope-ft_"] .ft-tab.active {
+    color: var(--ft-accent);
+    border-color: var(--ft-accent);
+    font-weight: 500;
+}
+
+[id^="pywebio-scope-ft_"] .ft-tab.active:hover {
+    color: var(--ft-accent);
+}
+
+/* --------------------------------------------------------------------------
    2. 扫描工具条
    -------------------------------------------------------------------------- */
 [id^="pywebio-scope-ft_"] .ft-toolbar-label {
@@ -94,8 +131,19 @@
     line-height: 1.7;
 }
 
+#pywebio-scope-ft_toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+}
+
 #pywebio-scope-ft_toolbar input[type="number"] {
     width: 84px;
+}
+
+#pywebio-scope-ft_toolbar .ft-hint {
+    flex-basis: 100%;
 }
 
 /* --------------------------------------------------------------------------
@@ -351,6 +399,126 @@
 }
 
 /* --------------------------------------------------------------------------
+   8. 心智计算器页签
+   -------------------------------------------------------------------------- */
+[id^="pywebio-scope-ft_"] .ft-mind-intro {
+    background: var(--ft-surface);
+    border: 1px solid var(--ft-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--ft-text);
+}
+
+[id^="pywebio-scope-ft_"] .ft-mind-intro p {
+    margin: 0 0 4px;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+[id^="pywebio-scope-ft_"] .ft-mind-meta {
+    color: var(--ft-muted);
+    font-size: 12px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-stat {
+    background: var(--ft-surface);
+    border: 1px solid var(--ft-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-stat span {
+    color: var(--ft-muted);
+    font-size: 12px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-stat b {
+    font-size: 19px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+[id^="pywebio-scope-ft_"] .ft-stat small {
+    color: var(--ft-muted);
+    font-size: 11.5px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-panel {
+    background: var(--ft-surface);
+    border: 1px solid var(--ft-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-panel h3 {
+    margin: 0 0 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--ft-muted);
+}
+
+#pywebio-scope-ft_mind_toolbar,
+#pywebio-scope-ft_mind_filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+}
+
+#pywebio-scope-ft_mind_toolbar input[type="number"],
+#pywebio-scope-ft_mind_filters input[type="number"] {
+    width: 84px;
+}
+
+#pywebio-scope-ft_mind_toolbar .ft-hint {
+    flex-basis: 100%;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table-scroll {
+    overflow: auto;
+    max-width: 100%;
+}
+
+[id^="pywebio-scope-ft_"] .ft-mind-source {
+    display: block;
+    color: var(--ft-muted);
+    font-size: 11px;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[id^="pywebio-scope-ft_"] .ft-mind-status-included {
+    background: var(--ft-complete-bg);
+}
+
+[id^="pywebio-scope-ft_"] .ft-mind-status-merged,
+[id^="pywebio-scope-ft_"] .ft-mind-status-excluded {
+    background: var(--ft-pending-bg);
+    color: var(--ft-muted);
+}
+
+[id^="pywebio-scope-ft_"] .ft-mind-status-review {
+    background: rgba(255, 193, 87, .28);
+    color: light-dark(#8a5a00, #f0c46b);
+}
+
+[id^="pywebio-scope-ft_"] .ft-table tr.ft-mind-merged td,
+[id^="pywebio-scope-ft_"] .ft-table tr.ft-mind-excluded td {
+    color: var(--ft-muted);
+}
+
+/* --------------------------------------------------------------------------
    7. 页脚（表格下方的分页与来源链接）
    -------------------------------------------------------------------------- */
 #pywebio-scope-ft_table a {
@@ -367,11 +535,28 @@
         text-align: left;
     }
 
+    /* 筛选组两列 grid 的标签列收窄（覆盖 put_row 的内联列宽） */
+    [id^="pywebio-scope-ft_filter_"] > div {
+        grid-template-columns: 86px minmax(0, 1fr) !important;
+    }
+
     [id^="pywebio-scope-ft_"] .ft-filter-label {
         font-size: 13px;
     }
 
     [id^="pywebio-scope-ft_"] .ft-table-wrap {
         max-height: 70vh;
+    }
+
+    [id^="pywebio-scope-ft_"] .ft-tabs {
+        gap: 16px;
+    }
+
+    [id^="pywebio-scope-ft_"] .ft-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    [id^="pywebio-scope-ft_"] .ft-table-scroll .ft-table {
+        min-width: 640px;
     }
 }

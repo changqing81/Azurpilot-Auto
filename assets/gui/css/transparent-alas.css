@@ -362,6 +362,42 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 	box-shadow: none !important;
 }
 
+/* 舰队科技页（fleet-tech-alas.css）：--alas-entry-surface 在透明主题下是
+   transparent，表格/筛选栏/加成区会直接压在壁纸上。这里铺半透明白底做蒙版
+   （与统计页白卡同款 0.62 + blur40），既保留通透观感又保证数据可读；
+   页面各区块都在蒙版上，整段关掉白色描边避免发糊。 */
+#pywebio-scope-ft_summary:not(:empty),
+#pywebio-scope-ft_toolbar:not(:empty) {
+	background: rgba(255, 255, 255, 0.62);
+	backdrop-filter: blur(40px);
+	-webkit-backdrop-filter: blur(40px);
+	border-radius: 10px;
+	padding: 10px 12px;
+}
+
+[id^="pywebio-scope-ft_"] .ft-table-wrap,
+[id^="pywebio-scope-ft_filter_"],
+#pywebio-scope-ft_bonuses:not(:empty) {
+	background: rgba(255, 255, 255, 0.62);
+	backdrop-filter: blur(40px);
+	-webkit-backdrop-filter: blur(40px);
+}
+
+#pywebio-scope-content [id^="pywebio-scope-ft_"],
+#pywebio-scope-content [id^="pywebio-scope-ft_"] * {
+	-webkit-text-stroke: 0;
+	text-shadow: none;
+}
+
+/* 说明文字在壁纸上对比不足：压深（同统计页页头做法） */
+[id^="pywebio-scope-ft_"] .ft-summary small,
+[id^="pywebio-scope-ft_"] .ft-toolbar-label,
+[id^="pywebio-scope-ft_"] .ft-hint,
+[id^="pywebio-scope-ft_"] .ft-count,
+[id^="pywebio-scope-ft_"] .ft-empty {
+	color: rgba(32, 33, 36, 0.78);
+}
+
 /* 表头保留淡白底保证表格结构可辨识 */
 #pywebio-scope-opsi_stats th,
 #pywebio-scope-ship_exp_table th,

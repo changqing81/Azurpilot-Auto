@@ -344,11 +344,12 @@ select option {
 }
 
 
-/* 高级材质暗色：统一普通统计表格 hover */
-#pywebio-scope-content table:not(.commission-income-table) tr:hover,
-#pywebio-scope-content table:not(.commission-income-table) tr:hover td,
-#pywebio-scope-content .table:not(.commission-income-table) tr:hover,
-#pywebio-scope-content .table:not(.commission-income-table) tr:hover td {
+/* 高级材质暗色：统一普通统计表格 hover
+   （.ft-table 自带状态叠层与悬停层，豁免此处以免 !important 覆盖行状态色） */
+#pywebio-scope-content table:not(.commission-income-table):not(.ft-table) tr:hover,
+#pywebio-scope-content table:not(.commission-income-table):not(.ft-table) tr:hover td,
+#pywebio-scope-content .table:not(.commission-income-table):not(.ft-table) tr:hover,
+#pywebio-scope-content .table:not(.commission-income-table):not(.ft-table) tr:hover td {
 	background: rgba(18,45,85,0.65) !important;
 	color: #ffffff !important;
 }

@@ -118,11 +118,11 @@ class TaskConfigMixin(WebUIMixinBase):
 
             if task_data.get("menu") == "collapse":
                 if menu == "FleetManagement":
-                    # 对齐上游导航：该组在菜单里只保留一个入口，
-                    # 四个子模块在组入口页进入（FleetManagementMixin.fleet_management_page）。
+                    # 对齐上游导航：该组在菜单里只保留一个入口，点击直接进入
+                    # 舰队科技页签工作台（科技列表 / 舰队信息 / 心智计算器）。
                     put_buttons(
                         [{"label": t(f"Menu.{menu}.name"), "value": menu, "color": "menu"}],
-                        onclick=self.fleet_management_page,
+                        onclick=self.fleet_technology_page,
                     ).style(f"--menu-{menu}--")
                     continue
                 task_btn_list = []

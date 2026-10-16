@@ -1,6 +1,10 @@
 """舰队管理 WebUI 页面。"""
 
+import time
 from html import escape
+
+# 扫描按钮「扫描中」反馈的时间窗：alas 在独立进程，老前端拿不到当前任务名。
+SCAN_WINDOW_SECONDS = 600
 
 from module.webui.app_dependencies import (
     BinarySwitchButton,
@@ -14,6 +18,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_types import WebUIMixinBase
+from module.webui.instance_action import spawn_instance_action
 
 
 class FleetManagementMixin(WebUIMixinBase):
@@ -186,54 +191,61 @@ class FleetManagementMixin(WebUIMixinBase):
         {submarine_html}
         """
 
+    def _start_scan_task(self, task: str) -> bool:
+        """启动扫描任务；返回 False 表示已有实例操作进行中。
+
+        ``ProcessManager.start`` 是进程级启动器：worker 存活时它是 no-op
+        （既不切换任务也不报错），所以扫描必须走「先停止（后台等待收尾）
+        再以扫描任务启动」两段——与主页启动按钮同一套语义与设施
+        （``spawn_instance_action`` 把长耗时的 stop 挪到后台线程）。
+        """
+        if not getattr(self, "alas", None):
+            return False
+        if not self.alas.alive:
+            self.alas.start(task)
+            return True
+
+        def action():
+            self.alas.stop_by_user()
+            deadline = time.monotonic() + 240
+            while self.alas.alive and time.monotonic() < deadline:
+                time.sleep(2)
+            self.alas.start(task)
+
+        return spawn_instance_action(self.alas, action, "start")
+
     def _fleet_scan_running(self) -> bool:
-        return bool(getattr(self, "alas", None) and self.alas.alive)
+        """扫描按钮的运行窗。
+
+        alas 跑在独立进程，老前端拿不到跨进程的当前任务名；以本会话
+        时间窗提供「扫描中」反馈，窗口外按钮始终可以再次启动扫描。
+        停止→启动切换进行中（``_ui_action_running``）同样显示运行态。
+        """
+        alas = getattr(self, "alas", None)
+        if alas is not None and getattr(alas, "_ui_action_running", False):
+            return True
+        started = getattr(self, "_fleet_scan_started_at", 0.0)
+        return (time.monotonic() - started) < SCAN_WINDOW_SECONDS
 
     def _fleet_scan_start(self) -> None:
         if self._fleet_scan_running():
             toast(t("Gui.FleetManagement.ScanAlreadyRunning"), color="warn")
             return
 
-        self.alas.start("FleetScan")
-        if self._fleet_scan_running():
+        if not getattr(self, "alas", None):
+            toast(t("Gui.FleetManagement.ScanStartFailed"), color="error")
+            return
+        if not self._start_scan_task("FleetScan"):
+            toast(t("Gui.FleetManagement.ScanAlreadyRunning"), color="warn")
+            return
+        if self.alas.alive:
+            self._fleet_scan_started_at = time.monotonic()
             toast(t("Gui.FleetManagement.ScanStarted"), color="info")
         else:
             toast(t("Gui.FleetManagement.ScanStartFailed"), color="error")
 
     def _fleet_scan_running_click(self) -> None:
         toast(t("Gui.FleetManagement.ScanAlreadyRunning"), color="warn")
-
-    @use_scope("content", clear=True)
-    def fleet_management_page(self, value=None) -> None:
-        """舰队管理入口页：四个子模块的进入按钮。
-
-        上游导航把该组收成一个入口、子模块在组内切换；老前端以入口页承接，
-        点击后进入各自页面（舰队科技等即时页，心智扫描进配置页）。
-        """
-        self.init_menu(name="FleetManagement")
-        self.set_title(t("Menu.FleetManagement.name"))
-        put_buttons(
-            [
-                {"label": t("Task.FleetInfo.name"), "value": "FleetInfo", "color": "menu"},
-                {"label": t("Task.FleetScan.name"), "value": "FleetScan", "color": "menu"},
-                {"label": t("Task.FleetTechnology.name"), "value": "FleetTechnology", "color": "menu"},
-                {"label": t("Task.FleetTechScan.name"), "value": "FleetTechScan", "color": "menu"},
-                {"label": t("Task.MindCalculatorScan.name"), "value": "MindCalculatorScan", "color": "menu"},
-            ],
-            onclick=self._fleet_management_enter,
-        )
-
-    def _fleet_management_enter(self, value) -> None:
-        """从入口页进入对应子模块；心智扫描没有独立页面，进它的配置页。"""
-        if value == "FleetInfo":
-            self.fleet_info_page(task="FleetInfo")
-        elif value == "FleetScan":
-            self.fleet_scan_page(task="FleetScan")
-        elif value == "FleetTechnology":
-            self.fleet_technology_page(task="FleetTechnology")
-        elif value in ("MindCalculatorScan", "FleetTechScan"):
-            # 两个扫描任务没有独立页面，进各自配置页。
-            self.alas_set_group(value)
 
     @use_scope("content", clear=True)
     def fleet_scan_page(self, task: str = "FleetScan") -> None:

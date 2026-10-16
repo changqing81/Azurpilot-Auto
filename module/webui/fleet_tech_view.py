@@ -20,7 +20,21 @@ BACK_TYPES = (4, 5, 6, 7, 10, 12, 13)
 PAGE_SIZE = 50
 FILTER_GROUPS = ('type', 'rarity', 'nation', 'bonusType', 'attr', 'status')
 SORT_KEYS = ('code', 'name', 'nation', 'type', 'pt_get', 'pt_upgrage', 'pt_level', 'total', 'get', 'level')
+TABS = ('tech', 'info', 'mind')
 _NAME_LANGUAGE_KEYS = {'zh-CN': 'cn', 'zh-TW': 'tw', 'en-US': 'en', 'ja-JP': 'jp'}
+
+
+def tabs_html(active):
+    """页签行：data-ft-tab 钩子经点击桥转发切换。"""
+    labels = {'tech': 'Gui.FleetTechnology.TabTech',
+              'info': 'Gui.FleetTechnology.TabInfo',
+              'mind': 'Gui.FleetTechnology.TabMind'}
+    items = ''.join(
+        f'<button type="button" class="ft-tab{" active" if key == active else ""}" role="tab"'
+        f' aria-selected="{str(key == active).lower()}" data-ft-tab="{key}">{t(labels[key])}</button>'
+        for key in TABS
+    )
+    return f'<div class="ft-tabs" role="tablist">{items}</div>'
 
 
 def combine_rows(catalog, report):

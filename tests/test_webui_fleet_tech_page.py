@@ -12,6 +12,7 @@
 import inspect
 import json
 import re
+import time
 import unittest
 from contextlib import ExitStack
 from pathlib import Path
@@ -22,6 +23,7 @@ from pywebio import pin as pywebio_pin
 from pywebio import session as pywebio_session
 
 from module.webui import fleet_tech_view as view
+from module.webui.app_fleet_management import FleetManagementMixin
 from module.webui.app_fleet_technology import (
     BRIDGE_PIN,
     MAX_LEVEL_PATH,
@@ -40,8 +42,12 @@ def _row(gid=10102, name='杜威', owned=None, full_star=None, lv120=None, level
             'lv120': lv120, 'level': level, 'status': status, 'manual': False}
 
 
-class _Harness(FleetTechnologyMixin):
-    """只带回调所需状态的最小替身；渲染函数记账不落真实输出。"""
+class _Harness(FleetManagementMixin, FleetTechnologyMixin):
+    """只带回调所需状态的最小替身；渲染函数记账不落真实输出。
+
+    同时混入 FleetManagementMixin：扫描启动的两段式 helper
+    （``_start_scan_task``）定义在那里，与产品里 AlasGUI 的 MRO 一致。
+    """
 
     def __init__(self):
         self.alas_name = 'alas'
@@ -81,6 +87,31 @@ class _Harness(FleetTechnologyMixin):
 
     def _ft_render_summary(self):
         self.render_log.append('summary')
+
+    # FleetManagementMixin 的信息页依赖（页签框架复用它们）。
+    def _fleet_info_html(self, result, record):
+        self.render_log.append('fleet_info_html')
+        return '<div class="fleet-info">fleet-info-html</div>'
+
+    def _fleet_scan_running(self):
+        return False
+
+    def _fleet_scan_start(self):
+        pass
+
+    def _fleet_scan_running_click(self):
+        pass
+
+    @property
+    def alas_config(self):
+        class _Config:
+            def __init__(self, data):
+                self._data = data
+
+            def read_file(self, name):
+                return self._data
+
+        return _Config(getattr(self, '_alas_config_data', {}))
 
 
 class _FakeOutput:
@@ -122,6 +153,9 @@ class _FakePin:
 
     def __getitem__(self, name):
         return self._values.get(name)
+
+    def __setitem__(self, name, value):
+        self._values[name] = value
 
 
 _CHECKED_API = {
@@ -325,9 +359,10 @@ class FleetTechPageTest(unittest.TestCase):
         """扫描按钮：读 pin 输入的等级范围 → 写配置 → 启动心智扫描任务。"""
         h = self.harness
         h.alas = MagicMock()
+        h.alas.alive = False  # 同步启动路径（存活时走两段式，另行测试）
+        h.alas._ui_action_running = False
         written = []
         with patch(f'{MODULE}.pin', _FakePin({'ft_min_level': '96', 'ft_max_level': '120'})), \
-                patch.object(h, '_ft_scan_running', side_effect=[False, True]), \
                 patch.object(h, '_ft_write_config', side_effect=lambda changes: written.extend(changes)), \
                 patch(f'{MODULE}.toast'):
             h._ft_scan_start()
@@ -338,6 +373,8 @@ class FleetTechPageTest(unittest.TestCase):
         """非法范围（越界/倒挂/非数字/空）只提示，不写配置不启动。"""
         h = self.harness
         h.alas = MagicMock()
+        h.alas.alive = False  # 同步启动路径（存活时走两段式，另行测试）
+        h.alas._ui_action_running = False
         written = []
         for values in ({'ft_min_level': '0', 'ft_max_level': '125'},
                        {'ft_min_level': '120', 'ft_max_level': '95'},
@@ -352,15 +389,53 @@ class FleetTechPageTest(unittest.TestCase):
             h.alas.start.assert_not_called()
         self.assertEqual(written, [])
 
-    def test_scan_start_not_interrupting_running_task(self):
-        """任务运行中点击只提示，不重复启动。"""
+    def test_scan_start_ignores_duplicate_within_window(self):
+        """运行窗内再次触发只提示，不重复启动（真实时间窗判定）。"""
         h = self.harness
         h.alas = MagicMock()
-        with patch.object(h, '_ft_scan_running', return_value=True), \
+        h.alas.alive = False  # 同步启动路径（存活时走两段式，另行测试）
+        h.alas._ui_action_running = False
+        h._ft_scan_started_at = time.monotonic()
+        with patch(f'{MODULE}.pin', _FakePin({'ft_min_level': '95', 'ft_max_level': '125'})), \
+                patch.object(h, '_ft_write_config') as write, \
                 patch(f'{MODULE}.toast') as toast:
             h._ft_scan_start()
         h.alas.start.assert_not_called()
+        write.assert_not_called()
         toast.assert_called_once()
+
+    def test_scan_running_uses_local_window(self):
+        """运行窗只看本会话点击时间，与 alas 有没有别的任务在跑无关。"""
+        h = self.harness
+        h.alas = MagicMock()  # 即便 alas 一直存活
+        h.alas._ui_action_running = False
+        h._ft_scan_started_at = time.monotonic()
+        self.assertTrue(h._ft_scan_running())
+        h._ft_scan_started_at = time.monotonic() - 601
+        self.assertFalse(h._ft_scan_running())
+
+    def test_scan_start_uses_stop_then_start_when_alive(self):
+        """实例存活时扫描走两段式：停（后台等收尾）→ 以扫描任务启动。"""
+        h = self.harness
+        h.alas = MagicMock()
+        captured = []
+
+        def fake_spawn(pm, action, pending):
+            captured.append((action, pending))
+            return True
+
+        with patch('module.webui.app_fleet_management.spawn_instance_action',
+                   side_effect=fake_spawn):
+            h.alas.alive = True
+            accepted = h._start_scan_task('FleetScan')
+            h.alas.alive = False  # 收尾完成
+        self.assertTrue(accepted)
+        self.assertEqual(len(captured), 1)
+        action, pending = captured[0]
+        self.assertEqual(pending, 'start')
+        action()
+        h.alas.stop_by_user.assert_called_once()
+        h.alas.start.assert_called_once_with('FleetScan')
 
     def test_save_applies_and_writes_on_match(self):
         result, deep_set, state = self._save('expected')
@@ -384,12 +459,91 @@ class FleetTechPageTest(unittest.TestCase):
             result = h._ft_save_changes([{'group_type': 1}])
         self.assertEqual(result, '舰船群组不存在或重复')
 
+    def test_bridge_tab_switches_and_keeps_state(self):
+        """页签切换：重绘页签行与内容；同页签不重绘；未知页签忽略。
+
+        拦截 _ft_render_tab_content 而非子方法：真 use_scope 在无会话线程
+        会触发 pywebio 的 script 模式服务器 fallback 并永久阻塞（见
+        session/__init__.py get_current_session 的回退逻辑）。
+        """
+        h = self.harness
+        h._ft_render_tabs = lambda: h.render_log.append('tabs')
+
+        def fake_content():
+            h.render_log.append(f'tab:{h._ft_tab}')
+
+        h._ft_render_tab_content = fake_content
+        h._ft_on_bridge('tab|info')
+        self.assertEqual(h._ft_tab, 'info')
+        self.assertEqual(h.render_log, ['tabs', 'tab:info'])
+        h._ft_on_bridge('tab|info')
+        self.assertEqual(h.render_log, ['tabs', 'tab:info'])
+        h._ft_on_bridge('tab|tech')
+        self.assertEqual(h._ft_tab, 'tech')
+        h._ft_on_bridge('tab|bogus')
+        self.assertEqual(h._ft_tab, 'tech')
+
+    def test_info_tab_renders_scan_toggle_and_empty_hint(self):
+        """舰队信息页签（无扫描结果）：扫描开关 scope + 空结果提示。
+
+        use_scope 同样需要桩（真实现会走 script 模式 fallback 卡死）。
+        """
+        h = self.harness
+        with patch(f'{MODULE}.put_html', side_effect=lambda html: _FakeOutput(html)) as put_html, \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)) as put_scope, \
+                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.BinarySwitchButton', _FakeSwitchButton):
+            h._ft_render_info_tab()
+        texts = [call.args[0] for call in put_html.call_args_list if call.args]
+        self.assertTrue(any('Gui.FleetManagement.NoResult' in text for text in texts))
+        scopes = [call.args[0] for call in put_scope.call_args_list if call.args]
+        self.assertIn('ft_info_scan_button', scopes)
+
+    def test_info_tab_renders_fleets_with_result(self):
+        """舰队信息页签（有扫描结果）：渲染编队展示 HTML。"""
+        h = self.harness
+        h._alas_config_data = {'FleetInfo': {'FleetInfo': {
+            'Result': {'vanguard': {'1': [{'name': '杜威', 'level': 120}]}},
+            'Record': '2026-10-15 18:35'}}}
+        with patch(f'{MODULE}.put_html', side_effect=lambda html: _FakeOutput(html)) as put_html, \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)) as put_scope, \
+                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.BinarySwitchButton', _FakeSwitchButton):
+            h._ft_render_info_tab()
+        texts = [call.args[0] for call in put_html.call_args_list if call.args]
+        self.assertTrue(any('fleet-info-html' in text for text in texts))
+        self.assertTrue(any('Gui.FleetManagement.LastScan' in text or 'fleet-info' in text
+                            for text in texts))
+
+
+    def test_data_refresh_detects_external_writes(self):
+        """周期刷新：基线建立后记录/清单变化才重绘，无变化不重绘。"""
+        h = self.harness
+        h._ft_state()
+        base = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125}}}},
+                'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        changed = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125,
+                                                                          '10103': 95}}}},
+                   'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        with patch(f'{MODULE}.load_config') as load_config, \
+                patch.object(h, '_ft_refresh_render') as render:
+            load_config.return_value.read_file.return_value = base
+            h._ft_data_refresh()
+            render.assert_not_called()
+            h._ft_data_refresh()
+            render.assert_not_called()
+            load_config.return_value.read_file.return_value = changed
+            h._ft_data_refresh()
+            render.assert_called_once()
+
 
 class FleetTechRenderSmokeTest(unittest.TestCase):
     """全流程渲染冒烟：每个 PyWebIO 调用都通过真函数签名校验。"""
 
     FAKE_DATA = {'FleetTechScan': {'FleetTech': {
-        'MinLevel': 95, 'MaxLevel': 125}}}
+        'MinLevel': 95, 'MaxLevel': 125}},
+        'FleetInfo': {'FleetInfo': {
+            'Result': {'vanguard': {'1': [{'name': '杜威', 'level': 120}]}}}}}
 
     def test_full_render_passes_real_api_signatures(self):
         from module.webui import app_fleet_technology as module
@@ -399,14 +553,19 @@ class FleetTechRenderSmokeTest(unittest.TestCase):
             for name, real in _CHECKED_API.items():
                 stack.enter_context(patch.object(module, name, _checked(name, real, record)))
             stack.enter_context(patch.object(module, 'BinarySwitchButton', _FakeSwitchButton))
+            stack.enter_context(patch.object(module, 'pin', _FakePin()))
             stack.enter_context(patch.object(module, 't', side_effect=lambda key, **kw: key))
             stack.enter_context(patch('module.webui.fleet_tech_view.t',
                                       side_effect=lambda key, **kw: key))
             load_config = stack.enter_context(patch.object(module, 'load_config'))
             load_config.return_value.read_file.return_value = self.FAKE_DATA
+            harness._alas_config_data = self.FAKE_DATA  # 舰队信息页签的编队数据
 
             raw = FleetTechnologyMixin.fleet_technology_page.__wrapped__
-            raw(harness)                                  # 初次渲染
+            raw(harness)                                  # 初次渲染（科技列表页签）
+            raw(harness, 'FleetManagement')               # 组入口进入（标题用组名）
+            harness._ft_on_bridge('tab|info')             # 页签切换：舰队信息
+            harness._ft_on_bridge('tab|tech')             # 切回科技列表
             harness._ft_edit = True                       # 编辑列 + 加成视图 + 阶段选择
             harness._ft_bonuses = True
             harness._ft_extra = True
@@ -420,6 +579,10 @@ class FleetTechRenderSmokeTest(unittest.TestCase):
         bridges = [kwargs for name, _, kwargs in record
                    if name == 'put_input' and kwargs.get('name') == BRIDGE_PIN]
         self.assertTrue(bridges, '点击桥 pin 必须渲染')
+        tabs = [args for name, args, kwargs in record
+                if name == 'put_html' and args and 'data-ft-tab' in str(args[0])]
+        self.assertTrue(tabs, '页签行必须渲染')
+        self.assertIn('fleet_info_html', harness.render_log)
 
 
 class FleetTechI18nTest(unittest.TestCase):

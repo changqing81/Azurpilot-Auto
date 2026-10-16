@@ -52,6 +52,7 @@ from module.webui.app_developer_update import DeveloperUpdateMixin
 from module.webui.app_event_tools import EventToolsMixin
 from module.webui.app_fleet_management import FleetManagementMixin
 from module.webui.app_fleet_technology import FleetTechnologyMixin
+from module.webui.app_mind_calculator_tab import MindCalculatorTabMixin
 from module.webui.app_helpers import (
     WEBUI_AUTO_PASSWORD_FILE,
     build_muted_notice,
@@ -427,6 +428,7 @@ def _build_alas_gui_class():
         CommissionIncomeStatisticsMixin,
         ResourceDeltaStatisticsMixin,
         MeowfficerScoreMixin,
+        MindCalculatorTabMixin,
         FleetManagementMixin,
         FleetTechnologyMixin,
         TaskConfigMixin,

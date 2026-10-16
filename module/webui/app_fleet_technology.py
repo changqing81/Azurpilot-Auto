@@ -6,10 +6,12 @@
 与运行中的脚本（心智扫描收尾会写同一文件）互斥。
 """
 import json
+import time
 
 from module.config.transaction import config_transaction
 from module.config.utils import filepath_config
 from module.runtime import fleet_tech as tech
+from module.runtime import mind_calculator as mind_calc
 from module.webui import fleet_tech_view as view
 from module.webui.app_dependencies import (
     BinarySwitchButton,
@@ -45,6 +47,8 @@ MAX_LEVEL_PATH = 'FleetTechScan.FleetTech.MaxLevel'
 SCAN_TASK = 'FleetTechScan'
 
 BRIDGE_PIN = 'ft_bridge_pin'
+# 扫描按钮「扫描中」反馈的时间窗（alas 在独立进程，当前任务名不可得）。
+SCAN_WINDOW_SECONDS = 600
 FILTER_TITLES = {'type': 'Category', 'rarity': 'Rarity', 'nation': 'Nation',
                  'bonusType': 'BonusType', 'attr': 'Attr', 'status': 'Status'}
 NATION_ROW_SIZE = 4
@@ -60,7 +64,7 @@ def build_fleet_tech_bridge_script(pin_name):
             window[listenerName] = function (event) {{
                 var source = event.target;
                 if (!(source instanceof Element)) return;
-                var hook = source.closest("[data-ft-sort],[data-ft-edit]");
+                var hook = source.closest("[data-ft-sort],[data-ft-edit],[data-ft-tab]");
                 if (!hook) return;
                 event.preventDefault();
 
@@ -71,7 +75,9 @@ def build_fleet_tech_bridge_script(pin_name):
 
                 bridge.value = hook.hasAttribute("data-ft-sort")
                     ? "sort|" + hook.getAttribute("data-ft-sort")
-                    : "edit|" + hook.getAttribute("data-ft-edit");
+                    : hook.hasAttribute("data-ft-edit")
+                        ? "edit|" + hook.getAttribute("data-ft-edit")
+                        : "tab|" + hook.getAttribute("data-ft-tab");
                 bridge.dispatchEvent(new Event("input", {{bubbles: true}}));
                 bridge.dispatchEvent(new Event("change", {{bubbles: true}}));
             }};
@@ -83,6 +89,22 @@ def build_fleet_tech_bridge_script(pin_name):
 def _tri_value(value):
     """三态值 → 下拉框选项值。"""
     return '' if value is None else 'true' if value else 'false'
+
+
+def _warm_up_catalog():
+    """WebUI 进程启动即后台预热科技目录：~300ms 的 JSON 解析不占用首次进页。"""
+    import threading
+
+    def run():
+        try:
+            tech.catalog()
+        except Exception:  # 预热失败静默；进页面时正常加载并暴露真实错误。
+            pass
+
+    threading.Thread(target=run, name='fleet-tech-warmup', daemon=True).start()
+
+
+_warm_up_catalog()
 
 
 def _ft_pin_text(name):
@@ -105,6 +127,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
         """惰性初始化页面状态；切换实例时整体重置。"""
         if getattr(self, '_ft_instance', None) != self.alas_name or not hasattr(self, '_ft_filters'):
             self._ft_instance = self.alas_name
+            self._ft_tab = 'tech'
             self._ft_filters = {}
             self._ft_query = ''
             self._ft_scope = 'all'
@@ -119,6 +142,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
             self._ft_report = None
             self._ft_rows = []
             self._ft_revision = ''
+            self._ft_refresh_baseline = None
 
     def _ft_load(self, force=False):
         """读取实例配置与离线目录；会话内缓存，重载或写入后刷新。"""
@@ -149,9 +173,14 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
     @use_scope('content', clear=True)
     def fleet_technology_page(self, task='FleetTechnology'):
-        """舰队科技列表页。"""
+        """舰队科技页签工作台：科技列表 / 舰队信息 / 心智计算器。
+
+        菜单「舰队管理」组入口以 ``task='FleetManagement'`` 进入（标题用组名），
+        其余调用保持 'FleetTechnology' 兼容。
+        """
         self.init_menu(name=task)
-        self.set_title(t(f'Task.{task}.name'))
+        self.set_title(t('Menu.FleetManagement.name') if task == 'FleetManagement'
+                       else t(f'Task.{task}.name'))
         self._ft_state()
         self._ft_load(force=True)
 
@@ -162,6 +191,65 @@ class FleetTechnologyMixin(WebUIMixinBase):
                              onclick=self._ft_on_reload, small=True)],
                 size='1fr auto',
             )
+        put_scope('ft_tabs')
+        put_scope('ft_tab_content')
+
+        with use_scope('ft_bridge', clear=True):
+            put_input(name=BRIDGE_PIN, value='')
+        self._ft_bind_callbacks()
+        run_js(build_fleet_tech_bridge_script(BRIDGE_PIN))
+        # 扫描/同步等外部写入后自动刷新数字（页面切换时随 pending_delete 清理）。
+        self.task_handler.add(self._ft_data_refresh, 5, True)
+
+        self._ft_render_tabs()
+        self._ft_render_tab_content()
+
+    def _ft_render_tabs(self):
+        with use_scope('ft_tabs', clear=True):
+            put_html(view.tabs_html(self._ft_tab))
+
+    def _ft_render_tab_content(self):
+        """渲染当前页签；切换页签只重绘这里（筛选/页码等状态跨切换保留）。"""
+        with use_scope('ft_tab_content', clear=True):
+            if self._ft_tab == 'info':
+                self._ft_render_info_tab()
+            elif self._ft_tab == 'mind':
+                self._ft_render_mind_tab()
+            else:
+                self._ft_render_tech_tab()
+
+    def _ft_data_refresh(self):
+        """周期任务：科技记录 / 舰队信息 / 心智清单被外部写入时自动刷新。
+
+        扫描任务完成、页面之外的同步都会改变这些数据；比对记录 revision
+        与扫描时间戳（读盘走 mtime 缓存），有变化才重绘当前页签。
+        """
+        try:
+            data = load_config(self.alas_name).read_file(self.alas_name)
+            record_revision = tech.revision(tech.read_record(data))
+            fleet_record = str(deep_get(data, 'FleetInfo.FleetInfo.Record', '') or '')
+            stored = deep_get(data, RESULT_PATH, {})
+            ships = stored.get('ships', []) if isinstance(stored, dict) else []
+            result_revision = mind_calc.revision(ships)
+        except Exception:
+            return
+        current = (record_revision, fleet_record, result_revision)
+        baseline = getattr(self, '_ft_refresh_baseline', None)
+        self._ft_refresh_baseline = current
+        if baseline is None or current == baseline:
+            return
+        self._ft_refresh_render()
+
+    @render_locked
+    def _ft_refresh_render(self):
+        """外部写入后重绘当前页签；汇总数字随之更新。"""
+        self._ft_load(force=True)
+        if self._ft_tab == 'mind' and hasattr(self, '_mc_load'):
+            self._mc_load(force=True)
+        self._ft_render_tab_content()
+
+    def _ft_render_tech_tab(self):
+        """科技列表（原有主体：汇总/工具条/筛选/搜索/加成/表格）。"""
         put_scope('ft_summary')
         self._ft_render_toolbar()
         put_scope('ft_filters')
@@ -171,16 +259,38 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_render_search()
         put_scope('ft_bonuses')
         put_scope('ft_table')
-
-        with use_scope('ft_bridge', clear=True):
-            put_input(name=BRIDGE_PIN, value='')
-        self._ft_bind_callbacks()
-        run_js(build_fleet_tech_bridge_script(BRIDGE_PIN))
-
         self._ft_render_summary()
         self._ft_render_stage()
         self._ft_render_bonuses()
         self._ft_render_table()
+
+    def _ft_render_info_tab(self):
+        """舰队信息：编队展示 + 舰队扫描开关（对齐上游 FleetInfoPage 的页内扫描）。"""
+        with use_scope('ft_info', clear=True):
+            put_scope('ft_info_scan_button')
+            config = self.alas_config.read_file(self.alas_name)
+            result = deep_get(config, 'FleetInfo.FleetInfo.Result', default={})
+            record = deep_get(config, 'FleetInfo.FleetInfo.Record', default=None)
+            if not isinstance(result, dict) or not result:
+                put_html(f'<div class="ft-empty">{t("Gui.FleetManagement.NoResult")}</div>')
+            else:
+                put_html(self._fleet_info_html(result, record))
+        button = BinarySwitchButton(
+            get_state=self._fleet_scan_running,
+            label_on=t('Gui.FleetManagement.Scanning'),
+            label_off=t('Gui.FleetManagement.StartScan'),
+            onclick_on=self._fleet_scan_running_click,
+            onclick_off=self._fleet_scan_start,
+            color_on='off',
+            color_off='on',
+            scope='ft_info_scan_button',
+        )
+        self.task_handler.add(button.g(), 1, True)
+
+    def _ft_render_mind_tab(self):
+        """心智计算器：第二阶段交付（runtime 计算与识别已就绪，缺清单 UI）。"""
+        with use_scope('ft_mind', clear=True):
+            put_html(f'<div class="ft-empty">{t("Gui.FleetTechnology.MindComingSoon")}</div>')
 
     def _ft_bind_callbacks(self):
         """注册一次性 pin 回调；页面重入不重复绑定。
@@ -360,7 +470,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
     @render_locked
     def _ft_on_bridge(self, value):
-        """表格钩子点击（排序 / 编辑入口）经隐藏 pin 转发到此。"""
+        """表格钩子点击（排序 / 编辑入口 / 页签切换）经隐藏 pin 转发到此。"""
         kind, _, item = str(value or '').partition('|')
         if kind == 'sort' and item in view.SORT_KEYS:
             if self._ft_sort_key == item:
@@ -374,6 +484,13 @@ class FleetTechnologyMixin(WebUIMixinBase):
                 self._ft_edit_popup(int(item))
             except ValueError:
                 return
+        elif kind == 'tab' and item in view.TABS and self._ft_tab != item:
+            self._ft_tab = item
+            self._ft_render_tabs()
+            self._ft_render_tab_content()
+        elif kind in ('medit', 'mdel'):
+            # 心智计算器页签的行编辑 / 删除，由其 Mixin 承接。
+            self._mc_on_bridge(value)
 
     @render_locked
     def _ft_on_filter(self, value):
@@ -494,6 +611,12 @@ class FleetTechnologyMixin(WebUIMixinBase):
             return
         title = f'{t("Gui.FleetTechnology.RowEdit")} · {view.display_name(row)}'
         with popup(title) as scope:
+            # 控件重建前预置 pin，兜底重开弹窗时的旧草稿残留；
+            # 表单初值仍以各控件的 value= 为准（双保险，两者同值）。
+            pin[f'ft_owned_{gid}'] = _tri_value(row['owned'])
+            pin[f'ft_full_star_{gid}'] = _tri_value(row['full_star'])
+            pin[f'ft_lv120_{gid}'] = _tri_value(row['lv120'])
+            pin[f'ft_level_{gid}'] = '' if row['level'] is None else str(row['level'])
 
             def save():
                 self._ft_popup_save(gid, scope)
@@ -582,7 +705,12 @@ class FleetTechnologyMixin(WebUIMixinBase):
     # ---------- 扫描与同步 ----------
 
     def _ft_scan_running(self):
-        return bool(getattr(self, 'alas', None) and self.alas.alive)
+        """扫描按钮的运行窗；语义见 FleetManagementMixin._fleet_scan_running。"""
+        alas = getattr(self, 'alas', None)
+        if alas is not None and getattr(alas, '_ui_action_running', False):
+            return True
+        started = getattr(self, '_ft_scan_started_at', 0.0)
+        return (time.monotonic() - started) < SCAN_WINDOW_SECONDS
 
     def _ft_scan_running_click(self):
         toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')
@@ -607,8 +735,11 @@ class FleetTechnologyMixin(WebUIMixinBase):
         except (TimeoutError, OSError) as exc:
             toast(f'{t("Gui.FleetManagement.ScanStartFailed")}：{exc}', color='error')
             return
-        self.alas.start(SCAN_TASK)
-        if self._ft_scan_running():
+        if not self._start_scan_task(SCAN_TASK):
+            toast(t('Gui.FleetManagement.ScanAlreadyRunning'), color='warn')
+            return
+        if getattr(self, 'alas', None) and self.alas.alive:
+            self._ft_scan_started_at = time.monotonic()
             toast(t('Gui.FleetManagement.ScanStarted'), color='info')
         else:
             toast(t('Gui.FleetManagement.ScanStartFailed'), color='error')

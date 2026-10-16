@@ -411,8 +411,8 @@ class Frame(Base):
         if name in named:
             return named[name]
         if name == "FleetManagement":
-            # 惰性取方法：替身组合可能没有舰队管理页面。
-            return self.fleet_management_page
+            # 惰性取方法：替身组合可能没有舰队科技页。组入口直达页签工作台。
+            return self.fleet_technology_page
         for task_data in (getattr(self, "ALAS_MENU", None) or {}).values():
             if not isinstance(task_data, dict):
                 continue
