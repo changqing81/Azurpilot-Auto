@@ -56,31 +56,40 @@ NATION_ROW_SIZE = 4
 
 
 def build_fleet_tech_bridge_script(pin_name):
-    """生成把表格钩子点击（排序/编辑入口）转发给隐藏 pin 的浏览器脚本。"""
+    """生成把表格钩子点击（排序/编辑入口/页签/心智清单行）转发给隐藏 pin 的浏览器脚本。"""
     return f"""
         (function () {{
             var listenerName = "__alasFleetTechClick";
             if (window[listenerName]) return;
 
+            // 钩子属性 → 事件桥前缀；心智清单行的编辑/删除（medit/mdel）也在
+            // 同一页面上（页签工作台），漏掉它们会让行内按钮点了毫无反应。
+            var hooks = [
+                ["data-ft-sort", "sort"],
+                ["data-ft-edit", "edit"],
+                ["data-ft-tab", "tab"],
+                ["data-mc-edit", "medit"],
+                ["data-mc-del", "mdel"]
+            ];
+
             window[listenerName] = function (event) {{
                 var source = event.target;
                 if (!(source instanceof Element)) return;
-                var hook = source.closest("[data-ft-sort],[data-ft-edit],[data-ft-tab]");
-                if (!hook) return;
-                event.preventDefault();
+                for (var i = 0; i < hooks.length; i++) {{
+                    var hook = source.closest("[" + hooks[i][0] + "]");
+                    if (!hook) continue;
+                    event.preventDefault();
 
-                var bridge = document.querySelector(
-                    'input[name="' + {json.dumps(pin_name)} + '"]'
-                );
-                if (!bridge) return;
+                    var bridge = document.querySelector(
+                        'input[name="' + {json.dumps(pin_name)} + '"]'
+                    );
+                    if (!bridge) return;
 
-                bridge.value = hook.hasAttribute("data-ft-sort")
-                    ? "sort|" + hook.getAttribute("data-ft-sort")
-                    : hook.hasAttribute("data-ft-edit")
-                        ? "edit|" + hook.getAttribute("data-ft-edit")
-                        : "tab|" + hook.getAttribute("data-ft-tab");
-                bridge.dispatchEvent(new Event("input", {{bubbles: true}}));
-                bridge.dispatchEvent(new Event("change", {{bubbles: true}}));
+                    bridge.value = hooks[i][1] + "|" + hook.getAttribute(hooks[i][0]);
+                    bridge.dispatchEvent(new Event("input", {{bubbles: true}}));
+                    bridge.dispatchEvent(new Event("change", {{bubbles: true}}));
+                    return;
+                }}
             }};
             document.addEventListener("click", window[listenerName]);
         }})();

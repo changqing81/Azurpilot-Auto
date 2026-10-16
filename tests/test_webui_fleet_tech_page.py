@@ -16,7 +16,7 @@ import time
 import unittest
 from contextlib import ExitStack
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from pywebio import output as pywebio_output
 from pywebio import pin as pywebio_pin
@@ -266,12 +266,27 @@ class FleetTechPageTest(unittest.TestCase):
             h._ft_on_bridge('edit|10102')
         popup.assert_called_once_with(10102)
 
+    def test_bridge_forwards_mind_row_hooks(self):
+        """心智清单行的 medit/mdel 钩子由科技页的桥接线转发给其 Mixin。"""
+        h = self.harness
+        h._mc_on_bridge = MagicMock()
+        h._ft_on_bridge('medit|3')
+        h._ft_on_bridge('mdel|1')
+        self.assertEqual(h._mc_on_bridge.call_args_list,
+                         [call('medit|3'), call('mdel|1')])
+
     def test_bridge_script_targets_hooks_and_pin(self):
         script = build_fleet_tech_bridge_script('ft_bridge_pin')
         self.assertIn('data-ft-sort', script)
         self.assertIn('data-ft-edit', script)
         self.assertIn('ft_bridge_pin', script)
         self.assertIn('__alasFleetTechClick', script)
+        # 心智清单行的编辑/删除也在同一页面：漏掉它们按钮点了毫无反应
+        # （2026-10-16 用户截图现场）。
+        self.assertIn('data-mc-edit', script)
+        self.assertIn('data-mc-del', script)
+        self.assertIn('"medit"', script)
+        self.assertIn('"mdel"', script)
 
     # ---------- 开关与翻页 ----------
 

@@ -180,8 +180,10 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                 options=[{'label': label, 'value': value} for value, label in rarities],
                 value=self._mc_rarity,
             )
-            put_input(name='mc_min', type='number', value=self._mc_min)
-            put_input(name='mc_max', type='number', value=self._mc_max)
+            put_input(name='mc_min', type='number',
+                      label=t('Gui.MindCalculator.FilterMin'), value=self._mc_min)
+            put_input(name='mc_max', type='number',
+                      label=t('Gui.MindCalculator.FilterMax'), value=self._mc_max)
 
     def _mc_render_list(self):
         """过滤后的清单表 + 分页 + 计数；筛选/翻页后只重绘这里。"""

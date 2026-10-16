@@ -408,6 +408,26 @@ class MindIoCallbackTest(unittest.TestCase):
         self.assertEqual(put_buttons.call_count, 2)
 
 
+    def test_filter_row_labels_level_inputs(self):
+        """等级筛选输入框必须带文案。
+
+        现场：2026-10-16 用户截图——搜索行右侧出现两个无标签的空盒子，
+        因为 mc_min/mc_max 两个 put_input 连 label/placeholder 都没给。
+        """
+        h = _MindHarness()
+        h._mc_state()
+        captured = []
+        with patch(f'{MODULE}.t', side_effect=lambda key, **kw: key), \
+                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.put_input',
+                      side_effect=lambda *a, **kw: captured.append(kw) or _FakeOutput('input')), \
+                patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')):
+            h._mc_render_filters()
+        labels = {item['name']: item.get('label') for item in captured if 'name' in item}
+        self.assertEqual(labels.get('mc_min'), 'Gui.MindCalculator.FilterMin')
+        self.assertEqual(labels.get('mc_max'), 'Gui.MindCalculator.FilterMax')
+
+
 class MindScanStartTest(unittest.TestCase):
     """扫描按钮：写等级范围 → 走通用两段式启动（worker 存活时先停后启）。"""
 
