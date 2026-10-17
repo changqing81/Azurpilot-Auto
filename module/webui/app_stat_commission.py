@@ -345,13 +345,15 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
                     else '<span style="opacity: 0.6;">--</span>'
                 )
 
-                # 查看截图按钮：跟随在记录行内，点击在新标签页单独打开截图
+                # 查看截图按钮：跟随在记录行内，点击在新标签页单独打开截图。
+                # 用相对路径：手机远控（P2P）把页面挂在 /p2p/<peer>/ 子路径下，
+                # 绝对路径 /static/... 会指向信号服务器根而 404。
                 shots = entry.get("screenshots") or []
                 shot_links = ""
                 for shot_index, shot in enumerate(shots):
                     label = "查看截图" if shot_index == 0 else f"查看截图{shot_index + 1}"
                     shot_links += (
-                        f'<a href="/static/commission_rewards/{escape(shot, quote=True)}" '
+                        f'<a href="static/commission_rewards/{escape(shot, quote=True)}" '
                         f'target="_blank" rel="noopener" '
                         f'style="flex-shrink: 0; margin-left: 8px; font-size: 0.7rem; padding: 2px 10px; '
                         f'border: 1px solid rgba(128, 128, 128, 0.35); border-radius: 4px; '
