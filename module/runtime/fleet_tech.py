@@ -3,14 +3,16 @@ import copy
 import hashlib
 import json
 from collections import defaultdict
-from functools import lru_cache
 from pathlib import Path
 
+from module.base.decorator import file_cached
 from module.runtime.mind_calculator import normalize_name
 
 RECORD_PATH = 'FleetTechScan.FleetTech.Record'
 LEGACY_RECORD_PATH = 'MindCalculatorScan.MindCalculator.FleetTechRecord'
 ROOT = Path(__file__).parents[2]
+FLEET_TECH_FILE = ROOT / 'assets/ship/fleet_tech.json'
+SHIP_DATA_FILE = ROOT / 'assets/ship/ship_data.json'
 
 
 def read_record(data):
@@ -22,11 +24,11 @@ def read_record(data):
     return copy.deepcopy(value)
 
 
-@lru_cache(maxsize=1)
+@file_cached(FLEET_TECH_FILE, SHIP_DATA_FILE)
 def catalog():
     """把按群组生成的科技索引与现有共享舰船资料关联。"""
-    index = json.loads((ROOT / 'assets/ship/fleet_tech.json').read_text(encoding='utf-8'))
-    shared = json.loads((ROOT / 'assets/ship/ship_data.json').read_text(encoding='utf-8'))
+    index = json.loads(FLEET_TECH_FILE.read_text(encoding='utf-8'))
+    shared = json.loads(SHIP_DATA_FILE.read_text(encoding='utf-8'))
     rows, aliases, points = [], defaultdict(set), defaultdict(int)
     for entry in index['ships']:
         gid = entry['group_type']

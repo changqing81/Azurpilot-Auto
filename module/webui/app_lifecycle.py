@@ -2,6 +2,8 @@
 
 import threading
 
+from module.ship_data_sync import sync_ship_data
+
 from module.webui.app_dependencies import (
     ProcessManager,
     RemoteAccess,
@@ -80,6 +82,9 @@ def startup() -> None:
     if updater.delay > 0:
         task_handler.add(updater.check_update, updater.delay, group="slow")
     task_handler.add(updater.schedule_update(), 86400, group="slow")
+    # 舰船数据自动同步：CI 每日在 data/ship 分支生成数据，本地 6 小时拉取一次。
+    # 首次在 WebUI 启动后立即执行；新数据经 file_cached 按 mtime 自动生效。
+    task_handler.add(sync_ship_data, 6 * 3600, group="slow")
     task_handler.start()
     if State.deploy_config.DiscordRichPresence:
         init_discord_rpc()

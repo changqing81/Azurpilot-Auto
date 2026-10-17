@@ -3,8 +3,9 @@ import hashlib
 import json
 import re
 import unicodedata
-from functools import lru_cache
 from pathlib import Path
+
+from module.base.decorator import file_cached
 
 RARITIES = ('UR', 'SSR', 'SR', 'R', 'N')
 RARITY_NAMES = dict(zip(RARITIES, ('海上传奇', '超稀有', '精锐', '稀有', '普通')))
@@ -16,7 +17,7 @@ RESULT_PATH = 'MindCalculatorScan.MindCalculator.Result'
 SHIP_DATA_FILE = Path(__file__).parents[2] / 'assets/ship/ship_data.json'
 
 
-@lru_cache(maxsize=1)
+@file_cached(SHIP_DATA_FILE)
 def catalog():
     """从共享舰船资料构建国服目录，改造按基础舰船稀有度计费。"""
     data = json.loads(SHIP_DATA_FILE.read_text(encoding='utf-8'))

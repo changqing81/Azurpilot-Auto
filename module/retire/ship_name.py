@@ -3,10 +3,10 @@
 import json
 import re
 import unicodedata
-from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Tuple
 
+from module.base.decorator import file_cached
 from module.logger import logger
 
 
@@ -34,9 +34,11 @@ class ShipNameMatcher:
         return "".join(unicodedata.normalize("NFKC", name).split()).casefold()
 
     @classmethod
-    @lru_cache(maxsize=4)
+    @file_cached(lambda: ShipNameMatcher.DATA_FILE)
     def _load_names(cls, language: str) -> Tuple[str, ...]:
         """从舰船数据文件中加载指定语言的舰船名称集合。
+
+        名单文件被自动同步更新后按 mtime 自动重载，长驻进程无需重启。
 
         Args:
             language (str): 语言代码（如 'cn', 'jp', 'en', 'tw'）。

@@ -1,0 +1,76 @@
+name: Ship Data Sync
+
+# 每日从游戏解包仓库提取舰船数据，有变化才发布到 data/ship 分支。
+# 本地（module/ship_data_sync.py）每 6 小时从该分支拉取一次，全程无需人工。
+# 数据源 AzurLaneTools/AzurLaneLuaScripts 由 bot 跟随游戏自动日更。
+# 注意：schedule 与 workflow_dispatch 都要求本文件存在于默认分支（master）。
+
+on:
+  schedule:
+    # 每日 04:17（北京时间 = 前一日 20:17 UTC）；无数据变化时不产生提交
+    - cron: '17 20 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # 需要写权限：向 data/ship 分支推送数据提交
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          # 提取器仅用标准库；跟随项目的 Python 版本
+          python-version: '3.14'
+
+      - name: 拉取最新解包 Lua（稀疏检出，避免 2.7GB 全仓库历史）
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse \
+            https://github.com/AzurLaneTools/AzurLaneLuaScripts /tmp/lua
+          git -C /tmp/lua sparse-checkout set \
+            CN/sharecfg CN/sharecfgdata EN/sharecfg EN/sharecfgdata \
+            JP/sharecfg JP/sharecfgdata TW/sharecfg TW/sharecfgdata \
+            KR/sharecfgdata
+
+      - name: 生成舰船数据
+        run: |
+          python dev_tools/ship_data_extractor.py --lua-repo /tmp/lua
+          python dev_tools/ship_data_extractor.py --lua-repo /tmp/lua --names-only
+          python dev_tools/ship_data_extractor.py --lua-repo /tmp/lua --fleet-tech-only
+
+      - name: 发布到 data/ship 分支
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          LUA_SHA=$(git -C /tmp/lua rev-parse --short HEAD)
+
+          base=""
+          if git fetch origin data/ship 2>/dev/null; then
+            base=$(git rev-parse FETCH_HEAD)
+          fi
+
+          # 不切换工作区（避免覆盖未提交的生成结果）：直接构造只含数据文件的
+          # 树对象，以 data/ship 现有提交为父，保持该分支线性历史与普通快进推送。
+          git read-tree --empty
+          git add -f assets/ship/ship_data.json assets/ship/ship_names.json assets/ship/fleet_tech.json
+          tree=$(git write-tree)
+
+          if [ -n "$base" ] && git diff-tree --quiet -r "$base" "$tree"; then
+            echo "### 舰船数据无变化（lua ${LUA_SHA}）" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          msg="chore(data): 自动同步舰船数据（lua ${LUA_SHA}）[skip ci]"
+          if [ -n "$base" ]; then
+            commit=$(git commit-tree "$tree" -p "$base" -m "$msg")
+          else
+            commit=$(git commit-tree "$tree" -m "$msg")
+          fi
+          git update-ref refs/heads/data/ship "$commit"
+          git push origin refs/heads/data/ship
+          echo "### 已更新 data/ship 分支（lua ${LUA_SHA}）" >> "$GITHUB_STEP_SUMMARY"

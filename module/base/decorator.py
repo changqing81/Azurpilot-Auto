@@ -4,6 +4,7 @@
 timer、function_drop、run_once 等常用装饰器，用于控制方法的执行行为。
 """
 
+import os
 import random
 import re
 from functools import wraps
@@ -209,3 +210,58 @@ def run_once(f):
 
     wrapper.has_run = False
     return wrapper
+
+
+def file_cached(*files):
+    """按依赖文件 mtime 自动失效的缓存装饰器。
+
+    与 functools.lru_cache 的差别：缓存项绑定依赖文件的修改时间戳，
+    文件被外部更新（如舰船数据自动同步写入新名单）后，下一次调用即
+    自动重新计算——长驻进程（WebUI、任务子进程）无需重启或手工清缓存。
+
+    Args:
+        *files: 依赖文件路径；任一项可以是返回路径的可调用对象（延迟解析，
+            适配测试中替换类属性的场景）。任一文件 mtime 变化即整体失效。
+
+    Examples:
+        @file_cached('assets/ship/ship_data.json')
+        def catalog():
+            pass
+
+        catalog()  # 首次计算
+        catalog()  # 命中缓存
+        # 文件被更新后
+        catalog()  # 自动重新计算
+    """
+
+    def decorate(func):
+        cache = {}
+
+        def current_stamp():
+            values = []
+            for file in files:
+                path = file() if callable(file) else file
+                try:
+                    values.append((os.fspath(path), os.stat(path).st_mtime_ns))
+                except OSError:
+                    values.append((os.fspath(path), None))
+            return tuple(values)
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            # 先完成计算再落缓存，避免并发读到半构造状态；
+            # 文件读取失败的 None 戳同样成立（加载函数自身兜底空值）。
+            key = (args, tuple(sorted(kwargs.items())))
+            stamp = current_stamp()
+            entry = cache.get(key)
+            if entry is None or entry[0] != stamp:
+                cache[key] = (stamp, func(*args, **kwargs))
+            return cache[key][1]
+
+        def cache_clear():
+            cache.clear()
+
+        wrapper.cache_clear = cache_clear
+        return wrapper
+
+    return decorate
