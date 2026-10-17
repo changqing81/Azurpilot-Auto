@@ -11,6 +11,7 @@ mind_calculator.catalog）都通过 file_cached 按文件 mtime 自动失效，
 长驻进程无需重启即可读到新名单。
 """
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -24,15 +25,18 @@ DATA_FILES = (
     'assets/ship/ship_data.json',
     'assets/ship/fleet_tech.json',
 )
-GIT_TIMEOUT = 180
+GIT_TIMEOUT = 60          # 网络操作（fetch）超时
+GIT_LOCAL_TIMEOUT = 15    # 本地对象操作（rev-parse/hash-object/show）超时
 
 
-def _git(*args, binary=False):
+def _git(*args, binary=False, timeout=GIT_LOCAL_TIMEOUT):
     """执行 git 子进程；环境错误（git 缺失/超时）由调用方捕获。
 
     Args:
         *args: git 参数。
         binary: True 时 stdout 以 bytes 返回（取文件内容用）。
+        timeout: 子进程超时秒数；默认按本地对象操作（毫秒级）取值，
+            网络操作需要显式传入 GIT_TIMEOUT。
 
     Returns:
         subprocess.CompletedProcess: 子进程结果。
@@ -40,11 +44,11 @@ def _git(*args, binary=False):
     if binary:
         return subprocess.run(
             ['git', '-C', str(ROOT), *args],
-            capture_output=True, timeout=GIT_TIMEOUT,
+            capture_output=True, timeout=timeout,
         )
     return subprocess.run(
         ['git', '-C', str(ROOT), *args],
-        capture_output=True, text=True, encoding='utf-8', timeout=GIT_TIMEOUT,
+        capture_output=True, text=True, encoding='utf-8', timeout=timeout,
     )
 
 
@@ -76,7 +80,7 @@ def sync_ship_data() -> dict:
     """
     summary = {'status': 'error', 'files': {}}
     try:
-        fetch = _git('fetch', DATA_REMOTE, DATA_BRANCH)
+        fetch = _git('fetch', DATA_REMOTE, DATA_BRANCH, timeout=GIT_TIMEOUT)
     except (OSError, subprocess.SubprocessError) as exc:
         logger.warning(f'[舰船数据] 拉取失败（Git 不可用或网络异常）: {exc}')
         return summary
@@ -107,7 +111,12 @@ def sync_ship_data() -> dict:
             logger.warning(f'[舰船数据] 读取 {path} 内容失败，跳过本轮')
             continue
         try:
-            (ROOT / path).write_bytes(fetched.stdout)
+            target = ROOT / path
+            # 先写临时文件再原子替换：任务子进程可能在任意时刻读取，
+            # 半写状态会读到截断的 JSON。
+            temp = target.with_name(target.name + '.tmp')
+            temp.write_bytes(fetched.stdout)
+            os.replace(temp, target)
         except OSError as exc:
             logger.warning(f'[舰船数据] 写入 {path} 失败: {exc}')
             continue
