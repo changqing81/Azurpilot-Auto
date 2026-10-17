@@ -612,11 +612,55 @@
     max-width: 100%;
 }
 
+/* 心智清单只有 6 列（1160px 的最低宽度是给 13 列的科技表定的），自动布表
+   会把整表富余宽度几乎全堆到舰名列，宽屏下它占掉半屏。这里给清单表固定
+   列宽：舰名封顶、中间各列按内容定档、操作列留出按钮的固定宽度；各列内容
+   都短，配省略号防止固定布局下的串列（舰名来源行本就有 title 悬浮全文）。
+   选择器刻意与响应式覆盖同级（不用 id），<800px 时仍由文件末尾的
+   640px 规则接管。 */
+[id^="pywebio-scope-ft_"] .ft-table-scroll .ft-table {
+    min-width: 980px;
+}
+
+#pywebio-scope-ft_mind_list .ft-table {
+    table-layout: fixed;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th:nth-child(1) {
+    width: 26%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th:nth-child(2) {
+    width: 10%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th:nth-child(3) {
+    width: 12%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th:nth-child(4) {
+    width: 13%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th:nth-child(5) {
+    width: 13%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th:nth-child(6) {
+    width: 150px;
+}
+
+#pywebio-scope-ft_mind_list .ft-table th,
+#pywebio-scope-ft_mind_list .ft-table td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 [id^="pywebio-scope-ft_"] .ft-mind-source {
     display: block;
     color: var(--ft-muted);
     font-size: 11px;
-    max-width: 260px;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
