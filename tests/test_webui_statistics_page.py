@@ -82,10 +82,14 @@ class _StatisticsHarness(StatisticsPageMixin):
         return None
 
     def run_fill_once(self):
-        """跑一次后台填充任务：统计分区渲染已改为挂载后的首跑任务。"""
-        for callback, _delay, _pending in list(self.task_handler.added):
+        """跑一次后台填充任务（取最近排队的一个并推进两步）。
+
+        真实实现注册的是生成器对象（见 FillTaskWiringTests），替身时代
+        可能拿到函数；两种都支持。取最近一个，避免重复推进已跑完的旧任务。
+        """
+        for callback, _delay, _pending in reversed(self.task_handler.added):
             if getattr(callback, "__name__", "") == "_fill_statistics_sections":
-                gen = callback()
+                gen = callback() if callable(callback) else callback
                 next(gen)   # 到第一个 yield：无工作
                 next(gen)   # 执行一次填充
                 return True
@@ -332,6 +336,82 @@ class TabSwitchScriptTests(unittest.TestCase):
         self.assertIn("if (!resizeQueued)", script)
         # 只允许 settle 里那一处同步派发（点击处理路径不得直接派发）。
         self.assertEqual(1, script.count('window.dispatchEvent(new Event("resize"));'))
+
+
+class FillTaskWiringTests(unittest.TestCase):
+    """后台填充任务必须真能被 TaskHandler 驱动。
+
+    2026-10-17 真机事故：``_queue_statistics_fill`` 最初把
+    生成器**函数**传给 ``TaskHandler.add``，而 ``add`` 对普通可调用对象会套
+    ``get_generator`` 包装——每个 tick 只是 yield 出一个新建的生成器、从不
+    驱动它，分区永远不加载；用户第二次进入统计页时补画扫描开关抛
+    ``AttributeError('_ft_report')``，整页打不开。旧用例用替身 ``callback()
+    + next()`` 直接驱动生成器，恰好绕过 ``get_generator``，是典型 Mock 盲区。
+    这里用真实 TaskHandler 跑一遍做回归锁。
+    """
+
+    def setUp(self):
+        self.gui = _StatisticsHarness()
+        self.patches = (
+            patch(
+                "module.webui.app_statistics_page.use_scope",
+                side_effect=lambda *_args, **_kwargs: nullcontext(),
+            ),
+            patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.run_js"),
+            patch(
+                "module.webui.app_statistics_page.t",
+                side_effect=lambda key, *args, **kwargs: key,
+            ),
+        )
+        for active_patch in self.patches:
+            active_patch.start()
+
+    def tearDown(self):
+        for active_patch in reversed(self.patches):
+            active_patch.stop()
+
+    def test_fill_is_registered_as_generator_object(self):
+        import inspect
+
+        self.gui.alas_set_stat()
+
+        fills = [
+            callback
+            for callback, _delay, _pending in self.gui.task_handler.added
+            if getattr(callback, "__name__", "") == "_fill_statistics_sections"
+        ]
+        self.assertEqual(1, len(fills))
+        self.assertTrue(
+            inspect.isgenerator(fills[0]),
+            "必须传生成器对象：传函数会被 TaskHandler.get_generator 包装后永不执行",
+        )
+
+    def test_fill_runs_once_under_real_task_handler(self):
+        import time
+
+        from module.webui.utils import TaskHandler
+
+        gui = _StatisticsHarness()
+        gui.task_handler = TaskHandler()
+        try:
+            gui.alas_set_stat()
+            self.assertEqual([], gui.rendered)   # 骨架先行：挂载不渲染分区
+
+            gui.task_handler.start()
+            deadline = time.time() + 8
+            while time.time() < deadline and len(gui.rendered) < 7:
+                time.sleep(0.05)
+        finally:
+            gui.task_handler.stop()
+
+        self.assertEqual(
+            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
+            gui.rendered,
+        )
 
 
 class TestDeltaTimelineTranslationPlaceholders(unittest.TestCase):

@@ -534,6 +534,24 @@ class FleetTechPageTest(unittest.TestCase):
         h._ft_render_scan_controls()
         self.assertEqual(h.render_log, ['tech_toolbar', 'mind_toolbar'])
 
+    def test_scan_controls_load_data_before_repaint(self):
+        """补画扫描开关前必须先就绪状态与数据。
+
+        2026-10-17 真机事故：分区数据由后台首跑加载，若填充任务没跑过
+        （当时传参错误导致永不执行），第二次进入统计页在工具栏里读
+        ``_ft_report`` 直接 AttributeError，统计页整页打不开。
+        """
+        h = self.harness
+        h._ft_state()
+        order = []
+        h._ft_render_toolbar = lambda: order.append(('toolbar', h._ft_report is not None))
+        h._mc_render_toolbar = lambda: order.append(('mind', True))
+        with patch(f'{MODULE}.load_config') as load_config:
+            load_config.return_value.read_file.return_value = {}
+            h._ft_render_scan_controls()
+        # 工具栏绘制时数据必须已就绪（_ft_report 非 None）。
+        self.assertEqual(order[0], ('toolbar', True))
+
     def test_data_refresh_detects_external_writes(self):
         """周期刷新：基线建立后科技记录/心智清单变化才重绘，别的写入不触发。"""
         h = self.harness

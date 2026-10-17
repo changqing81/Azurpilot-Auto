@@ -189,13 +189,19 @@ class StatisticsPageMixin(WebUIMixinBase):
     def _queue_statistics_fill(self) -> None:
         """把各分区渲染排进后台首跑；重复入队用标志位去重。
 
-        填充任务为一次性生成器（跑完即挂起），随切页 pending_delete 清理；
+        必须传**生成器对象**而不是生成器函数：``TaskHandler.add`` 对普通
+        可调用对象会套 ``get_generator`` 包装（每次 tick 只 yield 出新建的
+        生成器、从不驱动它），任务将永远不执行——2026-10-17 真机现场：
+        分区从未加载，第二次进统计页在补画扫描开关时炸 ``_ft_report``。
+        传生成器对象走 ``isinstance(func, Generator)`` 分支，按 delay 驱动。
+
+        填充任务为一次性（跑完自调 delay 静默），随切页 pending_delete 清理；
         执行前校验仍在统计页，避免向已清空的 scope 写孤儿容器（同仪表盘守卫）。
         """
         if getattr(self, "_statistics_fill_queued", False):
             return
         self._statistics_fill_queued = True
-        self.task_handler.add(self._fill_statistics_sections, 0.05, True, group="slow")
+        self.task_handler.add(self._fill_statistics_sections(), 0.05, True, group="slow")
 
     def _fill_statistics_sections(self):
         yield

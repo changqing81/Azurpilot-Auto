@@ -237,7 +237,12 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
         统计页每次进入时调用：切页会随 pending_delete 清掉扫描开关的
         1 秒轮询任务，重画工具栏即重新登记（登记按任务名幂等，不会叠加）。
+        面板数据由后台首跑加载，可能还没落位（刚挂载就切回来）；先补齐
+        状态与数据再画，否则工具栏会因缺 _ft_report 抛异常、整页打不开
+        （2026-10-17 真机：填充任务因传参错误从未执行，第二次进页直接崩）。
         """
+        self._ft_state()
+        self._ft_load()
         self._ft_render_toolbar()
         if hasattr(self, '_mc_render_toolbar'):
             self._mc_render_toolbar()
