@@ -62,6 +62,9 @@ class _StatisticsHarness(StatisticsPageMixin):
     def _render_commission_income(self):
         self.rendered.append("commission")
 
+    def _render_research_stats(self):
+        self.rendered.append("research")
+
     # 舰队科技 / 心智计算器的面板入口（真实现由 FleetTechnologyMixin 提供）
     def _ft_state(self):
         return None
@@ -144,7 +147,7 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.assertEqual([], self.gui.rendered)
         self.assertTrue(self.gui.run_fill_once())
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
+            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
             self.gui.rendered,
         )
 
@@ -184,7 +187,7 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.run_fill_once()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
+            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
             self.gui.rendered,
         )
         self.assertEqual("v2", self.gui._statistics_source_signature)
@@ -200,7 +203,7 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.run_fill_once()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
+            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
             self.gui.rendered,
         )
         self.assertEqual(
@@ -403,13 +406,13 @@ class FillTaskWiringTests(unittest.TestCase):
 
             gui.task_handler.start()
             deadline = time.time() + 8
-            while time.time() < deadline and len(gui.rendered) < 7:
+            while time.time() < deadline and len(gui.rendered) < 8:
                 time.sleep(0.05)
         finally:
             gui.task_handler.stop()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "tech", "mind"],
+            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
             gui.rendered,
         )
 

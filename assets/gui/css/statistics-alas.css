@@ -1088,6 +1088,47 @@
     border-bottom: 0;
 }
 
+/* 科研掉落表：物品单元格（图标 + 名称 + 稀有度徽标）。
+   图标走 /static/assets/stats/research_items，全局 img 样式在主题里
+   会加底色/描边（同委托收益卡片的坑），这里显式清掉。 */
+#pywebio-scope-statistics-content .research-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+#pywebio-scope-statistics-content .research-item-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 4px;
+}
+
+#pywebio-scope-statistics-content .research-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 稀有度徽标（彩 / 金 / 紫 / 蓝）：文字与描边同色，底色用同色低透明度，
+   颜色本身由行内 style 按稀有度给出，这里只做形状。 */
+#pywebio-scope-statistics-content .research-rarity {
+    flex-shrink: 0;
+    padding: 1px 6px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    font-size: .62rem;
+    line-height: 1.5;
+    opacity: .85;
+}
+
 /* --------------------------------------------------------------------------
    6. 委托收益视图：本文件**刻意不介入**
    --------------------------------------------------------------------------

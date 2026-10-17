@@ -2,12 +2,12 @@
 
 改版要点（对应 statistics-v2 原型）：
     页头（标题 + 刷新）→ 下划线页签 → 六个面板
-    大世界 / 委托 / 科研（预留） / 资源 / 科技列表 / 心智计算器
+    大世界 / 委托 / 科研 / 资源 / 科技列表 / 心智计算器
 
 实现方式刻意保持「零侵入」：各统计子视图（ap_chart / opsi_stats /
-commission_income / resource_delta / ship_exp_table）以及舰队科技列表与
-心智计算器（ft_tech / ft_mind）的渲染代码一行未改，仍然往同名 scope 里输出。
-本模块只负责
+commission_income / research_stats / resource_delta / ship_exp_table）以及
+舰队科技列表与心智计算器（ft_tech / ft_mind）的渲染代码一行未改，仍然往同名
+scope 里输出。本模块只负责
 
     1. 在 statistics-content 里铺好页头、页签和一个空的面板容器；
     2. 用一段 JS 把已存在的 scope 元素搬进对应面板，并接上页签交互。
@@ -45,7 +45,7 @@ from module.webui.fleet_tech_view import STAT_PANELS
 _STAT_TABS = (
     ("opsi", "Gui.Stat.TabOpsi", None),
     ("commission", "Gui.Stat.TabCommission", None),
-    ("research", "Gui.Stat.TabResearch", "Gui.Stat.TabResearchBadge"),
+    ("research", "Gui.Stat.TabResearch", None),
     ("resource", "Gui.Stat.TabResource", None),
     # 舰队科技列表 / 心智计算器：内容宿主 scope 分别为 ft_tech / ft_mind，
     # 由 FleetTechnologyMixin 渲染（见 app_fleet_technology）。
@@ -64,28 +64,18 @@ _STAT_SOURCE_KEYS = {
 }
 
 # 各面板承载的 PyWebIO scope 名（顺序即卡片顺序）。
-# research 面板没有数据 scope，由本模块直接注入占位 HTML。
+# research 面板由 ResearchStatisticsMixin 渲染进 research_stats scope。
 _STAT_PANEL_SCOPES = {
     "opsi": ("ap_chart", "opsi_stats", "ship_exp_table"),
     "commission": ("commission_income",),
-    "research": (),
+    "research": ("research_stats",),
     "resource": ("resource_delta",),
     # 面板内容整块搬入：ft_tech / ft_mind 由舰队科技 Mixin 渲染（内容不变）。
     "fleet": ("ft_tech",),
     "mind": ("ft_mind",),
 }
 
-# 科研占位块在 DOM 里的 id，会被搬进 research 面板
-_RESEARCH_SLOT_ID = "statistics-research-slot"
-
 _DEFAULT_PANEL = "opsi"
-
-# 科研占位的三个槽位：(名称 i18n 键, 数据契约说明 i18n 键)
-_RESEARCH_SLOTS = (
-    ("Gui.Stat.ResearchSlotProgress", "Gui.Stat.ResearchSlotProgressDesc"),
-    ("Gui.Stat.ResearchSlotQueue", "Gui.Stat.ResearchSlotQueueDesc"),
-    ("Gui.Stat.ResearchSlotCost", "Gui.Stat.ResearchSlotCostDesc"),
-)
 
 
 class StatisticsPageMixin(WebUIMixinBase):
@@ -110,6 +100,12 @@ class StatisticsPageMixin(WebUIMixinBase):
             now = datetime.now()
             self._commission_income_year = now.year
             self._commission_income_month = now.month
+        if not hasattr(self, "_research_stats_scope"):
+            self._research_stats_scope = "series"
+        if not hasattr(self, "_research_stats_period"):
+            self._research_stats_period = "days90"
+        if not hasattr(self, "_research_stats_series"):
+            self._research_stats_series = 0
 
         cache_key = self._get_statistics_cache_key()
         cached_key = getattr(self, "_statistics_cache_key", None)
@@ -163,9 +159,9 @@ class StatisticsPageMixin(WebUIMixinBase):
                 put_scope("ap_chart", [])
                 put_scope("opsi_stats", [])
                 put_scope("commission_income", [])
+                put_scope("research_stats", [])
                 put_scope("resource_delta", [])
                 put_scope("ship_exp_table", [])
-                put_html(self._build_research_placeholder_html())
                 # 舰队科技列表 / 心智计算器的内容宿主（整块搬进各自面板），
                 # 外加点击桥的隐藏 pin（ft_bridge 由舰队皮肤隐藏）。
                 put_scope("ft_tech", [])
@@ -278,7 +274,7 @@ class StatisticsPageMixin(WebUIMixinBase):
         )
 
     # ------------------------------------------------------------------
-    # 页头 / 页签 / 科研占位：静态骨架
+    # 页头 / 页签：静态骨架
     # ------------------------------------------------------------------
     def _statistics_instance_name(self) -> str:
         """当前统计页对应的实例名。"""
@@ -387,42 +383,6 @@ class StatisticsPageMixin(WebUIMixinBase):
             "</div>"
         )
 
-    def _build_research_placeholder_html(self) -> str:
-        """科研页的结构性占位：不是一句「暂无数据」，而是划好边界的槽位。"""
-        slots = "".join(
-            '<div class="st-ph-slot">'
-            f'<div class="st-ph-slot-name">{html_escape(t(name_key))}</div>'
-            f'<div class="st-ph-slot-desc">{html_escape(t(desc_key))}</div>'
-            f'<span class="st-ph-slot-state">'
-            f'{html_escape(t("Gui.Stat.ResearchSlotPending"))}</span>'
-            "</div>"
-            for name_key, desc_key in _RESEARCH_SLOTS
-        )
-        icon = (
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-            '<path d="M9 3h6M10 3v5.5L4.5 18A2 2 0 006.2 21h11.6a2 2 0 001.7-3'
-            'L14 8.5V3"/></svg>'
-        )
-        return (
-            f'<div id="{_RESEARCH_SLOT_ID}">'
-            '<div class="st-ph">'
-            f'<div class="st-ph-icon">{icon}</div>'
-            '<div class="st-ph-title">'
-            f"{html_escape(t('Gui.Stat.ResearchTitle'))}"
-            f'<span class="st-ph-badge">'
-            f'{html_escape(t("Gui.Stat.TabResearchBadge"))}</span>'
-            "</div>"
-            f'<div class="st-ph-desc">{html_escape(t("Gui.Stat.ResearchDesc"))}</div>'
-            f'<div class="st-ph-slots">{slots}</div>'
-            "</div>"
-            '<div class="st-empty" style="margin-top:14px">'
-            f"<b>{html_escape(t('Gui.Stat.ResearchEmptyTitle'))}</b><br>"
-            f"{html_escape(t('Gui.Stat.ResearchEmptyDesc'))}"
-            "</div>"
-            "</div>"
-        )
-
     # ------------------------------------------------------------------
     # 分页归位
     # ------------------------------------------------------------------
@@ -433,7 +393,6 @@ class StatisticsPageMixin(WebUIMixinBase):
             (function () {
                 var PANEL_ORDER = panelOrder;
                 var PANEL_SCOPES = panelScopes;
-                var RESEARCH_SLOT = researchSlotId;
                 var DEFAULT_PANEL = defaultPanel;
                 var STORAGE_KEY = "__alasStatPanel";
 
@@ -469,11 +428,6 @@ class StatisticsPageMixin(WebUIMixinBase):
                         );
                         if (el && el.parentNode !== target) target.appendChild(el);
                     }
-                }
-                var slot = document.getElementById(RESEARCH_SLOT);
-                var researchPanel = document.getElementById("st-panel-research");
-                if (slot && researchPanel && slot.parentNode !== researchPanel) {
-                    researchPanel.appendChild(slot);
                 }
 
                 /* 3) 刷新按钮搬进页头右侧 */
@@ -590,7 +544,6 @@ class StatisticsPageMixin(WebUIMixinBase):
             panelScopes={
                 key: list(value) for key, value in _STAT_PANEL_SCOPES.items()
             },
-            researchSlotId=_RESEARCH_SLOT_ID,
             defaultPanel=_DEFAULT_PANEL,
         )
 
@@ -604,6 +557,7 @@ class StatisticsPageMixin(WebUIMixinBase):
         self._render_resource_delta()
         self._render_ship_exp()
         self._render_commission_income()
+        self._render_research_stats()
         self._ft_render_tech_panel(force=force)
         self._ft_render_mind_panel(force=force)
 
