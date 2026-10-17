@@ -594,7 +594,17 @@ class FleetTechnologyMixin(WebUIMixinBase):
             # 配置损坏、事务锁超时或文件被占用：回显给用户，不中断页面与弹窗。
             return str(exc)
         self._ft_load(force=True)
+        self._ft_note_own_write()
         return None
+
+    def _ft_note_own_write(self):
+        """本会话自己写入后作废对账基线，避免外部写入轮询为这次写入再重绘。
+
+        保存路径已经就地重绘了受影响的区块；若不作废基线，5 秒后的轮询
+        会把整个面板再重绘一次——清单滚动位置、正在编辑的输入都会被打断。
+        下一次轮询重建基线（不重绘），后续外部写入照常触发刷新。
+        """
+        self._ft_refresh_baseline = None
 
     def _ft_collect_change(self, gid, row):
         """只提交与当前显示值不同的字段，保持「仅显式字段」语义。"""
@@ -696,6 +706,15 @@ class FleetTechnologyMixin(WebUIMixinBase):
     def _ft_after_save(self):
         """写入成功后：提示 + 刷新汇总与表格。"""
         toast(t('Gui.FleetTechnology.Saved'), color='success')
+        self._ft_render_record_views()
+
+    def _ft_render_record_views(self):
+        """科技记录相关区块的统一重绘：汇总 / 汇总表 / 总属性加成。
+
+        记录被写入后的每条路径（人工校正、恢复自动记录、阵营科技等级、
+        同步心智扫描）都必须把这三块一起刷新——只刷表格会让汇总数字留在
+        旧值上（2026-10-17 心智页同类漏刷已实锤）。
+        """
         self._ft_render_summary()
         self._ft_render_table()
         self._ft_render_bonuses()
@@ -709,9 +728,7 @@ class FleetTechnologyMixin(WebUIMixinBase):
             toast(error, color='error')
             return
         toast(t('Gui.FleetTechnology.Saved'), color='success')
-        self._ft_render_summary()
-        self._ft_render_table()
-        self._ft_render_bonuses()
+        self._ft_render_record_views()
 
     # ---------- 扫描与同步 ----------
 
@@ -777,6 +794,8 @@ class FleetTechnologyMixin(WebUIMixinBase):
             toast(f'{t("Gui.FleetTechnology.SyncFailed")}：{exc}', color='error')
             return
         self._ft_load(force=True)
-        self._ft_render_summary()
-        self._ft_render_table()
+        # 同步同样是记录写入：三块视图一起刷（原来漏了总属性加成），并把
+        # 本轮写入记为自己的写入——5 秒轮询不再为它整块重绘面板。
+        self._ft_render_record_views()
+        self._ft_note_own_write()
         toast(t('Gui.FleetTechnology.SyncDone'), color='success')

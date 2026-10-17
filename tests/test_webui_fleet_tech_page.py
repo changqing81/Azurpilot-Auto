@@ -206,6 +206,33 @@ class FleetTechPageTest(unittest.TestCase):
         self.harness._ft_on_filter('bogus|x')
         self.assertEqual(self.harness._ft_filters, {})
 
+    def test_sync_repaints_record_views_and_cancels_poll(self):
+        """同步心智扫描：汇总 / 表格 / 总属性加成三块一起刷（原来漏了加成），
+        并把这次写入记为自己的写入（免 5 秒后整块重绘打断表格滚动）。"""
+        h = self.harness
+        h.page = 'Stat'
+        data = {'FleetTechScan': {'FleetTech': {'Record': {}}},
+                'MindCalculatorScan': {'MindCalculator': {
+                    'Result': {'ships': [{'name': '杜威', 'level': 120}]}}}}
+        with patch(f'{MODULE}.config_transaction'), \
+                patch(f'{MODULE}.load_config') as load_config, \
+                patch(f'{MODULE}.State') as state, \
+                patch(f'{MODULE}.deep_set') as deep_set, \
+                patch.object(h, '_ft_load'), \
+                patch.object(h, '_ft_note_own_write') as note, \
+                patch.object(h, '_ft_render_summary') as summary, \
+                patch.object(h, '_ft_render_table') as table, \
+                patch.object(h, '_ft_render_bonuses') as bonuses, \
+                patch(f'{MODULE}.toast'):
+            load_config.return_value.read_file.return_value = data
+            h._ft_on_sync('sync')
+        state.config_updater.write_file.assert_called_once()
+        deep_set.assert_called_once()
+        summary.assert_called_once()
+        table.assert_called_once()
+        bonuses.assert_called_once()
+        note.assert_called_once()
+
     def test_filter_resets_page_and_repaints_group_and_table(self):
         h = self.harness
         h._ft_page = 3
@@ -597,6 +624,27 @@ class FleetTechPageTest(unittest.TestCase):
             load_config.return_value.read_file.return_value = changed
             h._ft_data_refresh()
             render.assert_not_called()
+
+    def test_own_write_cancels_poll_render_until_next_external_change(self):
+        """本会话自己保存后不触发轮询重绘；之后的外部写入照常触发。"""
+        h = self.harness
+        h._ft_state()
+        h.page = 'Stat'
+        base = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125}}}},
+                'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        changed = {'FleetTechScan': {'FleetTech': {'Record': {'observed': {'10102': 125,
+                                                                          '10103': 95}}}},
+                   'MindCalculatorScan': {'MindCalculator': {'Result': {'ships': []}}}}
+        with patch(f'{MODULE}.load_config') as load_config, \
+                patch.object(h, '_ft_refresh_render') as render:
+            load_config.return_value.read_file.return_value = base
+            h._ft_data_refresh()
+            h._ft_note_own_write()          # 保存路径已就地重绘，基线作废
+            h._ft_data_refresh()            # 轮询只重建基线，不重绘
+            render.assert_not_called()
+            load_config.return_value.read_file.return_value = changed
+            h._ft_data_refresh()            # 之后的外部写入照常触发
+            render.assert_called_once()
 
 
 class FleetTechRenderSmokeTest(unittest.TestCase):

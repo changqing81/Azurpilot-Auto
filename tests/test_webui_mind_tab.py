@@ -143,8 +143,8 @@ class MindTabTest(unittest.TestCase):
                     'Result': {'ships': _ships(), 'updated_at': '2026-10-16T00:00:00'}}}}
             self.harness._ft_render_mind_tab()
         names = [call.args[0] for call in put_scope.call_args_list if call.args]
-        for required in ('ft_mind_toolbar', 'ft_mind_filters', 'ft_mind_list',
-                         'ft_mind_scan_button'):
+        for required in ('ft_mind_overview', 'ft_mind_toolbar', 'ft_mind_filters',
+                         'ft_mind_list', 'ft_mind_scan_button'):
             self.assertIn(required, names)
         # 添加舰船已并入筛选行（不再有独立的 ft_mind_add 行）
         self.assertNotIn('ft_mind_add', names)
@@ -217,6 +217,49 @@ class MindTabTest(unittest.TestCase):
         put_error.assert_called_once()
         save.assert_not_called()
 
+    def test_save_refreshes_overview_beside_list(self):
+        """编辑保存后：统计卡/汇总表与清单一起重绘。
+
+        2026-10-17 用户现场：把待核对改成计入后，上面的心智单元与四个统计
+        数字不动——保存路径原来只重绘 ft_mind_list，统计卡/汇总表留在上一次
+        渲染的静态 HTML 里。
+        """
+        harness = _MindHarness()
+        harness._mc_state()
+        harness._mc_load()
+        scope = _FakeOutput('popup')
+        values = {'mc_level_0': '120', 'mc_status_0': 'included'}
+        with patch(f'{MODULE}.pin', _FakePin(values)), \
+                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.toast'), \
+                patch(f'{MODULE}.close_popup') as close_popup, \
+                patch.object(harness, '_mc_save', return_value=None) as save, \
+                patch.object(harness, '_mc_render_overview') as overview, \
+                patch.object(harness, '_mc_render_list') as render_list:
+            harness._mc_popup_save(0, scope)
+        save.assert_called_once()
+        close_popup.assert_called_once()
+        overview.assert_called_once()
+        render_list.assert_called_once()
+
+    def test_save_advances_list_updated_at_and_cancels_poll(self):
+        """保存后说明条时间前进，并作废外部写入基线（轮询不再整块重绘）。"""
+        harness = _MindHarness()
+        harness._mc_state()
+        harness._mc_load()
+        harness._mc_updated_at = '2020-01-01T00:00:00'
+        harness._ft_refresh_baseline = ('x', 'y')
+        with patch(f'{MODULE}.config_transaction'), \
+                patch(f'{MODULE}.load_config') as load_config, \
+                patch(f'{MODULE}.deep_get', return_value={}), \
+                patch(f'{MODULE}.deep_set'), \
+                patch(f'{MODULE}.State'):
+            load_config.return_value.read_file.return_value = {}
+            harness._mc_revision = mind_calc.revision([])
+            self.assertIsNone(harness._mc_save(_ships()))
+        self.assertNotEqual(harness._mc_updated_at, '2020-01-01T00:00:00')
+        self.assertIsNone(harness._ft_refresh_baseline)
+
 
 class _FakePin:
     def __init__(self, values=None):
@@ -238,6 +281,10 @@ class _MindHarness(MindCalculatorTabMixin):
     def __init__(self):
         self.alas_name = 'alas'
         self.render_log = []
+
+    def _ft_note_own_write(self):
+        """本会话自己写入后作废外部写入基线（真机由 FleetTechnologyMixin 提供）。"""
+        self._ft_refresh_baseline = None
 
     @property
     def task_handler(self):
@@ -353,13 +400,14 @@ class MindIoCallbackTest(unittest.TestCase):
                 patch(f'{MODULE}.actions', _bound_input('action', pywebio_input.actions)), \
                 patch(f'{MODULE}.toast'), \
                 patch.object(h, '_mc_save', return_value=None) as save, \
-                patch.object(h, '_mc_render_list'):
+                patch.object(h, '_mc_render_after_change') as refresh:
             h._mc_import_list()
         saved = save.call_args[0][0]
         names = [ship['name'] for ship in saved]
         self.assertIn('杜威', names)
         self.assertIn('Z23', names)
         self.assertEqual(len(saved), len(_ships()) + 1)
+        refresh.assert_called_once()
 
     def test_import_list_cancel_and_failure(self):
         h = self.harness

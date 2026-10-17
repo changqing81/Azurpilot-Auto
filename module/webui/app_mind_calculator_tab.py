@@ -93,6 +93,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
 
     def _mc_save(self, ships):
         """事务化保存清单；成功返回 None，失败返回错误文案。"""
+        updated_at = datetime.now().isoformat(timespec='seconds')
         try:
             with config_transaction(filepath_config(self.alas_name)):
                 config = load_config(self.alas_name)
@@ -101,14 +102,20 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                 current = stored.get('ships', []) if isinstance(stored, dict) else []
                 if mind_calc.revision(current) != self._mc_revision:
                     return t('Gui.MindCalculator.SaveConflict')
-                deep_set(data, RESULT_PATH,
-                         dict(ships=ships, updated_at=datetime.now().isoformat(timespec='seconds')))
+                deep_set(data, RESULT_PATH, dict(ships=ships, updated_at=updated_at))
                 State.config_updater.write_file(self.alas_name, data, get_config_mod(self.alas_name))
         except Exception as exc:  # 事务锁超时 / 配置读写失败等，均以提示呈现。
             return str(exc)
         self._mc_ships = ships
         self._mc_revision = mind_calc.revision(ships)
         self._mc_result = mind_calc.calculate(ships)
+        # 说明条的「清单更新时间」取自这里：保存后不复读文件也要跟着走，
+        # 否则就地重绘会显示旧时间（轮询被下面作废后不会再补读）。
+        self._mc_updated_at = updated_at
+        # 本次写入由当前会话就地重绘，作废外部写入基线：5 秒轮询不再为它
+        # 整块重绘面板（否则清单滚动会在保存后被打断）。
+        if hasattr(self, '_ft_note_own_write'):
+            self._ft_note_own_write()
         return None
 
     # ---------- 页面 ----------
@@ -118,10 +125,11 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         self._mc_state()
         self._mc_load()
         with use_scope('ft_mind', clear=True):
-            put_html(mind_view.intro_html(self._mc_result, self._mc_updated_at))
+            # 说明条 / 四张统计卡 / 稀有度汇总表单独一块 scope：编辑、增删、
+            # 导入只改这组数字与清单，保存后两处一起重绘（见
+            # _mc_render_after_change），不必等 5 秒的外部写入轮询。
+            put_scope('ft_mind_overview')
             put_scope('ft_mind_toolbar')
-            put_html(mind_view.stats_html(self._mc_result))
-            put_html(mind_view.summary_table_html(self._mc_result))
             put_scope('ft_mind_filters')
             put_scope('ft_mind_list')
             if not getattr(self, '_mc_callbacks_bound', False):
@@ -131,9 +139,27 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                                   onchange=self._mc_filter_callback(kind),
                                   clear=True, serial_mode=True)
                 self._mc_callbacks_bound = True
+            self._mc_render_overview()
             self._mc_render_toolbar()
             self._mc_render_filters()
             self._mc_render_list()
+
+    def _mc_render_overview(self):
+        """说明条 + 四张统计卡 + 稀有度汇总表（清单变化会直接改这组数字）。"""
+        with use_scope('ft_mind_overview', clear=True):
+            put_html(mind_view.intro_html(self._mc_result, self._mc_updated_at))
+            put_html(mind_view.stats_html(self._mc_result))
+            put_html(mind_view.summary_table_html(self._mc_result))
+
+    def _mc_render_after_change(self):
+        """清单被改动后的重绘：汇总数字与清单一起刷新。
+
+        2026-10-17 现场：点编辑把待核对改成计入后，上面的心智单元与四个
+        统计数字不动——保存路径原来只重绘了 ft_mind_list，统计卡/汇总表
+        留在上一次渲染的静态 HTML 里（科技列表的编辑保存是两者都重绘的）。
+        """
+        self._mc_render_overview()
+        self._mc_render_list()
 
     def _mc_render_toolbar(self):
         """扫描范围与扫描船坞开关（驱动 MindCalculatorScan 产出清单）。"""
@@ -242,7 +268,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             toast(error, color='error')
             return False
         toast(t('Gui.MindCalculator.Saved'), color='success')
-        self._mc_render_list()
+        self._mc_render_after_change()
         return True
 
     @render_locked
@@ -353,7 +379,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             return
         close_popup()
         toast(t('Gui.MindCalculator.Saved'), color='success')
-        self._mc_render_list()
+        self._mc_render_after_change()
 
     # ---------- 添加舰船 ----------
 
@@ -394,7 +420,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                     return
                 close_popup()
                 toast(t('Gui.MindCalculator.Saved'), color='success')
-                self._mc_render_list()
+                self._mc_render_after_change()
 
             put_input(name='mc_add_name', label=t('Gui.MindCalculator.Name'), scope=scope)
             put_input(name='mc_add_level', type='number',
@@ -472,7 +498,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             return
         toast(t('Gui.MindCalculator.ImportComplete', count=len(ships), total=len(merged)),
               color='success')
-        self._mc_render_list()
+        self._mc_render_after_change()
 
     @render_locked
     def _mc_import_shots(self):
@@ -506,7 +532,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             return
         toast(t('Gui.MindCalculator.ImportComplete', count=len(added), total=len(merged)),
               color='success')
-        self._mc_render_list()
+        self._mc_render_after_change()
 
     def _mc_export(self, fmt):
         """导出清单（含计算列）并触发浏览器下载。"""
