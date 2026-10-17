@@ -7513,8 +7513,24 @@
       "ResearchSlotCost": "図面と物資の収支",
       "ResearchSlotCostDesc": "データ契約：図面 / 資源 / 純変化",
       "ResearchSlotPending": "未接続",
-      "ResearchEmptyTitle": "研究統計はまだ有効化されていません",
-      "ResearchEmptyDesc": "このタブは今後の開発用に予約されています。有効化すると3つのスロットが自動で埋まり、他のタブには影響しません。"
+      "ResearchEmptyTitle": "研究ドロップの記録がまだありません",
+      "ResearchEmptyDesc": "「設定」→「スマートポートエリア」→「ドロップレコード」→「科研スクリーンショット」を「保存」にすると、研究報酬の受取時に自動で記録されます。",
+      "ResearchScopeSeries": "期別ビュー",
+      "ResearchScopeConsumable": "認知チップ / 物資",
+      "ResearchPeriodMonth": "今月",
+      "ResearchPeriodDays30": "過去 30 日",
+      "ResearchPeriodDays90": "過去 90 日",
+      "ResearchPeriodAll": "全期間",
+      "ResearchSeriesOption": "第{series}期",
+      "ResearchMetricTotal": "総ドロップ",
+      "ResearchMetricToday": "今日",
+      "ResearchMetricMonth": "今月",
+      "ResearchMetricRecords": "記録回数",
+      "ResearchHeaderItem": "アイテム",
+      "ResearchHeaderAmount": "合計",
+      "ResearchHeaderCount": "回数",
+      "ResearchHeaderAvg": "平均",
+      "ResearchNote": "研究報酬の受取時に撮影したスクリーンショットからドロップを解析しています。"
     },
     "Tactical": {
       "SkillAutoSwitch": "スキル自動切替"

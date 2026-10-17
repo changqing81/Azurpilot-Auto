@@ -7513,8 +7513,24 @@
       "ResearchSlotCost": "Blueprints & Resources",
       "ResearchSlotCostDesc": "Data contract: blueprints / resources / net change",
       "ResearchSlotPending": "Pending",
-      "ResearchEmptyTitle": "Research statistics is not enabled yet",
-      "ResearchEmptyDesc": "This tab is reserved for future development. Once enabled, the three slots are populated automatically and the other tabs are unaffected."
+      "ResearchEmptyTitle": "No research drop records yet",
+      "ResearchEmptyDesc": "Set Config → Smart Port Area → Drop Record → Research Screenshot to \"Save\"; every research reward claim will then be recorded automatically.",
+      "ResearchScopeSeries": "Series view",
+      "ResearchScopeConsumable": "Chips / Coins",
+      "ResearchPeriodMonth": "This month",
+      "ResearchPeriodDays30": "Last 30 days",
+      "ResearchPeriodDays90": "Last 90 days",
+      "ResearchPeriodAll": "All time",
+      "ResearchSeriesOption": "Series {series}",
+      "ResearchMetricTotal": "Total drops",
+      "ResearchMetricToday": "Today",
+      "ResearchMetricMonth": "This month",
+      "ResearchMetricRecords": "Records",
+      "ResearchHeaderItem": "Item",
+      "ResearchHeaderAmount": "Total",
+      "ResearchHeaderCount": "Times",
+      "ResearchHeaderAvg": "Avg",
+      "ResearchNote": "Drops are parsed from screenshots taken when claiming research rewards."
     },
     "Tactical": {
       "SkillAutoSwitch": "Skill Auto Switch"

@@ -7513,8 +7513,24 @@
       "ResearchSlotCost": "圖紙與物資收支",
       "ResearchSlotCostDesc": "資料契約：圖紙 / 資源 / 淨變化",
       "ResearchSlotPending": "待接入",
-      "ResearchEmptyTitle": "科研統計尚未啟用",
-      "ResearchEmptyDesc": "該頁籤為後續開發預留。啟用後三個槽位會自動填充，其餘頁籤不受影響。"
+      "ResearchEmptyTitle": "尚無科研掉落記錄",
+      "ResearchEmptyDesc": "在「設定」→「智慧港區」→「掉落記錄」→「科研截圖」選擇「儲存」後，每次科研領獎都會自動記錄掉落。",
+      "ResearchScopeSeries": "期數檢視",
+      "ResearchScopeConsumable": "心智 / 物資",
+      "ResearchPeriodMonth": "本月",
+      "ResearchPeriodDays30": "近 30 天",
+      "ResearchPeriodDays90": "近 90 天",
+      "ResearchPeriodAll": "全部",
+      "ResearchSeriesOption": "第{series}期",
+      "ResearchMetricTotal": "總掉落",
+      "ResearchMetricToday": "今日",
+      "ResearchMetricMonth": "本月",
+      "ResearchMetricRecords": "記錄次數",
+      "ResearchHeaderItem": "物品",
+      "ResearchHeaderAmount": "總數量",
+      "ResearchHeaderCount": "次數",
+      "ResearchHeaderAvg": "平均每次",
+      "ResearchNote": "掉落來自科研領獎時的截圖解析。"
     },
     "Tactical": {
       "SkillAutoSwitch": "技能自動切換"

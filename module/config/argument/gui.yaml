@@ -888,6 +888,22 @@ Stat:
   ResearchSlotPending:
   ResearchEmptyTitle:
   ResearchEmptyDesc:
+  ResearchScopeSeries:
+  ResearchScopeConsumable:
+  ResearchPeriodMonth:
+  ResearchPeriodDays30:
+  ResearchPeriodDays90:
+  ResearchPeriodAll:
+  ResearchSeriesOption:
+  ResearchMetricTotal:
+  ResearchMetricToday:
+  ResearchMetricMonth:
+  ResearchMetricRecords:
+  ResearchHeaderItem:
+  ResearchHeaderAmount:
+  ResearchHeaderCount:
+  ResearchHeaderAvg:
+  ResearchNote:
 
 Tactical:
   SkillAutoSwitch:
