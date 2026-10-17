@@ -223,19 +223,27 @@ class MindTabTest(unittest.TestCase):
         2026-10-17 用户现场：把待核对改成计入后，上面的心智单元与四个统计
         数字不动——保存路径原来只重绘 ft_mind_list，统计卡/汇总表留在上一次
         渲染的静态 HTML 里。
+
+        清单数据必须来自打桩配置：真 ``load_config`` 会读开发机的
+        ``config/alas.json``，CI 上该文件不存在、清单为空会让 ``ships[index]``
+        越界（2026-10-17 CI 现场）。
         """
         harness = _MindHarness()
         harness._mc_state()
-        harness._mc_load()
         scope = _FakeOutput('popup')
         values = {'mc_level_0': '120', 'mc_status_0': 'included'}
-        with patch(f'{MODULE}.pin', _FakePin(values)), \
+        with patch(f'{MODULE}.load_config') as load_config, \
+                patch(f'{MODULE}.pin', _FakePin(values)), \
                 patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
                 patch(f'{MODULE}.toast'), \
                 patch(f'{MODULE}.close_popup') as close_popup, \
                 patch.object(harness, '_mc_save', return_value=None) as save, \
                 patch.object(harness, '_mc_render_overview') as overview, \
                 patch.object(harness, '_mc_render_list') as render_list:
+            load_config.return_value.read_file.return_value = {
+                'MindCalculatorScan': {'MindCalculator': {
+                    'Result': {'ships': _ships(), 'updated_at': '2026-10-17T00:00:00'}}}}
+            harness._mc_load()
             harness._mc_popup_save(0, scope)
         save.assert_called_once()
         close_popup.assert_called_once()
@@ -246,7 +254,6 @@ class MindTabTest(unittest.TestCase):
         """保存后说明条时间前进，并作废外部写入基线（轮询不再整块重绘）。"""
         harness = _MindHarness()
         harness._mc_state()
-        harness._mc_load()
         harness._mc_updated_at = '2020-01-01T00:00:00'
         harness._ft_refresh_baseline = ('x', 'y')
         with patch(f'{MODULE}.config_transaction'), \
@@ -254,7 +261,12 @@ class MindTabTest(unittest.TestCase):
                 patch(f'{MODULE}.deep_get', return_value={}), \
                 patch(f'{MODULE}.deep_set'), \
                 patch(f'{MODULE}.State'):
-            load_config.return_value.read_file.return_value = {}
+            load_config.return_value.read_file.return_value = {
+                'MindCalculatorScan': {'MindCalculator': {
+                    'Result': {'ships': _ships(), 'updated_at': ''}}}}
+            harness._mc_load()
+            # deep_get 被打桩返回 {}：对账用的「盘上清单」就是空的，revision 对齐空清单，
+            # 避免 SaveConflict 抢在保存之前返回（本用例只关心保存后的时间与基线）。
             harness._mc_revision = mind_calc.revision([])
             self.assertIsNone(harness._mc_save(_ships()))
         self.assertNotEqual(harness._mc_updated_at, '2020-01-01T00:00:00')
