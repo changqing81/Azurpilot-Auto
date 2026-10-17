@@ -30,6 +30,19 @@ def merge_get_items(item_list_1, item_list_2):
 
 
 class GetItemsStatistics:
+    # 物品网格。默认共用模块级的 ITEM_GROUP（战斗掉落那份）；科研统计等
+    # 需要另一套模板的场景传入自己的 ItemGrid，避免两套模板互相污染。
+    grid = None
+    amount_area = (60, 71, 91, 92)
+
+    def _target_grid(self):
+        """返回本次识别使用的物品网格。
+
+        Returns:
+            ItemGrid: 实例自带的网格，未设置时为模块级共享的 ITEM_GROUP。
+        """
+        return self.grid if self.grid is not None else ITEM_GROUP
+
     def appear_on(self, image):
         return GET_ITEMS_1.match(image, offset=(20, 20)) or GET_ITEMS_2.match(image, offset=(20, 20))
 
@@ -50,18 +63,19 @@ class GetItemsStatistics:
         Args:
             image (np.ndarray):
         """
-        ITEM_GROUP.item_class = Item
-        ITEM_GROUP.similarity = 0.92
-        ITEM_GROUP.amount_area = (60, 71, 91, 92)
-        ITEM_GROUP.grids = None
+        grid = self._target_grid()
+        grid.item_class = Item
+        grid.similarity = 0.92
+        grid.amount_area = self.amount_area
+        grid.grids = None
         if INFO_BAR_1.appear_on(image):
             raise ImageError('Stat image has info_bar')
         elif GET_ITEMS_1.match(image, offset=(5, 0)):
-            ITEM_GROUP.grids = ITEM_GRIDS_1_ODD if self._stats_get_items_is_odd(image) else ITEM_GRIDS_1_EVEN
+            grid.grids = ITEM_GRIDS_1_ODD if self._stats_get_items_is_odd(image) else ITEM_GRIDS_1_EVEN
         elif GET_ITEMS_2.match(image, offset=(5, 0)):
-            ITEM_GROUP.grids = ITEM_GRIDS_2
+            grid.grids = ITEM_GRIDS_2
         elif GET_ITEMS_3.match(image, offset=(5, 0)):
-            ITEM_GROUP.grids = ITEM_GRIDS_3
+            grid.grids = ITEM_GRIDS_3
         else:
             raise ImageError('Stat image is not a get_items image')
 
@@ -74,19 +88,20 @@ class GetItemsStatistics:
             list[Item]:
         """
         self._stats_get_items_load(image)
+        grid = self._target_grid()
 
-        if ITEM_GROUP.grids is None:
+        if grid.grids is None:
             return []
         else:
-            ITEM_GROUP.predict(image, **kwargs)
-            return ITEM_GROUP.items
+            grid.predict(image, **kwargs)
+            return grid.items
 
     def load_template_folder(self, folder):
         """
         Args:
             folder (str): Template folder.
         """
-        ITEM_GROUP.load_template_folder(folder)
+        self._target_grid().load_template_folder(folder)
 
     def extract_template(self, image, folder):
         """
@@ -95,7 +110,8 @@ class GetItemsStatistics:
             folder: Folder to save new templates.
         """
         self._stats_get_items_load(image)
-        if ITEM_GROUP.grids is not None:
-            new = ITEM_GROUP.extract_template(image)
+        grid = self._target_grid()
+        if grid.grids is not None:
+            new = grid.extract_template(image)
             for name, im in new.items():
                 save_image(im, os.path.join(folder, f'{name}.png'))

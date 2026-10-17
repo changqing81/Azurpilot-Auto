@@ -204,6 +204,8 @@ class Cl1Database:
             "siren_research_device_entries": [],
             # 委托收益数据
             "commission_income_entries": [],
+            # 科研掉落数据（按月份归档，一条 = 一次领奖）
+            "research_drop_entries": [],
             # 钻石委托历史记录（按月份归档）
             "gem_commission_entries": [],
             # 当前运行中的钻石委托（不按月归档，持久化用）
@@ -1392,6 +1394,137 @@ class Cl1Database:
             for _row_instance, month in rows
             if len(month) == 7 and month[4] == "-"
         ]
+
+    def add_research_drop(
+        self,
+        instance: str,
+        project: str,
+        series: int,
+        items: Dict[str, int],
+        *,
+        imgid: str = '',
+        completed_at: Optional[datetime] = None,
+        ts: Optional[datetime] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """记录一次科研领奖的掉落。
+
+        项目代号与期数来自队列页识别，可能为空（识别失败时只留掉落物，
+        仍然有统计价值）。imgid 用于防止同一条掉落记录被重复提交。
+
+        Args:
+            instance: 实例名称
+            project: 项目代号，如 'D-737-MI'；未识别时传空串
+            series: 科研期数；未识别时传 0
+            items: {物品模板名: 数量}
+            imgid: 掉落记录文件名，用于去重
+            completed_at: 领奖时间，缺省取记录时间
+            ts: 记录时间，同时决定写进哪个月份分区；导入历史截图时传截图时间，
+                否则「今日/本月」会落在导入那天
+
+        Returns:
+            写入的条目；重复或空掉落返回 None
+        """
+        items = {k: self._coerce_int(v) for k, v in (items or {}).items() if v > 0}
+        if not items:
+            return None
+
+        stamp = ts or datetime.now()
+        month = f"{stamp.year:04d}-{stamp.month:02d}"
+        entry = {
+            "ts": stamp.isoformat(),
+            "completed_at": (completed_at or stamp).isoformat(),
+            "imgid": str(imgid or ''),
+            "project": str(project or ''),
+            "series": self._coerce_int(series or 0),
+            # 未识别的物品在解析阶段已被丢弃，这里只留模板名可查的掉落
+            "items": items,
+        }
+        data = self.get_stats(instance, month)
+        entries = data.get("research_drop_entries", [])
+        if entry["imgid"] and any(
+            existing.get("imgid") == entry["imgid"] for existing in entries[-50:]
+        ):
+            return None
+        entries.append(entry)
+        # 与委托收益保持一致：按月保留最近 5000 条
+        data["research_drop_entries"] = entries[-5000:]
+        self.save_stats(instance, month, data)
+        return entry
+
+    def update_research_drop_items(
+        self, instance: str, imgid: str, items: Dict[str, int]
+    ) -> Optional[Dict[str, Any]]:
+        """按 imgid 就地改写一条科研掉落记录的掉落物。
+
+        只服务模板改名后的数据订正：库里存的是模板文件名，显示时再拿名称表翻译，
+        模板一改名，老记录就会照新表张冠李戴（实测把「四联装610mm鱼雷」显示成八期的
+        彩装主炮）。改名映射救不了这种错——旧名一条就同时盖住了两件不同的装备，
+        所以只能拿原截图重解析后覆盖（见 dev_tools/research_drop_repair.py）。
+
+        只覆盖 items，不动期数与项目代号：期数来自卡片角标识别，和模板名无关，
+        重解析若读不出角标会得到 0，覆盖它反而会毁掉已有数据。
+
+        Args:
+            instance: 实例名称
+            imgid: 掉落记录文件名；一条掉落在库里按它唯一
+            items: 新的 {物品模板名: 数量}
+
+        Returns:
+            更新后的条目；未找到或参数为空时返回 None
+        """
+        items = {k: self._coerce_int(v) for k, v in (items or {}).items() if v > 0}
+        if not imgid or not items:
+            return None
+
+        months = [month for _, month in self._list_stats_rows(instance=instance)]
+        for month in months:
+            data = self.get_stats(instance, month)
+            entries = data.get("research_drop_entries") or []
+            for entry in entries:
+                if entry.get("imgid") != imgid:
+                    continue
+                entry["items"] = items
+                self.save_stats(instance, month, data)
+                return dict(entry)
+        return None
+
+    def get_research_drop(
+        self, instance: str, year: int = None, month: int = None
+    ) -> List[Dict[str, Any]]:
+        """获取指定月份的科研掉落条目列表
+
+        Args:
+            instance: 实例名称
+            year: 年份，默认当前年
+            month: 月份，默认当前月
+
+        Returns:
+            条目列表，每条含 ts/completed_at/imgid/project/series/items
+        """
+        if year is None or month is None:
+            now = datetime.now()
+            year = year or now.year
+            month = month or now.month
+
+        month_key = f"{year:04d}-{month:02d}"
+        data = self.get_stats(instance, month_key)
+        return data.get("research_drop_entries", [])
+
+    def async_add_research_drop(
+        self, instance: str, project: str, series: int, items: Dict[str, int], imgid: str = ''
+    ):
+        """异步写入科研掉落，避免解析结果落库时阻塞主循环。"""
+        from module.base.async_executor import async_executor
+
+        return async_executor.submit(
+            self.add_research_drop, instance, project, series, items, imgid=imgid
+        )
+
+    def async_get_research_drop(self, instance: str, year: int = None, month: int = None):
+        """异步读取科研掉落条目。"""
+        from module.base.async_executor import async_executor
+
+        return async_executor.submit(self.get_research_drop, instance, year, month)
 
     def get_commission_reward_stats(self, instance: str):
         """
