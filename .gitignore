@@ -320,7 +320,6 @@ cursor-helper/**/review/reports/files/
 # - cursor-helper/**/fix/fix_report.md （修复报告）
 # - cursor-helper/**/organize-rules/** （规则整理报告）
 
-AGENTS.md
 RTK.md
 
 # 运行时产物与临时目录
@@ -357,3 +356,15 @@ nul
 # 本地专属文档（约定不入库、不入推送）
 .agent/COMMIT-PROTOCOL.md
 .agent/GUI-PERFORMANCE.md
+
+# 跟踪状态与忽略规则对齐：以下文件/目录已在库中，重新放行以免 check-ignore 误报
+!.claude/
+.claude/*
+!.claude/settings.json
+!.claude/settings.local.json
+!.cursor/
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/config-system.mdc
+!.cursor/rules/develop-rules.mdc
