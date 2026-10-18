@@ -192,21 +192,12 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         """
         移除不存在的元素（如策略、回合等）。
         """
-        # self.handle_strategy(index=1 if not self.fleets_reversed() else 2)
         self.update()
-        # if self.handle_fleet_reverse():
-        #     self.handle_strategy(index=1)
         self.hp_reset()
         self.hp_get()
         self.lv_reset()
         self.lv_get()
         self.ensure_edge_insight(preset=self.map.in_map_swipe_preset_data, swipe_limit=(6, 5))
-        # self.full_scan(must_scan=self.map.camera_data_spawn_point)
-        # self.find_current_fleet()
-        # self.find_path_initial()
-        # self.map.show_cost()
-        # self.round_reset()
-        # self.round_battle()
 
     def find_current_fleet(self):
         self.fleet_1 = self.camera

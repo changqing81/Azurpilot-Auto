@@ -54,13 +54,6 @@ class AzurLaneUncensored(LoginHandler):
         os.chdir(folder)
         # Monkey patch `print()` build-in to show logs.
         self.create_level1_uncensored()
-        # manager.git_repository_init(
-        #     repo=repo,
-        #     source='origin',
-        #     branch='master',
-        #     proxy=manager.config['GitProxy'],
-        #     keep_changes=False
-        # )
 
         logger.hr('推送未审查文件', level=1)
         logger.info('[守护-无删减] 推送需要几秒钟')

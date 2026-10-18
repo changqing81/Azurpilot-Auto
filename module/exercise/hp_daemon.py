@@ -54,20 +54,6 @@ class HpDaemon(ModuleBase):
         Returns:
             float: HP. 0 to 1.
         """
-        # bar = crop(image, area)
-        # length = bar.shape[1]
-        # bar = np.swapaxes(bar, 0, 1)
-        # bar = bar[::-1, :, :] if reverse else bar
-        # prev_index = 0
-        # for index, color in enumerate(bar):
-        #     if index < starter:
-        #         continue
-        #     mask = color_similar_1d(color, prev_color, threshold=30)
-        #     if np.any(mask):
-        #         prev_color = color[mask].mean(axis=0)
-        #         prev_index = index
-        #
-        # return prev_index / length
         return color_bar_percentage(
             image, area, prev_color=prev_color, starter=starter, reverse=reverse, threshold=threshold)
 
