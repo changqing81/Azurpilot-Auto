@@ -220,7 +220,7 @@ class MindTabTest(unittest.TestCase):
     def test_save_refreshes_overview_beside_list(self):
         """编辑保存后：统计卡/汇总表与清单一起重绘。
 
-        2026-10-17 用户现场：把待核对改成计入后，上面的心智单元与四个统计
+        2026-10-17 现场：把待核对改成计入后，上面的心智单元与四个统计
         数字不动——保存路径原来只重绘 ft_mind_list，统计卡/汇总表留在上一次
         渲染的静态 HTML 里。
 
@@ -481,9 +481,9 @@ class MindIoCallbackTest(unittest.TestCase):
     def test_filter_row_labels_level_inputs(self):
         """等级筛选输入框必须带文案，且添加/导入/导出按钮与筛选控件同排。
 
-        现场：2026-10-16 用户截图——搜索行右侧出现两个无标签的空盒子，
+        现场：2026-10-16 实机截图——搜索行右侧出现两个无标签的空盒子，
         因为 mc_min/mc_max 两个 put_input 连 label/placeholder 都没给；
-        同日用户要求「添加舰船」及导入导出按钮组上移进这一行。
+        同日「添加舰船」及导入导出按钮组上移进这一行。
         """
         h = _MindHarness()
         h._mc_state()
@@ -508,7 +508,7 @@ class MindIoCallbackTest(unittest.TestCase):
     def test_edit_popup_reads_computed_status(self):
         """弹窗初值必须来自计算行：原始记录只有 excluded/review，没有 status。
 
-        现场：2026-10-16 17:44 用户点「编辑」→ KeyError('status')（桥修好后
+        现场：2026-10-16 17:44 点击「编辑」→ KeyError('status')（桥修好后
         第一次真正走到弹窗）。同时校验三态映射：待核对/排除/计入。
         """
         h = _MindHarness()

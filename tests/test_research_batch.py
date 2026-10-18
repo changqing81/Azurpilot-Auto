@@ -201,7 +201,7 @@ class TestFillSixth(unittest.TestCase):
     def test_batch_not_ready_still_maintains_sixth(self):
         """队列未全部完成时也维护第 6 个位：收已完成 + 尝试补位。
 
-        回归用户报告：队列 ['finished','running','waiting','waiting','waiting']
+        回归：队列 ['finished','running','waiting','waiting','waiting']
         且未到收获时机时，第 6 个并行位整批闲置 8 小时。
         """
         runner = self._runner()

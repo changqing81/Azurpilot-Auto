@@ -301,7 +301,7 @@ class FleetTechPageTest(unittest.TestCase):
         self.assertIn('ft_bridge_pin', script)
         self.assertIn('__alasFleetTechClick', script)
         # 心智清单行的编辑/删除也在同一页面：漏掉它们按钮点了毫无反应
-        # （2026-10-16 用户截图现场）。
+        # （2026-10-16 实机截图）。
         self.assertIn('data-mc-edit', script)
         self.assertIn('data-mc-del', script)
         self.assertIn('"medit"', script)

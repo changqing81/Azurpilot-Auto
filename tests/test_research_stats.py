@@ -57,7 +57,7 @@ class ResearchStatsScopeTest(unittest.TestCase):
         self.now = datetime.now()
         entries = [
             # 九期：该期金船图 + 金装 + 心智 + 物资，另外混进一件八期的彩装
-            # （金装备各期混着出、科研项目也会「额外赠送」别期的图纸，用户确认过这两个机制）
+            # （金装备各期混着出、科研项目也会「额外赠送」别期的图纸）
             entry({GOLD_BLUEPRINT: 1, GOLD_GEAR: 3, RAINBOW_GEAR: 2, CHIPS: 40, COINS: 120}, 9, self.now),
             # 七期：金装与心智物资——这几类各期混着出，所以也能出现在别期的记录里
             entry({GOLD_GEAR: 5, CHIPS: 30, COINS: 80}, 7, self.now - timedelta(days=2)),
@@ -103,7 +103,7 @@ class ResearchStatsScopeTest(unittest.TestCase):
                 self.assertEqual(RESEARCH_STATS.item_info(keyword).get('series'), 9)
 
     def test_gold_gear_is_no_longer_counted(self):
-        """金装备已下线：任何视图都不再展示它（用户 2026-09-24 撤掉金装视图）。"""
+        """金装备已下线：任何视图都不再展示它（2026-09-24 撤掉金装视图）。"""
         for scope in ('series', 'consumable'):
             with self.subTest(scope=scope):
                 self.assertNotIn(GOLD_GEAR, self.names(scope=scope, series=9))

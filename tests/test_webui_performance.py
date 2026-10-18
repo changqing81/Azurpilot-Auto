@@ -574,7 +574,7 @@ class TestTaskConfigRendering(unittest.TestCase):
 class PageScopeDecoratorTests(unittest.TestCase):
     """页面渲染方法必须把 content scope 的装饰器留在自己身上。
 
-    事故（dev `48a1e5469` 引入，用户实测发现）：把 `_spawn_instance_action` /
+    事故（dev `48a1e5469` 引入，实测发现）：把 `_spawn_instance_action` /
     `_alas_ui_state` 两个 helper 插进了 `@render_locked` +
     `@use_scope("content", clear=True)` 与 `alas_overview` **之间** —— 装饰器挂到
     helper 上、页面函数裸奔：总览内容既不进 content scope 也不清空内容区，
@@ -769,7 +769,7 @@ class PageRestoreTests(unittest.TestCase):
 
 
 class ThemeWallpaperTests(unittest.TestCase):
-    """切主题与背景图的联动（2026-09-27 用户实测反馈）。
+    """切主题与背景图的联动（2026-09-27 实测反馈）。
 
     1) 主题 CSS 是重新 append 进 head 的，会排在更早注入的自定义背景样式之后；
        两边都是 body 上的 `background-image: … !important`，同权重按文档顺序由
@@ -1111,7 +1111,7 @@ class WallpaperSourceOptionLabelTests(unittest.TestCase):
 
 
 class LazyGroupAutoFillTests(unittest.TestCase):
-    """首屏之后自动补齐懒渲染分组（用户反馈「非得我用手点吗」）。
+    """首屏之后自动补齐懒渲染分组。
 
     懒渲染的收益只在首屏；补齐必须由后台任务完成，不能要求用户逐个点开。
     """
@@ -1178,7 +1178,7 @@ class LazyGroupAutoFillTests(unittest.TestCase):
 
 
 class ThemeCssSwapTests(unittest.TestCase):
-    """主题样式必须是「只换主题那几个 CSS + 删旧注入新同一条消息」（用户实测：
+    """主题样式必须是「只换主题那几个 CSS + 删旧注入新同一条消息」（实测：
 
     1. 切主题闪屏：删除与注入拆两条消息时，中间那段窗口（远控下约一个 RTT）
        页面没有任何主题样式 —— 闪白，或闪出当时唯一还生效的背景规则。

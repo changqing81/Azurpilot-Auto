@@ -1,6 +1,6 @@
 """大世界收获「合计条点击联动明细表」的回归测试。
 
-覆盖 2026-10-04 用户裁定的联动行为：
+覆盖 2026-10-04 落定的联动行为：
 - 合计条六个贵重物合计项可点击，点击后明细表只显示对应口径的行，再点一次取消
 - 金菜/彩图纸/金机密联动**类别列**：彩图纸给全部图纸（SSR T4 + UR T5）、
   金机密给全部机密报告（T1~T4）——合计数字是头部口径，不必与行求和一致
@@ -165,7 +165,7 @@ class OpsiDropFilterTest(unittest.TestCase):
         info = item_info("44")
         self.assertEqual(info["zh"], "未知物品 #44")
         self.assertEqual(info["category"], "other")
-        # 已翻译的正常物品不受影响（译名经用户截图核对，2026-10-04）
+        # 已翻译的正常物品不受影响（译名经实机截图核对，2026-10-04）
         self.assertEqual(item_info("SpecialGearPrototype")["zh"], "特装原型")
         self.assertEqual(item_info("TripleEmergencyRepairPack")["zh"], "豪华应急维修箱")
         self.assertEqual(item_info("Complete RepairPack")["zh"], "应急维修箱")
