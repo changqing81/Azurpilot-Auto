@@ -337,3 +337,23 @@ wallpaper_*.jpg
 /changelog.json
 /announcement/
 /changelog/
+
+### 本地工具足迹登记（2026-10-18 仓库整理）
+# 工具/代理生成的本地状态目录（内容不入库，文件保留在磁盘）
+.zcode/
+.zcodeignore
+.mimosa/
+.workbuddy-ai/
+.ruff_cache/
+# 启动器构建产物：保留在磁盘但不入库（含归档版本）
+alas-launcher-*.exe
+# 一次性调试/干跑产物与 2026-10-07 路径事故产物（防复发）
+i18n-dry.json
+.moduleconfig*
+.mind-dbg.txt
+nul
+.configdeploy.template*.yaml
+.campaignReadme.md
+# 本地专属文档（约定不入库、不入推送）
+.agent/COMMIT-PROTOCOL.md
+.agent/GUI-PERFORMANCE.md
