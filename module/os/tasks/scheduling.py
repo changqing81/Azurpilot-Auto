@@ -2010,7 +2010,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             self.TASK_NAME_HAZARD1_LEVELING,
             self.TASK_NAME_MEOWFFICER_FARMING,
         )
-        self.config._task_switch_owner = previous_task
+        # 嵌套代理（防溢出 → 智能调度 → 侵蚀1）沿用最外层调度任务作为切换
+        # 比对基准：内层若用中间层任务覆盖，task_switched() 会拿中间层与调度器
+        # 真实下一任务（正是最外层任务本身）比较，自动搜索刚开打就被父任务
+        # 判成「已切换」而中断，行动力永远清不掉。
+        if previous_task_switch_owner is None:
+            self.config._task_switch_owner = previous_task
         self.config.task = self._make_opsi_task_function(task_name)
         self.config._bind_task_override = task_name
         self.config.bind(task_name)

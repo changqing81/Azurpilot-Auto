@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from module.campaign.os_run import OSCampaignRun
-from module.config.config import Function, TaskEnd
+from module.config.config import AzurLaneConfig, Function, TaskEnd, name_to_function
 from module.os.operation_siren import OperationSiren
 from module.os.tasks.prevent_action_point_overflow import OpsiPreventActionPointOverflow
 from module.os.tasks.scheduling import CoinTaskMixin, OpsiScheduling
@@ -532,4 +532,76 @@ class TestStrongholdNotFoundSkip(unittest.TestCase):
 
         self.assertEqual(harness._get_stronghold_cooldown_remain_minutes(), 0)
         self.assertFalse(harness._coin_task_precheck_skipped('OpsiStronghold'))
+
+
+class ProxyOwnerConfig:
+    """嵌套代理上下文测试用的最小配置桩。"""
+
+    def __init__(self, command='OpsiPreventActionPointOverflow'):
+        self.task = name_to_function(command)
+        self.data = {}
+        self.stop_event = None
+        self._disable_task_switch = False
+
+    def bind(self, task):
+        """代理上下文只切换绑定目标，本桩不重建 Function。"""
+
+    @staticmethod
+    def cross_get(keys, default=None):
+        return default
+
+
+class TestOpsiProxySwitchOwner(unittest.TestCase):
+    """嵌套代理必须沿用最外层任务的切换基准。
+
+    回归背景（2026-10-18）：防溢出任务代跑智能调度 → 侵蚀1 时，内层
+    ``_run_with_opsi_task_context`` 把 ``_task_switch_owner`` 覆盖成中间层
+    ``OpsiScheduling``。自动搜索里的 ``task_switched()`` 于是拿中间层与调度器
+    真实下一任务（仍是防溢出任务本身）比较，判定「已切换」并中断搜索；
+    行动力一点没消耗，防溢出任务每分钟重排一次，与三油低耗反复互相抢占。
+    """
+
+    @staticmethod
+    def make_scheduling():
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = ProxyOwnerConfig()
+        return scheduling
+
+    def test_nested_context_keeps_outermost_switch_owner(self):
+        scheduling = self.make_scheduling()
+        seen = {}
+
+        def inner():
+            seen['owner'] = scheduling.config._task_switch_owner
+
+        scheduling._run_with_opsi_task_context(
+            OpsiScheduling.TASK_NAME_SCHEDULING,
+            lambda: scheduling._run_with_opsi_task_context(
+                OpsiScheduling.TASK_NAME_HAZARD1_LEVELING, inner),
+        )
+
+        # 中间层 OpsiScheduling 不得覆盖最外层的防溢出任务
+        self.assertEqual(seen['owner'].command, 'OpsiPreventActionPointOverflow')
+        # 最外层退出后必须清掉，不能泄漏给下一个任务
+        self.assertFalse(hasattr(scheduling.config, '_task_switch_owner'))
+
+    def test_nested_proxy_does_not_report_switch_back_to_owner(self):
+        scheduling = self.make_scheduling()
+        config = scheduling.config
+        config.load = lambda: None
+        config.get_next = lambda: name_to_function('OpsiPreventActionPointOverflow')
+        results = {}
+
+        def inner():
+            # 直接复用真实的切换判定实现，锁住「owner 与调度器下一任务」比较语义
+            results['switched'] = AzurLaneConfig.task_switched(config)
+
+        scheduling._run_with_opsi_task_context(
+            OpsiScheduling.TASK_NAME_SCHEDULING,
+            lambda: scheduling._run_with_opsi_task_context(
+                OpsiScheduling.TASK_NAME_HAZARD1_LEVELING, inner),
+        )
+
+        # 最外层任务仍在运行且仍是调度器选中的任务 → 不应判定为已切换
+        self.assertFalse(results['switched'])
 
