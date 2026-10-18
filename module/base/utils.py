@@ -587,6 +587,30 @@ def load_image(file, area=None):
     return image
 
 
+def imread_unicode(file, flags=cv2.IMREAD_GRAYSCALE):
+    """
+    以 Unicode 安全的方式读取图像，替代 cv2.imread。
+
+    cv2.imread 在 Windows 上无法打开含非 ASCII 字符的路径（如中文部署目录），
+    即使文件存在也只会返回 None。这里改经 numpy 读文件再交给 cv2.imdecode 解码，
+    对中文、日文等路径均可用；文件缺失或解码失败时返回 None，与 cv2.imread 行为一致。
+
+    Args:
+        file (str | Path): 图像文件路径。
+        flags (int): 与 cv2.imread 相同的解码标志，默认按灰度读取。
+
+    Returns:
+        np.ndarray | None: 解码后的图像数组，读取失败时为 None。
+    """
+    try:
+        data = np.fromfile(str(file), dtype=np.uint8)
+    except OSError:
+        return None
+    if data.size == 0:
+        return None
+    return cv2.imdecode(data, flags)
+
+
 def save_image(image, file):
     """
     保存图像，类似 pillow 的行为。

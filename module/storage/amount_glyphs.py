@@ -1,9 +1,9 @@
 """仓库数量的原生灰度字形匹配，保留抗锯齿和固定字高。"""
 
-from pathlib import Path
-
 import cv2
 import numpy as np
+
+from module.base.utils import imread_unicode
 
 GLYPH_HEIGHT = 24
 GLYPH_WIDTH = 20
@@ -27,7 +27,7 @@ class StorageAmountGlyphs:
     MIN_MARGIN = .006
 
     def __init__(self, path):
-        atlas = cv2.imread(str(Path(path)), cv2.IMREAD_GRAYSCALE)
+        atlas = imread_unicode(path, cv2.IMREAD_GRAYSCALE)
         if atlas is None or atlas.shape[1] != 10 * GLYPH_WIDTH or atlas.shape[0] % GLYPH_HEIGHT:
             raise ValueError('仓库灰度数量模板缺失或尺寸无效')
         masks = []
