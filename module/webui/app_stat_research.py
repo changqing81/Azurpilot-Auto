@@ -5,8 +5,11 @@
 汇总展示，周期与期数由按钮回调切换后重绘本面板。
 """
 
+from base64 import b64encode
 from datetime import datetime, timedelta
+from functools import lru_cache
 from html import escape
+from pathlib import Path
 
 from module.webui.app_dependencies import (
     logger,
@@ -42,10 +45,61 @@ _PERIOD_ALL_START = datetime(2020, 1, 1)
 _RARITY_COLORS = {6: "#e8732a", 5: "#e8732a", 4: "#d9a01e", 3: "#9a6bd9", 2: "#5a9bd9"}
 _RARITY_FALLBACK_COLOR = "#8a919e"
 
-# 科研物品模板图（assets/stats/research_items 经 /static/assets 挂载）。
-# 必须用**相对路径**：手机远控（P2P）把页面挂在 /p2p/<peer>/ 子路径下，
-# 绝对路径 /static/... 会指向信号服务器根而 404（同仓库其他 static 引用惯例）。
-_ITEM_ICON_PREFIX = "static/assets/stats/research_items"
+# 科研物品模板图：内联成 data URI（见 _research_item_icon_data_uri 的说明）。
+_ITEM_ICON_ROOT = Path(__file__).resolve().parents[2] / "assets" / "stats" / "research_items"
+_ICON_INLINE_SIZE = 48
+
+
+@lru_cache(maxsize=256)
+def _research_item_icon_data_uri(item_name: str):
+    """把科研物品模板图读成 data URI；文件缺失时返回 None。
+
+    **必须内联而不是给 URL**：远控（P2P）入口页面挂在随机前缀子路径下，
+    `<img src="static/...">` 相对与绝对都会静默 404 —— 与
+    app_stat_opsi_export / app_home 的既有结论一致（收益明细表就是这么发的）。
+    模板图是 96×96 的照片类画面（卡面 + 立绘），内联前缩到 48×48
+    （显示 24px 的 2x）并压成 JPEG（同一张图原样 PNG 要 ~21KB、JPEG 只要几 KB）。
+
+    缩放/编码用 cv2 而不是 PIL：WebUI 进程导入链会注入假 PIL 模块
+    （fake_pil_module.py，非图像场景省启动开销），PIL 路径会静默失败退回原图
+    大小 —— 与 module/statistics/item.py 的读图取 cv2 是同一个坑。
+
+    Args:
+        item_name (str): 物品模板名（模板文件名即物品名）。
+
+    Returns:
+        str: 图片的 data URI；无对应模板时返回 None（调用方退回色点）。
+    """
+    if not item_name:
+        return None
+    try:
+        raw = (_ITEM_ICON_ROOT / f"{item_name}.png").read_bytes()
+    except OSError:
+        return None
+    mime = "image/png"
+    try:
+        import cv2
+        import numpy as np
+
+        image = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if image is None:
+            raise ValueError("decode failed")
+        image = cv2.resize(
+            image,
+            (_ICON_INLINE_SIZE, _ICON_INLINE_SIZE),
+            interpolation=cv2.INTER_AREA,
+        )
+        ok, encoded = cv2.imencode(
+            ".jpg", image, [int(cv2.IMWRITE_JPEG_QUALITY), 85]
+        )
+        if not ok:
+            raise ValueError("encode failed")
+        raw = encoded.tobytes()
+        mime = "image/jpeg"
+    except Exception:
+        # 缩图失败照发原图（宁可大一点，不能没有图标）
+        pass
+    return f"data:{mime};base64,{b64encode(raw).decode('ascii')}"
 
 
 def _research_period_window(period: str, now: datetime = None):
@@ -271,10 +325,22 @@ class ResearchStatisticsMixin(WebUIMixinBase):
                 if rarity_label
                 else ""
             )
+            icon_data = _research_item_icon_data_uri(name)
+            if icon_data:
+                icon_html = (
+                    f'<img class="research-item-icon" alt="" src="{icon_data}">'
+                )
+            else:
+                # 模板图缺失时退回色点（与委托/大世界明细表的兜底一致）。
+                # 不共用 .research-item-icon：那边的 background:transparent
+                # !important 会压过这里的行内底色，色点会隐形成不可见。
+                icon_html = (
+                    f'<span class="research-item-dot" '
+                    f'style="background:{color};"></span>'
+                )
             item_cell = (
                 '<span class="research-item">'
-                f'<img class="research-item-icon" alt="" '
-                f'src="{_ITEM_ICON_PREFIX}/{escape(name, quote=True)}.png">'
+                f"{icon_html}"
                 f'<span class="research-item-name">'
                 f'{escape(str(item.get("zh") or name))}</span>'
                 f"{badge}</span>"

@@ -347,3 +347,20 @@ pre.rich-traceback-code {
     --meow-unsuitable: #e0858a;
     --meow-thunder: #6cc5e8;
 }
+
+/* --------------------------------------------------------------------------
+   统计页数据表：清掉 PyWebIO 自带 markdown.min.css 的白底行
+   --------------------------------------------------------------------------
+   markdown.min.css（GitHub 风格）里有：
+     .markdown-body table tr               { background-color: #fff }
+     .markdown-body table tr:nth-child(2n) { background-color: #f6f8fa }
+   统计页祖先带 .markdown-body 类，暗色下面板深色、行却被强制白底，
+   整张表变成「深色面板里一块白表」（浅字压白底基本不可读）。
+   普通暗色没有按视图登记的暗色单元格规则，容器本身就是深色卡片，
+   把数据表的行底色清成透明即露出容器底色。
+   （「高级材质（暗色）」走 dark-advanced-material-overrides-alas.css
+   的同类规则，两处语义一致。） */
+#pywebio-scope-statistics-content table.simple-table tr,
+#pywebio-scope-statistics-content table.rd-table tr {
+    background-color: transparent !important;
+}

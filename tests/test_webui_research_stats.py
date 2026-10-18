@@ -181,8 +181,41 @@ class OutputResearchControlsTest(unittest.TestCase):
         )
 
 
+class ResearchItemIconTest(unittest.TestCase):
+    """图标必须内联成 data URI：远控（P2P）下 URL 相对/绝对都静默 404。"""
+
+    def test_real_template_becomes_data_uri(self):
+        from module.webui.app_stat_research import _research_item_icon_data_uri
+
+        uri = _research_item_icon_data_uri("BlueprintTakahashi")
+        # 缩到 48×48 压 JPEG（原样 PNG 要 ~28KB base64，压后 ~2.5KB）
+        self.assertTrue(uri.startswith("data:image/jpeg;base64,"))
+        self.assertLess(len(uri), 6000)
+
+    def test_missing_template_returns_none(self):
+        from module.webui.app_stat_research import _research_item_icon_data_uri
+
+        self.assertIsNone(_research_item_icon_data_uri("NoSuchTemplateXyz"))
+        self.assertIsNone(_research_item_icon_data_uri(""))
+
+    def test_all_fixed_list_icons_stay_small(self):
+        """全期固定清单的图标都要能内联且体积可控（远控带宽预算）。"""
+        from module.statistics.research_stats import series_item_names
+        from module.webui.app_stat_research import _research_item_icon_data_uri
+
+        total = 0
+        for series in range(1, 10):
+            for name in series_item_names(series):
+                uri = _research_item_icon_data_uri(name)
+                if uri is None:
+                    continue  # 仅 3 期一张图纸缺模板，走色点兜底
+                self.assertLess(len(uri), 6000, name)
+                total += len(uri)
+        self.assertLess(total, 200 * 1024)
+
+
 class BuildResearchTableTest(unittest.TestCase):
-    """明细表：图标 URL、稀有度徽标、0 值淡化。"""
+    """明细表：图标内联、稀有度徽标、0 值淡化。"""
 
     def _html(self, harness, data):
         with patch("module.webui.app_stat_research.t", side_effect=lambda key, **kw: key):
@@ -192,12 +225,11 @@ class BuildResearchTableTest(unittest.TestCase):
         harness = _ResearchHarness()
         html = self._html(harness, _collect_data())
 
-        # 图标必须是**相对路径**：手机远控（P2P）挂在 /p2p/<peer>/ 子路径下，
-        # 绝对路径 /static/... 会指向信号服务器根而裂图。
-        self.assertIn(
-            'src="static/assets/stats/research_items/BlueprintTakahashi.png"', html
-        )
-        self.assertNotIn('src="/static/', html)
+        # 图标必须是 data URI：远控（P2P）挂在随机前缀子路径下，
+        # `<img src="static/...">`（相对与绝对）都会静默 404 裂图。
+        self.assertIn('src="data:image/jpeg;base64,', html)
+        self.assertNotIn('src="static', html)
+        self.assertNotIn('src="/static', html)
         self.assertIn("蓝图：高桥", html)
         # 金图纸徽标（rarity=4 -> 金）与彩装徽标（rarity=5 -> 彩）
         self.assertIn("research-rarity", html)
@@ -207,6 +239,32 @@ class BuildResearchTableTest(unittest.TestCase):
         self.assertIn('<span style="opacity:.5">0</span>', html)
         # 平均值是小数时按 g 格式（1.5 不带多余小数）
         self.assertIn("1.5", html)
+
+    def test_missing_template_falls_back_to_dot(self):
+        harness = _ResearchHarness()
+        data = _collect_data()
+        data["items"] = [
+            {
+                "name": "NoSuchTemplateXyz",
+                "zh": "未知物品",
+                "en": "",
+                "rarity": 4,
+                "amount": 1,
+                "count": 1,
+                "avg": 1,
+                "today": 1,
+                "month": 1,
+            }
+        ]
+        html = self._html(harness, data)
+
+        self.assertIn("research-item-dot", html)
+        # 色点不能共用 .research-item-icon 类：那类的 background:transparent
+        # !important 会压过行内底色，色点会隐形（审查抓到过的坑）。
+        self.assertNotIn('class="research-item-icon research-item-dot"', html)
+        # 行内底色按稀有度给出（rarity=4 -> 金 #d9a01e）
+        self.assertIn('style="background:#d9a01e;"', html)
+        self.assertNotIn('src="data:image/jpeg;base64,', html)
 
     def test_empty_items_returns_empty_state_but_keeps_controls(self):
         """某周期没有记录时：空态提示照常给，但口径/周期/期数控件必须保留，

@@ -1193,7 +1193,8 @@ details[open]>summary::after {
 #pywebio-scope-opsi_stats,
 #pywebio-scope-ap_chart,
 #pywebio-scope-ship_exp_table,
-#pywebio-scope-commission_income {
+#pywebio-scope-commission_income,
+#pywebio-scope-research_stats {
 	background-color: var(--alas-apple-card-bg) !important;
 	backdrop-filter: blur(6px) saturate(150%);
 	-webkit-backdrop-filter: blur(6px) saturate(150%);
@@ -1210,7 +1211,8 @@ details[open]>summary::after {
 #pywebio-scope-opsi_stats:hover,
 #pywebio-scope-ap_chart:hover,
 #pywebio-scope-ship_exp_table:hover,
-#pywebio-scope-commission_income:hover {
+#pywebio-scope-commission_income:hover,
+#pywebio-scope-research_stats:hover {
 	box-shadow: var(--alas-apple-shadow-md) !important;
 }
 
@@ -1231,10 +1233,16 @@ details[open]>summary::after {
 	color: var(--alas-apple-text) !important;
 }
 
+#pywebio-scope-research_stats {
+	animation-delay: 0.25s;
+	color: var(--alas-apple-text) !important;
+}
+
 /* 表格样式 */
 #pywebio-scope-opsi_stats table,
 #pywebio-scope-ship_exp_table table,
-#pywebio-scope-commission_income table {
+#pywebio-scope-commission_income table,
+#pywebio-scope-research_stats table {
 	width: 100% !important;
 	border-collapse: separate !important;
 	border-spacing: 0 !important;
@@ -1243,7 +1251,8 @@ details[open]>summary::after {
 
 #pywebio-scope-opsi_stats th,
 #pywebio-scope-ship_exp_table th,
-#pywebio-scope-commission_income th {
+#pywebio-scope-commission_income th,
+#pywebio-scope-research_stats th {
 	background-color: var(--alas-apple-bg) !important;
 	color: var(--alas-apple-text-secondary) !important;
 	font-weight: 600 !important;
@@ -1258,19 +1267,22 @@ details[open]>summary::after {
 
 #pywebio-scope-opsi_stats th:first-child,
 #pywebio-scope-ship_exp_table th:first-child,
-#pywebio-scope-commission_income th:first-child {
+#pywebio-scope-commission_income th:first-child,
+#pywebio-scope-research_stats th:first-child {
 	border-top-left-radius: var(--radius-sm) !important;
 }
 
 #pywebio-scope-opsi_stats th:last-child,
 #pywebio-scope-ship_exp_table th:last-child,
-#pywebio-scope-commission_income th:last-child {
+#pywebio-scope-commission_income th:last-child,
+#pywebio-scope-research_stats th:last-child {
 	border-top-right-radius: var(--radius-sm) !important;
 }
 
 #pywebio-scope-opsi_stats td,
 #pywebio-scope-ship_exp_table td,
-#pywebio-scope-commission_income td {
+#pywebio-scope-commission_income td,
+#pywebio-scope-research_stats td {
 	padding: var(--spacing-md) !important;
 	color: var(--alas-apple-text) !important;
 	font-size: 14px !important;
@@ -1281,26 +1293,30 @@ details[open]>summary::after {
 
 #pywebio-scope-opsi_stats tr:last-child td,
 #pywebio-scope-ship_exp_table tr:last-child td,
-#pywebio-scope-commission_income tr:last-child td {
+#pywebio-scope-commission_income tr:last-child td,
+#pywebio-scope-research_stats tr:last-child td {
 	border-bottom: none !important;
 }
 
 #pywebio-scope-opsi_stats tr,
 #pywebio-scope-ship_exp_table tr,
-#pywebio-scope-commission_income tr {
+#pywebio-scope-commission_income tr,
+#pywebio-scope-research_stats tr {
 	transition: background-color var(--transition-fast) var(--ease-ios-smooth);
 }
 
 #pywebio-scope-opsi_stats tr:hover td,
 #pywebio-scope-ship_exp_table tr:hover td,
-#pywebio-scope-commission_income tr:hover td {
+#pywebio-scope-commission_income tr:hover td,
+#pywebio-scope-research_stats tr:hover td {
 	background-color: rgba(0, 122, 255, 0.06) !important;
 }
 
 /* 统计板块文本 */
 #pywebio-scope-opsi_stats>div:first-child,
 #pywebio-scope-ship_exp_table>div:first-child,
-#pywebio-scope-commission_income>div:first-child {
+#pywebio-scope-commission_income>div:first-child,
+#pywebio-scope-research_stats>div:first-child {
 	font-size: 16px !important;
 	font-weight: 600 !important;
 	color: var(--alas-apple-text) !important;

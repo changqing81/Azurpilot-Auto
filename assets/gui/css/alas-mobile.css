@@ -109,7 +109,8 @@
 #pywebio-scope-opsi_stats,
 #pywebio-scope-ap_chart,
 #pywebio-scope-ship_exp_table,
-#pywebio-scope-commission_income {
+#pywebio-scope-commission_income,
+#pywebio-scope-research_stats {
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
@@ -158,8 +159,21 @@
 
 #pywebio-scope-opsi_stats table,
 #pywebio-scope-ship_exp_table table,
-#pywebio-scope-commission_income table {
+#pywebio-scope-commission_income table,
+#pywebio-scope-research_stats table {
     font-size: .85rem;
+}
+
+/* 科研面板按钮多（口径 2 + 周期 4 + 期数最多 9），不套用上面的整宽堆叠：
+   保持自动换行的短按钮，否则窄屏会被十几个整宽按钮拉成长条。 */
+#pywebio-scope-research_stats .btn {
+    width: auto !important;
+    flex: 0 0 auto !important;
+    height: auto !important;
+    padding: .4rem .55rem !important;
+    font-size: .78rem !important;
+    line-height: 1.35 !important;
+    text-align: center !important;
 }
 
 #pywebio-scope-commission_income .commission-income-recent-row {

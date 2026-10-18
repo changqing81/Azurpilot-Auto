@@ -279,5 +279,36 @@ class ListCommissionMonthsTest(unittest.TestCase):
             )
 
 
+class CommissionIconInlineTest(unittest.TestCase):
+    """资源图标必须内联成 data URI：远控（P2P）下 URL 相对/绝对都静默 404。"""
+
+    def test_icon_becomes_data_uri(self):
+        from module.webui.app_stat_commission import _commission_icon_data_uri
+
+        uri = _commission_icon_data_uri("icon_1.png")
+        self.assertTrue(uri.startswith("data:image/png;base64,"))
+        # 缩到 48×48 后应远小于原图（100×100 约 8KB）
+        self.assertLess(len(uri), 20000)
+
+    def test_missing_icon_returns_empty(self):
+        from module.webui.app_stat_commission import _commission_icon_data_uri
+
+        self.assertEqual(_commission_icon_data_uri("nope.png"), "")
+        self.assertEqual(_commission_icon_data_uri(""), "")
+
+    def test_load_builds_inline_icon_map(self):
+        harness = _CommissionHarness()
+        mock_db = MagicMock()
+        mock_db.get_commission_income.return_value = []
+        with patch("module.webui.app_stat_commission.t", side_effect=lambda key, **kw: key), \
+                patch("module.statistics.cl1_database.db", new=mock_db), \
+                patch("module.statistics.commission_income_stats.cl1_db", new=mock_db):
+            data = harness._load_commission_income_data()
+        for name, icon in data["item_icon_map"].items():
+            self.assertTrue(
+                icon.startswith("data:image/png;base64,"), f"{name} 未内联: {icon[:40]}"
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

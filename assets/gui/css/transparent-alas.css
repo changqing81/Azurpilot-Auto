@@ -347,7 +347,8 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 #pywebio-scope-opsi_stats,
 #pywebio-scope-ap_chart,
 #pywebio-scope-ship_exp_table,
-#pywebio-scope-commission_income {
+#pywebio-scope-commission_income,
+#pywebio-scope-research_stats {
 	background-color: transparent !important;
 	backdrop-filter: none !important;
 	-webkit-backdrop-filter: none !important;
@@ -358,7 +359,8 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 #pywebio-scope-opsi_stats:hover,
 #pywebio-scope-ap_chart:hover,
 #pywebio-scope-ship_exp_table:hover,
-#pywebio-scope-commission_income:hover {
+#pywebio-scope-commission_income:hover,
+#pywebio-scope-research_stats:hover {
 	box-shadow: none !important;
 }
 
@@ -410,7 +412,8 @@ body #pywebio-scope-statistics-content .meow-drop-table {
 /* 表头保留淡白底保证表格结构可辨识 */
 #pywebio-scope-opsi_stats th,
 #pywebio-scope-ship_exp_table th,
-#pywebio-scope-commission_income th {
+#pywebio-scope-commission_income th,
+#pywebio-scope-research_stats th {
 	background-color: rgba(255, 255, 255, 0.35) !important;
 }
 

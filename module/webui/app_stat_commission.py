@@ -1,7 +1,10 @@
 """WebUI 委托收益统计视图。"""
 
+from base64 import b64encode
 from datetime import datetime
+from functools import lru_cache
 from html import escape
+from pathlib import Path
 
 from module.webui.app_dependencies import (
     close_popup,
@@ -24,6 +27,57 @@ from module.webui.base import render_locked
 _COMMISSION_RECENT_PAGE_SIZE = 10
 # 年月翻页下限，与月份选择面板的合理年代一致，防止一直 ◀ 翻到无意义年份
 _COMMISSION_MONTH_FLOOR = (2020, 1)
+
+# 资源图标目录（assets/gui/icon/icon_N.png，100×100 RGBA）
+_COMMISSION_ICON_ROOT = Path(__file__).resolve().parents[2] / "assets" / "gui" / "icon"
+_COMMISSION_ICON_INLINE_SIZE = 48
+
+
+@lru_cache(maxsize=16)
+def _commission_icon_data_uri(filename: str) -> str:
+    """资源图标 -> data URI；文件缺失时返回空串（调用方退回色点）。
+
+    必须内联而不是给 URL：远控（P2P）入口页面挂在随机前缀子路径下，
+    `<img src="static/...">`（相对与绝对）都会静默 404 —— 与
+    app_stat_opsi_export / app_home 的既有结论一致（大世界收获明细表就这么发）。
+    图标 100×100 RGBA；内联前缩到 48×48（显示 18~24px 的 2x）并保留透明通道。
+
+    缩放/编码用 cv2 而不是 PIL：WebUI 进程导入链会注入假 PIL 模块
+    （fake_pil_module.py），PIL 路径会静默失败退回原图大小 —— 与
+    module/statistics/item.py 的读图取 cv2 是同一个坑。
+
+    Args:
+        filename (str): 图标文件名，如 ``icon_1.png``。
+
+    Returns:
+        str: PNG 的 data URI；读不到时返回空串。
+    """
+    if not filename:
+        return ""
+    try:
+        raw = (_COMMISSION_ICON_ROOT / filename).read_bytes()
+    except OSError:
+        return ""
+    try:
+        import cv2
+        import numpy as np
+
+        image = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_UNCHANGED)
+        if image is None:
+            raise ValueError("decode failed")
+        image = cv2.resize(
+            image,
+            (_COMMISSION_ICON_INLINE_SIZE, _COMMISSION_ICON_INLINE_SIZE),
+            interpolation=cv2.INTER_AREA,
+        )
+        ok, encoded = cv2.imencode(".png", image)
+        if not ok:
+            raise ValueError("encode failed")
+        raw = encoded.tobytes()
+    except Exception:
+        # 缩图失败照发原图（宁可大一点，不能没有图标）
+        pass
+    return f"data:image/png;base64,{b64encode(raw).decode('ascii')}"
 
 
 def _shift_commission_month(year: int, month: int, delta: int):
@@ -116,12 +170,13 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
             "Oil": t("Gui.Stat.CommissionIncomeItemOil"),
             "Coin": t("Gui.Stat.CommissionIncomeItemCoin"),
         }
+        # 图标内联成 data URI（远控下 URL 会静默 404，见 _commission_icon_data_uri）
         item_icon_map = {
-            "Gem": "static/assets/gui/icon/icon_1.png",
-            "Cube": "static/assets/gui/icon/icon_2.png",
-            "Chip": "static/assets/gui/icon/icon_3.png",
-            "Oil": "static/assets/gui/icon/icon_4.png",
-            "Coin": "static/assets/gui/icon/icon_5.png",
+            "Gem": _commission_icon_data_uri("icon_1.png"),
+            "Cube": _commission_icon_data_uri("icon_2.png"),
+            "Chip": _commission_icon_data_uri("icon_3.png"),
+            "Oil": _commission_icon_data_uri("icon_4.png"),
+            "Coin": _commission_icon_data_uri("icon_5.png"),
         }
         now = datetime.now()
         year = getattr(self, "_commission_income_year", None)

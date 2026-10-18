@@ -1005,6 +1005,7 @@
 #pywebio-scope-ap_chart,
 #pywebio-scope-opsi_stats,
 #pywebio-scope-commission_income,
+#pywebio-scope-research_stats,
 #pywebio-scope-resource_delta,
 #pywebio-scope-ship_exp_table {
     margin-bottom: 16px;
@@ -1089,8 +1090,8 @@
 }
 
 /* 科研掉落表：物品单元格（图标 + 名称 + 稀有度徽标）。
-   图标走 /static/assets/stats/research_items，全局 img 样式在主题里
-   会加底色/描边（同委托收益卡片的坑），这里显式清掉。 */
+   图标是内联的 data URI（远控下 URL 会静默 404，见视图模块的说明），
+   全局 img 样式在主题里会加底色/描边（同委托收益卡片的坑），这里显式清掉。 */
 #pywebio-scope-statistics-content .research-item {
     display: flex;
     align-items: center;
@@ -1109,6 +1110,18 @@
     margin: 0 !important;
     padding: 0 !important;
     border-radius: 4px;
+}
+
+/* 模板图缺失时的色点兜底：8px 圆点居中占 24px 图标位。
+   独立类，不共用 .research-item-icon（那类带 background:transparent
+   !important，会压过行内底色让色点隐形）。 */
+#pywebio-scope-statistics-content .research-item-dot {
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 #pywebio-scope-statistics-content .research-item-name {
@@ -1406,6 +1419,7 @@
     #pywebio-scope-ap_chart,
     #pywebio-scope-opsi_stats,
     #pywebio-scope-commission_income,
+    #pywebio-scope-research_stats,
     #pywebio-scope-resource_delta,
     #pywebio-scope-ship_exp_table {
         padding: 15px 14px;

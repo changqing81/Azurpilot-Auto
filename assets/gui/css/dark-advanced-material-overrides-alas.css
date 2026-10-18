@@ -212,17 +212,21 @@ input[type="checkbox"]::before,
 
 #pywebio-scope-opsi_stats tr:hover td,
 #pywebio-scope-ship_exp_table tr:hover td,
+#pywebio-scope-research_stats tr:hover td,
 #pywebio-scope-commission_income tr:hover td,
 #pywebio-scope-commission_income .commission-income-table tr:hover td,
 #pywebio-scope-commission_income .commission-income-recent-row:hover {
 	background-color: rgba(37, 99, 235, 0.16) !important;
 }
 
-/* 表格默认白底（UA/基础样式）会透过悬停色的半透明底显形，
-   悬停行变成「浅底浅字」。暗色下把 tr 底色置透明，
-   让悬停 tint 直接叠在深色面板上。 */
+/* 表格默认白底（PyWebIO 自带 markdown.min.css 的
+   `.markdown-body table tr { background-color: #fff }`，统计页祖先带该类）
+   会透过悬停色的半透明底显形，悬停行变成「浅底浅字」；不悬停时整行也是
+   深色面板里的一块白表。暗色下把 tr 底色置透明，让悬停 tint 与面板底色
+   直接透出来。 */
 #pywebio-scope-opsi_stats tr,
 #pywebio-scope-ship_exp_table tr,
+#pywebio-scope-research_stats tr,
 #pywebio-scope-commission_income tr {
 	background-color: transparent !important;
 }
@@ -304,6 +308,7 @@ select option {
 
 #pywebio-scope-opsi_stats,
 #pywebio-scope-ship_exp_table,
+#pywebio-scope-research_stats,
 #pywebio-scope-commission_income {
 	background: transparent !important;
 }
@@ -311,7 +316,8 @@ select option {
 
 /* 普通统计表头 */
 #pywebio-scope-opsi_stats .simple-table th,
-#pywebio-scope-ship_exp_table .simple-table th {
+#pywebio-scope-ship_exp_table .simple-table th,
+#pywebio-scope-research_stats .simple-table th {
 	background: rgba(15,23,42,0.96) !important;
 	color: var(--alas-apple-text) !important;
 }
@@ -319,7 +325,8 @@ select option {
 
 /* 普通统计数据 */
 #pywebio-scope-opsi_stats .simple-table td,
-#pywebio-scope-ship_exp_table .simple-table td {
+#pywebio-scope-ship_exp_table .simple-table td,
+#pywebio-scope-research_stats .simple-table td {
 	background: rgba(15,23,42,0.92) !important;
 	color: var(--alas-apple-text-secondary) !important;
 }
