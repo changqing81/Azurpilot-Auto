@@ -813,7 +813,7 @@ class LiveScrcpySession:
 
         # scrcpy 链条经 module.base.utils 顶层拉着 cv2。把导入延迟到首次建会话、
         # 再注入模块全局（方法体里的裸名引用零改动），是为了 opencv 文件被杀软
-        # 隔离/损坏时（用户实测发生过）api 模块仍能加载，notify/launcher 流等
+        # 隔离/损坏时（实机曾发生）api 模块仍能加载，notify/launcher 流等
         # 无关路由不陪葬——否则 fastapi.py 的路由装载会整体静默失败。
         globals()["scrcpy_const"] = scrcpy_const
         globals()["ControlSender"] = ControlSender
@@ -1395,7 +1395,7 @@ async def _ws_live_raw_scrcpy(websocket, instance, fps, target_width, bitrate_sc
 
 
 async def _ws_live_screenshot_fallback(websocket, instance, codec, ffmpeg, fps, target_width, bitrate_scale):
-    # cv2 只在这里用：局部导入。opencv 文件被杀软隔离/损坏时（用户实测发生过），
+    # cv2 只在这里用：局部导入。opencv 文件被杀软隔离/损坏时（实机曾发生），
     # 不能让它把整个 api 模块拖死——否则 /api/notify_stream、/api/launcher/stream
     # 等全部路由随 fastapi.py 的 try/except 静默消失，启动器 3 秒一次 404 重连刷屏。
     import cv2

@@ -287,7 +287,7 @@ class MindCalculatorScan(Dock):
         evidence_frame = None
         last_page_image = None
         page = 0
-        # 「无位移」看门狗：60 秒内没有任何经核验的位移才算异常（用户 2026-10-16 裁定，
+        # 「无位移」看门狗：60 秒内没有任何经核验的位移才算异常（2026-10-16 调整，
         # 原 20 秒在慢速模拟器上离 5 次零位移的裁决太近）。零位移链形成期间它让位给
         # BOTTOM_ZERO_DRAG_LIMIT 的到底裁决，见循环内的期限检查。
         progress = Timer(60, count=10).start()

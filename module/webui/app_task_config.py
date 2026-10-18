@@ -119,7 +119,7 @@ class TaskConfigMixin(WebUIMixinBase):
             if task_data.get("menu") == "collapse":
                 if menu == "FleetManagement":
                     # 该组的内容（科技列表 / 心智计算器）已迁入统计页页签，
-                    # 侧栏不再保留入口（2026-10-16 用户裁定）；组内四个任务的
+                    # 侧栏不再保留入口；组内四个任务的
                     # 配置页与之前一样，仍可通过「搜索配置」进入。
                     continue
                 task_btn_list = []
@@ -485,7 +485,7 @@ class TaskConfigMixin(WebUIMixinBase):
             self._bind_config_watcher(path)
 
         # 懒渲染只影响首屏：页面落地后由后台任务逐个补齐剩余分组，用户不需要
-        # 手动点开（用户实测反馈「为什么不显示完整，非得我用手点吗」）。
+        # 手动点开。
         # 首屏仍是壳（百毫秒级），补齐只花后端时间，不阻塞界面也不抢滚动位置。
         self._lazy_pending_groups = pending_groups or None
         if pending_groups:
@@ -504,7 +504,7 @@ class TaskConfigMixin(WebUIMixinBase):
 
         懒渲染的收益只在**首屏**：分组壳比整页控件轻一个量级，页面能立刻出现。
         之前的实现把「补齐」完全交给用户点击，于是宽屏用户看到一列没展开的
-        分组壳，反馈「为什么不显示完整，非得我用手点吗」。现在改成页面落地后
+        分组壳。现在改成页面落地后
         由后台任务分批补齐（每次一个分组、单条消息），首屏依旧快，用户既不用
         点击、也不会被整批内容阻塞首屏。
 

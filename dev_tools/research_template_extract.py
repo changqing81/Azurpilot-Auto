@@ -211,7 +211,7 @@ def load_item_series(folder: str) -> Dict[int, int]:
     series_by_id = {}
     for iid, series in found.items():
         # 一条船图纸会出现在多期的 drop_client 里——科研项目会「额外赠送」别期的图纸
-        # （用户确认过这个机制，有上限）。赠礼只会指向更早的期，所以取最小期数即它本尊的期。
+        # （该机制有上限）。赠礼只会指向更早的期，所以取最小期数即它本尊的期。
         series_by_id[iid] = min(series)
     series_by_id.update(RAINBOW_DESIGN_SERIES)
     return series_by_id

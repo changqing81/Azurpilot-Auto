@@ -89,13 +89,13 @@ _MEOW_CATEGORY_SUFFIX = {
 }
 
 # 合计条点击 -> 明细表行的过滤口径：(维度, 值)，键与 MEOW_LOOT_ITEMS 对齐。
-# 金菜/彩图纸/金机密按用户裁定（2026-10-04）联动**类别列**：彩图纸给全部图纸
+# 金菜/彩图纸/金机密联动**类别列**：彩图纸给全部图纸
 # （SSR T4 + UR T5）、金机密给全部机密报告（T1~T4），合计数字只是该类的头部
 # 口径，不必与行数求和一致；隐蔽/深渊坐标与金猫箱是单一物品家族，类别列会把
 # 隐蔽+深渊、猫箱T2+T3 合并到一起，所以按模板名前缀过滤（与 _opsi_strip_totals
 # 对这几项的合计口径一致）。
 # "Other" 是六项之外的补集（货币/材料/其他/猫箱T2 等未归入贵重六项的掉落），
-# 合计条上不显示数字（用户裁定 2026-10-04）。
+# 合计条上不显示数字。
 MEOW_STRIP_FILTERS = {
     "Plate": ("category", CATEGORY_PLATE),
     "GearDesignPlanT5": ("category", CATEGORY_DESIGN),
@@ -151,7 +151,7 @@ OPSI_DROP_FILTER_ALL = "__all__"
 OPSI_DROP_FILTER_OTHER = "Other"
 # 侵蚀等级卡的归属筛选：卡内是短猫相接（短猫相接）的数据收集口径——
 # 战斗场次/平均黄币等只对短猫相接有意义，挂在其他任务筛选下会被误读成
-# 那个任务的收益，因此只在「全部任务」与本筛选下渲染（用户裁定 2026-09-28）
+# 那个任务的收益，因此只在「全部任务」与本筛选下渲染
 MEOW_CARDS_FILTER = "MeowfficerFarming"
 
 # 明细表默认只列前几行，其余收进「其余 N 项」按钮
@@ -219,7 +219,7 @@ class OpsiExportMixin(WebUIMixinBase):
     # 旧版整条 HTML 串一致（同一 class 体系），只是合计项多了点击回调。
     # 根 div 的内联 handler 把条内所有点击（chip 之间的缝隙、右侧空白、收获
     # 合计标题）挡在 summary 激活行为之外——合计条挂在折叠块的 <summary> 行
-    # 里，否则瞄准 chip 时点到缝隙就会把整块折叠/展开（用户实测 2026-10-04）。
+    # 里，否则瞄准 chip 时点到缝隙就会把整块折叠/展开。
     # ⚠️ 必须 preventDefault：实测 stopPropagation 拦不住 summary 的 toggle
     # （激活行为只在事件被取消时跳过，冒泡拦截无效）；stopPropagation 顺带
     # 防 summary/details 祖先上的其他监听器。开合只留给「大世界收获」标题。
@@ -405,7 +405,7 @@ class OpsiExportMixin(WebUIMixinBase):
     def _build_meow_header_html(self):
         """页头左侧：OS 徽标 + 中英标题 + 实例胶囊。
 
-        统计口径按设备（device_id）隔离，实例名只作展示 —— 用户要求这里
+        统计口径按设备（device_id）隔离，实例名只作展示 —— 这里
         固定显示正在跑的实例，不提供切换；月份胶囊是右侧的按钮，见
         ``_meow_month_buttons``。
         """
@@ -483,7 +483,7 @@ class OpsiExportMixin(WebUIMixinBase):
         for suffix, genres, counted in OPSI_DROP_TASKS:
             if not counted:
                 # 侵蚀1练级不进统计（genre 被数据层排除），记录数恒为 0，
-                # 筛选按钮没有意义 —— 用户裁定直接移除
+                # 筛选按钮没有意义 —— 直接移除
                 continue
             label = t(f"Gui.Stat.OpsiDropTask{suffix}")
             count = self._opsi_task_record_count(genres, tasks)
@@ -522,7 +522,7 @@ class OpsiExportMixin(WebUIMixinBase):
     def _meow_drop_detail_placeables(self, meow_rows, drop):
         """「掉落明细」常驻输出列表：明细标签 + 侵蚀等级卡（按筛选） + 明细表。
 
-        用户定稿：明细常驻显示，不再包折叠块 —— 外层「大世界收获」展开后直接
+        明细常驻显示，不再包折叠块 —— 外层「大世界收获」展开后直接
         可见，任务筛选 / 月份切换也不会把它折回去。明细表默认只列前
         ``OPSI_DROP_TABLE_PREVIEW`` 行，长表靠「其余 N 项」按钮按需展开
         （状态存 ``_meow_drop_expanded``，切换筛选/月份时刻意不重置，省得
@@ -589,7 +589,7 @@ class OpsiExportMixin(WebUIMixinBase):
         再点一次取消；选中态用该项主题色的描边 + 浅底内联标注（各项目色不同，
         写不进公共 CSS）。合计数字永远按全量 items 计算，不受自身点击产生的
         筛选影响 —— 否则筛完别项就看不见、没法点回来了。「其他」项不显示
-        合计数字（用户裁定），只显示类别名，点击筛出六项之外的掉落。
+        合计数字，只显示类别名，点击筛出六项之外的掉落。
         """
         if view["is_current"]:
             title = t("Gui.Stat.MeowLootTitleCurrent")

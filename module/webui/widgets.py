@@ -190,7 +190,7 @@ class RichLog:
     # 服务端有环形缓冲（ProcessManager.renderables_max_length = 400），但前端
     # 拿到的是**增量 append**：服务端裁掉旧条目只影响它自己，已经下发到页面的
     # 节点没有任何回收机制。7x24 挂机时 DOM 会一直堆积——最终把 WebView2
-    # 渲染进程撑到 GB 级（用户实测 3.3GB / 4.6GB）。
+    # 渲染进程撑到 GB 级（实测 3.3GB / 4.6GB）。
     #
     # 第一版修复（236126ab4）在 append 后用 `box.children()` 计数并裁掉最旧
     # 节点，但它数的是**元素节点**：rich 渲染输出的 HTML 里 span 之间夹杂着

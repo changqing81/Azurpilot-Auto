@@ -189,7 +189,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         """清单操作行：搜索 + 状态 + 基础稀有度 + 等级范围 + 添加 / 导入 / 导出。
 
         添加舰船与导入导出按钮组与筛选控件同排（原为清单下方的独立两行，
-        用户要求上移），窄屏由 flex-wrap 自然换行。
+        现上移至此），窄屏由 flex-wrap 自然换行。
         """
         statuses, rarities = mind_view.filter_options()
         with use_scope('ft_mind_filters', clear=True):
@@ -322,7 +322,7 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         # 状态是运行时按「显式排除 / 待核对 / 等级与稀有度 / 自动排除」推出来的
         # 计算字段（mind_calculator.calculate），原始记录里只有 excluded/review
         # 两个布尔位；弹窗初值必须取计算行，直接读 ship['status'] 会 KeyError
-        # （2026-10-16 17:44 用户点「编辑」即报错现场）。同名合并等非可选态
+        # （2026-10-16 17:44 点击「编辑」即报错）。同名合并等非可选态
         # 回落到「计入」。
         computed = dict(mind_view.calculate_rows(self._mc_ships)[1]).get(index, {})
         status = computed.get('status')

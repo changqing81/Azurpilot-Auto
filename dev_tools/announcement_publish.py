@@ -56,7 +56,7 @@ from pathlib import Path
 
 # 数据仓库：公告、更新日志与配图都放这里（经 jsdelivr 分发）。
 # 与代码仓库彻底分离 —— 客户端拉取代码时不会再带上这些数据，
-# 代码仓库的提交历史也不会被发布动作污染（2026-09-20 用户明确要求）。
+# 代码仓库的提交历史也不会被发布动作污染。
 DATA_REPO = "changqing81/announcement-changelog"
 DATA_BRANCH = "main"
 

@@ -724,9 +724,9 @@ class ActionPointStatisticsMixin(WebUIMixinBase):
         html_tpl = read_webapp_template("ap_chart_panel.html")
         js_tpl = read_webapp_template("ap_chart.js")
 
-        # 黄币 / 紫币 / 资产 统计行 + 图例收进默认折叠的 details（用户拍板），
+        # 黄币 / 紫币 / 资产 统计行 + 图例收进默认折叠的 details，
         # 摘要行保留各序列当前值，收起时信息不丢。
-        # 资源明细只在折线/详细波动这类分时视图渲染（用户拍板 2026-10-02）：
+        # 资源明细只在折线/详细波动这类分时视图渲染：
         # 按日/按月是聚合 K 线视图，分时序列折叠块不适用。
         aux_fold_html = ""
         if current_view in self.AP_LINE_VIEWS:

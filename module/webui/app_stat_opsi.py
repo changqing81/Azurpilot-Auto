@@ -54,7 +54,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
 
         刻意不重建 ``opsi_stats``：外层「大世界收获」折叠块在
         ``_render_opsi_summary`` 里只建一次、包住 ``meow_loot_scope``，
-        重建会把它折回默认收起态（用户裁定不可接受）。切月份只落在
+        重建会把它折回默认收起态。切月份只落在
         ``opsi_summary_cards`` / ``meow_strip_scope`` / ``meow_loot_scope``
         三个子 scope 上，与任务筛选等回调走同一条路径。
         """
@@ -634,10 +634,9 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             # 大世界收获：左栏任务筛选 + 右栏（合计条 / 侵蚀等级卡 / 物品明细表）。
             # 外层折叠块在这里只建一次、包住 meow_loot_scope；任务筛选、月份切换、
             # 「其余 N 项」回调都只 clear 内容 scope 本身 —— 用户展开一次后任意
-            # 切换都不会被折回去（折叠块随回调重建会回到默认收起态，实测
-            # 用户裁定不可接受）。
+            # 切换都不会被折回去（折叠块随回调重建会回到默认收起态）。
             # 「收获合计」条挂在折叠标题行（meow_strip_scope）：收起状态也能看到
-            # 合计（用户裁定）；标题行随内容回调一起重绘，数字不会 stale。
+            # 合计；标题行随内容回调一起重绘，数字不会 stale。
             put_widget(
                 self.MEOW_COLLAPSE_TPL,
                 dict(
