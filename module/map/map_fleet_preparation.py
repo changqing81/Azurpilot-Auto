@@ -497,9 +497,12 @@ class FleetPreparation(InfoHandler):
 
         if map_allow_submarine:
             if self.config.Submarine_Fleet:
-                if fleet_2.allow():
-                    self.device.click(fleet_2._clear)
-                    # no need to take new screenshot, because submarine check does not need the fleet 2 part
+                # 清空舰队2 交给后面 fleet_2.clear() 单次点击完成。原先在此预点一次，
+                # 会与 clear() 首轮（复用旧帧判定、计时器未启动即放行）的点击构成
+                # 0.45s 内的重复点击，而游戏对该次预点无响应：清空动画实测锚定在
+                # clear() 那次点击之后约 3.0s（349 段日志，3.01s±0.04s），
+                # 日志上表现为同一按钮连点两次、像是「第一次没生效、第二次才成功」。
+                # 潜艇让位不依赖舰队2 已清空（SUBMARINE_CHOOSE 在预点后 0.06s 即成功）。
                 submarine.ensure_to_be(self.config.Submarine_Fleet)
             else:
                 # clear submarine and fleet2 together using simple click
