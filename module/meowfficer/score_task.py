@@ -22,6 +22,7 @@ from datetime import datetime
 
 from rich.table import Table
 
+from module.base.utils import imread_unicode
 from module.config.config import AzurLaneConfig
 from module.exception import RequestHumanTakeover
 from module.logger import logger
@@ -153,7 +154,7 @@ class MeowfficerScore:
 
         for index, path in enumerate(files, 1):
             logger.hr(f'第 {index}/{len(files)} 张', level=2)
-            image = cv2.imread(path)
+            image = imread_unicode(path, cv2.IMREAD_COLOR)
             if image is None:
                 logger.warning(f'[指挥喵-评分] 读图失败：{path}')
                 continue

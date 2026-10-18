@@ -10,6 +10,7 @@ import numpy as np
 
 from module.config.config import TaskEnd
 from module.base.button import Button, ButtonGrid
+from module.base.utils import imread_unicode
 from module.equipment.equipment import SWIPE_AREA, SWIPE_DISTANCE, SWIPE_RANDOM_RANGE
 from module.ui.switch import Switch
 from module.exception import ScriptError
@@ -110,7 +111,7 @@ AUTO_EQUIP_CLICK_RECORD_NAMES = (
 
 @lru_cache(maxsize=1)
 def auto_equip_empty_slot_plus_template():
-    template = cv2.imread(str(AUTO_EQUIP_EMPTY_SLOT_PLUS_TEMPLATE_FILE), cv2.IMREAD_GRAYSCALE)
+    template = imread_unicode(AUTO_EQUIP_EMPTY_SLOT_PLUS_TEMPLATE_FILE, cv2.IMREAD_GRAYSCALE)
     if template is None:
         raise ScriptError(f'Unable to load {AUTO_EQUIP_EMPTY_SLOT_PLUS_TEMPLATE_FILE}')
     return template
@@ -118,7 +119,7 @@ def auto_equip_empty_slot_plus_template():
 
 @lru_cache(maxsize=1)
 def auto_equip_no_equipment_template():
-    template = cv2.imread(str(AUTO_EQUIP_NO_EQUIPMENT_TEMPLATE_FILE), cv2.IMREAD_GRAYSCALE)
+    template = imread_unicode(AUTO_EQUIP_NO_EQUIPMENT_TEMPLATE_FILE, cv2.IMREAD_GRAYSCALE)
     if template is None:
         raise ScriptError(f'Unable to load {AUTO_EQUIP_NO_EQUIPMENT_TEMPLATE_FILE}')
     return template

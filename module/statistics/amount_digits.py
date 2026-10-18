@@ -11,7 +11,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from module.base.utils import extract_white_letters
+from module.base.utils import extract_white_letters, imread_unicode
 
 GLYPH_SIZE = 24
 MAX_ERROR = 0.025
@@ -144,7 +144,7 @@ class DigitTemplates:
 
 @lru_cache(maxsize=2)
 def load_digit_templates(layout):
-    atlas = cv2.imread(str(TEMPLATE_FOLDER / f'{layout}.png'), cv2.IMREAD_GRAYSCALE)
+    atlas = imread_unicode(TEMPLATE_FOLDER / f'{layout}.png', cv2.IMREAD_GRAYSCALE)
     if atlas is None or atlas.shape[1] != GLYPH_SIZE * 10 or atlas.shape[0] % GLYPH_SIZE:
         return None
     templates = DigitTemplates(atlas)

@@ -11,6 +11,7 @@ import cv2
 from rich.table import Table
 from rich.text import Text
 
+from module.base.utils import imread_unicode
 from module.config.config import AzurLaneConfig
 from module.exception import RequestHumanTakeover
 from module.logger import logger
@@ -139,7 +140,7 @@ class OcrBenchmark:
             )
 
             # --- Speed ---
-            benchmark_img = cv2.imread(test_cases[0][0])
+            benchmark_img = imread_unicode(test_cases[0][0], cv2.IMREAD_COLOR)
             count = 100
 
             logger.info(f'[{model_name}] 预热中...')
