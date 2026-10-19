@@ -838,57 +838,67 @@ class GemsFarming(FleetMemoryMixin, CampaignRun, FleetEquipment, GemsEquipmentHa
         if ship_type.lower() == 'cv' and self.config.GemsFarming_CommonCV != 'custom':
             filter_string = self.config.COMMON_CV_FILTER
         else:
-            filter_string =  self.config.__getattribute__(f'GemsFarming_Common{ship_type}Filter')
+            filter_string = self.config.__getattribute__(f'GemsFarming_Common{ship_type}Filter')
         sort_dsc_first = ship_type.lower() == 'dd'
-    
+
         common_ship = self.get_common_ship_filter(filter_string, ship_type=ship_type)
         templates = globals()[f'TEMPLATE_COMMON_{ship_type}']
-        find_first = True
-        common_ship_candidates = {}
-        for name in common_ship:
-            template = templates[name.upper()]
-            candidates = self.find_candidates(template, scanner)
+        if not common_ship:
+            return []
 
-            if find_first:
-                find_first = False
-                if candidates:
-                    logger.info(f'[钻石打捞] 找到通用 {ship_type} {name}')
-                    return candidates
+        # 正序扫描：按候选名的优先级顺序逐个匹配，最高优先级的候选名命中即返回；
+        # 其余名字的命中先记下来，留给倒序页再给更高优先级一次机会
+        # （同一张截图由 ShipScanner 的帧缓存复用，这些匹配不产生额外 OCR）
+        top_name = common_ship[0]
+        candidates = self.find_candidates(templates[top_name.upper()], scanner)
+        if candidates:
+            logger.info(f'[钻石打捞] 找到通用 {ship_type} {top_name}')
+            return candidates
 
-            common_ship_candidates[name] = candidates
+        fallback_name, fallback_candidates = '', []
+        for name in common_ship[1:]:
+            candidates = self.find_candidates(templates[name.upper()], scanner)
+            if candidates and not fallback_name:
+                fallback_name, fallback_candidates = name, candidates
 
-        logger.info(f'[战役-紧急委托] 未找到合适的 {ship_type}，尝试倒序排列。')
+        # 最高优先级不在当前页：换倒序排列，再按优先级顺序找一轮
+        logger.info(f'[战役-紧急委托] 未找到 {top_name}，尝试倒序排列。')
         self.dock_sort_method_dsc_set(not sort_dsc_first)
-
         for name in common_ship:
-            template = templates[name.upper()]
-            candidates = self.find_candidates(template, scanner)
-
+            candidates = self.find_candidates(templates[name.upper()], scanner)
             if candidates:
-                logger.info(f'[钻石打捞] 找到通用驱逐舰 {name}')
+                logger.info(f'[钻石打捞] 找到通用 {ship_type} {name}')
                 return candidates
-            elif common_ship_candidates[name]:
-                logger.info(f'[钻石打捞] 找到通用驱逐舰 {name}')
-                self.dock_sort_method_dsc_set(sort_dsc_first, wait_loading=False)
-                return common_ship_candidates[name]
 
+        if fallback_name:
+            # 倒序页也没有目标船：恢复排序回到正序页取次级候选。
+            # 恢复排序会重排卡片，先用单点模板匹配确认旧坐标仍指向同一艘船，
+            # 确认失败才重新整页识别（避免多付一次整页 OCR）
+            logger.info(f'[钻石打捞] 找到通用 {ship_type} {fallback_name}')
+            self.dock_sort_method_dsc_set(sort_dsc_first)
+            template = templates[fallback_name.upper()]
+            if all(self.match_ship_to_template(ship, template) for ship in fallback_candidates):
+                return fallback_candidates
+            return self.find_candidates(template, scanner)
+
+        # 两个方向的候选名都没有符合要求的船，返回空列表，交给调用方的兜底逻辑处理
         return []
 
     def find_candidates(self, template, scanner):
         """
         基于模板匹配查找候选舰船。
+
+        模板为列表（如 cassin_or_downes）时逐个匹配，命中一个模板立即返回；
+        先扫描一次取回全部舰船，避免同一张截图被每个模板重复扫描。
         """
-        candidates = []
-        if isinstance(template, list):
-            for item in template:
-                candidates = [ship for ship in scanner.scan(self.device.image, output=False)
-                            if item.match(self.image_crop(ship.button, copy=False), similarity=SIM_VALUE)]
-                if candidates:
-                    break
-        else:
-            candidates = [ship for ship in scanner.scan(self.device.image, output=False)
-                          if template.match(self.image_crop(ship.button, copy=False), similarity=SIM_VALUE)]
-        return candidates
+        ships = scanner.scan(self.device.image, output=False)
+        templates = template if isinstance(template, list) else [template]
+        for item in templates:
+            candidates = [ship for ship in ships
+                          if item.match(self.image_crop(ship.button, copy=False), similarity=SIM_VALUE)]
+            if candidates:
+                return candidates
+        return []
 
     @staticmethod
     def get_templates(common_dd):

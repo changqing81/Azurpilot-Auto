@@ -762,6 +762,9 @@ class ShipScanner(Scanner):
         super().__init__()
         self._results = []
         self.grids = CARD_GRIDS
+        # 帧缓存：同一张截图上重复扫描时复用未过滤结果，避免重复 OCR
+        self._cache_image = None
+        self._cache_candidates = None
         self.limitation: Dict[str, Union[str, int, Tuple[int, int]]] = {
             'level': (1, 125),
             'emotion': (0, 150),
@@ -783,7 +786,18 @@ class ShipScanner(Scanner):
         self.set_limitation(
             level=level, emotion=emotion, rarity=rarity, fleet=fleet, status=status)
 
+    def _invalidate_cache(self) -> None:
+        """清空帧缓存：网格位置或子扫描器开关变化后，缓存的原始结果不再可用。"""
+        self._cache_image = None
+        self._cache_candidates = None
+
     def _scan(self, image) -> List:
+        # 同一张截图直接复用未过滤结果：OCR 与模板匹配对同一帧是确定性的，
+        # 多次调用之间只有 limitation 过滤不同，而过滤是在 scan() 里做的。
+        # 换帧由图像对象身份自动识别，扫描器配置变化走 _invalidate_cache()。
+        if self._cache_image is image and self._cache_candidates is not None:
+            return self._cache_candidates
+
         for scanner in self.sub_scanners.values():
             scanner.scan(image, cached=True)
 
@@ -810,15 +824,20 @@ class ShipScanner(Scanner):
         for scanner in self.sub_scanners.values():
             scanner.clear()
 
+        self._cache_image = image
+        self._cache_candidates = candidates
         return candidates
 
     def scan(self, image, cached=False, output=True) -> Union[List, None]:
         ships = super().scan(image, cached, output)
         if not cached:
+            # 返回过滤后的新列表，调用方修改它不会污染帧缓存
             return [ship for ship in ships if ship.satisfy_limitation(self.limitation)]
 
     def move(self, vector) -> None:
         """移动网格坐标，同步更新所有子扫描器和自身的网格位置。"""
+        # 网格位置变了，缓存里的按钮坐标不再对应新位置
+        self._invalidate_cache()
         for scanner in self.sub_scanners.values():
             scanner.move(vector)
 
@@ -842,18 +861,28 @@ class ShipScanner(Scanner):
 
         支持的属性：'level'、'emotion'、'rarity'、'fleet'、'status'。
         """
+        changed = False
         for name, scanner in self.sub_scanners.items():
             if name in args:
                 scanner.enable()
+                changed = True
+        if changed:
+            # 子扫描器开关会改变原始扫描结果，帧缓存作废
+            self._invalidate_cache()
 
     def disable(self, *args) -> None:
         """禁用指定属性的子扫描器。
 
         支持的属性：'level'、'emotion'、'rarity'、'fleet'、'status'。
         """
+        changed = False
         for name, scanner in self.sub_scanners.items():
             if name in args:
                 scanner.disable()
+                changed = True
+        if changed:
+            # 子扫描器开关会改变原始扫描结果，帧缓存作废
+            self._invalidate_cache()
 
     def set_limitation(self, **kwargs):
         """设置舰船筛选条件。
@@ -870,6 +899,9 @@ class ShipScanner(Scanner):
             self.limit_value(key=attr, value=value)
             if value is False:
                 self.sub_scanners[attr].disable()
+                # 子扫描器被关闭后原始结果变全 None，帧缓存作废；
+                # 只改过滤范围（传具体值）时缓存保留，过滤在 scan() 里做
+                self._invalidate_cache()
 
         logger.info(f'筛选条件已设置为 {self.limitation}')
 
