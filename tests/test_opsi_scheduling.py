@@ -76,6 +76,11 @@ class TestOpsiTaskCooldown(unittest.TestCase):
         runner.config = SimpleNamespace(
             task=owner,
             data={},
+            # 实例名指向不存在的配置 + 暴露 modified/save：不读任何真实实例配置
+            # （同 test_action_point_ocr_guard 的做法）
+            config_name='opsi_scheduling_test_nonexistent',
+            modified={},
+            save=Mock(),
             pending_task=[owner, self.make_task(datetime(2026, 9, 7))],
             waiting_task=[],
             OpsiMeowfficerFarming_HazardLevel=5,
@@ -116,12 +121,21 @@ class TestOpsiTaskCooldown(unittest.TestCase):
 
 
 class SmartSchedulingConfig:
-    """仅提供智能调度与防溢出测试所需的配置接口。"""
+    """仅提供智能调度与防溢出测试所需的配置接口。
+
+    实例名指向不存在的配置（磁盘回退读空），并暴露 ``modified``/``save``，
+    使用例不依赖任何真实实例配置。"""
 
     def __init__(self, task_command='OpsiScheduling'):
         self.task = SimpleNamespace(command=task_command)
         self.task_delay_calls = []
         self.OpsiGeneral_BuyActionPointLimit = 0
+        self.config_name = 'opsi_scheduling_test_nonexistent'
+        self.modified = {}
+
+    @staticmethod
+    def save():
+        """单测桩不做落盘。"""
 
     def cross_get(self, keys, default=None):
         if keys == 'OpsiScheduling.Scheduler.ServerUpdate':
@@ -554,11 +568,9 @@ class ProxyOwnerConfig:
 class TestOpsiProxySwitchOwner(unittest.TestCase):
     """嵌套代理必须沿用最外层任务的切换基准。
 
-    回归背景（2026-10-18）：防溢出任务代跑智能调度 → 侵蚀1 时，内层
-    ``_run_with_opsi_task_context`` 把 ``_task_switch_owner`` 覆盖成中间层
-    ``OpsiScheduling``。自动搜索里的 ``task_switched()`` 于是拿中间层与调度器
-    真实下一任务（仍是防溢出任务本身）比较，判定「已切换」并中断搜索；
-    行动力一点没消耗，防溢出任务每分钟重排一次，与三油低耗反复互相抢占。
+    内层用中间层任务覆盖 ``_task_switch_owner`` 时，``task_switched()`` 会拿
+    中间层与调度器真实下一任务（仍是最外层任务本身）比较，把子任务正在跑的
+    自动搜索误判成「已切换」而中断。
     """
 
     @staticmethod
@@ -604,4 +616,30 @@ class TestOpsiProxySwitchOwner(unittest.TestCase):
 
         # 最外层任务仍在运行且仍是调度器选中的任务 → 不应判定为已切换
         self.assertFalse(results['switched'])
+
+
+class TestSmartSchedulingStateIsolation(unittest.TestCase):
+    """没有实例名的配置桩不得去读磁盘上的实例配置。
+
+    状态读取会回退磁盘做跨进程补缺；若在缺实例名时猜一个默认实例，用例的
+    成败就取决于那份配置里恰好有什么键。
+    """
+
+    def test_no_disk_read_without_config_name(self):
+        scheduling = OpsiScheduling.__new__(OpsiScheduling)
+        scheduling.config = SimpleNamespace(
+            cross_get=lambda keys, default=None: default)
+
+        # 让磁盘读取成功返回一份含状态键的配置：若仍去读，state 会带上这些键
+        fake_state = {'BuyActionPointLimitBackup': 5}
+        with (
+            patch('module.config.utils.filepath_config',
+                  return_value=__file__) as filepath_config,
+            patch('module.os.tasks.scheduling.json.load',
+                  return_value={'OpsiScheduling': {'Storage': {'Storage': fake_state}}}),
+        ):
+            state = scheduling._get_smart_scheduling_state()
+
+        filepath_config.assert_not_called()
+        self.assertEqual(state, {})
 

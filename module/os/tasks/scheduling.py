@@ -705,10 +705,14 @@ class CoinTaskMixin:
 
     def _read_disk_smart_scheduling_state(self):
         """从磁盘实例配置读取状态（跨进程覆盖时的兜底数据源）。"""
+        config_name = getattr(self.config, 'config_name', None)
+        if not config_name:
+            # 没有实例名时不猜默认实例，避免读到不属于自己的实例配置
+            return {}
         try:
             from module.config.utils import filepath_config
 
-            path = filepath_config(getattr(self.config, 'config_name', 'alas'))
+            path = filepath_config(config_name)
             with open(path, encoding='utf-8') as f:
                 data = json.load(f)
             state = deep_get(data, keys=self.CONFIG_PATH_SMART_STATE, default={})
@@ -2010,10 +2014,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             self.TASK_NAME_HAZARD1_LEVELING,
             self.TASK_NAME_MEOWFFICER_FARMING,
         )
-        # 嵌套代理（防溢出 → 智能调度 → 侵蚀1）沿用最外层调度任务作为切换
-        # 比对基准：内层若用中间层任务覆盖，task_switched() 会拿中间层与调度器
-        # 真实下一任务（正是最外层任务本身）比较，自动搜索刚开打就被父任务
-        # 判成「已切换」而中断，行动力永远清不掉。
+        # 嵌套代理（如 防溢出 → 智能调度 → 侵蚀1）时沿用最外层任务的切换基准：
+        # 内层若用中间层任务覆盖，task_switched() 会拿中间层与调度器真实下一任务
+        # 比较，把子任务正在跑的自动搜索误判成「已切换」而中断。
         if previous_task_switch_owner is None:
             self.config._task_switch_owner = previous_task
         self.config.task = self._make_opsi_task_function(task_name)
