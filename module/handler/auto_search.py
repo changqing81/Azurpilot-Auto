@@ -205,6 +205,15 @@ class AutoSearchHandler(EnemySearchingHandler):
     _auto_search_offset = (5, 5)
     # 当 MULTIPLE_SORTIE 出现时向左偏移 213px
     _auto_search_menu_offset = (250, 30)
+    # 「再次前往」快速重试：结算菜单（合计获得奖励）出现后立即点击，
+    # 最多尝试 auto_search_continue_retry 次、每次间隔 auto_search_continue_interval 秒。
+    # 与旧的 2 秒节流相比：6 次 × 0.5 秒约 3 秒封顶，仍未跳转就停手交回调用方，
+    # 既不等 2 秒白起步，也不允许无上限连点（同按钮 15 次点击窗口内 ≥12 次
+    # 会触发 GameTooManyClickError 误判）。
+    auto_search_continue_retry = 6
+    auto_search_continue_interval = 0.5
+    # 当前这屏菜单已点击的次数。菜单消失后归零，保证下一场战斗重新获得重试配额
+    _auto_search_continue_attempts = 0
 
     def is_auto_search_running(self):
         """
@@ -238,8 +247,64 @@ class AutoSearchHandler(EnemySearchingHandler):
         """
         return AUTO_SEARCH_MENU_CONTINUE.match_luma(self.device.image, offset=self._auto_search_menu_offset)
 
+    def handle_auto_search_continue_retry(self):
+        """快速点击结算菜单的「再次前往」，最多 6 次、每次间隔 0.5 秒。
+
+        「合计获得奖励」菜单出现后立即点击「再次前往」（AUTO_SEARCH_MENU_CONTINUE），
+        不再按旧逻辑的 2 秒节流白等起步；每次点击前重新确认菜单仍在当前画面，
+        界面已经跳转时立即收手，避免点到新画面的错误位置。
+
+        退出条件（任一满足即返回，交回调用方的原有逻辑）：
+        - 菜单消失：点击已生效，界面已跳转，本屏点击计数清零；
+        - 本屏菜单已点击满 auto_search_continue_retry 次而仍在：告警一次后不再点击，
+          由调用方继续走原有流程（地图操作循环自身的限次/超时与任务切换兜底），
+          不会无限连点，也不会让连点保护误报卡死；
+        - 调度器要求切换任务（config.task_switched）：立即停手让位。
+
+        Returns:
+            bool: 本轮是否点击过「再次前往」。
+        """
+        if not self.appear(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset):
+            # 菜单不在：重置本屏计数，下一场战斗重新获得重试配额
+            self._auto_search_continue_attempts = 0
+            return False
+
+        interval = Timer(self.auto_search_continue_interval)
+        clicked = False
+        for _ in self.loop():
+            if self.config.task_switched():
+                logger.info('[处理器-自动搜索] 检测到任务切换请求，「再次前往」停止重试')
+                break
+            if not self.appear(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset):
+                # 界面已经跳转：本次点击已生效
+                logger.info(
+                    f'[处理器-自动搜索] 「再次前往」已生效（本屏点击 {self._auto_search_continue_attempts} 次）')
+                self._auto_search_continue_attempts = 0
+                break
+            if self._auto_search_continue_attempts >= self.auto_search_continue_retry:
+                logger.warning(
+                    f'[处理器-自动搜索] 「再次前往」已点击 {self._auto_search_continue_attempts} 次仍未跳转，'
+                    '交回原有流程处理')
+                break
+            if interval.reached():
+                self.device.click(AUTO_SEARCH_MENU_CONTINUE)
+                self._auto_search_continue_attempts += 1
+                clicked = True
+                interval.reset()
+
+        return clicked
+
     def handle_auto_search_continue(self):
-        return self.appear_then_click(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset, interval=2)
+        """点击自动搜索结算菜单的「再次前往」。
+
+        每场战斗结束进入「合计获得奖励」菜单后立即点击，最多重试 6 次、
+        每次间隔 0.5 秒；失败或调度器要求切换任务时返回，见
+        handle_auto_search_continue_retry()。
+
+        Returns:
+            bool: 是否点击过「再次前往」。
+        """
+        return self.handle_auto_search_continue_retry()
 
     def handle_auto_search_exit(self, drop=None):
         """

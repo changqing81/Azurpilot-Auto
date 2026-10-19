@@ -418,17 +418,19 @@ class FastForwardHandler(AutoSearchHandler):
     def handle_auto_search_continue(self, drop=None):
         """
         覆盖 AutoSearchHandler 的定义，用于处理二倍经验书设置。
+
+        识别到「合计获得奖励」菜单后先处理二倍经验书与掉落记录，再走快速重试
+        点击「再次前往」（最多 6 次、每次间隔 0.5 秒，见
+        handle_auto_search_continue_retry）；失败或需要切换任务时交回调用方。
         """
         if self.appear(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset, interval=2):
             self.map_is_2x_book = self.config.Campaign_Use2xBook
             self.handle_2x_book_setting(mode='auto')
             if drop:
                 drop.handle_add(main=self, before=4)
-            if self.appear_then_click(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset):
-                self.interval_reset(AUTO_SEARCH_MENU_CONTINUE)
-            else:
-                # handle_2x_book_setting() 之后 AUTO_SEARCH_MENU_CONTINUE 可能已消失
-                pass
+            # 二倍经验书设置后菜单可能已消失：重试内部会按当前画面重新确认
+            self.handle_auto_search_continue_retry()
+            self.interval_reset(AUTO_SEARCH_MENU_CONTINUE)
             return True
         return False
 
