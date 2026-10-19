@@ -372,6 +372,7 @@ YukikazeTaskManager:
       > ShopFrequent > ShopOnce > Shipyard > Freebies
       > PrivateQuarters
       > OpsiExplore
+      > OpsiScheduling
       > OpsiPreventActionPointOverflow
       > Minigame > Awaken
       > OpsiAshBeacon
@@ -385,7 +386,6 @@ YukikazeTaskManager:
       > IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture
       > IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation
       > Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3
-      > OpsiScheduling
       > OpsiMeowfficerFarming
       > GemsFarming
       > Ambush11
