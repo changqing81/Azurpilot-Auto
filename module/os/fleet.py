@@ -46,14 +46,7 @@ from module.os_ash.ash import OSAsh
 from module.os_combat.combat import Combat
 from module.os_combat.assets import SIREN_PREPARATION
 from module.combat.assets import BATTLE_PREPARATION
-from module.os_handler.assets import (
-    AUTO_SEARCH_REWARD,
-    CLICK_SAFE_AREA,
-    IN_MAP,
-    PORT_ENTER,
-    STRATEGIC_SEARCH_MAP_OPTION_OFF,
-    TEMPLATE_STORAGE_SHIP_EMPTY,
-)
+from module.os_handler.assets import AUTO_SEARCH_REWARD, CLICK_SAFE_AREA, IN_MAP, PORT_ENTER, TEMPLATE_STORAGE_SHIP_EMPTY
 from module.os_shop.assets import PORT_SUPPLY_CHECK
 from module.ui.assets import BACK_ARROW
 
@@ -65,26 +58,6 @@ FLEET_FILTER = Filter(regex=re.compile(r'fleet-?(\d)'), attr=('fleet',), preset=
 # 连续 50 秒没有任何真实进展（战斗/事件/切页）就提前判定为稳定并返回，
 # 让调用方继续后续流程，而不是把整个任务吊死。
 OS_WAIT_STABLE_TIMEOUT = 50
-
-# 以「刷随机事件」为主的农业任务（侵蚀 1 练级 / 短猫相接）：
-# 这类任务的事件收尾允许走快速通道（见 wait_until_walk_stable 的 allow_event_finish）。
-FARMING_TASKS = ('OpsiHazard1Leveling', 'OpsiMeowfficerFarming')
-
-
-def effective_task(config):
-    """取当前真实子任务名。
-
-    智能调度/防溢出代跑时，配置绑定的是代理任务（如 OpsiScheduling），
-    真实子任务记录在 `_bind_task_override` 上，优先返回它。
-
-    Args:
-        config (AzurLaneConfig): 配置对象。
-
-    Returns:
-        str | None: 任务名，取不到时返回 None。
-    """
-    return getattr(config, '_bind_task_override', None) or getattr(
-        getattr(config, 'task', None), 'command', None)
 
 
 def limit_walk(location, step=3):
@@ -432,8 +405,7 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
 
         logger.info('[大世界-摄像机] 摄像机已稳定')
 
-    def wait_until_walk_stable(self, confirm_timer=None, skip_first_screenshot=False, walk_out_of_step=True,
-                               drop=None, *, allow_event_finish=False):
+    def wait_until_walk_stable(self, confirm_timer=None, skip_first_screenshot=False, walk_out_of_step=True, drop=None):
         """
         等待 homo_loca 稳定。DETECTION_BACKEND 必须为 'homography'。
 
@@ -443,8 +415,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
             walk_out_of_step (bool): 是否捕获 walk_out_of_step 错误。
                 默认为 True，深渊海域中使用 False。
             drop (DropImage): 掉落记录对象。
-            allow_event_finish (bool): 事件检索收尾允许在完成后直接返回；
-                定位及恢复移动默认不启用（keyword-only，默认关闭）。
 
         Returns:
             str: 舰队途中遇到的事件，如 'event'、'search'、'akashi'、'combat'，
@@ -470,13 +440,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
         clicked_story_count = 0
         # 累计剧情选项点击轮数（不在清空时重置），用于检测卡死
         clicked_story_total = 0
-        # 事件完成状态机（事件收尾快速通道用，详见 allow_event_finish）：
-        # 领奖/档案领取/战斗结束/明石商店退出后置 True；
-        # 出现新剧情选项、走位异常、弹窗或误入其它页面时复位为 False，
-        # 防止旧完成标记越过新的交互提前放行。
-        fast_farming = effective_task(getattr(self, 'config', None)) in FARMING_TASKS
-        completed_event = False
-        finish_without_stability = False
 
         confirm_timer.reset()
         # 总超时：只在"有真实进展"（事件/战斗/切页）时重置。
@@ -502,8 +465,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                 confirm_timer.reset()
                 result.add('event')
                 if event == 'story_skip':
-                    # 领奖后仍可能出现下一组选项，旧的完成标记不能越过新的剧情
-                    completed_event = False
                     clicked_story = True
                     clicked_story_count += 1
                     clicked_story_total += 1
@@ -523,8 +484,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                             self.device.click_record_clear()
                             raise GameTooManyClickError('[大世界-剧情] 连续多次剧情选项无进展')
                 elif event == 'map_get_items':
-                    # 领奖即事件完成，可供事件收尾快速通道提前放行
-                    completed_event = True
                     # story_skip -> map_get_items 表示收到了深渊进度奖励
                     if clicked_story:
                         logger.info('[大世界-剧情] 从剧情获得物品')
@@ -533,29 +492,22 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                     clicked_story_count = 0
                     clicked_story_total = 0
                 else:
-                    if event == 'map_archives':
-                        # 档案领取同样视为事件完成
-                        completed_event = True
                     # 处理了其他事件，清除历史记录
                     clicked_story = False
                     clicked_story_count = 0
                     clicked_story_total = 0
                 continue
             if self.handle_retirement():
-                # 误点进退役界面属于未完成的交互，作废完成标记
-                completed_event = False
                 deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.handle_walk_out_of_step():
-                completed_event = False
                 if walk_out_of_step:
                     raise MapWalkError('walk_out_of_step')
                 else:
                     deadline.reset()
                     continue
             if self.handle_popup_confirm('WALK_UNTIL_STABLE'):
-                completed_event = False
                 deadline.reset()
                 confirm_timer.reset()
                 continue
@@ -566,31 +518,25 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
 
             # 意外点击
             if self.is_in_globe():
-                completed_event = False
                 self.os_globe_goto_map()
                 deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.is_in_storage():
-                completed_event = False
                 self.storage_quit()
                 deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.is_in_os_mission():
-                completed_event = False
                 self.os_mission_quit()
                 deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.handle_os_game_tips():
-                # 游戏小贴士弹窗属于新的交互，作废完成标记
-                completed_event = False
                 deadline.reset()
                 confirm_timer.reset()
                 continue
             if self.is_in_map_order():
-                completed_event = False
                 self.order_quit()
                 deadline.reset()
                 confirm_timer.reset()
@@ -601,8 +547,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                 # 使用 ui_back() 进行测试，因为每月深渊日志太少。
                 # self.ui_back(check_button=self.is_in_map)
                 self.combat(expected_end=abyssal_expected_end, fleet_index=self.fleet_show_index, save_get_items=drop)
-                # 战斗结束即事件完成
-                completed_event = True
                 deadline.reset()
                 confirm_timer.reset()
                 result.add('event')
@@ -612,8 +556,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
             if self.appear(PORT_SUPPLY_CHECK, offset=(20, 20)):
                 self.interval_clear(PORT_SUPPLY_CHECK)
                 self.handle_akashi_supply_buy(CLICK_SAFE_AREA)
-                # 商店退出即事件完成
-                completed_event = True
                 deadline.reset()
                 confirm_timer.reset()
                 result.add('akashi')
@@ -642,17 +584,6 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                     result.add('search')
                 if self.is_in_map():
                     self.enemy_searching_color_initial()
-
-            # 事件收尾快速通道：只在最终领奖/商店退出/战斗结束后的干净画面直接收尾。
-            # 三个条件同帧成立才放行：真实子任务是侵蚀1/短猫（fast_farming）、
-            # 调用点明确开启了 allow_event_finish、且当前帧既在大世界地图又看得见
-            # 右下角「计划作战」入口——即事件已处理完、可以继续刷图的状态。
-            # 剧情选项提交、普通移动与恢复定位仍走完整稳定检测（等定位确认）。
-            if (fast_farming and allow_event_finish and completed_event
-                    and self.is_in_map()
-                    and self.match_template_color(STRATEGIC_SEARCH_MAP_OPTION_OFF, offset=(20, 20))):
-                finish_without_stability = True
-                break
 
             # 到达检测
             # 检查颜色，因为解锁时屏幕会变黑。
@@ -696,10 +627,7 @@ class OSFleet(OSCamera, Combat, Fleet, OSAsh):
                 zero_timer = None
 
         result = '_'.join(result)
-        if finish_without_stability:
-            logger.info(f'[大世界-移动] 事件完成且计划作战入口已确认，跳过镜头稳定等待，结果: {result}')
-        else:
-            logger.info(f'[大世界-移动] 移动已稳定, 结果: {result}')
+        logger.info(f'[大世界-移动] 移动已稳定, 结果: {result}')
         self.device.screenshot_interval_set()
         return result
 
