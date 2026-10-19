@@ -107,10 +107,15 @@ class CampaignEvent(CampaignStatus):
         )
         tasks = EVENTS + RAIDS + COALITIONS + GEMS_FARMINGS + HOSPITAL
         command = self.config.Scheduler_Command
-        if limit <= 0 or command not in tasks:
-            self.get_event_pt()
+        # 活动 PT 只在活动界面（page_event / page_sp）显示：主线关卡（含低耗/打捞
+        # GemsFarming、ThreeOilLowCost 切到主线）跑在普通战役页（page_campaign），
+        # 该页右上角没有 PT 追踪条，按 OCR_EVENT_PT 区域读数只会把页面上的其它
+        # 数字当成 PT 写进仪表盘（实测被写成 0/2/7/10）。非活动任务本就不做
+        # PT 上限判断，这里连同读取一起跳过。
+        if command not in tasks or (
+                command in GEMS_FARMINGS and self.stage_is_main(self.config.Campaign_Name)):
             return False
-        if command in GEMS_FARMINGS and self.stage_is_main(self.config.Campaign_Name):
+        if limit <= 0:
             self.get_event_pt()
             return False
 

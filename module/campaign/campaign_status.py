@@ -36,8 +36,17 @@ from module.log_res import LogRes
 #    OCR_COIN = Digit(OCR_COIN, name='OCR_COIN', letter=(201, 201, 201), threshold=128)
 
 class PtOcr(Ocr):
+    """活动 PT 数字 OCR。
+
+    PT 数字显示在活动界面右上角的追踪条上（OCR_EVENT_PT 区域），识别的
+    字母表只含 `X` 与数字，避免把追踪条内的其它字符识别成数字。
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, lang='azur_lane', alphabet='X0123456789', **kwargs)
+        # 本次识别结果里是否含数字，由 after_process 维护，供调用方区分
+        # “读到 0”与“区域里什么都没读到”
+        self.last_valid = False
 
     def pre_process(self, image):
         """
@@ -58,38 +67,118 @@ class PtOcr(Ocr):
         cv2.convertScaleAbs(r, alpha=255 / 192, dst=r)
         return r
 
+    def after_process(self, result):
+        """记录识别区域里是否读到数字，统一在此做格式门，与所用 OCR 引擎无关。
+
+        Args:
+            result (str): OCR 原始识别字符串。
+
+        Returns:
+            str: 原样返回识别字符串，数值解析由调用方完成。
+        """
+        # 识别区域无内容（被遮挡、界面未加载、切页动画残影）时模型输出空串，
+        # 空串与“真读到 0”必须区分：前者不能当作有效 PT 写进仪表盘。
+        self.last_valid = bool(re.search(r'\d', str(result)))
+        return super().after_process(result)
+
 
 OCR_PT = PtOcr(OCR_EVENT_PT)
 
 
 class CampaignStatus(UI):
-    def get_event_pt(self, update=False):
-        """
-        获取活动 PT 数量。
+    # 单帧骤降防抖：新读数低于上一次有效 PT 的该比例（即骤降超过 95%）时，
+    # 判为疑似脏数据，延迟重截一帧复核。这里只比较相对比例、不设绝对门槛——
+    # 活动 PT 的量级随活动变化（几千到几十万），写死任何具体数值都会在
+    # 下一个活动上失效。
+    PT_DROP_CONFIRM_RATIO = 0.05
+
+    def _ocr_pt_once(self):
+        """读取当前截图里的活动 PT（单帧）。
 
         Returns:
-            int: PT 数量，解析失败返回 0。
+            tuple[int, bool, str]: (PT 数值, 是否解析出数字, OCR 原始字符串)。
+                识别区域无内容或格式无法解析时数值为 0、布尔为 False。
         """
         pt = OCR_PT.ocr(self.device.image)
+        if not OCR_PT.last_valid:
+            return 0, False, pt
 
         # 首选匹配带前缀 X 的格式（历史上部分活动使用 ‘X1234’）
         res = re.search(r'X(\d+)', pt)
         if res:
-            pt = int(res.group(1))
-            logger.attr('活动PT', pt)
-            LogRes(self.config).Pt = pt
+            num = int(res.group(1))
+            logger.attr('活动PT', num)
+            return num, True, pt
+        # 回退：若 OCR 返回纯数字也接受（保留警告以便回溯）
+        res2 = re.search(r'(\d+)', pt)
+        if res2:
+            num = int(res2.group(1))
+            logger.warning(f"无效的PT结果格式 (missing 'X'): {pt}; fallback to digits: {num}")
+            logger.attr('活动PT_回退', num)
+            return num, True, pt
+        return 0, False, pt
+
+    def _last_valid_pt(self):
+        """取仪表盘里上一次记录成功的 PT，作为骤降防抖的基线。
+
+        未记录过（值为 0 或非整数）时返回 None：没有基线就不做骤降判断，
+        避免把活动刚开时读到的小数值当成异常拦下。
+
+        Returns:
+            int | None: 上一有效 PT；无基线时返回 None。
+        """
+        key = 'Dashboard.Pt.Value'
+        if key in self.config.modified:
+            value = self.config.modified[key]
         else:
-            # 回退：若 OCR 返回纯数字也接受（保留警告以便回溯）
-            res2 = re.search(r'(\d+)', pt)
-            if res2:
-                num = int(res2.group(1))
-                logger.warning(f"无效的PT结果格式 (missing 'X'): {pt}; fallback to digits: {num}")
-                logger.attr('活动PT_回退', num)
-                LogRes(self.config).Pt = num
-                pt = num
+            group = LogRes(self.config).group('Pt')
+            value = group.get('Value') if isinstance(group, dict) else None
+        # bool 是 int 的子类，单独排除，避免 True 被当成 1 的基线
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        return value if value > 0 else None
+
+    def get_event_pt(self, update=False):
+        """
+        获取活动 PT 数量。
+
+        单帧读数若相对上一有效值骤降（低于 PT_DROP_CONFIRM_RATIO），先按脏数据
+        处理：延迟 0.5 秒后重截一帧复核。两次读数都骤降才认为更新有效（真实的
+        PT 消耗，如活动商店兑换），否则保留上一有效值并告警，不写仪表盘。
+
+        Returns:
+            int: PT 数量，识别区域无内容或解析失败返回 0。
+        """
+        pt, valid, raw = self._ocr_pt_once()
+        if not valid:
+            logger.warning(f'无效的PT结果: {raw}')
+            return 0
+
+        previous = self._last_valid_pt()
+        if previous is not None and pt < previous * self.PT_DROP_CONFIRM_RATIO:
+            # 骤降：单帧读数不足以判定，先复核再决定是否写仪表盘
+            logger.warning(
+                f'PT 读取异常（识别值 {pt}/首帧值 {previous}），已触发二次校验，'
+                f'保留上一有效值 {previous}'
+            )
+            # 界面切换/加载动画下的残影帧会读出假数字，等画面稳定后重截一帧
+            self.device.sleep(0.5)
+            self.device.screenshot()
+            confirm, confirm_valid, _ = self._ocr_pt_once()
+            if confirm_valid and confirm < previous * self.PT_DROP_CONFIRM_RATIO:
+                # 二次读数同样骤降：判为真实变化，按新值更新
+                logger.info(f'PT 二次读数 {confirm} 同样骤降，确认更新')
+                pt = confirm
             else:
-                logger.warning(f'无效的PT结果: {pt}')
-                pt = 0
+                logger.warning(
+                    f'PT 二次读数 {confirm if confirm_valid else "空"} 与首帧不一致，'
+                    f'保留上一有效值 {previous}'
+                )
+                if update:
+                    self.config.update()
+                return previous
+
+        LogRes(self.config).Pt = pt
         if update:
             self.config.update()
         return pt
