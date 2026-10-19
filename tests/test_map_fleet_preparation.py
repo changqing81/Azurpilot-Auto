@@ -3,10 +3,9 @@
 覆盖 module/map/map_fleet_preparation.py：
 
 1. FleetOperator.clear() 的点击节奏：清空已生效时零点击，
-   未生效时按最小间隔（3 秒）兜底补点，不出现同一按钮的快连点。
+   未生效时按最小间隔（3 秒）兜底补点，不出现同一按钮的快速连点。
 2. fleet_preparation() 的潜艇让位分支不再预点 FLEET_2_CLEAR，
-   清空舰队2 由 fleet_2.clear() 单次完成（此前的预点会被游戏丢弃，
-   并与 clear() 首轮的点击构成 0.45s 内的重复点击）。
+   清空舰队2 由 fleet_2.clear() 单次完成。
 """
 
 import unittest
