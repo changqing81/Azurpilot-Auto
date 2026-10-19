@@ -22,6 +22,7 @@ from module.logger import logger
 from module.os.config import OSConfig
 from module.os.map_operation import OSMapOperation
 from module.os.operation_siren import OperationSiren
+from module.os.tasks.prevent_action_point_overflow import OpsiPreventActionPointOverflow
 from module.os_handler.action_point import ActionPointLimit
 
 
@@ -208,6 +209,12 @@ class OSCampaignRun(OSMapOperation):
         self._run_opsi_task_with_ap_overflow_guard(lambda campaign: campaign.run_smart_scheduling())
 
     def opsi_prevent_action_point_overflow(self):
+        # 绝对互斥：智能调度正常运行时防行动力溢出让出本轮调度，由智能调度
+        # 继续消耗行动力（见 `smart_scheduling_takes_turn`）。在 load_campaign
+        # 之前拦截，让出的轮次完全不碰游戏画面。
+        if OpsiPreventActionPointOverflow.smart_scheduling_takes_turn(self.config):
+            OpsiPreventActionPointOverflow.yield_turn_to_smart_scheduling(self.config)
+            return
         campaign = self.load_campaign()
         campaign.os_prevent_action_point_overflow()
 
