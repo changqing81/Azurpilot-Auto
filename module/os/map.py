@@ -157,6 +157,11 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             **kwargs,
         )
 
+        # 大世界初始化后画面与海域都要重新确认：作废侵蚀 1 留下的
+        # 「海域已就绪」标记，避免跨任务/重启存活后误跳过区域初始化
+        # （见 OpsiHazard1Leveling._cl1_consume_next_search_ready）。
+        self.__dict__.pop('_cl1_next_search_ready', None)
+
         # 界面切换
         if self.is_in_map():
             logger.info("[大世界-地图] 已在大世界地图中")
@@ -775,6 +780,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
 
         # 手动重启游戏而非通过 'task_call'
         # 当前任务不会中断
+        # 重启后画面与海域均需重新确认：作废侵蚀 1 的「海域已就绪」标记
+        self.__dict__.pop('_cl1_next_search_ready', None)
         self.device.app_stop()
         self.device.app_start()
         LoginHandler(self.config, self.device).handle_app_login()
@@ -2158,6 +2165,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 if try_idx == 1:
                     logger.warning("[大世界] 软恢复失败，尝试重启应用以恢复状态")
                     try:
+                        # 重启后画面与海域均需重新确认：作废侵蚀 1 的「海域已就绪」标记
+                        self.__dict__.pop('_cl1_next_search_ready', None)
                         self.device.app_stop()
                         time.sleep(1.0)
                         self.device.app_start()

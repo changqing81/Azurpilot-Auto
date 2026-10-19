@@ -25,7 +25,12 @@ from module.os.ship_exp_data import LIST_SHIP_EXP
 from module.os.tasks.scheduling import CoinTaskMixin
 from module.statistics.opsi_runtime import record_cl1_akashi_encounter
 from module.os.sea_miles_ocr import OCR_SEA_MILES_DIGIT
-from module.os_handler.assets import MISSION_ENTER, MISSION_CHECK, MISSION_QUIT
+from module.os_handler.assets import (
+    MISSION_CHECK,
+    MISSION_ENTER,
+    MISSION_QUIT,
+    STRATEGIC_SEARCH_MAP_OPTION_OFF,
+)
 
 
 class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
@@ -75,6 +80,32 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         else:
             _previous_ap_insufficient = False
         self.config.OpsiHazard1_PreviousApInsufficient = _previous_ap_insufficient
+
+    def _cl1_consume_next_search_ready(self):
+        """消费「本轮沿用上一轮已确认海域」标记（一次性）。
+
+        标记由 `_cl1_run_battle()` 末尾在本轮解决过事件时置位（带 15 分钟时效）。
+        它可能跨轮存活到任务或画面均已变化之后，因此消费时要过下面这几道守卫，
+        任一不满足就退回完整 `zone_init()`（只慢不错）：
+
+        - 一次性 `pop` 消费，异常中断后不残留；
+        - 时效：轮间停顿通常只有几分钟，而任务退避（task_delay 50 分钟起）
+          或跨天、跨任务的长间隔必然超过 15 分钟，届时自动重新定位海域；
+        - `self.zone` 必须已建立：`globe_goto` 换海域与应用重启都会 `del self.zone`；
+        - 当前帧复核：仍在大世界地图，且右下角「计划作战」入口可见——
+          即画面处于「事件已处理完、可以继续刷图」的状态。
+
+        Returns:
+            bool: 是否可以跳过本轮的区域初始化。
+        """
+        ready_timer = self.__dict__.pop('_cl1_next_search_ready', None)
+        if ready_timer is None or ready_timer.reached():
+            return False
+        if not hasattr(self, 'zone'):
+            return False
+        if not self.is_in_map():
+            return False
+        return self.match_template_color(STRATEGIC_SEARCH_MAP_OPTION_OFF, offset=(20, 20))
 
     def _cl1_run_battle(self):
         """执行侵蚀 1 战后的战略搜索与扫荡逻辑"""
@@ -130,6 +161,18 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         if "is_akashi" in solved_events:
             # 明石遭遇计数归入运行时指标，任务仅报告明石事件已解决
             record_cl1_akashi_encounter(self.config)
+
+        # 本轮确实解决过事件时记下「海域已就绪」：下一轮开工先复核画面
+        # （见 _cl1_consume_next_search_ready），确认仍在同一海域地图、右下角
+        # 「计划作战」入口可见，才跳过重复的区域初始化与海域名称 OCR，
+        # 缩短一轮结束后的收尾→开打衔接耗时。
+        # 未解决事件则清掉残留标记，避免旧标记越权放行。
+        if solved_events:
+            ready_timer = Timer(900)  # 15 分钟时效，见 _cl1_consume_next_search_ready()
+            ready_timer.start()
+            self._cl1_next_search_ready = ready_timer
+        else:
+            self.__dict__.pop('_cl1_next_search_ready', None)
 
     def os_hazard1_leveling(self):
         """侵蚀 1 练级任务入口。"""
@@ -188,12 +231,20 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         # zone_init() 会循环截图等待画面稳定并处理弹窗，OCR 失败可重试；
         # 裸调 get_current_zone() 直接 OCR 旧帧，经验检测 ui_back 后立即调用
         # 会读到详情页关闭动画的过渡帧，导致 MapDetectionError。
-        try:
-            self.zone_init()
-        except MapDetectionError as e:
-            logger.error("[大世界-侵蚀1练级] OS地图区域识别失败，请确保游戏已进入OS海域地图界面")
-            logger.error(f"[大世界-侵蚀1练级] OCR识别错误: {e}")
-            raise
+        # 上一轮收尾时若已确认「事件已解决 + 回到地图 + 计划作战入口可见」
+        # （见 _cl1_run_battle 末尾），本轮沿用同一海域、跳过重复的区域初始化，
+        # 缩短一轮结束后的收尾耗时；守卫见 _cl1_consume_next_search_ready()。
+        # 跳过只影响区域初始化本身：其后的行动力弹窗、黄币与行动力保留检查
+        # （_cl1_resource_check / _cl1_ap_check）顺序与判据完全不变。
+        if self._cl1_consume_next_search_ready():
+            logger.info("[大世界-侵蚀1练级] 沿用上一轮已确认的海域，跳过重复区域初始化")
+        else:
+            try:
+                self.zone_init()
+            except MapDetectionError as e:
+                logger.error("[大世界-侵蚀1练级] OS地图区域识别失败，请确保游戏已进入OS海域地图界面")
+                logger.error(f"[大世界-侵蚀1练级] OCR识别错误: {e}")
+                raise
 
         # 侵蚀 1 练级时，行动力优先用于此任务，而非短猫相接。
         # ap_checked=True 表示调度器已确认行动力充足（>=120），无需重复弹窗；
