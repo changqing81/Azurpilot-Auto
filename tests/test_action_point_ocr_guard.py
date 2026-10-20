@@ -9,11 +9,18 @@
 
 import os
 import unittest
+from datetime import timedelta
 from glob import glob
 from unittest.mock import patch
 
-from module.os_handler.action_point import MAP_ACTION_POINT_DIGIT
+from module.config.time_source import now as current_time
+from module.os_handler.action_point import MAP_ACTION_POINT_DIGIT, ActionPointHandler
 from module.os_handler.action_point_ledger import SOURCE_MAP_BAR, SOURCE_POPUP
+
+# 预置账本记录用的过期时间戳：账本记录在新鲜窗口（AP_LEDGER_FRESH_SECONDS）内
+# 时，决策读直接沿用记录、不再 OCR；要复现「记录过期后决策读重读顶栏并覆盖记录」
+# 的旧路径，预置记录就必须是过期的。
+STALE_AT = current_time() - timedelta(seconds=ActionPointHandler.AP_LEDGER_FRESH_SECONDS + 1)
 
 
 class TestMapActionPointDigitGates(unittest.TestCase):
@@ -89,7 +96,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
     def test_low_map_bar_truth_forces_popup(self):
         # 场景还原（2026-10-03 真机）：弹窗记录 198，一轮战斗后顶栏真值 98 → 必须弹窗
         handler, ap_module = self.make_handler()
-        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP, at=STALE_AT)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=98):
             self.assertTrue(handler.need_action_point_popup(cost=120, preserve=200))
         self.assertEqual(handler._get_ap_ledger().current, 98)
@@ -109,7 +116,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         # 顶栏读数同步总览显示（Dashboard.ActionPoint 的当前值/总行动力/时间戳），
         # 但不写 LogRes（行动力趋势快照与统计不混入顶栏读数）
         handler, ap_module = self.make_handler()
-        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP, at=STALE_AT)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
             handler.ap_observe_from_map_bar()
         modified = handler.config.modified
@@ -123,7 +130,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
         # 推送发出「总行动力: 0 下跌 2470」，下一次又假装「上涨 2794」。
         # 顶栏记录成功时必须同时刷新本轮的行动力属性。
         handler, ap_module = self.make_handler()
-        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP, at=STALE_AT)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
             handler.ap_observe_from_map_bar()
         self.assertEqual(handler._action_point_current, 158)
@@ -134,7 +141,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
     def test_map_bar_total_includes_box_when_switch_on(self):
         handler, ap_module = self.make_handler()
         handler.config.OS_ACTION_POINT_BOX_USE = True
-        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP, at=STALE_AT)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=158):
             handler.ap_observe_from_map_bar()
         self.assertEqual(handler._action_point_total, 844)
@@ -167,7 +174,7 @@ class TestHandlerRecordAndDecide(unittest.TestCase):
     def test_total_follows_from_last_popup(self):
         # 弹窗记录 198/884（箱子 686），顶栏真值 98 → 总行动力跟随修正为 784，箱子价值不变
         handler, ap_module = self.make_handler()
-        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP)
+        handler._get_ap_ledger().observe(198, 884, source=SOURCE_POPUP, at=STALE_AT)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', return_value=98):
             handler.ap_observe_from_map_bar()
         ledger = handler._get_ap_ledger()

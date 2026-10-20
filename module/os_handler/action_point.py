@@ -6,6 +6,7 @@
 """
 # 此文件处理大世界（Operation Siren）模式下的行动力（Action Point, AP）管理。
 # 包含行动力数值 OCR 识别、药剂（AP Box）库存解析以及自动购买或使用补给的交互逻辑。
+import copy
 import time
 from datetime import datetime, timedelta
 
@@ -22,6 +23,7 @@ from module.logger import logger
 from module.ocr.ocr import Digit, DigitCounter, Ocr
 from module.os_handler.assets import *
 from module.os_handler.map_event import MapEventHandler
+from module.os_handler.os_status import OCR_SHOP_YELLOW_COINS
 from module.statistics.item import Item, ItemGrid
 from module.ui.assets import OS_CHECK
 from module.ui.ui import UI
@@ -71,6 +73,14 @@ class MapActionPointDigit(Digit):
 
 
 MAP_ACTION_POINT_DIGIT = MapActionPointDigit(ACTION_POINT_REMAIN_OS, name='MAP_ACTION_POINT_DIGIT')
+# 静默读数专用实例：与主线程共用的 OCR 对象分开，避免 invalid_reason 等实例状态
+# 跨线程互相覆盖，并关掉 Ocr 自带的耗时日志（后台静默读数不该在日志里刷屏，
+# 读到的值由 AP 账本自己记一行）
+SILENT_ACTION_POINT_DIGIT = MapActionPointDigit(ACTION_POINT_REMAIN_OS, name='SILENT_ACTION_POINT_DIGIT')
+SILENT_ACTION_POINT_DIGIT.SHOW_LOG = False
+# 静默读数的黄币 OCR：复制商店黄币 OCR 的取色参数（含日服分支），同样关掉耗时日志
+SILENT_YELLOW_COIN_OCR = copy.copy(OCR_SHOP_YELLOW_COINS)
+SILENT_YELLOW_COIN_OCR.SHOW_LOG = False
 
 OCR_OS_ADAPTABILITY = Digit([
     OS_ADAPTABILITY_ATTACK,
@@ -394,9 +404,20 @@ class ActionPointHandler(UI, MapEventHandler):
     # from_state 找不到 current 字段而总是返回空账本（2026-10-03 真机日志定位，
     # 该 bug 使持久化自上线起从未生效，每次任务重开都按空账本弹读数窗）。
     AP_LEDGER_STATE_KEY = 'OpsiScheduling.Storage.Storage.ApLedgerState'
+    # 账本新鲜窗口：窗口内的记录就是「这一刻」的真值，决策读直接沿用、不再 OCR。
+    # 行动力只在出击时变化，一次战斗十余秒，窗口取一分钟足够覆盖决策时点。
+    AP_LEDGER_FRESH_SECONDS = 60
 
     def _ap_ledger_enabled(self):
         return bool(getattr(self.config, 'OpsiGeneral_ActionPointLedgerEnabled', False))
+
+    def _ap_ledger_is_fresh(self):
+        """账本记录是否还在新鲜窗口内（用于免去重复的顶栏读数）。"""
+        ledger = self._get_ap_ledger()
+        if ledger is None or ledger.current is None or ledger.recorded_at is None:
+            return False
+        age = (current_time() - ledger.recorded_at).total_seconds()
+        return 0 <= age <= self.AP_LEDGER_FRESH_SECONDS
 
     def _get_ap_ledger(self):
         """惰性获取账本实例；首次从配置状态恢复，之后复用内存对象。"""
@@ -477,6 +498,9 @@ class ActionPointHandler(UI, MapEventHandler):
         顶栏读数只做 OCR 合法性门（位数门/非数字拒绝），通过即记录——
         读到的真值就是账本的新记录，不与旧记录比对。
 
+        账本记录还在新鲜窗口内（AP_LEDGER_FRESH_SECONDS）时直接沿用账本值、
+        不重复 OCR：静默识别与明石商店同步刚刚读过的话，决策读不必再读一次。
+
         同时同步总览显示（Dashboard.ActionPoint 的当前值/总行动力/时间戳，
         总行动力未知时保持原值）。不写 LogRes/统计快照——行动力趋势与
         资源增减事件不混入顶栏读数。
@@ -495,6 +519,12 @@ class ActionPointHandler(UI, MapEventHandler):
         ledger = self._get_ap_ledger()
         if ledger is None:
             return None
+        if image is None and self._ap_ledger_is_fresh():
+            # 账本刚被静默识别/商店同步刷新过：这一刻的真值已在账本里，不再重复读数
+            logger.debug(
+                f'[AP账本] 顶栏读数跳过：账本记录于 {ledger.recorded_at}，仍在新鲜窗口内'
+            )
+            return ledger.current
         try:
             raw = MAP_ACTION_POINT_DIGIT.ocr(image or self.device.image)
         except Exception as e:
@@ -568,9 +598,9 @@ class ActionPointHandler(UI, MapEventHandler):
     AP_ENTRY_SCAN_REFIRE_TIMEOUT = 1.5
     # 后台等新画面时的轮询间隔
     AP_ENTRY_SCAN_POLL_INTERVAL = 0.1
-    # 自动搜索期间的读数周期：一场战斗数秒、单点消耗十几到几十点，
-    # 十秒一次足够跟上消耗，又不至于让后台 OCR 挤占主流程的 OCR 队列
-    AP_ENTRY_SCAN_PERIOD = 10
+    # 自动搜索期间的读数周期：一场战斗十余秒、单点消耗十几到几十点，
+    # 二十秒一次约合每场战斗一次读数，既不漏掉消耗也不挤占主流程的 OCR 队列
+    AP_ENTRY_SCAN_PERIOD = 20
 
     def ap_entry_scan_start(self):
         """入场静默识别：进入海域地图后立即触发一次后台读数，不等待结果。
@@ -706,7 +736,7 @@ class ActionPointHandler(UI, MapEventHandler):
 
         def read(target):
             try:
-                ap = MAP_ACTION_POINT_DIGIT.ocr(target)
+                ap = SILENT_ACTION_POINT_DIGIT.ocr(target)
             except Exception as e:
                 logger.debug(f'[AP账本] 静默识别行动力 OCR 失败: {type(e).__name__}: {e}')
                 return None, None
@@ -755,14 +785,13 @@ class ActionPointHandler(UI, MapEventHandler):
     def _ap_entry_scan_ocr_coins(image):
         """读同一行顶栏的黄币读数（大世界顶栏常驻，海域内与商店内都在）。
 
-        黄币随行动力一起写进账本，读数非法时返回 None（账本保留上一有效值）。
+        用静默实例（SILENT_YELLOW_COIN_OCR，无耗时日志）；黄币随行动力一起写进
+        账本，读数非法时返回 None（账本保留上一有效值）。
         """
         try:
-            from module.os_handler.os_status import OCR_SHOP_YELLOW_COINS
-
-            return int(OCR_SHOP_YELLOW_COINS.ocr(image))
+            return int(SILENT_YELLOW_COIN_OCR.ocr(image))
         except Exception as e:
-            logger.debug(f'[AP账本] 入场黄币 OCR 失败: {type(e).__name__}: {e}')
+            logger.debug(f'[AP账本] 静默识别黄币 OCR 失败: {type(e).__name__}: {e}')
             return None
 
     def ap_entry_scan_commit_before_battle(self):
@@ -820,7 +849,7 @@ class ActionPointHandler(UI, MapEventHandler):
             if not is_in_map():
                 logger.debug('[AP账本] 兜底识别跳过：当前不在大世界地图')
                 return False
-            ap_raw = MAP_ACTION_POINT_DIGIT.ocr(self.device.image)
+            ap_raw = SILENT_ACTION_POINT_DIGIT.ocr(self.device.image)
             coins_raw = self._ap_entry_scan_ocr_coins(self.device.image)
         except Exception as e:
             logger.info(f'[AP账本] 兜底识别({reason or "收尾"}) 读数异常: {type(e).__name__}: {e}')
@@ -845,7 +874,7 @@ class ActionPointHandler(UI, MapEventHandler):
         if yellow_coins is None:
             yellow_coins = getattr(self, '_shop_yellow_coins', None)
         try:
-            ap_raw = MAP_ACTION_POINT_DIGIT.ocr(self.device.image)
+            ap_raw = SILENT_ACTION_POINT_DIGIT.ocr(self.device.image)
         except Exception as e:
             logger.info(f'[AP账本] 明石商店同步读数 OCR 失败: {type(e).__name__}: {e}')
             return False

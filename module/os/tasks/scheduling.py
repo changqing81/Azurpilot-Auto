@@ -187,12 +187,16 @@ class CoinTaskMixin:
 
         明石商店（走进明石 / 雷达问号定位明石）全部经这个方法进店，港口商店走的是
         handle_port_supply_buy，因此该标记天然把 AP 账本的同步读数限制在明石商店内。
+        一次逛店只同步一次行动力：逛店期间行动力不随购买变化，每次读黄币都跟着
+        读一次行动力纯属重复。
         """
         self.__dict__['_ap_akashi_shop_active'] = True
+        self.__dict__['_ap_akashi_shop_synced'] = False
         try:
             return super().handle_akashi_supply_buy(grid)
         finally:
             self.__dict__.pop('_ap_akashi_shop_active', None)
+            self.__dict__.pop('_ap_akashi_shop_synced', None)
 
     def os_shop_get_coins(self):
         """覆盖 OSStatus 的黄币读取：明石商店流程内，识别黄币的同刻读一次行动力。
@@ -201,7 +205,9 @@ class CoinTaskMixin:
         把刚读到的黄币与行动力一并写进 AP 账本；AP 账本开关关闭时这次调用是空操作。
         """
         result = super().os_shop_get_coins()
-        if self.__dict__.get('_ap_akashi_shop_active'):
+        if self.__dict__.get('_ap_akashi_shop_active') \
+                and not self.__dict__.get('_ap_akashi_shop_synced', False):
+            self.__dict__['_ap_akashi_shop_synced'] = True
             # _shop_yellow_coins 由上面的黄币读取写入（同一帧/相邻帧的余额）
             self.ap_entry_scan_shop_sync(yellow_coins=getattr(self, '_shop_yellow_coins', None))
         return result
@@ -2200,6 +2206,24 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             f'总计={total_ap}, {task_display}预算={budget}'
         )
 
+    def _ap_ledger_decision_record(self, log_prefix='决策读走账本记录'):
+        """账本记录可用时按账本记录决策，返回 (总行动力, 当前行动力)；否则 None。
+
+        账本记录路径不触发 check_and_notify_action_point_threshold()（行动力阈值
+        推送），该通知以下一次真值读数为准。
+        """
+        ledger = self._get_ap_ledger()
+        if ledger is None or ledger.current is None or ledger.total_with_box is None:
+            return None
+        total_ap = int(ledger.total_with_box)
+        current_ap = int(ledger.current)
+        self._ap_cache = (total_ap, current_ap, current_time())
+        logger.info(
+            f'[AP账本] {log_prefix}: 总={total_ap} 当前={current_ap}, '
+            f'记录于 {ledger.recorded_at}'
+        )
+        return total_ap, current_ap
+
     def _get_scheduling_action_point(self, force_refresh=False):
         """
         读取智能调度决策所需的行动力。
@@ -2221,40 +2245,32 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         ):
             return cached_total, cached_current
 
+        # 账本记录优先（账本开启且记录仍在新鲜窗口内）：
+        # 静默识别 / 明石商店同步刚刷新过账本，这一刻的真值已在账本里，
+        # 决策直接按账本记录走，不再重复读一次顶栏
+        if not force_refresh and self._ap_ledger_enabled() and self._ap_ledger_is_fresh():
+            record = self._ap_ledger_decision_record()
+            if record is not None:
+                return record
+
         # 决策读优先走顶栏 OCR 真值（账本开启时生效）：
-        # 每轮决策（含跨任务边界）都读一次顶栏并记录进账本。
+        # 账本记录已过期时读一次顶栏并记录进账本。
         # 仅当账本已建立含箱总量时才免弹窗——总量未知时保留值判定会低估
         # （171 冒充总行动力 vs 保留 200 → 误推迟），必须先弹一次窗建立总量。
         if self._ap_ledger_enabled():
-            ledger = self._get_ap_ledger()
-            if ledger is not None:
-                value = self.ap_observe_from_map_bar()
-                if value is not None and ledger.total_with_box is not None:
-                    total_ap = int(ledger.total_with_box)
-                    current_ap = int(value)
-                    self._ap_cache = (total_ap, current_ap, current_time())
-                    logger.info(
-                        f'[AP账本] 决策读走顶栏真值: 总={total_ap} 当前={current_ap}'
-                    )
-                    return total_ap, current_ap
+            value = self.ap_observe_from_map_bar()
+            if value is not None:
+                record = self._ap_ledger_decision_record(log_prefix='决策读走顶栏真值')
+                if record is not None:
+                    return record
 
         # 账本记录兜底（账本开启时生效）：
         # 顶栏读不到（不在海域内/OCR 失败）时用账本最近一次记录，省掉决策弹窗；
         # 总行动力未知时同样落回弹窗建立总量
         if not force_refresh and self._ap_ledger_enabled():
-            ledger = self._get_ap_ledger()
-            if ledger is not None and ledger.current is not None \
-                    and ledger.total_with_box is not None:
-                total_ap = int(ledger.total_with_box)
-                current_ap = int(ledger.current)
-                self._ap_cache = (total_ap, current_ap, current_time())
-                # 注：账本记录路径不触发 check_and_notify_action_point_threshold()
-                # （行动力阈值推送），该通知以下一次真值读数为准
-                logger.info(
-                    f'[AP账本] 决策读走账本记录: 总={total_ap} 当前={current_ap}, '
-                    f'记录于 {ledger.recorded_at}'
-                )
-                return total_ap, current_ap
+            record = self._ap_ledger_decision_record()
+            if record is not None:
+                return record
 
         self.action_point_enter()
         self.action_point_safe_get()
