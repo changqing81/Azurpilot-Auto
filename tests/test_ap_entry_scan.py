@@ -20,6 +20,7 @@ import numpy as np
 from module.os_handler import action_point as ap_module
 from module.os_handler.action_point import ActionPointHandler
 from module.os_handler.action_point_ledger import (
+    SOURCE_AUTO_SEARCH,
     SOURCE_ENTRY,
     SOURCE_ENTRY_FALLBACK,
     SOURCE_SHOP,
@@ -108,6 +109,11 @@ class ScriptedExecutor:
 class EntryScanTestCase(unittest.TestCase):
     """handler 级用例基类：SimpleNamespace 桩 + 可控后台执行器。"""
 
+    def setUp(self):
+        # 黄币 OCR 全类默认打桩（返回 0 = 非法读数）：用例不加载模型，
+        # 需要具体黄币值的用例在自身块内再次 patch 覆盖
+        self.enterContext(patch.object(coin_ocr(), 'ocr', return_value=0))
+
     def make_handler(self, enabled=True, executor=None, in_map=True):
         from types import SimpleNamespace
 
@@ -134,8 +140,9 @@ class TestSwitchOff(EntryScanTestCase):
     def test_all_entry_scan_calls_are_noops(self):
         handler, executor = self.make_handler(enabled=False)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True) as ap_ocr, \
-                patch.object(coin_ocr(), 'ocr', autospec=True) as coin_read:
+                patch.object(coin_ocr(), 'ocr') as coin_read:
             handler.ap_entry_scan_start()
+            handler.ap_entry_scan_tick()
             self.assertFalse(handler.ap_entry_scan_commit_before_battle())
             self.assertFalse(handler.ap_entry_scan_fallback(reason='收尾'))
             self.assertFalse(handler.ap_entry_scan_shop_sync())
@@ -147,13 +154,99 @@ class TestSwitchOff(EntryScanTestCase):
         self.assertFalse(handler.config.save.called)
 
 
+class TestAutoSearchScan(EntryScanTestCase):
+    """自动搜索（跑图）期间的周期读数：不停下跑图，账本跟着消耗走。"""
+
+    def commit_entry(self, handler, executor):
+        """走完入场读数：派发 → 后台完成 → 开战前取回。"""
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
+                patch.object(coin_ocr(), 'ocr', return_value=233542):
+            handler.ap_entry_scan_start()
+            executor.run()
+            self.assertTrue(handler.ap_entry_scan_commit_before_battle())
+
+    def test_periodic_reading_committed_and_throttled(self):
+        executor = ManualExecutor()
+        handler, _ = self.make_handler(executor=executor)
+        self.commit_entry(handler, executor)
+        dispatched = len(executor.calls)
+        # 到了周期：派发一次跑图读数（要求帧是海域地图）
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        handler.ap_entry_scan_tick()
+        self.assertEqual(len(executor.calls), dispatched + 1)
+        self.assertEqual(handler.__dict__['_ap_entry_scan_state']['source'], SOURCE_AUTO_SEARCH)
+        # 结果回来：取回并写账本（来源 auto_search），本轮按已记录处理
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=140), \
+                patch.object(coin_ocr(), 'ocr', return_value=233542), \
+                patch.object(ActionPointHandler, '_ap_entry_scan_frame_in_map', return_value=True):
+            executor.run()
+            handler.ap_entry_scan_tick()
+        ledger = handler._get_ap_ledger()
+        self.assertEqual(ledger.current, 140)
+        self.assertEqual(ledger.yellow_coins, 233542)
+        self.assertEqual(ledger.source, SOURCE_AUTO_SEARCH)
+        # 周期未到：不派发新读数
+        dispatched = len(executor.calls)
+        handler.ap_entry_scan_tick()
+        self.assertEqual(len(executor.calls), dispatched)
+
+    def test_pending_scan_not_piled_up(self):
+        # 上一次还没回来时不派发新的，避免排队堆积
+        executor = ManualExecutor()
+        handler, _ = self.make_handler(executor=executor)
+        handler.ap_entry_scan_start()
+        dispatched = len(executor.calls)
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        handler.ap_entry_scan_tick()
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        handler.ap_entry_scan_tick()
+        self.assertEqual(len(executor.calls), dispatched)
+
+    def test_non_map_frame_not_recorded(self):
+        # 跑图期间画面会经过战斗/加载：帧不是海域地图就不采纳读数
+        executor = ManualExecutor()
+        handler, _ = self.make_handler(executor=executor)
+        self.commit_entry(handler, executor)
+        before = handler._get_ap_ledger().current
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        with patch.object(ActionPointHandler, '_ap_entry_scan_frame_in_map', return_value=False), \
+                patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=99):
+            handler.ap_entry_scan_tick()
+            executor.run()
+            handler.ap_entry_scan_tick()
+        self.assertEqual(handler._get_ap_ledger().current, before)
+
+    def test_wrap_up_disarms_periodic_scan(self):
+        executor = ManualExecutor()
+        handler, _ = self.make_handler(executor=executor)
+        handler.ap_entry_scan_start()
+        self.assertTrue(handler.__dict__['_ap_entry_scan_periodic'])
+        with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=-1):
+            handler.ap_entry_scan_fallback(reason='收尾')
+        self.assertFalse(handler.__dict__.get('_ap_entry_scan_periodic', False))
+        dispatched = len(executor.calls)
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        handler.ap_entry_scan_tick()
+        self.assertEqual(len(executor.calls), dispatched)
+
+    def test_handle_map_event_preserves_result_and_ticks(self):
+        from module.os_handler.map_event import MapEventHandler
+
+        handler, _ = self.make_handler()
+        with patch.object(MapEventHandler, 'handle_map_event', autospec=True, return_value=True) as super_call, \
+                patch.object(ActionPointHandler, 'ap_entry_scan_tick', autospec=True) as tick:
+            self.assertTrue(handler.handle_map_event(drop='drop'))
+        super_call.assert_called_once_with(handler, drop='drop')
+        tick.assert_called_once_with(handler)
+
+
 class TestEntryScanRound(EntryScanTestCase):
     """入场触发 → 开战前取回：成功写入 / 作废各分支。"""
 
     def test_records_ap_and_coins_before_battle(self):
         handler, executor = self.make_handler()
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=233542):
+                patch.object(coin_ocr(), 'ocr', return_value=233542):
             handler.ap_entry_scan_start()
             # 触发阶段只提交后台任务，不写账本（主流程不等结果）
             self.assertEqual(len(executor.calls), 1)
@@ -171,7 +264,7 @@ class TestEntryScanRound(EntryScanTestCase):
     def test_result_consumed_once(self):
         handler, _ = self.make_handler()
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=1):
+                patch.object(coin_ocr(), 'ocr', return_value=1):
             handler.ap_entry_scan_start()
             self.assertTrue(handler.ap_entry_scan_commit_before_battle())
             # 结果只消费一次：重复取回不再处理，也不重复计数
@@ -215,7 +308,7 @@ class TestEntryScanRound(EntryScanTestCase):
             return 158 if int(image[0, 0, 0]) == 9 else -1
 
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, side_effect=read), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=233542):
+                patch.object(coin_ocr(), 'ocr', return_value=233542):
             handler.ap_entry_scan_start()
             handler.device.image = second  # 主流程继续截图，后台此时才跑 OCR
             executor.run()
@@ -227,7 +320,7 @@ class TestEntryScanRound(EntryScanTestCase):
         executor = ScriptedExecutor([None, (158, 233542)])
         handler, _ = self.make_handler(executor=executor)
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=158), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=233542):
+                patch.object(coin_ocr(), 'ocr', return_value=233542):
             handler.ap_entry_scan_start()
             self.assertFalse(handler.ap_entry_scan_commit_before_battle())  # 第一次作废
             handler.ap_entry_scan_start()  # 第二次入场独立触发
@@ -247,7 +340,7 @@ class TestFallback(EntryScanTestCase):
             handler.ap_entry_scan_start()
             self.assertFalse(handler.ap_entry_scan_commit_before_battle())
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=158), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=233542):
+                patch.object(coin_ocr(), 'ocr', return_value=233542):
             self.assertTrue(handler.ap_entry_scan_fallback(reason='侵蚀1练级收尾'))
         ledger = handler._get_ap_ledger()
         self.assertEqual(ledger.current, 158)
@@ -257,7 +350,7 @@ class TestFallback(EntryScanTestCase):
     def test_skipped_when_round_recorded(self):
         handler, _ = self.make_handler()
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=1):
+                patch.object(coin_ocr(), 'ocr', return_value=1):
             handler.ap_entry_scan_start()
             self.assertTrue(handler.ap_entry_scan_commit_before_battle())
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True) as ap_ocr:
@@ -283,7 +376,7 @@ class TestFallback(EntryScanTestCase):
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=-1):
             self.assertFalse(handler.ap_entry_scan_fallback(reason='收尾'))
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=158), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=1):
+                patch.object(coin_ocr(), 'ocr', return_value=1):
             self.assertTrue(handler.ap_entry_scan_fallback(reason='收尾'))
         self.assertEqual(handler._get_ap_ledger().current, 158)
 
@@ -312,7 +405,7 @@ class TestAkashiShopSync(EntryScanTestCase):
         # 本轮入场已记录：商店读到的是更晚的新鲜值，允许覆盖（先到先得、不重复计数）
         handler, _ = self.make_handler()
         with patch.object(ap_module.MAP_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
-                patch.object(coin_ocr(), 'ocr', autospec=True, return_value=1):
+                patch.object(coin_ocr(), 'ocr', return_value=1):
             handler.ap_entry_scan_start()
             self.assertTrue(handler.ap_entry_scan_commit_before_battle())
         handler._shop_yellow_coins = 233542

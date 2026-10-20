@@ -36,6 +36,8 @@ SOURCE_MAP_BAR = 'map_bar'
 SOURCE_PERSISTED = 'persisted'
 # 入场静默识别：进入海域地图后立即在后台读一次顶栏（行动力 + 黄币）
 SOURCE_ENTRY = 'entry'
+# 自动搜索期间：跑图中按周期持续静默读数（不暂停搜索）
+SOURCE_AUTO_SEARCH = 'auto_search'
 # 收尾兜底识别：事件/明石/领奖处理完毕时，本轮尚未记录过才现场补记一次
 SOURCE_ENTRY_FALLBACK = 'entry_fallback'
 # 明石商店：识别黄币的同一时刻同步读一次行动力
