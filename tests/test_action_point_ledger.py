@@ -9,10 +9,14 @@ from datetime import datetime
 
 from module.os_handler.action_point_ledger import (
     ACTION_POINT_RECOVER_SECONDS,
+    COIN_MAX_DIGITS,
     NATURAL_ACTION_POINT_LIMIT,
+    SOURCE_ENTRY,
+    SOURCE_ENTRY_FALLBACK,
     SOURCE_MAP_BAR,
     SOURCE_POPUP,
     SOURCE_PERSISTED,
+    SOURCE_SHOP,
     ActionPointLedger,
 )
 
@@ -76,6 +80,30 @@ class TestObserve(unittest.TestCase):
         self.assertEqual(self.ledger.current, 1000)
         self.assertEqual(self.ledger.total_with_box, 1500)
 
+    def test_coin_reading_recorded_with_entry_sources(self):
+        # 入场静默识别 / 茗石商店同步读数都带同一行顶栏的黄币
+        for source in (SOURCE_ENTRY, SOURCE_ENTRY_FALLBACK, SOURCE_SHOP):
+            with self.subTest(source=source):
+                ledger = ActionPointLedger()
+                ledger.observe(157, source=source, at=T0, yellow_coins=233542)
+                self.assertEqual(ledger.yellow_coins, 233542)
+                self.assertEqual(ledger.source, source)
+
+    def test_invalid_coin_reading_keeps_previous(self):
+        # 黄币只是随行记录：读数非法时保留上一有效值，行动力照常记录
+        self.ledger.observe(157, source=SOURCE_ENTRY, at=T0, yellow_coins=200000)
+        for bad in (0, -1, 1234567890, None, 'oops'):
+            with self.subTest(coins=bad):
+                self.assertTrue(self.ledger.observe(150, source=SOURCE_SHOP, at=T0, yellow_coins=bad))
+                self.assertEqual(self.ledger.yellow_coins, 200000)
+
+    def test_coin_reading_kept_when_not_provided(self):
+        # 弹窗 / 顶栏行动力读数不带黄币：账本保留上一有效值
+        self.ledger.observe(157, source=SOURCE_ENTRY, at=T0, yellow_coins=200000)
+        self.ledger.observe(157, 1157, source=SOURCE_POPUP, at=T0)
+        self.assertEqual(self.ledger.yellow_coins, 200000)
+        self.assertIsNone(ActionPointLedger().yellow_coins)
+
 
 class TestNeedPopup(unittest.TestCase):
     def make(self, current, total=None):
@@ -117,6 +145,27 @@ class TestSanitizeMapBarValue(unittest.TestCase):
         self.assertEqual(ActionPointLedger.sanitize_map_bar_value('abc'), (None, 'empty'))
 
 
+class TestSanitizeCoinValue(unittest.TestCase):
+    """顶栏黄币读数门：与行动力不同，0 是非法读数（未加载/被遮挡）。"""
+
+    def test_ok(self):
+        self.assertEqual(ActionPointLedger.sanitize_coin_value(233542), (233542, 'ok'))
+        self.assertEqual(ActionPointLedger.sanitize_coin_value('1000'), (1000, 'ok'))
+
+    def test_non_positive_rejected(self):
+        self.assertEqual(ActionPointLedger.sanitize_coin_value(0), (None, 'non-positive'))
+        self.assertEqual(ActionPointLedger.sanitize_coin_value(-1), (None, 'non-positive'))
+
+    def test_max_digits_boundary(self):
+        # 八位仍在允许范围，九位按 OCR 拼接拒绝
+        self.assertEqual(ActionPointLedger.sanitize_coin_value(10 ** COIN_MAX_DIGITS - 1)[1], 'ok')
+        self.assertEqual(ActionPointLedger.sanitize_coin_value(10 ** COIN_MAX_DIGITS), (None, 'len>8'))
+
+    def test_reject_empty(self):
+        self.assertEqual(ActionPointLedger.sanitize_coin_value(None), (None, 'empty'))
+        self.assertEqual(ActionPointLedger.sanitize_coin_value('abc'), (None, 'empty'))
+
+
 class TestStateRoundTrip(unittest.TestCase):
     def test_round_trip(self):
         ledger = ActionPointLedger()
@@ -152,6 +201,29 @@ class TestStateRoundTrip(unittest.TestCase):
         restored = ActionPointLedger.from_state(ledger.to_state())
         self.assertEqual(restored.current, 158)
         self.assertIsNone(restored.total_with_box)
+
+    def test_round_trip_with_coins(self):
+        ledger = ActionPointLedger()
+        ledger.observe(157, source=SOURCE_ENTRY, at=T0, yellow_coins=233542)
+        state = ledger.to_state()
+        self.assertEqual(state['coins'], 233542)
+        restored = ActionPointLedger.from_state(state)
+        self.assertEqual(restored.yellow_coins, 233542)
+
+    def test_invalid_coins_in_state_dropped(self):
+        # 状态里的黄币非法 → 保持未知，不影响行动力恢复
+        for bad in (0, -1, 10 ** COIN_MAX_DIGITS, 'oops'):
+            with self.subTest(coins=bad):
+                ledger = ActionPointLedger.from_state({
+                    'current': 157, 'total': 1157, 'coins': bad, 'at': T0.isoformat(),
+                })
+                self.assertEqual(ledger.current, 157)
+                self.assertIsNone(ledger.yellow_coins)
+
+    def test_missing_coins_in_state_stays_unknown(self):
+        # 旧状态没有 coins 键（升级前的账本）：按未知处理
+        ledger = ActionPointLedger.from_state({'current': 157, 'total': 1157, 'at': T0.isoformat()})
+        self.assertIsNone(ledger.yellow_coins)
 
 
 class TestConstantsSingleSource(unittest.TestCase):
