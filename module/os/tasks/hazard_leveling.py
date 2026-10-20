@@ -269,6 +269,8 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
                 self.globe_goto(self.name_to_zone(zone), types="SAFE", refresh=True)
         elif self.zone.hazard_level != 1 or not self.is_zone_name_hidden:
             self.globe_goto(self.name_to_zone(22), types="SAFE", refresh=True)
+        # 入场静默识别：已进入海域地图，立即后台读一次顶栏（AP 账本开启时生效）
+        self.ap_entry_scan_start()
         self.fleet_set(self.config.OpsiFleet_Fleet)
 
         # ===== 海里数记录（可开关）=====
@@ -302,7 +304,11 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
                     self.ui_back(check_button=self.is_in_map)
             except Exception as e:
                 logger.warning(f"[大世界-侵蚀1练级] 返回大世界地图失败: {e}")
+        # 开战前取回入场静默识别结果：识别没赶上就本轮作废，等下一轮重新识别
+        self.ap_entry_scan_commit_before_battle()
         self._cl1_run_battle()
+        # 收尾兜底：本轮没成功记录过（含入场识别作废）时，现场补记一次
+        self.ap_entry_scan_fallback(reason="侵蚀1练级收尾")
 
     def os_check_leveling(self):
         """检查大世界阵容练级进度。"""

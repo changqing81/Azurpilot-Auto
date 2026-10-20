@@ -6,9 +6,11 @@
 """
 # 此文件处理大世界（Operation Siren）模式下的行动力（Action Point, AP）管理。
 # 包含行动力数值 OCR 识别、药剂（AP Box）库存解析以及自动购买或使用补给的交互逻辑。
+import time
 from datetime import datetime, timedelta
 
 import module.config.server as server
+from module.base.async_executor import async_executor
 from module.base.button import ButtonGrid
 from module.base.timer import Timer
 from module.base.utils import *
@@ -26,8 +28,11 @@ from module.ui.ui import UI
 from module.log_res import LogRes
 from module.os_handler.action_point_ledger import (
     NATURAL_ACTION_POINT_LIMIT,
+    SOURCE_ENTRY,
+    SOURCE_ENTRY_FALLBACK,
     SOURCE_MAP_BAR,
     SOURCE_POPUP,
+    SOURCE_SHOP,
     ActionPointLedger,
 )
 
@@ -498,11 +503,32 @@ class ActionPointHandler(UI, MapEventHandler):
         if value is None:
             logger.info(f'[AP账本] source=map_bar 读数={raw} 已丢弃({reason})')
             return None
+        if self._ap_apply_ledger_reading(ledger, value, source=SOURCE_MAP_BAR):
+            return value
+        return None
+
+    def _ap_apply_ledger_reading(self, ledger, value, source, coins_raw=None):
+        """把一条顶栏读数写进账本，并同步本轮行动力属性与总览显示。
+
+        行动力属性同步：跳过弹窗的轮次不会走 action_point_update()，若不在这里
+        刷新，_action_point_total 会停留在类属性默认 0，导致行动力推送发出
+        「总行动力: 0」，且最低保留检查误判行动力不足而推迟任务。
+
+        只写 Dashboard 显示键、不写 LogRes：顶栏读数与静默读数都不混入
+        行动力趋势快照与统计。
+
+        Args:
+            ledger (ActionPointLedger): 账本实例。
+            value (int): 已过合法性门的顶栏行动力读数。
+            source (str): 账本记录来源（map_bar / entry / entry_fallback / shop）。
+            coins_raw (int | None): 同一行顶栏的黄币读数，随行记录；无则为 None。
+
+        Returns:
+            bool: 是否已写入账本。
+        """
         try:
-            ledger.observe(value, source=SOURCE_MAP_BAR)
-            # 本轮实例的行动力属性同步：跳过弹窗的轮次不会走 action_point_update()，
-            # 若不在这里刷新，_action_point_total 会停留在类属性默认 0，
-            # 导致行动力推送发出「总行动力: 0」，且最低保留检查误判行动力不足而推迟任务。
+            if not ledger.observe(value, source=source, yellow_coins=coins_raw):
+                return False
             self._action_point_current = int(value)
             if ledger.total_with_box is not None:
                 total_with_box = int(ledger.total_with_box)
@@ -517,8 +543,6 @@ class ActionPointHandler(UI, MapEventHandler):
                 # 含箱总量未知（从没弹过窗）：至少不让本轮属性停在 0；
                 # need_popup 会因总量未知强制弹窗补齐，不会长期停留在这个分支
                 self._action_point_total = int(value)
-            # 同步总览显示（Dashboard.ActionPoint，与弹窗口径一致）。
-            # 直接写显示键而非 LogRes：行动力趋势快照与统计不混入顶栏读数
             self.config.modified['Dashboard.ActionPoint.Value'] = int(value)
             self.config.modified['Dashboard.ActionPoint.Record'] = \
                 datetime.now().replace(microsecond=0)
@@ -527,8 +551,241 @@ class ActionPointHandler(UI, MapEventHandler):
                     int(ledger.total_with_box)
             self._save_ap_ledger_state()
         except Exception:
-            logger.exception('[AP账本] 顶栏记录失败')
-        return value
+            logger.exception(f'[AP账本] {source} 记录失败')
+            return False
+        return True
+
+    # ==================== 入场静默识别（进海域立即后台读 AP + 黄币） ====================
+    # 进海域后立即在后台线程读一次顶栏（行动力 + 同一行黄币）并写进 AP 账本：
+    # 主流程不等 OCR 结果，识别没能在进入战斗前完成即本轮作废，等下一轮重新识别。
+    # 全部由 AP 账本开关（OpsiGeneral.ActionPointLedgerEnabled）控制，
+    # 开关关闭时这些方法首行返回，不产生任何额外 OCR、写盘与日志。
+
+    # 首帧读数非法时最多再等这么久，等主流程换一帧新画面重试（进图动画 /
+    # 加载界面下顶栏数值可能尚未渲染完成）。轮询只在后台线程内进行。
+    AP_ENTRY_SCAN_REFIRE_TIMEOUT = 1.5
+    # 后台等新画面时的轮询间隔
+    AP_ENTRY_SCAN_POLL_INTERVAL = 0.1
+
+    def ap_entry_scan_start(self):
+        """入场静默识别：进入海域地图后立即触发一次后台读数，不等待结果。
+
+        - AP 账本开关关闭：直接返回（完全退回原有行为，零额外 OCR 与日志）；
+        - 开关开启：复制当前帧交给后台执行器，主流程继续进图逻辑；
+        - 每次入场自增 token：上一次未消费的结果作废，连续快速进出海域时
+          上一次的作废结果不会污染下一次识别。
+
+        结果由 ap_entry_scan_commit_before_battle() 在开战前取回写入账本；
+        没取到就由 ap_entry_scan_fallback() 在收尾时兜底补记。
+        """
+        if not self._ap_ledger_enabled():
+            return
+        image = getattr(self.device, 'image', None)
+        if image is None:
+            logger.debug('[AP账本] 入场静默识别跳过：当前没有可用截图')
+            return
+        # 复制帧快照：主流程随后会继续截图覆盖 device.image，后台线程只能对副本
+        # 做 OCR（设备对象归主线程所有）；复制本身不到 1ms，不阻塞进图
+        try:
+            frame = np.array(image)
+        except Exception:
+            logger.debug('[AP账本] 入场静默识别跳过：当前帧无法复制')
+            return
+        token = self.__dict__.get('_ap_entry_scan_token', 0) + 1
+        self.__dict__['_ap_entry_scan_token'] = token
+        # 新的一轮：本轮「是否已记录」清零（本轮先成功写入的读数为准）
+        self.__dict__['_ap_entry_scan_recorded'] = False
+        previous = self.__dict__.get('_ap_entry_scan_state')
+        if previous is not None:
+            logger.debug(f"[AP账本] 上一次入场识别结果未消费(token={previous.get('token')})，丢弃")
+        # 后台任务只派发、不等待；派发失败（执行器异常）同样不能影响进图
+        try:
+            future = async_executor.submit(self._ap_entry_scan_worker, frame, image)
+        except Exception as e:
+            logger.warning(f'[AP账本] 入场静默识别派发失败: {type(e).__name__}: {e}')
+            return
+        self.__dict__['_ap_entry_scan_state'] = {'token': token, 'future': future}
+        logger.debug(f'[AP账本] 入场静默识别已触发(token={token})')
+
+    def _ap_entry_scan_worker(self, frame, origin):
+        """后台线程：对入场帧做行动力 + 黄币 OCR，返回 (行动力, 黄币)。
+
+        Args:
+            frame: 触发时刻的帧副本（后台线程只读）。
+            origin: 触发时刻 device.image 的对象引用，用于判断是否出现了新帧。
+
+        Returns:
+            tuple[int | None, int | None]: OCR 原始读数；失败时为 None。
+                合法性门由主线程的 _ap_entry_scan_apply() 统一执行。
+
+        只做纯 OCR：不碰配置、不写账本——配置与账本写盘一律留在主线程。
+        """
+        def read(target):
+            try:
+                ap = MAP_ACTION_POINT_DIGIT.ocr(target)
+            except Exception as e:
+                logger.debug(f'[AP账本] 入场行动力 OCR 失败: {type(e).__name__}: {e}')
+                return None, None
+            return ap, self._ap_entry_scan_ocr_coins(target)
+
+        ap, coins = read(frame)
+        if ActionPointLedger.sanitize_map_bar_value(ap)[0] is None:
+            # 首帧读数非法（顶栏还没渲染出来）：等一帧新画面再试一次。
+            # 等待只发生在后台线程内，主流程不等它。
+            retry = self._ap_entry_scan_next_frame(origin)
+            if retry is not None:
+                ap, coins = read(retry)
+        return ap, coins
+
+    def _ap_entry_scan_next_frame(self, origin):
+        """后台等一帧新画面（最多 AP_ENTRY_SCAN_REFIRE_TIMEOUT 秒）。
+
+        Args:
+            origin: 触发时刻 device.image 的对象引用。
+
+        Returns:
+            image | None: 新帧（只读，不做复制）；超时仍没有新帧返回 None。
+        """
+        deadline = time.monotonic() + self.AP_ENTRY_SCAN_REFIRE_TIMEOUT
+        while time.monotonic() < deadline:
+            current = getattr(self.device, 'image', None)
+            if current is not None and current is not origin:
+                return current
+            time.sleep(self.AP_ENTRY_SCAN_POLL_INTERVAL)
+        return None
+
+    @staticmethod
+    def _ap_entry_scan_ocr_coins(image):
+        """读同一行顶栏的黄币读数（大世界顶栏常驻，海域内与商店内都在）。
+
+        黄币随行动力一起写进账本，读数非法时返回 None（账本保留上一有效值）。
+        """
+        try:
+            from module.os_handler.os_status import OCR_SHOP_YELLOW_COINS
+
+            return int(OCR_SHOP_YELLOW_COINS.ocr(image))
+        except Exception as e:
+            logger.debug(f'[AP账本] 入场黄币 OCR 失败: {type(e).__name__}: {e}')
+            return None
+
+    def ap_entry_scan_commit_before_battle(self):
+        """开战前取回入场识别结果并写入账本（非阻塞，不等待 OCR）。
+
+        取回点刻意安排在发起战略搜索 / 自律寻敌之前，因此「结果还没就绪」
+        在结构上等价于「识别完成前已经进入战斗」——本轮入场读数作废，
+        不写账本，等下一轮入场重新识别（收尾兜底仍会在轮末补记一次）。
+
+        Returns:
+            bool: 是否写入账本。
+        """
+        if not self._ap_ledger_enabled():
+            return False
+        if self.__dict__.get('_ap_entry_scan_recorded', False):
+            logger.debug('[AP账本] 本轮已记录，忽略开战前的入场识别结果')
+            return False
+        state = self.__dict__.pop('_ap_entry_scan_state', None)
+        if state is None:
+            return False
+        token = state.get('token')
+        future = state.get('future')
+        if future is None or not future.done():
+            logger.info(f'[AP账本] entry token={token} 识别未在进入战斗前完成，本轮作废')
+            return False
+        try:
+            ap_raw, coins_raw = future.result(timeout=0)
+        except Exception as e:
+            logger.info(f'[AP账本] entry token={token} 识别失败({type(e).__name__}: {e})，本轮作废')
+            return False
+        return self._ap_entry_scan_apply(ap_raw, coins_raw, source=SOURCE_ENTRY)
+
+    def ap_entry_scan_fallback(self, reason=''):
+        """收尾兜底识别：事件/明石/领奖处理完毕时，本轮尚未成功记录过才补记。
+
+        用当前帧直接读一次顶栏（行动力 + 黄币），同步调用、不派后台任务：
+        收尾节点允许这点读数开销，换来的是入场识别作废的轮次不空记录。
+        当前不在大世界地图上时直接跳过，避免把别的画面上的数字当成读数。
+
+        Args:
+            reason (str): 收尾节点名称，仅用于日志。
+
+        Returns:
+            bool: 是否写入账本。
+        """
+        if not self._ap_ledger_enabled():
+            return False
+        if self.__dict__.get('_ap_entry_scan_recorded', False):
+            return False
+        is_in_map = getattr(self, 'is_in_map', None)
+        if not callable(is_in_map):
+            return False
+        logger.debug(f'[AP账本] 兜底识别触发({reason or "收尾"})')
+        # 兜底识别是辅助功能：读数失败一律放弃本轮回退原有流程，
+        # 不让设备侧异常冒泡进任务收尾
+        try:
+            if not is_in_map():
+                logger.debug('[AP账本] 兜底识别跳过：当前不在大世界地图')
+                return False
+            ap_raw = MAP_ACTION_POINT_DIGIT.ocr(self.device.image)
+            coins_raw = self._ap_entry_scan_ocr_coins(self.device.image)
+        except Exception as e:
+            logger.info(f'[AP账本] 兜底识别({reason or "收尾"}) 读数异常: {type(e).__name__}: {e}')
+            return False
+        return self._ap_entry_scan_apply(ap_raw, coins_raw, source=SOURCE_ENTRY_FALLBACK)
+
+    def ap_entry_scan_shop_sync(self, yellow_coins=None):
+        """明石商店：与黄币识别同刻读一次顶栏行动力，两项一并写进账本。
+
+        由 CoinTaskMixin 覆写的 os_shop_get_coins() 在明石商店流程内调用：
+        黄币直接复用刚刚（同一帧或相邻帧）确认过的读数，不再重复 OCR。
+
+        Args:
+            yellow_coins (int | None): 黄币读数；缺省取商店流程刚写入的
+                self._shop_yellow_coins。
+
+        Returns:
+            bool: 是否写入账本。
+        """
+        if not self._ap_ledger_enabled():
+            return False
+        if yellow_coins is None:
+            yellow_coins = getattr(self, '_shop_yellow_coins', None)
+        try:
+            ap_raw = MAP_ACTION_POINT_DIGIT.ocr(self.device.image)
+        except Exception as e:
+            logger.info(f'[AP账本] 明石商店同步读数 OCR 失败: {type(e).__name__}: {e}')
+            return False
+        recorded = self.__dict__.get('_ap_entry_scan_recorded', False)
+        if not self._ap_entry_scan_apply(ap_raw, yellow_coins, source=SOURCE_SHOP):
+            return False
+        if recorded:
+            logger.debug('[AP账本] 明石商店读数覆盖本轮已有记录（先到先得，不重复计数）')
+        return True
+
+    def _ap_entry_scan_apply(self, ap_raw, coins_raw, source):
+        """门禁 + 入账：把一次静默识别的读数写进账本（只在主线程调用）。
+
+        Args:
+            ap_raw (int | None): 顶栏行动力 OCR 原始读数。
+            coins_raw (int | None): 同一行顶栏黄币 OCR 原始读数（可为 None）。
+            source (str): 账本记录来源（entry / entry_fallback / shop）。
+
+        Returns:
+            bool: 是否写入账本。
+        """
+        if not self._ap_ledger_enabled():
+            return False
+        ledger = self._get_ap_ledger()
+        if ledger is None:
+            return False
+        value, reason = ActionPointLedger.sanitize_map_bar_value(ap_raw)
+        if value is None:
+            logger.info(f'[AP账本] {source} 读数={ap_raw!r} 已丢弃({reason})')
+            return False
+        if not self._ap_apply_ledger_reading(ledger, value, source=source, coins_raw=coins_raw):
+            return False
+        # 本轮已有记录：先成功写入的读数为准
+        self.__dict__['_ap_entry_scan_recorded'] = True
+        return True
 
     def need_action_point_popup(self, cost, preserve=0):
         """判定是否需要打开行动力弹窗。

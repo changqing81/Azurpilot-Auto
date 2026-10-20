@@ -177,6 +177,35 @@ class CoinTaskMixin:
             or getattr(self.config, '_prevent_action_point_overflow_context', False)
         )
 
+    # ==================== AP 账本：明石商店同步读数（协作式覆写） ====================
+    # 覆写必须由 MRO 中排在 OSShop / OSStatus 之前的类提供才会生效：
+    # CoinTaskMixin 是黄币补充任务族与智能调度器（代跑时实例就是 OpsiScheduling）
+    # 的最早共同基类，因此这两个覆写放在这里；识别逻辑本体在 ActionPointHandler。
+
+    def handle_akashi_supply_buy(self, grid):
+        """明石商店购买流程：进店期间置位标记，供 os_shop_get_coins() 覆写判断。
+
+        明石商店（走进明石 / 雷达问号定位明石）全部经这个方法进店，港口商店走的是
+        handle_port_supply_buy，因此该标记天然把 AP 账本的同步读数限制在明石商店内。
+        """
+        self.__dict__['_ap_akashi_shop_active'] = True
+        try:
+            return super().handle_akashi_supply_buy(grid)
+        finally:
+            self.__dict__.pop('_ap_akashi_shop_active', None)
+
+    def os_shop_get_coins(self):
+        """覆盖 OSStatus 的黄币读取：明石商店流程内，识别黄币的同刻读一次行动力。
+
+        黄币读数本身不做任何改动（先走 super() 的原逻辑），只在明石商店上下文里
+        把刚读到的黄币与行动力一并写进 AP 账本；AP 账本开关关闭时这次调用是空操作。
+        """
+        result = super().os_shop_get_coins()
+        if self.__dict__.get('_ap_akashi_shop_active'):
+            # _shop_yellow_coins 由上面的黄币读取写入（同一帧/相邻帧的余额）
+            self.ap_entry_scan_shop_sync(yellow_coins=getattr(self, '_shop_yellow_coins', None))
+        return result
+
     def delay_opsi_active_task(self, *args, **kwargs):
         """
         延迟当前实际执行的大世界子任务。

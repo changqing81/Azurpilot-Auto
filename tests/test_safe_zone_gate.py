@@ -161,6 +161,8 @@ class MeowStubMixin:
     def make_task(self, safe=True, search_completed=True):
         task = OpsiMeowfficerFarming.__new__(OpsiMeowfficerFarming)
         task.config = Mock()
+        # 这些用例只关心扫图门控：显式关掉 AP 账本，收尾兜底识别不参与
+        task.config.OpsiGeneral_ActionPointLedgerEnabled = False
         task.device = Mock()
         task.zone = Mock(zone_id=1)
         task.zones = Mock()

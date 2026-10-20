@@ -211,8 +211,12 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
     def _meow_handle_traditional_zone(self, zone):
         logger.hr(f'大世界-短猫相接, zone_id={zone.zone_id}', level=1)
         self.globe_goto(zone, types='SAFE', refresh=True)
+        # 入场静默识别：已进入海域地图，立即后台读一次顶栏（AP 账本开启时生效）
+        self.ap_entry_scan_start()
         self.fleet_set(self.config.OpsiFleet_Fleet)
         self.meow_search_metrics_start()
+        # 开战前取回入场识别结果：识别没赶上就本轮作废，等下一轮重新识别
+        self.ap_entry_scan_commit_before_battle()
         try:
             search_completed = self.run_strategic_search()
             with self._meow_debug_clip():
@@ -225,7 +229,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
                 self.handle_after_auto_search()
         finally:
             self.meow_search_metrics_end()
-        self._meow_record_akashi_if_solved()
+        self._meow_round_wrap_up()
         self.config.check_task_switch()
 
     def _meow_handle_stay_in_zone(self, zone):
@@ -253,11 +257,15 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
                 if self.need_action_point_popup(
                         cost=120, preserve=self.config.OS_ACTION_POINT_PRESERVE):
                     self.action_point_set(cost=120, keep_current_ap=True, check_rest_ap=True)
+        # 入场静默识别：已进入海域地图，立即后台读一次顶栏（AP 账本开启时生效）
+        self.ap_entry_scan_start()
         self.fleet_set(self.config.OpsiFleet_Fleet)
         self.os_order_execute(recon_scan=False, submarine_call=self.config.OpsiFleet_Submarine)
 
         self.meow_search_metrics_start()
         search_completed = False
+        # 开战前取回入场识别结果：识别没赶上就本轮作废，等下一轮重新识别
+        self.ap_entry_scan_commit_before_battle()
         try:
             try:
                 search_completed = self.run_strategic_search()
@@ -284,7 +292,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         finally:
             self.meow_search_metrics_end()
 
-        self._meow_record_akashi_if_solved()
+        self._meow_round_wrap_up()
         self.config.check_task_switch()
 
     def _meow_handle_target_zone_search(self, zone):
@@ -292,11 +300,15 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         logger.hr(f'大世界-短猫相接, zone_id={zone.zone_id}', level=1)
 
         self.globe_goto(zone)
+        # 入场静默识别：已进入海域地图，立即后台读一次顶栏（AP 账本开启时生效）
+        self.ap_entry_scan_start()
 
         self.fleet_set(self.config.OpsiFleet_Fleet)
         self.os_order_execute(recon_scan=False, submarine_call=self.config.OpsiFleet_Submarine)
 
         self.meow_search_metrics_start()
+        # 开战前取回入场识别结果：识别没赶上就本轮作废，等下一轮重新识别
+        self.ap_entry_scan_commit_before_battle()
         try:
             self.run_auto_search()
             with self._meow_debug_clip():
@@ -304,8 +316,18 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         finally:
             self.meow_search_metrics_end()
 
-        self._meow_record_akashi_if_solved()
+        self._meow_round_wrap_up()
         self.config.check_task_switch()
+
+    def _meow_round_wrap_up(self):
+        """本轮收尾：明石事件计数 + AP 账本兜底识别。
+
+        收尾此前集中在 _meow_record_akashi_if_solved()：它消费明石事件标记、
+        按侵蚀等级计数。兜底识别放在同一处，保证每个分支收尾都补记 ——
+        入场静默识别作废（进图动画没读到 / 没赶上进战斗）的轮次不空记录。
+        """
+        self._meow_record_akashi_if_solved()
+        self.ap_entry_scan_fallback(reason='短猫相接收尾')
 
     def _meow_record_akashi_if_solved(self):
         """本轮短猫相接搜索结束后，记录明石事件（按侵蚀等级）。
@@ -340,11 +362,15 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         logger.hr(f'大世界-短猫相接, zone_id={zones[0].zone_id}', level=1)
 
         self.globe_goto(zones[0])
+        # 入场静默识别：已进入海域地图，立即后台读一次顶栏（AP 账本开启时生效）
+        self.ap_entry_scan_start()
 
         self.fleet_set(self.config.OpsiFleet_Fleet)
         self.os_order_execute(recon_scan=False, submarine_call=self.config.OpsiFleet_Submarine)
 
         self.meow_search_metrics_start()
+        # 开战前取回入场识别结果：识别没赶上就本轮作废，等下一轮重新识别
+        self.ap_entry_scan_commit_before_battle()
         try:
             self.run_auto_search()
             # 自律寻敌完成后，查看短猫舰队雷达上的剩余问号并处理
@@ -360,7 +386,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         finally:
             self.meow_search_metrics_end()
 
-        self._meow_record_akashi_if_solved()
+        self._meow_round_wrap_up()
         self.config.check_task_switch()
 
     def os_meowfficer_farming(self):
