@@ -58,6 +58,28 @@ GUARD_SUSPEND_FLAG_PATHS = {
 }
 
 
+# 总览显示值（Dashboard.*）：只喂 GUI 总览，黄币/石油这类资源每次刷新都会写，
+# 保存日志降为 debug，避免高频刷「保存配置」行。混入其它键时照旧 INFO，
+# 不会掩盖他人改动的保存记录。
+DISPLAY_SAVE_KEY_PREFIX = 'Dashboard.'
+
+
+def is_internal_only_modified(modified, extra_keys=()) -> bool:
+    """待写键是否全为脚本内部状态（总览显示值，或调用方额外指定的内部键）。
+
+    Args:
+        modified (dict): config.modified 的待写集合。
+        extra_keys (tuple[str, ...]): 额外的内部状态键（如行动力账本状态）。
+
+    Returns:
+        bool: 全部键都是内部状态时返回 True（此时 Config.save(quiet=True) 合适）。
+    """
+    if not modified:
+        return False
+    extra = set(extra_keys)
+    return all(str(key).startswith(DISPLAY_SAVE_KEY_PREFIX) or key in extra for key in modified)
+
+
 class TaskEnd(Exception):
     """任务提前结束异常。
 

@@ -14,7 +14,7 @@ from datetime import timedelta
 from module.base.decorator import cached_property
 import module.config.server as server
 from module.base.timer import Timer
-from module.config.config import Function
+from module.config.config import Function, is_internal_only_modified
 from module.config.time_source import now as current_time
 from module.config.utils import get_server_next_update
 from module.logger import logger
@@ -32,6 +32,11 @@ else:
     OCR_SHOP_YELLOW_COINS = Digit(SHOP_YELLOW_COINS, letter=(201, 201, 201), threshold=200, name='OCR_SHOP_YELLOW_COINS')
 OCR_SHOP_PURPLE_COINS = Digit(SHOP_PURPLE_COINS, letter=(255, 255, 255), name='OCR_SHOP_PURPLE_COINS')
 OCR_OS_SHOP_PURPLE_COINS = Digit(OS_SHOP_PURPLE_COINS, letter=(255, 255, 255), name='OCR_OS_SHOP_PURPLE_COINS')
+# 凭证读数按行动力同样的口径静默：黄币/紫币每次进店、每轮收尾都会读，
+# Ocr 自带的耗时行会把日志区刷满；读到的值由调用方自己记一行
+OCR_SHOP_YELLOW_COINS.SHOW_LOG = False
+OCR_SHOP_PURPLE_COINS.SHOW_LOG = False
+OCR_OS_SHOP_PURPLE_COINS.SHOW_LOG = False
 
 
 class OSStatus(UI):
@@ -229,7 +234,8 @@ class OSStatus(UI):
                 self._shop_purple_coins,
                 source=source
             )
-            # LogRes 已将值写入 config.modified，在此持久化
-            self.config.save()
+            # LogRes 已将值写入 config.modified，在此持久化；
+            # 只含总览显示值（黄币/紫币）时静默保存，不刷「保存配置」行
+            self.config.save(quiet=is_internal_only_modified(self.config.modified))
         except Exception:
             logger.exception('[大世界处理-状态] 记录凭证快照失败')

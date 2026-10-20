@@ -18,6 +18,7 @@ from module.base.utils import *
 from module.config.time_source import now as current_time
 from module.config.utils import get_server_next_update, server_time_offset
 from module.config.deep import deep_get
+from module.config.config import is_internal_only_modified
 from module.exception import RequestHumanTakeover
 from module.logger import logger
 from module.ocr.ocr import Digit, DigitCounter, Ocr
@@ -404,14 +405,6 @@ class ActionPointHandler(UI, MapEventHandler):
     # from_state 找不到 current 字段而总是返回空账本（2026-10-03 真机日志定位，
     # 该 bug 使持久化自上线起从未生效，每次任务重开都按空账本弹读数窗）。
     AP_LEDGER_STATE_KEY = 'OpsiScheduling.Storage.Storage.ApLedgerState'
-    # 账本落盘会连带写入的键（全是脚本内部状态）：待写集合不超过这些键时，
-    # 保存日志降为 debug，避免按轮刷「保存配置」行
-    AP_LEDGER_SAVE_KEYS = (
-        'OpsiScheduling.Storage.Storage.ApLedgerState',
-        'Dashboard.ActionPoint.Value',
-        'Dashboard.ActionPoint.Record',
-        'Dashboard.ActionPoint.Total',
-    )
     # 账本新鲜窗口：窗口内的记录就是「这一刻」的真值，决策读直接沿用、不再 OCR。
     # 行动力只在出击时变化，一次战斗十余秒，窗口取一分钟足够覆盖决策时点。
     AP_LEDGER_FRESH_SECONDS = 60
@@ -483,7 +476,9 @@ class ActionPointHandler(UI, MapEventHandler):
             if not state:
                 return
             self.config.modified[self.AP_LEDGER_STATE_PATH + '.ApLedgerState'] = state
-            quiet = set(self.config.modified) <= set(self.AP_LEDGER_SAVE_KEYS)
+            quiet = is_internal_only_modified(
+                self.config.modified, extra_keys=(self.AP_LEDGER_STATE_KEY,)
+            )
             self.config.save(quiet=quiet)
         except Exception:
             logger.warning('[AP账本] 状态持久化失败', exc_info=True)

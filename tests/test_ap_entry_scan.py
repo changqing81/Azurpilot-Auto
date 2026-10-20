@@ -421,6 +421,71 @@ class TestFallback(EntryScanTestCase):
         self.assertEqual(handler._get_ap_ledger().current, 158)
 
 
+class TestInternalOnlyModified(unittest.TestCase):
+    """总览显示值判据：只有 Dashboard.* 与调用方声明的内部键才算内部状态。"""
+
+    def test_display_values_are_internal(self):
+        from module.config.config import is_internal_only_modified
+
+        self.assertTrue(is_internal_only_modified({'Dashboard.Oil.Value': 1}))
+        self.assertTrue(is_internal_only_modified(
+            {'Dashboard.YellowCoin.Value': 1, 'Dashboard.YellowCoin.Record': 2}
+        ))
+        self.assertTrue(is_internal_only_modified(
+            {'Dashboard.ActionPoint.Value': 1, 'OpsiScheduling.Storage.Storage.ApLedgerState': {}},
+            extra_keys=('OpsiScheduling.Storage.Storage.ApLedgerState',),
+        ))
+
+    def test_mixed_or_empty_is_not_internal(self):
+        from module.config.config import is_internal_only_modified
+
+        self.assertFalse(is_internal_only_modified({}))
+        self.assertFalse(is_internal_only_modified({'Scheduler.NextRun': 'x'}))
+        self.assertFalse(is_internal_only_modified(
+            {'Dashboard.Oil.Value': 1, 'Scheduler.NextRun': 'x'}
+        ))
+        # 没有声明为内部键的状态键不算内部状态
+        self.assertFalse(is_internal_only_modified(
+            {'OpsiScheduling.Storage.Storage.ApLedgerState': {}}
+        ))
+
+
+class TestShopCoinsQuietSave(unittest.TestCase):
+    """商店读黄币/紫币后的保存：只含总览显示值时静默，混入其它键照旧 INFO。"""
+
+    def make_status(self, modified):
+        from types import SimpleNamespace
+
+        from module.os_handler.os_status import OSStatus
+
+        status = OSStatus.__new__(OSStatus)
+        status.config = SimpleNamespace(
+            modified=dict(modified),
+            save=MagicMock(),
+            config_name='ap_entry_scan_test_nonexistent',
+            task=SimpleNamespace(command='OpsiHazard1Leveling'),
+        )
+        status.get_yellow_coins = lambda use_cache=False: 87933
+        status.get_purple_coins = lambda: 6357
+        return status
+
+    def test_display_only_save_is_quiet(self):
+        status = self.make_status({'Dashboard.YellowCoin.Value': 87933})
+        with patch('module.statistics.cl1_database.db') as cl1_db:
+            status.os_shop_get_coins()
+        cl1_db.add_coins_snapshot.assert_called_once()
+        status.config.save.assert_called_with(quiet=True)
+
+    def test_mixed_keys_save_stays_info(self):
+        status = self.make_status({
+            'Dashboard.YellowCoin.Value': 87933,
+            'Scheduler.NextRun': '2026-10-20 12:00:00',
+        })
+        with patch('module.statistics.cl1_database.db'):
+            status.os_shop_get_coins()
+        status.config.save.assert_called_with(quiet=False)
+
+
 class TestSilentOcrInstances(unittest.TestCase):
     """静默读数用独立 OCR 实例：不刷耗时日志，黄币沿用商店黄币取色参数。"""
 
@@ -428,6 +493,18 @@ class TestSilentOcrInstances(unittest.TestCase):
         self.assertFalse(ap_module.SILENT_ACTION_POINT_DIGIT.SHOW_LOG)
         self.assertFalse(ap_module.SILENT_YELLOW_COIN_OCR.SHOW_LOG)
         self.assertIsNot(ap_module.SILENT_ACTION_POINT_DIGIT, ap_module.MAP_ACTION_POINT_DIGIT)
+
+    def test_shop_coin_instances_do_not_log(self):
+        # 黄币/紫币读数按行动力同样的口径静默（os_status 里的商店凭证 OCR）
+        from module.os_handler.os_status import (
+            OCR_OS_SHOP_PURPLE_COINS,
+            OCR_SHOP_PURPLE_COINS,
+            OCR_SHOP_YELLOW_COINS,
+        )
+
+        self.assertFalse(OCR_SHOP_YELLOW_COINS.SHOW_LOG)
+        self.assertFalse(OCR_SHOP_PURPLE_COINS.SHOW_LOG)
+        self.assertFalse(OCR_OS_SHOP_PURPLE_COINS.SHOW_LOG)
 
     def test_silent_coin_ocr_keeps_shop_params(self):
         from module.os_handler.os_status import OCR_SHOP_YELLOW_COINS
