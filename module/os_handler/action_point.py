@@ -404,6 +404,14 @@ class ActionPointHandler(UI, MapEventHandler):
     # from_state 找不到 current 字段而总是返回空账本（2026-10-03 真机日志定位，
     # 该 bug 使持久化自上线起从未生效，每次任务重开都按空账本弹读数窗）。
     AP_LEDGER_STATE_KEY = 'OpsiScheduling.Storage.Storage.ApLedgerState'
+    # 账本落盘会连带写入的键（全是脚本内部状态）：待写集合不超过这些键时，
+    # 保存日志降为 debug，避免按轮刷「保存配置」行
+    AP_LEDGER_SAVE_KEYS = (
+        'OpsiScheduling.Storage.Storage.ApLedgerState',
+        'Dashboard.ActionPoint.Value',
+        'Dashboard.ActionPoint.Record',
+        'Dashboard.ActionPoint.Total',
+    )
     # 账本新鲜窗口：窗口内的记录就是「这一刻」的真值，决策读直接沿用、不再 OCR。
     # 行动力只在出击时变化，一次战斗十余秒，窗口取一分钟足够覆盖决策时点。
     AP_LEDGER_FRESH_SECONDS = 60
@@ -462,6 +470,10 @@ class ActionPointHandler(UI, MapEventHandler):
 
         按子键深路径写入，只动 ApLedgerState，不覆盖同组下
         买行动力计数等其他状态键（读-改-写整个 dict 在多进程下会互相覆盖）。
+
+        待写键全是账本与总览显示这类内部状态时用静默保存（日志降 debug）：
+        账本每轮/按周期落盘，INFO 记一行会把日志区刷满；一旦混入其它改动，
+        照旧走 INFO，不掩盖别人的保存。
         """
         ledger = self.__dict__.get('_ap_ledger_instance')
         if ledger is None:
@@ -471,7 +483,8 @@ class ActionPointHandler(UI, MapEventHandler):
             if not state:
                 return
             self.config.modified[self.AP_LEDGER_STATE_PATH + '.ApLedgerState'] = state
-            self.config.save()
+            quiet = set(self.config.modified) <= set(self.AP_LEDGER_SAVE_KEYS)
+            self.config.save(quiet=quiet)
         except Exception:
             logger.warning('[AP账本] 状态持久化失败', exc_info=True)
 
@@ -681,6 +694,10 @@ class ActionPointHandler(UI, MapEventHandler):
             self.__dict__.pop('_ap_entry_scan_state', None)
             self._ap_entry_scan_commit_result(state)
         if time.monotonic() < self.__dict__.get('_ap_entry_scan_next_at', 0):
+            return
+        if self._ap_ledger_is_fresh():
+            # 账本刚被商店同步 / 入场识别刷新过：这一刻的真值已在账本里，
+            # 跑图期间也不重复读数；账本过期后下一个地图画面机会自动补读
             return
         self.__dict__['_ap_entry_scan_next_at'] = time.monotonic() + self.AP_ENTRY_SCAN_PERIOD
         self._ap_entry_scan_dispatch(source=SOURCE_AUTO_SEARCH, require_map=True)

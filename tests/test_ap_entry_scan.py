@@ -168,14 +168,15 @@ class TestAutoSearchScan(EntryScanTestCase):
     def test_periodic_reading_committed_and_throttled(self):
         executor = ManualExecutor()
         handler, _ = self.make_handler(executor=executor)
-        self.commit_entry(handler, executor)
-        dispatched = len(executor.calls)
-        # 到了周期：派发一次跑图读数（要求帧是海域地图）
+        # 账本过期（超过新鲜窗口）才会触发跑图读数
+        stale_at = current_time() - timedelta(seconds=handler.AP_LEDGER_FRESH_SECONDS + 1)
+        handler._get_ap_ledger().observe(157, source=SOURCE_ENTRY, at=stale_at)
+        handler.__dict__['_ap_entry_scan_periodic'] = True
         handler.__dict__['_ap_entry_scan_next_at'] = 0
         handler.ap_entry_scan_tick()
-        self.assertEqual(len(executor.calls), dispatched + 1)
+        self.assertEqual(len(executor.calls), 1)
         self.assertEqual(handler.__dict__['_ap_entry_scan_state']['source'], SOURCE_AUTO_SEARCH)
-        # 结果回来：取回并写账本（来源 auto_search），本轮按已记录处理
+        # 结果回来：取回并写账本（来源 auto_search）
         with patch.object(ap_module.SILENT_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=140), \
                 patch.object(coin_ocr(), 'ocr', return_value=233542), \
                 patch.object(ActionPointHandler, '_ap_entry_scan_frame_in_map', return_value=True):
@@ -185,10 +186,30 @@ class TestAutoSearchScan(EntryScanTestCase):
         self.assertEqual(ledger.current, 140)
         self.assertEqual(ledger.yellow_coins, 233542)
         self.assertEqual(ledger.source, SOURCE_AUTO_SEARCH)
-        # 周期未到：不派发新读数
+        # 账本刚写、且周期未到：不再派发新读数
         dispatched = len(executor.calls)
         handler.ap_entry_scan_tick()
         self.assertEqual(len(executor.calls), dispatched)
+
+    def test_fresh_ledger_skips_periodic_read(self):
+        # 账本刚被商店同步/入场识别刷新过：跑图期间不重复读数，直接继续跑图
+        executor = ManualExecutor()
+        handler, _ = self.make_handler(executor=executor)
+        self.commit_entry(handler, executor)
+        dispatched = len(executor.calls)
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        handler.ap_entry_scan_tick()
+        self.assertEqual(len(executor.calls), dispatched)
+
+    def test_stale_ledger_triggers_periodic_read(self):
+        executor = ManualExecutor()
+        handler, _ = self.make_handler(executor=executor)
+        stale_at = current_time() - timedelta(seconds=handler.AP_LEDGER_FRESH_SECONDS + 1)
+        handler._get_ap_ledger().observe(157, source=SOURCE_ENTRY, at=stale_at)
+        handler.__dict__['_ap_entry_scan_periodic'] = True
+        handler.__dict__['_ap_entry_scan_next_at'] = 0
+        handler.ap_entry_scan_tick()
+        self.assertEqual(len(executor.calls), 1)
 
     def test_pending_scan_not_piled_up(self):
         # 上一次还没回来时不派发新的，避免排队堆积
@@ -260,6 +281,25 @@ class TestEntryScanRound(EntryScanTestCase):
         self.assertEqual(handler._action_point_current, 157)
         self.assertEqual(handler.config.modified['Dashboard.ActionPoint.Value'], 157)
         self.assertTrue(handler.config.save.called)
+
+    def test_ledger_save_is_quiet(self):
+        # 账本落盘只改内部键（账本 + 总览显示）：保存日志降 debug，不刷「保存配置」行
+        handler, _ = self.make_handler()
+        with patch.object(ap_module.SILENT_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
+                patch.object(coin_ocr(), 'ocr', return_value=1):
+            handler.ap_entry_scan_start()
+            self.assertTrue(handler.ap_entry_scan_commit_before_battle())
+        handler.config.save.assert_called_with(quiet=True)
+
+    def test_ledger_save_not_quiet_with_other_pending_keys(self):
+        # 待写集合混入别的改动时照旧 INFO：不能把别人的保存日志一起压掉
+        handler, _ = self.make_handler()
+        handler.config.modified['Scheduler.NextRun'] = '2026-10-20 12:00:00'
+        with patch.object(ap_module.SILENT_ACTION_POINT_DIGIT, 'ocr', autospec=True, return_value=157), \
+                patch.object(coin_ocr(), 'ocr', return_value=1):
+            handler.ap_entry_scan_start()
+            self.assertTrue(handler.ap_entry_scan_commit_before_battle())
+        handler.config.save.assert_called_with(quiet=False)
 
     def test_result_consumed_once(self):
         handler, _ = self.make_handler()
@@ -520,6 +560,44 @@ class TestCoinTaskMixinShopHooks(unittest.TestCase):
         stub.purchases = 2
         stub.handle_akashi_supply_buy('grid')
         self.assertEqual(calls.count(('sync', 233542)), 2)
+
+
+class TestQuietConfigSave(unittest.TestCase):
+    """Config.save(quiet=...) 的日志级别：内部状态保存降 debug，其余照旧 INFO。"""
+
+    def make_config(self, modified):
+        from module.config.config import AzurLaneConfig
+
+        config = AzurLaneConfig.__new__(AzurLaneConfig)
+        config.modified = dict(modified)
+        config.data = {}
+        config.config_name = 'ap_entry_scan_test_nonexistent'
+        config.write_file = MagicMock()
+        return config
+
+    def test_quiet_save_logs_debug_only(self):
+        from module.config import config as config_module
+
+        config = self.make_config({'OpsiScheduling.Storage.Storage.ApLedgerState': {'v': 1}})
+        with patch.object(config_module.logger, 'info') as info, \
+                patch.object(config_module.logger, 'debug') as debug:
+            config.save(quiet=True)
+        debug.assert_called_once()
+        info.assert_not_called()
+        # 改动照常写入并清空待写集合
+        self.assertEqual(config.data['OpsiScheduling']['Storage']['Storage']['ApLedgerState'], {'v': 1})
+        self.assertEqual(config.modified, {})
+        self.assertTrue(config.write_file.called)
+
+    def test_normal_save_logs_info(self):
+        from module.config import config as config_module
+
+        config = self.make_config({'OpsiScheduling.Storage.Storage.ApLedgerState': {'v': 1}})
+        with patch.object(config_module.logger, 'info') as info, \
+                patch.object(config_module.logger, 'debug') as debug:
+            config.save()
+        info.assert_called_once()
+        debug.assert_not_called()
 
 
 class TestTaskWiring(unittest.TestCase):

@@ -410,14 +410,23 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             logger.critical("[Config] 请启用至少一个任务")
             raise RequestHumanTakeover
 
-    def save(self, mod_name='alas'):
+    def save(self, mod_name='alas', quiet=False):
+        """把 modified 里的改动写回配置文件。
+
+        Args:
+            mod_name (str): 写入的模块名。
+            quiet (bool): 仅含脚本内部状态（行动力账本、总览显示键等）的保存，
+                日志降为 debug，避免按轮刷「保存配置」行；混入其它改动时
+                调用方应传 False，保证别人的改动照旧有 INFO 记录。
+        """
         if not self.modified:
             return False
 
         for path, value in self.modified.items():
             deep_set(self.data, keys=path, value=value)
 
-        logger.info(
+        log = logger.debug if quiet else logger.info
+        log(
             f"[配置] 保存配置 {filepath_config(self.config_name, mod_name)}, "
             f"{dict_to_kv(self.modified, summarize=True)}"
         )
