@@ -5,8 +5,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import cv2
 import numpy as np
-from PIL import Image
 
 from module.exception import GameStuckError, RequestHumanTakeover
 from module.minigame.assets import (
@@ -27,11 +27,17 @@ from module.ui.scroll import Scroll
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def read_png(file):
+    """用 cv2 读图并转回 RGB，兼容中文路径且避开 PIL 解码器注册表污染。"""
+    image = cv2.imdecode(np.fromfile(str(file), dtype=np.uint8), cv2.IMREAD_COLOR)
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+
 def paste_asset(image, button, dy=0):
     """保留资源的原生像素，只移动待测试的识别区域。"""
     x1, y1, x2, y2 = button.area
-    with Image.open(ROOT / button.file) as asset:
-        image[y1 + dy:y2 + dy, x1:x2] = np.array(asset.convert('RGB').crop(button.area))
+    asset = read_png(ROOT / button.file)
+    image[y1 + dy:y2 + dy, x1:x2] = asset[y1:y2, x1:x2]
 
 
 def list_frame(marker=GAME_LIST_CHECK_LEFT, dy=0, scrollbar=True, start=True):
@@ -100,8 +106,9 @@ class ListDetectionTests(unittest.TestCase):
 
     def test_new_assets_use_native_game_resolution(self):
         for button in (GAME_LIST_CHECK_LEFT, GAME_LIST_CHECK_RIGHT, MINIGAME_SCROLL_KNOB):
-            with self.subTest(button=button.name), Image.open(ROOT / button.file) as asset:
-                self.assertEqual(asset.size, (1280, 720))
+            with self.subTest(button=button.name):
+                height, width = read_png(ROOT / button.file).shape[:2]
+                self.assertEqual((width, height), (1280, 720))
 
 
 class NavigationTests(unittest.TestCase):

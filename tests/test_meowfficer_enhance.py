@@ -6,8 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+import cv2
 import numpy as np
-from PIL import Image
 
 from module.base.timer import Timer
 from module.device.device import Device
@@ -22,12 +22,18 @@ from module.meowfficer.enhance import (
 FIXTURES = Path(__file__).parent / 'fixtures' / 'meowfficer_enhance'
 
 
+def read_png(file):
+    """用 cv2 读图并转回 RGB，兼容中文路径且避开 PIL 解码器注册表污染。"""
+    image = cv2.imdecode(np.fromfile(str(file), dtype=np.uint8), cv2.IMREAD_COLOR)
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+
 def frame(ring='unselected', scroll='scroll_top'):
     """用匿名圆环与滚动条裁剪重建识别所需的两个区域。"""
     image = np.zeros((720, 1280, 3), dtype=np.uint8)
-    image[421:548, 983:1110] = np.array(Image.open(FIXTURES / f'{ring}.png'))
+    image[421:548, 983:1110] = read_png(FIXTURES / f'{ring}.png')
     if scroll:
-        image[139:549, 1247:1256] = np.array(Image.open(FIXTURES / f'{scroll}.png'))
+        image[139:549, 1247:1256] = read_png(FIXTURES / f'{scroll}.png')
     return image
 
 
