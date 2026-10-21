@@ -1031,6 +1031,25 @@
     display: none;
 }
 
+/* 页签点击用的隐藏真实按钮组（可靠回调通道）。按钮本身不可见，
+   由页签 JS 按索引 .click() 触发；display:none 不影响 prog 点击。 */
+#pywebio-scope-st_tab_actions {
+    display: none;
+}
+
+/* 面板渲染失败时的提示条：替换掉骨架，避免用户只看到一堆灰条。 */
+#pywebio-scope-statistics-content .st-panel-error {
+    margin: 18px 4px;
+    padding: 14px 16px;
+    border-radius: 8px;
+    border-left: 4px solid #f03e3e;
+    background: rgba(240, 62, 62, .08);
+    color: var(--alas-content-text, #202124);
+    font-size: .9rem;
+    line-height: 1.6;
+    word-break: break-word;
+}
+
 @keyframes st-panel-fade {
     from { opacity: 0; transform: translateY(4px); }
     to   { opacity: 1; transform: none; }

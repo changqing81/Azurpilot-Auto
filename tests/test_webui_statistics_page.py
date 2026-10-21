@@ -115,6 +115,10 @@ class TestStatisticsPageCache(unittest.TestCase):
                 "module.webui.app_statistics_page.put_button",
                 return_value=_OutputStub(),
             ),
+            patch(
+                "module.webui.app_statistics_page.put_buttons",
+                return_value=_OutputStub(),
+            ),
             # 分页式改版的页头 / 页签 / 科研占位是 HTML 字符串，走 put_html 输出。
             # 与 put_scope / put_button 一样，这里不需要真实会话。
             patch(
@@ -327,6 +331,8 @@ class TabSwitchScriptTests(unittest.TestCase):
         ), patch(
             "module.webui.app_statistics_page.put_button", return_value=_OutputStub()
         ), patch(
+            "module.webui.app_statistics_page.put_buttons", return_value=_OutputStub()
+        ), patch(
             # 桥接 pin 的 put_input 必须打桩：无会话时会退回 PyWebIO 脚本模式挂起。
             "module.webui.app_statistics_page.put_input", return_value=_OutputStub()
         ), patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()):
@@ -370,6 +376,7 @@ class FillTaskWiringTests(unittest.TestCase):
             ),
             patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_buttons", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.run_js"),
@@ -444,6 +451,7 @@ class StatisticsLazyLoadingTests(unittest.TestCase):
             ),
             patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_buttons", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.run_js"),
@@ -625,6 +633,7 @@ class StatisticsBridgeRebindTests(unittest.TestCase):
             ),
             patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_buttons", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.run_js"),
@@ -720,6 +729,46 @@ class StatisticsTabPersistenceTests(unittest.TestCase):
         # 切回前台补发
         self.assertIn("visibilitychange", source)
 
+
+    def test_tab_click_uses_real_buttons_not_only_pin(self):
+        """页签点击必须走真实按钮通道，不能只靠隐藏 pin。
+
+        2026-10-21 真机：只靠 pin 转发时，远控 P2P 上消息静默丢失，用户点
+        页签只看到骨架、服务端从未收到请求（只有挂载时直接渲染的大世界有
+        内容）。改为点击一组隐藏的真实 PyWebIO 按钮（与「刷新」同一条通道）。
+        """
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "module"
+            / "webui"
+            / "app_statistics_page.py"
+        ).read_text(encoding="utf-8")
+
+        # 真实按钮组 + JS 按索引点击
+        self.assertIn("st_tab_actions", source)
+        self.assertIn("_build_tab_action_buttons", source)
+        self.assertIn("buttons[idx].click()", source)
+        # 渲染异常必须兜住，不能把骨架永远留在页面上
+        self.assertIn("_show_panel_error", source)
+        self.assertIn("st-panel-error", source)
+
+    def test_tab_actions_scope_is_hidden(self):
+        """隐藏按钮组必须有 CSS 隐藏，不能像 st_bridge 那样裸露。"""
+        from pathlib import Path
+
+        css = (
+            Path(__file__).resolve().parent.parent
+            / "assets"
+            / "gui"
+            / "css"
+            / "statistics-alas.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#pywebio-scope-st_tab_actions", css)
+        start = css.index("#pywebio-scope-st_tab_actions")
+        self.assertIn("display: none", css[start:start + 120])
+
 class StatisticsPageLockOrderAndStateTests(unittest.TestCase):
     """回归：统计页后台填充的锁序与切页状态清理。
 
@@ -738,6 +787,7 @@ class StatisticsPageLockOrderAndStateTests(unittest.TestCase):
             ),
             patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_buttons", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
             patch("module.webui.app_statistics_page.run_js"),

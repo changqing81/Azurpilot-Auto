@@ -137,6 +137,35 @@ _STAT_SKELETON_MIN_HEIGHT = 240
 
 _DEFAULT_PANEL = "opsi"
 
+def _build_tab_action_buttons(gui):
+    """产出页签点击用的隐藏按钮组（真实 PyWebIO 回调，不依赖 pin 通道）。
+
+    页签栏本身是 put_html 输出的裸 <button>，不挂服务端回调；如果靠隐藏 pin
+    转发，远控 P2P 链路上会静默丢消息——用户点页签只看到骨架，服务端从未
+    收到请求（2026-10-21 真机实测）。这里改放一组真实按钮并整体隐藏，由页签
+    JS 按索引 .click() 触发：与「刷新」「总览」同一条回调通道，可靠得多。
+
+    Args:
+        gui: 统计页 mixin 实例，_on_tab_action 提供实际渲染入口。
+
+    Returns:
+        PyWebIO 按钮组 placeable。
+    """
+    if not _has_webio_session():
+        # 无会话（单测 / 脚本模式）：put_buttons 会注册回调，没有会话时会永久
+        # 阻塞（pywebio 回退到 Script Mode 等浏览器），这里直接跳过。
+        return put_html("")
+    panel_ids = list(_STAT_PANEL_SCOPES.keys())
+    return put_buttons(
+        [{"label": panel_id, "value": panel_id} for panel_id in panel_ids],
+        onclick=[
+            (lambda panel_id=panel_id: gui._on_tab_action(panel_id))
+            for panel_id in panel_ids
+        ],
+        small=True,
+    )
+
+
 # 舰队科技面板的 id：它的数据刷新任务最贵（每 5 秒重建一次配置对象），
 # 只在面板真正被用户点开后才登记轮询任务。
 _PANEL_FLEET = "fleet"
@@ -249,6 +278,12 @@ class StatisticsPageMixin(WebUIMixinBase):
                 # 页签点击与面板高度回传（裸 HTML 按钮没有回调通道）。
                 put_scope("ft_bridge", [put_input(name=BRIDGE_PIN, value="")])
                 put_scope("st_bridge", [put_input(name=ST_BRIDGE_PIN, value="")])
+                # 页签点击的**可靠通道**：一组隐藏的真实按钮，由页签 JS 用
+                # .click() 触发。与「刷新」「总览」走同一条回调通道，不会像
+                # 隐藏 pin 那样在远控 P2P 上静默丢消息（2026-10-21 真机：
+                # 点页签只看到骨架，服务端从未收到请求）。
+                # 按钮顺序必须与 _STAT_PANEL_SCOPES 一致，JS 按索引点击。
+                put_scope("st_tab_actions", [_build_tab_action_buttons(self)])
 
             self._statistics_cache_key = cache_key
             self._ft_bind_callbacks()
@@ -650,13 +685,28 @@ class StatisticsPageMixin(WebUIMixinBase):
                 /* 通知服务端：该页签需要渲染（经隐藏 pin，裸按钮没有回调） */
                 var retryCount = {};
                 function requestPanel(panelId) {
+                    /* 可靠通道：点击 st_tab_actions 里对应索引的真实按钮。
+                       早前用隐藏 pin 转发，远控 P2P 上会静默丢消息——用户
+                       点页签只看到骨架、服务端从未收到请求（2026-10-21 真机）。
+                       真实按钮走的是和「刷新」「总览」同一条回调通道。 */
+                    var box = document.getElementById(
+                        "pywebio-scope-st_tab_actions"
+                    );
+                    var idx = PANEL_ORDER.indexOf(panelId);
+                    if (box && idx >= 0) {
+                        var buttons = box.querySelectorAll("button");
+                        if (idx < buttons.length) buttons[idx].click();
+                    }
+                    /* 兜底：老通道仍在（pin 值由服务端记录高度用），
+                       万一按钮通道不可用也能触发一次。 */
                     var bridge = document.querySelector(
                         'input[name="st_bridge_pin"]'
                     );
-                    if (!bridge) return;
-                    bridge.value = "panel|" + panelId;
-                    bridge.dispatchEvent(new Event("input", {bubbles: true}));
-                    bridge.dispatchEvent(new Event("change", {bubbles: true}));
+                    if (bridge) {
+                        bridge.value = "panel|" + panelId;
+                        bridge.dispatchEvent(new Event("input", {bubbles: true}));
+                        bridge.dispatchEvent(new Event("change", {bubbles: true}));
+                    }
                     /* 远控 P2P 链路会丢消息：等不到内容就再要一次（最多 3 次）。
                        没有这层兜底，用户会看到「点了页签永远是骨架」。 */
                     retryCount[panelId] = (retryCount[panelId] || 0) + 1;
@@ -842,13 +892,25 @@ class StatisticsPageMixin(WebUIMixinBase):
                 method()
 
     @render_locked
+    @render_locked
+    def _on_tab_action(self, panel_id: str) -> None:
+        """页签隐藏按钮的回调：按需渲染该面板。
+
+        页签栏是裸 HTML，点它只会切 CSS 并触发 JS 去 click 这组隐藏按钮；
+        真正的渲染从这里进来，走的是和「刷新」「总览」一样的可靠回调通道。
+        """
+        self._render_statistics_panel(panel_id)
+
     def _render_statistics_panel(self, panel_id: str) -> None:
-        """按需渲染一个面板（用户第一次点开该页签时由桥回调触发）。
+        """按需渲染一个面板（用户第一次点开该页签时触发）。
 
         幂等：已加载过的面板直接返回，重复点击不会重复渲染（避免同一个面板
         被画两遍导致内容翻倍——PyWebIO 每个回调新起线程，连点即并发）。
         渲染完成后调 ``_mark_stat_panel_loaded`` 撤掉骨架并把实测高度记下来，
         下次进页面用真实高度占位，切换时页面不会跳。
+
+        渲染异常必须在这里兜住：否则骨架会永远停在页面上，用户只看到一堆
+        灰条、也不知道出了什么事（真机上比报错更难排查）。
         """
         if panel_id not in _STAT_PANEL_SCOPES:
             return
@@ -859,6 +921,7 @@ class StatisticsPageMixin(WebUIMixinBase):
             loaded = self._st_loaded_panels = set()
         if panel_id in loaded:
             return
+        logger.debug(f"[Statistics] 渲染面板 {panel_id}")
         with self._page_lock:
             # 拿锁后再校验一次：排队期间用户可能已经切走页面
             if getattr(self, "page", None) != "Stat":
@@ -868,13 +931,44 @@ class StatisticsPageMixin(WebUIMixinBase):
             if panel_id in loaded:
                 return
             loaded.add(panel_id)
-            self._render_statistics_panel_sections(panel_id, force=True)
+            try:
+                self._render_statistics_panel_sections(panel_id, force=True)
+            except Exception as exc:
+                # 渲染失败：撤掉骨架并把错误写到面板里，不能留一堆灰条。
+                logger.exception(f"[Statistics] 渲染面板 {panel_id} 失败: {exc}")
+                loaded.discard(panel_id)
+                self._show_panel_error(panel_id, exc)
+                return
         # 舰队面板首次加载后补登记它的数据刷新任务（alas_set_stat 里只在
         # 已加载时才登记，避免用户没点开就每 5 秒空转读配置）。
         if panel_id == _PANEL_FLEET:
             self._st_ensure_fleet_refresh_task()
         self._mark_stat_panel_loaded(panel_id)
 
+    def _show_panel_error(self, panel_id: str, exc: Exception) -> None:
+        """面板渲染失败时，把骨架换成一条错误提示（而不是留一堆灰条）。
+
+        用户看到的是可读的原因和「点刷新重试」，排查时也能从界面直接看出
+        是数据源读不到还是渲染代码出错。
+        """
+        run_js(
+            """
+            (function () {
+                var panel = document.getElementById("st-panel-" + panelId);
+                if (!panel) return;
+                var skeleton = document.getElementById("st-skeleton-" + panelId);
+                if (skeleton) skeleton.parentNode.removeChild(skeleton);
+            })();
+            """,
+            panelId=panel_id,
+        )
+        with use_scope(_STAT_PANEL_SCOPES[panel_id][0], clear=True):
+            put_html(
+                '<div class="st-panel-error">'
+                + html_escape(t("Gui.Stat.PanelLoadFailed"))
+                + '：' + html_escape(str(exc)[:200])
+                + "</div>"
+            )
     def _st_ensure_fleet_refresh_task(self) -> None:
         """登记舰队面板的数据刷新轮询任务（按任务名幂等，不叠加）。
 

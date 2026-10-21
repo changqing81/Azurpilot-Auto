@@ -7504,6 +7504,7 @@
       "TabResearch": "研究",
       "TabResearchBadge": "計画中",
       "TabResource": "資源",
+      "PanelLoadFailed": "パネルの読み込みに失敗しました",
       "ResearchTitle": "研究統計",
       "ResearchDesc": "計画中です。以下の3つのスロットは境界とデータ契約を定義済みで、実装時は描画ロジックを埋めるだけで他のタブに影響しません。",
       "ResearchSlotProgress": "現在の研究進捗",

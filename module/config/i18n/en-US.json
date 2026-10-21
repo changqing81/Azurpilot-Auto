@@ -7504,6 +7504,7 @@
       "TabResearch": "Research",
       "TabResearchBadge": "Planned",
       "TabResource": "Resources",
+      "PanelLoadFailed": "Failed to load panel",
       "ResearchTitle": "Research Statistics",
       "ResearchDesc": "Planned. The three slots below already have their boundaries and data contracts defined; implementing them only requires filling in the rendering logic, without affecting the other tabs.",
       "ResearchSlotProgress": "Current Research Progress",

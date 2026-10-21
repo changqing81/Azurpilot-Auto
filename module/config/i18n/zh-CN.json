@@ -7504,6 +7504,7 @@
       "TabResearch": "科研",
       "TabResearchBadge": "规划中",
       "TabResource": "资源",
+      "PanelLoadFailed": "面板加载失败",
       "ResearchTitle": "科研统计",
       "ResearchDesc": "功能规划中。下方三个槽位已划好边界与数据契约，开发时只需填入渲染逻辑，不影响其他页签。",
       "ResearchSlotProgress": "当前研究进度",
