@@ -233,7 +233,7 @@ class OSMapOperation(MapOrderHandler, MissionHandler, PortHandler, StorageHandle
 
         三重限定，任一不满足即返回 True（保持原行为）：
         1. 仅 CN 服务器生效：其他服务器暂无素材验证，一律不判定；
-        2. 受「大世界通用设置 → 非安全海域跳过扫图」(OpsiGeneral.SkipScanOnUnsafeZone)
+        2. 受「大世界通用设置 → 普通海域跳过扫图」(OpsiGeneral.SkipScanOnUnsafeZone)
            控制，开关关闭（默认）时不判定，行为与改动前完全一致，不做任何 OCR；
         3. 开关开启时 OCR 画面上方海域名称，仅识别到安全海域才返回 True；
            未识别到（含 OCR 异常/悬浮窗遮挡）返回 False，调用方跳过扫图与强制移动。
