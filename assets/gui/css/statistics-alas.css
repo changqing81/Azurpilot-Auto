@@ -1024,6 +1024,13 @@
     50%      { opacity: 1; }
 }
 
+/* 页签点击桥的隐藏 pin：只保留 DOM 供脚本派发事件。
+   漏了这条会把输入框连同它的值（如 height|mind|3603）直接显示在页面底部
+   ——2026-10-21 真机截图里那条怪文字就是它。 */
+#pywebio-scope-st_bridge {
+    display: none;
+}
+
 @keyframes st-panel-fade {
     from { opacity: 0; transform: translateY(4px); }
     to   { opacity: 1; transform: none; }

@@ -606,6 +606,120 @@ class StatisticsSessionGuardTests(unittest.TestCase):
         mock_pin.assert_not_called()
 
 
+class StatisticsBridgeRebindTests(unittest.TestCase):
+    """桥接必须每次挂载都重绑。
+
+    真机事故（2026-10-21）：切页会清空 statistics-content 并重建 st_bridge
+    输入框，_st_callbacks_bound 却一直是 True，于是重挂载后不再绑定，
+    pin 指向的是已被销毁的旧节点 —— 用户点页签完全没反应，只有默认页签
+    （挂载时直接渲染的）有内容。日志证据：整份 GUI 日志里
+    _ft_data_refresh 只被登记过 2 次，此后 16 次会话全部没有。
+    """
+
+    def setUp(self):
+        self.gui = _StatisticsHarness()
+        self.patches = (
+            patch(
+                "module.webui.app_statistics_page.use_scope",
+                side_effect=lambda *_args, **_kwargs: nullcontext(),
+            ),
+            patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.run_js"),
+            patch(
+                "module.webui.app_statistics_page._has_webio_session",
+                return_value=True,
+            ),
+            patch(
+                "module.webui.app_statistics_page.t",
+                side_effect=lambda key, *args, **kwargs: key,
+            ),
+        )
+        for active_patch in self.patches:
+            active_patch.start()
+
+    def tearDown(self):
+        for active_patch in reversed(self.patches):
+            active_patch.stop()
+
+    def test_mount_rebinds_bridge_after_remount(self):
+        """重新挂载（换实例）后必须再次调用 pin_on_change。"""
+        with patch(
+            "module.webui.app_statistics_page.pin_on_change"
+        ) as mock_pin:
+            self.gui.alas_set_stat()
+            self.assertEqual(1, mock_pin.call_count)
+
+            # 换实例 → cache_key 变化 → 触发重新挂载
+            self.gui.alas_name = "alas2"
+            self.gui.alas_set_stat()
+
+        self.assertEqual(
+            2, mock_pin.call_count,
+            "重新挂载后必须重绑 pin，否则页签点击永久失效",
+        )
+
+    def test_bind_is_skipped_without_session(self):
+        """无会话时跳过绑定（不能触发 pywebio 的 Script Mode 回退而挂死）。"""
+        with patch(
+            "module.webui.app_statistics_page._has_webio_session",
+            return_value=False,
+        ), patch(
+            "module.webui.app_statistics_page.pin_on_change"
+        ) as mock_pin:
+            self.gui._st_callbacks_bound = False
+            self.gui._st_bind_callbacks()
+        mock_pin.assert_not_called()
+
+
+class StatisticsBridgeInputHiddenTests(unittest.TestCase):
+    """点击桥的隐藏输入框必须有 CSS 隐藏。
+
+    2026-10-21 真机截图：页面底部裸露出一行 height|mind|3603，
+    就是 st_bridge 输入框（clear=True 清的是回调不是值，值会一直留着）。
+    """
+
+    def test_st_bridge_scope_is_hidden(self):
+        from pathlib import Path
+
+        css = (
+            Path(__file__).resolve().parent.parent
+            / "assets"
+            / "gui"
+            / "css"
+            / "statistics-alas.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn("#pywebio-scope-st_bridge", css)
+        start = css.index("#pywebio-scope-st_bridge")
+        block = css[start:start + 120]
+        self.assertIn("display: none", block)
+
+
+class StatisticsTabPersistenceTests(unittest.TestCase):
+    """页签记忆与丢包重试：远控重连后不能把用户拽回默认页签。"""
+
+    def test_script_uses_localstorage_and_retry(self):
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "module"
+            / "webui"
+            / "app_statistics_page.py"
+        ).read_text(encoding="utf-8")
+
+        # 页签记忆必须落 localStorage（window 状态在整页重载后会丢）
+        self.assertIn("localStorage.setItem(STORAGE_KEY", source)
+        self.assertIn("localStorage.getItem(STORAGE_KEY", source)
+        self.assertNotIn("window[STORAGE_KEY] = id", source)
+
+        # 丢消息重试：等不到内容要再请求
+        self.assertIn("retryCount[panelId]", source)
+        # 切回前台补发
+        self.assertIn("visibilitychange", source)
+
 class StatisticsPageLockOrderAndStateTests(unittest.TestCase):
     """回归：统计页后台填充的锁序与切页状态清理。
 

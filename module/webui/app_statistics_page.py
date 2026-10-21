@@ -252,6 +252,10 @@ class StatisticsPageMixin(WebUIMixinBase):
 
             self._statistics_cache_key = cache_key
             self._ft_bind_callbacks()
+            # 每次挂载都必须重新绑定：切页会清空 statistics-content 并重建
+            # st_bridge 输入框，上一份 pin 绑定指向的是已被销毁的旧节点，
+            # 不重绑就会「点了页签没反应」（2026-10-21 真机：只有默认页签能出内容）。
+            self._st_callbacks_bound = False
             self._st_bind_callbacks()
             run_js(build_fleet_tech_bridge_script(BRIDGE_PIN))
             # 懒加载状态：已加载面板集合 + 各面板上次实测高度（方案 C 用）
@@ -551,6 +555,17 @@ class StatisticsPageMixin(WebUIMixinBase):
                 var LOADED = loadedPanels;
                 var STORAGE_KEY = "__alasStatPanel";
 
+                /* 当前页签记在 localStorage（不是 window）：远控频繁断线重连会整页
+                   重载，window 上的状态全丢，用户每次都被拽回默认页签。 */
+                function readStored() {
+                    try { return window.localStorage.getItem(STORAGE_KEY); }
+                    catch (e) { return null; }
+                }
+                function writeStored(value) {
+                    try { window.localStorage.setItem(STORAGE_KEY, value); }
+                    catch (e) {}
+                }
+
                 var host = document.getElementById("statistics-panels");
                 var tabsBox = document.getElementById("statistics-tabs");
                 if (!host || !tabsBox) return;
@@ -633,6 +648,7 @@ class StatisticsPageMixin(WebUIMixinBase):
                 }
 
                 /* 通知服务端：该页签需要渲染（经隐藏 pin，裸按钮没有回调） */
+                var retryCount = {};
                 function requestPanel(panelId) {
                     var bridge = document.querySelector(
                         'input[name="st_bridge_pin"]'
@@ -641,6 +657,15 @@ class StatisticsPageMixin(WebUIMixinBase):
                     bridge.value = "panel|" + panelId;
                     bridge.dispatchEvent(new Event("input", {bubbles: true}));
                     bridge.dispatchEvent(new Event("change", {bubbles: true}));
+                    /* 远控 P2P 链路会丢消息：等不到内容就再要一次（最多 3 次）。
+                       没有这层兜底，用户会看到「点了页签永远是骨架」。 */
+                    retryCount[panelId] = (retryCount[panelId] || 0) + 1;
+                    if (retryCount[panelId] <= 3) {
+                        window.setTimeout(function () {
+                            if (window.__alasStatLoaded[panelId]) return;
+                            requestPanel(panelId);
+                        }, 2500 * retryCount[panelId]);
+                    }
                 }
 
                 function activate(id, remember) {
@@ -677,7 +702,7 @@ class StatisticsPageMixin(WebUIMixinBase):
                        已加载的直接切类名即可（不重复渲染）。 */
                     ensureSkeleton(id);
                     if (!window.__alasStatLoaded[id]) requestPanel(id);
-                    if (remember !== false) window[STORAGE_KEY] = id;
+                    if (remember !== false) writeStored(id);
                     /* 收尾放在下一帧：页面高度变化会增减滚动条、挪动页签位置，
                        届时校正一次指示条；图表也要按新宽度重绘一次。放在 rAF
                        里避免在点击处理中同步强制整页布局。 */
@@ -728,7 +753,27 @@ class StatisticsPageMixin(WebUIMixinBase):
                 }
 
                 /* 首屏只激活默认页签：只有它会被渲染，其余等用户点开 */
-                activate(window[STORAGE_KEY] || DEFAULT_PANEL, false);
+                activate(readStored() || DEFAULT_PANEL, false);
+
+                /* 远控下切回前台时补一次：离开期间丢掉的渲染请求在这里补发，
+                   避免用户回来只看到骨架。全局只绑一次，回调内按当前 DOM 取页签。 */
+                if (!window.__alasStatReaskBound) {
+                    window.__alasStatReaskBound = true;
+                    var reaskActive = function () {
+                        var box = document.getElementById("statistics-tabs");
+                        if (!box) return;
+                        var on = box.querySelector(
+                            '.st-tab[aria-selected="true"]'
+                        );
+                        if (!on) return;
+                        var pid = on.getAttribute("data-panel");
+                        if (pid && !window.__alasStatLoaded[pid]) requestPanel(pid);
+                    };
+                    document.addEventListener("visibilitychange", function () {
+                        if (!document.hidden) reaskActive();
+                    });
+                    window.addEventListener("focus", reaskActive);
+                }
                 /* 页面每次重新挂载都会生成新的 tabsBox：监听器若每次都绑定，
                    会不断累积并持有已销毁的 DOM（频繁切页即内存泄漏 + 重复重绘）。
                    这里全局只绑一次，回调内按 id 重新取当前挂载的页签。 */
@@ -860,6 +905,9 @@ class StatisticsPageMixin(WebUIMixinBase):
         if getattr(self, "_st_callbacks_bound", False):
             return
         if not _has_webio_session():
+            # 无会话（单测 / 脚本模式）时跳过，避免 pywebio 回退到 Script Mode
+            # 而阻塞；真实会话下若出现这行，说明桥接会失效、页签点不开。
+            logger.debug("[Statistics] 无 WebIO 会话，跳过页签桥绑定")
             return
         pin_on_change(
             name=ST_BRIDGE_PIN,
