@@ -14,12 +14,19 @@ from datetime import datetime, timedelta
 
 from module.base.progress_tracker import ProgressTracker
 from module.base.timer import Timer
+from module.config.config import TaskEnd
 from module.config.time_source import now as current_time
 from module.equipment.assets import EQUIPMENT_OPEN
-from module.exception import GameStuckError, MapDetectionError, ScriptError
+from module.exception import (
+    GameStuckError,
+    GameTooManyClickError,
+    MapDetectionError,
+    RequestHumanTakeover,
+    ScriptError,
+)
 from module.logger import logger
 from module.os.assets import FLEET_FLAGSHIP
-from module.os.map import OSMap
+from module.os.map import ALREADY_SOLVED_MAP_EVENTS, OSMap
 from module.os.ship_exp import ship_info_get_level_exp
 from module.os.ship_exp_data import LIST_SHIP_EXP
 from module.os.tasks.scheduling import CoinTaskMixin
@@ -107,6 +114,58 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             return False
         return self.match_template_color(STRATEGIC_SEARCH_MAP_OPTION_OFF, offset=(20, 20))
 
+    def _cl1_probe_question_before_scan(self):
+        """扫图前用当前舰队的雷达做一次零换队问号预检。
+
+        自律寻敌刚结束时镜头仍跟随当前舰队，此时读雷达不需要换队，
+        成本只有一次截图 + 一次雷达预测（约 0.3s）。相比之下全图重扫
+        均价 12.5s 且会把镜头甩到最后一个扫描区域，之后清问号还得
+        再花约 9.5s 换队对焦才能重新看见舰队。
+
+        命中目标事件（明石 / 记录塔 / 信息探测装置）时返回 True，
+        调用方跳过全图重扫，直接进后续流程；未命中或预检异常时返回
+        False，调用方保持原有「扫图 + 强制移动」的行为不变。
+
+        Returns:
+            bool: 是否在预检阶段就解决了目标事件。
+        """
+        if not hasattr(self, 'zone'):
+            logger.info('[大世界-侵蚀1练级] 扫图前预检: 海域信息未就绪，跳过')
+            return False
+        try:
+            self.device.screenshot()
+            grid = self.radar.predict_question(
+                self.device.image, in_port=self.zone.is_port
+            )
+        except Exception as e:
+            logger.warning(f'[大世界-侵蚀1练级] 扫图前问号预检异常，回退原流程: {e}')
+            return False
+
+        if grid is None:
+            logger.info('[大世界-侵蚀1练级] 扫图前预检: 当前舰队雷达无问号')
+            return False
+
+        logger.info(f'[大世界-侵蚀1练级] 扫图前预检: 当前舰队雷达发现问号 {grid}，优先处理')
+        try:
+            self.clear_question(drop=None)
+        except (
+            TaskEnd,
+            GameStuckError,
+            GameTooManyClickError,
+            RequestHumanTakeover,
+        ):
+            raise
+        except Exception as e:
+            logger.warning(f'[大世界-侵蚀1练级] 扫图前预检清问号异常，回退原流程: {e}')
+            return False
+
+        if self._solved_map_event & ALREADY_SOLVED_MAP_EVENTS:
+            logger.info('[大世界-侵蚀1练级] 扫图前预检命中目标事件，跳过全图重扫')
+            return True
+
+        logger.info('[大世界-侵蚀1练级] 扫图前预检未命中目标事件，继续原有扫图流程')
+        return False
+
     def _cl1_run_battle(self):
         """执行侵蚀 1 战后的战略搜索与扫荡逻辑"""
         search_completed = self.run_strategic_search()
@@ -137,6 +196,14 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             # 仅安全海域执行战后扫图（受 OpsiGeneral.SkipScanOnUnsafeZone 控制，
             # 默认关闭时恒执行；非 CN 服务器不判定）。
             scan_allowed = self.should_run_post_search_scan()
+
+            # 扫图前先用当前舰队的雷达做一次零换队预检：此刻镜头刚跟随舰队
+            # 回来，读雷达几乎不花钱，命中目标事件就能直接跳过全图重扫。
+            # 预检未命中或异常时不动 scan_allowed，后续行为与改动前完全一致。
+            if scan_allowed:
+                if self._cl1_probe_question_before_scan():
+                    scan_allowed = False
+
             if scan_allowed:
                 # 第一次重扫：检查是否还有事件
                 self.map_rescan()
