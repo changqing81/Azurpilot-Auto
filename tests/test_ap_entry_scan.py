@@ -693,7 +693,7 @@ class TestTaskWiring(unittest.TestCase):
             cross_get=lambda *a, **k: False,
             OpsiHazard1Leveling_MinimumActionPointReserve=200,
             OpsiHazard1Leveling_TargetZone=0,
-            OpsiHazard1Leveling_RecordSeaMiles=False,
+            OpsiHazard1Leveling_RecordSeaMiles=-1,
             OS_ACTION_POINT_PRESERVE=0,
             OpsiFleet_Fleet=1,
         )

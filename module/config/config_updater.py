@@ -698,6 +698,12 @@ class ConfigUpdater:
          'OpsiHazard1Leveling.ExecuteFixedPatrolScan',
          execute_fixed_patrol_scan_redirect),
     ]
+    # 2026.10.16 海里数记录从布尔开关改为「检测间隔天数」：
+    # 旧 true → 0（每轮都检测）、false → -1（关闭），保证升级后行为不变。
+    redirection += [
+        ('OpsiHazard1Leveling.OpsiHazard1Leveling.RecordSeaMiles',
+         'OpsiHazard1Leveling.OpsiHazard1Leveling.RecordSeaMiles', sea_miles_interval_redirect),
+    ]
     # 2026.09.18 岛屿计划：TaskPriority 文本框（面向开发者的 Filter 语法）改成
     # 16 个面向普通用户的独立开关，旧清单里出现过的模块翻译成「开」。
     # 大世界掉落截图由单一开关拆成按任务分类的 8 个开关，旧值铺给每一个，

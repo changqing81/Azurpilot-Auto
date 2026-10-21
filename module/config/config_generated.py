@@ -713,7 +713,8 @@ class GeneratedConfig:
     OpsiHazard1Leveling_SkipHpCheck = False  # True, False
     OpsiHazard1Leveling_Cl1Filter = 'ActionPoint'
     OpsiHazard1Leveling_RecordNonCL1AP = True
-    OpsiHazard1Leveling_RecordSeaMiles = True  # True, False
+    OpsiHazard1Leveling_RecordSeaMiles = -1
+    OpsiHazard1Leveling_SeaMilesLastRecord = None
     OpsiHazard1Leveling_DebugClip = False
 
     # 配置组 `OpsiSirenBug`

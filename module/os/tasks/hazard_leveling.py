@@ -340,12 +340,13 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
         self.ap_entry_scan_start()
         self.fleet_set(self.config.OpsiFleet_Fleet)
 
-        # ===== 海里数记录（可开关）=====
+        # ===== 海里数记录（按配置的天数间隔检测）=====
         sea_miles = None
-        if self.config.OpsiHazard1Leveling_RecordSeaMiles:
+        if self._sea_miles_record_due():
             try:
                 sea_miles = self.detect_and_record_sea_miles()
                 if sea_miles is not None:
+                    self.config.OpsiHazard1Leveling_SeaMilesLastRecord = current_time().replace(microsecond=0)
                     logger.info(f"[大世界-侵蚀1练级] 海里数检测完成: {sea_miles}")
                 else:
                     logger.warning("[大世界-侵蚀1练级] 海里数检测失败，但不影响后续流程")
@@ -934,6 +935,16 @@ class OpsiHazard1Leveling(CoinTaskMixin, OSMap):
             logger.info(f"[大世界-侵蚀1练级] {log_scope}满经验后延迟任务")
             self.delay_opsi_active_task(server_update=True, task='OpsiHazard1Leveling')
             self.config.task_stop()
+
+    def _sea_miles_record_due(self):
+        """关闭时跳过，按上次成功检测时间判断是否已满指定天数。"""
+        interval = self.config.OpsiHazard1Leveling_RecordSeaMiles
+        if interval < 0:
+            return False
+        if interval == 0:
+            return True
+        last_record = self.config.OpsiHazard1Leveling_SeaMilesLastRecord
+        return last_record is None or (current_time() - last_record).days >= interval
 
     def _record_ap_and_coins(self, sea_miles=None):
         """记录体力和货币到 Dashboard（始终执行）。

@@ -15089,12 +15089,15 @@
         "value": true
       },
       "RecordSeaMiles": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
+        "type": "input",
+        "value": -1,
+        "valuetype": "int",
+        "validate": "^(-1|\\d+)$"
+      },
+      "SeaMilesLastRecord": {
+        "type": "stored",
+        "value": null,
+        "display": "hide"
       },
       "DebugClip": {
         "type": "checkbox",

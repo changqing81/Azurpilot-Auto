@@ -3726,10 +3726,12 @@
       "help": "When enabled, AP acquisition data from all sources (such as Akashi shop purchases) will be recorded. When disabled, AP data will only be recorded during Corrosion 1 Leveling tasks, ignoring AP gained during other tasks or manual operations."
     },
     "RecordSeaMiles": {
-      "name": "Sea Miles Recording",
-      "help": "Record sea miles to statistics after each hazard 1 leveling cycle",
-      "True": "Enabled",
-      "False": "Disabled"
+      "name": "Sea miles check interval (days)",
+      "help": "-1: disabled (default); 0: check and record sea miles every Hazard 1 leveling round; positive integer: check once every specified number of days. The first check is immediate. The interval starts after the last successful check and survives restarts."
+    },
+    "SeaMilesLastRecord": {
+      "name": "Last sea miles check",
+      "help": "Internal timestamp of the last successful sea miles check, used to calculate the check interval."
     },
     "DebugClip": {
       "name": "Post-battle debug recording",

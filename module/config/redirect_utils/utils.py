@@ -86,6 +86,18 @@ def emotion_mode_redirect(value):
             return 'calculate'
 
 
+def sea_miles_interval_redirect(value):
+    """海里记录旧开关迁移为天数间隔，保留已有的数字设置。"""
+    if value is None:
+        return -1
+    if isinstance(value, list):
+        # 兼容旧版复选框保存的 [] / [True]，沿用原复选框解析规则。
+        return 0 if any(bool(item) for item in value) else -1
+    if isinstance(value, bool):
+        return 0 if value else -1
+    return value
+
+
 def change_ship_redirect(value):
     """
     FlagshipChange + FlagshipEquipChange -> ChangeFlagship

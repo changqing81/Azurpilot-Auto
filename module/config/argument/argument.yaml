@@ -1370,9 +1370,13 @@ OpsiHazard1Leveling:
     ActionPoint
   RecordNonCL1AP: true
   RecordSeaMiles:
-    type: checkbox
-    value: true
-    option: [true, false]
+    value: -1
+    valuetype: int
+    validate: ^(-1|\d+)$
+  SeaMilesLastRecord:
+    type: stored
+    value: null
+    display: hide
   DebugClip: false
 OpsiSirenBug:
   SirenResearch_Enable: true
