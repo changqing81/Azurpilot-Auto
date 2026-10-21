@@ -204,7 +204,11 @@ _WALLPAPER_TOGGLE_JS = r"""
             '#alas-wallpaper-toggle{position:fixed;bottom:10px;right:10px;z-index:99999;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,0.6);backdrop-filter:blur(6px);border:1px solid rgba(0,0,0,0.12);display:none;align-items:center;justify-content:center;cursor:pointer;font-size:11px;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,0.2);user-select:none;transition:background 0.15s;}',
             '#alas-wallpaper-toggle:hover{background:rgba(255,255,255,0.9);}',
             'body.alas-wallpaper-toggle-visible #alas-wallpaper-toggle{display:flex;}',
-            'body.alas-wallpaper-mode #pywebio-scope-content,body.alas-wallpaper-mode #pywebio-scope-header,body.alas-wallpaper-mode #pywebio-scope-aside,body.alas-wallpaper-mode #pywebio-scope-menu{display:none !important;}'
+            'body.alas-wallpaper-mode #pywebio-scope-content,body.alas-wallpaper-mode #pywebio-scope-header,body.alas-wallpaper-mode #pywebio-scope-aside,body.alas-wallpaper-mode #pywebio-scope-menu,body.alas-wallpaper-mode #pywebio-scope-statistics-content{display:none !important;}',
+            /* 纯背景模式下退出圆点必须常驻：统计内容区等组件被隐藏后，若后台又把
+               页面切到别的页签，圆点原本的显示条件不成立，整页会没有任何可点
+               击元素（用户只能整页刷新）。 */
+            'body.alas-wallpaper-mode #alas-wallpaper-toggle{display:flex !important;}'
         ].join('\n');
         var style = document.createElement('style');
         style.id = 'alas-wallpaper-style';

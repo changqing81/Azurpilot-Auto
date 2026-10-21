@@ -117,6 +117,10 @@ class StatisticsPageMixin(WebUIMixinBase):
             # 面板常驻：切页会随 pending_delete 清掉两个扫描开关的轮询任务，
             # 每次进入补画一次工具栏（登记按任务名幂等，不会叠加）。
             self._ft_render_scan_controls()
+            # 上次离开统计页时分区可能还没填充完（填充任务被切页一并清掉）：
+            # 这里补排一次，避免分区永远是空壳、舰队工具栏缺数据抛异常。
+            if not getattr(self, "_statistics_sections_rendered", False):
+                self._queue_statistics_fill()
 
         # 原先的 5 个任务会在进页后立即各重绘一次。现在仅轮询本地数据源
         # 版本并提示存在新数据，不再打断用户正在查看的图表状态。
@@ -180,6 +184,9 @@ class StatisticsPageMixin(WebUIMixinBase):
                 self._get_statistics_source_signature()
             )
             self._statistics_refresh_pending = False
+            # 分区尚未填充完成：填充任务真正渲染成功后才置 True；任务若在排队
+            # 阶段就被切页清掉，这里会保持 False（alas_set_stat 据此补排一次）。
+            self._statistics_sections_rendered = False
             self._queue_statistics_fill()
 
     def _queue_statistics_fill(self) -> None:
@@ -204,16 +211,52 @@ class StatisticsPageMixin(WebUIMixinBase):
         self._statistics_fill_queued = False
         if getattr(self, "page", None) != "Stat":
             return
-        with self._page_lock:
-            if getattr(self, "_statistics_cache_key", None) is None:
-                return
-            self._render_statistics_sections(force=True)
+        # 必须经 _render_statistics_sections_locked 进入：它保证「先渲染锁、再页面锁」
+        # 的锁序与用户回调一致。此处此前是先拿 _page_lock、再调 @render_locked 的分区
+        # 渲染（_page_lock → render_lock），与用户点「总览/主页」时的
+        # render_lock → _page_lock 互逆，两边互等即死锁——真机表现为整个界面
+        # 点哪里都没反应、会话销毁时调度线程还停不下来。
+        self._render_statistics_sections_locked(force=True)
         # 填充一次即安静：把自身节奏调长，避免每秒空转（任务随切页被清理）。
         task = getattr(self.task_handler, "_task", None)
         if task is not None:
             task.delay = 3600
         while True:
             yield
+
+    @render_locked
+    def _render_statistics_sections_locked(self, force: bool = False) -> None:
+        """统计页分区的唯一渲染入口（后台填充与手动刷新共用）。
+
+        锁序约定：**先 render_lock、再 _page_lock**。用户回调（``alas_set_stat``
+        等 ``@render_locked`` 方法）天然是这个顺序，后台填充也走这里，就不会
+        再出现「后台持 _page_lock 等 render_lock、用户持 render_lock 等
+        _page_lock」的 ABBA 死锁。
+
+        拿到页面锁后再校验一次是否仍在统计页：填充任务是后台异步执行的，
+        排队期间用户可能已经切走，向已清空的 scope 输出会在 ROOT 下留下
+        孤儿容器（历史上的「统计内容渲染到别处」事故）。
+        """
+        with self._page_lock:
+            if getattr(self, "page", None) != "Stat":
+                return
+            if getattr(self, "_statistics_cache_key", None) is None:
+                return
+            self._render_statistics_sections(force=force)
+            # 分区已完整落位：alas_set_stat 的「补排一次」判断依赖这个标记
+            self._statistics_sections_rendered = True
+
+    def _reset_statistics_page_state(self) -> None:
+        """离开统计页时清理统计页的会话状态（由 ``Frame.init_menu`` 调用）。
+
+        切页会通过 pending_delete 把统计页注册的后台任务清掉，但标志位是会话级
+        的、不会跟着任务一起消失：``_statistics_fill_queued`` 残留会让下次进入
+        统计页误判「已经排过队」，分区永远不再填充（舰队工具栏因缺
+        ``_ft_report`` 抛异常，整页打不开）；``_statistics_refresh_pending``
+        残留则会让页头「有新数据」提示与刷新按钮状态错位。
+        """
+        self._statistics_fill_queued = False
+        self._statistics_refresh_pending = False
 
     @render_locked
     def _refresh_statistics_page(self) -> None:
@@ -532,12 +575,26 @@ class StatisticsPageMixin(WebUIMixinBase):
                 }
 
                 activate(window[STORAGE_KEY] || DEFAULT_PANEL, false);
-                window.addEventListener("resize", function () {
-                    var active = tabsBox.querySelector(
-                        '.st-tab[aria-selected="true"]'
-                    );
-                    moveIndicator(active);
-                });
+                /* 页面每次重新挂载都会生成新的 tabsBox：监听器若每次都绑定，
+                   会不断累积并持有已销毁的 DOM（频繁切页即内存泄漏 + 重复重绘）。
+                   这里全局只绑一次，回调内按 id 重新取当前挂载的页签。 */
+                if (!window.__alasStatResizeBound) {
+                    window.__alasStatResizeBound = true;
+                    window.addEventListener("resize", function () {
+                        var box = document.getElementById("statistics-tabs");
+                        if (!box) return;
+                        var active = box.querySelector(
+                            '.st-tab[aria-selected="true"]'
+                        );
+                        var indicator = document.getElementById(
+                            "statistics-tab-indicator"
+                        );
+                        if (!active || !indicator) return;
+                        indicator.style.width = active.offsetWidth + "px";
+                        indicator.style.transform =
+                            "translateX(" + active.offsetLeft + "px)";
+                    });
+                }
             })();
             """,
             panelOrder=list(_STAT_PANEL_SCOPES.keys()),

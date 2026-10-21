@@ -417,6 +417,101 @@ class FillTaskWiringTests(unittest.TestCase):
         )
 
 
+class StatisticsPageLockOrderAndStateTests(unittest.TestCase):
+    """回归：统计页后台填充的锁序与切页状态清理。
+
+    事故现场（GUI 日志 2026-10-21 08:18~08:22）：后台填充先持 `_page_lock`
+    再进 `@render_locked` 的分区渲染，与用户点「总览/主页」时的
+    `render_lock → _page_lock` 互逆，两边互等即死锁 —— 整个界面点击无响应，
+    且 `_statistics_fill_queued` 残留会让再次进入统计页永远不再填充分区。
+    """
+
+    def setUp(self):
+        self.gui = _StatisticsHarness()
+        self.patches = (
+            patch(
+                "module.webui.app_statistics_page.use_scope",
+                side_effect=lambda *_args, **_kwargs: nullcontext(),
+            ),
+            patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.run_js"),
+            patch(
+                "module.webui.app_statistics_page.t",
+                side_effect=lambda key, *args, **kwargs: key,
+            ),
+        )
+        for active_patch in self.patches:
+            active_patch.start()
+
+    def tearDown(self):
+        for active_patch in reversed(self.patches):
+            active_patch.stop()
+
+    def _node(self, name):
+        import ast
+        from pathlib import Path
+
+        source = (
+            Path(__file__).resolve().parent.parent
+            / "module"
+            / "webui"
+            / "app_statistics_page.py"
+        ).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == name:
+                return node, ast
+        self.fail(f"{name} 不存在")
+
+    def test_fill_never_holds_page_lock_before_render_lock(self):
+        """后台填充不得自行持有 _page_lock（锁序必须与用户回调一致）。"""
+        node, ast = self._node("_fill_statistics_sections")
+        attrs = {n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)}
+        self.assertNotIn(
+            "_page_lock",
+            attrs,
+            "后台填充不能自己拿 _page_lock：与用户回调的 render_lock → _page_lock 互逆会死锁",
+        )
+        called = {
+            n.func.attr
+            for n in ast.walk(node)
+            if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+        }
+        self.assertIn("_render_statistics_sections_locked", called)
+
+    def test_locked_entry_takes_render_lock_first(self):
+        """统一入口必须由 @render_locked 包住，并在内部再取页面锁。"""
+        node, ast = self._node("_render_statistics_sections_locked")
+        decorators = [ast.unparse(d) for d in node.decorator_list]
+        self.assertIn("render_locked", decorators)
+        attrs = {n.attr for n in ast.walk(node) if isinstance(n, ast.Attribute)}
+        self.assertIn("_page_lock", attrs)
+
+    def test_reset_state_clears_fill_flags(self):
+        self.gui._statistics_fill_queued = True
+        self.gui._statistics_refresh_pending = True
+        self.gui._reset_statistics_page_state()
+        self.assertFalse(self.gui._statistics_fill_queued)
+        self.assertFalse(self.gui._statistics_refresh_pending)
+
+    def test_reenter_requeues_fill_when_sections_never_rendered(self):
+        """填充任务在排队阶段被切页清掉后，再进统计页必须补排一次。"""
+        self.gui.alas_set_stat()
+        # 模拟「任务已随切页被清掉、分区从未渲染」：标志位被 reset 清空、任务消失
+        self.gui._statistics_fill_queued = False
+        self.gui.task_handler.added.clear()
+        self.gui.alas_set_stat()
+        fills = [
+            callback
+            for callback, _delay, _pending in self.gui.task_handler.added
+            if getattr(callback, "__name__", "") == "_fill_statistics_sections"
+        ]
+        self.assertEqual(1, len(fills))
+
+
 class TestDeltaTimelineTranslationPlaceholders(unittest.TestCase):
     """回归：t() 会无条件对翻译执行 .format()，含 {n} 占位符的翻译若直接取用会
     KeyError('n')（2026-09-15 时间轴上线当日事故：加载真实 i18n 后点粒度按钮即崩）。

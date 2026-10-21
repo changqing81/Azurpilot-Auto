@@ -373,6 +373,16 @@ class Frame(Base):
                 clear("content")
 
         self.set_statistics_content_visible(name == "Stat")
+        # 切离统计页时清理统计页的会话状态：切页会按 pending_delete 把统计页的
+        # 后台任务清掉，但标志位是会话级的、不会跟着任务消失。残留会让下次进入
+        # 统计页误判「已经排过队」，分区永远不再填充（舰队工具栏缺 _ft_report
+        # 抛异常，整页打不开）。统一在切页的唯入口 init_menu 里清理。
+        if name != "Stat":
+            reset_statistics_state = getattr(
+                self, "_reset_statistics_page_state", None
+            )
+            if reset_statistics_state is not None:
+                reset_statistics_state()
 
     def page_renderer(self, name: str):
         """把页面名映射回渲染函数；不认识的名字返回 None（调用方自行回退）。
@@ -416,7 +426,13 @@ class Frame(Base):
 
     @staticmethod
     def set_statistics_content_visible(visible: bool) -> None:
-        """在普通内容区与可复用的统计内容区之间切换。"""
+        """在普通内容区与可复用的统计内容区之间切换。
+
+        切回普通页面（``visible=False``）时必须把统计内容区彻底收起来：
+        用 ``display:none`` 移除遮挡，并清掉可能残留的 ``pointer-events``，
+        避免那块已经不可用的区域继续拦截点击——真机表现为「点总览或旁边的
+        按钮都没反应」。进入统计页时对称地把普通内容区完整复位。
+        """
         run_js(
             """
             (function () {
@@ -424,8 +440,17 @@ class Frame(Base):
                 var statistics = document.getElementById(
                     "pywebio-scope-statistics-content"
                 );
-                if (content) content.style.display = visible ? "none" : "";
-                if (statistics) statistics.style.display = visible ? "" : "none";
+                if (content) {
+                    // 普通内容区：进统计页时隐藏，回来后完整复位（含点击穿透）
+                    content.style.display = visible ? "none" : "";
+                    content.style.pointerEvents = "";
+                }
+                if (statistics) {
+                    // 离开统计页时用 display:none 彻底移除遮挡，并清掉可能
+                    // 残留的 pointer-events，保证不可见元素不会挡住点击
+                    statistics.style.display = visible ? "" : "none";
+                    statistics.style.pointerEvents = "";
+                }
             })();
             """,
             visible=visible,
