@@ -451,8 +451,10 @@ class Combat(Combat_, MapEventHandler):
         自动搜索模式下的经验结算页面处理。
 
         依次检查 S/A/B/C/D 经验结算按钮并点击，点击后清除 S 评价计时器。
-        点击沿用战斗结算的点击冷却，避免同一页面被连点；页面是否关闭由调用方
-        继续截图确认，不再用固定时长休眠猜测界面状态。
+        点击节流必须用 exp_info_click_interval（默认 2s）而非 battle_status_click_interval：
+        后者在大世界自动搜索路径上恒为 0（只在 Combat.combat() 里按 save_get_items 赋值），
+        等于不节流。结算转场慢时点击会被游戏吞掉，每帧都点会在 9s 内攒满 12 次，
+        触发 GameTooManyClickError 误判卡死（见 combat.py 中 exp_info_click_interval 注释）。
 
         Pages:
             in: 经验结算页面（S/A/B/C/D 任一可见）
@@ -462,7 +464,7 @@ class Combat(Combat_, MapEventHandler):
             bool: 是否点击了经验结算按钮。
         """
         for exp_info_button in [EXP_INFO_S, EXP_INFO_A, EXP_INFO_B, EXP_INFO_C, EXP_INFO_D]:
-            if self.appear_then_click(exp_info_button, interval=self.battle_status_click_interval):
+            if self.appear_then_click(exp_info_button, interval=self.exp_info_click_interval):
                 self._clear_battle_status_s_timer()
                 return True
         return False

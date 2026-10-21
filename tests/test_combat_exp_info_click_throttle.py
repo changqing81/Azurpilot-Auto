@@ -36,9 +36,14 @@ class _ExpInfoClickVisitor(ast.NodeVisitor):
             and func.attr == 'appear_then_click'
             and node.args
             and isinstance(node.args[0], ast.Name)
-            and node.args[0].id.startswith(BUTTON_PREFIXES)
         ):
-            self.calls.append(node)
+            # 既要抓字面常量按钮（EXP_INFO_S），也要抓循环变量
+            # （for exp_info_button in [EXP_INFO_S, ...]）。后者名字是小写、
+            # 不以 EXP_INFO 开头，只按前缀匹配会整片漏掉——2026-10-21 合并
+            # 上游 handle_auto_search_exp_info 改成循环写法时正是漏在这里。
+            name = node.args[0].id
+            if name.startswith(BUTTON_PREFIXES) or 'exp_info' in name.lower():
+                self.calls.append(node)
         self.generic_visit(node)
 
 
@@ -91,10 +96,17 @@ class TestExpInfoClickThrottle(unittest.TestCase):
                     if not isinstance(value.value, (int, float)) or value.value <= 0:
                         offenders.append(f'{path.name}:{call.lineno} interval={value.value!r}')
                 elif isinstance(value, ast.Attribute):
-                    # 允许 self.exp_info_click_interval / self.battle_status_click_interval
-                    # 这类类属性（由下一条测试锁住默认值）
-                    if value.attr not in ('exp_info_click_interval', 'battle_status_click_interval'):
-                        offenders.append(f'{path.name}:{call.lineno} interval={ast.unparse(value)}')
+                    # 只允许 self.exp_info_click_interval。battle_status_click_interval 看似同类，
+                    # 但它在大世界自动搜索路径上恒为 0（只在 Combat.combat() 里按
+                    # save_get_items 赋值，AutoSearchCombat.auto_search_combat() 不给它赋值），
+                    # 传它等于不节流。2026-10-21 合并上游提交时就踩了这个坑：
+                    # handle_auto_search_exp_info 把 exp_info_click_interval 换成它，
+                    # 0.6s 连点 7 次 EXP_INFO_S，复现了本测试要防的点击洪水。
+                    if value.attr != 'exp_info_click_interval':
+                        offenders.append(
+                            f'{path.name}:{call.lineno} interval={ast.unparse(value)}'
+                            f'（EXP_INFO 点击只允许 exp_info_click_interval）'
+                        )
                 else:
                     offenders.append(f'{path.name}:{call.lineno} interval={ast.unparse(value)}')
         self.assertEqual(offenders, [], '经验结算点击的 interval 取值不合法:\n' + '\n'.join(offenders))
