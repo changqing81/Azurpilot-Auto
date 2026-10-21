@@ -28,6 +28,7 @@ from module.webui.app_dependencies import (
     put_button,
     put_buttons,
     put_html,
+    pin_on_change,
     put_input,
     put_scope,
     run_js,
@@ -71,11 +72,74 @@ _STAT_PANEL_SCOPES = {
     "research": ("research_stats",),
     "resource": ("resource_delta",),
     # 面板内容整块搬入：ft_tech / ft_mind 由舰队科技 Mixin 渲染（内容不变）。
-    "fleet": ("ft_tech",),
+    # ft_toolbar（扫描范围 + 扫描/同步按钮）必须跟着搬：漏搬时 PyWebIO 找不到
+    # 该 scope 会在 ROOT 下新建孤儿容器，工具栏就永久贴在页面最底部，与统计
+    # 面板彻底分离（真机截图里那条割裂白条）。
+    "fleet": ("ft_tech", "ft_toolbar"),
     "mind": ("ft_mind",),
 }
 
+# 每个面板包含哪些分区渲染入口（懒加载按面板粒度调度）。
+# 顺序即同一面板内的渲染顺序；缺失的方法在会话里静默跳过。
+_STAT_PANEL_RENDERERS = {
+    "opsi": (
+        "_render_ap_chart",
+        "_render_opsi_stats",
+        "_render_ship_exp",
+    ),
+    "commission": ("_render_commission_income",),
+    "research": ("_render_research_stats",),
+    "resource": ("_render_resource_delta",),
+    "fleet": ("_ft_render_tech_panel",),
+    "mind": ("_ft_render_mind_panel",),
+}
+
+# 页签点击 / 面板高度回传共用的隐藏 pin 名（裸 HTML 按钮没有回调通道）。
+ST_BRIDGE_PIN = "st_bridge_pin"
+
+def _has_webio_session() -> bool:
+    """当前线程是否处在真实 WebIO 会话里（无会话时 pin 注册会永久阻塞）。
+
+    ⚠️ 不能直接调 ``get_current_session()``：pywebio 的 ``get_session_implement()``
+    在没有任何活动会话实现时会**自动拉起一个 Script Mode 本地服务器**并阻塞
+    等待浏览器连接（``session/__init__.py:210-212``）。在单测 / 脚本模式下
+    表现就是「进程挂住、CPU 不动、无任何输出」——2026-10-21 实测整个
+    ``test_webui_statistics_page`` 因此卡死。
+
+    这里只读 pywebio 的会话实现注册表：为空即说明没有会话，直接返回 False，
+    绝不触发 Script Mode 回退。
+    """
+    try:
+        from pywebio.session import _active_session_cls
+    except Exception:
+        return False
+    if not _active_session_cls:
+        return False
+    # 有注册实现时逐个探测，任一能拿到当前会话即为真实会话
+    for session_cls in list(_active_session_cls):
+        try:
+            session_cls.get_current_session()
+            return True
+        except Exception:
+            continue
+    return False
+_STAT_SKELETON_HEIGHT = {
+    "opsi": 900,
+    "commission": 760,
+    "research": 820,
+    "resource": 900,
+    "fleet": 1200,
+    "mind": 900,
+}
+
+# 骨架占位的最小高度：实测高度/估计值都不可信时的兜底
+_STAT_SKELETON_MIN_HEIGHT = 240
+
 _DEFAULT_PANEL = "opsi"
+
+# 舰队科技面板的 id：它的数据刷新任务最贵（每 5 秒重建一次配置对象），
+# 只在面板真正被用户点开后才登记轮询任务。
+_PANEL_FLEET = "fleet"
 
 
 class StatisticsPageMixin(WebUIMixinBase):
@@ -116,18 +180,24 @@ class StatisticsPageMixin(WebUIMixinBase):
             self._refresh_statistics_if_changed()
             # 面板常驻：切页会随 pending_delete 清掉两个扫描开关的轮询任务，
             # 每次进入补画一次工具栏（登记按任务名幂等，不会叠加）。
-            self._ft_render_scan_controls()
+            # 懒加载：舰队面板没加载过就不画工具栏——否则会为一个用户根本
+            # 没点开的页签白做一次配置读取（load_config 很贵）。
+            if _PANEL_FLEET in getattr(self, "_st_loaded_panels", set()):
+                self._ft_render_scan_controls()
             # 上次离开统计页时分区可能还没填充完（填充任务被切页一并清掉）：
-            # 这里补排一次，避免分区永远是空壳、舰队工具栏缺数据抛异常。
+            # 这里补排一次，避免分区永远是空壳。
             if not getattr(self, "_statistics_sections_rendered", False):
                 self._queue_statistics_fill()
 
         # 原先的 5 个任务会在进页后立即各重绘一次。现在仅轮询本地数据源
         # 版本并提示存在新数据，不再打断用户正在查看的图表状态。
         self.task_handler.add(self._refresh_statistics_if_changed, 15, True, group="slow")
-        # 科技记录 / 心智清单被扫描任务外部写入时自动刷新两个面板（方法内
-        # 自带「不在统计页就不重绘」的守卫）。
-        self.task_handler.add(self._ft_data_refresh, 5, True)
+        # 科技记录 / 心智清单的自动刷新只在「舰队面板已加载」时才登记：
+        # 该任务每 5 秒调一次 load_config()（完整读 JSON + 合并模板 + 写盘），
+        # 用户没点开舰队页签时纯属空转，是 2026-10-21 界面卡死的直接成因之一。
+        # 面板被点开时由 _render_statistics_panel 负责补登记。
+        if _PANEL_FLEET in getattr(self, "_st_loaded_panels", set()):
+            self.task_handler.add(self._ft_data_refresh, 5, True)
 
     def _mount_statistics_page(self, cache_key) -> None:
         """为当前实例首次创建统计内容。"""
@@ -160,6 +230,9 @@ class StatisticsPageMixin(WebUIMixinBase):
                 ).style(
                     "display:flex;justify-content:flex-end;margin-bottom:.5rem;"
                 )
+                # 懒加载：面板容器仍然一次性建好，但内容只在用户点开页签时填充。
+                # scope 必须先于面板搬移存在，否则 PyWebIO 会在 ROOT 下新建孤儿
+                # 容器（历史事故：内容渲染到菜单列 / 页面底部多一条白条）。
                 put_scope("ap_chart", [])
                 put_scope("opsi_stats", [])
                 put_scope("commission_income", [])
@@ -167,14 +240,25 @@ class StatisticsPageMixin(WebUIMixinBase):
                 put_scope("resource_delta", [])
                 put_scope("ship_exp_table", [])
                 # 舰队科技列表 / 心智计算器的内容宿主（整块搬进各自面板），
-                # 外加点击桥的隐藏 pin（ft_bridge 由舰队皮肤隐藏）。
+                # ft_toolbar 是扫描工具栏，必须一起搬——漏搬会让它留在页面
+                # 最底部、与面板分离（真机截图里那条割裂的白条就是它）。
                 put_scope("ft_tech", [])
                 put_scope("ft_mind", [])
+                put_scope("ft_toolbar", [])
+                # 两个隐藏点击桥：ft_bridge 转发表格排序/编辑，st_bridge 转发
+                # 页签点击与面板高度回传（裸 HTML 按钮没有回调通道）。
                 put_scope("ft_bridge", [put_input(name=BRIDGE_PIN, value="")])
+                put_scope("st_bridge", [put_input(name=ST_BRIDGE_PIN, value="")])
 
             self._statistics_cache_key = cache_key
             self._ft_bind_callbacks()
+            self._st_bind_callbacks()
             run_js(build_fleet_tech_bridge_script(BRIDGE_PIN))
+            # 懒加载状态：已加载面板集合 + 各面板上次实测高度（方案 C 用）
+            self._st_loaded_panels = {_DEFAULT_PANEL}
+            heights = getattr(self, "_st_panel_heights", None)
+            if not isinstance(heights, dict):
+                self._st_panel_heights = {}
             # 先分页归位再渲染：体力图表的 canvas 在绘制时读取容器宽度，
             # 若此时还不在激活面板里会量到 0 宽。
             self._layout_statistics_panels()
@@ -189,8 +273,8 @@ class StatisticsPageMixin(WebUIMixinBase):
             self._statistics_sections_rendered = False
             self._queue_statistics_fill()
 
-    def _queue_statistics_fill(self) -> None:
-        """把各分区渲染排进后台首跑；重复入队用标志位去重。
+    def _queue_statistics_fill(self, force: bool = False) -> None:
+        """把「已加载面板」的渲染排进后台首跑；重复入队用标志位去重。
 
         必须传**生成器对象**而不是生成器函数：``TaskHandler.add`` 对普通
         可调用对象会套 ``get_generator`` 包装（每次 tick 只 yield 出新建的
@@ -200,15 +284,28 @@ class StatisticsPageMixin(WebUIMixinBase):
 
         填充任务为一次性（跑完自调 delay 静默），随切页 pending_delete 清理；
         执行前校验仍在统计页，避免向已清空的 scope 写孤儿容器（同仪表盘守卫）。
+
+        Args:
+            force: True 表示「用户点了刷新」，已加载面板重读数据再画；
+                False 表示首次挂载，只画一次即可。
         """
         if getattr(self, "_statistics_fill_queued", False):
+            # 已在排队时又点了刷新：把 force 记下来，让排队中的那次重读数据
+            if force:
+                self._statistics_fill_force = True
             return
         self._statistics_fill_queued = True
-        self.task_handler.add(self._fill_statistics_sections(), 0.05, True, group="slow")
+        self._statistics_fill_force = bool(force)
+        self.task_handler.add(
+            self._fill_statistics_sections(), 0.05, True, group="slow"
+        )
 
     def _fill_statistics_sections(self):
         yield
         self._statistics_fill_queued = False
+        # 取走本次是否强制重读，然后复位（下一轮按普通渲染处理）
+        force = bool(getattr(self, "_statistics_fill_force", False))
+        self._statistics_fill_force = False
         if getattr(self, "page", None) != "Stat":
             return
         # 必须经 _render_statistics_sections_locked 进入：它保证「先渲染锁、再页面锁」
@@ -216,14 +313,13 @@ class StatisticsPageMixin(WebUIMixinBase):
         # 渲染（_page_lock → render_lock），与用户点「总览/主页」时的
         # render_lock → _page_lock 互逆，两边互等即死锁——真机表现为整个界面
         # 点哪里都没反应、会话销毁时调度线程还停不下来。
-        self._render_statistics_sections_locked(force=True)
+        self._render_statistics_sections_locked(force=force)
         # 填充一次即安静：把自身节奏调长，避免每秒空转（任务随切页被清理）。
         task = getattr(self.task_handler, "_task", None)
         if task is not None:
             task.delay = 3600
         while True:
             yield
-
     @render_locked
     def _render_statistics_sections_locked(self, force: bool = False) -> None:
         """统计页分区的唯一渲染入口（后台填充与手动刷新共用）。
@@ -260,7 +356,12 @@ class StatisticsPageMixin(WebUIMixinBase):
 
     @render_locked
     def _refresh_statistics_page(self) -> None:
-        """刷新已挂载的全部统计模块。"""
+        """刷新统计页——只刷新「已加载」的面板，不把没看过的面板一起画出来。
+
+        懒加载改造前这里会把 8 个分区全重绘一遍（同步版实测 0.9 秒、后台版
+        也要把舰队科技这类重面板重算一次），用户点刷新会明显卡顿。现在只重绘
+        用户真正看过的面板：没点开过的页签保持骨架，等用户点开时再首次渲染。
+        """
         with self._page_lock:
             if getattr(self, "page", None) != "Stat":
                 return
@@ -271,9 +372,10 @@ class StatisticsPageMixin(WebUIMixinBase):
                 self._get_statistics_source_signature()
             )
             self._set_statistics_refresh_pending(False)
-            # 刷新同样走后台填充：点击立即返回，各分区在任务里重绘
-            # （同步版整页实测 0.9 秒，按钮期间页面无响应）。
-            self._queue_statistics_fill()
+        # 刷新同样走后台填充：点击立即返回，各分区在任务里重绘
+        # （同步版整页实测 0.9 秒，按钮期间页面无响应）。
+        # 填充任务内部按 _st_loaded_panels 过滤，这里不用再判断。
+        self._queue_statistics_fill(force=True)
 
     def _refresh_statistics_if_changed(self) -> None:
         """检测当前实例的本地统计数据变化并更新刷新提示。"""
@@ -430,18 +532,33 @@ class StatisticsPageMixin(WebUIMixinBase):
     # 分页归位
     # ------------------------------------------------------------------
     def _layout_statistics_panels(self) -> None:
-        """建面板、搬 scope、接页签交互。"""
+        """建面板、搬 scope、插骨架、接页签交互（懒加载版）。
+
+        与旧版的区别：
+        1. 未加载面板先插一个「骨架」占位，高度取上次实测值（方案 C），
+           首次访问用估计值，避免内容到达时页面高度突变（割裂感）；
+        2. 页签点击除了切 CSS 类，还经隐藏 pin 通知服务端按需渲染该面板，
+           裸 HTML 按钮没有回调通道，只能走 pin 桥；
+        3. 已加载的面板切回来只切类名，不重新渲染。
+        """
         run_js(
             """
             (function () {
                 var PANEL_ORDER = panelOrder;
                 var PANEL_SCOPES = panelScopes;
                 var DEFAULT_PANEL = defaultPanel;
+                var SKELETON_HEIGHT = skeletonHeight;
+                var LOADED = loadedPanels;
                 var STORAGE_KEY = "__alasStatPanel";
 
                 var host = document.getElementById("statistics-panels");
                 var tabsBox = document.getElementById("statistics-tabs");
                 if (!host || !tabsBox) return;
+
+                if (!window.__alasStatLoaded) window.__alasStatLoaded = {};
+                for (var k = 0; k < LOADED.length; k++) {
+                    window.__alasStatLoaded[LOADED[k]] = true;
+                }
 
                 /* 1) 建面板（重新挂载时 host 是新的，dataset 随之重置，天然幂等） */
                 if (!host.dataset.built) {
@@ -482,7 +599,28 @@ class StatisticsPageMixin(WebUIMixinBase):
                     actions.appendChild(toolbar);
                 }
 
-                /* 4) 页签交互 */
+                /* 4) 未加载面板插骨架：固定高度占位，避免内容到达时高度跳变。
+                      骨架是纯 CSS 灰条，不含任何「加载中」文字。 */
+                function ensureSkeleton(panelId) {
+                    var panel = document.getElementById("st-panel-" + panelId);
+                    if (!panel) return;
+                    if (window.__alasStatLoaded[panelId]) return;
+                    if (document.getElementById("st-skeleton-" + panelId)) return;
+                    var height = SKELETON_HEIGHT[panelId] || 400;
+                    var sk = document.createElement("div");
+                    sk.id = "st-skeleton-" + panelId;
+                    sk.className = "st-skeleton";
+                    sk.style.height = height + "px";
+                    var lines = "";
+                    for (var i = 0; i < 6; i++) {
+                        lines += '<div class="st-skeleton-line" style="width:'
+                            + (88 - i * 11) + '%"></div>';
+                    }
+                    sk.innerHTML = '<div class="st-skeleton-title"></div>' + lines;
+                    panel.appendChild(sk);
+                }
+
+                /* 5) 页签交互 */
                 var tabs = tabsBox.querySelectorAll(".st-tab");
                 var indicator = document.getElementById("statistics-tab-indicator");
                 var resizeQueued = false;
@@ -492,6 +630,17 @@ class StatisticsPageMixin(WebUIMixinBase):
                     indicator.style.width = tab.offsetWidth + "px";
                     indicator.style.transform =
                         "translateX(" + tab.offsetLeft + "px)";
+                }
+
+                /* 通知服务端：该页签需要渲染（经隐藏 pin，裸按钮没有回调） */
+                function requestPanel(panelId) {
+                    var bridge = document.querySelector(
+                        'input[name="st_bridge_pin"]'
+                    );
+                    if (!bridge) return;
+                    bridge.value = "panel|" + panelId;
+                    bridge.dispatchEvent(new Event("input", {bubbles: true}));
+                    bridge.dispatchEvent(new Event("change", {bubbles: true}));
                 }
 
                 function activate(id, remember) {
@@ -524,6 +673,10 @@ class StatisticsPageMixin(WebUIMixinBase):
                         tabs[t].setAttribute("aria-selected", on ? "true" : "false");
                         tabs[t].setAttribute("tabindex", on ? "0" : "-1");
                     }
+                    /* 懒加载：未加载的面板先铺骨架，再请服务端渲染；
+                       已加载的直接切类名即可（不重复渲染）。 */
+                    ensureSkeleton(id);
+                    if (!window.__alasStatLoaded[id]) requestPanel(id);
                     if (remember !== false) window[STORAGE_KEY] = id;
                     /* 收尾放在下一帧：页面高度变化会增减滚动条、挪动页签位置，
                        届时校正一次指示条；图表也要按新宽度重绘一次。放在 rAF
@@ -574,6 +727,7 @@ class StatisticsPageMixin(WebUIMixinBase):
                     });
                 }
 
+                /* 首屏只激活默认页签：只有它会被渲染，其余等用户点开 */
                 activate(window[STORAGE_KEY] || DEFAULT_PANEL, false);
                 /* 页面每次重新挂载都会生成新的 tabsBox：监听器若每次都绑定，
                    会不断累积并持有已销毁的 DOM（频繁切页即内存泄漏 + 重复重绘）。
@@ -602,21 +756,193 @@ class StatisticsPageMixin(WebUIMixinBase):
                 key: list(value) for key, value in _STAT_PANEL_SCOPES.items()
             },
             defaultPanel=_DEFAULT_PANEL,
+            # 骨架高度：上次实测值优先，没有实测用估计值（方案 C）
+            skeletonHeight=self._stat_skeleton_heights(),
+            # 已加载面板集合：重新挂载时让前端知道哪些面板不用再铺骨架
+            loadedPanels=sorted(getattr(self, "_st_loaded_panels", None) or ()),
+        )
+    def _render_statistics_sections(self, force: bool = False) -> None:
+        """渲染「已加载」的统计分区（懒加载：没点开过的页签一律不渲染）。
+
+        改造前这里一次画完全部 8 个分区（含舰队科技 / 心智计算器这类重面板），
+        实测整页同步渲染 3.6 秒，期间用户点任何按钮都没响应。改成按需加载后，
+        首屏只画默认页签（大世界），其余面板等用户点开页签时才由
+        ``_render_statistics_panel`` 补渲染。
+
+        force=True 时先重读数据（挂载与点「刷新」时用）。「刷新」只刷新已加载的
+        面板，不会把没看过的面板一起画出来。
+        """
+        loaded = getattr(self, "_st_loaded_panels", None)
+        if not loaded:
+            loaded = {_DEFAULT_PANEL}
+        for panel_id in _STAT_PANEL_SCOPES:
+            if panel_id not in loaded:
+                continue
+            self._render_statistics_panel_sections(panel_id, force=force)
+
+    def _render_statistics_panel_sections(self, panel_id: str, force: bool = False) -> None:
+        """渲染单个面板包含的全部分区（不负责清理骨架，由调用方处理）。
+
+        分区与面板的对应关系见 ``_STAT_PANEL_RENDERERS``；方法名在模块里可能
+        不存在（精简组合 / 测试替身），缺失的静默跳过，不影响其余分区。
+        """
+        for method_name in _STAT_PANEL_RENDERERS.get(panel_id, ()):
+            method = getattr(self, method_name, None)
+            if method is None:
+                continue
+            # 舰队两个面板的渲染入口吃 force 参数，其余分区不带参数
+            if method_name in ("_ft_render_tech_panel", "_ft_render_mind_panel"):
+                method(force=force)
+            else:
+                method()
+
+    @render_locked
+    def _render_statistics_panel(self, panel_id: str) -> None:
+        """按需渲染一个面板（用户第一次点开该页签时由桥回调触发）。
+
+        幂等：已加载过的面板直接返回，重复点击不会重复渲染（避免同一个面板
+        被画两遍导致内容翻倍——PyWebIO 每个回调新起线程，连点即并发）。
+        渲染完成后调 ``_mark_stat_panel_loaded`` 撤掉骨架并把实测高度记下来，
+        下次进页面用真实高度占位，切换时页面不会跳。
+        """
+        if panel_id not in _STAT_PANEL_SCOPES:
+            return
+        if getattr(self, "page", None) != "Stat":
+            return
+        loaded = getattr(self, "_st_loaded_panels", None)
+        if loaded is None:
+            loaded = self._st_loaded_panels = set()
+        if panel_id in loaded:
+            return
+        with self._page_lock:
+            # 拿锁后再校验一次：排队期间用户可能已经切走页面
+            if getattr(self, "page", None) != "Stat":
+                return
+            if getattr(self, "_statistics_cache_key", None) is None:
+                return
+            if panel_id in loaded:
+                return
+            loaded.add(panel_id)
+            self._render_statistics_panel_sections(panel_id, force=True)
+        # 舰队面板首次加载后补登记它的数据刷新任务（alas_set_stat 里只在
+        # 已加载时才登记，避免用户没点开就每 5 秒空转读配置）。
+        if panel_id == _PANEL_FLEET:
+            self._st_ensure_fleet_refresh_task()
+        self._mark_stat_panel_loaded(panel_id)
+
+    def _st_ensure_fleet_refresh_task(self) -> None:
+        """登记舰队面板的数据刷新轮询任务（按任务名幂等，不叠加）。
+
+        ``_ft_data_refresh`` 每 5 秒调一次 ``load_config()``（完整读 JSON +
+        合并模板 + 写盘）。用户没点开舰队页签时它纯属空转，是界面卡死的
+        直接成因之一，所以改成「面板加载后才登记」。
+        """
+        handler = getattr(self, "task_handler", None)
+        if handler is None:
+            return
+        try:
+            if handler.get_task("_ft_data_refresh") is not None:
+                return
+        except Exception:
+            pass
+        handler.add(self._ft_data_refresh, 5, True)
+    def _st_bind_callbacks(self) -> None:
+        """注册统计页点击桥的回调；页面重入不重复绑定。
+
+        ``pin_on_change`` 对同一控件名重复注册会覆盖旧回调，但这里仍然用
+        ``_st_callbacks_bound`` 去重：重入时重复注册会让服务端多一份监听，
+        连点时同一次点击被处理两次（渲染翻倍的老坑）。
+
+        必须确认当前线程有活动的 WebIO 会话：``pin_on_change`` 在没有会话时
+        会**永久阻塞**（等待 input 事件源注册），单测 / 脚本模式下直接挂死。
+        这与 ``use_scope`` 在无会话时拉起本地服务器是同一类陷阱。
+        """
+        if getattr(self, "_st_callbacks_bound", False):
+            return
+        if not _has_webio_session():
+            return
+        pin_on_change(
+            name=ST_BRIDGE_PIN,
+            onchange=self._st_on_bridge,
+            clear=True,
+            serial_mode=True,
+        )
+        self._st_callbacks_bound = True
+
+    def _stat_skeleton_heights(self) -> dict:
+        """返回各面板的骨架高度（px）：上次实测值优先，否则用估计值。
+
+        方案 C 的核心：骨架按「这个面板上次画出来有多高」占位，内容替换时
+        页面高度几乎不变，就不会出现「先矮后高」的跳变（割裂感）。实测高度
+        由 ``_mark_stat_panel_loaded`` 通过点击桥回传，存在会话里。
+        """
+        measured = getattr(self, "_st_panel_heights", None)
+        if not isinstance(measured, dict):
+            measured = {}
+        heights = {}
+        for panel_id, estimate in _STAT_SKELETON_HEIGHT.items():
+            value = measured.get(panel_id)
+            try:
+                value = int(value)
+            except (TypeError, ValueError):
+                value = 0
+            if value <= 0:
+                value = estimate
+            heights[panel_id] = max(_STAT_SKELETON_MIN_HEIGHT, value)
+        return heights
+
+    def _mark_stat_panel_loaded(self, panel_id: str) -> None:
+        """撤掉该面板的占位骨架，并把面板实测高度回传给服务端记住。
+
+        高度回传用于「方案 C」：下次再进统计页时骨架按上次真实高度占位，
+        内容替换时页面不会出现「从矮突然变高」的跳变。
+        """
+        run_js(
+            """
+            (function () {
+                var panel = document.getElementById("st-panel-" + panelId);
+                if (!panel) return;
+                var skeleton = document.getElementById("st-skeleton-" + panelId);
+                if (skeleton) skeleton.parentNode.removeChild(skeleton);
+                panel.dataset.loaded = "1";
+                if (window.__alasStatLoaded) window.__alasStatLoaded[panelId] = true;
+                // 高度回传：服务端记下来，下次做骨架高度用（不触发再次渲染）
+                var bridge = document.querySelector(
+                    'input[name="st_bridge_pin"]'
+                );
+                if (!bridge) return;
+                bridge.value = "height|" + panelId + "|" + Math.round(panel.offsetHeight);
+                bridge.dispatchEvent(new Event("input", {bubbles: true}));
+                bridge.dispatchEvent(new Event("change", {bubbles: true}));
+            })();
+            """,
+            panelId=panel_id,
         )
 
-    def _render_statistics_sections(self, force: bool = False) -> None:
-        """统一刷新各统计子视图（舰队两个面板整块重绘，登记任务按名幂等）。
+    @render_locked
+    def _st_on_bridge(self, value) -> None:
+        """统计页点击桥回调：接收页签点击（panel|id）与高度回传（height|id|px）。
 
-        force=True 时先重读舰队面板的数据（挂载与点「刷新」时用）。
+        PyWebIO 的 ``put_html`` 里输出的裸 ``<button>`` 没有回调通道，页签点击
+        只能靠隐藏 input 转发到服务端（与舰队科技点击桥同一套做法）。
+        高度回传走同一根 pin，用前缀区分，避免多绑一个控件。
         """
-        self._render_ap_chart()
-        self._render_opsi_stats()
-        self._render_resource_delta()
-        self._render_ship_exp()
-        self._render_commission_income()
-        self._render_research_stats()
-        self._ft_render_tech_panel(force=force)
-        self._ft_render_mind_panel(force=force)
+        text = "" if value is None else str(value).strip()
+        if not text:
+            return
+        parts = text.split("|")
+        if parts[0] == "height" and len(parts) >= 3:
+            try:
+                heights = getattr(self, "_st_panel_heights", None)
+                if heights is None:
+                    heights = self._st_panel_heights = {}
+                heights[parts[1]] = max(80, int(parts[2]))
+            except (TypeError, ValueError):
+                pass
+            # 高度回传只记数，绝不能再触发渲染（否则就是无限循环）
+            return
+        if parts[0] == "panel" and len(parts) >= 2:
+            self._render_statistics_panel(parts[1])
 
     # ------------------------------------------------------------------
     # 查看月份：体力图 / 侵蚀一卡片 / 大世界收获 三处共用

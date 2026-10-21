@@ -147,7 +147,8 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.assertEqual([], self.gui.rendered)
         self.assertTrue(self.gui.run_fill_once())
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
+            # 懒加载：首屏只渲染默认页签（大世界 = ap/opsi/ship），其余面板等用户点开
+            ["ap", "opsi", "ship"],
             self.gui.rendered,
         )
 
@@ -155,14 +156,16 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.task_handler.added.clear()
         self.gui.alas_set_stat()
 
-        # 面板原样复用；只补画两个扫描开关所在工具栏（切页清掉了它们的轮询任务），
-        # 不再排队填充。
-        self.assertEqual(["scan_controls"], self.gui.rendered)
+        # 面板原样复用，不再排队填充。
+        # 懒加载：舰队面板还没被点开过，所以这次进入既不补画扫描工具栏、
+        # 也不登记每 5 秒一次的配置刷新任务（那正是卡顿来源）。
+        self.assertEqual([], self.gui.rendered)
         self.assertFalse(self.gui._statistics_fill_queued)
+        # 懒加载：舰队面板未加载时不再登记 _ft_data_refresh（每 5 秒重建配置），
+        # 只保留轻量的「数据源是否有变化」探测。
         self.assertEqual(
             [
                 ("_refresh_statistics_if_changed", 15, True),
-                ("_ft_data_refresh", 5, True),
             ],
             [
                 (callback.__name__, delay, pending_delete)
@@ -187,7 +190,8 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.run_fill_once()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
+            # 懒加载：首屏只渲染默认页签（大世界 = ap/opsi/ship），其余面板等用户点开
+            ["ap", "opsi", "ship"],
             self.gui.rendered,
         )
         self.assertEqual("v2", self.gui._statistics_source_signature)
@@ -203,7 +207,8 @@ class TestStatisticsPageCache(unittest.TestCase):
         self.gui.run_fill_once()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
+            # 懒加载：首屏只渲染默认页签（大世界 = ap/opsi/ship），其余面板等用户点开
+            ["ap", "opsi", "ship"],
             self.gui.rendered,
         )
         self.assertEqual(
@@ -264,7 +269,9 @@ class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
             ],
             [(panel, key) for panel, key, _badge in _STAT_TABS],
         )
-        self.assertEqual(("ft_tech",), _STAT_PANEL_SCOPES["fleet"])
+                # ft_toolbar 必须跟着 ft_tech 一起搬进「科技列表」面板：漏搬会让扫描
+        # 工具栏留在页面最底部（真机截图里那条割裂白条）。
+        self.assertEqual(("ft_tech", "ft_toolbar"), _STAT_PANEL_SCOPES["fleet"])
         self.assertEqual(("ft_mind",), _STAT_PANEL_SCOPES["mind"])
 
     def test_mount_declares_fleet_scopes_tabs_and_bridge_pin(self):
@@ -289,7 +296,8 @@ class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
         self.assertIn("ft_tech", scopes)
         self.assertIn("ft_mind", scopes)
         self.assertIn("ft_bridge", scopes)
-        self.assertEqual(["ft_bridge_pin"], inputs)
+                # 两个桥：ft_bridge 转表格点击，st_bridge 转页签点击 + 面板高度回传
+        self.assertEqual(["ft_bridge_pin", "st_bridge_pin"], inputs)
         tabs_html = next(html for html in htmls if "st-tabs" in html)
         for panel in ("fleet", "mind"):
             self.assertIn(f'data-panel="{panel}"', tabs_html)
@@ -406,15 +414,196 @@ class FillTaskWiringTests(unittest.TestCase):
 
             gui.task_handler.start()
             deadline = time.time() + 8
-            while time.time() < deadline and len(gui.rendered) < 8:
+            while time.time() < deadline and len(gui.rendered) < 3:
                 time.sleep(0.05)
         finally:
             gui.task_handler.stop()
 
         self.assertEqual(
-            ["ap", "opsi", "delta", "ship", "commission", "research", "tech", "mind"],
+            # 懒加载：首屏只渲染默认页签（大世界 = ap/opsi/ship），其余面板等用户点开
+            ["ap", "opsi", "ship"],
             gui.rendered,
         )
+
+
+class StatisticsLazyLoadingTests(unittest.TestCase):
+    """懒加载：只渲染用户看过的页签，其余面板保持骨架不渲染。
+
+    改造背景（2026-10-21）：统计页原本一次把 8 个分区全画完（含舰队科技 /
+    心智计算器这类重面板），同步渲染实测 3.6 秒，期间点任何按钮都没响应；
+    叠加每 5 秒一次的配置重建，界面表现为彻底卡死。现在改成按页签懒加载：
+    首屏只画默认页签（大世界），点开哪个才渲染哪个，未点开的铺骨架占位。
+    """
+
+    def setUp(self):
+        self.gui = _StatisticsHarness()
+        self.patches = (
+            patch(
+                "module.webui.app_statistics_page.use_scope",
+                side_effect=lambda *_args, **_kwargs: nullcontext(),
+            ),
+            patch("module.webui.app_statistics_page.put_scope", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_button", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_input", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.put_html", return_value=_OutputStub()),
+            patch("module.webui.app_statistics_page.run_js"),
+            patch("module.webui.app_statistics_page.pin_on_change"),
+            patch(
+                "module.webui.app_statistics_page.t",
+                side_effect=lambda key, *args, **kwargs: key,
+            ),
+        )
+        for active_patch in self.patches:
+            active_patch.start()
+
+    def tearDown(self):
+        for active_patch in reversed(self.patches):
+            active_patch.stop()
+
+    def test_first_mount_only_renders_default_panel(self):
+        """首屏只渲染默认页签（大世界），不得把 8 个分区全画一遍。"""
+        self.gui.alas_set_stat()
+        self.assertTrue(self.gui.run_fill_once())
+        self.assertEqual(["ap", "opsi", "ship"], self.gui.rendered)
+
+    def test_loaded_panels_state_tracks_default_only(self):
+        self.gui.alas_set_stat()
+        self.assertEqual({"opsi"}, self.gui._st_loaded_panels)
+
+    def test_render_panel_loads_one_panel_and_marks_it(self):
+        """点开某个页签只渲染该面板，并登记进已加载集合。"""
+        self.gui.alas_set_stat()
+        self.gui.run_fill_once()
+        self.gui.rendered.clear()
+
+        self.gui._render_statistics_panel("resource")
+        self.assertEqual(["delta"], self.gui.rendered)
+        self.assertIn("resource", self.gui._st_loaded_panels)
+        # 大世界已加载，资源是新增的
+        self.assertEqual({"opsi", "resource"}, self.gui._st_loaded_panels)
+
+    def test_render_panel_is_idempotent(self):
+        """重复点同一个页签不得重复渲染（否则内容会翻倍）。"""
+        self.gui.alas_set_stat()
+        self.gui.run_fill_once()
+        self.gui.rendered.clear()
+
+        self.gui._render_statistics_panel("resource")
+        self.gui._render_statistics_panel("resource")
+        self.gui._render_statistics_panel("resource")
+        self.assertEqual(["delta"], self.gui.rendered)
+
+    def test_render_panel_ignores_unknown_and_left_page(self):
+        """未知面板、或已切离统计页时不渲染。"""
+        self.gui.alas_set_stat()
+        self.gui.rendered.clear()
+
+        self.gui._render_statistics_panel("不存在的面板")
+        self.assertEqual([], self.gui.rendered)
+
+        self.gui.page = "Overview"
+        self.gui._render_statistics_panel("resource")
+        self.assertEqual([], self.gui.rendered)
+
+    def test_refresh_only_rerenders_loaded_panels(self):
+        """点「刷新」只刷新已加载面板，不把没看过的面板一起画出来。"""
+        self.gui.alas_set_stat()
+        self.gui.run_fill_once()
+        self.gui._render_statistics_panel("resource")
+        self.gui.rendered.clear()
+
+        self.gui._refresh_statistics_page()
+        self.gui.run_fill_once()
+        # 只有已加载的 opsi + resource，不含 commission/research/fleet/mind
+        self.assertEqual(["ap", "opsi", "ship", "delta"], self.gui.rendered)
+
+    def test_bridge_panel_message_triggers_render(self):
+        """点击桥收到 panel|<id> 时渲染对应面板。"""
+        self.gui.alas_set_stat()
+        self.gui.run_fill_once()
+        self.gui.rendered.clear()
+
+        self.gui._st_on_bridge("panel|research")
+        self.assertEqual(["research"], self.gui.rendered)
+
+    def test_bridge_height_message_only_records_height(self):
+        """高度回传只记数，绝不能触发渲染（否则是无限循环）。"""
+        self.gui.alas_set_stat()
+        self.gui.run_fill_once()
+        self.gui.rendered.clear()
+
+        self.gui._st_on_bridge("height|opsi|912")
+        self.assertEqual([], self.gui.rendered)
+        self.assertEqual(912, self.gui._st_panel_heights["opsi"])
+
+    def test_bridge_ignores_empty_and_garbage(self):
+        self.gui.alas_set_stat()
+        self.gui.rendered.clear()
+        for value in (None, "", "garbage", "panel|", "height|x"):
+            self.gui._st_on_bridge(value)
+        self.assertEqual([], self.gui.rendered)
+
+    def test_skeleton_heights_use_measured_then_estimate(self):
+        """方案 C：骨架高度优先用上次实测值，没有实测用估计值。"""
+        self.gui.alas_set_stat()
+        heights = self.gui._stat_skeleton_heights()
+        # 无实测值时用估计值
+        self.assertEqual(900, heights["opsi"])
+        self.assertEqual(1200, heights["fleet"])
+        # 有实测值后以实测为准
+        self.gui._st_panel_heights["opsi"] = 1024
+        self.assertEqual(1024, self.gui._stat_skeleton_heights()["opsi"])
+
+    def test_skeleton_height_has_floor(self):
+        """实测值过小时兜底到最小高度，避免骨架塌成一条线。"""
+        self.gui.alas_set_stat()
+        self.gui._st_panel_heights["opsi"] = 5
+        self.assertGreaterEqual(self.gui._stat_skeleton_heights()["opsi"], 240)
+
+
+class StatisticsFleetToolbarScopeTests(unittest.TestCase):
+    """ft_toolbar 必须搬进「科技列表」面板。
+
+    真机事故（2026-10-21 截图）：扫描范围/扫描船坞那条工具栏留在页面最底部、
+    与统计面板彻底分离，就是因为它不在 _STAT_PANEL_SCOPES 的搬迁清单里——
+    PyWebIO 找不到 scope 时会在 ROOT 下新建孤儿容器。
+    """
+
+    def test_ft_toolbar_in_fleet_panel_scopes(self):
+        from module.webui.app_statistics_page import _STAT_PANEL_SCOPES
+
+        self.assertIn("ft_toolbar", _STAT_PANEL_SCOPES["fleet"])
+
+    def test_every_scope_owned_by_exactly_one_panel(self):
+        from module.webui.app_statistics_page import _STAT_PANEL_SCOPES
+
+        seen = {}
+        for panel_id, scopes in _STAT_PANEL_SCOPES.items():
+            for scope in scopes:
+                self.assertNotIn(
+                    scope, seen,
+                    f"scope {scope} 同时属于 {seen.get(scope)} 和 {panel_id}，会被搬两次",
+                )
+                seen[scope] = panel_id
+
+
+class StatisticsSessionGuardTests(unittest.TestCase):
+    """无会话时必须跳过 pin 注册，否则测试/脚本模式会永久挂住。
+
+    实测（2026-10-21）：pywebio 的 get_session_implement() 在没有活动会话实现时
+    会自动拉起 Script Mode 本地服务器并阻塞等待浏览器，整个测试进程卡死。
+    """
+
+    def test_has_webio_session_returns_false_without_session(self):
+        from module.webui.app_statistics_page import _has_webio_session
+
+        self.assertFalse(_has_webio_session())
+
+    def test_bind_callbacks_skips_without_session(self):
+        gui = _StatisticsHarness()
+        with patch("module.webui.app_statistics_page.pin_on_change") as mock_pin:
+            gui._st_bind_callbacks()
+        mock_pin.assert_not_called()
 
 
 class StatisticsPageLockOrderAndStateTests(unittest.TestCase):

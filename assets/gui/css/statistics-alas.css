@@ -993,6 +993,37 @@
     display: block;
 }
 
+/* 懒加载占位骨架：未点开的页签先铺灰条占位，高度取上次实测值（方案 C），
+   内容到达时原地替换，页面高度基本不变，避免"先矮后高"的跳变。
+   纯 CSS 灰条 + 呼吸动画，不含任何"加载中"文字。 */
+#pywebio-scope-statistics-content .st-skeleton {
+    padding: 18px 4px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#pywebio-scope-statistics-content .st-skeleton-title {
+    width: 42%;
+    height: 22px;
+    margin-bottom: 18px;
+    border-radius: 6px;
+    background: var(--st-skeleton-bg, rgba(128, 128, 128, .16));
+    animation: st-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+#pywebio-scope-statistics-content .st-skeleton-line {
+    height: 14px;
+    margin-bottom: 12px;
+    border-radius: 4px;
+    background: var(--st-skeleton-bg, rgba(128, 128, 128, .16));
+    animation: st-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes st-skeleton-pulse {
+    0%, 100% { opacity: .55; }
+    50%      { opacity: 1; }
+}
+
 @keyframes st-panel-fade {
     from { opacity: 0; transform: translateY(4px); }
     to   { opacity: 1; transform: none; }
