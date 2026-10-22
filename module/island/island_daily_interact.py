@@ -6,6 +6,7 @@
 from module.config.utils import get_server_next_update
 
 from module.base.timer import Timer
+from module.exception import GameStuckError
 from module.island.island import Island
 from module.island.assets import *
 from module.island_daily_interact.assets import *
@@ -17,6 +18,11 @@ from module.ui.page import page_island, page_island_map, page_island_phone
 
 
 DEVELOPMENT_PLAN_TASK_LIST_AREA = (179, 124, 280, 690)
+
+# 切换到啾咖啡餐厅的等待上限（秒）：点击切换按钮后等对话关闭、场景切换完成。
+# 借鉴 wess09/AzurPilot 提交 8cca324c 的 ISLAND_SWITCH_TIMEOUT，按本地命名风格
+# 加模块前缀，避免与 island.py 中的常量重名。
+ISLAND_SWITCH_RESTAURANT_TIMEOUT = 12
 
 
 class IslandDailyInteract(Island):
@@ -304,14 +310,40 @@ class IslandDailyInteract(Island):
         self.island_up(500)
 
     def move_for_bulaimei(self):
-        """港口布莱梅移动路线（需跳转到啾咖啡餐厅）。"""
+        """港口布莱梅移动路线（需跳转到啾咖啡餐厅）。
+
+        切换餐厅的判定逻辑借鉴自 wess09/AzurPilot 提交 8cca324c
+        （fix(island): 修复好友拜访识别与餐厅切换卡死）：
+
+        不能用 ISLAND_CHECK 单独判断"已经切过去"——它就是岛屿页面的标记
+        （page_island = Page(ISLAND_CHECK)），切换前后都会出现，先判断它会导致
+        还没点按钮就被当成切换完成，于是卡在餐厅对话里等超时。因此改为
+        「先点按钮，再等按钮消失」：按钮消失说明对话关闭、场景已切换，
+        此时再确认岛屿页面标记在场。
+
+        上游该逻辑写在 island_walk_switch_restaurant() 里（走位规则体系的
+        switch 步骤）；本地没有走位规则体系，这里是 switch 步骤的等价实现，
+        所以按本地代码骨架重写在同一方法内。
+        """
         self.island_up(2600)
-        self.device.click(ROUTE_TWO_OPTION_COMPLETE)
-        self.device.sleep(2)
-        for _ in self.loop(timeout=12, skip_first=False):
-            if self.appear(ISLAND_CHECK):
+
+        # 按钮可能在对话关闭后短暂残留，所以先点一次，只有它还在（且隔了一段间隔）
+        # 才补点，避免连点触发画面上的其它交互。
+        click_timer = Timer(3).start()
+        clicked = False
+        for _ in self.loop(timeout=ISLAND_SWITCH_RESTAURANT_TIMEOUT, skip_first=False):
+            if self.appear(ROUTE_TWO_OPTION_COMPLETE):
+                if not clicked or click_timer.reached():
+                    logger.info('[岛屿-每日周任务] 切换啾咖啡餐厅：点击切换按钮')
+                    self.device.click(ROUTE_TWO_OPTION_COMPLETE)
+                    clicked = True
+                    click_timer.reset()
+                continue
+            if clicked and self.appear(ISLAND_CHECK):
                 break
-            self.device.sleep(2)
+        else:
+            raise GameStuckError('切换啾咖啡餐厅超时，停止后续岛屿互动')
+
         self.island_left(600)
 
     def move_for_lisha(self):
