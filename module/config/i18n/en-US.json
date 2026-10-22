@@ -3240,6 +3240,10 @@
       "name": "Hard Mode",
       "help": "Running daily Hard mode requires clearing mode to be unlocked. Before unlocking, use the main campaign function instead."
     },
+    "RunAt18": {
+      "name": "Run at 18:00",
+      "help": "Disabled by default. When enabled, daily runs move from midnight to 18:00 server time. Runs due before 18:00 are postponed."
+    },
     "HardStage": {
       "name": "Hard stage",
       "help": "For example 11-2, 12-2, 12-4"

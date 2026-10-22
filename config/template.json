@@ -2388,6 +2388,7 @@
       "Sensitive": false
     },
     "Hard": {
+      "RunAt18": false,
       "HardStage": "11-4",
       "HardFleet": 1,
       "UseRecommendFleet": false

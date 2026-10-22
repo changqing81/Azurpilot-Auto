@@ -1189,6 +1189,7 @@ Daily:
     value: 1
     option: [1, 2, 3, 4, 5, 6]
 Hard:
+  RunAt18: false
   HardStage: 11-4
   HardFleet:
     value: 1

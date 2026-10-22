@@ -597,6 +597,7 @@ class GeneratedConfig:
     Daily_EmergencyModuleDevelopmentFleet = 1  # 1, 2, 3, 4, 5, 6
 
     # 配置组 `Hard`
+    Hard_RunAt18 = False
     Hard_HardStage = '11-4'
     Hard_HardFleet = 1  # 1, 2
     Hard_UseRecommendFleet = False

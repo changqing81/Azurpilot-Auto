@@ -11,6 +11,8 @@ import importlib
 
 from campaign.campaign_hard.campaign_hard import Campaign
 from module.campaign.run import CampaignRun
+from module.config.time_source import now as current_time
+from module.config.utils import server_time_offset
 from module.handler.fast_forward import to_map_file_name
 from module.hard.assets import *
 from module.logger import logger
@@ -35,6 +37,10 @@ class CampaignHard(CampaignRun):
 
     def run(self):
         logger.hr('困难战役', level=1)
+        # 来源：c0b4de1b46c4，按服务器时间延后，避免提前消耗每日次数。
+        if self.config.Hard_RunAt18 and (current_time() - server_time_offset()).hour < 18:
+            self.config.task_delay(server_update='18:00')
+            self.config.task_stop()
         name = to_map_file_name(self.config.Hard_HardStage)
         self.config.override(
             Campaign_Mode='hard',
@@ -69,5 +75,5 @@ class CampaignHard(CampaignRun):
         # self.campaign.equipment_take_off_when_finished()
 
         # 调度器
-        self.config.task_delay(server_update=True)
+        self.config.task_delay(server_update='18:00' if self.config.Hard_RunAt18 else True)
         self.config.task_call('Reward', force_call=False)

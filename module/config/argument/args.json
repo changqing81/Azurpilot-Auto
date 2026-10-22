@@ -12651,6 +12651,10 @@
       }
     },
     "Hard": {
+      "RunAt18": {
+        "type": "checkbox",
+        "value": false
+      },
       "HardStage": {
         "type": "input",
         "value": "11-4"
