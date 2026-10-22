@@ -16,6 +16,7 @@ from module.webui.app_dependencies import (
     current_time,
     datetime,
     deep_get,
+    deep_get_emulator,
     deep_iter,
     deep_set,
     dict_to_kv,
@@ -255,7 +256,8 @@ class TaskConfigMixin(WebUIMixinBase):
     def _get_config_search_entries(self) -> List[ConfigSearchEntry]:
         """按当前实例和服务器返回可见参数的内存索引。"""
         config = self.alas_config.read_file(self.alas_name)
-        package_name = deep_get(config, "Alas.Emulator.PackageName", "cn")
+        # 模拟器设置已迁到 EmulatorSettings 任务，用兼容读取同时支持新旧位置
+        package_name = deep_get_emulator(config, "Emulator.PackageName", "cn")
         signature = (
             self.alas_name,
             self.alas_mod,
@@ -323,7 +325,8 @@ class TaskConfigMixin(WebUIMixinBase):
         config: Dict[str, Any],
     ):
         """解析当前服务器下会渲染的参数，并供表单与搜索索引共享。"""
-        package_name = deep_get(config, "Alas.Emulator.PackageName", "cn")
+        # 模拟器设置已迁到 EmulatorSettings 任务，用兼容读取同时支持新旧位置
+        package_name = deep_get_emulator(config, "Emulator.PackageName", "cn")
         server = to_server(package_name if isinstance(package_name, str) else "cn")
         for arg, arg_definition in deep_iter(group_args, depth=1):
             if not isinstance(arg_definition, dict):

@@ -3,12 +3,17 @@ Alas:
   page: setting
   tasks:
     Alas:
-      - Emulator
-      - EmulatorInfo
       - Error
       - TaskFailureProtection
       - Optimization
       - DropRecord
+    # 模拟器相关设置独立成页：Serial/服务器/截图方案/控制方案、模拟器类型与路径、
+    # 定时重启与卡死保护，全部集中在这里，避免和游戏任务配置混在一起。
+    # 注意：这些 group 的参数名不变（Emulator_Serial 等），只是挂载位置变了，
+    # 代码访问方式完全不受影响；存量配置的迁移见 config_updater 的 redirection。
+    EmulatorSettings:
+      - Emulator
+      - EmulatorInfo
       - EmulatorManagement
     General:
       - Log

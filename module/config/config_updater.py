@@ -35,7 +35,7 @@ from cached_property import cached_property
 
 from deploy.utils import DEPLOY_TEMPLATE, poor_yaml_read, poor_yaml_write
 from module.base.timer import timer
-from module.config.deep import deep_default, deep_get, deep_iter, deep_set
+from module.config.deep import deep_default, deep_get, deep_get_emulator, deep_iter, deep_set
 from module.config.env import IS_ON_PHONE_CLOUD
 from module.config.server import VALID_CHANNEL_PACKAGE, VALID_PACKAGE, VALID_SERVER_LIST, to_package, to_server
 from module.config.task_priority import get_scheduler_tasks, merge_task_priority
@@ -71,6 +71,28 @@ WAR_ARCHIVES = ['WarArchives']
 COALITIONS = ['Coalition', 'CoalitionSp', 'CoalitionScuttle']
 MARITIME_ESCORTS = ['MaritimeEscort']
 HOSPITAL = ['Hospital', 'HospitalEvent']
+
+# 从 Alas 任务迁到 EmulatorSettings 任务的模拟器相关 group 及其参数。
+# 迁移时 group 与参数名都不变，仅挂载位置改变，因此 redirection 只需把每个
+# 参数从 'Alas.<group>.<arg>' 搬到 'EmulatorSettings.<group>.<arg>'。
+# 新增模拟器参数时必须同步补到这里，否则存量用户升级后该参数会丢失。
+EMULATOR_SETTINGS_GROUPS = {
+    'Emulator': [
+        'Serial', 'PackageName', 'ServerName', 'ScreenshotMethod',
+        'ControlMethod', 'GameSettings', 'ScreenshotDedithering', 'AdbRestart',
+    ],
+    'EmulatorInfo': [
+        'Emulator', 'name', 'path', 'EnableRemoteSSH',
+        'RemoteSSHHost', 'RemoteSSHPort', 'RemoteSSHUser', 'RemoteSSHPublicKey',
+        'RemoteStartCommand', 'RemoteStopCommand',
+    ],
+    'EmulatorManagement': [
+        'ScheduledEmulatorRestart', 'ForceScheduledRestart', 'RestartIntervalHours',
+        'CrashProtection', 'CrashDryRun', 'CrashHeartbeatTimeout',
+        'CrashHeartbeatFailures', 'CrashConfirmSeconds', 'CrashCooldownSeconds',
+        'CrashMaxRestarts', 'CrashRestartWindowHours',
+    ],
+}
 
 
 class Event:
@@ -602,22 +624,37 @@ class ConfigGenerator:
         update('template-linux', linux)
         update('template-linux-cn', linux, cn)
 
+    def _insert_emulator_option(self, argument: str, extra_options):
+        """把动态生成的选项写入 Emulator 组的指定参数。
+
+        模拟器设置已从 Alas 任务迁到独立的 EmulatorSettings 任务，这里必须
+        写到新位置；同时保留对 Alas 旧位置的兜底写入，使尚未迁移的配置
+        （或第三方分支仍挂在 Alas 下的场景）不会因缺 option 而报错。
+
+        Args:
+            argument (str): 参数名，如 'PackageName'。
+            extra_options (list): 需要追加的选项列表。
+        """
+        option = deep_get(self.argument, keys=f'Emulator.{argument}.option') or []
+        option += list(extra_options)
+        deep_set(self.argument, keys=f'Emulator.{argument}.option', value=option)
+        # 新位置（主）：EmulatorSettings 任务
+        if deep_get(self.args, keys=f'EmulatorSettings.Emulator.{argument}', default=None) is not None:
+            deep_set(self.args, keys=f'EmulatorSettings.Emulator.{argument}.option', value=option)
+        # 旧位置（兜底）：Alas 任务
+        if deep_get(self.args, keys=f'Alas.Emulator.{argument}', default=None) is not None:
+            deep_set(self.args, keys=f'Alas.Emulator.{argument}.option', value=option)
+
     def insert_package(self):
-        option = deep_get(self.argument, keys='Emulator.PackageName.option')
-        option += list(VALID_PACKAGE.keys())
-        option += list(VALID_CHANNEL_PACKAGE.keys())
-        deep_set(self.argument, keys='Emulator.PackageName.option', value=option)
-        deep_set(self.args, keys='Alas.Emulator.PackageName.option', value=option)
+        options = list(VALID_PACKAGE.keys()) + list(VALID_CHANNEL_PACKAGE.keys())
+        self._insert_emulator_option('PackageName', options)
 
     def insert_server(self):
-        option = deep_get(self.argument, keys='Emulator.ServerName.option')
         server_list = []
         for server, _list in VALID_SERVER_LIST.items():
             for index in range(len(_list)):
                 server_list.append(f'{server}-{index}')
-        option += server_list
-        deep_set(self.argument, keys='Emulator.ServerName.option', value=option)
-        deep_set(self.args, keys='Alas.Emulator.ServerName.option', value=option)
+        self._insert_emulator_option('ServerName', server_list)
 
     @timer
     def generate(self):
@@ -704,6 +741,19 @@ class ConfigUpdater:
         ('OpsiHazard1Leveling.OpsiHazard1Leveling.RecordSeaMiles',
          'OpsiHazard1Leveling.OpsiHazard1Leveling.RecordSeaMiles', sea_miles_interval_redirect),
     ]
+    # 2026.10.22 模拟器相关设置从 Alas 任务迁到独立的 EmulatorSettings 任务
+    # （GUI 上从"智慧港区设置"拆出"模拟器设置"页）。group 与参数名都不变，
+    # 仅挂载位置改变，因此只需把存量配置的每个参数从旧路径搬到新路径。
+    # 不迁移的后果：config_update 按新结构重建时读不到旧位置的数据，
+    # 用户的 Serial、模拟器路径、卡死保护开关等会全部回落为默认值。
+    redirection += [
+        (
+            f'Alas.{group}.{arg}',
+            f'EmulatorSettings.{group}.{arg}',
+        )
+        for group, args in EMULATOR_SETTINGS_GROUPS.items()
+        for arg in args
+    ]
     # 说明：Error.AdbOfflineRestart 死开关的修复**不需要** redirection。
     # 该开关从未被任何代码读取，模拟器离线时一直是"总是重启"。修复后它真正生效，
     # 做法是把模板默认值从 false 改为 true（见 argument.yaml）：
@@ -768,7 +818,8 @@ class ConfigUpdater:
             deep_set(new, keys=keys, value=value)
 
         # 更新到最新活动
-        server = to_server(deep_get(new, 'Alas.Emulator.PackageName', 'cn'))
+        # 模拟器设置已迁到 EmulatorSettings 任务，兼容读取新旧两个位置
+        server = to_server(deep_get_emulator(new, 'Emulator.PackageName', 'cn'))
         if not is_template:
             for task in EVENTS + RAIDS + COALITIONS:
                 opts = deep_get(self.args, keys=f'{task}.Campaign.Event.option_{server}', default=[])
@@ -906,9 +957,10 @@ class ConfigUpdater:
                 deep_set(data, keys=key, value=value)
 
         if IS_ON_PHONE_CLOUD:
-            deep_set(data, 'Alas.Emulator.Serial', '127.0.0.1:5555')
-            deep_set(data, 'Alas.Emulator.ScreenshotMethod', 'DroidCast_raw')
-            deep_set(data, 'Alas.Emulator.ControlMethod', 'MaaTouch')
+            # 模拟器设置已迁到 EmulatorSettings 任务，写到新位置
+            deep_set(data, 'EmulatorSettings.Emulator.Serial', '127.0.0.1:5555')
+            deep_set(data, 'EmulatorSettings.Emulator.ScreenshotMethod', 'DroidCast_raw')
+            deep_set(data, 'EmulatorSettings.Emulator.ControlMethod', 'MaaTouch')
             for arg in deep_get(self.args, keys='Alas.DropRecord', default={}).keys():
                 remove_drop_save(arg)
 

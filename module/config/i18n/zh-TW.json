@@ -46,6 +46,10 @@
       "name": "智慧港區設定",
       "help": ""
     },
+    "EmulatorSettings": {
+      "name": "模擬器設定",
+      "help": ""
+    },
     "General": {
       "name": "通用設定",
       "help": ""
@@ -503,7 +507,7 @@
   },
   "Emulator": {
     "_info": {
-      "name": "模擬器設定",
+      "name": "連線設定",
       "help": ""
     },
     "Serial": {
@@ -652,7 +656,7 @@
   },
   "EmulatorInfo": {
     "_info": {
-      "name": "模擬器設定",
+      "name": "實例資訊",
       "help": "下列數值是根據Serial自動填充的，如果不懂請不要隨意修改，修改埠即可自動啟動對應例項"
     },
     "Emulator": {

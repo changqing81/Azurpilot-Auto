@@ -1266,10 +1266,11 @@ class OOBEWizard:
             self._sync_emulator_pin_values()
             config = load_config("template")
             data = config.read_file("template")
-            deep_set(data, "Alas.Emulator.Serial", self.emulator_serial)
-            deep_set(data, "Alas.Emulator.PackageName", self.package_name)
-            deep_set(data, "Alas.Emulator.ServerName", self.server_name)
-            deep_set(data, "Alas.Emulator.ScreenshotMethod", self.screenshot_method)
+            # 模拟器设置已迁到 EmulatorSettings 任务，写到新位置
+            deep_set(data, "EmulatorSettings.Emulator.Serial", self.emulator_serial)
+            deep_set(data, "EmulatorSettings.Emulator.PackageName", self.package_name)
+            deep_set(data, "EmulatorSettings.Emulator.ServerName", self.server_name)
+            deep_set(data, "EmulatorSettings.Emulator.ScreenshotMethod", self.screenshot_method)
             State.config_updater.write_file(self.config_name, data)
         except Exception as e:
             from pywebio.output import put_error

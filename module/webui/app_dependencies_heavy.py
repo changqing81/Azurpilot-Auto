@@ -69,7 +69,7 @@ from pywebio.session import (
 
 import module.webui.lang as lang
 from module.config.config import AzurLaneConfig, Function
-from module.config.deep import deep_get, deep_iter, deep_set
+from module.config.deep import deep_get, deep_get_emulator, deep_iter, deep_set
 from module.config.env import IS_ON_PHONE_CLOUD
 from module.config.server import to_server
 from module.config.task_priority import parse_task_priority, task_priority_from_config

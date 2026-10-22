@@ -1097,7 +1097,7 @@ class Connection(ConnectionAttr):
 
         for _ in range(2):
             logger.info('[设备-连接] 以下是可用设备，'
-                        '复制到 Alas.Emulator.Serial 中使用，或设置 Alas.Emulator.Serial="auto"')
+                        '复制到「模拟器设置 → 连接设置 → 模拟器 Serial」中使用，或设为 "auto"')
             devices = self.list_device()
 
             # 显示可用设备
@@ -1129,7 +1129,7 @@ class Connection(ConnectionAttr):
         if self.config.Emulator_Serial == 'auto':
             if available.count == 0:
                 logger.critical('[设备-连接] 没有找到可用设备，自动设备检测无法工作，'
-                                '请在 Alas.Emulator.Serial 中设置一个确切的序列号，而不是使用 "auto"')
+                                '请在「模拟器设置 → 连接设置 → 模拟器 Serial」中设置一个确切的序列号，而不是使用 "auto"')
                 raise RequestHumanTakeover
             elif available.count == 1:
                 logger.info(f'[设备-连接] 自动设备检测只找到一个设备，正在使用它')
@@ -1155,7 +1155,7 @@ class Connection(ConnectionAttr):
                 del_cached_property(self, 'adb')
             else:
                 logger.critical('[设备-连接] 找到多个设备，自动设备检测无法决定选择哪个，'
-                                '请将下面列出的可用设备之一复制到 Alas.Emulator.Serial 中')
+                                '请将下面列出的可用设备之一复制到「模拟器设置 → 连接设置 → 模拟器 Serial」中')
                 raise RequestHumanTakeover
 
         # 处理雷电模拟器
@@ -1280,7 +1280,7 @@ class Connection(ConnectionAttr):
 
         # 显示可用包
         logger.info(f'[设备-连接] 以下是设备 "{self.serial}" 上的可用包，'
-                    f'复制到 Alas.Emulator.PackageName 中使用')
+                    f'复制到「模拟器设置 → 连接设置 → 游戏服务器」中使用')
         if len(packages):
             for package in packages:
                 logger.info(package)
@@ -1304,5 +1304,5 @@ class Connection(ConnectionAttr):
         else:
             logger.critical(
                 '[设备-连接] 找到多个碧蓝航线包，自动包检测无法决定选择哪个，'
-                '请将上面列出的可用包之一复制到 Alas.Emulator.PackageName 中')
+                '请将上面列出的可用包之一复制到「模拟器设置 → 连接设置 → 游戏服务器」中')
             raise RequestHumanTakeover

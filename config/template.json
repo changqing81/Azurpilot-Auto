@@ -68,28 +68,6 @@
     }
   },
   "Alas": {
-    "Emulator": {
-      "Serial": "auto",
-      "PackageName": "auto",
-      "ServerName": "disabled",
-      "ScreenshotMethod": "auto",
-      "ControlMethod": "MaaTouch",
-      "GameSettings": false,
-      "ScreenshotDedithering": false,
-      "AdbRestart": false
-    },
-    "EmulatorInfo": {
-      "Emulator": "auto",
-      "name": null,
-      "path": null,
-      "EnableRemoteSSH": false,
-      "RemoteSSHHost": null,
-      "RemoteSSHPort": 22,
-      "RemoteSSHUser": "root",
-      "RemoteSSHPublicKey": null,
-      "RemoteStartCommand": null,
-      "RemoteStopCommand": null
-    },
     "Error": {
       "HandleError": true,
       "SaveError": true,
@@ -149,6 +127,33 @@
       "OpsiShopRecord": "do_not",
       "MeowfficerBuy": "do_not",
       "MeowfficerTalent": "do_not"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "EmulatorSettings": {
+    "Emulator": {
+      "Serial": "auto",
+      "PackageName": "auto",
+      "ServerName": "disabled",
+      "ScreenshotMethod": "auto",
+      "ControlMethod": "MaaTouch",
+      "GameSettings": false,
+      "ScreenshotDedithering": false,
+      "AdbRestart": false
+    },
+    "EmulatorInfo": {
+      "Emulator": "auto",
+      "name": null,
+      "path": null,
+      "EnableRemoteSSH": false,
+      "RemoteSSHHost": null,
+      "RemoteSSHPort": 22,
+      "RemoteSSHUser": "root",
+      "RemoteSSHPublicKey": null,
+      "RemoteStartCommand": null,
+      "RemoteStopCommand": null
     },
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": false,

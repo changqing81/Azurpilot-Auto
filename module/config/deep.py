@@ -18,6 +18,35 @@ OP_ADD = 'add'
 OP_SET = 'set'
 OP_DEL = 'del'
 
+# 从 Alas 任务迁到 EmulatorSettings 任务的配置路径映射。
+# 2026.10.22 模拟器相关设置在 GUI 上从"智慧港区设置"拆出独立的"模拟器设置"页，
+# group 与参数名不变，仅挂载位置从 Alas 变为 EmulatorSettings。配置迁移由
+# config_updater 的 redirection 完成，但**直接读 self.config.data 的代码**不会走
+# 属性绑定，必须显式兼容新旧两个位置，否则升级后会读不到值。
+EMULATOR_SETTINGS_LEGACY_PREFIX = 'Alas.'
+EMULATOR_SETTINGS_PREFIX = 'EmulatorSettings.'
+
+
+def deep_get_emulator(d, path, default=None):
+    """读取模拟器设置，自动兼容迁移前后的配置位置。
+
+    优先读新位置 `EmulatorSettings.<path>`，取不到时回退旧位置
+    `Alas.<path>`。用于处理从 Alas 任务迁移到 EmulatorSettings 任务的参数，
+    使旧配置文件（尚未迁移）与新配置文件都能正确读到值。
+
+    Args:
+        d: 配置数据字典。
+        path (str): 组内路径，如 'Emulator.Serial'。
+        default: 两个位置都取不到时的返回值。
+
+    Returns:
+        配置值，不存在时返回 default。
+    """
+    value = deep_get(d, keys=EMULATOR_SETTINGS_PREFIX + path, default=None)
+    if value is not None:
+        return value
+    return deep_get(d, keys=EMULATOR_SETTINGS_LEGACY_PREFIX + path, default=default)
+
 
 def deep_get(d, keys, default=None):
     """从嵌套字典和列表中安全地获取值。

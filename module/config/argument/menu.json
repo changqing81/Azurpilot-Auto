@@ -4,6 +4,7 @@
     "page": "setting",
     "tasks": [
       "Alas",
+      "EmulatorSettings",
       "General",
       "Restart"
     ]

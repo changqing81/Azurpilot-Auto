@@ -89,6 +89,7 @@ _HEAVY_SYMBOLS = {
     "AzurLaneConfig",
     "Function",
     "deep_get",
+    "deep_get_emulator",
     "deep_iter",
     "deep_set",
     "to_server",

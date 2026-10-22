@@ -280,6 +280,12 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             func_list.insert(0, "Alas")
         if "General" not in func_list:
             func_list.insert(0, "General")
+        # 模拟器设置独立成页后，其参数（Emulator_Serial / EmulatorInfo_Emulator /
+        # EmulatorManagement_CrashProtection 等）必须对所有任务可见——设备层在
+        # 任何任务里都会读它们。因此与 Alas / General 同样强制加入绑定列表，
+        # 否则 bind() 不会加载该 task 下的 group，属性会回落到类默认值。
+        if "EmulatorSettings" not in func_list:
+            func_list.insert(0, "EmulatorSettings")
         # 同一配置对象反复绑定同一组任务（侵蚀1/智能调度每轮都会重绑）时不再
         # 重复刷行：只在绑定集合变化时记 info，其余降为 debug 备查。
         bound_signature = tuple(func_list)

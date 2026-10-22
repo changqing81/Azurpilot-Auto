@@ -46,6 +46,10 @@
       "name": "AzurPilot Settings",
       "help": ""
     },
+    "EmulatorSettings": {
+      "name": "Emulator Settings",
+      "help": ""
+    },
     "General": {
       "name": "General settings",
       "help": ""
@@ -503,7 +507,7 @@
   },
   "Emulator": {
     "_info": {
-      "name": "Emulator Settings",
+      "name": "Connection",
       "help": ""
     },
     "Serial": {
@@ -652,7 +656,7 @@
   },
   "EmulatorInfo": {
     "_info": {
-      "name": "Emulator Settings",
+      "name": "Instance Info",
       "help": "The following values are automatically filled in based on Serial. If you do not understand, please do not modify it at will. Modifying the port will automatically start the corresponding instance."
     },
     "Emulator": {

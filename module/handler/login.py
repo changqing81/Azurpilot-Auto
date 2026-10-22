@@ -35,7 +35,7 @@ from module.handler.channel_float import (
 )
 from module.base.timer import Timer
 from module.base.utils import color_similarity_2d, crop
-from module.config.deep import deep_get
+from module.config.deep import deep_get, deep_get_emulator
 from module.handler.assets import *
 from module.handler.task_failure_protection import (
     RESTART_OPERATION_TIMEOUT,
@@ -253,8 +253,9 @@ class LoginHandler(UI):
         """
         if not bool(deep_get(self.config.data, 'Restart.Restart.MoveChannelFloat', default=False)):
             return False
-        package = str(deep_get(self.config.data, 'Alas.Emulator.PackageName', default=''))
-        server_name = str(deep_get(self.config.data, 'Alas.Emulator.ServerName', default=''))
+        # 模拟器设置已迁到 EmulatorSettings 任务，用兼容读取同时支持新旧位置
+        package = str(deep_get_emulator(self.config.data, 'Emulator.PackageName', default=''))
+        server_name = str(deep_get_emulator(self.config.data, 'Emulator.ServerName', default=''))
         return (package == 'com.bilibili.blhx.m4399'
                 and server_name.startswith('cn_channel-'))
 
