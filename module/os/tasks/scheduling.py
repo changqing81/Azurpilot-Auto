@@ -35,6 +35,9 @@ from module.config.time_source import now as current_time
 from module.config.utils import get_os_reset_remain, server_time_offset
 from module.logger import logger
 from module.os.map import OSMap
+from module.os.tasks.scheduling_state import (
+    get_smart_scheduling_state, smart_scheduling_blocks_overflow, smart_scheduling_session,
+)
 from module.os_handler.action_point import ACTION_POINTS_COST, ActionPointLimit
 
 
@@ -2686,29 +2689,39 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         except ActionPointLimit as e:
             self._handle_ap_limit_exception(e, total_ap, cl1_ap_preserve)
 
+    @staticmethod
+    def get_scheduling_state(config):
+        """供执行入口查询真实运行/等待状态，不依赖任务在队列中的优先级。"""
+        return get_smart_scheduling_state(config)
+
+    @staticmethod
+    def blocks_prevent_action_point_overflow(config):
+        """智能调度具有有效执行轮次时，防溢出条件挂起并保持队列身份。"""
+        return smart_scheduling_blocks_overflow(config)
+
+    @staticmethod
+    def scheduling_session(config):
+        """入口与直接调用共用生命周期，初始化失败也会自动解除互斥。"""
+        return smart_scheduling_session(config)
+
     def run_smart_scheduling(self):
-        """
-        执行智能调度主逻辑
+        """执行智能调度，并在结束、延期和异常时同步进程内运行状态。"""
+        # 直接调用同样跟踪状态；经战役入口调用时复用初始化前建立的外层会话。
+        with self.scheduling_session(self.config):
+            logger.hr('大世界-智能调度', level=1)
 
-        此方法是智能调度任务的入口点，负责：
-        1. 检查是否启用智能调度
-        2. 根据黄币和行动力状态决定当前应该执行的任务
-        3. 按代理模式协调子任务执行
-        """
-        logger.hr('大世界-智能调度', level=1)
+            # 直接调用入口仍保留保护，覆盖未经过 OSCampaignRun 的调用方。
+            if self._delay_smart_scheduling_for_opsi_explore():
+                return
 
-        # 直接调用入口仍保留保护，覆盖未经过 OSCampaignRun 的调用方。
-        if self._delay_smart_scheduling_for_opsi_explore():
-            return
+            # 检查是否启用智能调度
+            if not self.is_smart_scheduling_enabled():
+                logger.info('[大世界-智能调度] 智能调度未启用，跳过执行')
+                return
 
-        # 检查是否启用智能调度
-        if not self.is_smart_scheduling_enabled():
-            logger.info('[大世界-智能调度] 智能调度未启用，跳过执行')
-            return
-
-        while True:
-            self.run_smart_scheduling_once()
-            self.config.check_task_switch()
+            while True:
+                self.run_smart_scheduling_once()
+                self.config.check_task_switch()
 
     def _notify_coins_ap_insufficient(self, yellow_coins, total_ap, coin_target, meow_ap_preserve):
         """

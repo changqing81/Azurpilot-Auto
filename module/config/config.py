@@ -26,6 +26,7 @@ from module.config.watcher import ConfigWatcher
 from module.exception import RequestHumanTakeover, ScriptError
 from module.logger import logger
 from module.map.map_grids import SelectedGrids
+from module.os.tasks.scheduling_state import smart_scheduling_blocks_overflow
 
 
 def resolve_ocr_device(backend, device):
@@ -46,16 +47,6 @@ def resolve_ocr_device(backend, device):
     }:
         return 'cpu'
     return device
-
-
-# 「guard 临时挂起」标记：任务名 → 该任务配置内的标记相对路径。
-# guard 运行其他大世界任务期间把标记置 True，期间对应任务视为不可调度。
-# 该标记与用户控制的 `Scheduler.Enable` 分离，避免 guard 的临时开关覆盖
-# 用户的启用/关闭意图（2026-10-14 线上：用户关闭防溢出任务后，残留自愈
-# 与 finally 里的 enable=True 反复把它重新启用，任务实际一直在跑）。
-GUARD_SUSPEND_FLAG_PATHS = {
-    'OpsiPreventActionPointOverflow': 'Storage.Storage.GuardTempClosed',
-}
 
 
 # 总览显示值（Dashboard.*）：只喂 GUI 总览，黄币/石油这类资源每次刷新都会写，
@@ -105,10 +96,8 @@ class Function:
         self.enable = deep_get(data, keys="Scheduler.Enable", default=False)
         self.command = deep_get(data, keys="Scheduler.Command", default="Unknown")
         self.next_run = deep_get(data, keys="Scheduler.NextRun", default=DEFAULT_TIME)
-        # 「guard 临时挂起」期间视为不可调度，但不改动用户控制的 Scheduler.Enable
-        suspend_flag = GUARD_SUSPEND_FLAG_PATHS.get(self.command)
-        if self.enable and suspend_flag is not None and deep_get(data, keys=suspend_flag, default=False):
-            self.enable = False
+        # 废除用 GuardTempClosed 禁用任务：历史残留标记不再影响队列身份。
+        # 条件挂起由队列轮询计算，用户启用的任务始终保留在调度器中。
 
     def __str__(self):
         enable = "Enable" if self.enable else "Disable"
@@ -390,7 +379,14 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             func = Function(func)
             if not func.enable:
                 continue
-            if not isinstance(func.next_run, datetime):
+            # 废除物理移除：互斥时归入等待队列，保持任务启用和原始 NextRun。
+            # 等待时间只属于本轮快照；关闭、结束或异常后下一轮自动恢复排程。
+            if (func.command == 'OpsiPreventActionPointOverflow'
+                    and smart_scheduling_blocks_overflow(self)):
+                if not isinstance(func.next_run, datetime) or func.next_run <= now:
+                    func.next_run = current_time() + timedelta(minutes=1)
+                waiting.append(func)
+            elif not isinstance(func.next_run, datetime):
                 error.append(func)
             elif func.next_run < now:
                 pending.append(func)
@@ -831,18 +827,11 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             self.task_stop(message=message)
 
     def is_task_enabled(self, task):
-        """判断任务是否启用且未被 guard 临时挂起。
+        """只查询用户启用意愿，条件挂起不再伪装成任务禁用。
 
-        `Scheduler.Enable` 只表达用户意愿；guard 运行其他大世界任务期间
-        通过独立的挂起标记（见 `GUARD_SUSPEND_FLAG_PATHS`）让任务暂时
-        不可调度，不再改写用户的启用状态。
+        历史 GuardTempClosed 即使残留也不参与判定，无需清空状态恢复任务。
         """
-        if not bool(self.cross_get(keys=[task, 'Scheduler', 'Enable'], default=False)):
-            return False
-        suspend_flag = GUARD_SUSPEND_FLAG_PATHS.get(task)
-        if suspend_flag is not None and self.cross_get(keys=[task] + suspend_flag.split('.'), default=False):
-            return False
-        return True
+        return bool(self.cross_get(keys=[task, 'Scheduler', 'Enable'], default=False))
 
     @property
     def campaign_name(self):

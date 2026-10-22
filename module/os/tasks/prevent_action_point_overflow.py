@@ -29,12 +29,6 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
     CONFIG_PATH_PREVENT_AP_OVERFLOW_LOWER = 'OpsiPreventActionPointOverflow.OpsiPreventActionPointOverflow.ActionPointLowerbound'
     TASK_NAME_PREVENT_AP_OVERFLOW = 'OpsiPreventActionPointOverflow'
 
-    # 让出给智能调度后的重查间隔（分钟）。让出期间智能调度仍在消耗行动力，
-    # 不存在溢出风险，因此不需要更短的重查间隔；每次让出都会让智能调度
-    # 重新走一次任务初始化，间隔也不宜更短。智能调度挂起（延迟到未来）后
-    # 它不再出现在待处理队列里，届时互斥自动解除。
-    SMART_SCHEDULING_YIELD_MINUTES = 30
-
     # 防溢出读数采纳账本记录的最大年龄。行动力每 10 分钟自然回复 1 点，
     # 30 分钟最多漂移 3 点（换算排程误差 ≤30 分钟）可以接受；更旧的记录
     # 回退现场读弹窗，避免拿过期读数排程。
@@ -42,49 +36,15 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
 
     @staticmethod
     def smart_scheduling_takes_turn(config):
-        """判断待处理队列里紧随本任务之后的，是不是智能调度。
-
-        绝对互斥判据：调度器选中本任务时，若去掉本任务后队首就是智能调度，
-        说明这一轮是抢占了智能调度——它正在跑侵蚀 1 练级/短猫相接，或者本来
-        就要接着运行。此时防行动力溢出必须让出，由智能调度继续消耗行动力，
-        即使本任务的优先级被配置得更高。
-
-        判据只看待处理队列（调度器的选任务依据），不看智能调度自己的 NextRun：
-        它被本任务抢占后 NextRun 仍停在过去，用 NextRun 判定无法区分
-        「正在被抢占」和「本来就要运行」。队列只包含已启用且已到点的任务，
-        智能调度未启用或已挂起（延迟到未来）时不在队列里，互斥自动解除。
-
-        Args:
-            config (AzurLaneConfig): 配置对象。
-
-        Returns:
-            bool: True 表示本轮调度应让给智能调度。
-        """
-        config.get_next_task()
-        for func in config.pending_task:
-            if func.command == OpsiPreventActionPointOverflow.TASK_NAME_PREVENT_AP_OVERFLOW:
-                continue
-            return func.command == OpsiPreventActionPointOverflow.TASK_NAME_SCHEDULING
-        return False
+        """查询智能调度真实状态，其他任务插队或优先级调整均不改变互斥。"""
+        return OpsiScheduling.blocks_prevent_action_point_overflow(config)
 
     @staticmethod
     def yield_turn_to_smart_scheduling(config):
-        """让出本轮调度，并推迟本任务的下次运行时间。
-
-        与 guard 临时挂起同一约定：只写 NextRun，绝不写 Scheduler.Enable，
-        任务是否启用完全由用户决定。
-
-        Args:
-            config (AzurLaneConfig): 配置对象。
-        """
-        logger.info(
-            '[大世界-防止行动力溢出] 智能调度正常运行，本轮让出调度，'
-            f'{OpsiPreventActionPointOverflow.SMART_SCHEDULING_YIELD_MINUTES} 分钟后重查'
-        )
-        config.task_delay(
-            minute=OpsiPreventActionPointOverflow.SMART_SCHEDULING_YIELD_MINUTES,
-            task=OpsiPreventActionPointOverflow.TASK_NAME_PREVENT_AP_OVERFLOW,
-        )
+        """刷新条件等待并返回，不写用户开关和持久化 NextRun。"""
+        logger.info('[大世界-防止行动力溢出] 智能调度有效运行，本轮进入条件等待')
+        # 废除物理移除和固定延期：保留任务，由下一轮调度重新评估等待条件。
+        config.get_next_task()
 
     def is_prevent_action_point_overflow_enabled(self):
         """判断防止行动力溢出任务是否启用。"""
@@ -312,6 +272,10 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
 
     def run_prevent_action_point_overflow(self):
         """防止当前行动力溢出。"""
+        # 直接调用任务时也先拦截；返回后由框架轮询，绝不循环等待或删除任务。
+        if self.smart_scheduling_takes_turn(self.config):
+            self.yield_turn_to_smart_scheduling(self.config)
+            return
         logger.hr('大世界-防止行动力溢出', level=1)
         upperbound, lowerbound = self._get_prevent_action_point_overflow_thresholds()
         task_name = self._get_prevent_action_point_overflow_task()
