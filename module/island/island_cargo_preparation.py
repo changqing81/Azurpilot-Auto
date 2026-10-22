@@ -45,6 +45,38 @@ from module.ui.page import page_island, page_island_phone
 from module.ui_white.assets import POPUP_CANCEL_WHITE
 
 
+# 启动/装载货运委托的等待上限（秒）。借鉴 wess09/AzurPilot 提交 bb64569d：
+# 原实现无上限等待，按钮被点灰或弹窗卡住时整个岛屿任务会一直停在这里。
+TRANSPORT_START_TIMEOUT = 30
+
+
+def cargo_can_start(available_item_count, action_button_active, refresh):
+    """判断待处理货运委托是否可以点击装载/出发。
+
+    本函数借鉴自 wess09/AzurPilot 提交 bb64569d
+    （fix(island): 兼容货运委托空货物槽并自动装载）。
+
+    一个委托可能只有 1～2 个实际货物格，后续格子为空时不会进入
+    available_item_count。装载状态不能作为启动前提：按钮本身会先补装
+    缺失货物，再切换为出发；这里只要求至少有一个实际货物格、按钮可用，
+    且没有命中黑名单。
+
+    背景：本地旧逻辑是「所有货物格都已装载」才允许启动
+    （self.start = self.items.select(load=True).count == self.items.count）。
+    当委托尾部存在空槽（未装载的空格不属于有效货物格）或货物尚未装载时，
+    这个等式恒为假，委托永远不会被提交，只能等下一次检测，白白浪费一轮。
+
+    Args:
+        available_item_count (int): 实际存在的有效货物格数量。
+        action_button_active (bool): 右侧装载/出发按钮是否可用。
+        refresh (bool): 是否因黑名单需要更换委托。
+
+    Returns:
+        bool: 是否允许当前流程点击该按钮。
+    """
+    return bool(available_item_count > 0 and action_button_active and not refresh)
+
+
 class CargoPreparationTransport:
     """货物筹备中的单个货运栏位。"""
 
@@ -100,14 +132,21 @@ class CargoPreparationTransport:
                 CargoPreparationTransportItem(self.image, button, self.blacklist)
                 for button in grids.buttons
             ]).select(valid=True)
-            self.start = self.items.select(load=True).count == self.items.count
+            # 借鉴 wess09/AzurPilot 提交 bb64569d：装载状态不再作为启动前提。
+            # 旧逻辑要求「所有有效货物格都已装载」，尾部空槽或未装载时恒为假，
+            # 委托永远不会被提交；现在只要求有实际货物格、按钮可用、未命中黑名单，
+            # 未装载的货物交给按钮自身的「全部装载」补齐。
             self.refresh = (
                 main.appear(TRANSPORT_REFRESH, offset=self.offset)
                 and bool(self.items.select(refresh=True).count)
             )
-
-            if not main.match_template_color(TRANSPORT_START, offset=self.offset):
-                self.start = False
+            self.start = cargo_can_start(
+                available_item_count=self.items.count,
+                action_button_active=main.match_template_color(
+                    TRANSPORT_START, offset=self.offset
+                ),
+                refresh=self.refresh,
+            )
         elif self.status == 'running':
             self.start = False
             button = OCR_TRANSPORT_TIME_REMAIN.move((0, self.offset[1] + 20))
@@ -412,12 +451,18 @@ class IslandCargoPreparation(IslandUI):
         return success
 
     def transport_start(self, comm):
-        """启动指定的货运委托。"""
+        """启动指定的货运委托。
+
+        借鉴 wess09/AzurPilot 提交 bb64569d：本流程会先点「全部装载」再点「出发」，
+        中间可能弹出货物获取与取消弹窗，原本是无上限等待；一旦按钮被点灰或
+        弹窗卡住，整个岛屿任务会一直停在这里。这里加 30 秒上限，超时按失败
+        返回，交由调用方决定是否重试，避免卡死整个任务。
+        """
         logger.info('[岛屿-货运] 运输委托开始')
         self.interval_clear([GET_ITEMS_ISLAND, TRANSPORT_START, POPUP_CANCEL_WHITE])
         success = True
         confirm_timer = Timer(1, count=2).start()
-        for _ in self.loop():
+        for _ in self.loop(timeout=TRANSPORT_START_TIMEOUT):
             if self.appear_then_click(TRANSPORT_START, offset=comm.offset, interval=2):
                 success = False
                 confirm_timer.reset()
@@ -437,6 +482,11 @@ class IslandCargoPreparation(IslandUI):
                     break
             else:
                 confirm_timer.reset()
+        else:
+            # 借鉴 wess09/AzurPilot 提交 bb64569d：循环因超时耗尽时明确返回失败，
+            # 不再把「一直没成功」当成「成功」交给上层。
+            logger.warning('[岛屿-货运] 启动或装载货运委托超时')
+            return False
         return success
 
     def _open_replace_page(self, comm):
