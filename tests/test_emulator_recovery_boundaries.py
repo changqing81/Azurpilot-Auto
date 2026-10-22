@@ -9,7 +9,12 @@ from alas import AzurLaneAutoScript
 from module.config.config import AzurLaneConfig, TaskEnd
 from module.device.native_call import NativeCall
 from module.device.session import DeviceSession, RecoveryStopped
-from module.exception import EmulatorNotRunningError, GameStuckError, RequestHumanTakeover
+from module.exception import (
+    EmulatorNotRunningError,
+    GameStuckError,
+    NativeIpcTimeout,
+    RequestHumanTakeover,
+)
 from module.handler.emulator_recovery import EmulatorRecovery
 
 
@@ -66,22 +71,52 @@ class TestNativeCallLifetime(unittest.TestCase):
             return 0
 
         try:
-            with self.assertRaises(RecoveryStopped):
+            # 超时不再抛 SystemExit（那是杀脚本）。设备无响应应按"模拟器
+            # 失去运行"处理，交给调度器重启实例后继续挂机。
+            with self.assertRaises(NativeIpcTimeout):
                 call.run(native, timeout=0.05)
             self.assertTrue(entered.is_set())
             self.assertTrue(call.thread.is_alive())
-            with self.assertRaises(RecoveryStopped):
+            # 句柄仍被占用时依旧禁止释放/重启，避免并发碰同一 DLL 句柄。
+            # 但不使用 SystemExit：脚本要继续运行并重启模拟器。
+            with self.assertRaises(NativeIpcTimeout):
                 call.ensure_idle()
-            with self.assertRaises(RecoveryStopped):
+            with self.assertRaises(NativeIpcTimeout):
                 call.run(lambda: effects.append('禁止执行'))
         finally:
             release.set()
             call.thread.join(3)
         self.assertEqual(effects, ['原调用完成'])
-        with self.assertRaises(RecoveryStopped):
+        with self.assertRaises(NativeIpcTimeout):
             call.ensure_idle()
-        with self.assertRaises(RecoveryStopped):
+        with self.assertRaises(NativeIpcTimeout):
             call.run(lambda: effects.append('迟到后也禁止执行'))
+
+    def test_timeout_is_not_a_system_exit_so_scheduler_can_recover(self):
+        """回归：超时曾抛 RecoveryStopped(SystemExit)，把整个配置进程打死。
+
+        设备卡死时正确动作是重启模拟器，不能连脚本一起杀。
+        """
+        call = NativeCall()
+        release = threading.Event()
+
+        def native():
+            release.wait(3)
+
+        try:
+            with self.assertRaises(NativeIpcTimeout) as ctx:
+                call.run(native, timeout=0.05)
+            self.assertNotIsInstance(ctx.exception, SystemExit)
+            self.assertIsInstance(ctx.exception, EmulatorNotRunningError)
+        finally:
+            release.set()
+            call.thread.join(3)
+
+    def test_default_budget_is_one_minute_not_half_second(self):
+        """回归：默认预算 0.5 秒会把战斗切场景的正常抖动误判成设备卡死。"""
+        from module.device.native_call import NATIVE_CALL_TIMEOUT
+        self.assertGreaterEqual(NATIVE_CALL_TIMEOUT, 60.0)
+        self.assertEqual(NativeCall().timeout, NATIVE_CALL_TIMEOUT)
 
     def test_late_nested_query_cannot_continue_to_another_native_operation(self):
         call = NativeCall()
@@ -99,7 +134,7 @@ class TestNativeCallLifetime(unittest.TestCase):
             effects.append('不应开始第二次原生调用')
 
         try:
-            with self.assertRaises(RecoveryStopped):
+            with self.assertRaises(NativeIpcTimeout):
                 call.run(screenshot, timeout=0.05)
             self.assertTrue(entered.is_set())
         finally:
@@ -135,9 +170,10 @@ class TestNativeCallLifetime(unittest.TestCase):
         ipc.lib = SimpleNamespace(nemu_disconnect=lambda _: self.fail('不允许释放在用句柄'))
         device = DeviceSession()
         device.nemu_ipc = ipc
-        with self.assertRaises(RecoveryStopped):
-            device.close_session()
-        self.assertIs(device.nemu_ipc, ipc)
+        # 关闭会话不得终止脚本：跳过仍在占用的句柄，丢弃引用即可。
+        device.close_session()
+        self.assertNotIn('nemu_ipc', device.__dict__)
+        # 句柄从未被并发 disconnect 触碰，connect_id 保持原值。
         self.assertEqual(ipc.connect_id, 123)
 
     def test_nemu_error_diagnostics_do_not_execute_function_twice(self):

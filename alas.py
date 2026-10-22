@@ -123,13 +123,21 @@ class AzurLaneAutoScript:
         """
         if source is None:
             error = getattr(self, '_last_task_error', '')
-            source = 'offline' if error == 'EmulatorNotRunningError' else 'error'
+            # 设备已失去响应（ADB 离线 / 原生 IPC 超时）都按"离线"处理，
+            # 由 Error.AdbOfflineRestart 管辖，而不是落到通用 HandleError。
+            source = 'offline' if error in ('EmulatorNotRunningError', 'NativeIpcTimeout') else 'error'
             if error in ('GameStuckError', 'GameTooManyClickError'):
                 source = 'game'
         self.consecutive_adb_offline += 1
         try:
             return self.recovery.restart(source)
+        except RecoveryFailed as e:
+            # 设备侧恢复失败（停不下来、起不来、超时、预算耗尽）不是脚本的错。
+            # 返回 False 让调用方按既有退避逻辑重试，绝不终止调度进程。
+            logger.error(f'[Alas] 本轮模拟器恢复未成功，稍后重试: {e}')
+            return False
         except RecoveryStopped:
+            # 人为终止条件（开关被关闭、请求被取消）仍按约定停止配置。
             for name in ('watchdog', 'crash_guard'):
                 guard = self.__dict__.get(name)
                 if guard is not None:
@@ -292,8 +300,12 @@ class AzurLaneAutoScript:
             try:
                 device = Device(config=self.config, auto_start_emulator=False)
             except EmulatorNotRunningError:
+                # 区分两种"没能重启"：用户不允许恢复（人为终止，按约定停止配置），
+                # 与设备本轮恢复失败（设备问题，退避后重试，绝不终止脚本进程）。
                 if not self._try_restart_emulator(source='offline'):
-                    raise RecoveryStopped('模拟器离线且未允许自动恢复')
+                    if not self.recovery.allowed('offline'):
+                        raise RecoveryStopped('模拟器离线且未允许自动恢复')
+                    raise RecoveryFailed('模拟器离线且本轮恢复未成功，稍后重试')
                 device = Device(config=self.config, auto_start_emulator=False)
             return device
         except RequestHumanTakeover:
@@ -573,9 +585,28 @@ class AzurLaneAutoScript:
             return False
         except DeviceSessionExpired as e:
             self._check_sensitive_exit(command, e)
-            if self.recovery.handle_pending():
+            try:
+                if self.recovery.handle_pending():
+                    return 'recoverable'
+            except RecoveryFailed as failed:
+                # 恢复没成功是设备侧问题：退避后继续，不结束脚本进程。
+                # 返回 False 会累计失败次数并可能触发停止，因此按可恢复处理。
+                logger.error(f'[Alas] 旧设备会话失效后的恢复未成功，稍后重试: {failed}')
                 return 'recoverable'
             raise RecoveryStopped('旧设备会话已失效，停止当前配置')
+        except RecoveryFailed as e:
+            # 设备初始化阶段的重启没能成功（例如 device 属性里那一轮）。
+            # 这是设备侧问题，退避后继续调度；不计入任务失败次数。
+            self._last_task_error = 'RecoveryFailed'
+            logger.error_context(
+                title='模拟器本轮恢复未成功',
+                reason='设备初始化或会话恢复期间发起的模拟器重启没有成功。',
+                impact='当前任务跳过，调度器将退避后继续尝试恢复，不会退出。',
+                action='通常无需处理；反复出现时检查模拟器进程和宿主机资源。',
+                exc=e,
+                level=30,
+            )
+            return 'recoverable'
         except TaskEnd:
             if self.recovery.handle_pending():
                 return 'recoverable'
@@ -748,15 +779,30 @@ class AzurLaneAutoScript:
             self.config.task_call('Restart')
             return 'recoverable'
         except EmulatorNotRunningError as e:
-            self._last_task_error = 'EmulatorNotRunningError'
+            # NativeIpcTimeout 是本类子类：设备原生接口一分钟无响应，
+            # 也属于"模拟器失去运行"，走同一条恢复路径——重启实例后继续
+            # 挂机，绝不把还能管理实例的脚本进程一起结束。
+            ipc_timeout = isinstance(e, NativeIpcTimeout)
+            self._last_task_error = 'NativeIpcTimeout' if ipc_timeout else 'EmulatorNotRunningError'
             # 模拟器离线或死机，尝试自动重启
-            logger.error_context(
-                title='模拟器连接中断',
-                reason='任务执行期间无法访问模拟器或 ADB 设备。',
-                impact='当前任务中断，系统将按配置尝试重启模拟器。',
-                action='确认模拟器进程和 ADB 服务正常；连续失败时检查端口、代理和模拟器保活设置。',
-                exc=e,
-            )
+            if ipc_timeout:
+                logger.error_context(
+                    title='模拟器失去响应（原生 IPC 超时）',
+                    reason='截图或触摸使用的模拟器原生接口超过一分钟没有返回，'
+                           '该句柄已停止复用，不再进行任何输入。',
+                    impact='当前任务中断，系统将按配置重启模拟器，重启成功后继续挂机。',
+                    action='通常无需人工处理；若反复发生，检查模拟器版本、宿主机负载'
+                           '和 MuMu 渲染进程状态。',
+                    exc=e,
+                )
+            else:
+                logger.error_context(
+                    title='模拟器连接中断',
+                    reason='任务执行期间无法访问模拟器或 ADB 设备。',
+                    impact='当前任务中断，系统将按配置尝试重启模拟器。',
+                    action='确认模拟器进程和 ADB 服务正常；连续失败时检查端口、代理和模拟器保活设置。',
+                    exc=e,
+                )
             self.save_error_scene()
             self._check_sensitive_exit(command, e)
             # Error.AdbOfflineRestart 开关：历史缺陷——该开关从未被任何代码读取，
@@ -774,7 +820,7 @@ class AzurLaneAutoScript:
                 limit = int(self.config.Error_AdbOfflineThreshold)
                 wait_seconds = min(300, 30 * max(1, self.consecutive_adb_offline))
                 logger.warning(
-                    '[Alas] 模拟器连接中断，但 Error.AdbOfflineRestart 未启用，'
+                    '[Alas] 模拟器失去响应或连接中断，但 Error.AdbOfflineRestart 未启用，'
                     f'不自动重启模拟器（连续 {self.consecutive_adb_offline} 次）。'
                     f'{wait_seconds} 秒后重试，请手动确认模拟器状态。'
                 )
@@ -783,16 +829,28 @@ class AzurLaneAutoScript:
             if self._try_restart_emulator():
                 # 重启成功，调度 Restart 任务恢复游戏
                 self.config.task_call('Restart')
-                handle_notify(
-                    self.config.Error_OnePushConfig,
-                    title=f"AzurPilot <{self.config_name}> 警告",
-                    content=f"<{self.config_name}> 模拟器离线 - 已自动重启模拟器",
-                )
-                notify_webui(
-                    self.config_name,
-                    title=f"{self.config_name} 出了点小问题喵~",
-                    content=f"模拟器离线喵 所以重启了喵",
-                )
+                if ipc_timeout:
+                    handle_notify(
+                        self.config.Error_OnePushConfig,
+                        title=f"AzurPilot <{self.config_name}> 警告",
+                        content=f"<{self.config_name}> 模拟器失去响应 - 已自动重启模拟器",
+                    )
+                    notify_webui(
+                        self.config_name,
+                        title=f"{self.config_name} 出了点小问题喵~",
+                        content="模拟器卡住了喵 已经重启模拟器继续挂机喵",
+                    )
+                else:
+                    handle_notify(
+                        self.config.Error_OnePushConfig,
+                        title=f"AzurPilot <{self.config_name}> 警告",
+                        content=f"<{self.config_name}> 模拟器离线 - 已自动重启模拟器",
+                    )
+                    notify_webui(
+                        self.config_name,
+                        title=f"{self.config_name} 出了点小问题喵~",
+                        content=f"模拟器离线喵 所以重启了喵",
+                    )
                 return 'recoverable'
             else:
                 # 重启失败：退避等待后继续重试，7×24 场景下永不放弃
@@ -1917,7 +1975,31 @@ class AzurLaneAutoScript:
                         self.watchdog.stop()
                         self.crash_guard.stop()
                         break
-                if self.recovery.handle_pending():
+                try:
+                    if self.recovery.handle_pending():
+                        continue
+                except RecoveryFailed as failed:
+                    # 后台请求的恢复没成功：退避后继续调度，绝不结束进程。
+                    # 7x24 场景下一次设备故障不该让整台机器停工；连续失败只
+                    # 拉长退避并告警，恢复开关或人工处置才是终止条件。
+                    logger.error(f'[Alas] 模拟器恢复未成功，稍后重试: {failed}')
+                    consecutive_global_failures += 1
+                    wait_seconds = min(300, RESTART_DELAY * max(1, consecutive_global_failures))
+                    if consecutive_global_failures >= MAX_GLOBAL_FAILURES:
+                        logger.error_context(
+                            title='模拟器连续恢复失败',
+                            reason=f'已连续 {consecutive_global_failures} 轮恢复未成功。',
+                            impact=f'调度器不会退出，将退避 {wait_seconds} 秒后继续尝试。',
+                            action='检查模拟器进程是否卡死、宿主机资源是否耗尽；'
+                                   '必要时手动重启模拟器或关闭 CrashProtection。',
+                            level=30,
+                        )
+                        handle_notify(
+                            self.config.Error_OnePushConfig,
+                            title=f"AzurPilot <{self.config_name}> 警告",
+                            content=f"<{self.config_name}> 模拟器连续恢复失败，仍在重试",
+                        )
+                    time.sleep(wait_seconds)
                     continue
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()

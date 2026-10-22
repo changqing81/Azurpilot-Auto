@@ -149,6 +149,26 @@ class EmulatorNotRunningError(Exception):
     pass
 
 
+class RecoveryFailed(Exception):
+    """本轮模拟器恢复没有成功（超时、停不下来、起不来、预算耗尽）。
+
+    这是设备侧的问题，不是脚本的错：调用方应退避后继续重试，
+    不能因此结束调度进程。用户主动关闭恢复开关属于另一类终止条件，
+    仍由 RecoveryStopped 表达。
+    """
+    pass
+
+
+class NativeIpcTimeout(EmulatorNotRunningError):
+    """模拟器原生 IPC 在一分钟预算内没有返回。
+
+    继承 EmulatorNotRunningError：设备已经无法确认和控制，应按"模拟器失去
+    响应"处理——由恢复协调器重启整台实例，而不是结束脚本进程。
+    Python 无法安全中断卡在 DLL 里的线程，该 IPC 实例被永久封禁，不再复用。
+    """
+    pass
+
+
 class GameNotRunningError(Exception):
     """游戏未运行。
 

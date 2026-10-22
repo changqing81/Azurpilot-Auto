@@ -15,6 +15,7 @@ from unittest.mock import create_autospec, patch
 from PIL import Image
 
 from module.device.session import DeviceSession, DeviceSessionExpired, RecoveryStopped, session_guard
+from module.exception import RecoveryFailed
 from module.exception import EmulatorOpBusy
 from module.handler.emulator_health import AdbProbe
 from module.handler.emulator_recovery import EmulatorRecovery
@@ -180,9 +181,10 @@ class TestRecoveryTransaction(unittest.TestCase):
         self.target.start.assert_called_once()
         self.assertFalse(self.alas._emulator_lock.locked())
 
-    def test_failed_boot_consumes_attempt_and_stops_configuration(self):
+    def test_failed_boot_consumes_attempt_and_can_be_retried(self):
+        """启动失败是设备侧问题：计一次额度后抛可重试异常，不终止脚本。"""
         self.ready.return_value = False
-        with self.assertRaises(RecoveryStopped):
+        with self.assertRaises(RecoveryFailed):
             self.recovery.restart()
         files = list(Path(self.temp.name).glob('*.json'))
         self.assertEqual(len(files), 1)
@@ -191,7 +193,7 @@ class TestRecoveryTransaction(unittest.TestCase):
 
     def test_stop_not_confirmed_never_launches(self):
         self.target.wait_stopped.return_value = False
-        with self.assertRaises(RecoveryStopped):
+        with self.assertRaises(RecoveryFailed):
             self.recovery.restart()
         self.target.start.assert_not_called()
 
@@ -213,7 +215,7 @@ class TestRecoveryTransaction(unittest.TestCase):
         self.target.stop.side_effect = blocked
         try:
             with patch('module.handler.emulator_recovery.RECOVERY_TIMEOUT', 0.1):
-                with self.assertRaises(RecoveryStopped):
+                with self.assertRaises(RecoveryFailed):
                     self.recovery.restart()
             self.assertTrue(entered.is_set())
             self.assertTrue(self.alas._emulator_lock.locked())
@@ -225,7 +227,7 @@ class TestRecoveryTransaction(unittest.TestCase):
 
     def test_busy_lock_is_not_released_by_worker_that_did_not_acquire_it(self):
         with self.alas._emulator_lock:
-            with self.assertRaises(RecoveryStopped):
+            with self.assertRaises(RecoveryFailed):
                 self.recovery.restart()
             self.assertTrue(self.alas._emulator_lock.locked())
         self.target.stop.assert_not_called()

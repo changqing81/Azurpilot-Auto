@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from module.device.session import DeviceSessionExpired, RecoveryStopped
-from module.exception import EmulatorOpBusy
+from module.exception import EmulatorOpBusy, RecoveryFailed
 from module.handler.emulator_health import AdbProbe
 from module.handler.emulator_recovery_state import InstanceLease, RecoveryBlocked
 from module.logger import logger
@@ -118,7 +118,12 @@ class EmulatorRecovery:
                         getattr(self.alas.config, 'Emulator_PackageName', 'auto'))
 
     def restart(self, source='error'):
-        """调度线程独占恢复；超时只取消后续动作，并停止当前配置。"""
+        """调度线程独占恢复；超时只取消后续动作，返回可重试的失败。
+
+        Raises:
+            RecoveryBlocked: 当前状态不允许执行（旧执行者存活、目标变更等）。
+            RecoveryFailed: 本轮恢复未成功，属设备侧问题，调用方应退避重试。
+        """
         if threading.get_ident() != self.owner:
             raise RecoveryBlocked('恢复只能在旧任务退出后的调度线程执行')
         if not self.allowed(source):
@@ -127,14 +132,16 @@ class EmulatorRecovery:
             logger.warning('[模拟器恢复] 系统心跳正常，游戏异常不升级为模拟器重启')
             return False
         if self.worker is not None and self.worker.is_alive():
-            raise RecoveryStopped('上一恢复执行者尚未退出，禁止继续运行')
+            raise RecoveryFailed('上一恢复执行者尚未退出，本次恢复跳过')
         self.cancel.clear()
         result = []
         error = []
 
         def checkpoint():
             if not self.allowed(source):
-                raise RecoveryBlocked('恢复过程中收到停止请求或开关已关闭')
+                # 用户主动关闭恢复开关/发出停止请求：这是人为终止条件，
+                # 与"设备没能恢复"性质不同，仍按约定停止配置。
+                raise RecoveryStopped('恢复过程中收到停止请求或开关已关闭')
 
         def recover():
             # 锁由实际执行者持有到结束；调用方超时不会释放另一线程的锁。
@@ -185,13 +192,18 @@ class EmulatorRecovery:
         self.worker.join(timeout=RECOVERY_TIMEOUT)
         if self.worker.is_alive():
             self.cancel.set()
-            logger.critical('[模拟器恢复] 恢复超时，停止当前配置；旧执行者退出前禁止重试')
-            raise RecoveryStopped('模拟器恢复超时，需要人工检查')
+            logger.critical('[模拟器恢复] 本轮恢复超时；旧执行者退出前禁止再发起新恢复')
+            # 设备侧超时不是脚本的错：抛可重试的 RecoveryFailed，
+            # 由调度器退避后继续尝试，而不是结束整个配置进程。
+            raise RecoveryFailed('模拟器恢复超时，需要人工检查')
         if error or not result:
             self.cancel.set()
             detail = str(error[0]) if error else '恢复未完成'
-            logger.critical(f'[模拟器恢复] 已停止自动恢复: {detail}')
-            raise RecoveryStopped(detail)
+            # 人为终止（用户关开关/取消）沿用原语义；设备侧失败改为可重试。
+            if any(isinstance(exc, RecoveryStopped) for exc in error):
+                raise RecoveryStopped(detail)
+            logger.critical(f'[模拟器恢复] 本轮恢复未成功: {detail}')
+            raise RecoveryFailed(detail)
         self.alas.__dict__.pop('device', None)
         logger.info('[模拟器恢复] 系统已就绪；下一轮重新建立设备并执行 Restart，尚未确认游戏登录成功')
         return True

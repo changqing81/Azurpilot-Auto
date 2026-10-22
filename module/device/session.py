@@ -3,7 +3,8 @@
 import socket
 from functools import wraps
 
-from module.exception import EmulatorNotRunningError
+from module.exception import EmulatorNotRunningError, NativeIpcTimeout
+from module.logger import logger
 
 
 class DeviceSessionExpired(EmulatorNotRunningError):
@@ -11,7 +12,12 @@ class DeviceSessionExpired(EmulatorNotRunningError):
 
 
 class RecoveryStopped(SystemExit):
-    """恢复不再安全时结束当前配置，禁止被普通异常恢复再次重启。"""
+    """恢复不再安全时结束当前配置，禁止被普通异常恢复再次重启。
+
+    只在"句柄仍被占用、无法安全释放或重启"这类真正的死局使用。
+    设备无响应（原生 IPC 超时、截图/触摸卡死）不属于死局：那种情况应当
+    重启模拟器实例后继续挂机，不能连脚本进程一起杀掉。
+    """
 
 
 def session_guard(func):
@@ -66,7 +72,15 @@ class DeviceSession:
         # 不使用 getattr(self, ...) 触发 cached_property 建立新连接。
         ipc = self.__dict__.get('nemu_ipc')
         if ipc is not None:
-            ipc.disconnect()
+            try:
+                ipc.disconnect()
+            except NativeIpcTimeout as e:
+                # 原生调用仍卡在 DLL 里：不能再调 nemu_disconnect 去碰同一个句柄，
+                # 但也不必终止脚本。丢弃引用，由调用方重启整个模拟器实例；
+                # 实例停止会让卡住的调用自然返回错误。
+                logger.warning(
+                    f'[设备-会话] 跳过释放仍被占用的原生 IPC 句柄，改为重启实例: {e}'
+                )
             self.__dict__.pop('nemu_ipc', None)
         # 清理走独立有界命令，不借旧连接重连，也不执行 remove-all。
         from module.handler.emulator_health import AdbProbe

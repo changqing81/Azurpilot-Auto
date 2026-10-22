@@ -27,7 +27,7 @@ from module.device.method.pool import JobTimeout
 from module.device.native_call import NativeCall
 from module.device.method.utils import RETRY_TRIES, retry_sleep
 from module.device.platform import Platform
-from module.exception import EmulatorNotRunningError, RequestHumanTakeover
+from module.exception import EmulatorNotRunningError, NativeIpcTimeout, RequestHumanTakeover
 from module.logger import logger
 
 
@@ -175,11 +175,8 @@ def retry(func):
         """
         init = None
         for _ in range(RETRY_TRIES):
-            # 重试时延长超时时间
-            if func.__name__ == 'screenshot':
-                timeout = retry_sleep(_)
-                if timeout > 0:
-                    kwargs['timeout'] = timeout
+            # 不在此处缩短等待预算：NativeCall 的默认预算是一分钟，
+            # 旧逻辑会把它覆盖成 1~3 秒，反而让正常抖动被误判成卡死。
             try:
                 if callable(init):
                     time.sleep(retry_sleep(_))
@@ -205,7 +202,9 @@ def retry(func):
                 def init():
                     self.reconnect()
             # 不可处理 - 必须向上抛出以触发模拟器重启
-            except EmulatorNotRunningError:
+            except (EmulatorNotRunningError, NativeIpcTimeout):
+                # 原生 IPC 超过一分钟无响应时实例已被封禁；重试毫无意义，
+                # 也不能在这里释放句柄。交给调度器重启模拟器。
                 raise
             # 未知异常，可能是损坏的图像
             except Exception as e:
@@ -321,14 +320,16 @@ class NemuIpcImpl:
         """独立于通用截图池，超时后禁止复用本实例句柄。"""
         return NativeCall()
 
-    def run_func(self, func, *args, on_thread=True, timeout=0.5):
+    def run_func(self, func, *args, on_thread=True, timeout=None):
         """执行一项有界原生调用；嵌套调用复用同一事务期限。
 
         Args:
             func: DLL 函数或截图组合函数。
             *args: 原生调用参数。
             on_thread: 保留原调用签名；只有事务内部允许同步嵌套。
-            timeout: 主调用最大等待秒数。
+            timeout: 主调用最大等待秒数；None 表示使用 NativeCall 的一分钟预算。
+                设备卡死是设备的问题：超时只封禁该 IPC 实例，异常交给调度器
+                重启模拟器，绝不终止脚本进程。
         """
         result = self.native_call.run(func, *args, timeout=timeout)
         if func.__name__ == '_screenshot':
@@ -382,11 +383,12 @@ class NemuIpcImpl:
         return pixels_pointer
 
     @retry
-    def screenshot(self, timeout=0.5):
+    def screenshot(self, timeout=None):
         """
         Args:
             timeout: 调用 nemu_ipc 的超时时间（秒）。
-                会被 `@retry` 动态延长。
+                None 表示使用 NativeCall 的一分钟预算；`@retry` 只在
+                失败重试时显式延长。
 
         Returns:
             np.ndarray: RGBA 色彩空间的图像数组。
@@ -590,7 +592,12 @@ class NemuIpc(Platform):
 
     def nemu_ipc_release(self):
         if has_cached_property(self, 'nemu_ipc'):
-            self.nemu_ipc.disconnect()
+            try:
+                self.nemu_ipc.disconnect()
+            except NativeIpcTimeout as e:
+                # 原生调用仍卡在 DLL 里：不能并发调用 nemu_disconnect 碰同一句柄。
+                # 丢弃引用即可，后续实例重启会让卡住的调用返回错误。
+                logger.warning(f'[设备-NemuIpc] 原生调用未结束，跳过释放句柄: {e}')
         del_cached_property(self, 'nemu_ipc')
         logger.info('[设备-NemuIpc] nemu_ipc已释放')
 
