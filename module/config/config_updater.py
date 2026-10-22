@@ -704,6 +704,14 @@ class ConfigUpdater:
         ('OpsiHazard1Leveling.OpsiHazard1Leveling.RecordSeaMiles',
          'OpsiHazard1Leveling.OpsiHazard1Leveling.RecordSeaMiles', sea_miles_interval_redirect),
     ]
+    # 说明：Error.AdbOfflineRestart 死开关的修复**不需要** redirection。
+    # 该开关从未被任何代码读取，模拟器离线时一直是"总是重启"。修复后它真正生效，
+    # 做法是把模板默认值从 false 改为 true（见 argument.yaml）：
+    #   - 从未存过此键的存量用户 → 合并时取模板默认 true，与历史实际行为一致
+    #   - 显式存过 false 的用户   → 保持 false，尊重其关闭意图
+    #   - 显式存过 true 的用户    → 保持 true
+    # 用 redirection 迁移反而无效：config_redirect 从**原始老配置**取值，
+    # 老配置缺该键时 deep_get 返回 None 会直接 continue，迁移函数根本不会执行。
     # 2026.09.18 岛屿计划：TaskPriority 文本框（面向开发者的 Filter 语法）改成
     # 16 个面向普通用户的独立开关，旧清单里出现过的模块翻译成「开」。
     # 大世界掉落截图由单一开关拆成按任务分类的 8 个开关，旧值铺给每一个，

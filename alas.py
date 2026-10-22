@@ -861,6 +861,27 @@ class AzurLaneAutoScript:
             )
             self.save_error_scene()
             self._check_sensitive_exit(command, e)
+            # Error.AdbOfflineRestart 开关：历史缺陷——该开关从未被任何代码读取，
+            # _try_restart_emulator 无条件执行，导致用户在 GUI 关掉它也没用
+            # （模拟器离线照样被杀重启）。此处补上真正的读取判断。
+            # 只管辖本分支（ADB 离线）；游戏卡死 / 未预期异常 / 计划重启
+            # 各有独立开关，不受影响。
+            if not self.config.Error_AdbOfflineRestart:
+                # 开关关闭：不自动重启模拟器。
+                # 返回 False 而非 'recoverable'——可恢复错误不计入失败次数，
+                # 模拟器持续离线时会陷入无限快速重试。返回 False 让失败计数
+                # 正常累积，由任务失败保护接管（连续失败达阈值后关闭任务并
+                # 通知用户），语义上也更贴合"需人工确认模拟器状态"。
+                self.consecutive_adb_offline += 1
+                limit = int(self.config.Error_AdbOfflineThreshold)
+                wait_seconds = min(300, 30 * (self.consecutive_adb_offline - limit + 1))
+                logger.warning(
+                    '[Alas] 模拟器连接中断，但 Error.AdbOfflineRestart 未启用，'
+                    f'不自动重启模拟器（连续 {self.consecutive_adb_offline} 次）。'
+                    f'{wait_seconds} 秒后重试，请手动确认模拟器状态。'
+                )
+                time.sleep(wait_seconds)
+                return False
             if self._try_restart_emulator():
                 # 重启成功，调度 Restart 任务恢复游戏
                 self.config.task_call('Restart')
