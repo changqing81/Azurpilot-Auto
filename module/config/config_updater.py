@@ -331,6 +331,15 @@ class ConfigGenerator:
                 if deep_get(data, keys=f'{task}.Campaign.Mode') is not None:
                     deep_set(data, keys=f'{task}.Campaign.Mode.display', value='hide')
 
+        # 「活动结束后关卡」只对低耗打捞类任务（GemsFarming / ThreeOilLowCost）
+        # 有意义：campaign_event 的活动收尾只处理这两个任务，其余任务即使显示
+        # 了也永远不会被读取。Campaign 组被 22 个任务共用，这里统一隐藏。
+        # Ambush11（1-1刷伏击）走 override.yaml 的 '0'，同样不显示。
+        for task in list(data.keys()):
+            if task not in GEMS_FARMINGS:
+                if deep_get(data, keys=f'{task}.Campaign.EventFallbackStage') is not None:
+                    deep_set(data, keys=f'{task}.Campaign.EventFallbackStage.display', value='hide')
+
         return data
 
     @timer
@@ -726,6 +735,14 @@ class ConfigUpdater:
     ]
     redirection += [
         (f'{task}.GemsFarming.ALLowLowVanguardLevel', f'{task}.GemsFarming.AllowLowVanguardLevel')
+        for task in [*GEMS_FARMINGS, 'Ambush11']
+    ]
+    # 2026.10.22 「活动结束后关卡」从 GemsFarming 组搬到 Campaign（关卡设置）组：
+    # 它描述的是"活动结束后切到哪张主线图"，属于关卡设置而非打捞设置，
+    # 和「道中失败处理」放在一起。group 变了但参数名不变，需迁移存量值，
+    # 否则用户填过的后续关卡（如 16-4）会回落成默认 2-4。
+    redirection += [
+        (f'{task}.GemsFarming.EventFallbackStage', f'{task}.Campaign.EventFallbackStage')
         for task in [*GEMS_FARMINGS, 'Ambush11']
     ]
     # 旧版布尔（强制移动开关）→ 等级枚举：True→2（分级恢复）、False→0（关闭）。

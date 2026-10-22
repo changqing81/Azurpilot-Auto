@@ -224,6 +224,7 @@ class GeneratedConfig:
     Campaign_AmbushEvade = True
     Campaign_UseRecommendFleet = False
     Campaign_DefeatWithdraw = 'withdraw_stop'  # withdraw_continue, switch_fleet, withdraw_stop
+    Campaign_EventFallbackStage = '2-4'
 
     # 配置组 `OperationHandover`
     OperationHandover_Count = 1
@@ -319,7 +320,6 @@ class GeneratedConfig:
     C124LargeLeveling_PickupAmmo = 3  # 3, 4, 5
 
     # 配置组 `GemsFarming`
-    GemsFarming_EventFallbackStage = '2-4'
     GemsFarming_ChangeFlagship = 'ship_equip'  # ship, ship_equip
     GemsFarming_CommonCV = 'any'  # custom, any, eagle, langley, bogue, ranger, hermes
     GemsFarming_CommonCVFilter = 'bogue > ranger > langley > hermes'

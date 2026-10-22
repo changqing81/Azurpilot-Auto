@@ -1286,6 +1286,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -1751,6 +1756,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -2216,6 +2226,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -2629,10 +2644,6 @@
       }
     },
     "GemsFarming": {
-      "EventFallbackStage": {
-        "type": "input",
-        "value": "2-4"
-      },
       "ChangeFlagship": {
         "type": "select",
         "value": "ship_equip",
@@ -2812,6 +2823,10 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4"
       }
     },
     "StopCondition": {
@@ -3203,10 +3218,6 @@
       }
     },
     "GemsFarming": {
-      "EventFallbackStage": {
-        "type": "input",
-        "value": "2-4"
-      },
       "ChangeFlagship": {
         "type": "select",
         "value": "ship_equip",
@@ -3386,6 +3397,10 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4"
       }
     },
     "StopCondition": {
@@ -3776,11 +3791,6 @@
       }
     },
     "GemsFarming": {
-      "EventFallbackStage": {
-        "type": "input",
-        "value": "0",
-        "display": "hide"
-      },
       "ChangeFlagship": {
         "type": "select",
         "value": "ship_equip",
@@ -3947,6 +3957,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "0",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -4430,6 +4445,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -4913,6 +4933,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -5395,6 +5420,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -5897,6 +5927,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -6181,6 +6216,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -6800,6 +6840,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "Coalition": {
@@ -7104,6 +7149,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "Coalition": {
@@ -7825,6 +7875,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -8334,6 +8389,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -8804,6 +8864,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -9274,6 +9339,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -9744,6 +9814,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -10204,6 +10279,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -10672,6 +10752,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "StopCondition": {
@@ -10946,6 +11031,11 @@
           "switch_fleet",
           "withdraw_stop"
         ]
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
+        "display": "hide"
       }
     },
     "Coalition": {
@@ -12214,6 +12304,11 @@
           "switch_fleet",
           "withdraw_stop"
         ],
+        "display": "hide"
+      },
+      "EventFallbackStage": {
+        "type": "input",
+        "value": "2-4",
         "display": "hide"
       }
     },

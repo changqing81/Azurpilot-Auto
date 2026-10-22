@@ -68,7 +68,7 @@ class CampaignEvent(CampaignStatus):
                     if self.stage_is_main(name):
                         continue
                     stage = str(self.config.cross_get(
-                        keys=f'{task}.GemsFarming.EventFallbackStage', default='2-4')).strip().lower()
+                        keys=f'{task}.Campaign.EventFallbackStage', default='2-4')).strip().lower()
                     match = re.fullmatch(r'(?:campaign_)?([1-9]\d?)[-_]([1-4])', stage)
                     if match and os.path.isfile(
                             f'./campaign/campaign_main/campaign_{match[1]}_{match[2]}.py'):
