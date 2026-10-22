@@ -19,8 +19,10 @@ from module.base.filter import Filter
 from module.base.mask import Mask
 from module.base.timer import Timer
 from module.base.utils import *
+from module.config.utils import get_server_last_update
 from module.dorm.assets import *
 from module.dorm.buy_furniture import BuyFurniture
+from module.dorm.daily_mission import FOOD_FEED_AMOUNT, is_done_today, select_food_index
 from module.handler.assets import POPUP_CONFIRM
 from module.logger import logger
 from module.ocr.ocr import Digit, DigitCounter
@@ -82,7 +84,6 @@ class Food:
         return str(self) == str(other)
 
 
-FOOD_FEED_AMOUNT = [1000, 2000, 3000, 5000, 10000, 20000]
 FOOD_FILTER = Filter(regex=re.compile(r'(\d+)'), attr=['feed'])
 
 
@@ -368,12 +369,16 @@ class RewardDorm(UI):
         logger.info(f'[宿舍-食物] 食物库存: {[f.amount for f in food]}, 需填充: {fill}')
         return food, fill
 
-    def dorm_feed_once(self):
+    def dorm_food_get_stable(self):
         """
-        执行一次喂食操作。
+        在喂食界面反复截图，直到读到稳定的食物库存和饱食度。
+
+        OCR 偶尔会读到半帧数据，所以要在超时时间内反复读取，
+        只有「有食物且饱食度可读」时才认为数据可用。
 
         Returns:
-            bool: 是否执行了喂食。
+            list[Food]: 食物列表。
+            int: 剩余可喂食量。
 
         Pages:
             in: DORM_FEED_CHECK
@@ -398,6 +403,19 @@ class RewardDorm(UI):
                 break
         if fill < 0:
             fill = 0
+        return food, fill
+
+    def dorm_feed_once(self):
+        """
+        执行一次喂食操作。
+
+        Returns:
+            bool: 是否执行了喂食。
+
+        Pages:
+            in: DORM_FEED_CHECK
+        """
+        food, fill = self.dorm_food_get_stable()
 
         FOOD_FILTER.load(self.config.Dorm_FeedFilter)
         for selected in FOOD_FILTER.apply(food):
@@ -428,6 +446,75 @@ class RewardDorm(UI):
 
         logger.warning('[宿舍-喂食] 喂食次数达到上限')
         return 10
+
+    def dorm_feed_daily_mission(self):
+        """
+        每日任务喂食：只喂一次最低等的食物，喂完立刻记录今日已完成。
+
+        与「喂满」逻辑的区别：
+        - 只点一次，不追求把饱食度喂满；
+        - 按 1000 -> 20000 的顺序挑第一个有库存且装得下的等级，
+          每天重新按库存选择，不会沿用前一天的选择；
+        - 只要点击成功就写入今日记录，避免界面卡顿导致重复投喂。
+
+        Returns:
+            bool: 今日任务喂食成功返回 True；没有可喂的食物返回 False。
+
+        Pages:
+            in: DORM_FEED_CHECK
+            out: DORM_FEED_CHECK
+        """
+        logger.hr('后宅每日任务喂食')
+        food, fill = self.dorm_food_get_stable()
+
+        # 每天独立按当前库存挑选，最低等优先，缺货才逐级向上回退
+        index = select_food_index([f.amount for f in food], fill)
+        if index is None:
+            logger.warning(f'[宿舍-每日任务] 没有可投喂的食物，跳过今日任务喂食。'
+                           f'库存: {[f.amount for f in food]}, 剩余饱食度: {fill}')
+            return False
+
+        selected = food[index]
+        logger.info(f'[宿舍-每日任务] 投喂 {selected.feed} 食物 1 次'
+                    f'（库存 {selected.amount}，剩余饱食度 {fill}）')
+        self._dorm_feed_click(button=self._dorm_food.buttons[index], count=1)
+
+        # 投喂点击已经返回喂食界面，说明这一份食物被消耗掉了。
+        # 立刻落盘今日记录，避免界面卡顿或异常重入时重复投喂。
+        self.dorm_daily_mission_record()
+        return True
+
+    def dorm_daily_mission_record(self):
+        """
+        记录今日的每日任务喂食已完成。
+
+        记录值取「当前的上一次服务器刷新时间」，下次运行只要记录不早于
+        那时的上一次刷新时间，就认为今天已经喂过；跨天后自动失效。
+        """
+        now = get_server_last_update(self.config.Scheduler_ServerUpdate)
+        self.config.Dorm_DailyMissionRecord = now
+        logger.info(f'[宿舍-每日任务] 今日已完成，记录 {now}，'
+                    f'下次服务器刷新后才会再次运行')
+
+    def dorm_daily_mission_done(self):
+        """
+        判断今日的每日任务喂食是否已经完成。
+
+        记录值取的是「喂食当时的上一次服务器刷新时间」，
+        只要它不早于当前的上一次刷新时间，就说明今天已经喂过，
+        跨天后自动失效，不需要自己比较日期。
+
+        Returns:
+            bool: 今日已完成返回 True。
+
+        Pages:
+            in: page_dorm
+        """
+        last_update = get_server_last_update(self.config.Scheduler_ServerUpdate)
+        record = self.config.Dorm_DailyMissionRecord
+        done = is_done_today(record, last_update)
+        logger.attr('宿舍-每日任务', f'{"已完成" if done else "未完成"}（记录 {record}）')
+        return done
 
     def dorm_feed_enter(self):
         """
@@ -565,7 +652,7 @@ class RewardDorm(UI):
         self.dorm_buy_food_confirm()
         self.dorm_feed_quit()
 
-    def dorm_run(self, feed=True, collect=True, buy_furniture=False):
+    def dorm_run(self, feed=True, collect=True, buy_furniture=False, daily_mission=False):
         """
         执行宿舍操作：喂食、收取、购买家具。
 
@@ -576,6 +663,9 @@ class RewardDorm(UI):
             feed (bool): 是否执行喂食。
             collect (bool): 是否收取金币和爱心。
             buy_furniture (bool): 是否购买家具。
+            daily_mission (bool): 是否走「每日任务喂食」分支。
+                开启时喂食短路为「只喂一次最低等食物」，不再喂满；
+                关闭时完全沿用原有的喂满逻辑。
 
         Pages:
             in: 任意页面
@@ -597,9 +687,13 @@ class RewardDorm(UI):
         # 先喂食以处理 DORM_INFO
         # DORM_INFO 可能会遮挡宿舍金币和爱心
         if feed:
-            logger.hr('后宅喂食', level=1)
             self.dorm_feed_enter()
-            self.dorm_feed()
+            if daily_mission:
+                # 每日任务喂食：只喂一次最低等食物，喂完即退出，不进入喂满循环
+                self.dorm_feed_daily_mission()
+            else:
+                logger.hr('后宅喂食', level=1)
+                self.dorm_feed()
             self.dorm_feed_quit()
 
         if collect:
@@ -691,14 +785,39 @@ class RewardDorm(UI):
             in: 任意页面
             out: page_dorm
         """
+        # 每日任务喂食：一天只喂一次，喂完记录，直到下一次服务器刷新才允许再喂。
+        # 开启后喂食逻辑被短路为「只喂一次最低等食物」，与原有的喂满逻辑互斥；
+        # 关闭时 daily_mission_done 恒为 False，喂食完全沿用原有的喂满逻辑。
+        daily_mission = self.config.Dorm_DailyMission
+        daily_mission_done = daily_mission and self.dorm_daily_mission_done()
+        if daily_mission_done:
+            logger.info('[宿舍-每日任务] 今日已完成喂食，跳过喂食，等待下一次服务器刷新')
+
+        # 「做每日任务」只改变喂食的方式，不越过 Dorm.Feed 这个总开关：
+        # 喂食被关掉时，即使打开了每日任务也不投喂，只记一条提示避免用户困惑。
+        if daily_mission and not self.config.Dorm_Feed:
+            logger.warning('[宿舍-每日任务] 已开启「做每日任务」，但「喂食」处于关闭状态，'
+                           '本次不投喂；如需每日任务喂食请同时开启「喂食」')
+
+        # 停止判定仍按用户配置的三个开关来，不能因为「今日已喂过」就关闭调度，
+        # 否则只开喂食的用户在喂完之后整个后宅任务会被停掉。
         if not self.config.Dorm_Feed and not self.config.Dorm_Collect \
                 and not self.config.BuyFurniture_Enable:
             self.config.Scheduler_Enable = False
             self.config.task_stop()
 
-        self.dorm_run(feed=self.config.Dorm_Feed,
+        # 今日已喂过、又没有收取或买家具要做时，直接推迟到下一次服务器刷新。
+        # 这样「一天只运行一次」是字面成立的，不会每 278 分钟空跑一遍。
+        if daily_mission_done and not self.config.Dorm_Collect \
+                and not self.config.BuyFurniture_Enable:
+            logger.info('[宿舍-每日任务] 今日已无其他后宅事务，推迟到下一次服务器刷新')
+            self.config.task_delay(server_update=True)
+            return
+
+        self.dorm_run(feed=self.config.Dorm_Feed and not daily_mission_done,
                       collect=self.config.Dorm_Collect,
-                      buy_furniture=self.config.BuyFurniture_Enable)
+                      buy_furniture=self.config.BuyFurniture_Enable,
+                      daily_mission=daily_mission)
 
         # Scheduler
         ships = self.get_dorm_ship_amount()

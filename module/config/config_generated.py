@@ -433,6 +433,8 @@ class GeneratedConfig:
     Dorm_Collect = True
     Dorm_Feed = True
     Dorm_FeedFilter = '20000 > 10000 > 5000 > 3000 > 2000 > 1000'
+    Dorm_DailyMission = False
+    Dorm_DailyMissionRecord = datetime.datetime(2020, 1, 1, 0, 0)
     Dorm_BuyFood = False
 
     # 配置组 `BuyFurniture`

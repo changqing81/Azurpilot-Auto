@@ -11899,6 +11899,16 @@
         "type": "textarea",
         "value": "20000 > 10000 > 5000 > 3000 > 2000 > 1000"
       },
+      "DailyMission": {
+        "type": "checkbox",
+        "value": false
+      },
+      "DailyMissionRecord": {
+        "type": "stored",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime",
+        "display": "hide"
+      },
       "BuyFood": {
         "type": "checkbox",
         "value": false,

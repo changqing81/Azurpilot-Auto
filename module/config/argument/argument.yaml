@@ -927,6 +927,15 @@ Dorm:
   Collect: true
   Feed: true
   FeedFilter: 20000 > 10000 > 5000 > 3000 > 2000 > 1000
+  # 做每日任务：开启后喂食被短路为「一天只喂一次最低等食物」，
+  # 仅为了完成游戏的每日任务，不再喂满；关闭则完全沿用原有的喂满逻辑
+  DailyMission: false
+  # 上次每日任务喂食完成时记录的上一次服务器刷新时间。
+  # 记录不早于当前的上一次刷新时间即表示今日已完成，跨天后自动失效
+  DailyMissionRecord:
+    type: stored
+    value: 2020-01-01 00:00:00
+    display: hide
   BuyFood:
     value: false
     display: disabled

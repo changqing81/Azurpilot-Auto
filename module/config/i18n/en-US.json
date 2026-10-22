@@ -2421,6 +2421,14 @@
       "name": "Feed filter",
       "help": "Generally no modification is required"
     },
+    "DailyMission": {
+      "name": "Do Daily Mission",
+      "help": "Feed only once a day until the next server reset, and only the lowest grade food 1000 to ensure the daily mission."
+    },
+    "DailyMissionRecord": {
+      "name": "Daily Mission Feed Record",
+      "help": "Feed completion time maintained by the script, used to reset after the server refresh."
+    },
     "BuyFood": {
       "name": "Automatically purchase food",
       "help": "For status display only. Disable setting. Do not ask anything about this switch."
