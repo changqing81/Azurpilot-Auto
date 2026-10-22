@@ -755,7 +755,7 @@
     },
     "AdbOfflineRestart": {
       "name": "Restart the emulator when the device is not detected",
-      "help": "After the device cannot be detected continuously (ADB is offline or the connection fails) for the specified number of times, try to restart the emulator."
+      "help": "After the device cannot be detected continuously (ADB is offline or the connection fails) for the specified number of times, try to restart the emulator.\nWhen disabled, the emulator is no longer restarted automatically; you need to check its state manually."
     },
     "AdbOfflineThreshold": {
       "name": "Device restart threshold not detected",
@@ -6540,6 +6540,42 @@
     "RestartIntervalHours": {
       "name": "Restart interval (hours)",
       "help": "Automatically restart the emulator every few hours."
+    },
+    "CrashProtection": {
+      "name": "Emulator freeze protection",
+      "help": "Once enabled, an independent ADB heartbeat probe checks whether the emulator is really frozen (communication completely lost). When the verdict is reached, the ADB service is restarted first to clear the block; only if that still fails is the emulator process killed and restarted. It has nothing to do with \"no change on screen\", so big game updates and map loading will not trigger it by mistake.",
+      "True": "On",
+      "False": "Off"
+    },
+    "CrashDryRun": {
+      "name": "Dry run (alert only, never restart)",
+      "help": "Once enabled, only verdict logs and alerts are written; no restart action is performed. It is recommended to keep this on for a few days first to observe the false-positive rate.",
+      "True": "On",
+      "False": "Off"
+    },
+    "CrashHeartbeatTimeout": {
+      "name": "Heartbeat probe timeout (seconds)",
+      "help": "Timeout in seconds of a single ADB heartbeat probe (echo pong). A normal round trip takes less than 0.1 s, so 5 seconds is already a generous margin."
+    },
+    "CrashHeartbeatFailures": {
+      "name": "Consecutive failures",
+      "help": "How many consecutive heartbeat timeouts are required before entering the verdict. The protection triggers only when this and the confirm duration are both satisfied."
+    },
+    "CrashConfirmSeconds": {
+      "name": "Verdict confirm duration (seconds)",
+      "help": "Minimum duration from the first heartbeat failure to the verdict. This is the key parameter against false kills: even with consecutive timeouts, the protection does not trigger while the total duration is too short. Default 60 seconds."
+    },
+    "CrashCooldownSeconds": {
+      "name": "Cooldown after restart (seconds)",
+      "help": "Cooldown period after the emulator has finished restarting, during which the freeze protection stays idle so that the emulator and the game have enough time to start. Default 600 seconds."
+    },
+    "CrashMaxRestarts": {
+      "name": "Max restarts within the window",
+      "help": "Prevents restart storms: once the number of restarts within the configured window reaches this value, automatic restarts stop and an alert is sent instead. Default 3 times."
+    },
+    "CrashRestartWindowHours": {
+      "name": "Restart counting window (hours)",
+      "help": "Time window used to count restarts. Once the maximum number of restarts is reached within the window, automatic recovery stops. Default 6 hours."
     }
   },
   "EmulatorManager": {

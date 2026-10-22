@@ -121,7 +121,7 @@ class GeneratedConfig:
     Error_ScreenshotLength = 1
     Error_GameStuckRestart = False
     Error_GameStuckThreshold = 3
-    Error_AdbOfflineRestart = False
+    Error_AdbOfflineRestart = True
     Error_AdbOfflineThreshold = 3
     Error_LlmAnalysis = True
     Error_LlmApiKey = None
@@ -1120,6 +1120,14 @@ class GeneratedConfig:
     EmulatorManagement_ScheduledEmulatorRestart = False
     EmulatorManagement_ForceScheduledRestart = False
     EmulatorManagement_RestartIntervalHours = 4
+    EmulatorManagement_CrashProtection = False  # True, False
+    EmulatorManagement_CrashDryRun = False  # True, False
+    EmulatorManagement_CrashHeartbeatTimeout = 5
+    EmulatorManagement_CrashHeartbeatFailures = 3
+    EmulatorManagement_CrashConfirmSeconds = 60
+    EmulatorManagement_CrashCooldownSeconds = 600
+    EmulatorManagement_CrashMaxRestarts = 3
+    EmulatorManagement_CrashRestartWindowHours = 6
 
     # 配置组 `EmulatorManager`
     EmulatorManager_EnableRemoteSSH = False  # True, False

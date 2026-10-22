@@ -230,6 +230,20 @@ class Watchdog:
         except Exception:
             return True
 
+    def _crash_protection_enabled(self) -> bool:
+        """模拟器卡死保护是否已启用（EmulatorManagement.CrashProtection）。
+
+        用于让日志心跳检测在卡死保护开启时降级为仅告警：卡死保护基于
+        ADB 心跳判定，比"没有日志输出"这个粗信号精确得多。
+
+        Returns:
+            bool: 卡死保护已启用返回 True；配置缺失或读取失败返回 False。
+        """
+        try:
+            return bool(self.alas.config.EmulatorManagement_CrashProtection)
+        except Exception:
+            return False
+
     # ------------------------------------------------------------------
     # 线程生命周期
     # ------------------------------------------------------------------
@@ -352,7 +366,19 @@ class Watchdog:
             if log_timeout > 0:
                 elapsed_log = time.monotonic() - self._heartbeat.last_log_time
                 if elapsed_log > log_timeout:
-                    self._recover(elapsed_log, reason='log_timeout')
+                    # 与模拟器卡死保护（CrashGuard）协同：
+                    # CrashGuard 通过 ADB 心跳判定"通信是否彻底失效"，精度远高于
+                    # "没日志"这个粗信号。当 CrashProtection 开启时，本检测降级为
+                    # 仅告警——避免两套机制在同一时刻都去杀模拟器，也避免正常但
+                    # 静默的长流程（如大更期间无日志输出）被误杀。
+                    if self._crash_protection_enabled():
+                        logger.warning(
+                            f'[Watchdog] 任务执行中已 {int(elapsed_log)} 秒无日志输出'
+                            f'（超过 {log_timeout} 秒）。卡死保护已启用，'
+                            f'本检测降级为仅告警，由卡死保护通过 ADB 心跳判定是否需要恢复'
+                        )
+                    else:
+                        self._recover(elapsed_log, reason='log_timeout')
                     continue
 
             # 检查 2：任务运行时间超时（逻辑死循环）

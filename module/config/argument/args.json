@@ -476,7 +476,7 @@
       },
       "AdbOfflineRestart": {
         "type": "checkbox",
-        "value": false
+        "value": true
       },
       "AdbOfflineThreshold": {
         "type": "input",
@@ -849,6 +849,70 @@
         "validate": [
           1,
           24
+        ]
+      },
+      "CrashProtection": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "CrashDryRun": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "CrashHeartbeatTimeout": {
+        "type": "input",
+        "value": 5,
+        "validate": [
+          1,
+          60
+        ]
+      },
+      "CrashHeartbeatFailures": {
+        "type": "input",
+        "value": 3,
+        "validate": [
+          2,
+          10
+        ]
+      },
+      "CrashConfirmSeconds": {
+        "type": "input",
+        "value": 60,
+        "validate": [
+          15,
+          600
+        ]
+      },
+      "CrashCooldownSeconds": {
+        "type": "input",
+        "value": 600,
+        "validate": [
+          60,
+          3600
+        ]
+      },
+      "CrashMaxRestarts": {
+        "type": "input",
+        "value": 3,
+        "validate": [
+          1,
+          10
+        ]
+      },
+      "CrashRestartWindowHours": {
+        "type": "input",
+        "value": 6,
+        "validate": [
+          1,
+          48
         ]
       }
     },

@@ -23,6 +23,7 @@ from module.config.utils import (
     read_file,
 )
 from module.exception import *
+from module.handler.emulator_crash_guard import CrashGuard
 from module.handler.task_failure_protection import (
     PROTECTION_EXEMPT_TASKS,
     RESTART_OPERATION_TIMEOUT,
@@ -92,6 +93,11 @@ class AzurLaneAutoScript:
         from module.handler.task_failure_protection import TaskFailureTracker
         self.failure_tracker = TaskFailureTracker(config_name)
         self.watchdog = Watchdog(self)
+        # 模拟器卡死保护：独立守护线程，通过 ADB 心跳探测判定「底层通信彻底失效」。
+        # 与 Watchdog 互补——Watchdog 看「有没有日志」（可能误判），
+        # CrashGuard 看「ADB 还活不活」（判定精确），且恢复时先尝试重启 ADB 服务，
+        # 仍无效才杀模拟器，最大限度避免误杀。
+        self.crash_guard = CrashGuard(self)
         # 任务失败保护自动关闭的任务名集合（运行时禁用列表）。
         # 命中此列表的任务在 ``get_next_task`` 阶段直接跳过，
         # 确保被保护关闭的任务不会再被调度，即使配置尚未持久化。
@@ -107,8 +113,13 @@ class AzurLaneAutoScript:
         """
         尝试重启模拟器。
 
-        需要启用 AdbOfflineRestart 且未超过重试上限。
+        需未超过重试上限（Error_AdbOfflineThreshold）。
         优先使用已缓存的 device 对象，否则根据平台回退创建新实例。
+
+        注意：本方法**不**自行检查 Error.AdbOfflineRestart。该开关只管辖
+        "ADB 离线"这一条恢复路径（EmulatorNotRunningError 分支），由调用方
+        判断；其余调用点（游戏卡死、未预期异常、计划重启）各有独立开关，
+        不受它影响。
 
         Returns:
             bool: 重启成功返回 True，无法重启返回 False。
@@ -1874,6 +1885,8 @@ class AzurLaneAutoScript:
 
         # 启动看门狗守护线程
         self.watchdog.start()
+        # 启动模拟器卡死保护守护线程（独立于 Watchdog，检测 ADB 心跳）
+        self.crash_guard.start()
 
         while 1:
             try:
@@ -1883,6 +1896,7 @@ class AzurLaneAutoScript:
                         logger.info('[Alas] 检测到更新事件')
                         logger.info(f"[Alas] [{self.config_name}] 已退出。原因: 更新 | Reason: Update")
                         self.watchdog.stop()
+                        self.crash_guard.stop()
                         break
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()
@@ -1950,9 +1964,12 @@ class AzurLaneAutoScript:
                 self._error_scene_saved = False
                 # 激活看门狗：任务执行期间监控日志心跳和运行时间
                 self.watchdog.activate(task)
+                # 激活卡死保护：任务执行期间探测 ADB 心跳
+                self.crash_guard.activate(task)
                 success = self.run(inflection.underscore(task))
-                # 任务结束，暂停看门狗（等待期间不监控）
+                # 任务结束，暂停看门狗与卡死保护（等待期间不监控）
                 self.watchdog.deactivate()
+                self.crash_guard.deactivate()
                 logger.info(f'[Alas] 调度器: 结束任务 `{task}`')
                 self.is_first_task = False
 
@@ -2053,14 +2070,16 @@ class AzurLaneAutoScript:
                     continue
                 else:
                     self.watchdog.stop()
+                    self.crash_guard.stop()
                     break
 
             # 捕获全局异常并执行重启
             except Exception as e:
                 consecutive_global_failures += 1
                 self.is_first_task = False
-                # 暂停看门狗，避免恢复期间误触发
+                # 暂停看门狗与卡死保护，避免恢复期间误触发
                 self.watchdog.deactivate()
+                self.crash_guard.deactivate()
                 import traceback
 
                 # 任务失败保护：全局异常也计入失败次数

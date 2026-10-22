@@ -192,7 +192,11 @@ Error:
   GameStuckThreshold:
     value: 3
     validate: [1, 10]
-  AdbOfflineRestart: false
+  # 历史缺陷修复：该开关此前从未被任何代码读取，模拟器离线时一直是"总是重启"，
+  # 用户在 GUI 关掉也没用。现已真正生效（alas.py 的 EmulatorNotRunningError 分支
+  # 会读取它），因此模板默认值改为 true —— 与升级前的实际行为保持一致，
+  # 避免存量用户升级后突然失去自动重启能力。用户可在此主动关闭。
+  AdbOfflineRestart: true
   AdbOfflineThreshold:
     value: 3
     validate: [1, 10]
@@ -2357,6 +2361,32 @@ EmulatorManagement:
   RestartIntervalHours:
     value: 4
     validate: [1, 24]
+  CrashProtection:
+    type: checkbox
+    value: false
+    option: [true, false]
+  CrashDryRun:
+    type: checkbox
+    value: false
+    option: [true, false]
+  CrashHeartbeatTimeout:
+    value: 5
+    validate: [1, 60]
+  CrashHeartbeatFailures:
+    value: 3
+    validate: [2, 10]
+  CrashConfirmSeconds:
+    value: 60
+    validate: [15, 600]
+  CrashCooldownSeconds:
+    value: 600
+    validate: [60, 3600]
+  CrashMaxRestarts:
+    value: 3
+    validate: [1, 10]
+  CrashRestartWindowHours:
+    value: 6
+    validate: [1, 48]
 EmulatorManager:
   EnableRemoteSSH:
     type: checkbox

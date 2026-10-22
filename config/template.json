@@ -99,7 +99,7 @@
       "ScreenshotLength": 1,
       "GameStuckRestart": false,
       "GameStuckThreshold": 3,
-      "AdbOfflineRestart": false,
+      "AdbOfflineRestart": true,
       "AdbOfflineThreshold": 3,
       "LlmAnalysis": true,
       "LlmApiKey": null,
@@ -153,7 +153,15 @@
     "EmulatorManagement": {
       "ScheduledEmulatorRestart": false,
       "ForceScheduledRestart": false,
-      "RestartIntervalHours": 4
+      "RestartIntervalHours": 4,
+      "CrashProtection": false,
+      "CrashDryRun": false,
+      "CrashHeartbeatTimeout": 5,
+      "CrashHeartbeatFailures": 3,
+      "CrashConfirmSeconds": 60,
+      "CrashCooldownSeconds": 600,
+      "CrashMaxRestarts": 3,
+      "CrashRestartWindowHours": 6
     },
     "Storage": {
       "Storage": {}
