@@ -2423,7 +2423,7 @@
     },
     "DailyMission": {
       "name": "Do Daily Mission",
-      "help": "Feed only once a day until the next server reset, and only the lowest grade food 1000 to ensure the daily mission."
+      "help": "Feed only once a day until the next server reset, and only the lowest grade food 1000 to ensure the daily mission.\nRequires the \"Feed\" switch above to be enabled, otherwise this switch will not feed."
     },
     "DailyMissionRecord": {
       "name": "Daily Mission Feed Record",
