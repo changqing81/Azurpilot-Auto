@@ -122,6 +122,13 @@ class Device(Screenshot, Control, AppControl, Input):
         """
         # 初始化模拟器管理平台
         self._platform = None
+        self.detect_record = set()
+        self.click_record = collections.deque(maxlen=15)
+        self.click_grid_record = collections.deque(maxlen=15)
+        self.stuck_timer = Timer(60, count=60).start()
+        self.stuck_timer_long = Timer(195, count=195).start()
+        self._stuck_image_timer = Timer(30, count=0)
+        self._prev_fingerprint = None
 
         for trial in range(4):
             try:
@@ -355,6 +362,7 @@ class Device(Screenshot, Control, AppControl, Input):
         Returns:
             截图图像，numpy 数组格式。
         """
+        self.check_session()
         self.stuck_record_check()
 
         try:
@@ -370,10 +378,12 @@ class Device(Screenshot, Control, AppControl, Input):
         if self.handle_night_commission():
             super().screenshot()
 
+        self.check_session()
         self._check_image_stuck()
         return self.image
 
     def dump_hierarchy(self) -> etree._Element:
+        self.check_session()
         self.stuck_record_check()
         return super().dump_hierarchy()
 
@@ -434,78 +444,21 @@ class Device(Screenshot, Control, AppControl, Input):
             for timer_obj, limit in overrides:
                 timer_obj.limit = limit
 
-    def _adb_heartbeat_alive(self, timeout=5):
-        """用独立子进程探测 ADB 心跳是否存活。
-
-        与卡死保护模块（`emulator_crash_guard`）使用同一套探测思路：
-        新建 adb 子进程执行 `echo pong`，不复用主线程的 u2/adb 连接池，
-        因此主线程卡在 socket 上时这里依然能拿到真实结果。
-
-        Args:
-            timeout (int): 单次探测超时秒数。
-
-        Returns:
-            bool: 心跳正常返回 True；探测失败或异常返回 False。
-        """
-        import subprocess
-        flags = subprocess.CREATE_NO_WINDOW if IS_WINDOWS else 0
-        try:
-            adb = self.adb_binary
-        except Exception:
-            adb = 'adb'
-        cmd = [adb]
-        serial = getattr(self, 'serial', '')
-        if serial and serial not in ('auto', 'disabled', 'None'):
-            cmd.extend(['-s', str(serial)])
-        cmd.extend(['shell', 'echo', 'pong'])
-        try:
-            result = subprocess.run(
-                cmd, timeout=timeout, capture_output=True,
-                encoding='utf-8', errors='replace', creationflags=flags,
-            )
-        except Exception:
-            return False
-        if result.returncode != 0:
-            return False
-        return 'pong' in ((result.stdout or '') + (result.stderr or ''))
-
     def _check_image_stuck(self):
-        """检查画面是否长时间静止（16×16 指纹不变）。
+        """静止画面只记录诊断，不以单张图像或单次心跳决定重启。
 
-        重要：**画面静止 ≠ 卡死**。游戏大更、跨图加载、网络波动都会让画面
-        短暂静止，此时 ADB 依然完全正常。因此判定前必须做一次 ADB 心跳探测：
-
-        - 心跳正常 → 只是画面没动，抛 GameStuckError（重启游戏即可，轻量恢复）
-        - 心跳不通 → 底层通信已失效，抛 EmulatorNotRunningError（触发模拟器重启）
-
-        这道闸门避免了「大更画面静止 30 秒 × 连续 3 次 → 模拟器被杀」的误杀路径。
+        正常更新、加载和列表扫描都可能长时间静止。业务状态超时仍由
+        stuck_record_check 与任务自己的进展检查负责；通信故障交给独立探针。
         """
+        self.check_session()
         if self.image is None:
             return
-
-        small = cv2.resize(self.image, (16, 16))
-        fp = hash(small.tobytes())
-
-        if self._prev_fingerprint is not None and fp == self._prev_fingerprint:
+        fp = hash(cv2.resize(self.image, (16, 16)).tobytes())
+        if self._prev_fingerprint == fp:
             self._stuck_image_timer.start()
             if self._stuck_image_timer.reached():
-                show_function_call()
-                logger.warning(f'[设备-卡死] 截图超过 {self._stuck_image_timer.limit}s 未变化')
-                self.stuck_record_clear()
-
-                # 防误杀闸门：先确认底层通信是否还活着
-                if not self._adb_heartbeat_alive():
-                    logger.critical(
-                        '[设备-卡死] 画面静止且 ADB 心跳无响应，判定为底层通信失效，'
-                        '将触发模拟器重启'
-                    )
-                    raise EmulatorNotRunningError('[设备-卡死] 画面静止且 ADB 心跳无响应')
-
-                logger.info('[设备-卡死] 画面静止但 ADB 心跳正常，判定为加载中，仅重启游戏')
-                if self.app_is_running():
-                    raise GameStuckError('[设备-卡死] 截图未变化')
-                else:
-                    raise GameNotRunningError('[设备-卡死] 游戏已退出')
+                logger.info('[设备-截图] 画面持续静止，等待业务进展或独立通信检测')
+                self._stuck_image_timer.reset()
         else:
             self._prev_fingerprint = fp
             self._stuck_image_timer.clear()

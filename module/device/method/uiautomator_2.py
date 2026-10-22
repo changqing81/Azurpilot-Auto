@@ -1,5 +1,6 @@
 # 此文件实现了基于 uiautomator2 的设备交互逻辑。
 # 包含截图、模拟点击、长按、滑动、层级提取（dump）等控制移动端设备的核心操作。
+from module.device.session import session_guard
 import base64
 import time
 import typing as t
@@ -155,6 +156,7 @@ class ShellBackgroundResponse:
 
 class Uiautomator2(Connection):
     @retry
+    @session_guard
     def screenshot_uiautomator2(self):
         image = self.u2.screenshot(format='raw')
         # 防止 None/空响应
@@ -176,18 +178,22 @@ class Uiautomator2(Connection):
         return image
 
     @retry
+    @session_guard
     def click_uiautomator2(self, x, y):
         self.u2.click(x, y)
 
     @retry
+    @session_guard
     def long_click_uiautomator2(self, x, y, duration=(1, 1.2)):
         self.u2.long_click(x, y, duration=duration)
 
     @retry
+    @session_guard
     def swipe_uiautomator2(self, p1, p2, duration=0.1):
         self.u2.swipe(*p1, *p2, duration=duration)
 
     @retry
+    @session_guard
     def island_swipe_hold_uiautomator2(self, p1, p2, hold_time):
         points = insert_swipe(p0=p1, p3=p2)
         path = [(x, y, 0.01) for x, y in points]
@@ -198,6 +204,7 @@ class Uiautomator2(Connection):
         self._drag_along(path)
 
     @retry
+    @session_guard
     def _drag_along(self, path):
         """沿路径滑动。
 
@@ -237,6 +244,7 @@ class Uiautomator2(Connection):
                 logger.info(point2str(x, y) + ' 移动')
             self.sleep(second)
 
+    @session_guard
     def drag_uiautomator2(self, p1, p2, segments=1, shake=(0, 15), point_random=(-10, -10, 10, 10),
                           shake_random=(-5, -5, 5, 5), swipe_duration=0.25, shake_duration=0.1,
                           hold_duration=0.0):
@@ -277,6 +285,7 @@ class Uiautomator2(Connection):
         self._drag_along(path)
 
     @retry
+    @session_guard
     def app_current_uiautomator2(self):
         """
         Returns:
@@ -394,6 +403,7 @@ class Uiautomator2(Connection):
 
     # 不使用 @retry 装饰器，因为 _app_start_adb_am 和 _app_start_adb_monkey 已有 @retry
     # @retry
+    @session_guard
     def app_start_uiautomator2(self, package_name=None, activity_name=None, allow_failure=False):
         """
         Args:
@@ -429,12 +439,14 @@ class Uiautomator2(Connection):
         return False
 
     @retry
+    @session_guard
     def app_stop_uiautomator2(self, package_name=None):
         if not package_name:
             package_name = self.package
         self.u2.app_stop(package_name)
 
     @retry
+    @session_guard
     def dump_hierarchy_uiautomator2(self) -> etree._Element:
         content = self.u2.dump_hierarchy(compressed=False)
         # print(content)
@@ -574,6 +586,7 @@ class Uiautomator2(Connection):
         return result
 
     @retry
+    @session_guard
     def u2_shell_background(self, cmdline, timeout=10) -> ShellBackgroundResponse:
         """
         在后台运行命令。
@@ -600,19 +613,24 @@ class Uiautomator2(Connection):
         )
         return resp
 
+    @session_guard
     def u2_set_fastinput_ime(self, enable: bool):
         self.u2.set_fastinput_ime(enable)
 
+    @session_guard
     def u2_current_ime(self):
         return self.u2.current_ime()
 
+    @session_guard
     def u2_send_keys(self, text: str, clear: bool=False):
         self.u2.send_keys(text=text, clear=clear)
 
     # 参考: https://uiautomator2.readthedocs.io/en/latest/api.html#uiautomator2.Session.send_action
+    @session_guard
     def u2_send_action(self, code):
         self.u2.send_action(code=code)
 
+    @session_guard
     def u2_clear_text(self):
         self.u2.clear_text()
 

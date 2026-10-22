@@ -5,18 +5,11 @@
 1. **任务失败跟踪**（``TaskFailureTracker``）：在用户设定的时间窗口内，
    同一错误原因累计达到阈值时，自动关闭该任务并生成通知供 WebUI 弹窗展示。
 
-2. **看门狗**（``Watchdog``）：调度器级守护线程，检测两类卡死并强制恢复：
-   - 日志心跳超时：任务执行期间超过 ``WatchdogLogTimeout`` 秒无任何日志输出，
-     判定主线程卡死在 I/O 调用中（u2 HTTP / ADB shell 挂起）
-   - 任务运行超时：单个任务运行超过 ``WatchdogTaskTimeout`` 分钟，判定任务
-     逻辑死循环（如剧情无法跳过、寻路死循环），此时日志仍在输出但任务无法退出
+2. **看门狗**（``Watchdog``）：记录任务日志静默和运行超时。
+   这些信号不能证明模拟器死亡，不直接关闭模拟器。强制定时维护只提交
+   中断请求，待旧任务退出后交给 EmulatorRecovery 执行。
 
-两类异常的恢复方式相同：强制杀死模拟器进程，使主线程的下次 I/O 调用因
-连接断开而失败并抛出异常，触发正常的异常恢复流程
-（EmulatorNotRunningError → _try_restart_emulator + task_call('Restart')）。
-
-看门狗仅在任务执行阶段激活，空闲等待（wait_until、服务器维护检查）期间
-自动暂停，避免误触发。
+看门狗仅在任务执行期间激活，空闲等待期间暂停。
 
 ``RestartOperationTimeout`` 为 app_stop/app_start 和模拟器启停操作提供
 硬超时保护，防止恢复流程本身卡死（独立于 WatchdogEnable，始终生效）。
@@ -106,16 +99,18 @@ def _parse_iso(s: str) -> Optional[datetime]:
 class _LogHeartbeatHandler(logging.Handler):
     """记录最近一条日志时间戳的日志处理器，供看门狗线程检测主线程卡死。
 
-    任何 logger.info/warning/error 等调用都会更新 last_log_time，
-    包括看门狗自身的日志——这恰好防止看门狗在触发恢复后立即再次触发。
+    只记录创建处理器的任务线程；其它线程的日志不能伪装任务进展。
     """
 
     def __init__(self):
         super().__init__(level=logging.DEBUG)
         self.last_log_time = time.monotonic()
+        self.owner_thread = threading.get_ident()
 
     def emit(self, record):
-        self.last_log_time = time.monotonic()
+        # 后台告警、截图解码与恢复日志不能给任务线程续命。
+        if record.thread == self.owner_thread:
+            self.last_log_time = time.monotonic()
 
 
 def emulator_op_with_timeout(func, *, timeout, operation_name):
@@ -180,7 +175,7 @@ class Watchdog:
     """调度器级看门狗守护线程。
 
     通过日志心跳和任务运行时间两类检测发现主线程卡死或任务死循环，
-    并强制杀死模拟器进程以解除阻塞。持有调度器（alas）实例引用以
+    不据此强制关闭模拟器。持有调度器（alas）实例引用以
     动态读取配置，支持配置热更新。
 
     生命周期：
@@ -269,7 +264,12 @@ class Watchdog:
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join(timeout=5)
+            if self._thread.is_alive():
+                logger.warning('[Watchdog] 检测线程尚未退出，保留线程引用')
+                return
             self._thread = None
+        if self._heartbeat in logger.handlers:
+            logger.removeHandler(self._heartbeat)
         logger.info('[Watchdog] 看门狗已停止')
 
     def activate(self, task_name: str):
@@ -395,79 +395,25 @@ class Watchdog:
                         )
 
     def _recover(self, elapsed, reason='log_timeout', task_name=''):
-        """看门狗恢复动作：强制杀死模拟器进程以解除主线程阻塞。
+        """超时不证明模拟器死亡；维护请求也必须先退出旧任务。
 
-        主线程可能卡在 u2 HTTP 调用、ADB shell、截图等 I/O 操作中，
-        或陷入逻辑死循环（如 story_skip 不断点击但剧情无法跳过）。
-        杀死模拟器进程会同时杀死 atx-agent，使主线程的下次 I/O 调用
-        因连接断开而失败并抛出异常，触发正常的异常恢复流程。
-
-        本方法的日志会更新 last_log_time，防止看门狗在恢复期间重复触发；
-        若主线程仍未恢复，下一个阈值周期后看门狗会再次触发。
-        emulator_stop() 本身也可能卡住（如 psutil 遍历缓慢或 subprocess
-        不返回），因此用 emulator_op_with_timeout 包装，超时后放弃本轮
-        恢复，等待下一个阈值周期重试。
+        本线程不获取启停锁、不调用平台启停，消除获取锁超时后错误释放
+        其它线程锁以及等待旧故障后关闭新实例的竞态。
         """
-        if reason == 'task_timeout':
-            timeout_min = self._get_config_int(
-                'WatchdogTaskTimeout', WATCHDOG_TASK_TIMEOUT_DEFAULT)
-            logger.critical(
-                f'[Watchdog] 任务 `{task_name}` 已运行 {int(elapsed)} 秒'
-                f'（超过 {timeout_min} 分钟），判定逻辑死循环，'
-                f'强制杀死模拟器进程以中断任务'
+        if not self._active or self._stop_event.is_set():
+            return False
+        if reason == 'force_scheduled_restart':
+            accepted = self.alas.recovery.request(
+                f'任务 {task_name} 达到计划重启时间', source=reason,
             )
-        elif reason == 'force_scheduled_restart':
-            logger.critical(
-                f'[Watchdog] 任务 `{task_name}` 执行期间到达计划重启间隔'
-                f'（已持续 {int(elapsed / 3600)} 小时），强制定时重启模拟器'
-            )
-            # 更新重启时间戳，避免恢复后立即重复触发
-            self.alas.last_emulator_restart_time = time.monotonic()
-        else:
-            log_timeout = self._get_config_int(
-                'WatchdogLogTimeout', WATCHDOG_LOG_TIMEOUT_DEFAULT)
-            logger.critical(
-                f'[Watchdog] 任务执行中已 {int(elapsed)} 秒无任何日志输出'
-                f'（超过 {log_timeout} 秒），判定主线程卡死，'
-                f'强制杀死模拟器进程以解除阻塞'
-            )
-
-        try:
-            from module.device.platform import Platform
-            # 加锁防止与主线程 _try_restart_emulator 并发操作模拟器。
-            # 若主线程正在重启模拟器，看门狗等待锁释放后再触发恢复
-            # （此时主线程可能已经处理过该问题，看门狗操作可能因设备
-            # 状态变化快速失败，由外层 except 捕获）。
-            lock = getattr(self.alas, '_emulator_lock', None)
-            if lock is not None:
-                lock.acquire(timeout=RESTART_OPERATION_TIMEOUT + 10)
-                try:
-                    platform = Platform(self.alas.config, connect=False)
-                    emulator_op_with_timeout(
-                        platform.emulator_stop,
-                        timeout=RESTART_OPERATION_TIMEOUT,
-                        operation_name='[Watchdog] 强制停止模拟器',
-                    )
-                finally:
-                    lock.release()
-            else:
-                platform = Platform(self.alas.config, connect=False)
-                emulator_op_with_timeout(
-                    platform.emulator_stop,
-                    timeout=RESTART_OPERATION_TIMEOUT,
-                    operation_name='[Watchdog] 强制停止模拟器',
-                )
-            logger.info(
-                '[Watchdog] 已强制停止模拟器，主线程的下次 I/O 调用将失败并触发恢复'
-            )
-        except EmulatorOpBusy as e:
-            logger.warning(
-                f'[Watchdog] 上一轮模拟器重启仍在进行，本次不再插手：{e}'
-            )
-        except TimeoutError:
-            logger.warning('[Watchdog] 强制停止模拟器超时，等待下个周期重试')
-        except Exception as e:
-            logger.warning(f'[Watchdog] 强制停止模拟器失败: {e}')
+            if accepted:
+                self.alas.last_emulator_restart_time = time.monotonic()
+            return accepted
+        logger.warning(
+            f'[Watchdog] 任务 {task_name} 超时 {int(elapsed)} 秒；'
+            '仅记录诊断，不根据日志静默或任务时长关闭模拟器'
+        )
+        return False
 
 
 class TaskFailureTracker:

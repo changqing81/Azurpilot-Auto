@@ -364,82 +364,24 @@ class TestDeviceAutoStartBusyHandling(unittest.TestCase):
                 Device(Mock())
 
 
-class TestRestartEmulatorBusyHandling(unittest.TestCase):
-    def make_script(self):
+class TestRestartEmulatorDispatch(unittest.TestCase):
+    def test_dispatches_to_shared_coordinator_without_resetting_attempts(self):
+        from module.handler.emulator_recovery import EmulatorRecovery
+        script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
+        script.consecutive_adb_offline = 2
+        script._last_task_error = 'EmulatorNotRunningError'
+        with patch.object(EmulatorRecovery, 'restart', autospec=True, return_value=True) as restart:
+            self.assertTrue(script._try_restart_emulator())
+        self.assertEqual(script.consecutive_adb_offline, 3)
+        self.assertEqual(restart.call_args.args[1], 'offline')
+
+    def test_scheduled_restart_uses_explicit_source(self):
+        from module.handler.emulator_recovery import EmulatorRecovery
         script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
         script.consecutive_adb_offline = 0
-        script.config = Mock()
-        script.config.Error_AdbOfflineThreshold = 3
-        # 本地 _try_restart_emulator 用实例锁串行化启停（__init__ 里创建，
-        # __new__ 构造的对象需要自己补上）
-        script._emulator_lock = threading.Lock()
-        return script
-
-    def test_gives_up_round_when_stop_is_busy(self):
-        """上一轮启动仍在进行时，本轮不能去 stop——那正是打断启动的元凶。"""
-        script = self.make_script()
-        device = Mock()
-        device.emulator_stop.side_effect = EmulatorOpBusy('busy')
-        script.__dict__['device'] = device
-
-        self.assertFalse(script._try_restart_emulator())
-        device.emulator_start.assert_not_called()
-
-    def test_gives_up_round_when_start_is_busy(self):
-        script = self.make_script()
-        device = Mock()
-        device.emulator_start.side_effect = EmulatorOpBusy('busy')
-        script.__dict__['device'] = device
-
-        self.assertFalse(script._try_restart_emulator())
-        device.emulator_stop.assert_called_once()
-
-    def test_returns_true_and_resets_counter_when_restart_succeeds(self):
-        script = self.make_script()
-        script.consecutive_adb_offline = 2
-        script.__dict__['device'] = Mock()
-
-        # 重启后新增了「等待 ADB 与游戏就绪」环节（_wait_adb_ready_after_restart），
-        # 它会真实探测 ADB；单测里没有真设备，必须 mock 成成功。
-        # 同时 patch 掉 stop 与 start 之间的固定 sleep(5)，避免拖慢测试。
-        with (
-            patch.object(script, '_wait_adb_ready_after_restart', return_value=True),
-            patch('alas.time.sleep'),
-        ):
-            self.assertTrue(script._try_restart_emulator())
-        self.assertEqual(0, script.consecutive_adb_offline)
-
-    def test_returns_false_when_adb_not_ready_after_start(self):
-        """模拟器启动命令成功但 ADB 未就绪时，重启必须判定为失败。
-
-        回归自本次改造前的缺陷：旧代码发出启动命令就 return True 并清零计数，
-        导致「启动失败 → 判定成功 → 清零 → 下次再失败」的重启风暴。
-        """
-        script = self.make_script()
-        script.consecutive_adb_offline = 2
-        script.__dict__['device'] = Mock()
-
-        with (
-            patch.object(script, '_wait_adb_ready_after_restart', return_value=False),
-            patch('alas.time.sleep'),
-        ):
-            self.assertFalse(script._try_restart_emulator())
-        # 关键：未就绪时不能清零计数，否则永远撞不到上限。
-        # 注意 _try_restart_emulator 入口会先 +1，所以从 2 变成 3。
-        self.assertEqual(3, script.consecutive_adb_offline)
-
-    def test_returns_false_when_platform_reports_start_failure(self):
-        """平台层报告启动失败（返回 False）时，重启必须判定为失败。"""
-        script = self.make_script()
-        script.consecutive_adb_offline = 1
-        device = Mock()
-        device.emulator_start = Mock(return_value=False)
-        script.__dict__['device'] = device
-
-        with patch('alas.time.sleep'):
-            self.assertFalse(script._try_restart_emulator())
-        # 入口 +1：1 → 2，且失败时不能清零
-        self.assertEqual(2, script.consecutive_adb_offline)
+        with patch.object(EmulatorRecovery, 'restart', autospec=True, return_value=False) as restart:
+            self.assertFalse(script._try_restart_emulator(source='scheduled'))
+        self.assertEqual(restart.call_args.args[1], 'scheduled')
 
 
 if __name__ == '__main__':

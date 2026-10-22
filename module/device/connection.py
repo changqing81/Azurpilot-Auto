@@ -1,6 +1,7 @@
 """ADB 连接管理层。封装 adbutils 进行设备连接、端口转发、Shell 命令执行，
 处理连接重试、错误恢复和设备序列号管理。"""
 
+from module.device.session import session_guard
 import ipaddress
 import json
 import logging
@@ -147,6 +148,7 @@ class Connection(ConnectionAttr):
         self.check_mumu_app_keep_alive()
 
     @Config.when(DEVICE_OVER_HTTP=False)
+    @session_guard
     def adb_command(self, cmd, timeout=10):
         """在子进程中执行 ADB 命令，通常用于拉取或推送大文件。
 
@@ -183,6 +185,7 @@ class Connection(ConnectionAttr):
         return stdout
 
     @Config.when(DEVICE_OVER_HTTP=True)
+    @session_guard
     def adb_command(self, cmd, timeout=10):
         logger.critical(
             f'[设备-连接] 尝试执行 {cmd}, '
@@ -190,6 +193,7 @@ class Connection(ConnectionAttr):
         )
         raise RequestHumanTakeover
 
+    @session_guard
     def adb_start_server(self):
         """启动 ADB 服务。
 
@@ -201,6 +205,7 @@ class Connection(ConnectionAttr):
         return stdout
 
     @Config.when(DEVICE_OVER_HTTP=False)
+    @session_guard
     def adb_shell(self, cmd, stream=False, recvall=True, timeout=10, rstrip=True):
         """执行 ADB shell 命令，等价于 `adb -s <serial> shell <*cmd>`。
 
@@ -221,11 +226,19 @@ class Connection(ConnectionAttr):
 
         if stream:
             result = self.adb.shell(cmd, stream=stream, timeout=timeout, rstrip=rstrip)
-            if recvall:
-                try:
-                    # 返回 bytes
-                    return recv_all(result)
-                finally:
+            self._recovery_adb_stream = result
+            keep_stream = False
+            try:
+                self.check_session()
+                if recvall:
+                    # 总期限防止持续收到少量数据而永久不超时。
+                    return recv_all(result, timeout=timeout)
+                keep_stream = True
+                return result
+            finally:
+                # 连接建立期间可能已经失效；新返回的流也必须关闭。
+                if not keep_stream:
+                    self.__dict__.pop('_recovery_adb_stream', None)
                     try:
                         if hasattr(result, 'close'):
                             result.close()
@@ -233,9 +246,6 @@ class Connection(ConnectionAttr):
                             result.conn.close()
                     except Exception:
                         pass
-            else:
-                # 返回 socket
-                return result
         else:
             result = self.adb.shell(cmd, stream=stream, timeout=timeout, rstrip=rstrip)
             result = remove_shell_warning(result)
@@ -243,6 +253,7 @@ class Connection(ConnectionAttr):
             return result
 
     @Config.when(DEVICE_OVER_HTTP=True)
+    @session_guard
     def adb_shell(self, cmd, stream=False, recvall=True, timeout=10, rstrip=True):
         """通过 HTTP 执行 shell 命令，等价于 http://127.0.0.1:7912/shell?command={command}。
 
@@ -604,6 +615,7 @@ class Connection(ConnectionAttr):
         cmd.insert(0, 'exec-out')
         return self.adb_command(cmd, serial)
 
+    @session_guard
     def adb_forward(self, remote):
         """执行 `adb forward <local> <remote>`。
 
@@ -640,6 +652,7 @@ class Connection(ConnectionAttr):
             forward = ForwardItem(self.serial, f'tcp:{port}', remote)
             logger.info(f'[设备-连接] 创建端口转发: {forward}')
             self.adb.forward(forward.local, forward.remote)
+            self.__dict__.setdefault('_owned_adb_forwards', set()).add(forward.local)
             return port
 
     def _adb_reverse_transport(self, remote: str, local: str, norebind: bool = False):
@@ -658,6 +671,7 @@ class Connection(ConnectionAttr):
             c.send_command(cmd)
             c.check_okay()
 
+    @session_guard
     def adb_reverse(self, remote):
         port = 0
         for reverse in self.adb.reverse_list():
@@ -677,8 +691,10 @@ class Connection(ConnectionAttr):
             reverse = ReverseItem(remote, f'tcp:{port}')
             logger.info(f'[设备-连接] 创建反向代理: {reverse}')
             self._adb_reverse_transport(reverse.remote, reverse.local)
+            self.__dict__.setdefault('_owned_adb_reverses', set()).add(reverse.remote)
             return port
 
+    @session_guard
     def adb_forward_remove(self, local):
         """移除 ADB 端口转发，等价于 `adb -s <serial> forward --remove <local>`。
 
@@ -704,6 +720,7 @@ class Connection(ConnectionAttr):
             else:
                 raise
 
+    @session_guard
     def adb_reverse_remove(self, local):
         """移除 ADB reverse 转发，等价于 `adb -s <serial> reverse --remove <local>`。
 
@@ -775,6 +792,7 @@ class Connection(ConnectionAttr):
         return False
 
     @Config.when(DEVICE_OVER_HTTP=False)
+    @session_guard
     def adb_connect(self, wait_device=True):
         """连接到指定序列号的设备，最多尝试 3 次。
 
@@ -911,6 +929,7 @@ class Connection(ConnectionAttr):
         return True
 
     @Config.when(DEVICE_OVER_HTTP=True)
+    @session_guard
     def adb_connect(self, wait_device=True):
         # 通过 HTTP 连接时不需要 adb connect
         return True
@@ -922,12 +941,14 @@ class Connection(ConnectionAttr):
         del_cached_property(self, '_maatouch_builder')
         del_cached_property(self, 'reverse_server')
 
+    @session_guard
     def adb_disconnect(self):
         msg = self.adb_client.disconnect(self.serial)
         if msg:
             logger.info(msg)
         self.release_resource()
 
+    @session_guard
     def adb_restart(self):
         """重启 ADB 客户端。"""
         logger.info('[设备-连接] 重启ADB')
@@ -939,6 +960,7 @@ class Connection(ConnectionAttr):
         _ = self.adb_client
 
     @Config.when(DEVICE_OVER_HTTP=False)
+    @session_guard
     def adb_reconnect(self):
         """重新连接 ADB 设备。
 
@@ -956,12 +978,14 @@ class Connection(ConnectionAttr):
             self.detect_device()
 
     @Config.when(DEVICE_OVER_HTTP=True)
+    @session_guard
     def adb_reconnect(self):
         logger.warning(
             f'[设备-连接] 通过HTTP连接设备: {self.serial}，'
             f'跳过 adb_reconnect()，您可能需要手动重启ATX'
         )
 
+    @session_guard
     def install_uiautomator2(self):
         """初始化 uiautomator2 并移除 minicap。"""
         logger.info('[设备-连接] 安装uiautomator2')
@@ -984,6 +1008,7 @@ class Connection(ConnectionAttr):
         self.adb_shell(["rm", "/data/local/tmp/minicap.so"])
 
     @Config.when(DEVICE_OVER_HTTP=False)
+    @session_guard
     def restart_atx(self):
         """重启 ATX 服务。
 
@@ -995,6 +1020,7 @@ class Connection(ConnectionAttr):
         self.adb_shell([atx_agent_path, 'server', '--nouia', '-d', '--addr', '127.0.0.1:7912'])
 
     @Config.when(DEVICE_OVER_HTTP=True)
+    @session_guard
     def restart_atx(self):
         logger.warning(
             f'[设备-连接] 通过HTTP连接设备: {self.serial}，'

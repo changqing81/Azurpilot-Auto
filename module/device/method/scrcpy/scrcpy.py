@@ -1,6 +1,7 @@
 """Scrcpy 截图和控制后端。整合 ScrcpyCore 和 ControlSender，
 提供带重试的截图捕获、触摸点击和滑动操作。"""
 
+from module.device.session import session_guard
 import socket
 import time
 from functools import wraps
@@ -97,6 +98,7 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
                 self.resolution_check_uiautomator2()
 
     @retry
+    @session_guard
     def screenshot_scrcpy(self):
         self._scrcpy_resolution_check()
         self.scrcpy_ensure_running()
@@ -115,6 +117,7 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
                     return screenshot
 
     @retry
+    @session_guard
     def click_scrcpy(self, x, y):
         self.scrcpy_ensure_running()
 
@@ -124,6 +127,7 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
             self.sleep(0.05)
 
     @retry
+    @session_guard
     def long_click_scrcpy(self, x, y, duration=1.0):
         self.scrcpy_ensure_running()
 
@@ -134,6 +138,7 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
             self.sleep(0.05)
 
     @retry
+    @session_guard
     def swipe_scrcpy(self, p1, p2):
         self.scrcpy_ensure_running()
 
@@ -152,6 +157,7 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
             self.sleep(0.05)
 
     @retry
+    @session_guard
     def drag_scrcpy(self, p1, p2, point_random=(-10, -10, 10, 10), hold_duration=0.0):
         self.scrcpy_ensure_running()
 
@@ -187,6 +193,7 @@ class Scrcpy(ScrcpyCore, Uiautomator2):
             self.sleep(0.05)
 
     @retry
+    @session_guard
     def island_swipe_hold_scrcpy(self, p1, p2, hold_time):
         self.scrcpy_ensure_running()
 
