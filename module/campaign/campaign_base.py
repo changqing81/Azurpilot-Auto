@@ -14,7 +14,7 @@
 from module.base.decorator import Config, cached_property
 from module.campaign.campaign_ui import CampaignUI
 from module.combat.auto_search_combat import AutoSearchCombat
-from module.exception import CampaignEnd, MapEnemyMoved, ScriptError
+from module.exception import CampaignEnd, MapEnemyMoved, ScriptEnd, ScriptError
 from module.logger import logger
 from module.map.map import Map
 from module.map.map_base import CampaignMap
@@ -215,15 +215,31 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
         """
         logger.hr(self.ENTRANCE, level=2)
 
-        # 进入地图
-        self.map_get_info()
-        logger.attr('地图战斗次数', self._map_battle)
-        self.emotion.check_reduce(self._map_battle)
-        self.ENTRANCE.area = self.ENTRANCE.button
-        self.enter_map(self.ENTRANCE, mode=self.config.Campaign_Mode)
+        # 来源：3e9407a7。续接保留原地图、舰队和计数，不重复执行入场。
+        resume = self.__dict__.pop('_resume_after_restart', False)
+        if not resume:
+            self._recovery_map_active = False
+            self._recovery_map_generation = self.__dict__.get('_recovery_map_generation', 0) + 1
+            self._restart_resume_guard = False
+            self._restart_stop_requested = False
+            self.map_get_info()
+            logger.attr('地图战斗次数', self._map_battle)
+            self.emotion.check_reduce(self._map_battle)
+            self.ENTRANCE.area = self.ENTRANCE.button
+            self.enter_map(self.ENTRANCE, mode=self.config.Campaign_Mode)
 
         # 地图初始化
-        if not self.map_is_auto_search:
+        if resume:
+            logger.info('[战役续接] 保留舰队、等级和战斗次数，继续原关卡')
+            if self.__dict__.get('_restart_stop_requested', False):
+                try:
+                    self.withdraw_after_restart()
+                except CampaignEnd:
+                    pass
+                self._recovery_map_active = False
+                self._restart_resume_guard = False
+                raise ScriptEnd('[战役续接] 原有停止条件已触发')
+        elif not self.map_is_auto_search:
             self.handle_map_fleet_lock()
             self.map_init(self.MAP)
         else:
@@ -241,6 +257,8 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
                 else:
                     self.auto_search_execute_a_battle()
             except CampaignEnd:
+                self._recovery_map_active = False
+                self._restart_resume_guard = False
                 logger.hr('战役结束')
                 return True
 
@@ -301,6 +319,7 @@ class CampaignBase(CampaignUI, Map, AutoSearchCombat):
         战斗完成后自动递增 battle_count。
         """
         logger.hr(f'{self.FUNCTION_NAME_BASE}{self.battle_count}', level=2)
+        self._recovery_map_active = True
         self.auto_search_moving()
         self.auto_search_combat(fleet_index=self.fleet_show_index,
                                 battle=(self.battle_count, self._map_battle))

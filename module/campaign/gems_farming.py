@@ -1117,7 +1117,8 @@ class GemsFarming(FleetMemoryMixin, CampaignRun, FleetEquipment, GemsEquipmentHa
             mode (str): `normal` 或 `hard`。
             total (int): 总运行次数限制。
         """
-        initial_check = self._init_fleet_memory()
+        # 来源：3e9407a7。续接时保留换船状态，不重新启动首轮舰队检查。
+        initial_check = False if self.__dict__.get('_resume_campaign_run', False) else self._init_fleet_memory()
         try:
             self._run(name=name, folder=folder, mode=mode, total=total, initial_check=initial_check)
         finally:
@@ -1136,7 +1137,8 @@ class GemsFarming(FleetMemoryMixin, CampaignRun, FleetEquipment, GemsEquipmentHa
         """
         self.config.STOP_IF_REACH_LV32 = self.change_flagship and not self.config.GemsFarming_AllowHighFlagshipLevel
         while 1:
-            self._trigger_lv32 = initial_check
+            if not self.__dict__.get('_resume_campaign_run', False):
+                self._trigger_lv32 = initial_check
             initial_check = False
             is_limit = self.config.StopCondition_RunCount
             try:

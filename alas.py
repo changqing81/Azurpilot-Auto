@@ -522,6 +522,13 @@ class AzurLaneAutoScript:
                 False — 不可恢复的失败，计入连续失败限制。
                 'recoverable' — 可恢复的失败，不计入连续失败限制。
         """
+        from module.campaign.recovery import campaign_recovery_scope
+        command = inflection.underscore(command)
+        recovery = self.__dict__.get('_campaign_recovery')
+        if recovery is not None and command not in (
+                'restart', inflection.underscore(recovery.runner.config.task.command)):
+            logger.info('[战役续接] 已切换任务，丢弃原关卡凭据')
+            self._campaign_recovery = None
         try:
             with self.recovery.task_scope():
                 # Restart 的职责就是把游戏从“未运行/未出首帧”恢复起来。
@@ -530,14 +537,28 @@ class AzurLaneAutoScript:
                 if not skip_first_screenshot and command != 'restart':
                     self.device.screenshot()
                 # 游戏重启后悬浮球会再次显示，重置会话标志
-                if command == 'Restart':
+                if command == 'restart':
                     logger.info('[Alas] 游戏重启，重置渠道服悬浮球处理状态')
                     self._channel_float_done = False
                 # 渠道服悬浮球：调度器启动/游戏重启后仅处理一次（主界面时）
                 # getattr 兜底：测试等场景可能绕过 __init__ 创建实例
-                if not getattr(self, '_channel_float_done', False):
+                recovery = self.__dict__.get('_campaign_recovery')
+                resuming = (recovery is not None and command != 'restart'
+                            and recovery.ready and recovery.matches(self.config))
+                if command != 'restart' and not resuming and not getattr(self, '_channel_float_done', False):
                     self.handle_channel_float()
-                self.__getattribute__(command)()
+                # 来源：3e9407a7。断点只在原任务内消费，异常仍交给本地恢复协调器。
+                with campaign_recovery_scope(self):
+                    if command != 'restart':
+                        self._campaign_recovery = None
+                    if resuming:
+                        self._resuming_campaign_recovery = recovery
+                        try:
+                            recovery.resume(self.config, self.device)
+                        finally:
+                            self._resuming_campaign_recovery = None
+                    else:
+                        self.__getattribute__(command)()
                 self._last_task_error = None
                 return True
         except MindCalculatorScanError as e:
@@ -1001,14 +1022,26 @@ class AzurLaneAutoScript:
         if self.delay_due_restart():
             # 延迟期间不计为失败，正常返回成功
             return True
+        login = LoginHandler(self.config, device=self.device)
+        recovery = self.__dict__.get('_campaign_recovery')
+        if recovery is not None and (recovery.ready or recovery.restart_attempts >= recovery.MAX_ATTEMPTS
+                                    or not recovery.matches(self.config, task=recovery.runner.config.task.command)):
+            self._campaign_recovery = None
+            recovery = None
+        if recovery is not None:
+            recovery.restart_attempts += 1
+            recovery.bind_device(self.device)
+            login.campaign_recovery_check = recovery.runner.campaign.auto_search_recovery_state
         try:
-            LoginHandler(self.config, device=self.device).app_restart()
+            login.app_restart()
         except Exception:
             # app_restart 异常时清理延迟标记，避免 PrivateQuarters 等模块
             # 误判仍在延迟窗口内而推迟执行
             self.restart_delay_until = None
             raise
         else:
+            if recovery is not None:
+                recovery.ready = True
             # 重启成功后清除延迟标记
             self.restart_delay_until = None
             self.delay_next_restart()

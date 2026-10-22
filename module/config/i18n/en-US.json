@@ -1409,6 +1409,10 @@
       "name": "Use Auto-Search",
       "help": ""
     },
+    "ContinueAfterRestart": {
+      "name": "Continue after an abnormal restart",
+      "help": "Disabled by default. After a successful restart in the same script process, resume the confirmed map with clearing mode and auto search enabled. Fall back after settings or task changes, 10 minutes, or 3 recovery attempts. Battles and results are not resumed directly."
+    },
     "Use2xBook": {
       "name": "Use High Efficiency Combat Manual",
       "help": "Double oil consumption, double drop settlement"

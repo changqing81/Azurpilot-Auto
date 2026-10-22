@@ -137,6 +137,12 @@ class LoginHandler(UI):
 
             self.device.screenshot()
 
+            # 来源：3e9407a7。仅异常重启凭据可把已确认的地图交回原任务。
+            recovery_check = self.__dict__.get('campaign_recovery_check')
+            if recovery_check is not None and recovery_check() is not None:
+                logger.info('[登录] 检测到原地图，交回原任务恢复自律')
+                break
+
             # 渠道服启动悬浮球处理：先像素检测再拖拽，无球时不产生任何输入
             if self._channel_float_enabled() and (
                     self._channel_float_attempts < CHANNEL_FLOAT_MAX_ATTEMPTS

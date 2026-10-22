@@ -492,6 +492,22 @@ class CampaignRun(CampaignEvent, ShopStatus):
             self.config.task_stop('Commission notice found')
 
     def run(self, name, folder='campaign_main', mode='normal', total=0):
+        """保存可恢复的内层出击参数；来源：3e9407a7，适配本地外层任务。"""
+        from module.campaign.recovery import CAMPAIGN_RESTART_ERRORS, capture_campaign_recovery
+
+        resume = self.__dict__.pop('_resume_campaign_run', False)
+        expected = self.__dict__.pop('_resume_campaign_kwargs', None)
+        kwargs = dict(name=name, folder=folder, mode=mode, total=total)
+        if expected is not None and expected != kwargs:
+            self.config.task_stop('任务入口已切换关卡，停止使用原续接断点')
+        try:
+            return self._run_campaign_loop(**kwargs, resume=resume)
+        except CAMPAIGN_RESTART_ERRORS:
+            if getattr(self, 'campaign', None) is not None:
+                capture_campaign_recovery(self, kwargs)
+            raise
+
+    def _run_campaign_loop(self, name, folder='campaign_main', mode='normal', total=0, resume=False):
         """
         运行战役任务。
 
@@ -501,11 +517,15 @@ class CampaignRun(CampaignEvent, ShopStatus):
             mode (str): `normal` 或 `hard`。
             total (int): 总运行次数限制。
         """
-        name, folder = self.handle_stage_name(name, folder, mode=mode)
-        self.config.override(Campaign_Name=name, Campaign_Event=folder)
-        self.load_campaign(name, folder=folder)
-        self.run_count = 0
-        self.run_limit = self.config.StopCondition_RunCount
+        if resume:
+            name, folder = self.name, self.folder
+        else:
+            name, folder = self.handle_stage_name(name, folder, mode=mode)
+            self.config.override(Campaign_Name=name, Campaign_Event=folder)
+            self.load_campaign(name, folder=folder)
+            self.run_count = 0
+            self.run_limit = self.config.StopCondition_RunCount
+        resume_map = resume and self.__dict__.pop('_resume_map', False)
         while 1:
             # 结束条件
             if total and self.run_count >= total:
@@ -526,7 +546,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
             if not self.device.has_cached_image:
                 self.device.screenshot()
             self.campaign.device.image = self.device.image
-            if self.campaign.is_in_map():
+            if resume_map:
+                logger.info('[战役续接] 跳过选关与入场，恢复原战役状态循环')
+            elif self.campaign.is_in_map():
                 logger.info('[战役] 已在地图中，执行撤退。')
                 try:
                     self.campaign.withdraw()
@@ -543,11 +565,12 @@ class CampaignRun(CampaignEvent, ShopStatus):
             else:
                 self.campaign.ensure_campaign_ui(name=self.stage, mode=mode)
             self.config.override(Campaign_Mode=self.campaign.config.Campaign_Mode)
-            self.disable_raid_on_event()
-            self.handle_commission_notice()
+            if not resume_map:
+                self.disable_raid_on_event()
+                self.handle_commission_notice()
 
             # 如果在困难模式，检查剩余次数
-            if self.ui_page_appear(page_campaign) and MODE_SWITCH_1.get(main=self) == 'normal':
+            if not resume_map and self.ui_page_appear(page_campaign) and MODE_SWITCH_1.get(main=self) == 'normal':
                 from module.hard.hard import OCR_HARD_REMAIN
                 remain = OCR_HARD_REMAIN.ocr(self.device.image)
                 if not remain:
@@ -556,8 +579,10 @@ class CampaignRun(CampaignEvent, ShopStatus):
                     break
 
             # 结束条件
-            if self.triggered_stop_condition(oil_check=not self.campaign.is_in_auto_search_menu()):
-                break
+            if self.triggered_stop_condition(oil_check=not resume_map and not self.campaign.is_in_auto_search_menu()):
+                if not resume_map:
+                    break
+                self.campaign._restart_stop_requested = True
 
             # 更新配置
             if len(self.config.modified):
@@ -568,6 +593,8 @@ class CampaignRun(CampaignEvent, ShopStatus):
             self.device.stuck_record_clear()
             self.device.click_record_clear()
             try:
+                self.campaign._resume_after_restart = resume_map
+                resume_map = False
                 self.campaign.run()
             except ScriptEnd as e:
                 logger.hr('脚本结束')

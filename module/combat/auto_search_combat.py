@@ -18,6 +18,7 @@ from module.base.timer import Timer
 from module.campaign.campaign_status import CampaignStatus
 from module.combat.assets import *
 from module.combat.combat import Combat
+from module.combat.auto_search_recovery import AutoSearchRecovery
 from module.exception import CampaignEnd, GameStuckError, ScriptEnd
 from module.handler.assets import AUTO_SEARCH_MAP_OPTION_ON, GET_MISSION
 from module.logger import logger
@@ -25,7 +26,7 @@ from module.map.assets import WITHDRAW, SWITCH_OVER, FLEET_WITHDRAW, FLEET_SWITC
 from module.map.map_operation import MapOperation
 
 
-class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
+class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus):
     """自动搜索战斗执行器。
 
     在通关模式下编排自动搜索战斗流程，处理各种战斗异常和停止条件。
@@ -87,7 +88,8 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
             # Auto search icon shows it's running but it's doing nothing
             # when Alas exited from retirement and turned it on immediately.
             # Monkey clicker, disable auto search every 3s, beginning not included
-            if self.appear(AUTO_SEARCH_MAP_OPTION_ON, offset=self._auto_search_offset, interval=3) \
+            if not self.__dict__.get('_restart_resume_guard', False) \
+                    and self.appear(AUTO_SEARCH_MAP_OPTION_ON, offset=self._auto_search_offset, interval=3) \
                     and self.appear_then_click(AUTO_SEARCH_MAP_OPTION_ON):
                 continue
             if self.handle_combat_low_emotion():
@@ -288,6 +290,7 @@ class AutoSearchCombat(MapOperation, Combat, CampaignStatus):
                 break
 
         logger.info('[自动搜索-战斗] 战斗执行')
+        self._restart_resume_guard = False
         self.submarine_call_reset()
         submarine_mode = 'do_not_use'
         if self.config.Submarine_Fleet:

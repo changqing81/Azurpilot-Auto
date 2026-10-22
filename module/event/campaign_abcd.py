@@ -35,6 +35,8 @@ class CampaignABCD(EventBase):
 
         流程：扫描活动目录 → 过滤关卡 → 从上次进度继续 → 依次执行 → 延迟到次日。
         """
+        # 来源：3e9407a7。跨每日刷新也先完成断点所属的原关卡。
+        resume_stage = self.name if self.__dict__.get('_resume_campaign_run', False) else None
         # 扫描活动目录下的所有地图文件
         stages = [EventStage(file) for file in os.listdir(f'./campaign/{self.config.Campaign_Event}')]
         stages = self.convert_stages(stages)
@@ -65,6 +67,11 @@ class CampaignABCD(EventBase):
                 logger.attr('过滤排序', ' > '.join(stages))
             else:
                 logger.info('从头开始')
+
+        if resume_stage is not None:
+            if resume_stage not in stages:
+                self.config.task_stop('原关卡已不在活动每日过滤器中，停止续接')
+            stages = stages[stages.index(resume_stage):]
 
         # 依次执行每个关卡
         for stage in stages:
