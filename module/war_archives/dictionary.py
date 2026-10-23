@@ -53,4 +53,7 @@ dic_archives_template = {
     'war_archives_20230803_cn': TEMPLATE_ANTHEM_OF_REMEMBRANCE,
     'war_archives_20230525_cn': TEMPLATE_CONFLUENCE_OF_NOTHINGNESS,
     'war_archives_20240725_cn': TEMPLATE_INTERLUDE_OF_ILLUSIONS,
+    # 借鉴 wess09/AzurPilot bd3926de2（合并 Lme master）：新增两个作战档案。
+    'war_archives_20241024_cn': TEMPLATE_TEMPESTA_AND_THE_SLEEPING_SEA,
+    'war_archives_20251023_cn': TEMPLATE_TEMPESTA_AND_ISLAS_DE_LIBERTAD,
 }

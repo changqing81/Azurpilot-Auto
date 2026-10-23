@@ -23,7 +23,6 @@ from unittest.mock import Mock
 
 from campaign.event_20261022_cn import sp, t1
 from module.config.config import AzurLaneConfig
-from module.exception import CampaignNameError
 
 
 EVENT = 'event_20261022_cn'
@@ -85,28 +84,32 @@ class WindFogCorridorTests(unittest.TestCase):
         self.assertTrue(campaign.config.MAP_IS_ONE_TIME_STAGE)
         self.assertFalse(campaign.config.MAP_HAS_MODE_SWITCH)
 
-    def test_invalid_t_stage_does_not_navigate(self):
-        campaign = make_campaign()
-        with self.assertRaises(CampaignNameError):
-            campaign.campaign_set_chapter('t7')
-        for name in NAV_METHODS:
-            getattr(campaign, name).assert_not_called()
-        campaign.device.click.assert_not_called()
+    def test_invalid_t_stage_falls_back_to_warning_branch(self):
+        """上游 bd3926de2（Lme 实现）对未知关卡改为 warning，不再抛 CampaignNameError。
 
-    def test_sp_initialization_restores_only_fixed_sirens_each_sortie(self):
-        """SP 的 type=98 敌人没有精英图标，按 Lua 固定出生格初始化。"""
+        真实行为：chapter=='t' 先无条件进入活动页（ui_goto_sp + combat 模式），
+        stage 不在 1~6 时不再切侧边栏，只记 warning。锚定「不切侧边栏」这一
+        关键外部可见行为，防止把 warning 分支误改成抛异常或误切分区。
+        """
+        campaign = make_campaign()
+        campaign.campaign_set_chapter('t7')
+        campaign.ui_goto_sp.assert_called_once()
+        campaign.campaign_ensure_mode_20241219.assert_called_once_with('combat')
+        # 无效关卡不得切换侧边栏，但章节仍切到 T（stage 无效由 warning 兜底）
+        campaign.campaign_ensure_aside_20241219.assert_not_called()
+        campaign.campaign_ensure_chapter.assert_called_once_with('t')
+
+    def test_sp_uses_siren_template_not_fixed_spawn(self):
+        """上游 bd3926de2（Lme 实现）改用 TempestaGhostBoss02 模板识别 SP 塞壬。
+
+        旧 83d0c31e 实现按 Lua 固定出生格把 may_siren 标成 is_siren；
+        上游最终态改为模板匹配，因此这里断言模板配置与不可移动敌人生效。
+        """
         campaign = make_campaign(sp)
-        map_ = copy.deepcopy(sp.MAP)
-        expected = {(3, 1), (2, 2), (1, 3)}
-        for _ in range(2):
-            campaign.map_data_init(map_)
-            self.assertEqual(
-                {grid.location for grid in map_.select(may_siren=True)},
-                expected,
-            )
+        self.assertEqual(campaign.config.MAP_SIREN_TEMPLATE, ['TempestaGhostBoss02'])
         self.assertFalse(campaign.config.MAP_HAS_MOVABLE_ENEMY)
         self.assertFalse(campaign.config.MAP_SIREN_HAS_BOSS_ICON_SMALL)
-        self.assertEqual(campaign.config.MAP_SIREN_TEMPLATE, [])
+        self.assertTrue(campaign.config.MAP_IS_ONE_TIME_STAGE)
 
     def test_registered_event_uses_shared_directory_for_cn_en_jp(self):
         args = json.loads(

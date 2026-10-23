@@ -51,8 +51,11 @@ class EventStory(CampaignUI, Combat, LoginHandler):
             str: 'finish'（已完成）、'story'（有可进入的剧情）、'unknown'（未检测到剧情入口）
         """
         event = self.config.cross_get('Event.Campaign.Event', '')
+        # 借鉴 wess09/AzurPilot bd3926de2（合并 Lme master，提交 de881fa33）：
+        # 飓风与雾霭回廊同为 SP 活动布局，剧情入口在 page_sp 页面。
         if event in [
             'event_20251023_cn',
+            'event_20261022_cn',
         ]:
             # SP 活动使用 page_sp 页面
             self.ui_ensure(page_sp)

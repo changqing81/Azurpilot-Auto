@@ -336,6 +336,10 @@ class CampaignRun(CampaignEvent, ShopStatus):
             'war_archives_20230525_cn',
             'war_archives_20231026_cn',
             'war_archives_20240725_cn',
+            # 借鉴 wess09/AzurPilot bd3926de2（合并 Lme master）：两个新作战档案
+            # 同样以 A1~A6 / SP1~SP6 作为 T1~T6 的别名。
+            'war_archives_20241024_cn',
+            'war_archives_20251023_cn',
         ]:
             name = convert.get(name, name)
         # 在 A/B/C/D 和 T/HT 之间转换
@@ -378,6 +382,9 @@ class CampaignRun(CampaignEvent, ShopStatus):
             'war_archives_20230525_cn',
             'war_archives_20231026_cn',
             'war_archives_20240725_cn',
+            # 借鉴 wess09/AzurPilot bd3926de2（合并 Lme master）：同属 T/HT 章节体系。
+            'war_archives_20241024_cn',
+            'war_archives_20251023_cn',
         ]:
             name = convert.get(name, name)
         else:

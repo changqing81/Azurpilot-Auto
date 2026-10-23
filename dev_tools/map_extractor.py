@@ -337,6 +337,10 @@ DIC_SIREN_NAME_CHI_TO_ENG = {
     'haorenlichade_m_zhanlie': 'BonhommeRichard_BB',
     'haorenlichade_m_hangmu': 'BonhommeRichard_CV',
     'haorenlichade_m_qianting': 'BonhommeRichard_SS',
+
+    # 借鉴 wess09/AzurPilot bd3926de2（合并 Lme master）：
+    # 飓风与雾霭回廊的 type=98 塞壬 Boss 立绘映射。
+    'fengfan_lingti_boss02': 'TempestaGhostBoss02'
 }
 
 
