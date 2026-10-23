@@ -2460,6 +2460,7 @@
       "UseGems": false,
       "Refresh": false,
       "BuySkinBox": false,
+      "SkinBoxBuyCounts": "1.1.1.1.1.1.1.1.1.1",
       "ConsumeCoins": 0,
       "OverflowCoins": 0,
       "Filter": "BookRedT3 > BookYellowT3 > BookBlueT3 > BookRedT2\n> Cube\n> FoodT6 > FoodT5"

@@ -1007,6 +1007,12 @@ GeneralShop:
   UseGems: false
   Refresh: false
   BuySkinBox: false
+  # 固定十个货架槽位的购买次数，必须保留字符串，避免 1.10 被解析为小数。
+  SkinBoxBuyCounts:
+    type: input
+    valuetype: str
+    value: "1.1.1.1.1.1.1.1.1.1"
+    validate: '^[0-9]+(?:\.[0-9]+){0,9}$'
   ConsumeCoins: 0
   OverflowCoins: 0
   Filter: |-

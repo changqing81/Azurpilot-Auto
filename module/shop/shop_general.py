@@ -7,11 +7,12 @@ from module.logger import logger
 from module.shop.base import ShopItemGrid, ShopItemGrid_250814
 from module.shop.clerk import ShopClerk
 from module.shop.shop_status import ShopStatus
+from module.shop.skin_box_buy import SkinBoxShopMixin
 from module.shop.ui import ShopUI
 from module.ui.page import page_meowfficer
 
 
-class GeneralShop_250814(ShopClerk, ShopUI, ShopStatus):
+class GeneralShop_250814(SkinBoxShopMixin, ShopClerk, ShopUI, ShopStatus):
     """通用商店处理器 (2025-08-14 新 UI)。
 
     Pages: in: page_shop (general shop tab)
@@ -121,19 +122,16 @@ class GeneralShop_250814(ShopClerk, ShopUI, ShopStatus):
         Returns:
             bool: 是否为满足条件的自定义商品
         """
+        # 外观箱按 7000 物资识别，槽位配额已在统一选择入口检查。
+        if self.config.GeneralShop_BuySkinBox and self.is_skin_box(item):
+            return self._currency >= item.price
+
         consume_coins = self.config.GeneralShop_ConsumeCoins
         # 阈值验证：必须 > 0 且 <= 600000
         # 类型安全由 run() → _validate_config_values() 中的规范化保证
         if consume_coins > 0 and consume_coins <= 600000:
             if self._currency >= consume_coins:
                 if item.cost == 'Coins':
-                    return True
-
-        if self.config.GeneralShop_BuySkinBox:
-            if (not item.is_known_item()) and item.amount == 1 and item.cost == 'Coins' and item.price == 7000:
-                # 装备外观箱无法通过模板匹配识别（颜色和外观持续变化）
-                logger.info(f'[商店-商品] 物品 {item} 被认为是装备外观箱')
-                if self._currency >= item.price:
                     return True
 
         return False
@@ -223,7 +221,8 @@ class GeneralShop_250814(ShopClerk, ShopUI, ShopStatus):
         # 配置值验证：检测并修正异常值
         self._validate_config_values()
 
-        if not self.shop_filter:
+        # 单独开启外观箱购买也能运行，不要求用户填写普通商品过滤器。
+        if not self.shop_filter and not self.config.GeneralShop_BuySkinBox:
             return
 
         logger.hr('通用商店', level=1)

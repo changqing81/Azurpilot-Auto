@@ -13159,6 +13159,12 @@
         "type": "checkbox",
         "value": false
       },
+      "SkinBoxBuyCounts": {
+        "type": "input",
+        "value": "1.1.1.1.1.1.1.1.1.1",
+        "valuetype": "str",
+        "validate": "^[0-9]+(?:\\.[0-9]+){0,9}$"
+      },
       "ConsumeCoins": {
         "type": "input",
         "value": 0

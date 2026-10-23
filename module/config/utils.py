@@ -260,6 +260,11 @@ def parse_value(value, data):
 
         return value
 
+    # 显式字符串配置不能自动转成数字：外观箱槽位次数 1.10 表示 1 次和 10 次。
+    # GUI 已按 valuetype 保存字符串，加载和生成配置时也必须保持同一语义。
+    if data.get('valuetype') == 'str':
+        return str(value)
+
     if data.get('type') == 'checkbox' and isinstance(value, list):
         # PyWebIO checkbox 关闭时返回 []，打开时返回 [True]。
         return any(bool(v) for v in value)

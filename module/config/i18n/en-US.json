@@ -2654,7 +2654,11 @@
     },
     "BuySkinBox": {
       "name": "Buy appearance equipment box",
-      "help": "To reduce maintenance costs, the appearance box selector in the filter will not be updated with the game, but AzurPilot will treat any unknown item with a quantity of 1 and consuming 7000 supplies as an appearance box and purchase it."
+      "help": "Buy available items costing 7000 coins according to the per-slot limits. Track successful purchases and distinct purchased slots separately."
+    },
+    "SkinBoxBuyCounts": {
+      "name": "Gear skin box purchases per slot",
+      "help": "Enter up to 10 counts separated by dots, matching the fixed shelf slots from left to right, then top to bottom. For example, 10.5 allows 10 successful purchases in slot 1 and 5 in slot 2. Zero or omitted trailing slots are skipped. Only boxes costing 7000 coins qualify; other items do not shift these quotas. Stop when sold out. Counts reset after a confirmed shop refresh and are kept only during this run."
     },
     "ConsumeCoins": {
       "name": "Consumption of overflow supplies",
