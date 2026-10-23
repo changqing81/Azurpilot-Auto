@@ -7,7 +7,6 @@ ADB 截图和输入方法。
 通过 `adb shell input` 命令执行点击、滑动等触控操作。
 包含自动重试机制，处理 ADB 连接中断和图像截断等异常情况。
 """
-from module.device.session import session_guard
 import re
 import time
 from functools import wraps
@@ -184,7 +183,6 @@ class Adb(Connection):
 
     @retry
     @Config.when(DEVICE_OVER_HTTP=False)
-    @session_guard
     def screenshot_adb(self):
         data = self.adb_shell(['screencap', '-p'], stream=True)
         if len(data) < 500:
@@ -194,7 +192,6 @@ class Adb(Connection):
 
     @retry
     @Config.when(DEVICE_OVER_HTTP=True)
-    @session_guard
     def screenshot_adb(self):
         data = self.adb_shell(['screencap'], stream=True)
         data = remove_screenshot_warning(data)
@@ -204,7 +201,6 @@ class Adb(Connection):
         return load_screencap(data)
 
     @retry
-    @session_guard
     def screenshot_adb_nc(self):
         data = self.adb_shell_nc(['screencap'])
         data = remove_screenshot_warning(data)
@@ -214,7 +210,6 @@ class Adb(Connection):
         return load_screencap(data)
 
     @retry
-    @session_guard
     def click_adb(self, x, y):
         start = time.time()
         self.adb_shell(['input', 'tap', x, y])
@@ -222,13 +217,11 @@ class Adb(Connection):
             self.sleep(0.05)
 
     @retry
-    @session_guard
     def swipe_adb(self, p1, p2, duration=0.1):
         duration = int(duration * 1000)
         self.adb_shell(['input', 'swipe', *p1, *p2, duration])
 
     @retry
-    @session_guard
     def island_swipe_hold_adb(self, p1, p2, hold_time):
         """岛屿摇杆的 ADB 实现（Hermit 同样走这里）。
 
@@ -262,7 +255,6 @@ class Adb(Connection):
             self.swipe_adb(p2, p2, duration=hold_time / 1000)
 
     @retry
-    @session_guard
     def app_current_adb(self):
         """
         获取当前前台应用的包名，复制自 uiautomator2。
@@ -414,7 +406,6 @@ class Adb(Connection):
 
     # 不使用 @retry 装饰器，因为 _app_start_adb_am 和 _app_start_adb_monkey 已经有 @retry
     # @retry
-    @session_guard
     def app_start_adb(self, package_name=None, activity_name=None, allow_failure=False):
         """
         启动应用，依次尝试 am start 和 monkey 方式。
@@ -448,7 +439,6 @@ class Adb(Connection):
         return False
 
     @retry
-    @session_guard
     def app_stop_adb(self, package_name=None):
         """停止应用：am force-stop。"""
         if not package_name:

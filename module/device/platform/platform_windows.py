@@ -4,7 +4,6 @@
 from __future__ import annotations
 import ctypes
 import json
-import os
 import re
 import subprocess
 import threading
@@ -49,15 +48,6 @@ EMULATOR_START_DIALOG_CHECK_INTERVAL = 2
 MUMU12_STATE_POLL_INTERVAL = 2
 # 确认 MuMu12 实例真正关闭的最长等待（秒）。
 MUMU12_STOP_WAIT_TIMEOUT = 60
-
-# MuMu X（MuMu9）Hypervisor 层的进程名（小写）。这两个进程是多开共享的，
-# 命令行里不带实例名，只能通过「播放器进程的父进程」这条关系反查，
-# 并确认它只服务于本实例后才允许终止。
-MUMU_X_HYPERVISOR_EXES = ('muvm6headless.exe', 'muvm6svc.exe')
-# 从 MuMu X 播放器进程向上找 Hypervisor 父进程时最多回溯的层数。
-# 正常进程树是 播放器 -> Muvm6Headless -> Muvm6SVC，3 层足够；
-# 留出余量以兼容启动器/中间 shell 进程，但必须设上限避免无限向上找到 explorer.exe。
-MUMU_X_PARENT_WALK_DEPTH = 4
 
 
 def run_mumu_manager(exe, args, timeout=15):
@@ -307,59 +297,12 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             return proc
 
     @classmethod
-    def _is_same_exe(cls, proc, expect_exe: str) -> bool:
-        """判断进程的可执行文件是否与期望路径一致。
-
-        Windows 路径大小写不敏感，而注册表 / MuiCache / 用户配置里记录的大小写
-        常常与实际进程不同（如 MuMuPlayer.EXE 与 MuMuPlayer.exe），因此统一用
-        os.path.normcase(os.path.abspath(...)) 归一化后再比对。
+    def kill_process_by_regex(cls, regex: str) -> int:
+        """
+        终止命令行匹配给定正则表达式的进程。
 
         Args:
-            proc (psutil.Process): 待校验的进程。
-            expect_exe (str): 期望的可执行文件绝对路径。
-
-        Returns:
-            bool: 路径一致返回 True；取不到进程路径或路径不一致返回 False。
-                取不到路径时按"不一致"处理——宁可少杀，不可误杀。
-        """
-        if not expect_exe:
-            return False
-        try:
-            actual = proc.exe()
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
-            return False
-        if not actual:
-            return False
-        return (
-            os.path.normcase(os.path.abspath(actual))
-            == os.path.normcase(os.path.abspath(expect_exe))
-        )
-
-    @classmethod
-    def kill_process_by_regex(cls, regex: str, expect_exe: str = None,
-                              expect_instance: str = None) -> int:
-        """
-        终止命令行匹配给定正则表达式的进程，可选按实例维度二次校验。
-
-        多开安全背景：同一模拟器家族的多开实例共用同一份程序文件，有的还共用
-        Hypervisor 进程。只按命令行正则杀进程时，正则写得稍宽（或共享进程的
-        命令行里根本不含实例名）就会把**别的实例**一并杀掉。为此提供两道可选的
-        实例校验闸门，只有**全部校验通过**的进程才会被终止：
-
-        - expect_exe：目标可执行文件的绝对路径。用 proc.exe() 取进程真实路径后
-          归一化比对，杜绝"同名不同目录 / 不同实例同 exe 名"的误杀。
-        - expect_instance：实例标识（如 MuMu X 的 nemu-12.0-x64-default）。要求
-          进程命令行里确实出现该标识，杜绝"共享进程命令行不带实例名"的误杀。
-
-        两个参数同时传入时是 AND 关系。都不传时保持旧行为（仅按正则匹配），
-        向后兼容既有调用点。
-
-        Args:
-            regex (str): 命令行正则表达式。
-            expect_exe (str | None): 期望的进程可执行文件绝对路径；
-                None 表示不做 exe 路径校验。
-            expect_instance (str | None): 期望出现在命令行中的实例标识；
-                None 表示不做实例标识校验。
+            regex: 正则表达式
 
         Returns:
             int: 已终止的进程数量
@@ -368,267 +311,12 @@ class PlatformWindows(PlatformBase, EmulatorManager):
 
         for proc in psutil.process_iter():
             cmdline = DataProcessInfo(proc=proc, pid=proc.pid).cmdline
-            if not re.search(regex, cmdline):
-                continue
-            # 闸门 1：exe 绝对路径校验（取不到真实路径时按不匹配处理）
-            if expect_exe and not cls._is_same_exe(proc, expect_exe):
-                logger.info(
-                    f'[设备-Windows] 跳过 exe 路径不匹配的进程，避免误杀: {cmdline}'
-                )
-                continue
-            # 闸门 2：实例标识校验（共享进程的命令行不含实例名，会被这道拦下）
-            if expect_instance and expect_instance not in cmdline:
-                logger.info(
-                    f'[设备-Windows] 跳过实例标识不匹配的进程，避免误杀: {cmdline}'
-                )
-                continue
-            logger.info(f'[设备-Windows] 终止模拟器: {cmdline}')
-            proc.kill()
-            count += 1
+            if re.search(regex, cmdline):
+                logger.info(f'[设备-Windows] 终止模拟器: {cmdline}')
+                proc.kill()
+                count += 1
 
         return count
-
-    @classmethod
-    def _process_exe_name(cls, proc) -> str:
-        """安全获取进程的可执行文件名（小写，不含目录）。
-
-        proc.exe() / proc.name() 在进程退出或权限不足时都会抛异常，这里统一
-        吞掉并返回空字符串，由调用方按"无法识别"处理。
-
-        Args:
-            proc (psutil.Process): 目标进程。
-
-        Returns:
-            str: 小写的 exe 文件名，如 muvm6headless.exe；取不到返回空字符串。
-        """
-        try:
-            exe = proc.exe()
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
-            exe = None
-        if exe:
-            return os.path.basename(exe).lower()
-        try:
-            return (proc.name() or '').lower()
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
-            return ''
-
-    @classmethod
-    def _iter_mumu_x_players(cls, instance_name: str, expect_exe: str = None) -> list:
-        """找出属于指定实例的 MuMu X 播放器进程。
-
-        MuMu X 的多开实例各自有一个 NemuPlayer.exe，命令行形如::
-
-            "...\\nemu9\\EmulatorShell\\NemuPlayer.exe" -m nemu-12.0-x64-default -s 0 -l
-
-        实例名是这里唯一可靠的实例标识，因此按 "-m <实例名>" 精确匹配，并要求
-        实例名之后紧跟空白或行尾——否则 nemu-12.0-x64-default 会连带匹配到
-        nemu-12.0-x64-default2 这类前缀相同的实例，照样误杀。
-
-        Args:
-            instance_name (str): MuMu X 实例名，如 nemu-12.0-x64-default。
-            expect_exe (str | None): 期望的 exe 绝对路径，用于排除其它安装目录
-                下的同名程序。
-
-        Returns:
-            list: 匹配到的播放器进程列表（psutil.Process）。
-        """
-        players = []
-        if not instance_name:
-            return players
-        pattern = re.compile(
-            rf'NemuPlayer\.exe.*-m\s+{re.escape(instance_name)}(?:\s|$)'
-        )
-        for proc in psutil.process_iter():
-            cmdline = DataProcessInfo(proc=proc, pid=proc.pid).cmdline
-            if not pattern.search(cmdline):
-                continue
-            if expect_exe and not cls._is_same_exe(proc, expect_exe):
-                continue
-            players.append(proc)
-        return players
-
-    @classmethod
-    def _mumu_x_comment_name(cls, proc) -> str:
-        """从 Hypervisor 进程的命令行里解析 --comment 携带的实例名。
-
-        Muvm6Headless.exe 的命令行形如::
-
-            "...\\Muvm6Headless.exe" --comment nemu-12.0-x64-default --startvm <uuid>
-
-        ``--comment`` 的值就是它所属的实例名，是判断"这个父进程属于哪个实例"
-        最直接的证据；Muvm6SVC.exe 这类共享进程通常没有该参数，返回空字符串。
-
-        Args:
-            proc (psutil.Process): 待检查的进程。
-
-        Returns:
-            str: --comment 的值；命令行里没有该参数时返回空字符串。
-        """
-        try:
-            cmdline = ' '.join(proc.cmdline())
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
-            return ''
-        res = re.search(r'--comment\s+("[^"]*"|\S+)', cmdline)
-        if not res:
-            return ''
-        return res.group(1).strip('"')
-
-    @classmethod
-    def _mumu_x_subtree_instances(cls, parent) -> tuple:
-        """统计某个 Hypervisor 进程的子树里出现过的 MuMu X 实例名。
-
-        用于判断"这个父进程是不是只服务于本实例"：只要子树里出现别的实例名，
-        或者存在解析不出实例名的播放器进程，就说明它可能是多实例共享进程，
-        不能杀。
-
-        Args:
-            parent (psutil.Process): 待检查的 Hypervisor 进程
-                （Muvm6Headless.exe / Muvm6SVC.exe）。
-
-        Returns:
-            tuple[set, bool]: (子树里出现过的实例名集合, 是否所有播放器进程都能
-                解析出实例名)。第二个值为 False 时调用方必须放弃杀父进程。
-                集合里同时包含播放器的 -m 参数与 Hypervisor 的 --comment 参数，
-                两者任一出现别的实例名都说明该父进程是多实例共享的。
-        """
-        names = set()
-        resolved = True
-        try:
-            children = parent.children(recursive=True)
-        except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
-            return names, False
-        for child in children:
-            cmdline = DataProcessInfo(proc=child, pid=child.pid).cmdline
-            if 'NemuPlayer.exe' in cmdline:
-                # 播放器进程：实例名在 -m 参数里
-                res = re.search(r'-m\s+(\S+)', cmdline)
-                if res:
-                    names.add(res.group(1))
-                else:
-                    resolved = False
-                continue
-            # Hypervisor 进程：实例名在 --comment 参数里。这条同样重要——共享的
-            # Muvm6SVC 子树里可能挂着**别的实例**的 Muvm6Headless，只统计播放器
-            # 会漏掉这种情况，从而误判成"只服务本实例"
-            if cls._process_exe_name(child) in MUMU_X_HYPERVISOR_EXES:
-                comment_name = cls._mumu_x_comment_name(child)
-                if comment_name:
-                    names.add(comment_name)
-        return names, resolved
-
-    def _stop_mumu_x_instance(self, instance: EmulatorInstance) -> int:
-        """按实例维度停止 MuMu X（MuMu9）实例，杜绝多开误杀。
-
-        一个 MuMu X 实例对应三个进程::
-
-            "...\\nemu9\\EmulatorShell\\NemuPlayer.exe" -m nemu-12.0-x64-default -s 0 -l
-            "C:\\Program Files\\Muvm6Vbox\\Hypervisor\\Muvm6Headless.exe" --comment ... --startvm ...
-            "C:\\Program Files\\Muvm6Vbox\\Hypervisor\\Muvm6SVC.exe" --Embedding
-
-        只有 NemuPlayer.exe 的命令行带实例名；Muvm6Headless.exe / Muvm6SVC.exe
-        是 Hypervisor 层的共享进程，命令行不带实例名。旧实现把它们和播放器一起
-        按进程名正则杀掉，等于杀掉**所有** MuMu X 实例——这是已确认的必然误杀。
-
-        处理策略（优先级：不误杀 > 彻底杀干净）::
-
-            1. 只杀命令行含 "-m <实例名>" 的 NemuPlayer.exe（并校验 exe 路径）；
-            2. 顺着播放器的 PPID 链向上找 Muvm6Headless.exe / Muvm6SVC.exe；
-            3. 只有当该祖先进程的子树里"只出现本实例这一个实例名"时才杀它；
-            4. 任何一步判断不了（读不到命令行、找不到实例名、发现别的实例），
-               一律跳过并告警，绝不冒险。
-
-        Args:
-            instance (EmulatorInstance): 目标模拟器实例。
-
-        Returns:
-            int: 已终止的进程数量（父进程 + 播放器）。
-        """
-        instance_name = instance.name
-        if not instance_name:
-            logger.warning(
-                '[设备-Windows] MuMu X 实例名为空，无法区分多开实例，'
-                '跳过停止以避免误杀其它实例'
-            )
-            return 0
-
-        expect_exe = instance.emulator.path
-        players = self._iter_mumu_x_players(instance_name, expect_exe)
-        if not players:
-            logger.warning(
-                f'[设备-Windows] 未找到 MuMu X 实例 {instance_name} 的播放器进程，'
-                f'跳过停止（可能已关闭，或实例名与进程命令行不一致）'
-            )
-            return 0
-
-        # 先沿 PPID 链把 Hypervisor 祖先进程全部收集起来再统一判定，
-        # 避免边杀边查导致进程树变化、判定结果漂移
-        ancestors = []
-        seen_pids = set()
-        for player in players:
-            proc = player
-            for _ in range(MUMU_X_PARENT_WALK_DEPTH):
-                try:
-                    proc = proc.parent()
-                except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError):
-                    proc = None
-                if proc is None:
-                    break
-                if self._process_exe_name(proc) in MUMU_X_HYPERVISOR_EXES:
-                    if proc.pid not in seen_pids:
-                        seen_pids.add(proc.pid)
-                        ancestors.append(proc)
-                    break
-
-        killed = 0
-        for ancestor in ancestors:
-            ancestor_name = self._process_exe_name(ancestor)
-            # 证据 1：--comment 直接写明所属实例名（Muvm6Headless 有，Muvm6SVC 通常没有）
-            comment_name = self._mumu_x_comment_name(ancestor)
-            if comment_name:
-                if comment_name != instance_name:
-                    logger.warning(
-                        f'[设备-Windows] MuMu X 父进程 {ancestor_name}(PID={ancestor.pid}) '
-                        f'的 --comment 为 {comment_name!r}，不属于本实例 '
-                        f'{instance_name!r}，跳过不杀'
-                    )
-                    continue
-            else:
-                # 证据 2：没有 --comment 时退回子树统计，要求子树里只出现本实例
-                names, resolved = self._mumu_x_subtree_instances(ancestor)
-                if not resolved or names != {instance_name}:
-                    logger.warning(
-                        f'[设备-Windows] MuMu X 父进程 {ancestor_name}(PID={ancestor.pid}) '
-                        f'既没有 --comment 证据，子树实例也不唯一（'
-                        f'{sorted(names) if names else "无法解析"}），跳过不杀以避免误杀'
-                    )
-                    continue
-            try:
-                ancestor.kill()
-                killed += 1
-                logger.info(
-                    f'[设备-Windows] 终止 MuMu X 实例 {instance_name} 独占的 '
-                    f'父进程 {ancestor_name}(PID={ancestor.pid})'
-                )
-            except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError) as e:
-                logger.warning(
-                    f'[设备-Windows] 终止 MuMu X 父进程 {ancestor_name} 失败: {e}'
-                )
-
-        # 播放器进程已在上面的 _iter_mumu_x_players 里通过「-m <实例名> 精确匹配 +
-        # exe 路径校验」筛过一遍，直接杀这批进程即可，不再二次全表扫描
-        for player in players:
-            try:
-                player.kill()
-                killed += 1
-            except (psutil.AccessDenied, psutil.NoSuchProcess, psutil.ZombieProcess, OSError) as e:
-                # 父进程被杀后播放器可能已经随之退出，这属于正常情况，只记 debug
-                logger.debug(f'[设备-Windows] 终止 MuMu X 播放器进程失败（可能已退出）: {e}')
-        if not ancestors:
-            logger.warning(
-                f'[设备-Windows] 未找到 MuMu X 实例 {instance_name} 的 Hypervisor 父进程，'
-                f'仅终止了播放器进程；Hypervisor 进程留给启动监视与下一轮重试兜底'
-            )
-        return killed
 
     def _emulator_start(self, instance: EmulatorInstance):
         """
@@ -693,10 +381,6 @@ class PlatformWindows(PlatformBase, EmulatorManager):
         exe: str = instance.emulator.path
         if instance == Emulator.MuMuPlayer:
             # MuMu6 没有多实例功能，终止一个意味着终止全部
-            #
-            # 注意：这里按进程名杀是安全的，与 MuMu X 的共享进程问题不同——
-            # MuMu6 根本不支持多开，NemuHeadless.exe / NemuSVC.exe 只服务于
-            # 唯一那个实例，不存在"杀掉会误伤别的实例"的情况。
             # 共有 4 个进程:
             # "C:\Program Files\NemuVbox\Hypervisor\NemuHeadless.exe" --comment nemu-6.0-x64-default --startvm
             # "E:\ProgramFiles\MuMu\emulator\nemu\EmulatorShell\NemuPlayer.exe"
@@ -716,12 +400,13 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # "E:\ProgramFiles\MuMu9\emulator\nemu9\EmulatorShell\NemuPlayer.exe" -m nemu-12.0-x64-default -s 0 -l
             # "C:\Program Files\Muvm6Vbox\Hypervisor\Muvm6Headless.exe" --comment nemu-12.0-x64-default --startvm xxx
             # "C:\Program Files\Muvm6Vbox\Hypervisor\Muvm6SVC.exe" --Embedding
-            #
-            # 多开安全：只有 NemuPlayer.exe 的命令行带实例名，Muvm6Headless.exe /
-            # Muvm6SVC.exe 是 Hypervisor 层共享进程、命令行不带实例名。旧实现把三者
-            # 一起按进程名正则杀掉，多开时等于杀掉所有 MuMu X 实例（已确认的必然误杀）。
-            # 现改为按实例维度停止，判断不了就跳过并告警（不误杀 > 彻底杀干净）。
-            self._stop_mumu_x_instance(instance)
+            self.kill_process_by_regex(
+                rf'('
+                rf'NemuPlayer.exe.*-m {instance.name}'
+                rf'|Muvm6Headless.exe'
+                rf'|Muvm6SVC.exe'
+                rf')'
+            )
         elif instance == Emulator.MuMuPlayer12:
             # MuMuManager.exe api -v 1 shutdown_player
             # 使用同步执行等待关闭完成，避免异步执行导致的实例查找失败
@@ -749,15 +434,10 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             # BlueStacks 有 2 个进程:
             # C:\Program Files\BlueStacks_nxt_cn\HD-Player.exe --instance Pie64
             # C:\Program Files\BlueStacks_nxt_cn\BstkSVC.exe -Embedding
-            #
-            # 多开安全：正则里已带 --instance <实例名>，但仍补上 exe 路径校验，
-            # 避免命中另一份安装（或别的程序）里同名的 HD-Player.exe。
-            # BstkSVC.exe 是共享服务进程，不在此处终止。
             self.kill_process_by_regex(
                 rf'('
                 rf'HD-Player.exe.*"--instance" "{instance.name}"'
-                rf')',
-                expect_exe=exe,
+                rf')'
             )
         elif instance == Emulator.BlueStacks4:
             # E:\Program Files (x86)\BluestacksCN\bsconsole.exe quit --name Android
@@ -775,15 +455,6 @@ class PlatformWindows(PlatformBase, EmulatorManager):
         """
         模拟器启停操作的统一包装器，处理异常。
 
-        这里是所有启停（含所有 kill 路径）的唯一入口，因此在此处加一道前置
-        闸门：识别不到模拟器实例时**直接放弃本次操作**。
-
-        背景：`emulator_instance` 的查找依赖配置里的类型/名称/路径与运行时
-        枚举结果的匹配。多开环境下若配置不完整（比如用户手填了错的实例名），
-        查找会返回 None。旧实现在这种情况下会把 None 往下传，各分支要么抛
-        AttributeError、要么退化成"猜一个进程杀掉"，后者在多开时就是误杀。
-        宁可这一轮不停止（交给启动监视与下一轮重试兜底），也绝不猜。
-
         Args:
             func (callable): _emulator_start 或 _emulator_stop
 
@@ -791,15 +462,7 @@ class PlatformWindows(PlatformBase, EmulatorManager):
             bool: 是否成功
         """
         try:
-            instance = self.emulator_instance
-            if instance is None:
-                logger.warning(
-                    '[设备-Windows] 未能识别模拟器实例（EmulatorInfo 的类型/名称/路径'
-                    '与运行时枚举结果不匹配），放弃本次启停操作以避免误杀其它实例。'
-                    '请检查「模拟器信息」配置。'
-                )
-                return False
-            func(instance)
+            func(self.emulator_instance)
             return True
         except OSError as e:
             msg = str(e)
@@ -1070,17 +733,11 @@ class PlatformWindows(PlatformBase, EmulatorManager):
 
         # 检查是否为 MuMuPlayer12，添加实例查找失败的处理逻辑
         emulator_type = getattr(self.config, 'EmulatorInfo_Emulator', '')
-        # 历史缺陷：这里曾写成 hasattr(self, '_emulator_instance')，但实例缓存
-        # 属性的实际名字是 emulator_instance（无下划线，定义在 PlatformBase），
-        # hasattr 永远返回 False，后半段判断从未生效，只因前半段读配置才碰巧可用。
-        # 注意：不能改成直接读取 self.emulator_instance —— 它是 cached_property，
-        # 首次访问会触发实例解析（注册表/进程扫描 + pydantic 构造），在离线对象
-        # （如单测的 Mock 配置）上会抛异常，且启动前也不该提前解析实例。
-        # 改为只读已解析的缓存值：有缓存用缓存，没缓存就只信配置。
-        is_mumu12 = emulator_type == 'MuMuPlayer12'
-        if not is_mumu12:
-            instance = self.__dict__.get('emulator_instance', None)
-            is_mumu12 = instance is not None and instance.type == 'MuMuPlayer12'
+        is_mumu12 = emulator_type == 'MuMuPlayer12' or (
+            hasattr(self, '_emulator_instance') and
+            self._emulator_instance and
+            self._emulator_instance.type == 'MuMuPlayer12'
+        )
 
         for attempt in range(3):
             # 先停止（MuMu12 已使用同步执行确保关闭完成）

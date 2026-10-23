@@ -4,7 +4,6 @@
 以及 UI 层级结构（hierarchy）的获取和 XPath 元素查询。
 根据控制方法和模拟器类型自动选择 ADB 或 uiautomator2 后端。
 """
-from module.device.session import session_guard
 import re
 
 from lxml import etree
@@ -34,7 +33,6 @@ class AppControl(Adb, WSA, Uiautomator2):
     _app_u2_family = ['uiautomator2', 'minitouch', 'scrcpy', 'MaaTouch', 'nemu_ipc']
     _hierarchy_interval = Timer(0.1)
 
-    @session_guard
     def app_current(self) -> str:
         """获取当前前台运行的应用包名。
 
@@ -54,7 +52,6 @@ class AppControl(Adb, WSA, Uiautomator2):
         package = package.strip(' \t\r\n')
         return package
 
-    @session_guard
     def app_is_running(self) -> bool:
         """检查目标应用（碧蓝航线）是否正在前台运行。
 
@@ -67,7 +64,6 @@ class AppControl(Adb, WSA, Uiautomator2):
         logger.attr('应用包名', package)
         return package == self.package
 
-    @session_guard
     def app_is_running_bounded(self, timeout: int = 10) -> bool:
         """带固定超时检查目标应用是否在前台。
 
@@ -113,7 +109,6 @@ class AppControl(Adb, WSA, Uiautomator2):
         logger.warning('[设备-应用] 无法判断前台应用，按未运行处理')
         return False
 
-    @session_guard
     def app_start(self):
         """启动目标应用（碧蓝航线）。
 
@@ -130,7 +125,6 @@ class AppControl(Adb, WSA, Uiautomator2):
         else:
             self.app_start_adb()
 
-    @session_guard
     def app_stop(self):
         """停止目标应用（碧蓝航线）。
 
@@ -143,7 +137,6 @@ class AppControl(Adb, WSA, Uiautomator2):
         else:
             self.app_stop_adb()
 
-    @session_guard
     def app_clear(self):
         """清除目标应用的缓存目录。
 

@@ -5,7 +5,6 @@
 """
 # 此文件专门用于处理设备端的文本输入功能。
 # 封装了检查输入法窗口状态以及向安卓组件发送文本指令的逻辑。
-from module.device.session import session_guard
 from module.device.method.uiautomator_2 import Uiautomator2
 from module.logger import logger
 
@@ -29,7 +28,6 @@ class Input(Uiautomator2):
         _, shown = self.u2_current_ime()
         return shown
 
-    @session_guard
     def text_input_and_confirm(self, text: str, clear: bool=False):
         """向当前焦点输入框发送文本并按确认键（IME_ACTION_DONE）。
 

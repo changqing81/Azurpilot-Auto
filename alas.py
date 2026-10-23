@@ -23,9 +23,6 @@ from module.config.utils import (
     read_file,
 )
 from module.exception import *
-from module.handler.emulator_crash_guard import CrashGuard
-from module.handler.emulator_recovery import EmulatorRecovery
-from module.device.session import DeviceSessionExpired, RecoveryStopped
 from module.handler.task_failure_protection import (
     PROTECTION_EXEMPT_TASKS,
     RESTART_OPERATION_TIMEOUT,
@@ -95,11 +92,6 @@ class AzurLaneAutoScript:
         from module.handler.task_failure_protection import TaskFailureTracker
         self.failure_tracker = TaskFailureTracker(config_name)
         self.watchdog = Watchdog(self)
-        # 模拟器卡死保护：独立守护线程，通过 ADB 心跳探测判定「底层通信彻底失效」。
-        # Watchdog 记录任务超时；CrashGuard 复核通信故障并请求退出旧任务。
-        # 唯一恢复协调器在旧任务栈退出后执行实例级恢复。
-        self.recovery = EmulatorRecovery(self)
-        self.crash_guard = CrashGuard(self)
         # 任务失败保护自动关闭的任务名集合（运行时禁用列表）。
         # 命中此列表的任务在 ``get_next_task`` 阶段直接跳过，
         # 确保被保护关闭的任务不会再被调度，即使配置尚未持久化。
@@ -111,42 +103,81 @@ class AzurLaneAutoScript:
         # 渠道服悬浮球会话标志：调度器启动/游戏重启后仅处理一次
         self._channel_float_done = False
 
-    @cached_property
-    def recovery(self):
-        """测试或工具绕过构造器时也使用同一恢复协调器。"""
-        return EmulatorRecovery(self)
-
-    def _try_restart_emulator(self, source=None):
-        """旧任务栈已退出后提交一轮恢复；所有入口共享实例预算。
-
-        重启失败、冷却和熔断会停止当前配置，避免全局异常处理继续重启。
+    def _try_restart_emulator(self):
         """
-        if source is None:
-            error = getattr(self, '_last_task_error', '')
-            # 设备已失去响应（ADB 离线 / 原生 IPC 超时）都按"离线"处理，
-            # 由 Error.AdbOfflineRestart 管辖，而不是落到通用 HandleError。
-            source = 'offline' if error in ('EmulatorNotRunningError', 'NativeIpcTimeout') else 'error'
-            if error in ('GameStuckError', 'GameTooManyClickError'):
-                source = 'game'
-        self.consecutive_adb_offline += 1
-        try:
-            return self.recovery.restart(source)
-        except RecoveryFailed as e:
-            # 设备侧恢复失败（停不下来、起不来、超时、预算耗尽）不是脚本的错。
-            # 返回 False 让调用方按既有退避逻辑重试，绝不终止调度进程。
-            logger.error(f'[Alas] 本轮模拟器恢复未成功，稍后重试: {e}')
-            return False
-        except RecoveryStopped:
-            # 人为终止条件（开关被关闭、请求被取消）仍按约定停止配置。
-            for name in ('watchdog', 'crash_guard'):
-                guard = self.__dict__.get(name)
-                if guard is not None:
-                    guard.stop()
-            raise
+        尝试重启模拟器。
 
-    def _wait_adb_ready_after_restart(self):
-        """只验证系统就绪，不在探测中创建 Device 或嵌套启动模拟器。"""
-        return self.recovery.probe().ready(self.recovery.cancel, timeout=300)
+        需要启用 AdbOfflineRestart 且未超过重试上限。
+        优先使用已缓存的 device 对象，否则根据平台回退创建新实例。
+
+        Returns:
+            bool: 重启成功返回 True，无法重启返回 False。
+        """
+        self.consecutive_adb_offline += 1
+        limit = int(self.config.Error_AdbOfflineThreshold)
+        logger.warning(f'[Alas] EmulatorNotRunningError: 连续次数 {self.consecutive_adb_offline}/{limit}')
+
+        if self.consecutive_adb_offline > limit:
+            logger.error_context(
+                title='模拟器自动重启次数已达上限',
+                reason=f'模拟器连续离线次数已超过配置限制 {limit} 次。',
+                impact='本次自动恢复停止，任务将进入失败处理。',
+                action='手动确认模拟器是否运行、ADB 是否可用，再重新启动 AzurPilot。',
+                level=50,
+            )
+            return False
+
+        logger.hr('[Alas] 正在重启模拟器', level=1)
+        # 加锁防止看门狗线程同时调用 emulator_stop/start 导致进程状态竞态。
+        # 看门狗触发恢复时也会等待此锁（Watchdog._recover 已加）。
+        with self._emulator_lock:
+            try:
+                # 优先使用已缓存的设备对象
+                device = self.__dict__.get('device', None)
+                if device is None:
+                    # connect=False 避免在模拟器离线时先建立 ADB 连接。
+                    from module.device.platform import Platform
+                    device = Platform(self.config, connect=False)
+
+                logger.info('[Alas] 正在停止模拟器...')
+                emulator_op_with_timeout(
+                    device.emulator_stop,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='模拟器停止',
+                )
+                time.sleep(5)
+                logger.info('[Alas] 正在启动模拟器...')
+                emulator_op_with_timeout(
+                    device.emulator_start,
+                    timeout=RESTART_OPERATION_TIMEOUT,
+                    operation_name='模拟器启动',
+                )
+                logger.info('[Alas] 模拟器重启完成')
+
+                # 重启成功即视为设备已恢复，立刻归零离线计数：
+                # 否则后续任务哪怕只是短暂异常，计数也会继续累积，
+                # 过早撞上 Error_AdbOfflineThreshold 上限而停止自动恢复。
+                self.consecutive_adb_offline = 0
+
+                # 清除 device 缓存，下次访问时重新建立连接
+                if 'device' in self.__dict__:
+                    del_cached_property(self, 'device')
+                return True
+            except EmulatorOpBusy as e:
+                # 上一轮的重启操作还在后台跑（很可能正在冷启动模拟器）。
+                # 此时既不能停也不能再启——那会把正在进行的启动打断，正是
+                # "模拟器窗口一直卡在加载、永远起不来"的成因。放弃本轮即可，
+                # 后台那次操作结束后，下一轮调度自然会接手。
+                logger.warning(f'[Alas] 上一轮模拟器重启仍在进行，放弃本轮重启：{e}')
+                return False
+            except Exception as e:
+                logger.exception_context(
+                    title='重启模拟器失败',
+                    exc=e,
+                    impact='模拟器仍可能处于离线状态，当前任务无法恢复。',
+                    action='检查模拟器进程权限、ADB 服务和模拟器管理配置。',
+                )
+                return False
 
     def _start_emulator_after_long_wait(self):
         """
@@ -297,16 +328,7 @@ class AzurLaneAutoScript:
     def device(self):
         try:
             from module.device.device import Device
-            try:
-                device = Device(config=self.config, auto_start_emulator=False)
-            except EmulatorNotRunningError:
-                # 区分两种"没能重启"：用户不允许恢复（人为终止，按约定停止配置），
-                # 与设备本轮恢复失败（设备问题，退避后重试，绝不终止脚本进程）。
-                if not self._try_restart_emulator(source='offline'):
-                    if not self.recovery.allowed('offline'):
-                        raise RecoveryStopped('模拟器离线且未允许自动恢复')
-                    raise RecoveryFailed('模拟器离线且本轮恢复未成功，稍后重试')
-                device = Device(config=self.config, auto_start_emulator=False)
+            device = Device(config=self.config)
             return device
         except RequestHumanTakeover:
             logger.error_context(
@@ -542,37 +564,36 @@ class AzurLaneAutoScript:
             logger.info('[战役续接] 已切换任务，丢弃原关卡凭据')
             self._campaign_recovery = None
         try:
-            with self.recovery.task_scope():
-                # Restart 的职责就是把游戏从“未运行/未出首帧”恢复起来。
-                # Android 虚拟屏在没有实际内容提交前不会产生可读帧；若这里先截图，
-                # screencap 会 no-frame，导致永远执行不到 restart() -> app_restart()。
-                if not skip_first_screenshot and command != 'restart':
-                    self.device.screenshot()
-                # 游戏重启后悬浮球会再次显示，重置会话标志
-                if command == 'restart':
-                    logger.info('[Alas] 游戏重启，重置渠道服悬浮球处理状态')
-                    self._channel_float_done = False
-                # 渠道服悬浮球：调度器启动/游戏重启后仅处理一次（主界面时）
-                # getattr 兜底：测试等场景可能绕过 __init__ 创建实例
-                recovery = self.__dict__.get('_campaign_recovery')
-                resuming = (recovery is not None and command != 'restart'
-                            and recovery.ready and recovery.matches(self.config))
-                if command != 'restart' and not resuming and not getattr(self, '_channel_float_done', False):
-                    self.handle_channel_float()
-                # 来源：3e9407a7。断点只在原任务内消费，异常仍交给本地恢复协调器。
-                with campaign_recovery_scope(self):
-                    if command != 'restart':
-                        self._campaign_recovery = None
-                    if resuming:
-                        self._resuming_campaign_recovery = recovery
-                        try:
-                            recovery.resume(self.config, self.device)
-                        finally:
-                            self._resuming_campaign_recovery = None
-                    else:
-                        self.__getattribute__(command)()
-                self._last_task_error = None
-                return True
+            # Restart 的职责就是把游戏从“未运行/未出首帧”恢复起来。
+            # Android 虚拟屏在没有实际内容提交前不会产生可读帧；若这里先截图，
+            # screencap 会 no-frame，导致永远执行不到 restart() -> app_restart()。
+            if not skip_first_screenshot and command != 'restart':
+                self.device.screenshot()
+            # 游戏重启后悬浮球会再次显示，重置会话标志
+            if command == 'restart':
+                logger.info('[Alas] 游戏重启，重置渠道服悬浮球处理状态')
+                self._channel_float_done = False
+            # 渠道服悬浮球：调度器启动/游戏重启后仅处理一次（主界面时）
+            # getattr 兜底：测试等场景可能绕过 __init__ 创建实例
+            recovery = self.__dict__.get('_campaign_recovery')
+            resuming = (recovery is not None and command != 'restart'
+                        and recovery.ready and recovery.matches(self.config))
+            if command != 'restart' and not resuming and not getattr(self, '_channel_float_done', False):
+                self.handle_channel_float()
+            # 来源：3e9407a7。断点只在原任务内消费，异常仍交给本地恢复协调器。
+            with campaign_recovery_scope(self):
+                if command != 'restart':
+                    self._campaign_recovery = None
+                if resuming:
+                    self._resuming_campaign_recovery = recovery
+                    try:
+                        recovery.resume(self.config, self.device)
+                    finally:
+                        self._resuming_campaign_recovery = None
+                else:
+                    self.__getattribute__(command)()
+            self._last_task_error = None
+            return True
         except MindCalculatorScanError as e:
             logger.error_context(
                 title='舰船科技扫描未完成' if command == 'fleet_tech_scan' else '心智单元船坞扫描未完成', reason=str(e), exc=e,
@@ -583,33 +604,7 @@ class AzurLaneAutoScript:
             self.save_error_log()
             self._check_sensitive_exit(command, e)
             return False
-        except DeviceSessionExpired as e:
-            self._check_sensitive_exit(command, e)
-            try:
-                if self.recovery.handle_pending():
-                    return 'recoverable'
-            except RecoveryFailed as failed:
-                # 恢复没成功是设备侧问题：退避后继续，不结束脚本进程。
-                # 返回 False 会累计失败次数并可能触发停止，因此按可恢复处理。
-                logger.error(f'[Alas] 旧设备会话失效后的恢复未成功，稍后重试: {failed}')
-                return 'recoverable'
-            raise RecoveryStopped('旧设备会话已失效，停止当前配置')
-        except RecoveryFailed as e:
-            # 设备初始化阶段的重启没能成功（例如 device 属性里那一轮）。
-            # 这是设备侧问题，退避后继续调度；不计入任务失败次数。
-            self._last_task_error = 'RecoveryFailed'
-            logger.error_context(
-                title='模拟器本轮恢复未成功',
-                reason='设备初始化或会话恢复期间发起的模拟器重启没有成功。',
-                impact='当前任务跳过，调度器将退避后继续尝试恢复，不会退出。',
-                action='通常无需处理；反复出现时检查模拟器进程和宿主机资源。',
-                exc=e,
-                level=30,
-            )
-            return 'recoverable'
         except TaskEnd:
-            if self.recovery.handle_pending():
-                return 'recoverable'
             self._last_task_error = None
             return True
         except GameNotRunningError as e:
@@ -779,30 +774,15 @@ class AzurLaneAutoScript:
             self.config.task_call('Restart')
             return 'recoverable'
         except EmulatorNotRunningError as e:
-            # NativeIpcTimeout 是本类子类：设备原生接口一分钟无响应，
-            # 也属于"模拟器失去运行"，走同一条恢复路径——重启实例后继续
-            # 挂机，绝不把还能管理实例的脚本进程一起结束。
-            ipc_timeout = isinstance(e, NativeIpcTimeout)
-            self._last_task_error = 'NativeIpcTimeout' if ipc_timeout else 'EmulatorNotRunningError'
+            self._last_task_error = 'EmulatorNotRunningError'
             # 模拟器离线或死机，尝试自动重启
-            if ipc_timeout:
-                logger.error_context(
-                    title='模拟器失去响应（原生 IPC 超时）',
-                    reason='截图或触摸使用的模拟器原生接口超过一分钟没有返回，'
-                           '该句柄已停止复用，不再进行任何输入。',
-                    impact='当前任务中断，系统将按配置重启模拟器，重启成功后继续挂机。',
-                    action='通常无需人工处理；若反复发生，检查模拟器版本、宿主机负载'
-                           '和 MuMu 渲染进程状态。',
-                    exc=e,
-                )
-            else:
-                logger.error_context(
-                    title='模拟器连接中断',
-                    reason='任务执行期间无法访问模拟器或 ADB 设备。',
-                    impact='当前任务中断，系统将按配置尝试重启模拟器。',
-                    action='确认模拟器进程和 ADB 服务正常；连续失败时检查端口、代理和模拟器保活设置。',
-                    exc=e,
-                )
+            logger.error_context(
+                title='模拟器连接中断',
+                reason='任务执行期间无法访问模拟器或 ADB 设备。',
+                impact='当前任务中断，系统将按配置尝试重启模拟器。',
+                action='确认模拟器进程和 ADB 服务正常；连续失败时检查端口、代理和模拟器保活设置。',
+                exc=e,
+            )
             self.save_error_scene()
             self._check_sensitive_exit(command, e)
             # Error.AdbOfflineRestart 开关：历史缺陷——该开关从未被任何代码读取，
@@ -818,9 +798,9 @@ class AzurLaneAutoScript:
                 # 通知用户），语义上也更贴合"需人工确认模拟器状态"。
                 self.consecutive_adb_offline += 1
                 limit = int(self.config.Error_AdbOfflineThreshold)
-                wait_seconds = min(300, 30 * max(1, self.consecutive_adb_offline))
+                wait_seconds = min(300, 30 * (self.consecutive_adb_offline - limit + 1))
                 logger.warning(
-                    '[Alas] 模拟器失去响应或连接中断，但 Error.AdbOfflineRestart 未启用，'
+                    '[Alas] 模拟器连接中断，但 Error.AdbOfflineRestart 未启用，'
                     f'不自动重启模拟器（连续 {self.consecutive_adb_offline} 次）。'
                     f'{wait_seconds} 秒后重试，请手动确认模拟器状态。'
                 )
@@ -829,33 +809,21 @@ class AzurLaneAutoScript:
             if self._try_restart_emulator():
                 # 重启成功，调度 Restart 任务恢复游戏
                 self.config.task_call('Restart')
-                if ipc_timeout:
-                    handle_notify(
-                        self.config.Error_OnePushConfig,
-                        title=f"AzurPilot <{self.config_name}> 警告",
-                        content=f"<{self.config_name}> 模拟器失去响应 - 已自动重启模拟器",
-                    )
-                    notify_webui(
-                        self.config_name,
-                        title=f"{self.config_name} 出了点小问题喵~",
-                        content="模拟器卡住了喵 已经重启模拟器继续挂机喵",
-                    )
-                else:
-                    handle_notify(
-                        self.config.Error_OnePushConfig,
-                        title=f"AzurPilot <{self.config_name}> 警告",
-                        content=f"<{self.config_name}> 模拟器离线 - 已自动重启模拟器",
-                    )
-                    notify_webui(
-                        self.config_name,
-                        title=f"{self.config_name} 出了点小问题喵~",
-                        content=f"模拟器离线喵 所以重启了喵",
-                    )
+                handle_notify(
+                    self.config.Error_OnePushConfig,
+                    title=f"AzurPilot <{self.config_name}> 警告",
+                    content=f"<{self.config_name}> 模拟器离线 - 已自动重启模拟器",
+                )
+                notify_webui(
+                    self.config_name,
+                    title=f"{self.config_name} 出了点小问题喵~",
+                    content=f"模拟器离线喵 所以重启了喵",
+                )
                 return 'recoverable'
             else:
                 # 重启失败：退避等待后继续重试，7×24 场景下永不放弃
                 limit = int(self.config.Error_AdbOfflineThreshold)
-                wait_seconds = min(300, 30 * max(1, self.consecutive_adb_offline))
+                wait_seconds = min(300, 30 * (self.consecutive_adb_offline - limit + 1))
                 logger.error_context(
                     title='模拟器本次重启失败',
                     reason='模拟器离线重启失败或已达到自动重启次数限制。',
@@ -935,9 +903,7 @@ class AzurLaneAutoScript:
             self.save_error_scene()
             self._check_sensitive_exit(command, e)
 
-            # 历史缺陷：此处曾重复 += 1（上一行已有一次），导致第一次未预期异常
-            # 就变成 2，第二次变成 4，直接击穿下方 ">= 3" 的分级恢复阈值，
-            # 使"先重启游戏、连续 3 次才重启模拟器"的设计实际失效。已删除重复自增。
+            self.consecutive_unexpected_error += 1
             limit = int(self.config.Error_GameStuckThreshold)
             if self.consecutive_unexpected_error >= limit:
                 # 连续多次未预期异常，说明重启游戏无法解决，重启模拟器
@@ -1962,8 +1928,6 @@ class AzurLaneAutoScript:
 
         # 启动看门狗守护线程
         self.watchdog.start()
-        # 启动模拟器卡死保护守护线程（独立于 Watchdog，检测 ADB 心跳）
-        self.crash_guard.start()
 
         while 1:
             try:
@@ -1973,34 +1937,7 @@ class AzurLaneAutoScript:
                         logger.info('[Alas] 检测到更新事件')
                         logger.info(f"[Alas] [{self.config_name}] 已退出。原因: 更新 | Reason: Update")
                         self.watchdog.stop()
-                        self.crash_guard.stop()
                         break
-                try:
-                    if self.recovery.handle_pending():
-                        continue
-                except RecoveryFailed as failed:
-                    # 后台请求的恢复没成功：退避后继续调度，绝不结束进程。
-                    # 7x24 场景下一次设备故障不该让整台机器停工；连续失败只
-                    # 拉长退避并告警，恢复开关或人工处置才是终止条件。
-                    logger.error(f'[Alas] 模拟器恢复未成功，稍后重试: {failed}')
-                    consecutive_global_failures += 1
-                    wait_seconds = min(300, RESTART_DELAY * max(1, consecutive_global_failures))
-                    if consecutive_global_failures >= MAX_GLOBAL_FAILURES:
-                        logger.error_context(
-                            title='模拟器连续恢复失败',
-                            reason=f'已连续 {consecutive_global_failures} 轮恢复未成功。',
-                            impact=f'调度器不会退出，将退避 {wait_seconds} 秒后继续尝试。',
-                            action='检查模拟器进程是否卡死、宿主机资源是否耗尽；'
-                                   '必要时手动重启模拟器或关闭 CrashProtection。',
-                            level=30,
-                        )
-                        handle_notify(
-                            self.config.Error_OnePushConfig,
-                            title=f"AzurPilot <{self.config_name}> 警告",
-                            content=f"<{self.config_name}> 模拟器连续恢复失败，仍在重试",
-                        )
-                    time.sleep(wait_seconds)
-                    continue
                 # 检查游戏服务器维护
                 self.checker.wait_until_available()
                 if self.checker.is_recovered():
@@ -2016,7 +1953,7 @@ class AzurLaneAutoScript:
                         logger.hr('[Alas] 计划的模拟器重启', level=1)
                         logger.info(f'[Alas] 模拟器已运行 {elapsed_hours:.1f} 小时, '
                                     f'计划重启间隔为 {interval} 小时')
-                        if self._try_restart_emulator(source='scheduled'):
+                        if self._try_restart_emulator():
                             self.last_emulator_restart_time = time.monotonic()
                             self.config.task_call('Restart')
                             del_cached_property(self, 'config')
@@ -2067,12 +2004,9 @@ class AzurLaneAutoScript:
                 self._error_scene_saved = False
                 # 激活看门狗：任务执行期间监控日志心跳和运行时间
                 self.watchdog.activate(task)
-                # 激活卡死保护：任务执行期间探测 ADB 心跳
-                self.crash_guard.activate(task)
                 success = self.run(inflection.underscore(task))
-                # 任务结束，暂停看门狗与卡死保护（等待期间不监控）
+                # 任务结束，暂停看门狗（等待期间不监控）
                 self.watchdog.deactivate()
-                self.crash_guard.deactivate()
                 logger.info(f'[Alas] 调度器: 结束任务 `{task}`')
                 self.is_first_task = False
 
@@ -2173,16 +2107,14 @@ class AzurLaneAutoScript:
                     continue
                 else:
                     self.watchdog.stop()
-                    self.crash_guard.stop()
                     break
 
             # 捕获全局异常并执行重启
             except Exception as e:
                 consecutive_global_failures += 1
                 self.is_first_task = False
-                # 暂停看门狗与卡死保护，避免恢复期间误触发
+                # 暂停看门狗，避免恢复期间误触发
                 self.watchdog.deactivate()
-                self.crash_guard.deactivate()
                 import traceback
 
                 # 任务失败保护：全局异常也计入失败次数
