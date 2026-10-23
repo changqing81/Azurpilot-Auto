@@ -379,8 +379,9 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             func = Function(func)
             if not func.enable:
                 continue
-            # 废除物理移除：互斥时归入等待队列，保持任务启用和原始 NextRun。
-            # 等待时间只属于本轮快照；关闭、结束或异常后下一轮自动恢复排程。
+            # 铁律：智能调度正在跑这一轮时，不允许防溢出插队打断它。
+            # 仅"运行中"才挂起——排队到期、切换中断都不算，防溢出按用户优先级
+            # 正常抢占。挂起只改本轮快照，保持任务启用和原始 NextRun。
             if (func.command == 'OpsiPreventActionPointOverflow'
                     and smart_scheduling_blocks_overflow(self)):
                 if not isinstance(func.next_run, datetime) or func.next_run <= now:

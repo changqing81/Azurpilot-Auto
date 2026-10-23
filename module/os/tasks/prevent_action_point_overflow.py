@@ -4,7 +4,8 @@
 - 监控行动力自然回复速率（每 10 分钟回复 1 点，上限 200）
 - 当行动力即将达到上限时触发其他大世界任务消耗行动力
 - 可配置上下限阈值控制触发时机
-- 与智能调度（OpsiScheduling）互斥：智能调度正常运行时不抢占其调度
+- 与智能调度（OpsiScheduling）的关系：只在智能调度**正在跑某一轮**时让出，
+  排队到期或切换中断都不让出；两者在优先级表里由用户自行排序
 
 继承自 OpsiScheduling，与其他大世界任务协调调度，
 确保行动力资源得到充分利用。
@@ -34,18 +35,6 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
     # 回退现场读弹窗，避免拿过期读数排程。
     PREVENT_AP_OVERFLOW_LEDGER_MAX_AGE_SECONDS = ACTION_POINT_RECOVER_SECONDS * 3
 
-    @staticmethod
-    def smart_scheduling_takes_turn(config):
-        """查询智能调度真实状态，其他任务插队或优先级调整均不改变互斥。"""
-        return OpsiScheduling.blocks_prevent_action_point_overflow(config)
-
-    @staticmethod
-    def yield_turn_to_smart_scheduling(config):
-        """刷新条件等待并返回，不写用户开关和持久化 NextRun。"""
-        logger.info('[大世界-防止行动力溢出] 智能调度有效运行，本轮进入条件等待')
-        # 废除物理移除和固定延期：保留任务，由下一轮调度重新评估等待条件。
-        config.get_next_task()
-
     def is_prevent_action_point_overflow_enabled(self):
         """判断防止行动力溢出任务是否启用。"""
         return self.config.is_task_enabled(self.TASK_NAME_PREVENT_AP_OVERFLOW)
@@ -74,18 +63,23 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
         return upper, lower
 
     def _get_prevent_action_point_overflow_task(self):
-        """读取防止行动力溢出任务要代跑的一轮任务。"""
+        """读取防止行动力溢出任务要代跑的一轮任务。
+
+        只允许侵蚀1练级与短猫相接：智能调度已从下拉移除，存量配置里残留的
+        'OpsiScheduling' 或其它非法值一律回退到默认的侵蚀1练级。
+        """
         task = self.config.cross_get(
             keys=self.CONFIG_PATH_PREVENT_AP_OVERFLOW_TASK,
-            default=self.TASK_NAME_SCHEDULING,
+            default=self.TASK_NAME_HAZARD1_LEVELING,
         )
         if task not in (
-            self.TASK_NAME_SCHEDULING,
             self.TASK_NAME_HAZARD1_LEVELING,
             self.TASK_NAME_MEOWFFICER_FARMING,
         ):
-            logger.warning(f'[大世界-防止行动力溢出] 防止行动力溢出的执行任务无效: {task}，回退到智能调度')
-            task = self.TASK_NAME_SCHEDULING
+            logger.warning(
+                f'[大世界-防止行动力溢出] 防止行动力溢出的执行任务无效: {task}，回退到侵蚀1练级'
+            )
+            task = self.TASK_NAME_HAZARD1_LEVELING
         return task
 
     def _read_action_point_from_ledger_for_overflow(self):
@@ -247,15 +241,10 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
         return super()._run_scheduled_coin_task_once(task_name, ap_preserve, ensure_budget=ensure_budget)
 
     def _run_prevent_action_point_overflow_target_once(self, task_name, lowerbound):
-        """按配置执行一轮防止行动力溢出目标任务。"""
+        """按配置执行一轮防止行动力溢出目标任务（侵蚀1练级或短猫相接）。"""
         with self.config.temporary(OS_ACTION_POINT_BOX_USE=False), \
                 self._suspended_buy_action_point_limit():
-            if task_name == self.TASK_NAME_SCHEDULING:
-                self._run_with_prevent_action_point_overflow_context(
-                    self.TASK_NAME_SCHEDULING,
-                    self.run_smart_scheduling_once,
-                )
-            elif task_name == self.TASK_NAME_HAZARD1_LEVELING:
+            if task_name == self.TASK_NAME_HAZARD1_LEVELING:
                 self._run_with_prevent_action_point_overflow_context(
                     self.TASK_NAME_HAZARD1_LEVELING,
                     self.run_hazard1_leveling_once,
@@ -272,10 +261,6 @@ class OpsiPreventActionPointOverflow(OpsiScheduling):
 
     def run_prevent_action_point_overflow(self):
         """防止当前行动力溢出。"""
-        # 直接调用任务时也先拦截；返回后由框架轮询，绝不循环等待或删除任务。
-        if self.smart_scheduling_takes_turn(self.config):
-            self.yield_turn_to_smart_scheduling(self.config)
-            return
         logger.hr('大世界-防止行动力溢出', level=1)
         upperbound, lowerbound = self._get_prevent_action_point_overflow_thresholds()
         task_name = self._get_prevent_action_point_overflow_task()

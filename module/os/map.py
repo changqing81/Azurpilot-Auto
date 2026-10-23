@@ -126,7 +126,7 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
             return getter()
         return self.config.cross_get(
             keys="OpsiPreventActionPointOverflow.OpsiPreventActionPointOverflow.Task",
-            default="OpsiScheduling",
+            default="OpsiHazard1Leveling",
         )
 
     def os_init(self):
@@ -194,11 +194,8 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         overflow_target_task = self._get_prevent_action_point_overflow_target_task()
 
         if (
-            (
-                self.config.task.command == "OpsiScheduling"
-                and self.is_smart_scheduling_enabled()
-            )
-            or overflow_target_task == "OpsiScheduling"
+            self.config.task.command == "OpsiScheduling"
+            and self.is_smart_scheduling_enabled()
         ):
             logger.info("智能调度将决定初始化自律寻敌是否执行")
             self._smart_scheduling_first_auto_search_pending = True

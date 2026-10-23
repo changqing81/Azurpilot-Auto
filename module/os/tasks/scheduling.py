@@ -36,7 +36,7 @@ from module.config.utils import get_os_reset_remain, server_time_offset
 from module.logger import logger
 from module.os.map import OSMap
 from module.os.tasks.scheduling_state import (
-    get_smart_scheduling_state, smart_scheduling_blocks_overflow, smart_scheduling_session,
+    get_smart_scheduling_state, smart_scheduling_session,
 )
 from module.os_handler.action_point import ACTION_POINTS_COST, ActionPointLimit
 
@@ -272,15 +272,6 @@ class CoinTaskMixin:
     def _delay_smart_scheduling_to_server_update(self, reason):
         """将实际运行智能调度的任务延迟到服务器刷新。"""
         self._clear_coin_task_notification_state()
-        if self.is_running_prevent_action_point_overflow_task():
-            setattr(
-                self,
-                self.RUNTIME_ATTR_PREVENT_OVERFLOW_DELAY,
-                ((), {'server_update': True}),
-            )
-            logger.info(f'[大世界-智能调度] {reason}，防止行动力溢出任务延迟到服务器刷新')
-            return
-
         logger.info(f'[大世界-智能调度] {reason}，智能调度延迟到服务器刷新')
         self.config.task_delay(
             server_update=self.config.cross_get(
@@ -299,17 +290,6 @@ class CoinTaskMixin:
             minutes (int): 延迟的分钟数。
         """
         self._clear_coin_task_notification_state()
-        if self.is_running_prevent_action_point_overflow_task():
-            setattr(
-                self,
-                self.RUNTIME_ATTR_PREVENT_OVERFLOW_DELAY,
-                ((), {'minutes': minutes}),
-            )
-            logger.info(
-                f'[大世界-智能调度] {reason}，防止行动力溢出任务延迟 {minutes} 分钟'
-            )
-            return
-
         logger.info(f'[大世界-智能调度] {reason}，智能调度延迟 {minutes} 分钟')
         self.config.task_delay(
             minute=minutes,
@@ -2334,39 +2314,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
         self.run_first_auto_search()
 
-    def _handle_smart_scheduling_no_task(self, yellow_coins, total_ap, current_ap, coin_target, meow_ap_preserve):
+    def _handle_smart_scheduling_no_task(self, yellow_coins, total_ap, coin_target, meow_ap_preserve):
         """
         处理黄币和行动力不足导致没有可运行任务的情况。
 
-        防止行动力溢出任务代跑智能调度时，需要清理当前真实行动力，因此直接跑一轮短猫相接。
-        普通智能调度保持延后，不按行动力恢复时间唤起。
+        智能调度保持延后，不按行动力恢复时间唤起。
         """
-        if self.is_running_prevent_action_point_overflow_task() and current_ap > 0:
-            logger.info(
-                f'防止行动力溢出上下文：黄币不足且总行动力未达补黄币保留，'
-                f'执行短猫相接清理当前行动力 (当前={current_ap}, 总行动力={total_ap})'
-            )
-            if yellow_coins < coin_target:
-                coin_status = f'黄币 {yellow_coins} 低于补黄币目标 {coin_target}'
-            else:
-                coin_status = f'黄币 {yellow_coins} 已达到补黄币阈值 {coin_target}'
-            self.handle_first_auto_search(run=True)
-            if self._run_scheduled_coin_task_once(self.TASK_NAME_MEOWFFICER_FARMING, 0):
-                self.notify_push(
-                    title='[AzurPilot] 防止行动力溢出 - 已执行短猫相接',
-                    content=(
-                        f'{coin_status}\n'
-                        f'总行动力 {total_ap} 低于补黄币保留 {meow_ap_preserve}\n'
-                        f'已由 OpsiScheduling 执行一轮短猫相接清理当前行动力 {current_ap}'
-                    )
-                )
-                return
-
-            logger.warning('[大世界-防止行动力溢出] 短猫相接无可执行内容，无法继续清理当前行动力')
-            self._delay_smart_scheduling_to_server_update('短猫相接无可执行内容')
-            self.config.task_stop()
-            return
-
         self._notify_coins_ap_insufficient(yellow_coins, total_ap, coin_target, meow_ap_preserve)
         self._delay_smart_scheduling_for_ap_limit(total_ap, meow_ap_preserve)
 
@@ -2539,19 +2492,8 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
     def run_smart_scheduling_once(self):
         """执行一轮智能调度决策。"""
-        # 防溢出任务直接调用本方法，需要在此处补齐开荒拦截。
-        if (
-            self.is_running_prevent_action_point_overflow_task()
-            and self._delay_smart_scheduling_for_opsi_explore()
-        ):
-            return
-
         # 买行动力模式：与现有黄币/行动力调度互斥，仅由主调度（OpsiScheduling）执行。
-        # 防溢出任务代跑时不进入买行动力模式，避免循环购买打断防溢出逻辑。
-        if (
-            self._is_buy_action_point_mode_active()
-            and not self.is_running_prevent_action_point_overflow_task()
-        ):
+        if self._is_buy_action_point_mode_active():
             bought_delay = self._run_buy_action_point_mode()
             if bought_delay:
                 return
@@ -2600,16 +2542,10 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         ap_replenish_active = self._is_ap_replenish_active()
 
         logger.info(f'[大世界-智能调度] 黄币: {yellow_coins}, 保留值: {cl1_preserve}')
-        if self.is_running_prevent_action_point_overflow_task():
-            logger.info(
-                f'[大世界-智能调度] 行动力: 当前={current_ap}, 总计={total_ap}, '
-                f'CL1保留: {cl1_ap_preserve}, 补黄币保留: {meow_ap_preserve}'
-            )
-        else:
-            logger.info(
-                f'[大世界-智能调度] 总行动力: {total_ap}, '
-                f'CL1保留: {cl1_ap_preserve}, 补黄币保留: {meow_ap_preserve}'
-            )
+        logger.info(
+            f'[大世界-智能调度] 总行动力: {total_ap}, '
+            f'CL1保留: {cl1_ap_preserve}, 补黄币保留: {meow_ap_preserve}'
+        )
 
         try:
             if coin_target_scheduling and (yellow_coins < cl1_preserve or coin_replenish_active):
@@ -2631,7 +2567,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                         self._handle_smart_scheduling_no_task(
                             yellow_coins,
                             total_ap,
-                            current_ap,
                             coin_target,
                             meow_ap_preserve,
                         )
@@ -2655,15 +2590,10 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 if total_ap <= meow_ap_preserve:
                     logger.info(f'[大世界-智能调度] 行动力已达到体力调度阈值 ({total_ap} <= {meow_ap_preserve})，停止补黄币')
                     self._clear_ap_replenish_active()
-                    overflow_cleanup = (
-                        self.is_running_prevent_action_point_overflow_task()
-                        and current_ap > 0
-                    )
-                    if yellow_coins < cl1_preserve or overflow_cleanup:
+                    if yellow_coins < cl1_preserve:
                         self._handle_smart_scheduling_no_task(
                             yellow_coins,
                             total_ap,
-                            current_ap,
                             cl1_preserve,
                             meow_ap_preserve,
                         )
@@ -2693,11 +2623,6 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
     def get_scheduling_state(config):
         """供执行入口查询真实运行/等待状态，不依赖任务在队列中的优先级。"""
         return get_smart_scheduling_state(config)
-
-    @staticmethod
-    def blocks_prevent_action_point_overflow(config):
-        """智能调度具有有效执行轮次时，防溢出条件挂起并保持队列身份。"""
-        return smart_scheduling_blocks_overflow(config)
 
     @staticmethod
     def scheduling_session(config):

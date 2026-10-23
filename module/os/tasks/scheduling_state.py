@@ -40,8 +40,13 @@ def get_smart_scheduling_state(config, now=None):
 
 
 def smart_scheduling_blocks_overflow(config, now=None):
-    """只在智能调度实际执行或具有有效待执行轮次时挂起防溢出。"""
-    return get_smart_scheduling_state(config, now=now) in ('ready', 'running', 'interrupted')
+    """只在智能调度**正在执行**时挂起防溢出。
+
+    排队到期（ready）、原生切换中断（interrupted）不再挂起：防溢出在默认
+    优先级表里排在智能调度之前，到期就该按用户排序抢占；只有智能调度已经在
+    跑这一轮时，才不允许防溢出插进去打断它。
+    """
+    return get_smart_scheduling_state(config, now=now) == 'running'
 
 
 @contextmanager

@@ -167,11 +167,8 @@ class OSCampaignRun(OSMapOperation):
         self._run_opsi_task_with_ap_overflow_guard(lambda campaign: campaign.run_smart_scheduling())
 
     def opsi_prevent_action_point_overflow(self):
-        # 废除物理移除：智能调度有效运行时直接返回，任务留在调度器等待队列。
-        # 在初始化前拦截，覆盖直接调用入口；互斥不受用户优先级排序影响。
-        if OpsiPreventActionPointOverflow.smart_scheduling_takes_turn(self.config):
-            OpsiPreventActionPointOverflow.yield_turn_to_smart_scheduling(self.config)
-            return
+        # 互斥交给调度队列（config.get_next_task）：只有智能调度正在跑这一轮时
+        # 才会把本任务放进等待队列，这里不再二次拦截，避免绕过用户优先级排序。
         campaign = self.load_campaign()
         campaign.os_prevent_action_point_overflow()
 
