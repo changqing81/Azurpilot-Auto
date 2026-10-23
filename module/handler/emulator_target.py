@@ -47,8 +47,13 @@ class RecoveryTarget:
         Args:
             check: 非零退出码是否视为失败。停止类命令必须传 False——见 stop()。
         """
+        # CREATE_NO_WINDOW 是 Windows 专有常量，Linux/macOS 上直接取属性即报
+        # AttributeError（CI 跑 unittest 时整片红）。按 os.name 判断平台，
+        # 非 Windows 传 0 表示不设置创建标志，与 module/handler/emulator_health.py
+        # 保持同一口径。
+        creationflags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
         return subprocess.run(args, timeout=timeout, capture_output=True,
-                              creationflags=subprocess.CREATE_NO_WINDOW, check=check)
+                              creationflags=creationflags, check=check)
 
     def processes(self):
         """只返回路径和完整实例参数同时匹配的进程，不匹配共享服务。"""
@@ -177,10 +182,14 @@ class RecoveryTarget:
         for attempt, watch_timeout in enumerate(EMULATOR_START_WATCH_TIMEOUTS):
             checkpoint()
             logger.info(f'[模拟器恢复] 启动实例（第 {attempt + 1} 次）: {os.path.basename(args[0])}')
+            # DETACHED_PROCESS 与 CREATE_NO_WINDOW 同为 Windows 专有，
+            # 非 Windows 传 0（不设置创建标志）。
+            creationflags = (subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS) \
+                if os.name == 'nt' else 0
             process = subprocess.Popen(
                 args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL, close_fds=True,
-                creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS)
+                creationflags=creationflags)
             if process.poll() not in (None, 0):
                 # 命令本身就没发出去，换实例状态再看一次再决定。
                 last_reason = '模拟器启动命令返回非零退出码'
