@@ -232,19 +232,26 @@ class FleetTechnologyMixin(WebUIMixinBase):
             self._mc_load(force=True)
         self._ft_render_mind_tab()
 
-    def _ft_render_scan_controls(self):
-        """重画两个扫描开关所在工具栏，顺带补登记轮询任务。
+    def _ft_render_scan_controls(self, tech=True, mind=True):
+        """重画扫描开关所在工具栏，顺带补登记轮询任务。
 
         统计页每次进入时调用：切页会随 pending_delete 清掉扫描开关的
         1 秒轮询任务，重画工具栏即重新登记（登记按任务名幂等，不会叠加）。
         面板数据由后台首跑加载，可能还没落位（刚挂载就切回来）；先补齐
         状态与数据再画，否则工具栏会因缺 _ft_report 抛异常、整页打不开
         （2026-10-17 真机：填充任务因传参错误从未执行，第二次进页直接崩）。
+
+        Args:
+            tech: 是否重画科技列表的扫描行。它的宿主 scope ``ft_toolbar``
+                建在 ``ft_tech`` 面板里，面板没渲染过时画了会掉到 ROOT。
+            mind: 是否重画心智计算器的扫描行。宿主 ``ft_mind_toolbar`` 同理，
+                且该页签没被点开时画它还会白读一次配置。
         """
         self._ft_state()
         self._ft_load()
-        self._ft_render_toolbar()
-        if hasattr(self, '_mc_render_toolbar'):
+        if tech:
+            self._ft_render_toolbar()
+        if mind and hasattr(self, '_mc_render_toolbar'):
             self._mc_render_toolbar()
 
     def _ft_data_refresh(self):
@@ -286,20 +293,28 @@ class FleetTechnologyMixin(WebUIMixinBase):
         self._ft_render_mind_panel()
 
     def _ft_render_tech_tab(self):
-        """科技列表（汇总/筛选/搜索/扫描行/加成/表格）。
+        """科技列表（汇总/筛选/扫描行/搜索行/加成/表格）。
 
-        扫描范围与两个动作放在搜索行之下、表格之上：上方只剩浏览用的
-        汇总与筛选，扫描控件紧贴数据区。
+        扫描范围与两个动作放在筛选栏之下、搜索行之上（用户 2026-10-22 指定）：
+        上方只剩浏览用的汇总与筛选。
+
+        ⚠️ 这里 put_scope("ft_toolbar") 的**声明位置就是实际位置**：它是
+        ft_tech 的子 scope，必须留在 use_scope("ft_tech") 上下文内。此前它
+        被当成兄弟 scope 列进 _STAT_PANEL_SCOPES["fleet"] 一起搬进面板，而
+        搬迁一律 appendChild 到末尾，于是工具栏永远排在整张表格（含分页）
+        之后——写在 _ft_render_search() 后面也不生效（2026-10-22 真机截图：
+        扫描行挂在分页下方）。
         """
         put_scope('ft_summary')
         put_scope('ft_filters')
         self._ft_render_filters()
         put_scope('ft_stage')
+        put_scope('ft_toolbar')
         put_scope('ft_search')
-        self._ft_render_search()
-        self._ft_render_toolbar()
         put_scope('ft_bonuses')
         put_scope('ft_table')
+        self._ft_render_toolbar()
+        self._ft_render_search()
         self._ft_render_summary()
         self._ft_render_stage()
         self._ft_render_bonuses()

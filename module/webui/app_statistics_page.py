@@ -72,10 +72,11 @@ _STAT_PANEL_SCOPES = {
     "research": ("research_stats",),
     "resource": ("resource_delta",),
     # 面板内容整块搬入：ft_tech / ft_mind 由舰队科技 Mixin 渲染（内容不变）。
-    # ft_toolbar（扫描范围 + 扫描/同步按钮）必须跟着搬：漏搬时 PyWebIO 找不到
-    # 该 scope 会在 ROOT 下新建孤儿容器，工具栏就永久贴在页面最底部，与统计
-    # 面板彻底分离（真机截图里那条割裂白条）。
-    "fleet": ("ft_tech", "ft_toolbar"),
+    # ft_toolbar（扫描范围 + 扫描/同步按钮）**不在这里**：它是 ft_tech 的子
+    # scope，由 _ft_render_tech_tab 在筛选栏与搜索行之间声明。搬迁清单里的
+    # scope 一律 appendChild 到面板末尾，放进来就会把工具栏甩到整张表格之后
+    # （2026-10-22 截图：扫描行掉在分页下方）。
+    "fleet": ("ft_tech",),
     "mind": ("ft_mind",),
 }
 
@@ -169,6 +170,9 @@ def _build_tab_action_buttons(gui):
 # 舰队科技面板的 id：它的数据刷新任务最贵（每 5 秒重建一次配置对象），
 # 只在面板真正被用户点开后才登记轮询任务。
 _PANEL_FLEET = "fleet"
+# 心智计算器面板的 id：它和舰队科技各有一条扫描工具栏。页签没被点开时
+# 工具栏的宿主 scope 还不存在，补画会把控件丢到 ROOT（见 alas_set_stat）。
+_PANEL_MIND = "mind"
 
 
 class StatisticsPageMixin(WebUIMixinBase):
@@ -207,12 +211,17 @@ class StatisticsPageMixin(WebUIMixinBase):
             self._mount_statistics_page(cache_key)
         else:
             self._refresh_statistics_if_changed()
-            # 面板常驻：切页会随 pending_delete 清掉两个扫描开关的轮询任务，
+            # 面板常驻：切页会随 pending_delete 清掉扫描开关的轮询任务，
             # 每次进入补画一次工具栏（登记按任务名幂等，不会叠加）。
-            # 懒加载：舰队面板没加载过就不画工具栏——否则会为一个用户根本
-            # 没点开的页签白做一次配置读取（load_config 很贵）。
-            if _PANEL_FLEET in getattr(self, "_st_loaded_panels", set()):
-                self._ft_render_scan_controls()
+            # 懒加载：页签没点开过就既不画它那一行——否则既白做一次
+            # load_config（很贵），又把控件丢进 ROOT（工具栏宿主 scope 建在
+            # 各自面板内部，面板没渲染过时它根本不存在；2026-10-22 实测
+            # ft_mind_toolbar 的父节点是 pywebio-scope-ROOT）。
+            loaded = getattr(self, "_st_loaded_panels", set())
+            tech = _PANEL_FLEET in loaded
+            mind = _PANEL_MIND in loaded
+            if tech or mind:
+                self._ft_render_scan_controls(tech=tech, mind=mind)
             # 上次离开统计页时分区可能还没填充完（填充任务被切页一并清掉）：
             # 这里补排一次，避免分区永远是空壳。
             if not getattr(self, "_statistics_sections_rendered", False):
@@ -268,12 +277,13 @@ class StatisticsPageMixin(WebUIMixinBase):
                 put_scope("research_stats", [])
                 put_scope("resource_delta", [])
                 put_scope("ship_exp_table", [])
-                # 舰队科技列表 / 心智计算器的内容宿主（整块搬进各自面板），
-                # ft_toolbar 是扫描工具栏，必须一起搬——漏搬会让它留在页面
-                # 最底部、与面板分离（真机截图里那条割裂的白条就是它）。
+                # 舰队科技列表 / 心智计算器的内容宿主（整块搬进各自面板）。
+                # ft_toolbar 不在这里声明：它由 _ft_render_tech_tab 在 ft_tech
+                # 内部创建，作为子 scope 决定「筛选栏之下、搜索行之上」的位置。
+                # 在这里预建会抢先生成一个顶层空壳，子 scope 声明随之落空
+                # （set_scope 对已存在的 scope 只清空、不移动）。
                 put_scope("ft_tech", [])
                 put_scope("ft_mind", [])
-                put_scope("ft_toolbar", [])
                 # 两个隐藏点击桥：ft_bridge 转发表格排序/编辑，st_bridge 转发
                 # 页签点击与面板高度回传（裸 HTML 按钮没有回调通道）。
                 put_scope("ft_bridge", [put_input(name=BRIDGE_PIN, value="")])

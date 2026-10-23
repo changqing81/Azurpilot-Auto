@@ -561,6 +561,23 @@ class FleetTechPageTest(unittest.TestCase):
         h._ft_render_scan_controls()
         self.assertEqual(h.render_log, ['tech_toolbar', 'mind_toolbar'])
 
+    def test_scan_controls_skips_unloaded_panels(self):
+        """页签没点开过就不画那一行工具栏。
+
+        2026-10-22 实测：两条扫描行的宿主 scope（ft_toolbar / ft_mind_toolbar）
+        都建在各自面板内部，面板没渲染过时它们不存在，补画会让 PyWebIO 在
+        ROOT 下新建孤儿容器——控件凭空出现在页面底部。心智那一行还会白读
+        一次配置（load_config 很贵）。
+        """
+        h = self.harness
+        h._ft_render_toolbar = lambda: h.render_log.append('tech_toolbar')
+        h._mc_render_toolbar = lambda: h.render_log.append('mind_toolbar')
+        h._ft_render_scan_controls(tech=True, mind=False)
+        self.assertEqual(h.render_log, ['tech_toolbar'])
+        h.render_log.clear()
+        h._ft_render_scan_controls(tech=False, mind=True)
+        self.assertEqual(h.render_log, ['mind_toolbar'])
+
     def test_scan_controls_load_data_before_repaint(self):
         """补画扫描开关前必须先就绪状态与数据。
 

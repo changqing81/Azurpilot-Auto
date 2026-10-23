@@ -275,8 +275,12 @@ class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
         )
                 # ft_toolbar 必须跟着 ft_tech 一起搬进「科技列表」面板：漏搬会让扫描
         # 工具栏留在页面最底部（真机截图里那条割裂白条）。
-        self.assertEqual(("ft_tech", "ft_toolbar"), _STAT_PANEL_SCOPES["fleet"])
+        # ft_toolbar 不在搬迁清单里：它是 ft_tech 的子 scope，位置由
+        # _ft_render_tech_tab 的 put_scope 声明顺序决定（搬迁一律 appendChild
+        # 到面板末尾，列进来会把扫描行甩到表格之后）。
+        self.assertEqual(("ft_tech",), _STAT_PANEL_SCOPES["fleet"])
         self.assertEqual(("ft_mind",), _STAT_PANEL_SCOPES["mind"])
+        self.assertNotIn("ft_toolbar", _STAT_PANEL_SCOPES["fleet"])
 
     def test_mount_declares_fleet_scopes_tabs_and_bridge_pin(self):
         from module.webui import app_statistics_page as page
@@ -570,17 +574,70 @@ class StatisticsLazyLoadingTests(unittest.TestCase):
 
 
 class StatisticsFleetToolbarScopeTests(unittest.TestCase):
-    """ft_toolbar 必须搬进「科技列表」面板。
+    """ft_toolbar 必须是 ft_tech 的子 scope，且不再走搬迁清单。
 
-    真机事故（2026-10-21 截图）：扫描范围/扫描船坞那条工具栏留在页面最底部、
-    与统计面板彻底分离，就是因为它不在 _STAT_PANEL_SCOPES 的搬迁清单里——
-    PyWebIO 找不到 scope 时会在 ROOT 下新建孤儿容器。
+    两代真机事故：
+    - 2026-10-21：工具栏不在 _STAT_PANEL_SCOPES 搬迁清单里，PyWebIO 找不到
+      scope 就在 ROOT 下新建孤儿容器，工具栏永久贴在页面最底部；
+    - 2026-10-22：把它列进清单后，搬迁一律 appendChild 到面板末尾，工具栏
+      被甩到整张表格（含分页）之后。位置改由 put_scope 声明顺序决定，
+      所以它必须留在 _ft_render_tech_tab 里、且在 ft_search 之前声明。
     """
 
-    def test_ft_toolbar_in_fleet_panel_scopes(self):
+    def test_ft_toolbar_not_in_migration_list(self):
         from module.webui.app_statistics_page import _STAT_PANEL_SCOPES
 
-        self.assertIn("ft_toolbar", _STAT_PANEL_SCOPES["fleet"])
+        self.assertNotIn("ft_toolbar", _STAT_PANEL_SCOPES["fleet"])
+
+    def test_reentry_repaints_only_loaded_panels(self):
+        """重入统计页时，只为已加载页签补画扫描行（未加载的画了会掉进 ROOT）。"""
+        from module.webui import app_statistics_page as page
+
+        calls = []
+        with patch(
+            "module.webui.app_statistics_page.use_scope",
+            side_effect=lambda *_a, **_k: nullcontext(),
+        ), patch(
+            "module.webui.app_statistics_page.put_scope", return_value=_OutputStub()
+        ), patch(
+            "module.webui.app_statistics_page.put_button", return_value=_OutputStub()
+        ), patch(
+            "module.webui.app_statistics_page.put_buttons", return_value=_OutputStub()
+        ), patch(
+            "module.webui.app_statistics_page.put_html", return_value=_OutputStub()
+        ), patch(
+            "module.webui.app_statistics_page.put_input", return_value=_OutputStub()
+        ), patch(
+            "module.webui.app_statistics_page.run_js"
+        ):
+            gui = _StatisticsHarness()
+            gui._statistics_cache_key = gui._get_statistics_cache_key()
+            gui._st_loaded_panels = {page._PANEL_FLEET}
+            gui._ft_render_scan_controls = (
+                lambda tech=True, mind=True: calls.append((tech, mind))
+            )
+            gui.alas_set_stat()
+        self.assertEqual([(True, False)], calls)
+
+    def test_ft_toolbar_declared_inside_tech_tab_before_search(self):
+        """声明位置即位置：ft_toolbar 在 ft_tech 内、ft_search 之前。
+
+        只锁静态源码顺序（不跑渲染）：把 put_scope 的调用行取出来比对索引，
+        比真渲染更稳，也能在没人开 GUI 时挡住顺序回退。
+        """
+        from pathlib import Path
+
+        source = Path(__file__).resolve().parents[1].joinpath(
+            "module", "webui", "app_fleet_technology.py"
+        ).read_text(encoding="utf-8")
+        body = source[source.index("def _ft_render_tech_tab"):]
+        body = body[:body.index("\n    def _ft_bind_callbacks")]
+        self.assertIn("put_scope('ft_toolbar')", body)
+        self.assertLess(
+            body.index("put_scope('ft_toolbar')"),
+            body.index("put_scope('ft_search')"),
+            "扫描行必须声明在搜索行之前，否则界面上会掉到搜索行下面",
+        )
 
     def test_every_scope_owned_by_exactly_one_panel(self):
         from module.webui.app_statistics_page import _STAT_PANEL_SCOPES
