@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "source_commit": "5822b0899c6b146403c88b8a4be9948205eede3b",
-  "updated_at": "2026-10-17",
+  "source_commit": "fccadbfd03d47907218d70cd917d3ca7efbd1c83",
+  "updated_at": "2026-10-22",
   "ships": [
     {
       "group_type": 10000,
@@ -16311,6 +16311,136 @@
           21
         ],
         "add_level_attr": 8,
+        "add_level_value": 1
+      }
+    },
+    {
+      "group_type": 960020,
+      "code": 760,
+      "handbook_type": 0,
+      "blueprint": false,
+      "technology": {
+        "pt_get": 7,
+        "pt_upgrage": 14,
+        "pt_level": 10,
+        "max_star": 5,
+        "add_get_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_get_attr": 8,
+        "add_get_value": 1,
+        "add_level_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_level_attr": 1,
+        "add_level_value": 1
+      }
+    },
+    {
+      "group_type": 960021,
+      "code": 761,
+      "handbook_type": 0,
+      "blueprint": false,
+      "technology": {
+        "pt_get": 28,
+        "pt_upgrage": 56,
+        "pt_level": 42,
+        "max_star": 5,
+        "add_get_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_get_attr": 2,
+        "add_get_value": 1,
+        "add_level_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_level_attr": 6,
+        "add_level_value": 1
+      }
+    },
+    {
+      "group_type": 960018,
+      "code": 762,
+      "handbook_type": 0,
+      "blueprint": false,
+      "technology": {
+        "pt_get": 8,
+        "pt_upgrage": 16,
+        "pt_level": 12,
+        "max_star": 6,
+        "add_get_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_get_attr": 2,
+        "add_get_value": 1,
+        "add_level_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_level_attr": 1,
+        "add_level_value": 2
+      }
+    },
+    {
+      "group_type": 960017,
+      "code": 763,
+      "handbook_type": 0,
+      "blueprint": false,
+      "technology": {
+        "pt_get": 13,
+        "pt_upgrage": 26,
+        "pt_level": 19,
+        "max_star": 6,
+        "add_get_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_get_attr": 2,
+        "add_get_value": 1,
+        "add_level_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_level_attr": 9,
+        "add_level_value": 1
+      }
+    },
+    {
+      "group_type": 960019,
+      "code": 764,
+      "handbook_type": 0,
+      "blueprint": false,
+      "technology": {
+        "pt_get": 38,
+        "pt_upgrage": 78,
+        "pt_level": 58,
+        "max_star": 6,
+        "add_get_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_get_attr": 1,
+        "add_get_value": 2,
+        "add_level_shiptype": [
+          22,
+          23,
+          24
+        ],
+        "add_level_attr": 2,
         "add_level_value": 1
       }
     },
