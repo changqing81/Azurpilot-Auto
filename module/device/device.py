@@ -122,6 +122,13 @@ class Device(Screenshot, Control, AppControl, Input):
         """
         # 初始化模拟器管理平台
         self._platform = None
+        self.detect_record = set()
+        self.click_record = collections.deque(maxlen=15)
+        self.click_grid_record = collections.deque(maxlen=15)
+        self.stuck_timer = Timer(60, count=60).start()
+        self.stuck_timer_long = Timer(195, count=195).start()
+        self._stuck_image_timer = Timer(30, count=0)
+        self._prev_fingerprint = None
 
         for trial in range(4):
             try:
@@ -355,6 +362,7 @@ class Device(Screenshot, Control, AppControl, Input):
         Returns:
             截图图像，numpy 数组格式。
         """
+        self.check_session()
         self.stuck_record_check()
 
         try:
@@ -370,10 +378,12 @@ class Device(Screenshot, Control, AppControl, Input):
         if self.handle_night_commission():
             super().screenshot()
 
+        self.check_session()
         self._check_image_stuck()
         return self.image
 
     def dump_hierarchy(self) -> etree._Element:
+        self.check_session()
         self.stuck_record_check()
         return super().dump_hierarchy()
 
@@ -435,22 +445,20 @@ class Device(Screenshot, Control, AppControl, Input):
                 timer_obj.limit = limit
 
     def _check_image_stuck(self):
+        """静止画面只记录诊断，不以单张图像或单次心跳决定重启。
+
+        正常更新、加载和列表扫描都可能长时间静止。业务状态超时仍由
+        stuck_record_check 与任务自己的进展检查负责；通信故障交给独立探针。
+        """
+        self.check_session()
         if self.image is None:
             return
-
-        small = cv2.resize(self.image, (16, 16))
-        fp = hash(small.tobytes())
-
-        if self._prev_fingerprint is not None and fp == self._prev_fingerprint:
+        fp = hash(cv2.resize(self.image, (16, 16)).tobytes())
+        if self._prev_fingerprint == fp:
             self._stuck_image_timer.start()
             if self._stuck_image_timer.reached():
-                show_function_call()
-                logger.warning(f'[设备-卡死] 截图超过 {self._stuck_image_timer.limit}s 未变化')
-                self.stuck_record_clear()
-                if self.app_is_running():
-                    raise GameStuckError('[设备-卡死] 截图未变化')
-                else:
-                    raise GameNotRunningError('[设备-卡死] 游戏已退出')
+                logger.info('[设备-截图] 画面持续静止，等待业务进展或独立通信检测')
+                self._stuck_image_timer.reset()
         else:
             self._prev_fingerprint = fp
             self._stuck_image_timer.clear()

@@ -185,7 +185,7 @@ def random_port(port_range):
         return new_port
 
 
-def recv_all(stream, chunk_size=4096, recv_interval=0.000) -> bytes:
+def recv_all(stream, chunk_size=4096, recv_interval=0.000, timeout=10) -> bytes:
     """
     Args:
         stream:
@@ -206,7 +206,12 @@ def recv_all(stream, chunk_size=4096, recv_interval=0.000) -> bytes:
 
     try:
         fragments = []
+        deadline = time.monotonic() + timeout
         while 1:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise AdbTimeout('ADB 数据流总接收期限已到')
+            stream.settimeout(remaining)
             chunk = stream.recv(chunk_size)
             if chunk:
                 fragments.append(chunk)

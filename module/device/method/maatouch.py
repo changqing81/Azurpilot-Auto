@@ -7,6 +7,7 @@ MaaTouch 是 minitouch 的增强替代方案，通过 WebSocket 协议与设备�
 滑动使用贝塞尔曲线插值生成自然轨迹。兼容 minitouch 的命令格式，
 通过 ADB 端口转发建立 WebSocket 连接。
 """
+from module.device.session import session_guard
 import socket
 import threading
 import time
@@ -203,6 +204,7 @@ class MaaTouch(Connection):
         del_cached_property(self, '_maatouch_builder')
         self.early_maatouch_init()
 
+    @session_guard
     def maatouch_init(self):
         logger.hr('[设备-MaaTouch] 初始化')
         max_x, max_y = 1280, 720
@@ -364,6 +366,7 @@ class MaaTouch(Connection):
         self.adb_shell(["rm", self.config.MAATOUCH_FILEPATH_REMOTE])
 
     @retry
+    @session_guard
     def click_maatouch(self, x, y):
         builder = self.maatouch_builder
         builder.down(x, y).commit()
@@ -371,6 +374,7 @@ class MaaTouch(Connection):
         builder.send_sync()
 
     @retry
+    @session_guard
     def long_click_maatouch(self, x, y, duration=1.0):
         duration = int(duration * 1000)
         builder = self.maatouch_builder
@@ -379,6 +383,7 @@ class MaaTouch(Connection):
         builder.send_sync()
 
     @retry
+    @session_guard
     def swipe_maatouch(self, p1, p2):
         points = insert_swipe(p0=p1, p3=p2)
         builder = self.maatouch_builder
@@ -395,6 +400,7 @@ class MaaTouch(Connection):
         builder.send_sync()
 
     @retry
+    @session_guard
     def drag_maatouch(self, p1, p2, point_random=(-10, -10, 10, 10), hold_duration=0.0):
         p1 = np.array(p1) - random_rectangle_point(point_random)
         p2 = np.array(p2) - random_rectangle_point(point_random)
@@ -422,6 +428,7 @@ class MaaTouch(Connection):
         builder.send_sync()
 
     @retry
+    @session_guard
     def island_swipe_hold_maatouch(self, p1, p2, hold_time):
         points = insert_swipe(p0=p1, p3=p2)
         builder = self.maatouch_builder

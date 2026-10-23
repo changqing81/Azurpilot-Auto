@@ -7,6 +7,7 @@ minitouch 通过 Unix Socket 直接向 Android 设备的输入子系统发送触
 使用正态分布随机化触控坐标和速度，模拟自然的用户操作行为。
 需要先通过 ADB 将 minitouch 推送至设备并建立 Socket 连接。
 """
+from module.device.session import session_guard
 import asyncio
 import json
 import socket
@@ -515,6 +516,7 @@ class Minitouch(Connection):
         thread.start()
 
     @Config.when(DEVICE_OVER_HTTP=False)
+    @session_guard
     def minitouch_init(self):
         logger.hr('[设备-MiniTouch] MiniTouch初始化')
         max_x, max_y = 1280, 720
@@ -639,6 +641,7 @@ class Minitouch(Connection):
             )
 
     @Config.when(DEVICE_OVER_HTTP=True)
+    @session_guard
     def minitouch_init(self):
         logger.hr('[设备-MiniTouch] MiniTouch初始化')
         self.max_x, self.max_y = 1280, 720
@@ -693,6 +696,7 @@ class Minitouch(Connection):
         builder.clear()
 
     @retry
+    @session_guard
     def click_minitouch(self, x, y):
         builder = self.minitouch_builder
         builder.down(x, y).commit()
@@ -700,6 +704,7 @@ class Minitouch(Connection):
         builder.send()
 
     @retry
+    @session_guard
     def long_click_minitouch(self, x, y, duration=1.0):
         duration = int(duration * 1000)
         builder = self.minitouch_builder
@@ -708,6 +713,7 @@ class Minitouch(Connection):
         builder.send()
 
     @retry
+    @session_guard
     def swipe_minitouch(self, p1, p2):
         points = insert_swipe(p0=p1, p3=p2)
         builder = self.minitouch_builder
@@ -723,6 +729,7 @@ class Minitouch(Connection):
         builder.send()
 
     @retry
+    @session_guard
     def drag_minitouch(self, p1, p2, point_random=(-10, -10, 10, 10), hold_duration=0.0):
         p1 = np.array(p1) - random_rectangle_point(point_random)
         p2 = np.array(p2) - random_rectangle_point(point_random)
@@ -749,6 +756,7 @@ class Minitouch(Connection):
         builder.up().commit()
         builder.send()
 
+    @session_guard
     def island_swipe_hold_minitouch(self, p1, p2, hold_time):
         points = insert_swipe(p0=p1, p3=p2)
         builder = self.minitouch_builder

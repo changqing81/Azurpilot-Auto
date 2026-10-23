@@ -6,6 +6,7 @@ MuMu 模拟器 IPC 通信方法。
 截图延迟极低且无需网络传输。支持截图、点击、滑动和按键操作。
 仅限 Windows 平台使用，需要 MuMu 模拟器支持 IPC 接口。
 """
+from module.device.session import session_guard
 import ctypes
 import json
 import os
@@ -22,10 +23,11 @@ from module.base.utils import ensure_time
 from module.config.deep import deep_get
 from module.device.env import IS_WINDOWS
 from module.device.method.minitouch import insert_swipe, random_rectangle_point
-from module.device.method.pool import JobTimeout, WORKER_POOL
+from module.device.method.pool import JobTimeout
+from module.device.native_call import NativeCall
 from module.device.method.utils import RETRY_TRIES, retry_sleep
 from module.device.platform import Platform
-from module.exception import EmulatorNotRunningError, RequestHumanTakeover
+from module.exception import EmulatorNotRunningError, NativeIpcTimeout, RequestHumanTakeover
 from module.logger import logger
 
 
@@ -173,11 +175,8 @@ def retry(func):
         """
         init = None
         for _ in range(RETRY_TRIES):
-            # 重试时延长超时时间
-            if func.__name__ == 'screenshot':
-                timeout = retry_sleep(_)
-                if timeout > 0:
-                    kwargs['timeout'] = timeout
+            # 不在此处缩短等待预算：NativeCall 的默认预算是一分钟，
+            # 旧逻辑会把它覆盖成 1~3 秒，反而让正常抖动被误判成卡死。
             try:
                 if callable(init):
                     time.sleep(retry_sleep(_))
@@ -203,7 +202,9 @@ def retry(func):
                 def init():
                     self.reconnect()
             # 不可处理 - 必须向上抛出以触发模拟器重启
-            except EmulatorNotRunningError:
+            except (EmulatorNotRunningError, NativeIpcTimeout):
+                # 原生 IPC 超过一分钟无响应时实例已被封禁；重试毫无意义，
+                # 也不能在这里释放句柄。交给调度器重启模拟器。
                 raise
             # 未知异常，可能是损坏的图像
             except Exception as e:
@@ -275,13 +276,9 @@ class NemuIpcImpl:
         if self.connect_id > 0:
             return
 
-        if on_thread:
-            connect_id = self.run_func(
-                self.lib.nemu_connect,
-                self.nemu_folder, self.instance_id
-            )
-        else:
-            connect_id = self.lib.nemu_connect(self.nemu_folder, self.instance_id)
+        connect_id = self.run_func(
+            self.lib.nemu_connect, self.nemu_folder, self.instance_id, on_thread=on_thread,
+        )
         if connect_id == 0:
             raise NemuIpcError(
                 '连接失败，请检查 nemu_folder 是否正确以及模拟器是否正在运行'
@@ -295,6 +292,7 @@ class NemuIpcImpl:
         self.connect(on_thread=on_thread)
 
     def disconnect(self):
+        self.native_call.ensure_idle()
         if self.connect_id == 0:
             return
 
@@ -317,42 +315,29 @@ class NemuIpcImpl:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.disconnect()
 
-    @staticmethod
-    def run_func(func, *args, on_thread=True, timeout=0.5):
-        """
+    @cached_property
+    def native_call(self):
+        """独立于通用截图池，超时后禁止复用本实例句柄。"""
+        return NativeCall()
+
+    def run_func(self, func, *args, on_thread=True, timeout=None):
+        """执行一项有界原生调用；嵌套调用复用同一事务期限。
+
         Args:
-            func: 要调用的同步函数
-            *args:
-            on_thread: 为 True 时在独立线程上运行 func
-            timeout:
-
-        Raises:
-            JobTimeout: 函数调用超时时抛出
-            NemuIpcIncompatible:
-            NemuIpcError
+            func: DLL 函数或截图组合函数。
+            *args: 原生调用参数。
+            on_thread: 保留原调用签名；只有事务内部允许同步嵌套。
+            timeout: 主调用最大等待秒数；None 表示使用 NativeCall 的一分钟预算。
+                设备卡死是设备的问题：超时只封禁该 IPC 实例，异常交给调度器
+                重启模拟器，绝不终止脚本进程。
         """
-        if on_thread:
-            # nemu_ipc 有时会超时，因此在独立线程上运行
-            job = WORKER_POOL.start_thread_soon(func, *args)
-            result = job.get_or_kill(timeout)
-        else:
-            result = func(*args)
-
-        err = False
+        result = self.native_call.run(func, *args, timeout=timeout)
         if func.__name__ == '_screenshot':
-            pass
-        elif func.__name__ == 'nemu_connect':
-            if result == 0:
-                err = True
-        else:
-            if result > 0:
-                err = True
-        # 获取标准输出中实际的错误信息
-        if err:
-            logger.warning(f'调用失败 {func.__name__}, result={result}')
-            with CaptureNemuIpc():
-                func(*args)
-
+            return result
+        failed = result == 0 if func.__name__ == 'nemu_connect' else result > 0
+        if failed:
+            # 不能为了采集错误文本再次执行输入等有副作用的原生函数。
+            raise NemuIpcError(f'原生调用失败: {func.__name__}, result={result}')
         return result
 
     def get_resolution(self, on_thread=True):
@@ -386,8 +371,10 @@ class NemuIpcImpl:
         length = self.width * self.height * 4
         pixels_pointer = ctypes.pointer((ctypes.c_ubyte * length)())
 
-        ret = self.lib.nemu_capture_display(
+        ret = self.run_func(
+            self.lib.nemu_capture_display,
             self.connect_id, self.display_id, length, width_ptr, height_ptr, pixels_pointer,
+            on_thread=False,
         )
         if ret > 0:
             raise NemuIpcError('nemu_capture_display failed during screenshot()')
@@ -396,11 +383,12 @@ class NemuIpcImpl:
         return pixels_pointer
 
     @retry
-    def screenshot(self, timeout=0.5):
+    def screenshot(self, timeout=None):
         """
         Args:
             timeout: 调用 nemu_ipc 的超时时间（秒）。
-                会被 `@retry` 动态延长。
+                None 表示使用 NativeCall 的一分钟预算；`@retry` 只在
+                失败重试时显式延长。
 
         Returns:
             np.ndarray: RGBA 色彩空间的图像数组。
@@ -604,10 +592,16 @@ class NemuIpc(Platform):
 
     def nemu_ipc_release(self):
         if has_cached_property(self, 'nemu_ipc'):
-            self.nemu_ipc.disconnect()
+            try:
+                self.nemu_ipc.disconnect()
+            except NativeIpcTimeout as e:
+                # 原生调用仍卡在 DLL 里：不能并发调用 nemu_disconnect 碰同一句柄。
+                # 丢弃引用即可，后续实例重启会让卡住的调用返回错误。
+                logger.warning(f'[设备-NemuIpc] 原生调用未结束，跳过释放句柄: {e}')
         del_cached_property(self, 'nemu_ipc')
         logger.info('[设备-NemuIpc] nemu_ipc已释放')
 
+    @session_guard
     def screenshot_nemu_ipc(self):
         image = self.nemu_ipc.screenshot()
 
@@ -615,6 +609,7 @@ class NemuIpc(Platform):
         cv2.flip(image, 0, dst=image)
         return image
 
+    @session_guard
     def click_nemu_ipc(self, x, y):
         down = ensure_time((0.010, 0.020))
         self.nemu_ipc.down(x, y)
@@ -622,12 +617,14 @@ class NemuIpc(Platform):
         self.nemu_ipc.up()
         self.sleep(0.050 - down)
 
+    @session_guard
     def long_click_nemu_ipc(self, x, y, duration=1.0):
         self.nemu_ipc.down(x, y)
         self.sleep(duration)
         self.nemu_ipc.up()
         self.sleep(0.050)
 
+    @session_guard
     def swipe_nemu_ipc(self, p1, p2):
         points = insert_swipe(p0=p1, p3=p2)
 
@@ -638,6 +635,7 @@ class NemuIpc(Platform):
         self.nemu_ipc.up()
         self.sleep(0.050)
 
+    @session_guard
     def drag_nemu_ipc(self, p1, p2, point_random=(-10, -10, 10, 10), hold_duration=0.0):
         p1 = np.array(p1) - random_rectangle_point(point_random)
         p2 = np.array(p2) - random_rectangle_point(point_random)
@@ -660,6 +658,7 @@ class NemuIpc(Platform):
         self.nemu_ipc.up()
         self.sleep(0.050)
 
+    @session_guard
     def island_swipe_hold_nemu_ipc(self, p1, p2, hold_time):
         points = insert_swipe(p0=p1, p3=p2)
 

@@ -4,6 +4,7 @@
 （ADB、uiautomator2、minitouch、Hermit、MaaTouch、scrcpy、nemu_ipc）
 自动分发到对应的底层实现。
 """
+from module.device.session import session_guard
 from module.base.button import Button
 from module.base.decorator import cached_property
 from module.base.timer import Timer
@@ -28,6 +29,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         pass
 
     @cached_property
+    @session_guard
     def click_methods(self):
         """返回控制方法名到点击实现的映射字典。
 
@@ -44,6 +46,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
             'nemu_ipc': self.click_nemu_ipc,
         }
 
+    @session_guard
     def click(self, button, control_check=True):
         """点击按钮。
 
@@ -82,6 +85,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
 
             self.click(button, control_check=False)
 
+    @session_guard
     def long_click(self, button, duration=(1, 1.2)):
         """长按按钮。
 
@@ -110,6 +114,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         else:
             self.swipe_adb((x, y), (x, y), duration)
 
+    @session_guard
     def swipe(self, p1, p2, duration=(0.1, 0.2), name='SWIPE', distance_check=True):
         """在两点之间执行滑动操作。
 
@@ -156,6 +161,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         else:
             self.swipe_adb(p1, p2, duration=duration)
 
+    @session_guard
     def swipe_vector(self, vector, box=(123, 159, 1175, 628), random_range=(0, 0, 0, 0), padding=15,
                      duration=(0.1, 0.2), whitelist_area=None, blacklist_area=None, name='SWIPE', distance_check=True):
         """在指定范围内执行向量滑动。
@@ -182,6 +188,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         )
         self.swipe(p1, p2, duration=duration, name=name, distance_check=distance_check)
 
+    @session_guard
     def drag(self, p1, p2, segments=1, shake=(0, 15), point_random=(-10, -10, 10, 10), shake_random=(-5, -5, 5, 5),
              swipe_duration=0.25, shake_duration=0.1, hold_duration=0.0, name='DRAG'):
         """执行拖拽操作，支持分段滑动和松手后的抖动模拟。
@@ -233,6 +240,7 @@ class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):
         from module.device.live_drag import LiveDrag
         return LiveDrag(self, name)
 
+    @session_guard
     def island_swipe_hold(self, p1, p2, hold_time):
         """岛屿系统专用的滑动并保持操作。
 
