@@ -387,11 +387,11 @@ YukikazeTaskManager:
       > IslandJuuEatery > IslandJuuCoffee > IslandGrill > IslandTeahouse > IslandRestaurant
       > IslandFarm > IslandRancher > IslandMineForest > IslandDailyGather > IslandManufacture
       > IslandAirDrop > IslandBusiness > IslandDailyOrder > IslandDailyInteract > IslandPearlSell > IslandCargoPreparation
+      > OpsiPreventActionPointOverflow
       > Event > Event2 > Event3 > Raid > Hospital > HospitalEvent > Coalition > RaidScuttle > Main > Main2 > Main3
       > OpsiMeowfficerFarming
       > GemsFarming
       > OpsiScheduling
-      > OpsiPreventActionPointOverflow
       > Ambush11
       > OpsiHazard1Leveling
       > ThreeOilLowCost
@@ -1481,9 +1481,8 @@ OpsiScheduling:
     option: [0, 1, 2, 3, 4, 5]
 OpsiPreventActionPointOverflow:
   Task:
-    value: OpsiScheduling
+    value: OpsiHazard1Leveling
     option:
-      - OpsiScheduling
       - OpsiHazard1Leveling
       - OpsiMeowfficerFarming
   ActionPointUpperbound: 200

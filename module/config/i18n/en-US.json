@@ -3948,12 +3948,11 @@
   "OpsiPreventActionPointOverflow": {
     "_info": {
       "name": "Prevent AP Overflow",
-      "help": "Runs Operation Siren tasks when current AP reaches the upper limit.\nWhen Smart Scheduling is selected, it runs Meowfficer Farming if both AP and Operation Supply Coins are insufficient and no other task can run."
+      "help": "Runs Operation Siren tasks when current AP reaches the upper limit.\nThis task is placed before the main campaign in the default priority order; adjust it in Task Priority as needed."
     },
     "Task": {
       "name": "Task to Run",
-      "help": "Recommended: Smart Scheduling, which has dedicated overflow handling.",
-      "OpsiScheduling": "Smart Scheduling (Recommended)",
+      "help": "Runs one round of Corrosion 1 Leveling or Meowfficer Farming to burn AP when overflowing.\nYields while Smart Scheduling is running so it is not interrupted.",
       "OpsiHazard1Leveling": "Corrosion 1 Leveling",
       "OpsiMeowfficerFarming": "Meowfficer Farming"
     },
