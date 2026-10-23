@@ -36,6 +36,7 @@ from module.webui.app_dependencies import (
     toast,
     use_scope,
 )
+from module.webui.app_fleet_tech_batch import FleetTechBatchMixin, batch_bridge_script
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
 from module.webui.utils import scan_window_active
@@ -63,7 +64,7 @@ def build_fleet_tech_bridge_script(pin_name):
     或手指带一点位移时会把轻点判成滑动而**根本不发 click**，表现为「点了
     完全没反应」（2026-10-16 真机反馈；鼠标路径实测正常，差异在触摸手势）。
     """
-    return f"""
+    return batch_bridge_script(pin_name) + f"""
         (function () {{
             var listenerName = "__alasFleetTechClick";
             if (window[listenerName]) return;
@@ -161,7 +162,7 @@ def _ft_pin_text(name):
     return '' if value is None else str(value).strip()
 
 
-class FleetTechnologyMixin(WebUIMixinBase):
+class FleetTechnologyMixin(FleetTechBatchMixin, WebUIMixinBase):
     """统计页「科技列表」面板的会话控制器。"""
 
     # ---------- 状态与数据 ----------
@@ -484,6 +485,8 @@ class FleetTechnologyMixin(WebUIMixinBase):
         shown, page, pages = view.page_slice(rows, self._ft_page)
         self._ft_page = page
         with use_scope('ft_table', clear=True):
+            if self._ft_edit:
+                put_html(self._ft_batch_toolbar(len(rows)))
             put_html(view.table_html(shown, self._ft_sort_key, self._ft_sort_direction, self._ft_edit))
             if not shown:
                 put_html(f'<p class="ft-empty">{t("Gui.FleetTechnology.Empty")}</p>')
@@ -516,6 +519,8 @@ class FleetTechnologyMixin(WebUIMixinBase):
                 self._ft_sort_key, self._ft_sort_direction = item, 1
             self._ft_page = 0
             self._ft_render_table()
+        elif kind == 'batch':
+            self._ft_batch_open(item)
         elif kind == 'edit':
             try:
                 self._ft_edit_popup(int(item))
@@ -591,14 +596,15 @@ class FleetTechnologyMixin(WebUIMixinBase):
 
     # ---------- 人工校正 ----------
 
-    def _ft_save_changes(self, changes, nations=None):
+    def _ft_save_changes(self, changes, nations=None, expected_revision=None):
         """校验并事务写入；成功返回 None，失败返回错误文案。"""
         try:
             with config_transaction(filepath_config(self.alas_name)):
                 config = load_config(self.alas_name)
                 data = config.read_file(self.alas_name)
                 record = tech.read_record(data)
-                if tech.revision(record) != self._ft_revision:
+                expected = self._ft_revision if expected_revision is None else expected_revision
+                if tech.revision(record) != expected:
                     return t('Gui.FleetTechnology.Conflict')
                 updated = tech.apply_changes(record, changes, nations)
                 deep_set(data, RECORD_PATH, updated)

@@ -98,6 +98,21 @@ FleetManagement:
   UnderwaterFleet:
 
 FleetTechnology:
+  SelectPage:
+  Selected:
+  BatchEdit:
+  BatchAll:
+  SelectionHint:
+  BatchTitle:
+  BatchHint:
+  Keep:
+  SetLevel:
+  LevelPlaceholder:
+  PresetOwned:
+  PresetStar:
+  Preset120:
+  Cancel:
+  NoChanges:
   Title:
   Reload:
   Max:

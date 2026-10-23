@@ -231,6 +231,9 @@ def table_html(rows, sort_key, sort_direction, edit_mode):
     """双层表头数据表格；rows 为当前页行。"""
     head = (
         '<thead><tr>'
+        + (f'<th rowspan="2"><input type="checkbox" data-ft-select-page '
+           f'aria-label="{html_escape(t("Gui.FleetTechnology.SelectPage"), quote=True)}"></th>'
+           if edit_mode else '')
         + _sort_head('code', t('Gui.FleetTechnology.Code'), sort_key, sort_direction, rowspan=2)
         + _sort_head('name', t('Gui.FleetTechnology.Name'), sort_key, sort_direction, rowspan=2)
         + _sort_head('nation', t('Gui.FleetTechnology.Nation'), sort_key, sort_direction, rowspan=2)
@@ -274,7 +277,9 @@ def _row_html(row, edit_mode):
                      f'data-ft-edit="{row["group_type"]}">{t("Gui.FleetTechnology.RowEdit")}</button></td>')
     return (
         f'<tr class="ft-{row["status"]}">'
-        f'<td>{str(row["code"]).rjust(3, "0")}</td>'
+        + (f'<td><input type="checkbox" data-ft-select="{row["group_type"]}" '
+           f'aria-label="{html_escape(display_name(row), quote=True)}"></td>' if edit_mode else '')
+        + f'<td>{str(row["code"]).rjust(3, "0")}</td>'
         f'<td class="ft-name ft-rarity-{html_escape(row["rarity"])}">{html_escape(display_name(row))}</td>'
         f'<td>{nation_label(row["nationality"])}</td>'
         f'<td>{type_label(ship_type(row["type"]))}</td>'
