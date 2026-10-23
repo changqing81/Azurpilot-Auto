@@ -41,6 +41,9 @@ from module.submodule.utils import (
     list_mod_instance,
 )
 from module.webui.setting import State
+from module.webui.tool_completion import (
+    ToolCompletion, dispatch_tool_completion, run_internal_tool,
+)
 from module.webui.worker_registry import (
     get_workers,
     is_current_owner,
@@ -64,7 +67,7 @@ class ProcessManager:
 
     def __init__(self, config_name: str = DEFAULT_CONFIG_NAME) -> None:
         self.config_name = config_name
-        self._renderable_queue: queue.Queue[ConsoleRenderable] = State.manager.Queue()
+        self._renderable_queue: queue.Queue[ConsoleRenderable | ToolCompletion] = State.manager.Queue()
         self.renderables: List[ConsoleRenderable] = []
         self.renderables_max_length = 400
         self.renderables_reduce_length = 80
@@ -642,10 +645,21 @@ class ProcessManager:
         return True
 
     def _thread_log_queue_handler(self) -> None:
-        while self.alive:
+        # 完成事件与日志共用现有进程队列；worker 退出后继续排空，避免漏发通知。
+        while True:
+            alive = self.alive
             try:
-                log = self._renderable_queue.get(timeout=1)
+                log = self._renderable_queue.get(timeout=1) if alive else self._renderable_queue.get_nowait()
             except queue.Empty:
+                if alive:
+                    continue
+                break
+            if isinstance(log, ToolCompletion):
+                # 借用错误推送通道发送；事件消费失败也不能中断日志展示。
+                try:
+                    dispatch_tool_completion(log)
+                except Exception:
+                    pass
                 continue
             self.renderables.append(log)
             if len(self.renderables) > self.renderables_max_length:
@@ -807,7 +821,7 @@ class ProcessManager:
     def run_process(
         config_name,
         func: str,
-        q: queue.Queue[ConsoleRenderable],
+        q: queue.Queue[ConsoleRenderable | ToolCompletion],
         e: threading.Event | None = None,
     ) -> None:
         import sys
@@ -872,11 +886,8 @@ class ProcessManager:
                     AzurLaneAutoScript.stop_event = e
                 AzurLaneAutoScript(config_name=config_name).loop()
             elif func in get_available_func():
-                from alas import AzurLaneAutoScript
-
-                AzurLaneAutoScript(config_name=config_name).run(
-                    inflection.underscore(func), skip_first_screenshot=True
-                )
+                # 仅 GUI 单次工具启用完成推送，自动调度及循环扫描保持静默。
+                run_internal_tool(config_name, func, q)
             elif func in get_available_mod():
                 mod = load_mod(func)
 
