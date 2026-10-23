@@ -213,8 +213,18 @@ class TestRecoveryTransaction(unittest.TestCase):
             release.wait(3)
             checkpoint()
         self.target.stop.side_effect = blocked
+        original_join = threading.Thread.join
+
+        def join_after_stop(worker, timeout=None):
+            # 先确认执行者已进入待测阻塞点，再测超时取消与锁归属；
+            # 全量测试加载 OCR 后调度可能变慢，不能把启动延迟当成恢复超时。
+            if worker is self.recovery.worker:
+                self.assertTrue(entered.wait(5), '恢复执行者未进入停止操作')
+            return original_join(worker, timeout=timeout)
+
         try:
-            with patch('module.handler.emulator_recovery.RECOVERY_TIMEOUT', 0.1):
+            with patch('module.handler.emulator_recovery.RECOVERY_TIMEOUT', 0.1), \
+                    patch.object(threading.Thread, 'join', autospec=True, side_effect=join_after_stop):
                 with self.assertRaises(RecoveryFailed):
                     self.recovery.restart()
             self.assertTrue(entered.is_set())
