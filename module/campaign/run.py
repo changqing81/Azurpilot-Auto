@@ -147,6 +147,8 @@ class CampaignRun(CampaignEvent, ShopStatus):
             # 低耗检测：滑动窗口内石油消耗超过阈值
             if self.config.LowCostCheck_Enable and self.low_cost_triggered(oil):
                 logger.hr('触发低耗检测: 石油消耗异常')
+                self._log_low_cost_trigger(oil)
+                consumed = self._low_cost_consumed()
                 # 推迟该任务到次日服务器 0 点，今日不再运行该图
                 self.config.task_delay(target=get_server_next_update('00:00'))
                 handle_notify(
@@ -155,7 +157,7 @@ class CampaignRun(CampaignEvent, ShopStatus):
                     content=(
                         f"<{self.config.config_name}> {self.config.task.command} {self.name} "
                         f"使用石油超过设定值（{self.config.LowCostCheck_Window} 小时内累计 "
-                        f"{self._low_cost_checker.consumed} 油，阈值 {self.config.LowCostCheck_OilLimit}），"
+                        f"{consumed} 油，阈值 {self.config.LowCostCheck_OilLimit}），"
                         f"可能是因为换错了队伍/低耗异常"
                     ),
                 )
@@ -196,6 +198,46 @@ class CampaignRun(CampaignEvent, ShopStatus):
                 return True
 
         return False
+
+    def _log_low_cost_trigger(self, oil):
+        """把低耗异常的判据写进主日志。
+
+        事后核对只能靠这几个数字区分「真的换错了队」与「OCR 读花了」，
+        推送文案只给累计值，主日志里不留就无从回溯。
+
+        Args:
+            oil (int): 触发前的本次石油读数。
+        """
+        consumed = self._low_cost_consumed()
+        logger.attr(
+            '低耗检测',
+            f'窗口 {self.config.LowCostCheck_Window} 小时累计 {consumed} 油'
+            f' / 阈值 {self.config.LowCostCheck_OilLimit}'
+        )
+        logger.attr('低耗读数', f'本次 {oil}')
+        self._log_low_cost_events()
+
+    def _low_cost_consumed(self):
+        """取当前窗口内累计消耗的石油量。
+
+        Returns:
+            int: 窗口内累计消耗；检测器尚未建立时返回 0。
+        """
+        checker = getattr(self, '_low_cost_checker', None)
+        return checker.consumed if checker is not None else 0
+
+    def _log_low_cost_events(self):
+        """把窗口内的下降事件写进日志，最多列最近 10 笔。"""
+        checker = getattr(self, '_low_cost_checker', None)
+        if checker is None or not checker.events:
+            return
+        logger.info(
+            '[低耗检测] 窗口内下降明细: '
+            + '，'.join(
+                f'{_time.strftime("%H:%M:%S")} -{_amount}'
+                for _time, _amount in list(checker.events)[-10:]
+            )
+        )
 
     def low_cost_triggered(self, oil):
         """在滑动时间窗口内累计石油消耗，超过阈值时返回 True。

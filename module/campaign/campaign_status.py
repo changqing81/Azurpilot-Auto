@@ -91,6 +91,16 @@ class CampaignStatus(UI):
     # 活动 PT 的量级随活动变化（几千到几十万），写死任何具体数值都会在
     # 下一个活动上失效。
     PT_DROP_CONFIRM_RATIO = 0.05
+    # 石油单帧防抖：石油余量量级相对稳定（免费恢复上限 2.5 万，加上储备也不过
+    # 数万），所以除相对比例外还补一个绝对降幅门槛——只按比例判断挡不住
+    # 「18706 读成 16070」这种只掉一位的误读。
+    #
+    # 门槛标定：正常一局耗油不超过 340（低耗打法实测一局几十油），只有开
+    # 连战 10 + 双倍经验书这种玩法，单次读油间隔内才会掉到 3900 左右。1000 比
+    # 常规一局高约 3 倍，日常不会误触发；连战玩法会多走一次复核（多截一帧、
+    # 约 0.5 秒），复核读到真值照样采信，不影响判定结果。
+    OIL_DROP_CONFIRM_RATIO = 0.5
+    OIL_DROP_CONFIRM_AMOUNT = 1000
 
     def _ocr_pt_once(self):
         """读取当前截图里的活动 PT（单帧）。
@@ -214,9 +224,10 @@ class CampaignStatus(UI):
 
         return _coin['Value']
 
-    def _get_num(self, _button, name, letter=(247, 247, 247)):
+    def _get_num(self, _button, name, letter=(247, 247, 247), refresh_offset=True):
         # 更新偏移量
-        _ = self.appear(OCR_OIL_CHECK)
+        if refresh_offset:
+            _ = self.appear(OCR_OIL_CHECK)
 
         color = get_color(self.device.image, OCR_OIL_CHECK.button)
         if color_similar(color, OCR_OIL_CHECK.color):
@@ -237,9 +248,73 @@ class CampaignStatus(UI):
 
         return ocr.ocr(self.device.image)
 
+    def _ocr_oil_once(self):
+        """读取当前截图里的石油余量（单帧）。
+
+        Returns:
+            int: 识别到的石油余量；非数字格式或识别区域无内容时为 0。
+        """
+        value = self._get_num(OCR_OIL, 'OCR_OIL', (247, 247, 247), refresh_offset=False)
+        return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+    def _oil_dropped_suspiciously(self, previous, value):
+        """判断本次石油读数相对上一有效值是否为可疑下降。
+
+        Args:
+            previous (int): 上一有效石油余量。
+            value (int): 本次识别到的石油余量。
+
+        Returns:
+            bool: 下降幅度达到「骤降到不足一半」或「一次掉了上千油」时返回 True。
+        """
+        if not isinstance(value, int) or isinstance(value, bool):
+            return False
+        if value < 100 or value >= previous:
+            # 读不到有效值（<100）由调用方另行处理，这里不算「可疑下降」
+            return False
+        return (
+            value < previous * self.OIL_DROP_CONFIRM_RATIO
+            or previous - value >= self.OIL_DROP_CONFIRM_AMOUNT
+        )
+
+    def _last_valid_oil(self):
+        """取仪表盘里上一次记录成功的石油余量，作为骤降防抖的基线。
+
+        未记录过（值为 0 或非整数）时返回 None：没有基线就不做骤降判断。
+
+        Returns:
+            int | None: 上一有效石油余量；无基线时返回 None。
+        """
+        key = 'Dashboard.Oil.Value'
+        if key in self.config.modified:
+            value = self.config.modified[key]
+        else:
+            group = LogRes(self.config).group('Oil')
+            value = group.get('Value') if isinstance(group, dict) else None
+        # bool 是 int 的子类，单独排除
+        if isinstance(value, bool) or not isinstance(value, int):
+            return None
+        return value if value > 0 else None
+
     def get_oil(self, skip_first_screenshot=True, update=False):
         """
         获取石油数量。
+
+        截图落在界面切换、加载动画上时 OCR 区域是飘的，会读出残缺的假数字
+        （把 14654 读成 1404，或把 18706 读成 16070）。低耗检测按「石油下降量」
+        累计消耗，一次偏小的误读就会被当成上万油的实际消耗，所以单帧读数异常
+        下降时必须复核：
+
+        1. 首帧读数相对上一有效值骤降（低于 OIL_DROP_CONFIRM_RATIO，或降幅超过
+           OIL_DROP_CONFIRM_AMOUNT）→ 判为疑似脏数据，先不采信；
+        2. 等画面稳定后重截一帧，按同样的方式再读一次；
+        3. 复核读到有效值就采信复核帧（重截后的稳定画面比上一记录更新，真实
+           大幅下降如大世界购买行动力也走这条）；复核仍读不到有效值才退回
+           上一有效值，且不写仪表盘。
+
+        整轮循环都没读到稳定值（<100，通常是界面没有石油栏）时：有基线就沿用
+        上一有效值，避免把脏读数交给「石油够不够」的判定；没有基线则降级为旧
+        行为返回该读数。两种情况下低耗检测都不会据此累计消耗。
 
         Returns:
             int: 石油数量。
@@ -266,6 +341,39 @@ class CampaignStatus(UI):
             }
             if _oil['Value'] >= 100:
                 break
+
+        previous = self._last_valid_oil()
+        value = _oil.get('Value')
+        if isinstance(value, int) and not isinstance(value, bool) and value < 100:
+            # 整轮都没读到有效值。有基线时既不要把它写进仪表盘（否则下一轮就
+            # 没有比对基准、防抖形同虚设），也不要把它交给调用方（否则会被当成
+            # 「石油不足」触发两小时延迟），一律返回上一有效值。
+            if previous is None:
+                LogRes(self.config).Oil = _oil
+                if update:
+                    self.config.update()
+                return value
+            logger.warning(f'石油读取失败（识别值 {value}），保留上一有效值 {previous}')
+            if update:
+                self.config.update()
+            return previous
+        if previous is not None and self._oil_dropped_suspiciously(previous, value):
+            # 异常下降：单帧读数不足以判定，等画面稳定后重截一帧复核
+            logger.warning(
+                f'石油读取异常（识别值 {value}/上一有效值 {previous}），已触发二次校验'
+            )
+            self.device.sleep(0.5)
+            self.device.screenshot()
+            confirm = self._ocr_oil_once()
+            if confirm >= 100:
+                logger.info(f'石油二次读数 {confirm}，采信复核帧')
+                _oil['Value'] = confirm
+            else:
+                logger.warning(f'石油二次读数 {confirm}，复核失败，保留上一有效值 {previous}')
+                if update:
+                    self.config.update()
+                return previous
+
         LogRes(self.config).Oil = _oil
         if update:
             self.config.update()
