@@ -242,7 +242,7 @@ alwaysApply: true
 | `meowfficer_farming.py` | 379 | `OpsiMeowfficerFarming` | 短猫相接：传统/StayInZone/普通搜索三种模式、行动力管理 |
 | `daily.py` | 221 | `OpsiDaily` | 每日任务：港口任务、任务完成、调谐样本使用 |
 | `cross_month.py` | 173 | `OpsiCrossMonth` | 月末行动力清理 |
-| `prevent_action_point_overflow.py` | 231 | `OpsiPreventActionPointOverflow` | 月末自动清理行动力（2026-07 新增，可配置触发天数与保留值，自动执行短猫相接、商店采购、隐秘海域和深渊坐标任务消耗）；与智能调度互斥：`smart_scheduling_takes_turn` 判定待处理队列里紧随其后的是不是 `OpsiScheduling`，是则 `yield_turn_to_smart_scheduling` 让出本轮（只写 NextRun） |
+| `prevent_action_point_overflow.py` | 231 | `OpsiPreventActionPointOverflow` | 当前行动力达到上限时执行一轮大世界任务消耗行动力（执行任务可选侵蚀1练级或短猫相接）；与智能调度互斥只在 `config.get_next_task` 里判定：`smart_scheduling_blocks_overflow` 仅当智能调度**正在运行**（running）时把本任务放进等待队列，排队到期/切换中断都不拦，防溢出按用户优先级正常抢占 |
 | `abyssal.py` | 174 | `OpsiAbyssal` | 深渊海域 |
 | `stronghold.py` | 165 | `OpsiStronghold` | 塞壬要塞 |
 | `explore.py` | 134 | `OpsiExplore` | 大世界探索 |

@@ -70,6 +70,15 @@ class StateTestCase(unittest.TestCase):
         self.assertIn(TASK, [task.command for task in config.waiting_task])
         self.assertNotIn(TASK, [task.command for task in config.pending_task])
 
+    def assert_competes(self, config):
+        """智能调度没在跑时，防溢出按用户优先级正常排队，不被人为压后。"""
+        config.get_next_task()
+        tasks = config.pending_task + config.waiting_task
+        matches = [task for task in tasks if task.command == TASK]
+        self.assertEqual(len(matches), 1)
+        self.assertTrue(matches[0].enable)
+        self.assertIn(TASK, [task.command for task in config.pending_task])
+
     def assert_resumed(self, config):
         """互斥解除后无需修改 NextRun，最高优先级防溢出立即可被选中。"""
         self.assertEqual(config.get_next().command, TASK)
@@ -95,15 +104,24 @@ class ConditionalWaitTests(StateTestCase):
         self.assertNotIn(TASK, [task.command for task in
                                config.pending_task + config.waiting_task])
 
-    def test_ready_waits_even_when_another_task_precedes_scheduling(self):
-        """防溢出最高优先级、主线插在智能调度之前，互斥仍生效。"""
+    def test_ready_does_not_preempt_overflow(self):
+        """智能调度只是排队到期（ready）时不再压防溢出，防溢出按优先级抢占。"""
         config = MemoryConfig()
-        config.data['Main2'] = {'Scheduler': {
-            'Command': 'Main2', 'Enable': True, 'NextRun': NOW - timedelta(minutes=1),
-        }}
-        self.assert_waiting(config)
-        self.assertEqual(config.get_next().command, 'Main2')
-        self.assertIn('OpsiAshBeacon', [task.command for task in config.pending_task])
+        original = copy.deepcopy(config.data[TASK])
+        self.assertEqual(get_smart_scheduling_state(config), 'ready')
+        self.assert_competes(config)
+        # 优先级表里防溢出排在智能调度之前 → 选中防溢出
+        self.assertEqual(config.get_next().command, TASK)
+        # 不写任何持久化状态
+        self.assertEqual(config.data[TASK], original)
+        self.assertEqual(config.modified, {})
+
+    def test_running_blocks_overflow(self):
+        """智能调度正在跑这一轮时，防溢出必须让出。"""
+        config = MemoryConfig()
+        with smart_scheduling_session(config):
+            self.assertEqual(get_smart_scheduling_state(config), 'running')
+            self.assert_waiting(config)
 
     def test_running_then_disabled_restores_original_schedule(self):
         """开启、运行、关闭后下一轮恢复，整个过程不覆盖原始排程。"""
@@ -137,7 +155,8 @@ class ConditionalWaitTests(StateTestCase):
         with (patch('module.config.config.current_time', return_value=later),
               patch('module.os.tasks.scheduling_state.current_time', return_value=later)):
             self.assertEqual(get_smart_scheduling_state(config), 'ready')
-            self.assert_waiting(config)
+            # 只是排队到期，不是运行中：防溢出不再被压进等待队列
+            self.assert_competes(config)
 
     def test_error_and_config_reconstruction_do_not_keep_waiting(self):
         """报错后即使开关开启、NextRun 到期，重建配置也不会再次永久拦截。"""
@@ -150,14 +169,14 @@ class ConditionalWaitTests(StateTestCase):
         with smart_scheduling_session(rebuilt):
             self.assert_waiting(rebuilt)
 
-    def test_task_switch_preserves_session_intent(self):
-        """原生 TaskEnd 切换不等于崩溃，临时让出后仍可继续智能调度。"""
+    def test_task_switch_does_not_park_overflow(self):
+        """原生 TaskEnd 中断只标记 interrupted，不把防溢出压进等待队列。"""
         config = MemoryConfig()
         with self.assertRaises(TaskEnd), smart_scheduling_session(config):
             raise TaskEnd
         rebuilt = MemoryConfig()
         self.assertEqual(get_smart_scheduling_state(rebuilt), 'interrupted')
-        self.assert_waiting(rebuilt)
+        self.assert_competes(rebuilt)
 
     def test_process_restart_ignores_persisted_guard_flag(self):
         """新进程只按开关和排程重建状态，等待刷新时不会被旧标记锁住。"""

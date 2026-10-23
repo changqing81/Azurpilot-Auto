@@ -300,11 +300,20 @@ class TestSmartSchedulingExploreDelay(unittest.TestCase):
 
         self.assertEqual(scheduling.config.task_delay_calls, [])
 
-    def test_prevent_overflow_delays_itself_during_opsi_explore(self):
+    def test_prevent_overflow_never_runs_smart_scheduling(self):
+        """智能调度已从执行任务下拉移除，防溢出不再代跑智能调度决策。"""
         prevent = OpsiPreventActionPointOverflow.__new__(OpsiPreventActionPointOverflow)
         prevent.config = SmartSchedulingConfig(
             task_command='OpsiPreventActionPointOverflow'
         )
+
+        # 子任务方法由多重继承的 OSMap 提供，实例上直接挂桩即可
+        prevent.run_smart_scheduling_once = Mock(
+            side_effect=AssertionError('防溢出不应代跑智能调度'))
+        prevent.get_yellow_coins = Mock(
+            side_effect=AssertionError('防溢出不应代跑智能调度'))
+        prevent.run_hazard1_leveling_once = Mock(side_effect=TaskEnd)
+        hazard1 = prevent.run_hazard1_leveling_once
 
         with (
             patch.object(
@@ -314,41 +323,21 @@ class TestSmartSchedulingExploreDelay(unittest.TestCase):
             ),
             patch.object(
                 prevent,
-                '_get_prevent_action_point_overflow_task',
-                return_value='OpsiScheduling',
-            ),
-            patch.object(
-                prevent,
                 '_get_current_action_point_for_overflow',
                 return_value=200,
             ),
-            patch.object(prevent, 'is_in_opsi_explore', return_value=True),
             patch.object(
                 prevent,
                 '_run_with_opsi_task_context',
                 side_effect=lambda task, func, *args, **kwargs: func(*args, **kwargs),
             ),
-            patch.object(
-                prevent,
-                'get_yellow_coins',
-                side_effect=AssertionError('开荒期间不应进入智能调度决策'),
-            ),
+            patch.object(prevent, '_suspended_buy_action_point_limit', nullcontext),
         ):
             with self.assertRaises(TaskEnd):
                 prevent.run_prevent_action_point_overflow()
 
-        self.assertEqual(
-            prevent.config.task_delay_calls,
-            [
-                (
-                    (),
-                    {
-                        'server_update': True,
-                        'task': 'OpsiPreventActionPointOverflow',
-                    },
-                )
-            ],
-        )
+        # 残留的 'OpsiScheduling' 被回退成侵蚀1练级，走的是侵蚀1分支（下限 0）
+        hazard1.assert_called_once_with(ap_preserve=0)
 
 
 class StrongholdNotFoundConfig:
