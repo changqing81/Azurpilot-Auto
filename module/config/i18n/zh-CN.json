@@ -966,64 +966,64 @@
       "help": "「上传」目前只对短猫相接生效",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiMeowfficerFarming": {
       "name": "短猫掉落截图",
       "help": "「上传」会把掉落解析进本地统计库，统计页「短猫掉落」分类的收益统计依赖它",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiDaily": {
       "name": "大世界每日掉落截图",
       "help": "「上传」目前只对短猫相接生效\n跨月每日共用此开关",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiObscure": {
       "name": "隐秘海域掉落截图",
       "help": "「上传」目前只对短猫相接生效\n档案坐标共用此开关",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiAbyssal": {
       "name": "深渊海域掉落截图",
       "help": "「上传」目前只对短猫相接生效\n月度Boss共用此开关",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiStronghold": {
       "name": "塞壬要塞掉落截图",
       "help": "「上传」目前只对短猫相接生效",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiExplore": {
       "name": "每月开荒掉落截图",
       "help": "每月开荒Plus 自己的掉落记录开关，不跟其它任务共用",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiOther": {
       "name": "其他大世界任务掉落截图",
       "help": "兜底没有单独开关的大世界任务\n「上传」目前只对短猫相接生效",
       "do_not": "无操作",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "本地统计",
+      "save_and_local": "本地统计加保存"
     },
     "OpsiShopRecord": {
       "name": "行动力箱子掉落截图",

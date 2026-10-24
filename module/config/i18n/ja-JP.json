@@ -966,64 +966,64 @@
       "help": "「アップロード」は現在短猫相接でのみ有効です",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiMeowfficerFarming": {
       "name": "短猫相接ドロップスクリーンショット",
       "help": "「アップロード」はドロップをローカル統計データベースに解析します。統計ページ「オフニャドロップ」の収益統計はこれを利用します",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiDaily": {
       "name": "セイレーン作戦デイリードロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です\n月跨ぎデイリーがこのスイッチを共有します",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiObscure": {
       "name": "隠秘海域ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です\nアーカイブ座標がこのスイッチを共有します",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiAbyssal": {
       "name": "深淵海域ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です\nマンスリーボスがこのスイッチを共有します",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiStronghold": {
       "name": "セイレーン要塞ドロップスクリーンショット",
       "help": "「アップロード」は現在短猫相接でのみ有効です",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiExplore": {
       "name": "月間開拓ドロップスクリーンショット",
       "help": "月間開拓Plus 専用の記録スイッチで、他のタスクとは共有しません",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiOther": {
       "name": "その他セイレーン作戦ドロップスクリーンショット",
       "help": "専用スイッチのないタスクをまとめて扱います\n「アップロード」は現在短猫相接でのみ有効です",
       "do_not": "アクションなし",
       "save": "保存",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "ローカル統計",
+      "save_and_local": "ローカル統計＋保存"
     },
     "OpsiShopRecord": {
       "name": "行動力箱スクリーンショット",

@@ -966,64 +966,64 @@
       "help": "Upload currently only takes effect on Meowfficer farming",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiMeowfficerFarming": {
       "name": "Meowfficer farming drop screenshot",
       "help": "Upload parses drops into the local statistics database, which the profit stats under the \"Meowfficer loot\" category rely on",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiDaily": {
       "name": "Operation Siren daily drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming\nCross-Month Daily shares this switch",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiObscure": {
       "name": "Obscured zone drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming\nArchive Coordinates shares this switch",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiAbyssal": {
       "name": "Abyssal zone drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming\nMonthly Boss shares this switch",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiStronghold": {
       "name": "Siren stronghold drop screenshot",
       "help": "Upload currently only takes effect on Meowfficer farming",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiExplore": {
       "name": "Monthly exploration drop screenshot",
       "help": "Its own switch for Monthly Exploration Plus, not shared with other tasks",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiOther": {
       "name": "Other Operation Siren drop screenshot",
       "help": "Fallback for Operation Siren tasks without a switch of their own\nUpload currently only takes effect on Meowfficer farming",
       "do_not": "No action",
       "save": "Save",
-      "local": "local",
-      "save_and_local": "save_and_local"
+      "local": "Local stats",
+      "save_and_local": "Local stats + save"
     },
     "OpsiShopRecord": {
       "name": "AP Box Screenshot",
