@@ -244,9 +244,9 @@ def _iter_preferred_devices(
             (OPENVINO_EP, device_types.NPU, None),
             (OPENVINO_EP, device_types.GPU, "discrete"),
             (DML_EP, device_types.GPU, "discrete"),
-            # 核显机器（无独显）在此命中 DML。实测 48x320 识别模型上
-            # DML 核显推理显著快于 CPU EP；仅接受显式 Discrete=0 的
-            # 真核显，虚拟显示器适配器不填该标记不会命中。
+            # 核显机器（无独显）在此命中 DML，实测核显推理快于 CPU EP；
+            # 仅接受显式 Discrete=0 的真核显，虚拟显示器适配器不填该
+            # 标记不会命中。
             (DML_EP, device_types.GPU, "integrated"),
             (OPENVINO_EP, device_types.CPU, None),
         ),

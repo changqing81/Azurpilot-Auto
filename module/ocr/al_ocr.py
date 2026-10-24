@@ -436,9 +436,8 @@ def _configure_windows_ml_sessions(
 def _onnx_thread_options():
     """限制单个 OCR ONNX 会话的线程数，避免多实例重复创建大型线程池。
 
-    默认每个 session 使用 4 个计算线程。实测 12 代酷睿 i5 上单张推理
-    比 2 线程快约 30%（146ms→101ms），且给模拟器留足 CPU 余量；
-    多实例并跑时可通过 AZURPILOT_OCR_THREADS 调回 1–16 的任意值。
+    默认每个 session 使用 4 个计算线程，实测比 2 线程的单张推理更快，
+    且给模拟器留足 CPU 余量；可通过 AZURPILOT_OCR_THREADS 调整为 1–16。
     """
     try:
         requested = int(os.environ.get('AZURPILOT_OCR_THREADS', '4'))
@@ -739,8 +738,8 @@ class AlOcr:
             settings (OcrSettings | None): 固定设置快照，与 config 互斥。
             save_debug_images (bool | None): 是否保存单行字图；None 时读
                 环境变量 AZURPILOT_OCR_DEBUG（默认关闭）。每张调试图伴随
-                一次 PNG 写盘和全目录清点（实测约 4.4ms/张），生产环境
-                默认关闭以减少无谓的磁盘 IO；只影响本识别器，不影响共享模型。
+                一次 PNG 写盘和全目录清点，生产环境默认关闭以减少无谓的
+                磁盘 IO；只影响本识别器，不影响共享模型。
             **kwargs: 附加关键字参数，支持 name 参数指定模型名称。
 
         Raises:
@@ -1025,7 +1024,7 @@ class AlOcr:
         按后端分流以获得最优吞吐：
         - ONNX CPU 后端走 RapidOCR 原生批量路径（TextRecInput 传图像
           列表），TextRecognizer 内部按 rec_batch_num 分批并按宽高比
-          排序，多线程 CPU 下实测吞吐提升明显；
+          排序，多线程 CPU 下吞吐更高；
         - GPU（DML/CUDA）与 ncnn 后端保持逐张推理。GPU 上小文本图
           批量时需按 max_wh_ratio 统一填充宽度，实测反而慢于逐张。
 
@@ -1056,7 +1055,7 @@ class AlOcr:
 
         # ONNX CPU 后端：一次提交全部图像，由 TextRecognizer 按
         # rec_batch_num 分批推理；与逐张路径共用同一模型与字典，
-        # 输出保持一致（本机 12 张真实游戏图实测完全相同）。
+        # 实测输出与逐张路径完全一致。
         # 前处理与 RapidOCR.__call__ 单张路径逐位对齐：先经 LoadImage
         # 归一化通道（游戏 OCR 的调用方大量传入 2 维灰度图，直接构造
         # TextRecInput 会因缺通道维度在 resize_norm_img 崩溃），再按
