@@ -142,18 +142,20 @@ def coalition_to_little_academy(value):
 
 def execute_fixed_patrol_scan_redirect(value):
     """
-    OpsiHazard1Leveling.ExecuteFixedPatrolScan 旧布尔 → 等级枚举。
+    OpsiHazard1Leveling.ExecuteFixedPatrolScan 旧值 → 现行等级枚举。
 
-    旧版本该配置是布尔开关（开启=强制移动）。升级为 0/1/2 等级后，
-    需把旧布尔显式转成数字，避免 GUI 显示（Python 的 True==1 会误配到选项 1）
-    与运行时行为不一致：
-    - True  → 2（分级恢复，保留最高可用档）
-    - False → 0（关闭）
-    仅 int 值直接透传。
+    「关闭」档（0）已删除，默认效率模式：
+    - True / 2 → 2（保守模式，保留用户主动选择的高档）
+    - False / 0 / 其他 → 1（效率模式，新默认档）
+    int 值中仅 2 透传为 2，其余一律收敛到 1，保证迁移后落在合法 option 内。
     """
     if isinstance(value, bool):
-        return 2 if value else 0
-    return value
+        return 2 if value else 1
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return 1
+    return 2 if value == 2 else 1
 
 
 # 岛屿计划子模块的短名（`IslandPlan` 组里的开关名 = `Enable` + 短名，

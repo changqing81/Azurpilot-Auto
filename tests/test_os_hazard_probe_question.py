@@ -96,7 +96,10 @@ class RunBattleOrdering(unittest.TestCase):
         handler.should_run_post_search_scan = MagicMock(return_value=True)
         handler.map_rescan = MagicMock()
         handler.handle_after_auto_search = MagicMock()
-        handler._forced_move_level = MagicMock(return_value=0)
+        # 强制移动会触发真实 map_init（需要 zone/device），与本测试关注点无关
+        handler._execute_fixed_patrol_scan = MagicMock()
+        # 「关闭」档已删除，默认效率模式（等级 1）
+        handler._forced_move_level = MagicMock(return_value=1)
         handler._cl1_probe_question_before_scan = MagicMock(return_value=probe_result)
 
         # 录屏相关函数在函数体内 import，只能从源模块打桩

@@ -2261,9 +2261,6 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
         if not ExecuteFixedPatrolScan:
             logger.info("[大世界] ExecuteFixedPatrolScan 未启用，跳过强制移动。")
             return
-        if level == 0:
-            logger.info("[大世界] 强制移动已关闭，跳过。")
-            return
         logger.attr("执行固定巡逻扫描", f"等级 {level}")
 
         self.map_init(map_=None)
@@ -2294,22 +2291,23 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
     def _forced_move_level(self):
         """读取强制移动等级并兼容旧布尔配置。
 
+        「关闭」档（0）已删除：异常值一律回退到默认的效率模式。
+
         Returns:
-            int: 0（关闭）/ 1（效率模式，只换队看雷达、不挪动）/
+            int: 1（效率模式，只换队看雷达、不挪动）/
                 2（保守模式，先扫雷达、扫不到再逐队挪动）。
         """
         value = self.config.OpsiHazard1Leveling_ExecuteFixedPatrolScan
         if isinstance(value, bool):
-            # 旧版布尔配置兼容：True 视为开启（沿用最高档“保守模式”的等级 2），
-            # False 视为关闭（等级 0）。不能按 Python 的 True==1 直接当作 1，
-            # bool 需在此时先显式归一，否则 GUI 显示“1”而行为却被误判。
-            value = 2 if value else 0
+            # 旧版布尔配置兼容：True 沿用最高档“保守模式”（等级 2），
+            # False 收敛到新默认的效率模式（等级 1）。
+            value = 2 if value else 1
         try:
             level = int(value)
         except (TypeError, ValueError):
-            level = 2
-        if level not in (0, 1, 2):
-            level = 2
+            level = 1
+        if level not in (1, 2):
+            level = 1
         return level
 
     def _move_fleet_to_patrol(self, fleet_index, target_loc):
