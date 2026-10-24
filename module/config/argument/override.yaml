@@ -55,6 +55,35 @@ GemsFarming:
     Fleet2Recover: not_in_dormitory
     Fleet2Oath: false
 
+GemsFarming2:
+  Campaign:
+    Mode: normal
+    UseClearMode: true
+    UseFleetLock: true
+    Use2xBook: false
+    AmbushEvade: true
+  StopCondition:
+    RunCount: 0
+    MapAchievement: non_stop
+    StageIncrease: false
+    GetNewShip: false
+    ReachLevel: 0
+  Fleet:
+    FleetOrder:
+      display: display
+      value: fleet1_all_fleet2_standby
+      option: [fleet1_all_fleet2_standby, fleet1_standby_fleet2_all]
+  Emotion:
+    Mode: calculate_ignore
+    Fleet1Control: prevent_red_face
+    Fleet1Recover: not_in_dormitory
+    Fleet1Oath: false
+    Fleet2Value: 119
+    Fleet2Record: 2020-01-01 00:00:00
+    Fleet2Control: prevent_red_face
+    Fleet2Recover: not_in_dormitory
+    Fleet2Oath: false
+
 ThreeOilLowCost:
   Scheduler:
     NextRun:

@@ -74,6 +74,10 @@
       "name": "Urgent Commission",
       "help": ""
     },
+    "GemsFarming2": {
+      "name": "Urgent Commission 2",
+      "help": ""
+    },
     "ThreeOilLowCost": {
       "name": "3-Oil Low Cost",
       "help": "Use a 3-oil low-cost fleet to fight. Automatically replaces and retires the flagship when it reaches level 32."
@@ -2024,6 +2028,7 @@
       "Main2": "Main Campaign-2",
       "Main3": "Main Campaign-3",
       "GemsFarming": "Urgent Commission Farming",
+      "GemsFarming2": "Urgent Commission 2",
       "ThreeOilLowCost": "3-Oil Low Cost"
     }
   },
@@ -3684,10 +3689,6 @@
       "name": "Planned Operation in Target Zone",
       "help": "After enabling this, the task runs according to Target Zone. With one zone it stays there; with multiple zones it cycles through them in the configured order. Only takes effect when Target Zone is not 0."
     },
-    "ExecuteFixedPatrolScan": {
-      "name": "Fixed Patrol Scan",
-      "help": "After enabling this, the task will scan the fixed patrol zone every 10 seconds."
-    },
     "DebugClip": {
       "name": "Post-battle debug recording",
       "help": "When enabled, during each Meowfficer-farming round's post-battle handling (event detection / event resolution / forced movement), record what ALAS itself sees into an mp4 under log/clips/ (filename starts with meow_clip_). Every round is saved, whether or not an event occurred, so you can review each round. Retention is configured under OS General Settings."
@@ -3733,8 +3734,7 @@
     },
     "ExecuteFixedPatrolScan": {
       "name": "Forced Movement Level",
-      "help": "When Akashi is blocked by a fleet icon or spawns outside radar range, decide whether to move fleets to deal with it. 0 = off: do nothing. 1 = Efficiency mode: only switch fleets and check each radar, move no fleet, fastest; give up if not found. 2 = Conservative mode: first scan radars only (no movement), then move fleets one by one and rescan if not found; more thorough but moves fleets and slower. Default 0 (off); legacy bool true maps to 2, false maps to 0.",
-      "0": "Off",
+      "help": "When Akashi is blocked by a fleet icon or spawns outside radar range, choose how to move fleets to deal with it. 1 = Efficiency mode: only switch fleets and check each radar, move no fleet, fastest; give up if not found. 2 = Conservative mode: first scan radars only (no movement), then move fleets one by one and rescan if not found; more thorough but moves fleets and slower. Default 1 (Efficiency); legacy bool true maps to 2, false/0 maps to 1.",
       "1": "Efficiency mode",
       "2": "Conservative mode"
     },
@@ -3867,6 +3867,10 @@
       "name": "Corrosion 1 Leveling: Preserve X Combat Supply Vouchers",
       "help": "When Combat Supply Vouchers are lower than X, run yellow coin replenishment task. Not recommended to modify."
     },
+    "Hazard1ActionPointPreserve": {
+      "name": "Corrosion 1 Leveling: Preserve X Action Points",
+      "help": "Action Point preserve used when Smart Scheduling runs Corrosion 1 Leveling. Stops when AP (boxes included) is below X.\nSet 0 to keep using the value from the Corrosion 1 Leveling page; values above 0 sync bidirectionally with that page."
+    },
     "ActionPointPreserve": {
       "name": "Meowfficer Farming: Preserve X Action Points",
       "help": "Stop when Action Points are lower than X, and automatically open AP boxes. X includes AP in boxes. It is recommended to preserve 1000 AP for Corrosion 1 Leveling."
@@ -3911,7 +3915,7 @@
     },
     "MonthEndActionPointCleanupDays": {
       "name": "Month-end action point cleanup days",
-      "help": "Start the month-end Action Point cleanup mode when the days remaining until the Operation Siren reset are at or below this value. 0 disables it. When enabled, the cleanup loop repeatedly runs Meowfficer Farming, shop purchases, Obscured Zones and Abyssal Zones to consume Action Points, and summons the Siren Stronghold on the first run."
+      "help": "Start month-end AP cleanup when days remaining until Operation Siren reset <= this value. 0 = cleanup on reset day (the last day); 1 = start one day early (the second-to-last day), and so on; -1 = disabled. When active, loops Meowfficer Farming, shop purchase, Obscured Zones and Abyssal Zones to spend AP, and summons the Siren Stronghold on first run. Users of the old version where 0 meant disabled should change it to -1."
     },
     "MonthEndActionPointPreserve": {
       "name": "Month-end action point preserve",
@@ -7618,6 +7622,7 @@
     "OpsiScheduling": {
       "UseSmartSchedulingOperationCoinsPreserve": "Smart Scheduling OpSi Coins Preserve",
       "OperationCoinsPreserve": "OpSi Coins Preserve",
+      "Hazard1ActionPointPreserve": "Corrosion 1 AP Preserve",
       "ActionPointPreserve": "Action Points Preserve",
       "OperationCoinsReturnThreshold": "OpSi Coins Return Threshold",
       "EnableMeowfficerFarming": "Enable Meowfficer Farming",

@@ -70,6 +70,16 @@ Farm:
       - Submarine
       - Emotion
       - EnemyPriority
+    GemsFarming2:
+      - Scheduler
+      - GemsFarming
+      - Campaign
+      - StopCondition
+      - LowCostCheck
+      - Fleet
+      - Submarine
+      - Emotion
+      - EnemyPriority
     ThreeOilLowCost:
       - Scheduler
       - GemsFarming
