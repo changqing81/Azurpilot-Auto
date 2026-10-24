@@ -65,7 +65,7 @@ ARCHIVES_PREFIX = {
 }
 MAINS = ['Main', 'Main2', 'Main3']
 EVENTS = ['Event', 'Event2', 'Event3', 'EventA', 'EventB', 'EventC', 'EventD', 'EventSp']
-GEMS_FARMINGS = ['GemsFarming', 'ThreeOilLowCost']
+GEMS_FARMINGS = ['GemsFarming', 'GemsFarming2', 'ThreeOilLowCost']
 RAIDS = ['Raid', 'RaidDaily', 'RaidScuttle']
 WAR_ARCHIVES = ['WarArchives']
 COALITIONS = ['Coalition', 'CoalitionSp', 'CoalitionScuttle']
@@ -1007,6 +1007,31 @@ class ConfigUpdater:
         # 当修改侵蚀1的黄币保留时，同步到智能调度
         elif key == 'OpsiHazard1Leveling.OpsiHazard1Leveling.OperationCoinsPreserve':
             yield 'OpsiScheduling.OpsiScheduling.OperationCoinsPreserve', value
+
+        # 智能调度与短猫相接的行动力保留双向同步（值 > 0 才同步）
+        # 0 在两侧语义不同（智能调度侧 0 = 不覆盖、沿用任务页设置；
+        # 短猫任务页 0 = 跑到没体力为止），互相清零会破坏防呆设计，
+        # 因此只在值大于 0 时同步
+        try:
+            preserve_value = int(value)
+        except (TypeError, ValueError):
+            preserve_value = None
+        if key == 'OpsiScheduling.OpsiScheduling.ActionPointPreserve':
+            if preserve_value is not None and preserve_value > 0:
+                yield 'OpsiMeowfficerFarming.OpsiMeowfficerFarming.ActionPointPreserve', value
+        elif key == 'OpsiMeowfficerFarming.OpsiMeowfficerFarming.ActionPointPreserve':
+            if preserve_value is not None and preserve_value > 0:
+                yield 'OpsiScheduling.OpsiScheduling.ActionPointPreserve', value
+
+        # 智能调度与侵蚀1的行动力保留双向同步（值 > 0 才同步）
+        # 智能调度侧 0 = 不覆盖、沿用侵蚀1任务页设置，同步 0 会把
+        # 侵蚀1任务页的保留值也清零，因此只在值大于 0 时同步
+        if key == 'OpsiScheduling.OpsiScheduling.Hazard1ActionPointPreserve':
+            if preserve_value is not None and preserve_value > 0:
+                yield 'OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve', value
+        elif key == 'OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve':
+            if preserve_value is not None and preserve_value > 0:
+                yield 'OpsiScheduling.OpsiScheduling.Hazard1ActionPointPreserve', value
         
         # 注意：动态下拉菜单更新仅在 pywebio > 1.8.0 时可用
         # elif key == 'Alas.Emulator.ScreenshotMethod' and value == 'nemu_ipc':

@@ -927,6 +927,7 @@ Tactical:
 OpsiScheduling:
   UseSmartSchedulingOperationCoinsPreserve:
   OperationCoinsPreserve:
+  Hazard1ActionPointPreserve:
   ActionPointPreserve:
 
   OperationCoinsReturnThreshold:

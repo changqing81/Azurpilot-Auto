@@ -101,6 +101,8 @@ class CoinTaskMixin:
     # 各任务的配置路径常量（集中管理，避免硬编码）
     CONFIG_PATH_MEOW_AP_PRESERVE = 'OpsiMeowfficerFarming.OpsiMeowfficerFarming.ActionPointPreserve'
     CONFIG_PATH_CL1_MIN_AP_RESERVE = 'OpsiHazard1Leveling.OpsiHazard1Leveling.MinimumActionPointReserve'
+    # 智能调度的侵蚀1行动力保留覆盖值（0 = 不覆盖，沿用侵蚀1任务页设置）
+    CONFIG_PATH_SMART_HAZARD1_AP_PRESERVE = 'OpsiScheduling.OpsiScheduling.Hazard1ActionPointPreserve'
     # 开箱动作失败（USE 未出现等）但含箱总数充足时的短延迟重跑分钟数。
     # 能漏过 action_point_use 点击前 5 秒重试的故障，5 分钟内基本已恢复；
     # 不取更小值是因为 task_stop 后只能靠 NextRun 重拉任务，若持续故障
@@ -967,7 +969,20 @@ class CoinTaskMixin:
     def _get_effective_cl1_ap_preserve(self):
         """
         获取智能调度下侵蚀 1 使用的行动力保留值。
+
+        智能调度的侵蚀1行动力保留（Hazard1ActionPointPreserve）大于 0 时
+        覆盖侵蚀1任务页的设置；为 0 时沿用任务页的原值。
         """
+        override = self.config.cross_get(
+            keys=self.CONFIG_PATH_SMART_HAZARD1_AP_PRESERVE,
+            default=0,
+        )
+        try:
+            override = int(override or 0)
+        except (TypeError, ValueError):
+            override = 0
+        if override > 0:
+            return override
         preserve = self.config.cross_get(
             keys=self.CONFIG_PATH_CL1_MIN_AP_RESERVE,
             default=200,
@@ -2776,7 +2791,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         读取月末清理行动力的触发天数。
 
         Returns:
-            int: 距大世界重置剩余天数小于等于此值时启动月末清理，0 表示禁用。
+            int: 距大世界重置剩余天数小于等于此值时启动月末清理。
+                -1 表示禁用；0 表示只在重置当天（最后一天）清理；
+                N >= 1 表示提前 N 天开始（如 1 = 倒数第二天起清理）。
         """
         try:
             days = int(self.config.cross_get(
@@ -2785,7 +2802,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
             ) or 0)
         except (TypeError, ValueError):
             days = 0
-        return max(0, days)
+        return max(-1, days)
 
     def _get_month_end_action_point_preserve(self):
         """
@@ -2823,8 +2840,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
 
         触发条件：
             1. MonthEndActionPointCleanupEnable 开关已开启
-            2. MonthEndActionPointCleanupDays > 0
+            2. MonthEndActionPointCleanupDays >= 0（-1 表示禁用）
             3. 距大世界重置剩余天数 <= MonthEndActionPointCleanupDays
+               （0 = 重置当天清理，1 = 倒数第二天起清理，以此类推）
 
         Returns:
             bool: 是否启用月末清理。
@@ -2832,7 +2850,7 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         if not self._config_enabled(keys=self.CONFIG_PATH_MONTH_END_CLEANUP_ENABLE, default=False):
             return False
         cleanup_days = self._get_month_end_cleanup_days()
-        if cleanup_days <= 0:
+        if cleanup_days < 0:
             return False
         remain = get_os_reset_remain()
         active = remain <= cleanup_days
