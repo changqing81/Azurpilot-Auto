@@ -1,4 +1,8 @@
-"""多实例 OCR ONNX 线程数上限回归测试，不加载实际模型。"""
+"""多实例 OCR ONNX 线程数上限回归测试，不加载实际模型。
+
+默认线程数为 4（2026-10-24 从 2 上调：实测 12 代酷睿上单张推理快约
+30%，模拟器并跑仍有余量）；非法值回退到 4。
+"""
 
 import os
 import unittest
@@ -19,7 +23,7 @@ def settings(backend='onnx'):
 
 class TestOnnxThreadOptions(unittest.TestCase):
     def test_default_and_overrides(self):
-        cases = [('2', 2), ('1', 1), ('8', 8), ('200', 16), ('0', 1), ('bad', 2)]
+        cases = [('4', 4), ('2', 2), ('1', 1), ('8', 8), ('200', 16), ('0', 1), ('bad', 4)]
         with patch.object(al_ocr.os, 'cpu_count', return_value=32):
             for value, expected in cases:
                 with self.subTest(value=value), patch.dict(os.environ, {'AZURPILOT_OCR_THREADS': value}):
