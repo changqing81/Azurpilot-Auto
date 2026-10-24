@@ -248,6 +248,28 @@ class TestRecoveryTransaction(unittest.TestCase):
         self.target.stop.assert_not_called()
         self.assertEqual(list(Path(self.temp.name).glob('*.json')), [])
 
+    def test_success_sends_restart_notification(self):
+        """恢复成功必须推送：用户要能感知到发生过一次实例级重启。"""
+        with patch('module.handler.emulator_recovery.handle_notify', autospec=True) as notify:
+            self.assertTrue(self.recovery.restart())
+        notify.assert_called_once()
+        self.assertIn('模拟器已重启', notify.call_args.kwargs['title'])
+
+    def test_failure_sends_warning_notification(self):
+        """恢复失败必须推送：脚本改为退避重试后，用户只能靠推送感知故障。"""
+        self.ready.return_value = False
+        with patch('module.handler.emulator_recovery.handle_notify', autospec=True) as notify:
+            with self.assertRaises(RecoveryFailed):
+                self.recovery.restart()
+        notify.assert_called_once()
+        self.assertIn('未成功', notify.call_args.kwargs['content'])
+
+    def test_notification_failure_never_breaks_recovery(self):
+        """推送是旁路动作：发送异常不能影响恢复结果本身。"""
+        with patch('module.handler.emulator_recovery.handle_notify', autospec=True,
+                   side_effect=OSError('推送通道不可用')):
+            self.assertTrue(self.recovery.restart())
+
     def test_request_for_old_device_does_not_invalidate_new_device(self):
         self.assertFalse(self.recovery.request('旧探测', device=DeviceSession()))
         self.alas.device.check_session()

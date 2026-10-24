@@ -10,6 +10,7 @@ from module.exception import EmulatorOpBusy, RecoveryFailed
 from module.handler.emulator_health import AdbProbe
 from module.handler.emulator_recovery_state import InstanceLease, RecoveryBlocked
 from module.logger import logger
+from module.notify import handle_notify
 
 
 RECOVERY_TIMEOUT = 420
@@ -21,6 +22,8 @@ class EmulatorRecovery:
     def __init__(self, alas):
         self.alas = alas
         self.owner = threading.get_ident()
+        # 推送展示名：优先配置实例名；测试/工具用 SimpleNamespace 时降级为固定文案。
+        self._display_name = getattr(alas, 'config_name', None) or 'AzurPilot'
         self._request_lock = threading.Lock()
         self.pending = None
         self.cancel = threading.Event()
@@ -45,6 +48,18 @@ class EmulatorRecovery:
                     # 无法确认配置时不允许破坏性动作。
                     return False if isinstance(default, bool) else default
         return value if type(value) is type(default) else default
+
+    def _notify(self, title, content):
+        """恢复结果推送：与"游戏卡住"等错误告警同通道（Error_OnePushConfig）。
+
+        通知只是旁路动作：读取配置或发送失败一律只记日志，
+        绝不反过来影响恢复流程本身。
+        """
+        try:
+            handle_notify(getattr(self.alas.config, 'Error_OnePushConfig', ''),
+                          title=title, content=content)
+        except Exception as exc:
+            logger.warning(f'[模拟器恢复] 结果推送发送失败: {exc}')
 
     def allowed(self, source):
         event = getattr(self.alas, 'stop_event', None)
@@ -193,6 +208,8 @@ class EmulatorRecovery:
         if self.worker.is_alive():
             self.cancel.set()
             logger.critical('[模拟器恢复] 本轮恢复超时；旧执行者退出前禁止再发起新恢复')
+            self._notify(f"AzurPilot <{self._display_name}> 警告",
+                         f"<{self._display_name}> 模拟器恢复超时，稍后自动重试")
             # 设备侧超时不是脚本的错：抛可重试的 RecoveryFailed，
             # 由调度器退避后继续尝试，而不是结束整个配置进程。
             # 与失败分支同理：丢弃带失效标记的旧 Device 缓存，避免下一轮
@@ -214,7 +231,13 @@ class EmulatorRecovery:
             # 3 秒后 Restart 踩中毒缓存，worker 无声退出。
             self.alas.__dict__.pop('device', None)
             logger.critical(f'[模拟器恢复] 本轮恢复未成功: {detail}')
+            # 预算熔断（RecoveryBlocked）也走这里：额度耗尽/身份不明时
+            # 同样推送给用户，让"脚本已放弃自动恢复"可被外部感知。
+            self._notify(f"AzurPilot <{self._display_name}> 警告",
+                         f"<{self._display_name}> 模拟器本轮重启未成功: {detail}，稍后自动重试")
             raise RecoveryFailed(detail)
         self.alas.__dict__.pop('device', None)
         logger.info('[模拟器恢复] 系统已就绪；下一轮重新建立设备并执行 Restart，尚未确认游戏登录成功')
+        self._notify(f"AzurPilot <{self._display_name}> 模拟器已重启",
+                     f"<{self._display_name}> 模拟器卡死保护已按实例重启模拟器，系统就绪，正在重新启动游戏")
         return True
