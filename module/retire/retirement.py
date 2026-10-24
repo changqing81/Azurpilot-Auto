@@ -95,7 +95,11 @@ class Retirement(Enhancement, QuickRetireSettingHandler):
 
     @property
     def retire_keep_common_cv(self):
-        return self.config.is_task_enabled('GemsFarming') or self.config.is_task_enabled('ThreeOilLowCost')
+        return (
+            self.config.is_task_enabled('GemsFarming')
+            or self.config.is_task_enabled('GemsFarming2')
+            or self.config.is_task_enabled('ThreeOilLowCost')
+        )
 
     def _retirement_choose(self, amount=10, target_rarity=('N',)):
         """
@@ -444,7 +448,11 @@ class Retirement(Enhancement, QuickRetireSettingHandler):
         """
         logger.info('[退役-保留] 退役钻石打捞/三油低耗的废弃旗舰')
 
-        gems_farming_enable: bool = self.config.is_task_enabled('GemsFarming') or self.config.is_task_enabled('ThreeOilLowCost')
+        gems_farming_enable: bool = (
+            self.config.is_task_enabled('GemsFarming')
+            or self.config.is_task_enabled('GemsFarming2')
+            or self.config.is_task_enabled('ThreeOilLowCost')
+        )
         if not gems_farming_enable:
             logger.info('[退役-保留] 非钻石打捞/三油低耗任务，跳过')
             return 0

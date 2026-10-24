@@ -364,19 +364,20 @@ class FastForwardHandler(AutoSearchHandler):
         logger.info('自动搜索设置')
         self.fleet_preparation_sidebar_ensure(3)
         if not self.auto_search_setting_ensure(self.config.Fleet_FleetOrder) \
-                and self.config.task.command == 'GemsFarming':
+                and self.config.task.command in ('GemsFarming', 'GemsFarming2', 'ThreeOilLowCost'):
+            command = self.config.task.command
             from module.notify import handle_notify
             if not handle_notify(
                 self.config.Error_OnePushConfig,
                 title=f"AzurPilot <{self.config.config_name}> crashed",
                 content=f"<{self.config.config_name}> RequestHumanTakeover\n"
-                        f"Task GemsFarming could not set auto search settings",
+                        f"Task {command} could not set auto search settings",
                                     ):
                 from module.exception import AutoSearchSetError
                 raise AutoSearchSetError
-            self.config.cross_set(keys='GemsFarming.Scheduler.Enable', value=False)
+            self.config.cross_set(keys=f'{command}.Scheduler.Enable', value=False)
             logger.critical('[Handler] 无法确保自动搜索设置。')
-            logger.critical('[Handler] 关闭任务：GemsFarming')
+            logger.critical(f'[Handler] 关闭任务：{command}')
             self.config.task_stop('无法确保自动搜索设置。')
         if self.config.SUBMARINE:
             self.auto_search_setting_ensure(self.config.Submarine_AutoSearchMode)

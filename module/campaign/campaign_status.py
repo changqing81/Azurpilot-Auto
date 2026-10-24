@@ -393,6 +393,7 @@ class CampaignStatus(UI):
             'Raid',
             'Coalition',
             'GemsFarming',
+            'GemsFarming2',
             'ThreeOilLowCost',
         ]
         command = self.config.Scheduler_Command

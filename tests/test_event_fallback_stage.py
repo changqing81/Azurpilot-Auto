@@ -5,7 +5,7 @@ Campaign 组（「关卡设置」），排在「道中失败处理」之后，�
 
 覆盖：
 - 参数定义确实在 Campaign 组，且 GemsFarming 组里不再有它；
-- 只有低耗打捞类任务（GemsFarming / ThreeOilLowCost）在界面上显示，
+- 只有低耗打捞类任务（GemsFarming / GemsFarming2 / ThreeOilLowCost）在界面上显示，
   其余任务（含 Ambush11）隐藏 —— Campaign 组被 22 个任务共用；
 - 存量配置的旧路径值会迁移到新路径，用户填过的 16-4 不会丢回 2-4。
 """
@@ -16,7 +16,7 @@ from module.config.config_updater import ConfigUpdater
 from module.config.utils import read_file
 
 
-TASKS = ('GemsFarming', 'ThreeOilLowCost')
+TASKS = ('GemsFarming', 'GemsFarming2', 'ThreeOilLowCost')
 
 
 class TestEventFallbackStageLocation(unittest.TestCase):

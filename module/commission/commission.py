@@ -1670,7 +1670,7 @@ class RewardCommission(UI, InfoHandler):
         # 延迟钻石 farming / 三油低耗任务
         # 遍历使用 GemsFarming 配置组的任务，检查是否启用且开启了 CommissionLimit
         limit_tasks = [
-            task for task in ['GemsFarming', 'ThreeOilLowCost']
+            task for task in ['GemsFarming', 'GemsFarming2', 'ThreeOilLowCost']
             if self.config.is_task_enabled(task)
             and self.config.cross_get(keys=f'{task}.GemsFarming.CommissionLimit', default=False)
         ]

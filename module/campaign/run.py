@@ -300,8 +300,8 @@ class CampaignRun(CampaignEvent, ShopStatus):
             str, str: (name, folder)。
         """
         name = to_map_file_name(name)
-        # GemsFarming 和 ThreeOilLowCost 自动选择活动或主线章节
-        if self.config.task.command in ['GemsFarming', 'ThreeOilLowCost']:
+        # GemsFarming / GemsFarming2 / ThreeOilLowCost 自动选择活动或主线章节
+        if self.config.task.command in ['GemsFarming', 'GemsFarming2', 'ThreeOilLowCost']:
             if self.stage_is_main(name):
                 logger.info(f'Stage name {name} is from campaign_main')
                 folder = 'campaign_main'
