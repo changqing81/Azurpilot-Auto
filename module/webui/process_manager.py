@@ -910,6 +910,14 @@ class ProcessManager:
                 logger.info(f"[{config_name}] 已退出。原因：更新\n")
             else:
                 logger.info(f"[{config_name}] 已退出。原因：完成\n")
+        except SystemExit as ex:
+            # RecoveryStopped 等 SystemExit 子类会被 except Exception 放过，
+            # 历史上直接穿出 worker 无声退出（2026-10-24 14:54 事故）。
+            # 这里补一行退出原因日志再退出，保证死因可在日志中回溯；
+            # 不改写退出语义：该退仍退，只是不再无声。
+            logger.warning(
+                f"[{config_name}] 已退出。原因：SystemExit({ex.code}) {ex}"
+            )
         except Exception as ex:
             logger.exception(ex)
 

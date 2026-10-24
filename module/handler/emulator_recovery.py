@@ -195,6 +195,10 @@ class EmulatorRecovery:
             logger.critical('[模拟器恢复] 本轮恢复超时；旧执行者退出前禁止再发起新恢复')
             # 设备侧超时不是脚本的错：抛可重试的 RecoveryFailed，
             # 由调度器退避后继续尝试，而不是结束整个配置进程。
+            # 与失败分支同理：丢弃带失效标记的旧 Device 缓存，避免下一轮
+            # Restart 在 session_guard 处抛 DeviceSessionExpired，
+            # 进而以 RecoveryStopped(SystemExit) 无声杀死进程。
+            self.alas.__dict__.pop('device', None)
             raise RecoveryFailed('模拟器恢复超时，需要人工检查')
         if error or not result:
             self.cancel.set()
@@ -202,6 +206,13 @@ class EmulatorRecovery:
             # 人为终止（用户关开关/取消）沿用原语义；设备侧失败改为可重试。
             if any(isinstance(exc, RecoveryStopped) for exc in error):
                 raise RecoveryStopped(detail)
+            # 失败也要丢弃旧 Device：失效会话只在本对象上生效，缓存若留在
+            # alas.__dict__，下一轮 Restart 的 session_guard 会立刻抛
+            # DeviceSessionExpired——此时 pending 已消费完，run() 只能
+            # raise RecoveryStopped(SystemExit) 无声杀死整个进程。
+            # 2026-10-24 14:54 事故：MuMu 冷启动 info 超时 → 恢复失败 →
+            # 3 秒后 Restart 踩中毒缓存，worker 无声退出。
+            self.alas.__dict__.pop('device', None)
             logger.critical(f'[模拟器恢复] 本轮恢复未成功: {detail}')
             raise RecoveryFailed(detail)
         self.alas.__dict__.pop('device', None)

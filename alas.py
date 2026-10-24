@@ -2176,6 +2176,25 @@ class AzurLaneAutoScript:
                     self.crash_guard.stop()
                     break
 
+            # RecoveryStopped 继承 SystemExit，except Exception 抓不住。
+            # 历史缺陷：它从 run() 冒泡到这里直接穿出循环，worker 进程
+            # 无声退出（无 traceback、无收尾日志）。2026-10-24 14:54 事故
+            # 即此路径：恢复失败遗留中毒 Device 缓存，下一轮 Restart 的
+            # session_guard 抛 DeviceSessionExpired，pending 已消费，
+            # run() 596 行 raise RecoveryStopped 杀死进程。
+            # 这里捕获后留一行明确日志再按约定停止配置，消灭无声死亡。
+            except RecoveryStopped as e:
+                logger.error_context(
+                    title='恢复流程要求停止当前配置',
+                    reason=f'{e}',
+                    impact='调度器将停止运行（人为终止条件，非崩溃）。',
+                    action='重新启动配置前请先确认模拟器状态；反复出现时检查恢复开关。',
+                    level=30,
+                )
+                self.watchdog.stop()
+                self.crash_guard.stop()
+                break
+
             # 捕获全局异常并执行重启
             except Exception as e:
                 consecutive_global_failures += 1

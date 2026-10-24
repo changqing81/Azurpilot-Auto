@@ -217,6 +217,13 @@ class RecoveryTarget:
 
         只要实例进程拉起且 Android 启动完成即可返回；游戏是否登录由后续
         Restart 任务负责，不在这里等。
+
+        冷启动宽容：实例刚 launch 后的头 20-30 秒 MuMuManager 可能完全
+        不应答（info 命令超时），这是正常冷启动窗口而非故障。历史缺陷：
+        此前对 RecoveryBlocked 一律立即上抛，一次查询超时就把整轮恢复
+        判死（2026-10-24 14:53 事故：启动后 27 秒 info 超时 → 恢复失败）。
+        "实例状态不可读"属瞬态，继续等到 deadline；身份类阻断（进程身份、
+        平台不支持）不是等能等好的，仍立即上抛。
         """
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -224,8 +231,10 @@ class RecoveryTarget:
             try:
                 if self.running() and self._android_started():
                     return True
-            except RecoveryBlocked:
-                raise
+            except RecoveryBlocked as exc:
+                if '不可读' not in str(exc):
+                    raise
+                logger.warning(f'[模拟器恢复] 实例状态暂不可读（冷启动窗口），继续等待: {exc}')
             except Exception as exc:
                 logger.warning(f'[模拟器恢复] 查询实例状态失败，继续等待: {exc}')
             time.sleep(3)
