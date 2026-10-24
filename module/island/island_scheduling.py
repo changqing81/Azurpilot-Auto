@@ -34,6 +34,7 @@ from module.exception import (
     GameStuckError,
     GameTooManyClickError,
     RequestHumanTakeover,
+    mark_task_on_exception,
 )
 from module.island.island import Island
 from module.logger import logger
@@ -368,6 +369,12 @@ class IslandScheduling(Island):
         try:
             sub_task = getattr(importlib.import_module(module_path), class_name)
             sub_task(config=self.config, device=self.device).run()
+        except BaseException as exc:
+            # 异常向外冒泡前，把当前子任务名标记到异常对象上：下方 finally
+            # 会把 config.task 恢复成父任务（IslandPlan），顶层错误推送只有
+            # 靠这个标记才能报出真正出错的岛屿子任务
+            mark_task_on_exception(exc, task_name)
+            raise
         finally:
             self.config.task = previous_task
 

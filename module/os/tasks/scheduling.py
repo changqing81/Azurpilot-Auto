@@ -33,6 +33,7 @@ from module.config.config import Function, name_to_function
 from module.config.deep import deep_get
 from module.config.time_source import now as current_time
 from module.config.utils import get_os_reset_remain, server_time_offset
+from module.exception import mark_task_on_exception
 from module.logger import logger
 from module.os.map import OSMap
 from module.os.tasks.scheduling_state import (
@@ -2042,6 +2043,12 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         self.config.bind(task_name)
         try:
             return func(*args, **kwargs)
+        except BaseException as exc:
+            # 异常向外冒泡前，把当前子任务名标记到异常对象上：下方 finally
+            # 会把 config.task 恢复成父任务（如 OpsiScheduling），顶层错误
+            # 推送只有靠这个标记才能报出真正出错的子任务（如 OpsiHazard1Leveling）
+            mark_task_on_exception(exc, task_name)
+            raise
         finally:
             self.config.task = previous_task
 

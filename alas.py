@@ -116,6 +116,57 @@ class AzurLaneAutoScript:
         """测试或工具绕过构造器时也使用同一恢复协调器。"""
         return EmulatorRecovery(self)
 
+    def _error_task_display(self, command, exc=None):
+        """获取错误推送用的任务显示名：优先读异常携带的子任务标记。
+
+        聚合调度（大世界智能调度/岛屿计划）代跑子任务出错时，异常对象上
+        带有子任务名标记（见 module.exception.mark_task_on_exception），
+        比调度器传入的父任务名更能反映真实出错位置（如智能调度代跑侵蚀1
+        出错时应报"侵蚀1"而不是"智能调度"），因此优先采用。
+
+        Args:
+            command (str): 调度器传入的任务方法名（下划线或驼峰形式均可）。
+            exc (BaseException): 触发推送的异常对象，可能携带子任务标记。
+
+        Returns:
+            str: 任务的本地化显示名；获取失败时降级返回英文任务名。
+        """
+        task_name = None
+        try:
+            # 1) 优先取异常对象上的子任务标记（代跑场景的真实出错任务）
+            if exc is not None:
+                task_name = get_task_from_exception(exc)
+            # 2) 退回调度器传入的任务名（统一转驼峰，与 i18n 的 Task 键一致）
+            if not task_name:
+                task_name = inflection.camelize(command)
+            # 3) 翻译成本地化显示名（如 OpsiHazard1Leveling → 侵蚀1练级）
+            return _get_task_display_name(task_name)
+        except Exception:
+            # 任务名获取链路任何一步失败都降级为原始英文名，保证推送可发
+            return command or '未知任务'
+
+    def _error_notify(self, command, title, content, exc=None):
+        """发送错误推送：正文开头注入【当前任务名】前缀。
+
+        通过 _error_task_display() 解析当前任务（含代跑子任务标记），
+        将正文改写为"【任务显示名】原始错误信息"后走原 handle_notify
+        通道发送。前缀拼接包在 try/except 里：任何环节失败都降级为
+        原样发送，绝不因为拼接任务名而吞掉原本的错误推送。
+
+        Args:
+            command (str): 调度器传入的任务方法名。
+            title (str): 原推送标题（不注入任务名，避免超出渠道标题长度限制）。
+            content (str): 原推送正文。
+            exc (BaseException): 触发推送的异常对象，用于提取子任务标记。
+        """
+        try:
+            task_display = self._error_task_display(command, exc)
+            content = f'【{task_display}】{content}'
+        except Exception:
+            # 拼接前缀失败时保持原文发送，推送本身不能被影响
+            pass
+        handle_notify(self.config.Error_OnePushConfig, title=title, content=content)
+
     def _try_restart_emulator(self, source=None):
         """旧任务栈已退出后提交一轮恢复；所有入口共享实例预算。
 
@@ -369,10 +420,12 @@ class AzurLaneAutoScript:
             exc=error,
             level=50,
         )
-        handle_notify(
-            self.config.Error_OnePushConfig,
+        # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+        self._error_notify(
+            command,
             title=f"AzurPilot <{self.config_name}> 敏感任务出错",
             content=f"<{self.config_name}> 敏感任务 `{task_name}` 出错，AzurPilot 已停止运行\n{error}",
+            exc=error,
         )
         notify_webui(
             self.config_name,
@@ -626,10 +679,12 @@ class AzurLaneAutoScript:
                 with_traceback=False,
             )
             self._check_sensitive_exit(command, e)
-            handle_notify(
-                self.config.Error_OnePushConfig,
+            # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+            self._error_notify(
+                command,
                 title=f"AzurPilot <{self.config_name}> 警告",
                 content=f"<{self.config_name}> 游戏未运行 - 将自动重启游戏",
+                exc=e,
             )
             notify_webui(
                 self.config_name,
@@ -664,10 +719,12 @@ class AzurLaneAutoScript:
 
             logger.warning(f'[Alas] 游戏卡住，{self.device.package} 将在10秒后重启')
             logger.warning('[Alas] 如果您正在手动操作，请停止 AzurPilot')
-            handle_notify(
-                self.config.Error_OnePushConfig,
+            # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+            self._error_notify(
+                command,
                 title=f"AzurPilot <{self.config_name}> 警告",
                 content=f"<{self.config_name}> 游戏卡住 - 将自动重启游戏",
+                exc=e,
             )
             notify_webui(
                 self.config_name,
@@ -691,10 +748,12 @@ class AzurLaneAutoScript:
             self._check_sensitive_exit(command, e)
             logger.warning('[Alas] 碧蓝航线游戏客户端发生错误，AzurPilot 无法处理')
             logger.warning(f'[Alas] 正在重启 {self.device.package} 以修复问题')
-            handle_notify(
-                self.config.Error_OnePushConfig,
+            # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+            self._error_notify(
+                command,
                 title=f"AzurPilot <{self.config_name}> 警告",
                 content=f"<{self.config_name}> 游戏客户端错误 - 将自动重启游戏",
+                exc=e,
             )
             notify_webui(
                 self.config_name,
@@ -718,10 +777,12 @@ class AzurLaneAutoScript:
                     level=50,
                 )
                 self.save_error_scene()
-                handle_notify(
-                    self.config.Error_OnePushConfig,
+                # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+                self._error_notify(
+                    command,
                     title=f"AzurPilot <{self.config_name}> 崩溃",
                     content=f"<{self.config_name}> GamePageUnknownError",
+                    exc=e,
                 )
                 notify_webui(
                     self.config_name,
@@ -753,10 +814,12 @@ class AzurLaneAutoScript:
                     action='查看错误现场中的 log.txt 和截图，修复代码后重新启动。',
                     level=50,
                 )
-                handle_notify(
-                    self.config.Error_OnePushConfig,
+                # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+                self._error_notify(
+                    command,
                     title=f"AzurPilot <{self.config_name}> 崩溃",
                     content=f"<{self.config_name}> ScriptError (连续 {self.script_error_count} 次)",
+                    exc=e,
                 )
                 notify_webui(
                     self.config_name,
@@ -766,10 +829,12 @@ class AzurLaneAutoScript:
                 raise
 
             logger.warning(f'[Alas] ScriptError 第 {self.script_error_count}/3 次，尝试重启恢复')
-            handle_notify(
-                self.config.Error_OnePushConfig,
+            # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+            self._error_notify(
+                command,
                 title=f"AzurPilot <{self.config_name}> 警告",
                 content=f"<{self.config_name}> ScriptError - 将尝试重启恢复 ({self.script_error_count}/3)",
+                exc=e,
             )
             notify_webui(
                 self.config_name,
@@ -830,10 +895,12 @@ class AzurLaneAutoScript:
                 # 重启成功，调度 Restart 任务恢复游戏
                 self.config.task_call('Restart')
                 if ipc_timeout:
-                    handle_notify(
-                        self.config.Error_OnePushConfig,
+                    # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+                    self._error_notify(
+                        command,
                         title=f"AzurPilot <{self.config_name}> 警告",
                         content=f"<{self.config_name}> 模拟器失去响应 - 已自动重启模拟器",
+                        exc=e,
                     )
                     notify_webui(
                         self.config_name,
@@ -841,10 +908,12 @@ class AzurLaneAutoScript:
                         content="模拟器卡住了喵 已经重启模拟器继续挂机喵",
                     )
                 else:
-                    handle_notify(
-                        self.config.Error_OnePushConfig,
+                    # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+                    self._error_notify(
+                        command,
                         title=f"AzurPilot <{self.config_name}> 警告",
                         content=f"<{self.config_name}> 模拟器离线 - 已自动重启模拟器",
+                        exc=e,
                     )
                     notify_webui(
                         self.config_name,
@@ -881,10 +950,12 @@ class AzurLaneAutoScript:
             if self._try_restart_emulator():
                 logger.warning('[Alas] RequestHumanTakeover: 模拟器重启成功，调度 Restart 任务恢复')
                 self.config.task_call('Restart')
-                handle_notify(
-                    self.config.Error_OnePushConfig,
+                # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+                self._error_notify(
+                    command,
                     title=f"AzurPilot <{self.config_name}> 警告",
                     content=f"<{self.config_name}> 需要人工介入 - 已自动重启模拟器恢复",
+                    exc=e,
                 )
                 notify_webui(
                     self.config_name,
@@ -900,10 +971,12 @@ class AzurLaneAutoScript:
                 level=50,
             )
             self.save_error_scene()
-            handle_notify(
-                self.config.Error_OnePushConfig,
+            # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+            self._error_notify(
+                command,
                 title=f"AzurPilot <{self.config_name}> 崩溃",
                 content=f"<{self.config_name}> RequestHumanTakeover",
+                exc=e,
             )
             notify_webui(
                 self.config_name,
@@ -954,10 +1027,12 @@ class AzurLaneAutoScript:
                     f'先尝试重启游戏恢复'
                 )
             self.config.task_call('Restart')
-            handle_notify(
-                self.config.Error_OnePushConfig,
+            # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+            self._error_notify(
+                command,
                 title=f"AzurPilot <{self.config_name}> 崩溃",
                 content=f"<{self.config_name}> 发生异常",
+                exc=e,
             )
             notify_webui(
                 self.config_name,
@@ -2144,8 +2219,9 @@ class AzurLaneAutoScript:
                         action=action,
                         level=50,
                     )
-                    handle_notify(
-                        self.config.Error_OnePushConfig,
+                    # 错误推送正文注入【当前任务名】前缀（_error_notify 内部含降级保护）
+                    self._error_notify(
+                        task,
                         title=f"AzurPilot <{self.config_name}> crashed",
                         content=f"<{self.config_name}> RequestHumanTakeover\nTask `{task}` failed {failed} or more times.",
                     )

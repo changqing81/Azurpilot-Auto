@@ -225,3 +225,44 @@ class EmulatorOpBusy(Exception):
     调用方收到此异常时应放弃本轮操作，等待下一轮调度，而不是立即重试。
     """
     pass
+
+
+# 异常对象上标记"当前正在执行的子任务名"的属性名。
+# 聚合调度（大世界智能调度/岛屿计划等）以子任务身份代跑逻辑时，上下文切换器
+# 的 finally 会先于异常处理把 config.task 恢复成父任务名，导致顶层错误推送
+# 报不出真正出错的子任务。因此代跑上下文在异常向外冒泡前，把子任务名直接
+# 写在异常对象上带出去，顶层据此还原真实的任务上下文。
+TASK_MARK_ATTRIBUTE = '_azurpilot_task'
+
+
+def mark_task_on_exception(exc: BaseException, task_name: str) -> None:
+    """在异常对象上标记当前正在执行的子任务名（用于错误推送定位）。
+
+    聚合调度代跑子任务出错时，异常会带着此标记一路冒泡到 alas.py 的
+    顶层异常捕获，推送前可通过 get_task_from_exception() 读出子任务名。
+
+    标记动作本身绝不抛异常：task_name 非字符串时静默跳过，
+    避免给原异常处理链路引入二次故障。
+    """
+    try:
+        if isinstance(task_name, str) and task_name:
+            setattr(exc, TASK_MARK_ATTRIBUTE, task_name)
+    except Exception:
+        # 异常对象理论上都支持 setattr；万一遇到特殊实现（如 frozen dataclass
+        # 包装的异常），放弃标记，不影响原有异常传播
+        pass
+
+
+def get_task_from_exception(exc: BaseException) -> str | None:
+    """读取异常对象上标记的子任务名；未标记或读取失败时返回 None。
+
+    供 alas.py 组装错误推送内容时调用：优先取异常身上携带的子任务名
+    （代跑场景的真实出错任务），取不到再退回调度器传入的任务名。
+    """
+    try:
+        value = getattr(exc, TASK_MARK_ATTRIBUTE, None)
+        if isinstance(value, str) and value:
+            return value
+    except Exception:
+        pass
+    return None
