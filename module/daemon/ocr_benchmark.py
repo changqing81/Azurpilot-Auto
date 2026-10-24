@@ -4,6 +4,7 @@
 
 import os
 import platform
+import re
 import shutil
 import sys
 import time
@@ -16,6 +17,34 @@ from module.config.config import AzurLaneConfig
 from module.exception import RequestHumanTakeover
 from module.logger import logger
 from module.ocr.al_ocr import AlOcr
+
+# Unicode 罗马数字与 ASCII 罗马数字等价表。游戏字体渲染的是 ASCII
+# I/II/III，OCR 常输出同字形的 Unicode Ⅰ/Ⅱ/Ⅲ（反之亦然），二者对
+# 游戏逻辑等价（委托匹配只做关键词包含，不比对罗马数字写法）。
+_ROMAN_EQUIV = {
+    'Ⅰ': 'I', 'Ⅱ': 'II', 'Ⅲ': 'III', 'Ⅳ': 'IV', 'Ⅴ': 'V', 'Ⅵ': 'VI',
+    'ⅶ': 'VII', 'ⅷ': 'VIII', 'ⅸ': 'IX', 'ⅹ': 'X',
+}
+
+
+def _normalize_result(text):
+    """基准测试比对前的等价归一化。
+
+    只归一化"对游戏逻辑等价"的差异，不掩盖真实误读：
+    1. 罗马数字 Unicode/ASCII 互转（Ⅲ 与 III 同字形）；
+    2. 去除所有空白（游戏内 MAX 后的空格未计入标签，
+       "MAX: 96056" 与 "MAX:96056" 应视为一致）。
+
+    Args:
+        text (str): OCR 结果或标签文本。
+
+    Returns:
+        str: 归一化后的文本，可直接做严格相等比较。
+    """
+    text = text.strip().upper()
+    for unicode_roman, ascii_roman in _ROMAN_EQUIV.items():
+        text = text.replace(unicode_roman, ascii_roman)
+    return re.sub(r'\s+', '', text)
 
 
 class OcrBenchmark:
@@ -113,7 +142,10 @@ class OcrBenchmark:
             for idx, (img_input, expected) in enumerate(test_cases, 1):
                 try:
                     result = ocr.ocr(img_input)
-                    if result.strip().upper() == expected.strip().upper():
+                    # 比对前做等价归一化：罗马数字 Unicode/ASCII 互转、
+                    # 去除空白。避免把"MAX: 96056"与标签"MAX:96056"这类
+                    # 对游戏逻辑等价的差异记为失败，掩盖真实误读统计。
+                    if _normalize_result(result) == _normalize_result(expected):
                         correct += 1
                     else:
                         name = os.path.basename(img_input)
