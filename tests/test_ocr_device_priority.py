@@ -101,5 +101,39 @@ class TestOcrDevicePriority(unittest.TestCase):
         self.assertEqual(list(devices), [real, virtual])
 
 
+
+
+class TestIntegratedGpuCandidate(unittest.TestCase):
+    """核显 DML 候选回归（2026-10-24）：核显机器必须能选中 DML 核显。"""
+
+    def test_auto_prefers_real_discrete_then_integrated(self):
+        """auto 模式：独显优先，核显排在其后、OpenVINO CPU 之前。"""
+        real = make_device(0, discrete='1', high_perf='0')
+        integrated = make_device(3, discrete='0', high_perf='1',
+                                 description='Intel(R) Iris(R) Xe Graphics')
+        virtual = make_device(1, high_perf='2',
+                              description='Intel(R) Iris(R) Xe Graphics')
+        ort = FakeOrt([virtual, integrated, real])
+
+        devices = _iter_preferred_devices(
+            ort, device_preference='auto', allow_vendor_execution_providers=True)
+
+        # 独显最前，核显入选，虚拟适配器（无 Discrete 标记）被核显候选排除
+        self.assertIs(devices[0], real)
+        self.assertIn(integrated, devices)
+        self.assertNotIn(virtual, devices)
+
+    def test_gpu_preference_includes_integrated(self):
+        """显式 gpu：独显排最前，核显作为无独显机器的兜底。"""
+        integrated = make_device(0, discrete='0', high_perf='0',
+                                 description='Intel(R) Iris(R) Xe Graphics')
+        ort = FakeOrt([integrated])
+
+        devices = _iter_preferred_devices(
+            ort, device_preference='gpu', allow_vendor_execution_providers=True)
+
+        self.assertEqual(list(devices), [integrated])
+
+
 if __name__ == '__main__':
     unittest.main()

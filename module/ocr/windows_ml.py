@@ -236,31 +236,44 @@ def _iter_preferred_devices(
         return ()
 
     device_types = ort.OrtHardwareDeviceType
+    # 每个候选为 (EP 名, 设备类型, GPU 过滤模式)：
+    # None 不过滤；"discrete" 仅独显；"integrated" 仅核显。
     candidates = {
         "auto": (
-            (QNN_EP, device_types.NPU, False),
-            (OPENVINO_EP, device_types.NPU, False),
-            (OPENVINO_EP, device_types.GPU, True),
-            (DML_EP, device_types.GPU, True),
-            (OPENVINO_EP, device_types.CPU, False),
+            (QNN_EP, device_types.NPU, None),
+            (OPENVINO_EP, device_types.NPU, None),
+            (OPENVINO_EP, device_types.GPU, "discrete"),
+            (DML_EP, device_types.GPU, "discrete"),
+            # 核显机器（无独显）在此命中 DML。实测 48x320 识别模型上
+            # DML 核显推理显著快于 CPU EP；仅接受显式 Discrete=0 的
+            # 真核显，虚拟显示器适配器不填该标记不会命中。
+            (DML_EP, device_types.GPU, "integrated"),
+            (OPENVINO_EP, device_types.CPU, None),
         ),
-        QNN_NPU_DEVICE: ((QNN_EP, device_types.NPU, False),),
-        OPENVINO_NPU_DEVICE: ((OPENVINO_EP, device_types.NPU, False),),
-        OPENVINO_GPU_DEVICE: ((OPENVINO_EP, device_types.GPU, True),),
-        "gpu": ((DML_EP, device_types.GPU, True),),
-        OPENVINO_CPU_DEVICE: ((OPENVINO_EP, device_types.CPU, False),),
+        QNN_NPU_DEVICE: ((QNN_EP, device_types.NPU, None),),
+        OPENVINO_NPU_DEVICE: ((OPENVINO_EP, device_types.NPU, None),),
+        OPENVINO_GPU_DEVICE: (
+            (OPENVINO_EP, device_types.GPU, "discrete"),
+            # OpenVINO GPU 厂商 EP 未安装时退到 DML 核显，避免落到纯 CPU
+            (DML_EP, device_types.GPU, "integrated"),
+        ),
+        "gpu": (
+            (DML_EP, device_types.GPU, "discrete"),
+            (DML_EP, device_types.GPU, "integrated"),
+        ),
+        OPENVINO_CPU_DEVICE: ((OPENVINO_EP, device_types.CPU, None),),
     }.get(device_preference, ())
     if not allow_vendor_execution_providers:
         candidates = tuple(candidate for candidate in candidates if candidate[0] == DML_EP)
 
     preferred = []
-    for ep_name, device_type, require_discrete in candidates:
+    for ep_name, device_type, gpu_filter in candidates:
         matched = [
             device
             for device in devices
             if device.ep_name == ep_name
             and device.device.type == device_type
-            and (not require_discrete or _is_discrete_gpu(device))
+            and _match_gpu_filter(device, gpu_filter)
         ]
         # 同一候选内可能有多个同型号设备（真实独显 + 虚拟显示器适配器），
         # 排序后再交给 create_onnx_session 依次尝试，确保先绑到真实独显。
@@ -274,6 +287,28 @@ def _iter_preferred_devices(
             f" discrete={metadata.get('Discrete', '?')})"
         )
     return tuple(preferred)
+
+
+def _match_gpu_filter(device, gpu_filter):
+    """按候选的 GPU 过滤模式判断设备是否入选。
+
+    Args:
+        device: ONNX Runtime 的 OrtEpDevice。
+        gpu_filter: None 不过滤；"discrete" 仅独显；"integrated" 仅核显。
+
+    Returns:
+        bool: 设备是否通过过滤。
+    """
+    if gpu_filter is None:
+        return True
+    if gpu_filter == "discrete":
+        return _is_discrete_gpu(device)
+    if gpu_filter == "integrated":
+        # 仅显式 Discrete=0 的真核显入选。MuMu/GameViewer 等虚拟显示器
+        # 适配器镜像核显名称但不填 Discrete 标记（值为 "?"），绑定后
+        # DirectML 会话会在 run() 时失效，必须排除。
+        return str(device.device.metadata.get("Discrete", "")).lower() in ("0", "false")
+    return True
 
 
 def _vendor_execution_provider_names(device_preference):
