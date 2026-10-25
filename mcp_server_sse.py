@@ -316,7 +316,15 @@ async def _tool_get_screenshot(arguments: Dict[str, Any]) -> ToolResponse:
     try:
         config = AzurLaneConfig(inst)
         device = Device(config)
-        image = device.screenshot()
+        try:
+            image = device.screenshot()
+        finally:
+            # 本次创建的会话只服务这一张截图；无论成败都回收线程、socket
+            # 与转发资源，避免连续调用累积后台连接。
+            try:
+                device.close_session()
+            except Exception:
+                pass
         image_pil = Image.fromarray(image)
 
         buffered = BytesIO()
