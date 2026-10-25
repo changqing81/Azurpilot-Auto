@@ -129,7 +129,41 @@ class Level(ModuleBase):
 
 
 class LevelOcr(Digit):
+    # 空槽位判定：等级区域整体很暗，且没有成片的遮罩色像素。
+    # 实测船坞空槽位 maxAll=62~104、接近遮罩色像素=0；
+    # 低血量舰船被遮罩后 maxAll=107、接近遮罩色像素≈120。
+    # 两者亮度重叠，必须靠遮罩色像素数区分，否则空槽位会被误当遮罩提亮。
+    EMPTY_MAX_RED = 112
+    MASKED_PIXEL_MIN = 20
+
+    @staticmethod
+    def is_empty_card(image) -> bool:
+        """判断等级区域是否为空槽位（该位置没有舰船卡片）。
+
+        船坞卡片网格固定 14 格，筛选后剩余的格子会露出暗色底纹。
+        这类区域没有 'Lv.' 文字，必须与"低血量遮罩"区分开：
+        遮罩是整块均匀压暗且保留舰船轮廓，提亮后仍能读出等级；
+        空槽位是纯背景，提亮只会放大噪点。
+
+        Args:
+            image: 卡片等级区域的原始截图。
+
+        Returns:
+            bool: True 表示该位置没有舰船卡片。
+        """
+        if image is None or image.size == 0:
+            return True
+        if int(image.max()) > LevelOcr.EMPTY_MAX_RED:
+            return False
+        diff = np.abs(image.astype(np.int16) - np.array(COLOR_MASKED, dtype=np.int16)).max(axis=2)
+        return int((diff <= 12).sum()) < LevelOcr.MASKED_PIXEL_MIN
+
     def pre_process(self, image):
+        # 空槽位直接返回空白占位图，不参与后续处理。
+        # 提亮空槽位只会把背景噪点放大成"疑似文字"，让 OCR 输出垃圾值。
+        if self.is_empty_card(image):
+            return np.array([[255]], dtype=np.uint8)
+
         # 检查红色通道最大值以判断图像是否被遮罩。
         # 被遮罩时红色通道最大值不超过 COLOR_MASKED[0]=107。
         # 先裁剪再检查，去除"需要修理"图标同时保留字符 'V' 的上半部分。

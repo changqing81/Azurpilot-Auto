@@ -237,7 +237,14 @@ class Scanner(metaclass=ABCMeta):
 
 
 class LevelScanner(Scanner):
-    """等级扫描器，通过 OCR 识别船坞卡片上显示的舰船等级。"""
+    """等级扫描器，通过 OCR 识别船坞卡片上显示的舰船等级。
+
+    船坞卡片网格固定 14 格，筛选后剩余的格子会露出暗色底纹。空槽位本身
+    没有 'Lv.' 文字，但原实现会把它们一并送进 OCR，得到 0 或噪声值，
+    既浪费一次推理，又让「空位」与「1 级船」在日志里无从区分。
+    这里先按像素特征剔除空槽位，只对有卡的格子做 OCR（见
+    LevelOcr.is_empty_card）。
+    """
     def __init__(
         self,
         grid_shape: Tuple[int, int] = (7, 2),
@@ -267,11 +274,38 @@ class LevelScanner(Scanner):
         ]
 
     def _scan(self, image) -> List:
-        return self.ocr_model.ocr(image)
+        """逐格扫描等级，空槽位直接记 0、不做 OCR。
+
+        返回值必须与按钮顺序一一对应（情绪、舰队等子扫描器都依赖下标对齐），
+        所以空槽位用 0 占位，而不是从列表里删掉。
+        """
+        buttons = self.ocr_model.buttons
+        regions = [crop(image, b.area if hasattr(b, 'area') else b, copy=False)
+                   for b in buttons]
+        filled = [i for i, region in enumerate(regions)
+                  if not self.ocr_model.is_empty_card(region)]
+
+        results = [0] * len(buttons)
+        if not filled:
+            return results
+
+        # 只把有卡的格子送进 OCR，再按原下标写回，保持位置对齐。
+        # direct_ocr=True 让 ocr() 把入参当作已裁好的区域，直接走预处理，
+        # 免去为「跳过的空槽位」改动公共 ocr() 接口。
+        # OCR 自身的日志只含本轮送检的格子，这里补一条完整 14 格的，
+        # 便于与旧日志对照、直观看清哪些位置没有舰船。
+        values = self.ocr_model.ocr([regions[i] for i in filled], direct_ocr=True)
+        if not isinstance(values, list):
+            values = [values]
+        for index, value in zip(filled, values):
+            results[index] = value
+
+        logger.attr('船坞等级', results)
+        return results
 
     def limit_value(self, value) -> int:
         return limit_in(value, 1, 125)
-    
+
     def move(self, vector) -> None:
         super().move(vector)
         self.ocr_model.buttons = self._buttons()
