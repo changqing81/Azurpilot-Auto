@@ -65,8 +65,14 @@ class EmulatorRecovery:
         event = getattr(self.alas, 'stop_event', None)
         if event is not None and event.is_set():
             return False
-        if self.cancel.is_set() or self.option('EmulatorManagement', 'CrashDryRun', False):
+        # cancel 仅在「执行者还活着」时视为有效中止信号（杀 runaway 线程用）；
+        # 执行者已退出后的残留置位属历史污染，不得拦截新一轮恢复。
+        worker_alive = self.worker is not None and self.worker.is_alive()
+        if (worker_alive and self.cancel.is_set()) \
+                or self.option('EmulatorManagement', 'CrashDryRun', False):
             return False
+        # 2026-10-25 鹿管机事故根因：失败分支曾把 cancel 置位且无人清除，
+        # 下一轮恢复在此被毒标记拦截，报「未允许自动恢复」误导排查方向。
         if source == 'crash':
             return self.option('EmulatorManagement', 'CrashProtection', False)
         if source in ('scheduled', 'force_scheduled_restart'):
@@ -148,6 +154,10 @@ class EmulatorRecovery:
             return False
         if self.worker is not None and self.worker.is_alive():
             raise RecoveryFailed('上一恢复执行者尚未退出，本次恢复跳过')
+        # 上一执行者已退出：它遗留的 cancel 只可能是失败分支的历史置位
+        #（本修复后已不再产生）或用户停止信号。用户停止信号在上方
+        # allowed() 里经 stop_event 检查（同一来源），此处回收过期置位，
+        # 保证「失败 → 退避 → 重试」链路不被毒标记拦截。
         self.cancel.clear()
         result = []
         error = []
@@ -218,7 +228,10 @@ class EmulatorRecovery:
             self.alas.__dict__.pop('device', None)
             raise RecoveryFailed('模拟器恢复超时，需要人工检查')
         if error or not result:
-            self.cancel.set()
+            # 不再 cancel.set()：失败后调用方会退避重试，置位会毒死下一轮
+            #（2026-10-25 鹿管机：一轮探测超时 → cancel 永久置位 → 后续恢复
+            # 全部被 allowed() 拦截 → 调度器停机 6 小时）。cancel 只保留
+            # 「用户停止」与「杀超时 runaway 执行者」两个语义。
             detail = str(error[0]) if error else '恢复未完成'
             # 人为终止（用户关开关/取消）沿用原语义；设备侧失败改为可重试。
             if any(isinstance(exc, RecoveryStopped) for exc in error):
