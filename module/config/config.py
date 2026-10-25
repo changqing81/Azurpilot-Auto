@@ -415,20 +415,25 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         """
         self.get_next_task()
 
+        # 队列快照与当前任务对 INFO 是噪音：task_switched() 每次检查都会走
+        # 这里，结算菜单那种每轮截图一次的循环会把「待处理任务 / 任务 / 继续任务」
+        # 三行连刷成片（实测单日 111 串连发）。真正要看的「继续/切换任务」由
+        # task_switched() 记 INFO，任务名的节标题由 alas.py 的 logger.hr 输出，
+        # 这里降为 debug 备查。
         if self.pending_task:
             AzurLaneConfig.is_hoarding_task = False
-            logger.info(f"[配置] 待处理任务: {[f.command for f in self.pending_task]}")
+            logger.debug(f"[配置] 待处理任务: {[f.command for f in self.pending_task]}")
             task = self.pending_task[0]
-            logger.attr("任务", task)
+            logger.debug(f"[任务] {task}")
             return task
         else:
             AzurLaneConfig.is_hoarding_task = True
 
         if self.waiting_task:
-            logger.info("[配置] 没有待处理任务")
+            logger.debug("[配置] 没有待处理任务")
             task = copy.deepcopy(self.waiting_task[0])
             task.next_run = (task.next_run + self.hoarding).replace(microsecond=0)
-            logger.attr("任务", task)
+            logger.debug(f"[任务] {task}")
             return task
         else:
             logger.critical("[Config] 没有等待或待处理的任务")
