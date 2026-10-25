@@ -32,13 +32,20 @@ DOCK_FAVOURITE.add_state('off', check_button=COMMON_SHIP_FILTER_DISABLE)
 CARD_GRIDS = ButtonGrid(
     origin=(93, 76), delta=(164 + 2 / 3, 227), button_shape=(138, 204), grid_shape=(7, 2), name='CARD')
 CARD_RARITY_GRIDS = CARD_GRIDS.crop(area=(0, 0, 138, 5), name='RARITY')
+# 心情数值区域。当前版本船坞卡片不再绘制心情数字，该区域落在立绘上，
+# OCR 只会读到噪声（实测读出 2/7 一类垃圾值）。心情状态改由右下角的
+# 表情图标（CARD_EMOTION_STATUS_GRIDS）判断，见 EmotionScanner。
 if server.server != 'jp':
     CARD_LEVEL_GRIDS = CARD_GRIDS.crop(area=(77, 5, 138, 27), name='LEVEL')
     CARD_EMOTION_GRIDS = CARD_GRIDS.crop(area=(23, 29, 48, 52), name='EMOTION')
 else:
     CARD_LEVEL_GRIDS = CARD_GRIDS.crop(area=(74, 5, 136, 27), name='LEVEL')
     CARD_EMOTION_GRIDS = CARD_GRIDS.crop(area=(21, 29, 71, 48), name='EMOTION')
-CARD_EMOTION_STATUS_GRIDS = CARD_GRIDS.crop(area=(113, 57, 135, 77), name='EMOTION_STATUS')
+# 表情图标位于卡片右上角、等级下方，实测卡内坐标 (114, 31)-(135, 53)。
+# 原值 (113, 57, 135, 77) 的 y 轴偏低 25 像素，框到了立绘空白处，
+# 导致所有舰船的情绪状态被识别为 unknown，进而让 EmotionScanner
+# 无法做颜色校正，低情绪舰船被误判成 pass。
+CARD_EMOTION_STATUS_GRIDS = CARD_GRIDS.crop(area=(113, 30, 136, 54), name='EMOTION_STATUS')
 EMOTION_RED = (255, 122, 109)
 EMOTION_YELLOW = (255, 194, 115)
 EMOTION_GREEN = (148, 232, 104)
