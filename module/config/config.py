@@ -456,8 +456,11 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             f"{dict_to_kv(self.modified, summarize=True)}"
         )
         # 不要使用 self.modified = {}，那会创建新对象。
-        self.modified.clear()
+        # 先落盘、成功后再清空待写集合：写盘失败（磁盘满/权限/占用）时
+        # modified 里仍保留本次待提交的改动，调用方捕获异常后可重试 save()。
+        # 之前先 clear() 再写盘，失败时改动既没落盘也不在内存队列里，直接丢失。
         self.write_file(self.config_name, data=self.data)
+        self.modified.clear()
 
     def update(self):
         self.load()
@@ -988,5 +991,9 @@ class MultiSetWrapper:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self.in_wrapper:
-            self.main.update()
-            self.main.auto_update = True
+            try:
+                self.main.update()
+            finally:
+                # update() 抛错也必须恢复自动保存开关，否则该配置实例
+                # 从此静默停止落盘；异常本身继续向外冒泡，不吞不改。
+                self.main.auto_update = True
