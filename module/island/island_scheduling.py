@@ -361,12 +361,16 @@ class IslandScheduling(Island):
         previous_disable_task_switch = getattr(self.config, '_disable_task_switch', False)
         previous_task_switch_owner = getattr(self.config, '_task_switch_owner', None)
 
-        self.config._disable_task_switch = True
-        self.config._task_switch_owner = previous_task
-        self.config.task = self._make_task_function(task_name)
-        self.config._bind_task_override = task_name
-        self.config.bind(task_name)
+        # try 从进入阶段就开始：下面的调度开关、任务身份写入和 bind() 任何一步
+        # 抛错（坏数据/依赖缺失），finally 都能完整恢复父任务上下文。
+        # 之前 try 从 bind() 之后才开始，绑定失败会把 IslandFarm 的临时身份、
+        # _bind_task_override 和 _disable_task_switch 残留在父任务配置里。
         try:
+            self.config._disable_task_switch = True
+            self.config._task_switch_owner = previous_task
+            self.config.task = self._make_task_function(task_name)
+            self.config._bind_task_override = task_name
+            self.config.bind(task_name)
             sub_task = getattr(importlib.import_module(module_path), class_name)
             sub_task(config=self.config, device=self.device).run()
         except BaseException as exc:

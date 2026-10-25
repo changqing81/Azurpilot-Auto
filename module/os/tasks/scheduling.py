@@ -2042,21 +2042,23 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         previous_config_context = getattr(self.config, '_smart_scheduling_context', None)
         previous_disable_task_switch = getattr(self.config, '_disable_task_switch', False)
         previous_task_switch_owner = getattr(self.config, '_task_switch_owner', None)
-        self._smart_scheduling_context = True
-        self.config._smart_scheduling_context = True
-        self.config._disable_task_switch = task_name not in (
-            self.TASK_NAME_HAZARD1_LEVELING,
-            self.TASK_NAME_MEOWFFICER_FARMING,
-        )
-        # 嵌套代理（如 防溢出 → 智能调度 → 侵蚀1）时沿用最外层任务的切换基准：
-        # 内层若用中间层任务覆盖，task_switched() 会拿中间层与调度器真实下一任务
-        # 比较，把子任务正在跑的自动搜索误判成「已切换」而中断。
-        if previous_task_switch_owner is None:
-            self.config._task_switch_owner = previous_task
-        self.config.task = self._make_opsi_task_function(task_name)
-        self.config._bind_task_override = task_name
-        self.config.bind(task_name)
+        # try 从进入阶段就开始：下面的上下文标记、调度开关、任务身份写入和 bind()
+        # 任何一步抛错，finally 都能完整恢复外层任务上下文，不留半途状态。
         try:
+            self._smart_scheduling_context = True
+            self.config._smart_scheduling_context = True
+            self.config._disable_task_switch = task_name not in (
+                self.TASK_NAME_HAZARD1_LEVELING,
+                self.TASK_NAME_MEOWFFICER_FARMING,
+            )
+            # 嵌套代理（如 防溢出 → 智能调度 → 侵蚀1）时沿用最外层任务的切换基准：
+            # 内层若用中间层任务覆盖，task_switched() 会拿中间层与调度器真实下一任务
+            # 比较，把子任务正在跑的自动搜索误判成「已切换」而中断。
+            if previous_task_switch_owner is None:
+                self.config._task_switch_owner = previous_task
+            self.config.task = self._make_opsi_task_function(task_name)
+            self.config._bind_task_override = task_name
+            self.config.bind(task_name)
             return func(*args, **kwargs)
         except BaseException as exc:
             # 异常向外冒泡前，把当前子任务名标记到异常对象上：下方 finally
