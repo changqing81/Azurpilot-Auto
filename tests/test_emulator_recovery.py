@@ -146,6 +146,8 @@ class TestRecoveryTransaction(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.config = SimpleNamespace(EmulatorManagement_CrashProtection=True,
                                       EmulatorManagement_CrashDryRun=False, Error_HandleError=True,
+                                      # 冷却归零：本类聚焦事务语义，重试不应被预算节流拦截
+                                      EmulatorManagement_CrashCooldownSeconds=0,
                                       Emulator_PackageName='com.bilibili.azurlane')
         self.alas = SimpleNamespace(config=self.config, config_name=None, stop_event=None,
                                     device=DeviceSession(), _emulator_lock=threading.Lock())
@@ -189,7 +191,16 @@ class TestRecoveryTransaction(unittest.TestCase):
         files = list(Path(self.temp.name).glob('*.json'))
         self.assertEqual(len(files), 1)
         self.assertEqual(len(json.loads(files[0].read_text())), 1)
-        self.assertTrue(self.recovery.cancel.is_set())
+        # 2026-10-25 鹿管机事故：失败分支曾置位 cancel 且无人清除，
+        # 下一轮恢复被 allowed() 拦截、报「未允许自动恢复」，停机 6 小时。
+        # 失败不毒化状态：cancel 保持清零；回拨租约时间戳越过冷却期后
+        # 下一轮 restart 可真正重试（旧代码此时被毒 cancel 拦下返回 False）。
+        self.assertFalse(self.recovery.cancel.is_set())
+        import time as _time
+        files[0].write_text(json.dumps([_time.time() - 7200]), encoding='utf-8')
+        with self.assertRaises(RecoveryFailed):
+            self.recovery.restart()
+        self.assertEqual(len(json.loads(files[0].read_text())), 2)
 
     def test_stop_not_confirmed_never_launches(self):
         self.target.wait_stopped.return_value = False
