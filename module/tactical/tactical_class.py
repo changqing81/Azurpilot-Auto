@@ -504,6 +504,14 @@ class RewardTacticalClass(Dock):
         logger.info(f'[战术-状态] 战术状态: {["运行中" if s else "空闲" for s in is_running]}')
 
         buttons = [b for b, s in zip(grids.buttons, is_running) if s]
+        # 2026-10-25 星宇机事故回归：四个槽全空闲时 TACTICAL_CHECK 仍可能短暂在场，
+        # 空按钮列表继续送 OCR 会在 AlOcr 批量路径抛 ValueError（当天 12 连崩）。
+        # 与上游逐张推理路径语义对齐：空列表直接返回空完成时间，
+        # 上层 _handle_tactical_finish 由 empty_confirm 兜底点击返回。
+        if not buttons:
+            self.tactical_finish = []
+            logger.info('[战术-完成] 所有槽位空闲，无需识别完成时间')
+            return self.tactical_finish
         ocr = Duration(buttons, letter=(148, 255, 99), name='TACTICAL_REMAIN')
         remains = ocr.ocr(self.device.image)
         remains = remains if isinstance(remains, list) else [remains]

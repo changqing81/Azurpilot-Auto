@@ -1034,6 +1034,12 @@ class AlOcr:
         Returns:
             list[str]: 识别结果文本列表。
         """
+        # 空输入短路：调用方按颜色/状态过滤后可能得到零个按钮区域
+        #（2026-10-25 星宇机 tactical 四槽全空闲事故），空列表送入
+        # TextRecInput 会在 onnx 后处理解包时抛 ValueError。
+        # 放在 _ensure_loaded 之前：空输入连模型加载都不需要。
+        if not img_list:
+            return []
         self._ensure_loaded()
         results = []
         # GPU 会话走逐张路径：批量的统一填充开销大于推理收益（实测）
