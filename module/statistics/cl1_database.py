@@ -78,7 +78,9 @@ class Cl1Database:
             hazard_level: 侵蚀等级（短猫相接专用）
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
 
         devices = self._normalize_siren_research_devices(data)
         if source == "cl1":
@@ -166,8 +168,20 @@ class Cl1Database:
             return None
         return data if isinstance(data, dict) else None
 
-    def get_stats(self, instance: str, month: str) -> Dict[str, Any]:
-        """获取指定实例和月份的统计数据"""
+    def _read_stats_for_update(self, instance: str, month: str) -> Optional[Dict[str, Any]]:
+        """读取统计数据，供「读-改-存」更新路径使用。
+
+        与展示用的 get_stats 的差别：查询异常时返回 None，让调用方跳过
+        本次更新，避免「读取失败 → 拿空模板加增量 → 覆盖整行历史」。
+        无历史记录时返回空模板——这是新月份的正常首写场景，不拦截。
+
+        Args:
+            instance: 实例名称
+            month: 月份（YYYY-MM）
+
+        Returns:
+            数据字典；查询异常返回 None，无历史记录返回空模板。
+        """
         try:
             with closing(sqlite3.connect(self.db_path)) as conn:
                 cursor = conn.cursor()
@@ -182,8 +196,17 @@ class Cl1Database:
                         return data
         except Exception as e:
             logger.error(f"[Statistics] 查询统计数据失败 {instance} {month}: {e}")
+            return None
 
         return self._empty_data(month)
+
+    def get_stats(self, instance: str, month: str) -> Dict[str, Any]:
+        """获取指定实例和月份的统计数据"""
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            # 展示路径保持原有兜底：读取失败按空数据展示，不影响页面
+            return self._empty_data(month)
+        return data
 
     def _empty_data(self, month: str) -> Dict[str, Any]:
         return {
@@ -454,7 +477,10 @@ class Cl1Database:
             month = now.month
 
         month_key = f"{year:04d}-{month:02d}"
-        data = self.get_stats(instance, month_key)
+        data = self._read_stats_for_update(instance, month_key)
+        if data is None:
+            # 读不出来就无法核对历史，回填放弃，避免拿空模板回写
+            return False
         round_times = data.get("meow_round_times", [])
         battle_times = data.get("meow_battle_times", [])
         effective_rounds = float(data.get("meow_battle_count", 0) or 0)
@@ -513,14 +539,18 @@ class Cl1Database:
     def increment_battle_count(self, instance: str, delta: int = 1):
         """增加战斗次数"""
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         data["battle_count"] = data.get("battle_count", 0) + delta
         self.save_stats(instance, month, data)
 
     def increment_akashi_encounter(self, instance: str):
         """增加明石奇遇次数"""
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         data["akashi_encounters"] = data.get("akashi_encounters", 0) + 1
         self.save_stats(instance, month, data)
 
@@ -529,7 +559,9 @@ class Cl1Database:
     ):
         """记录明石行动力购买条目"""
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
 
         entry = {
             "ts": datetime.now().isoformat(),
@@ -557,7 +589,9 @@ class Cl1Database:
             ap_total: 总体力（含行动力箱子）
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         now = datetime.now()
 
         # CL5 效率：1700 / 30 ≈ 56.67
@@ -641,7 +675,9 @@ class Cl1Database:
         读取失败（None）时不写入该字段，避免把无效值当成基准。
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         payload = {
             "ts": datetime.now().isoformat(),
             "ap": self._coerce_int(ap_current),
@@ -662,7 +698,9 @@ class Cl1Database:
             source: 数据来源标记
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         yellow_coin = self._coerce_int(yellow_coin)
 
         snapshot = {
@@ -696,7 +734,9 @@ class Cl1Database:
             source: 数据来源标记 (cl1 / meow 等)
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         yellow_coins = self._coerce_int(yellow_coins)
         purple_coins = self._coerce_int(purple_coins) if purple_coins is not None else None
 
@@ -856,7 +896,9 @@ class Cl1Database:
             delta = 1  # 默认直接加1
 
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         data["meow_battle_raw_count"] = data.get("meow_battle_raw_count", 0) + 1
         data["meow_battle_count"] = data.get("meow_battle_count", 0) + delta
 
@@ -887,7 +929,9 @@ class Cl1Database:
             hazard_level = None
 
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
 
         normalized_times = self._normalize_meow_round_times(
             data.get("meow_round_times", [])
@@ -930,7 +974,9 @@ class Cl1Database:
             hazard_level = None
 
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
 
         if "meow_battle_times" not in data:
             data["meow_battle_times"] = []
@@ -968,7 +1014,9 @@ class Cl1Database:
             return
 
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         hazard_stats = self._normalize_meow_hazard_stats(data)
         bucket = self._ensure_meow_hazard_bucket(hazard_stats, hazard_level)
         bucket["akashi_encounters"] = bucket.get("akashi_encounters", 0) + 1
@@ -995,7 +1043,9 @@ class Cl1Database:
             return
 
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         hazard_stats = self._normalize_meow_hazard_stats(data)
         bucket = self._ensure_meow_hazard_bucket(hazard_stats, hazard_level)
         bucket["akashi_ap"] = int(bucket.get("akashi_ap", 0) or 0) + amount
@@ -1026,7 +1076,11 @@ class Cl1Database:
             month = now.month
         key = f"{year:04d}-{month:02d}"
 
-        data = self.get_stats(instance, key)
+        data = self._read_stats_for_update(instance, key)
+        if data is None:
+            # 展示路径：读取失败按空数据展示；persist 路径不落盘，
+            # 避免拿空模板经 reconcile 回写覆盖历史月份
+            return self._empty_data(key)
 
         round_times = data.get("meow_round_times", [])
         battle_times = data.get("meow_battle_times", [])
@@ -1317,7 +1371,9 @@ class Cl1Database:
                 根目录），WebUI 统计页「查看截图」按它拼 URL；没有截图时传 None
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
 
         commission_count = self._coerce_int(commission_count)
         entry = {
@@ -1439,7 +1495,9 @@ class Cl1Database:
             # 未识别的物品在解析阶段已被丢弃，这里只留模板名可查的掉落
             "items": items,
         }
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return None
         entries = data.get("research_drop_entries", [])
         if entry["imgid"] and any(
             existing.get("imgid") == entry["imgid"] for existing in entries[-50:]
@@ -1478,7 +1536,9 @@ class Cl1Database:
 
         months = [month for _, month in self._list_stats_rows(instance=instance)]
         for month in months:
-            data = self.get_stats(instance, month)
+            data = self._read_stats_for_update(instance, month)
+            if data is None:
+                continue
             entries = data.get("research_drop_entries") or []
             for entry in entries:
                 if entry.get("imgid") != imgid:
@@ -1602,7 +1662,9 @@ class Cl1Database:
             reward: 获得钻石数量，0 表示失败
         """
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
 
         entry = {
             "ts": datetime.now().isoformat(),
@@ -1719,7 +1781,9 @@ class Cl1Database:
     ):
         """保存运行中的钻石委托列表。"""
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         data["running_gem_commissions"] = commissions
         self.save_stats(instance, month, data)
 
@@ -1769,7 +1833,9 @@ class Cl1Database:
     ):
         """新增一条运行中的钻石委托（仅写入当前月）。"""
         month = datetime.now().strftime("%Y-%m")
-        data = self.get_stats(instance, month)
+        data = self._read_stats_for_update(instance, month)
+        if data is None:
+            return
         commissions = data.get("running_gem_commissions", [])
         # 去重：同 name + create_time 不重复添加
         if not any(
@@ -1822,10 +1888,11 @@ class Cl1Database:
 
         # 当前月
         current_month = f"{now.year:04d}-{now.month:02d}"
-        data = self.get_stats(instance, current_month)
-        result = _try_pop(data, current_month)
-        if result is not None:
-            return result
+        data = self._read_stats_for_update(instance, current_month)
+        if data is not None:
+            result = _try_pop(data, current_month)
+            if result is not None:
+                return result
 
         # 回退到上月
         if now.month == 1:
@@ -1833,7 +1900,9 @@ class Cl1Database:
         else:
             prev_month = f"{now.year:04d}-{now.month - 1:02d}"
 
-        prev_data = self.get_stats(instance, prev_month)
+        prev_data = self._read_stats_for_update(instance, prev_month)
+        if prev_data is None:
+            return None
         return _try_pop(prev_data, prev_month)
 
     def settle_expired_gem_commissions(
