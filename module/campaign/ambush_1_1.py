@@ -198,6 +198,15 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
         return 'equip' in self.config.GemsFarming_ChangeVanguard
 
     @property
+    def ignore_emotion_on_ship_change(self):
+        """换船时是否跳过心情识别。
+
+        与 GemsFarming 保持一致：开启「忽略心情警告弹窗」即不关心心情，
+        换船只认等级与舰种。
+        """
+        return bool(self.config.GemsFarming_IgnoreEmotionWarning)
+
+    @property
     def fleet_to_attack(self):
         """获取出击舰队编号，fleet1_standby_fleet2_all 模式下使用第二舰队。"""
         if self.config.Fleet_FleetOrder == 'fleet1_standby_fleet2_all':
@@ -515,8 +524,15 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
         return success
 
     def flagship_change_with_emotion(self, ship):
-        """更换旗舰并计算情绪值。"""
-        target_ship = max(ship, key=lambda s: (s.level, s.emotion))
+        """更换旗舰并计算情绪值。
+
+        跳过心情识别时 target_ship.emotion 为 None，此时不写情绪记录。
+        """
+        target_ship = max(ship, key=lambda s: (s.level, s.emotion_key))
+        if target_ship.emotion is None:
+            self._ship_change_confirm(target_ship.button)
+            self._memory_flagship_lv = target_ship.level
+            return
         if self.change_vanguard:
             self.set_emotion(min(self.get_emotion(), target_ship.emotion))
         elif self.config.GemsFarming_AllowHighFlagshipLevel:
@@ -526,9 +542,12 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
         self._memory_flagship_lv = target_ship.level
 
     def vanguard_change_with_emotion(self, ship):
-        """更换先锋并计算情绪值。"""
-        target_ship = max(ship, key=lambda s: s.emotion)
-        if self.change_vanguard:
+        """更换先锋并计算情绪值。
+
+        跳过心情识别时 target_ship.emotion 为 None，不写情绪记录（同旗舰）。
+        """
+        target_ship = max(ship, key=lambda s: s.emotion_key)
+        if self.change_vanguard and target_ship.emotion is not None:
             self.set_emotion(target_ship.emotion)
         self._ship_change_confirm(target_ship.button)
         # 确认完成后才记入舰队记忆，中途异常不算换船成功
@@ -658,10 +677,12 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
         else:
             max_level = lv
             min_level = 1
-        emotion_lower_bound = 0 if emotion == 0 else self.emotion_lower_bound
+        # 忽略心情警告时只看等级与舰种，不再限制心情下限
+        ignore_emotion = self.ignore_emotion_on_ship_change
+        emotion_lower_bound = 0 if (emotion == 0 or ignore_emotion) else self.emotion_lower_bound
         fleet = [0, self.fleet_to_attack] if self.config.GemsFarming_AllowHighFlagshipLevel else self.fleet_to_attack
 
-        if self.config.GemsFarming_UseEmotionFirst:
+        if self.config.GemsFarming_UseEmotionFirst and not ignore_emotion:
             scanner = ShipScanner(
                 level=(min_level, max_level), emotion=(emotion_lower_bound, 150), fleet=[0, self.fleet_to_attack], status='free')
             scanner.disable('rarity')
@@ -693,6 +714,9 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
         scanner = ShipScanner(
             level=(min_level, max_level), emotion=(emotion_lower_bound, 150), fleet=fleet, status='free')
         scanner.disable('rarity')
+        if ignore_emotion:
+            # 关闭心情子扫描器：不付出 OCR 开销，结果中 emotion 为 None
+            scanner.disable('emotion')
 
         if not self.config.GemsFarming_AllowHighFlagshipLevel:
             ships = scanner.scan(self.device.image)
@@ -770,12 +794,17 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
         self.dock_sort_method_dsc_set(True, wait_loading=False)
         self.dock_filter_set(index='dd', rarity=rarity, faction=faction, extra=extra)
 
-        emotion_lower_bound = 0 if emotion == 0 else self.emotion_lower_bound
+        # 忽略心情警告时只看等级与舰种，不再限制心情下限
+        ignore_emotion = self.ignore_emotion_on_ship_change
+        emotion_lower_bound = 0 if (emotion == 0 or ignore_emotion) else self.emotion_lower_bound
         scanner = ShipScanner(level=(min_level, max_level), emotion=(emotion_lower_bound, 150),
                               fleet=[0, self.fleet_to_attack], status='free')
         scanner.disable('rarity')
+        if ignore_emotion:
+            # 关闭心情子扫描器：不付出 OCR 开销，结果中 emotion 为 None
+            scanner.disable('emotion')
 
-        if self.config.GemsFarming_UseEmotionFirst:
+        if self.config.GemsFarming_UseEmotionFirst and not ignore_emotion:
             if self.config.GemsFarming_CommonDD == 'custom':
                 filter_string = self.config.GemsFarming_CommonDDFilter
                 common_ship = self.get_common_ship_filter(filter_string, ship_type='dd')
@@ -805,7 +834,7 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
             else:
                 candidates = scanner.scan(self.device.image, output=False)
                 if candidates:
-                    candidates.sort(key=lambda s: s.emotion, reverse=True)
+                    candidates.sort(key=lambda s: s.emotion_key, reverse=True)
                     return candidates
 
         if self.config.GemsFarming_CommonDD in ['any', 'favourite', 'z20_or_z21', 'DDG']:
@@ -846,7 +875,7 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
                     matched_candidates.append((ship, i))
                     break
         # 按情绪值（降序）和优先级索引（升序）排序
-        matched_candidates.sort(key=lambda x: (x[0].emotion, -x[1]), reverse=True)
+        matched_candidates.sort(key=lambda x: (x[0].emotion_key, -x[1]), reverse=True)
         return [x[0] for x in matched_candidates]
 
     def find_all_backline_candidates(self, scanner, common_ship):
@@ -866,7 +895,7 @@ class Ambush11(FleetMemoryMixin, CampaignRun, FleetEquipment, Retirement):
                     matched_candidates.append((ship, i))
                     break
         # 按情绪值（降序）、等级（升序）和优先级索引（升序）排序
-        matched_candidates.sort(key=lambda x: (x[0].emotion, -x[0].level, -x[1]), reverse=True)
+        matched_candidates.sort(key=lambda x: (x[0].emotion_key, -x[0].level, -x[1]), reverse=True)
         return [x[0] for x in matched_candidates]
 
     def find_custom_candidates(self, scanner, ship_type='cv'):
