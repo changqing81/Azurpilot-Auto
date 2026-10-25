@@ -290,7 +290,7 @@ class FleetSelectionMixin:
                     matched_candidates.append((ship, i))
                     break
         # 按情绪值（降序）和优先级索引（升序）排序
-        matched_candidates.sort(key=lambda x: (x[0].emotion_key, -x[1]), reverse=True)
+        matched_candidates.sort(key=lambda x: (x[0].emotion, -x[1]), reverse=True)
         return [x[0] for x in matched_candidates]
 
     def find_all_backline_candidates(self, scanner, common_ship):
@@ -309,7 +309,7 @@ class FleetSelectionMixin:
                     matched_candidates.append((ship, i))
                     break
         # 按情绪值（降序）、等级（升序）和优先级索引（升序）排序
-        matched_candidates.sort(key=lambda x: (x[0].emotion_key, -x[0].level, -x[1]), reverse=True)
+        matched_candidates.sort(key=lambda x: (x[0].emotion, -x[0].level, -x[1]), reverse=True)
         return [x[0] for x in matched_candidates]
 
     def find_custom_candidates(self, scanner, ship_type='cv'):
