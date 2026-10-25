@@ -82,15 +82,6 @@ class Ship:
     button: Any = None
     hash_: str = field(default='', repr=False)
 
-    @property
-    def emotion_key(self) -> int:
-        """排序用心情值：未识别心情（None）按 0 处理，避免与 int 比较报错。
-
-        心情扫描器被关闭时（如启用「忽略心情警告」后换船只认等级与舰种），
-        emotion 为 None；直接把 None 与 int 一起排序会抛 TypeError。
-        """
-        return self.emotion if isinstance(self.emotion, int) else 0
-
     def satisfy_limitation(self, limitation) -> bool:
         """检查舰船是否满足筛选条件。
 
