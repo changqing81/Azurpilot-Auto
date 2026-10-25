@@ -75,7 +75,7 @@
       "help": ""
     },
     "GemsFarming2": {
-      "name": "Urgent Commission 2",
+      "name": "Urgent Commission-2",
       "help": ""
     },
     "ThreeOilLowCost": {
@@ -2028,7 +2028,7 @@
       "Main2": "Main Campaign-2",
       "Main3": "Main Campaign-3",
       "GemsFarming": "Urgent Commission Farming",
-      "GemsFarming2": "Urgent Commission 2",
+      "GemsFarming2": "Urgent Commission-2",
       "ThreeOilLowCost": "3-Oil Low Cost"
     }
   },

@@ -75,7 +75,7 @@
       "help": ""
     },
     "GemsFarming2": {
-      "name": "紧急委托2",
+      "name": "紧急委托-2",
       "help": ""
     },
     "ThreeOilLowCost": {
@@ -2028,7 +2028,7 @@
       "Main2": "主线图-2",
       "Main3": "主线图-3",
       "GemsFarming": "刷紧急委托",
-      "GemsFarming2": "刷紧急委托2",
+      "GemsFarming2": "刷紧急委托-2",
       "ThreeOilLowCost": "三油低耗"
     }
   },

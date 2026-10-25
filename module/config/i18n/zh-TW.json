@@ -75,7 +75,7 @@
       "help": ""
     },
     "GemsFarming2": {
-      "name": "緊急委託2",
+      "name": "緊急委託-2",
       "help": ""
     },
     "ThreeOilLowCost": {
@@ -2028,7 +2028,7 @@
       "Main2": "主線圖-2",
       "Main3": "主線圖-3",
       "GemsFarming": "刷緊急委託",
-      "GemsFarming2": "刷緊急委託2",
+      "GemsFarming2": "刷緊急委託-2",
       "ThreeOilLowCost": "三油低耗"
     }
   },
