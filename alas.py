@@ -368,6 +368,13 @@ class AzurLaneAutoScript:
                 level=50,
             )
             exit(1)
+        except RecoveryFailed:
+            # 设备侧恢复失败不是配置错误：原样上抛，由调度循环退避重试。
+            # 历史缺陷（2026-10-26 04:42）：这里被下方 except Exception 抓住
+            # 后走 exit(1)，模拟器恢复失败一次就杀死整个调度进程，停机 3.5 小时
+            # （04:42:39 → 08:13:30 无任何日志）。恢复失败本属设备侧问题，
+            # 7x24 场景下必须靠退避重试自愈，而不是终止进程。
+            raise
         except Exception as e:
             logger.exception_context(
                 title='设备初始化失败', exc=e,
@@ -2275,6 +2282,34 @@ class AzurLaneAutoScript:
                 self.watchdog.stop()
                 self.crash_guard.stop()
                 break
+
+            # 设备侧恢复失败（模拟器没能重启起来）不是脚本缺陷：退避后继续，
+            # 绝不累计到全局失败上限而退出进程。
+            # 历史缺陷（2026-10-26 04:42）：device 属性抛出 RecoveryFailed 后
+            # 落入下方 except Exception，被当成未处理异常；三次即 exit(1)，
+            # 表现为"模拟器起不来 → 脚本自杀 → 停机数小时"。
+            # 与 handle_pending 的失败分支保持同一套退避口径。
+            except RecoveryFailed as e:
+                consecutive_global_failures += 1
+                self.is_first_task = False
+                del_cached_property(self, 'device')
+                wait_seconds = min(300, RESTART_DELAY * max(1, consecutive_global_failures))
+                logger.error(
+                    f'[Alas] 本轮设备恢复未成功，{wait_seconds} 秒后重试: {e}'
+                )
+                if consecutive_global_failures >= MAX_GLOBAL_FAILURES:
+                    logger.error_context(
+                        title='模拟器连续恢复失败',
+                        reason=f'已连续 {consecutive_global_failures} 轮恢复未成功。',
+                        impact=f'调度器不会退出，将退避 {wait_seconds} 秒后继续尝试。',
+                        action='检查模拟器进程是否卡死、宿主机资源是否耗尽；'
+                               '必要时手动重启模拟器或关闭崩溃保护。',
+                        level=30,
+                    )
+                self.watchdog.deactivate()
+                self.crash_guard.deactivate()
+                time.sleep(wait_seconds)
+                continue
 
             # 捕获全局异常并执行重启
             except Exception as e:
