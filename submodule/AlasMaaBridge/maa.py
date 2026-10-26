@@ -45,6 +45,12 @@ class ArknightsAutoScript(AzurLaneAutoScript):
 
     @cached_property
     def config(self):
+        """加载 MAA 桥接配置；失败降级为重新抛出，由调度循环退避重试。
+
+        历史实现里任意 Exception 都走 exit(1)：配置文件的瞬时读写失败
+        会把整个调度进程杀掉。RequestHumanTakeover 保留为不可恢复语义，
+        其余异常原样上抛交给上层重试。详见 AlasFpyBridge/fpy.py 同处注释。
+        """
         try:
             config = ArknightsConfig(config_name=self.config_name)
             return config
@@ -53,7 +59,7 @@ class ArknightsAutoScript(AzurLaneAutoScript):
             exit(1)
         except Exception as e:
             logger.exception(e)
-            exit(1)
+            raise
 
     @staticmethod
     def callback(self):

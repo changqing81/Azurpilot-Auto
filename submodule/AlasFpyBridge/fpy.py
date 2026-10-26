@@ -27,6 +27,16 @@ class FgoAutoScript(AzurLaneAutoScript):
     # @override
     @cached_property
     def config(self):
+        """加载 FGO 桥接配置；失败降级为重新抛出，由调度循环退避重试。
+
+        历史实现里 RequestHumanTakeover 与任意 Exception 都走 exit(1)：
+        配置文件的瞬时读写失败（占用、磁盘抖动、同步盘延迟）会把整个
+        调度进程杀掉。这与 Alas 主进程的约定也不一致——alas.py 的
+        device 属性因同类写法在 2026-10-26 造成 3.5 小时停机。
+
+        RequestHumanTakeover 保留为不可恢复语义（真正需要人工介入的
+        配置校验失败），其余异常一律原样上抛，交给上层重试。
+        """
         try:
             config = FgoConfig(config_name=self.config_name)
             return config
@@ -37,7 +47,7 @@ class FgoAutoScript(AzurLaneAutoScript):
             exit(1)
         except Exception as e:
             logger.exception(e)
-            exit(1)
+            raise
 
     @cached_property
     def app(self):
