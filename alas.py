@@ -384,20 +384,40 @@ class AzurLaneAutoScript:
             )
             exit(1)
 
-    @cached_property
+    @property
     def checker(self):
+        """构造服务器状态检查器；查询失败降级为"未知状态"，不终止调度。
+
+        检查器只用于回答"服务器是否在维护"，属于辅助信息：网络抖动、
+        API 超时、代理不可达都会让构造期的那次查询抛异常。这类失败
+        并不影响挂机本身，因此绝不能像历史实现那样 exit(1) 杀掉整个
+        调度进程（2026-10-26 事故同一模板：device 属性因 RecoveryFailed
+        走 exit(1)，停机 3.5 小时）。
+
+        ServerChecker.__init__ 内部会立即执行一次 check_now()，其抛出的
+        ReadTimeout / TooManyRedirects 等不属于 ConnectionError 子类，
+        不会被 _load_server 的 (ConnectionError, ConnectTimeout) 分支吸收，
+        而是原样逸出——实测确认。这里捕获后返回 None，由调用方按"未知"
+        处理，下一次访问会重新构造并再次尝试。
+
+        实现说明：不用 @cached_property，因为它会在函数返回后无条件写缓存
+        （连 None 一起写，实测确认），网络恢复后就再也不会重建 —— 降级会
+        变成永久失效。这里用显式缓存，只在构造成功时写入。
+        """
+        from module.server_checker import ServerChecker
+
+        cached = self.__dict__.get('_checker_instance')
+        if cached is not None:
+            return cached
         try:
-            from module.server_checker import ServerChecker
-            checker = ServerChecker(server=self.config.Emulator_ServerName)
-            return checker
+            instance = ServerChecker(server=self.config.Emulator_ServerName)
         except Exception as e:
-            logger.exception_context(
-                title='服务器状态检查器初始化失败', exc=e,
-                impact='无法判断服务器维护状态，调度器无法继续。',
-                action='检查网络连接、服务器配置和相关依赖后重新启动。',
-                level=50,
+            logger.warning(
+                f'[服务器检查] 初始化失败，本次跳过服务器状态检查（不影响挂机）: {e}'
             )
-            exit(1)
+            return None
+        self.__dict__['_checker_instance'] = instance
+        return instance
 
     def _check_sensitive_exit(self, command, error):
         """
@@ -773,8 +793,12 @@ class AzurLaneAutoScript:
         except GamePageUnknownError as e:
             self._last_task_error = 'GamePageUnknownError'
             logger.info('[Alas] 游戏服务器可能正在维护或网络连接中断，正在检查服务器状态')
-            self.checker.check_now()
-            if self.checker.is_available():
+            # 检查器可能因网络问题降级为 None：此时"是否维护"无法判断，
+            # 按"不可判定"处理，走下面的等待分支，绝不因查不到状态而终止进程。
+            checker = self.checker
+            if checker is not None:
+                checker.check_now()
+            if checker is not None and checker.is_available():
                 logger.error_context(
                     title='无法识别游戏页面',
                     reason='服务器可用，但当前截图不符合任何已知游戏页面。',
@@ -798,7 +822,8 @@ class AzurLaneAutoScript:
                 )
                 exit(1)
             else:
-                self.checker.wait_until_available()
+                if checker is not None:
+                    checker.wait_until_available()
                 return False
         except ScriptError as e:
             # 代码 bug，先重试 3 次再退出，给瞬时性脚本错误缓冲
@@ -2088,9 +2113,12 @@ class AzurLaneAutoScript:
                         )
                     time.sleep(wait_seconds)
                     continue
-                # 检查游戏服务器维护
-                self.checker.wait_until_available()
-                if self.checker.is_recovered():
+                # 检查游戏服务器维护（检查器降级为 None 时跳过，
+                # 不能因为查不到服务器状态而阻断挂机）
+                checker = self.checker
+                if checker is not None:
+                    checker.wait_until_available()
+                if checker is not None and checker.is_recovered():
                     # 服务器恢复后强制刷新配置，修复阻塞期间配置未更新的问题
                     del_cached_property(self, 'config')
                     logger.info('[Alas] 服务器或网络已恢复。重启游戏客户端')
@@ -2202,7 +2230,9 @@ class AzurLaneAutoScript:
                     # 同时重置 failure_record，避免残留计数在用户重新启用任务后误触发退出
                     deep_set(self.failure_record, keys=task, value=0)
                     del_cached_property(self, 'config')
-                    self.checker.check_now()
+                    checker = self.checker
+                    if checker is not None:
+                        checker.check_now()
                     continue
 
                 # 当 TaskFailureProtection 启用时，由 TFP 统一控制失败次数阈值，
@@ -2257,7 +2287,9 @@ class AzurLaneAutoScript:
                 elif success == 'recoverable' or self.config.Error_HandleError:
                     # 可恢复错误或启用了错误处理，刷新配置后继续循环
                     del_cached_property(self, 'config')
-                    self.checker.check_now()
+                    checker = self.checker
+                    if checker is not None:
+                        checker.check_now()
                     continue
                 else:
                     self.watchdog.stop()
@@ -2288,7 +2320,7 @@ class AzurLaneAutoScript:
             # 历史缺陷（2026-10-26 04:42）：device 属性抛出 RecoveryFailed 后
             # 落入下方 except Exception，被当成未处理异常；三次即 exit(1)，
             # 表现为"模拟器起不来 → 脚本自杀 → 停机数小时"。
-            # 与 handle_pending 的失败分支保持同一套退避口径。
+            # 与 2059 行 handle_pending 的失败分支保持同一套退避口径。
             except RecoveryFailed as e:
                 consecutive_global_failures += 1
                 self.is_first_task = False
@@ -2331,7 +2363,9 @@ class AzurLaneAutoScript:
                         if self._check_task_failure_protection(current_task, False):
                             # 任务已被自动关闭，跳过重启，继续调度其他任务
                             del_cached_property(self, 'config')
-                            self.checker.check_now()
+                            checker = self.checker
+                            if checker is not None:
+                                checker.check_now()
                             consecutive_global_failures = 0
                             continue
                 except Exception:
