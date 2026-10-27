@@ -33,6 +33,10 @@ def make_action_point_runner(buy_limit=0, current=105, total=1375, boxes=None):
         side_effect=lambda selected_index: setattr(
             runner, '_action_point_current', current + 20 * selected_index))
     runner.action_point_get_buy_remain = Mock(return_value=2)
+    # 月末封锁周（包含下月 1 号的 ISO 周里属于本月的那几天）会让
+    # action_point_buy 在打开弹窗前直接返回 False。本文件只验证计数/箱子
+    # 策略，必须与真实日历解耦，否则每到封锁周 CI 就无故变红。
+    runner._is_in_month_end_purchase_block_week = Mock(return_value=False)
     return runner
 
 
@@ -94,6 +98,20 @@ class ActionPointBuyStoredCountTests(unittest.TestCase):
         self.assertTrue(runner.action_point_buy(preserve=1000))
         runner.action_point_set_button.assert_called_once_with(0)
         runner.action_point_use.assert_called_once_with(selected_index=0)
+
+    def test_block_week_stops_before_opening_popup(self):
+        """月末封锁周内即便计数未满也不购买，且不点击石油页签。
+
+        此前 action_point_buy 内部的封锁分支只在 _buy_one_action_point 层被
+        mock 掉验证过，函数自身这条分支无人覆盖；同时共享工厂未打桩真实时钟，
+        导致封锁周内 CI 无故变红（2026-10-26 起连续两轮）。
+        """
+        runner = make_action_point_runner(buy_limit=5)
+        runner._get_buy_action_point_count = Mock(return_value=3)
+        runner._is_in_month_end_purchase_block_week = Mock(return_value=True)
+        self.assertFalse(runner.action_point_buy(preserve=1000))
+        runner.action_point_set_button.assert_called_once_with(0)
+        runner.action_point_use.assert_not_called()
 
 
 class BuyActionPointModeBoxFlagTests(unittest.TestCase):
