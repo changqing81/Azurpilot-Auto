@@ -79,6 +79,8 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
             out: is_combat_loading
         """
         self.interval_reset(AUTO_SEARCH_MAP_OPTION_ON)
+        # 清空上一流程残留的 OFF 确认，确保本流程内重新积累
+        self._auto_search_off_frame = None
         for _ in self.loop():
 
             if self.handle_auto_search_map_option():
@@ -207,6 +209,8 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
         """
         logger.info('自动搜索移动中')
         self.device.stuck_record_clear()
+        # 清空上一流程残留的 OFF 确认，确保本流程内重新积累
+        self._auto_search_off_frame = None
         checked_fleet = False
         checked_oil = False
         checked_coin = False
@@ -257,6 +261,8 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
         self.device.stuck_record_clear()
         self.device.click_record_clear()
         self.device.screenshot_interval_set('combat')
+        # 清空上一流程残留的 OFF 确认，确保本流程内重新积累
+        self._auto_search_off_frame = None
         for _ in self.loop():
 
             if self.handle_combat_automation_confirm():
@@ -428,6 +434,8 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
             out: is_auto_search_running()
         """
         logger.info('[自动搜索-结算] 战斗结算')
+        # 清空上一流程残留的 OFF 确认，确保本流程内重新积累
+        self._auto_search_off_frame = None
         self.device.stuck_record_clear()
         self.device.click_record_clear()
         exp_info = False  # This is for the white screen bug in game

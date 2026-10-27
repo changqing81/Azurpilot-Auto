@@ -26,6 +26,8 @@ class AutoSearchRecovery:
             return False
         self._withdraw = False
         self._auto_search_status_confirm = False
+        # 清空上一流程残留的 OFF 确认，续接流程内重新积累两帧
+        self._auto_search_off_frame = None
         self._restart_resume_timer = Timer(30, count=60).start()
         self._restart_resume_click_timer = Timer(2).start()
         self._restart_resume_guard = True
