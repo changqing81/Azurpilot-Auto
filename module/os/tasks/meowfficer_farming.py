@@ -140,9 +140,7 @@ class OpsiMeowfficerFarming(MeowfficerTargetZoneMixin, CoinTaskMixin, OSMap):
         """
         self.config.OS_ACTION_POINT_PRESERVE = preserve
 
-        if self.config.is_task_enabled('OpsiAshBeacon') \
-                and not self._ash_fully_collected \
-                and self.config.cross_get("OpsiAshBeacon.OpsiAshBeacon.EnsureFullyCollected", True):
+        if self.ash_ignore_action_point_preserve():
             logger.info('[大世界-短猫相接] 余烬信标未收集满，暂时忽略行动力限制')
             self.config.OS_ACTION_POINT_PRESERVE = 0
         logger.attr('大世界行动力保留', self.config.OS_ACTION_POINT_PRESERVE)

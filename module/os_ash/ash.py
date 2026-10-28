@@ -65,6 +65,8 @@ class AshBeaconFinished(Exception):
 # 持久化"信标任务已用某持有量读数确认过无可做内容"的存储路径，
 # 防止持有量 OCR 误读（如 70 被读成 170）反复触发信标任务调用
 CONFIG_PATH_ASH_NOTHING_TO_DO = 'OpsiAshBeacon.Storage.NothingToDo'
+# 保证收集满每日信标数据的开关：开启后，信标未收满前暂时忽略行动力保留值
+CONFIG_PATH_ENSURE_FULLY_COLLECTED = 'OpsiAshBeacon.OpsiAshBeacon.EnsureFullyCollected'
 
 
 class AshCombat(Combat):
@@ -210,6 +212,32 @@ class OSAsh(UI, MapEventHandler):
         if status < 0:
             status = 0
         return status
+
+    def ash_ignore_action_point_preserve(self):
+        """是否因每日信标数据未收满而临时忽略行动力保留值。
+
+        以下三个条件同时成立才生效：
+        1. 配置开关 OpsiAshBeacon.EnsureFullyCollected 开启；
+        2. OpsiAshBeacon 任务处于启用状态——信标数据持有量到顶后只有该任务会
+           去打信标消耗持有量，任务关掉时光烧行动力也永远收不满；
+        3. 最近一次读数显示今天还没收满（_ash_fully_collected 为假）。
+
+        独立运行的侵蚀 1 练级、短猫相接，以及智能调度代跑这两者时，
+        都按本判定放宽行动力保留值，保证口径一致。
+
+        Returns:
+            bool: True 表示应当忽略行动力保留值。
+        """
+        value = self.config.cross_get(
+            keys=CONFIG_PATH_ENSURE_FULLY_COLLECTED, default=True)
+        # WebUI checkbox 的历史值可能是 [] / [True]，按任意真值处理
+        if isinstance(value, list):
+            value = any(bool(item) for item in value)
+        if not value:
+            return False
+        if not self.config.is_task_enabled('OpsiAshBeacon'):
+            return False
+        return not self._ash_fully_collected
 
     def _support_call_ash_beacon_task(self):
         """

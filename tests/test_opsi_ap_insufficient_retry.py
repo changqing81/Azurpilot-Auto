@@ -17,7 +17,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from module.os_handler.action_point import ActionPointHandler, ActionPointLimit
+from module.os_handler.action_point import (
+    ActionPointHandler,
+    ActionPointLimit,
+    ActionPointUseUnconfirmed,
+)
 from module.os.tasks.scheduling import OpsiScheduling
 
 ROOT = Path(__file__).parent.parent
@@ -128,6 +132,8 @@ def make_recheck_scheduler(ledger_total_with_box=6477):
         return_value=SimpleNamespace(total_with_box=ledger_total_with_box))
     scheduler._notify_ap_insufficient = Mock()
     scheduler._delay_smart_scheduling_to_server_update = Mock()
+    # 信标收满豁免默认不生效，保持本文件原有「保留值」轨道
+    scheduler.ash_ignore_action_point_preserve = Mock(return_value=False)
     return scheduler
 
 
@@ -166,6 +172,38 @@ class TestApLimitExceptionUnifiedExit(unittest.TestCase):
         e = ActionPointLimit(current=500, total=500, preserve=1000)
         scheduler._handle_ap_limit_exception(e, total_ap=500, cl1_ap_preserve=200)
         scheduler._delay_smart_scheduling_for_ap_limit.assert_called_once_with(500, 1000)
+
+    def test_ash_ignoring_retries_after_action_point_recovery(self):
+        # 信标未收满时不保留行动力：ActionPointLimit 说明真的凑不出一场，
+        # 按行动力恢复时间（缺口 * 10 分钟）小睡后重试，不走 5 分钟空转
+        scheduler = make_scheduler()
+        scheduler.ash_ignore_action_point_preserve = Mock(return_value=True)
+        e = ActionPointLimit(current=97, total=97, cost=120)
+        scheduler._handle_ap_limit_exception(e, total_ap=97, cl1_ap_preserve=0)
+        scheduler._delay_smart_scheduling_with_minutes.assert_called_once()
+        self.assertEqual(
+            scheduler._delay_smart_scheduling_with_minutes.call_args.args[1], 230)
+        scheduler._delay_smart_scheduling_for_ap_limit.assert_not_called()
+        scheduler.config.task_stop.assert_called_once()
+
+    def test_ash_ignoring_keeps_short_retry_for_transient_failure(self):
+        # 开箱点击未确认属瞬时问题（total 未知），仍走 5 分钟重跑，
+        # 不按回体时间睡几个小时
+        scheduler = make_scheduler()
+        scheduler.ash_ignore_action_point_preserve = Mock(return_value=True)
+        e = ActionPointUseUnconfirmed(current=97, cost=50)
+        scheduler._handle_ap_limit_exception(e, total_ap=97, cl1_ap_preserve=0)
+        self.assertEqual(
+            scheduler._delay_smart_scheduling_with_minutes.call_args.args[1], 5)
+
+    def test_ash_ignoring_with_unknown_recovery_uses_short_retry(self):
+        # 异常没带 cost/current（恢复时间未知）→ 回退短延迟重跑，重新读数再决定
+        scheduler = make_scheduler()
+        scheduler.ash_ignore_action_point_preserve = Mock(return_value=True)
+        e = ActionPointLimit()
+        scheduler._handle_ap_limit_exception(e, total_ap=0, cl1_ap_preserve=0)
+        self.assertEqual(
+            scheduler._delay_smart_scheduling_with_minutes.call_args.args[1], 5)
 
     def test_zero_total_falls_back_to_decision_read(self):
         # 异常未携带有效数值 → 回退本轮决策读数（6477），仍走短延迟重跑

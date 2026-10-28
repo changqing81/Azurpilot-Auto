@@ -39,7 +39,11 @@ from module.os.map import OSMap
 from module.os.tasks.scheduling_state import (
     get_smart_scheduling_state, smart_scheduling_session,
 )
-from module.os_handler.action_point import ACTION_POINTS_COST, ActionPointLimit
+from module.os_handler.action_point import (
+    ACTION_POINTS_COST,
+    ActionPointLimit,
+    ActionPointUseUnconfirmed,
+)
 
 
 class CoinTaskMixin:
@@ -676,7 +680,17 @@ class CoinTaskMixin:
         )
 
     def _get_coin_task_action_point_preserve(self):
-        """获取智能调度用于启动黄币补充任务的行动力阈值。"""
+        """获取智能调度用于启动黄币补充任务的行动力阈值。
+
+        余烬信标今天还没收满时返回 0：为保证每日 200 信标数据，暂时忽略
+        保留值一路消耗。判定与独立短猫相接任务共用
+        `ash_ignore_action_point_preserve`，避免两边口径不一致。
+        """
+        if self.ash_ignore_action_point_preserve():
+            logger.info(
+                '[大世界-智能调度] 余烬信标未收集满，暂时忽略补黄币行动力保留值'
+            )
+            return 0
         smart_ap_preserve = self._get_smart_scheduling_action_point_preserve()
         if smart_ap_preserve > 0:
             return smart_ap_preserve
@@ -972,7 +986,15 @@ class CoinTaskMixin:
 
         智能调度的侵蚀1行动力保留（Hazard1ActionPointPreserve）大于 0 时
         覆盖侵蚀1任务页的设置；为 0 时沿用任务页的原值。
+
+        余烬信标今天还没收满时返回 0：为保证每日 200 信标数据，暂时忽略
+        保留值一路消耗（判定与独立侵蚀 1 练级任务共用）。
         """
+        if self.ash_ignore_action_point_preserve():
+            logger.info(
+                '[大世界-智能调度] 余烬信标未收集满，暂时忽略侵蚀1行动力保留值'
+            )
+            return 0
         override = self.config.cross_get(
             keys=self.CONFIG_PATH_SMART_HAZARD1_AP_PRESERVE,
             default=0,
@@ -2485,6 +2507,11 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         不推迟到次日；真不足才走「延迟到服务器刷新」轨道
         （2026-10-14 真机：USE 检测失败把含箱 6477 判成不足、推迟 19 小时）。
 
+        信标数据今天还没收满时保留值已放宽为 0（见
+        ash_ignore_action_point_preserve）：此时按「还能不能打一场」区分——
+        真的凑不出一场就按行动力恢复时间（缺口 * 10 分钟）小睡后重试，
+        开箱点击未确认等瞬时问题仍走 5 分钟重跑，都不再推迟到服务器刷新。
+
         Args:
             e (ActionPointLimit): 子任务抛出的异常。
             total_ap (int): 本轮决策读到的总行动力（异常值缺失时的兜底）。
@@ -2493,6 +2520,26 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
         logger.warning(f'[大世界-智能调度] 智能调度执行子任务时行动力不足: {e}')
         preserve = getattr(e, 'preserve', None) or cl1_ap_preserve
         current = getattr(e, 'total', None) or getattr(e, 'current', None) or total_ap
+        # 信标未收满时保留值已放宽为 0，此时只有「真的凑不出一场」才按行动力
+        # 恢复时间小睡；开箱点击未确认（ActionPointUseUnconfirmed）之类瞬时问题
+        # 仍走下面的 5 分钟重跑，避免一次误判睡掉几小时。
+        if self.ash_ignore_action_point_preserve():
+            transient = isinstance(e, ActionPointUseUnconfirmed)
+            cannot_afford = (
+                not transient
+                and e.cost is not None
+                and e.total is not None
+                and e.total < e.cost
+            )
+            if getattr(e, 'preserve', None) is not None or cannot_afford:
+                minutes = e.delay_minutes or self.AP_RETRY_DELAY_MINUTES
+                reason = f'信标未收满，但行动力不足以再打一场（当前 {current}）'
+            else:
+                minutes = self.AP_RETRY_DELAY_MINUTES
+                reason = '信标未收满，本轮动作未成功'
+            self._delay_smart_scheduling_with_minutes(reason, minutes)
+            self.config.task_stop()
+            return
         if current > preserve:
             logger.info(
                 f'[大世界-智能调度] 含箱总行动力 {current} > 保留值 {preserve}，'

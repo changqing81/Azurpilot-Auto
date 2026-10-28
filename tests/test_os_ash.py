@@ -17,7 +17,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from module.config.time_source import now as current_time
-from module.os_ash.ash import CONFIG_PATH_ASH_NOTHING_TO_DO, OSAsh
+from module.os_ash.ash import (
+    CONFIG_PATH_ASH_NOTHING_TO_DO,
+    CONFIG_PATH_ENSURE_FULLY_COLLECTED,
+    OSAsh,
+)
 
 
 class _AshStatusStub:
@@ -196,6 +200,63 @@ class TestHandleAshBeaconAttack(unittest.TestCase):
 
         self.assertFalse(stub.handle_ash_beacon_attack())
         self.assertEqual(config.task_call_args, [])
+
+
+class _PreserveConfig:
+    """ash_ignore_action_point_preserve 所需的最小配置桩。"""
+
+    def __init__(self, switch=True, ash_enabled=True):
+        self._switch = switch
+        self._ash_enabled = ash_enabled
+
+    def cross_get(self, keys, default=None):
+        if keys == CONFIG_PATH_ENSURE_FULLY_COLLECTED:
+            return self._switch
+        return default
+
+    def is_task_enabled(self, task):
+        return self._ash_enabled
+
+
+class _PreserveStub:
+    """仅提供豁免判定所需接口的最小桩对象。"""
+
+    ash_ignore_action_point_preserve = OSAsh.ash_ignore_action_point_preserve
+
+    def __init__(self, switch=True, ash_enabled=True, fully_collected=False):
+        self.config = _PreserveConfig(switch, ash_enabled)
+        self._ash_fully_collected = fully_collected
+
+
+class TestAshIgnoreActionPointPreserve(unittest.TestCase):
+    """信标未收满时放宽行动力保留值的判定（独立任务与智能调度共用）。"""
+
+    def test_enabled_when_not_full(self):
+        """开关开、信标任务开、今天还没收满 → 放宽保留值。"""
+        stub = _PreserveStub()
+        self.assertTrue(stub.ash_ignore_action_point_preserve())
+
+    def test_disabled_when_collected(self):
+        """今天已收满 → 恢复正常保留值。"""
+        stub = _PreserveStub(fully_collected=True)
+        self.assertFalse(stub.ash_ignore_action_point_preserve())
+
+    def test_disabled_when_switch_off(self):
+        """用户关掉开关 → 不放宽。"""
+        stub = _PreserveStub(switch=False)
+        self.assertFalse(stub.ash_ignore_action_point_preserve())
+
+    def test_disabled_when_ash_task_disabled(self):
+        """信标任务关着时光烧行动力也收不满，不允许放宽保留值。"""
+        stub = _PreserveStub(ash_enabled=False)
+        self.assertFalse(stub.ash_ignore_action_point_preserve())
+
+    def test_legacy_checkbox_list_value(self):
+        """WebUI checkbox 历史值 [] / [True] 按真值处理。"""
+        self.assertTrue(
+            _PreserveStub(switch=[True]).ash_ignore_action_point_preserve())
+        self.assertFalse(
+            _PreserveStub(switch=[]).ash_ignore_action_point_preserve())
 
 
 if __name__ == '__main__':
