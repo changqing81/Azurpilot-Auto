@@ -1,139 +1,278 @@
 """大世界任务跳过塞壬研究的回归测试。
 
-锁定「不做塞壬研究任务」开关在任务总览页（os_mission_enter）的行为：
-开启开关时必须跳过所有塞壬研究行，不得误领；同时不得因行距变化而漏判。
+锁定「不做塞壬研究任务」开关的四条行为：
+1. 任务名判定只认「塞壬研究」前缀，塞壬研究·I 与 ·II 一视同仁；
+2. 领取前逐行 OCR 任务名，识别到塞壬研究就跳过，不再依赖「研究」两字的模板位置；
+3. 日常任务板接取前同样逐行 OCR，识别到塞壬研究就不点「接受」；
+   任务板上存在塞壬研究时不得使用「一键接受」（它会把所有任务一起接掉）；
+4. OCR 读不出文字时保守跳过，宁可少接一次，也不要把塞壬研究当普通任务处理。
 
-历史问题：旧实现依赖「命中塞壬行后偏移 +110 像素」逐行推进，
-当塞壬研究不在首行、或行距不是 110 时会直接走 else 分支领取，
-导致塞壬研究被做掉（2026-10-26 事故）。
+历史问题：
+- 2026-10-26：只匹配「研究」两字时，塞壬研究·I 与 ·II 任务名长度不同，
+  「研究」二字在屏幕上左右移动，II 的相似度容易掉到阈值以下被漏判。
+- 2026-10-29：领奖侧已经跳过，但「任务总览接取」仍在点「一键接受 + 接受」，
+  塞壬研究在接取那一刻就完成兑换（消耗作战补给凭证），只拦领取拦不住。
 """
 
 import unittest
 
-import cv2
-import numpy as np
+import module.os_handler.mission as mission_module
 
 
-class TestOpsiMissionSkipSirenScan(unittest.TestCase):
-    """测试扫描定位逻辑不依赖固定行距。"""
+class TestSirenResearchName(unittest.TestCase):
+    """任务名判定：只认「塞壬研究」，不区分编号。"""
 
-    def _scan_rows(self, image, template, similarity=0.85):
-        """与 _os_mission_scan_rows 相同的算法。"""
-        result = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
-        ys, xs = np.where(result > similarity)
-        if not len(ys):
-            return []
-        order = np.argsort(-result[ys, xs])
-        height, width = template.shape[:2]
-        rows = []
-        for index in order:
-            y, x = int(ys[index]), int(xs[index])
-            if not any(
-                    abs(row[0] - y) <= height // 2 and abs(row[1] - x) <= width // 2
-                    for row in rows):
-                rows.append((y, x))
-        return sorted(rows)
+    def test_siren_research_i(self):
+        self.assertTrue(mission_module.is_siren_research_mission('塞壬研究·I'))
 
-    def _claim_skip(self, image, siren_tpl, finish_tpl):
-        """与 _os_mission_claim_skip_siren 相同的判定逻辑。"""
-        siren_rows = self._scan_rows(image, siren_tpl)
-        finish_rows = self._scan_rows(image, finish_tpl)
-        for y, _ in finish_rows:
-            if any(abs(y - siren_y) < 45 for siren_y, _ in siren_rows):
-                continue
-            return True, y
-        return False, None
+    def test_siren_research_ii(self):
+        self.assertTrue(mission_module.is_siren_research_mission('塞壬研究·II'))
+
+    def test_siren_research_roman_unicode(self):
+        self.assertTrue(mission_module.is_siren_research_mission('塞壬研究·Ⅱ'))
+
+    def test_siren_research_with_spaces(self):
+        self.assertTrue(mission_module.is_siren_research_mission('塞壬 研究 ·II'))
+
+    def test_ocr_confuses_se_qi(self):
+        """OCR 把「塞壬」读成「塞千」时仍要判定为塞壬研究。"""
+        self.assertTrue(mission_module.is_siren_research_mission('塞千研究·II'))
+
+    def test_research_keyword_fallback(self):
+        """「塞壬」被读错但「研究」还在时，保守判定为塞壬研究。"""
+        self.assertTrue(mission_module.is_siren_research_mission('塞壬研究中心·II'))
+        self.assertTrue(mission_module.is_siren_research_mission('（研究）某项任务'))
+
+    def test_other_mission(self):
+        self.assertFalse(mission_module.is_siren_research_mission('击破敌舰'))
+
+    def test_empty(self):
+        self.assertFalse(mission_module.is_siren_research_mission(''))
+        self.assertFalse(mission_module.is_siren_research_mission(None))
+
+
+class TestOpsiMissionRowCheck(unittest.TestCase):
+    """逐行判定与领取行为。"""
 
     def setUp(self):
-        # 模板必须有非零方差，否则 TM_CCOEFF_NORMED 会因零方差产生 NaN
-        rng = np.random.RandomState(42)
-        self.siren_tpl = rng.randint(30, 225, (22, 41, 3)).astype(np.uint8)
-        self.finish_tpl = rng.randint(30, 225, (27, 84, 3)).astype(np.uint8)
+        self.handler = mission_module.MissionHandler.__new__(mission_module.MissionHandler)
 
-    def _build(self, rows):
-        """按 (类型, y) 列表合成截图。"""
-        canvas = np.zeros((720, 1280, 3), dtype=np.uint8)
-        for kind, y in rows:
-            if kind == 'siren':
-                canvas[y:y + 22, 608:649] = self.siren_tpl
-            else:
-                canvas[y:y + 27, 1028:1112] = self.finish_tpl
-        return canvas
+    def _mock_rows(self, rows):
+        self.handler._os_mission_scan_rows = (
+            lambda button, similarity=0.85: rows if button is mission_module.MISSION_FINISH else [])
 
-    def test_skip_all_siren_rows(self):
-        """三行全是塞壬研究时，一个都不领取。"""
-        image = self._build([('siren', 186), ('siren', 296), ('siren', 406)])
-        clicked, _ = self._claim_skip(image, self.siren_tpl, self.finish_tpl)
-        self.assertFalse(clicked)
+    def test_row_is_siren_by_ocr_ii(self):
+        """OCR 认出「塞壬研究·II」时判定为塞壬研究行。"""
+        self.handler._os_mission_row_name = lambda y: '塞壬研究·II'
+        self.handler._os_mission_scan_rows = lambda *args, **kwargs: []
+        self.assertTrue(self.handler._os_mission_row_is_siren(205))
 
-    def test_skip_siren_row_but_claim_other(self):
-        """塞壬研究行有领取按钮时跳过，其它行正常领取。"""
-        image = self._build([
-            ('siren', 186), ('finish', 186),
-            ('finish', 322),
-        ])
-        clicked, y = self._claim_skip(image, self.siren_tpl, self.finish_tpl)
-        self.assertTrue(clicked)
-        # 应点击 y=322 那一行，而不是塞壬研究所在的 y=186
-        self.assertLess(abs(y - 322), 120)
-        self.assertGreater(abs(y - 186), 100)
+    def test_row_is_siren_by_ocr_i(self):
+        self.handler._os_mission_row_name = lambda y: '塞壬研究·I'
+        self.handler._os_mission_scan_rows = lambda *args, **kwargs: []
+        self.assertTrue(self.handler._os_mission_row_is_siren(205))
 
-    def test_skip_siren_not_on_first_row(self):
-        """塞壬研究不在首行时也要正确跳过（旧实现在此漏判）。"""
-        image = self._build([
-            ('finish', 186),
-            ('siren', 296), ('finish', 296),
-        ])
-        clicked, y = self._claim_skip(image, self.siren_tpl, self.finish_tpl)
-        self.assertTrue(clicked)
-        self.assertLess(abs(y - 186), 100)
+    def test_row_normal_mission(self):
+        self.handler._os_mission_row_name = lambda y: '击破敌舰'
+        self.handler._os_mission_scan_rows = lambda *args, **kwargs: []
+        self.assertFalse(self.handler._os_mission_row_is_siren(205))
 
-    def test_skip_works_with_varied_row_gap(self):
-        """行距不是 110 时依然正确（旧实现硬编码 110 会漏判）。"""
-        image = self._build([
-            ('siren', 186), ('finish', 186),
-            ('finish', 336),  # 行距 150，不是 110
-        ])
-        clicked, y = self._claim_skip(image, self.siren_tpl, self.finish_tpl)
-        self.assertTrue(clicked)
-        # 应点击 y=336 那一行，而不是塞壬研究所在的 y=186
-        self.assertLess(abs(y - 336), 120)
-        self.assertGreater(abs(y - 186), 100)
+    def test_row_ocr_empty_falls_back_to_template(self):
+        """OCR 没读出文字时退回模板判定。"""
+        self.handler._os_mission_row_name = lambda y: ''
+        self.handler._os_mission_scan_rows = lambda *args, **kwargs: [(186, 608)]
+        self.assertTrue(self.handler._os_mission_row_is_siren(205))
+        self.assertFalse(self.handler._os_mission_row_is_siren(400))
 
-    def test_no_siren_still_claims(self):
-        """没有塞壬研究时，开关不应影响正常领取。"""
-        image = self._build([('finish', 186), ('finish', 296)])
-        clicked, y = self._claim_skip(image, self.siren_tpl, self.finish_tpl)
-        self.assertTrue(clicked)
-        self.assertLess(abs(y - 186), 100)
+    def _mock_device(self):
+        clicked = []
+
+        class _Device:
+            @staticmethod
+            def click(button):
+                clicked.append(button.area)
+
+        self.handler.device = _Device()
+        return clicked
+
+    def test_claim_skips_siren_rows_and_claims_other(self):
+        """塞壬研究行（含 II）全部跳过，普通任务行照常领取。"""
+        self._mock_rows([(205, 1030), (315, 1030), (425, 1030)])
+        self.handler._os_mission_row_is_siren = lambda y: y in (205, 315)
+        clicked = self._mock_device()
+
+        self.assertTrue(self.handler._os_mission_claim_skip_siren())
+        self.assertEqual(len(clicked), 1)
+        self.assertEqual(clicked[0][1], 425)
+
+    def test_claim_all_siren_returns_false(self):
+        """只剩塞壬研究时一个都不领。"""
+        self._mock_rows([(205, 1030), (315, 1030)])
+        self.handler._os_mission_row_is_siren = lambda y: True
+        clicked = self._mock_device()
+
+        self.assertFalse(self.handler._os_mission_claim_skip_siren())
+        self.assertEqual(clicked, [])
+
+    def test_claim_no_rows(self):
+        self._mock_rows([])
+        clicked = self._mock_device()
+        self.assertFalse(self.handler._os_mission_claim_skip_siren())
+        self.assertEqual(clicked, [])
 
 
 class TestSkipSirenSourceLock(unittest.TestCase):
-    """源码锁：确认跳过分支不再使用硬编码行距累加。"""
+    """源码锁：确认跳过逻辑走整行 OCR 判定。"""
+
+    def _read(self):
+        with open('module/os_handler/mission.py', encoding='utf-8') as f:
+            return f.read()
+
+    def test_claim_uses_row_ocr_check(self):
+        source = self._read()
+        start = source.index('def _os_mission_claim_skip_siren(')
+        end = source.index('def os_mission_quit(', start)
+        body = source[start:end]
+        self.assertIn('_os_mission_row_is_siren', body)
+        self.assertIn('_os_mission_scan_rows(MISSION_FINISH)', body)
+
+    def test_row_check_uses_ocr_and_keyword(self):
+        source = self._read()
+        self.assertIn('def _os_mission_row_name(', source)
+        self.assertIn("lang='cnocr'", source)
+        self.assertIn('is_siren_research_mission', source)
 
     def test_no_hardcoded_110_step(self):
-        """os_mission_enter 不得再用 area_offset(..., (0, 110)) 推进跳过。"""
-        with open('module/os_handler/mission.py', encoding='utf-8') as f:
-            source = f.read()
-
-        # 取出 os_mission_enter 函数体
+        """跳过逻辑不得再用 area_offset(..., (0, 110)) 逐行推进。"""
+        source = self._read()
         start = source.index('def os_mission_enter(')
         end = source.index('def _os_mission_scan_rows(', start)
         body = source[start:end]
-
-        self.assertNotIn(
-            'area_offset(checkout_offset, (0, 110))', body,
-            '跳过塞壬研究不得依赖硬编码行距 110')
-        self.assertIn(
-            '_os_mission_claim_skip_siren', body,
-            '跳过逻辑应走全屏扫描实现')
+        self.assertNotIn('area_offset(checkout_offset, (0, 110))', body)
+        self.assertIn('_os_mission_claim_skip_siren', body)
 
     def test_scan_rows_method_exists(self):
-        """扫描方法必须存在且不做逐行累加。"""
-        with open('module/os_handler/mission.py', encoding='utf-8') as f:
-            source = f.read()
+        source = self._read()
         self.assertIn('def _os_mission_scan_rows(', source)
         self.assertIn('cv2.matchTemplate', source)
+
+
+class TestOpsiMissionOverviewSkipSiren(unittest.TestCase):
+    """日常任务板接取行为：塞壬研究任务不接。
+
+    塞壬研究任务在任务总览被「接受」时就会完成兑换（消耗作战补给凭证），
+    所以必须在接取这一步拦住，只拦领取是拦不住的（2026-10-29 事故）。
+    """
+
+    def setUp(self):
+        self.handler = mission_module.MissionHandler.__new__(mission_module.MissionHandler)
+
+    def _mock_scan(self, rows):
+        """只让「接受」按钮扫描返回结果，其余按钮返回空。"""
+        self.handler._os_mission_scan_rows = (
+            lambda button, similarity=0.85:
+            rows if button is mission_module.MISSION_OVERVIEW_ACCEPT_SINGLE else [])
+
+    def _mock_device(self):
+        clicked = []
+
+        class _Device:
+            @staticmethod
+            def click(button):
+                clicked.append(button.area)
+
+        self.handler.device = _Device()
+        return clicked
+
+    def test_rows_classified_by_ocr(self):
+        """两行塞壬研究（I 与 II）都要判定成塞壬研究。"""
+        self._mock_scan([(121, 1066), (272, 1066)])
+        names = {121: '塞壬研究I', 272: '塞壬研究II'}
+        self.handler._os_mission_row_name = lambda y, area=None: names[y]
+
+        rows = self.handler._os_mission_overview_rows()
+        self.assertEqual([row[0] for row in rows], [121, 272])
+        self.assertTrue(all(row[1] for row in rows))
+
+    def test_rows_classified_mixed(self):
+        """混合任务板：只有塞壬研究行被标记。"""
+        self._mock_scan([(121, 1066), (272, 1066)])
+        names = {121: '塞壬研究II', 272: '击破敌舰'}
+        self.handler._os_mission_row_name = lambda y, area=None: names[y]
+
+        rows = self.handler._os_mission_overview_rows()
+        self.assertTrue(rows[0][1])
+        self.assertFalse(rows[1][1])
+
+    def test_accept_one_skips_siren(self):
+        """逐行接受时跳过塞壬研究行，只接受普通任务。"""
+        self._mock_scan([(121, 1066), (272, 1066)])
+        names = {121: '塞壬研究II', 272: '击破敌舰'}
+        self.handler._os_mission_row_name = lambda y, area=None: names[y]
+        clicked = self._mock_device()
+
+        rows = self.handler._os_mission_overview_rows()
+        self.assertTrue(self.handler._os_mission_overview_accept_one(rows))
+        self.assertEqual(len(clicked), 1)
+        self.assertEqual(clicked[0][1], 272)
+
+    def test_accept_one_all_siren_returns_false(self):
+        """全是塞壬研究时一个都不接。"""
+        self._mock_scan([(121, 1066), (272, 1066)])
+        self.handler._os_mission_row_name = lambda y, area=None: '塞壬研究I'
+        clicked = self._mock_device()
+
+        rows = self.handler._os_mission_overview_rows()
+        self.assertFalse(self.handler._os_mission_overview_accept_one(rows))
+        self.assertEqual(clicked, [])
+
+    def test_accept_one_empty_rows(self):
+        self._mock_scan([])
+        clicked = self._mock_device()
+        self.assertFalse(self.handler._os_mission_overview_accept_one([]))
+        self.assertEqual(clicked, [])
+
+    def test_ocr_empty_skips_conservatively(self):
+        """任务名读不出时保守判定为塞壬研究，宁可不接也不误接。"""
+        self.handler._os_mission_row_name = lambda y, area=None: ''
+        self.handler._os_mission_scan_rows = (
+            lambda button, similarity=0.85:
+            [(121, 1066)] if button is mission_module.MISSION_OVERVIEW_ACCEPT_SINGLE else [])
+
+        rows = self.handler._os_mission_overview_rows()
+        self.assertTrue(rows[0][1])
+        self.assertEqual(rows[0][2], '')
+
+
+class TestOverviewAcceptSourceLock(unittest.TestCase):
+    """源码锁：日常任务板接受必须查塞壬研究，且不能让一键接受绕过。"""
+
+    def _read(self):
+        with open('module/os_handler/mission.py', encoding='utf-8') as f:
+            return f.read()
+
+    def test_accept_loop_checks_siren_rows(self):
+        source = self._read()
+        start = source.index('def os_mission_overview_accept(')
+        end = source.index('def is_in_opsi_explore(', start)
+        body = source[start:end]
+        self.assertIn('_os_mission_overview_rows', body)
+        self.assertIn('has_siren', body)
+        self.assertIn('_os_mission_overview_accept_one', body)
+
+    def test_accept_all_gated_by_has_siren(self):
+        """「一键接受」必须被 has_siren 挡住，否则会一次接掉所有塞壬研究。"""
+        source = self._read()
+        start = source.index('def os_mission_overview_accept(')
+        end = source.index('def is_in_opsi_explore(', start)
+        body = source[start:end]
+        gate = body.index('if not has_siren:')
+        click = body.index('appear_then_click(MISSION_OVERVIEW_ACCEPT,')
+        self.assertLess(gate, click, '一键接受必须在「没有塞壬研究」分支内')
+
+    def test_overview_name_area_defined(self):
+        source = self._read()
+        self.assertIn('OS_MISSION_OVERVIEW_NAME_AREA', source)
 
 
 if __name__ == '__main__':
