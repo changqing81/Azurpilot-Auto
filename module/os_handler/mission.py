@@ -53,10 +53,6 @@ class MissionHandler(GlobeOperation, ZoneManager):
     # 实测 1280x720 截图：读出「塞壬研究·I」「塞壬研究·II」；同区域的「困难作战：仲裁机」
     # 不会被误判成塞壬研究。该页任务行间距实测 113 像素。
     OS_MISSION_ROW_NAME_AREA = (470, -20, 720, 6)
-    # 日常任务板任务名 OCR 区域，相对「接受」按钮模板左上角的偏移。
-    # 实测 1280x720 截图：y-40~y+5 恰好覆盖任务名一行，读到「塞壬研究I」「塞壬研究II」；
-    # 再往下会把描述文字和奖励图标一起读进来，识别结果变得不可用。
-    OS_MISSION_OVERVIEW_NAME_AREA = (120, -40, 560, 5)
 
     def _os_find_checkout_offset_skip_monthly_boss(self, checkout_offset):
         """
@@ -220,20 +216,18 @@ class MissionHandler(GlobeOperation, ZoneManager):
                 rows.append((y, x))
         return sorted(rows)
 
-    def _os_mission_row_name(self, y, area=None):
-        """识别任务行左侧的任务名。
+    def _os_mission_row_name(self, y):
+        """识别任务总汇页任务行左侧的任务名。
 
-        区域以按钮模板的匹配位置为基准纵向偏移，横向覆盖任务名可能占用的宽度。
+        区域以「领取」按钮的匹配位置为基准纵向偏移，横向覆盖任务名可能占用的宽度。
 
         Args:
-            y (int): 该行按钮模板匹配到的 y 坐标。
-            area (tuple): 相对按钮匹配位置的 OCR 区域 (x1, y1, x2, y2)，
-                默认为任务总汇页的区域。
+            y (int): 该行「领取」按钮模板匹配到的 y 坐标。
 
         Returns:
             str: 识别到的任务名，识别失败时返回空字符串。
         """
-        x1, y1, x2, y2 = area or self.OS_MISSION_ROW_NAME_AREA
+        x1, y1, x2, y2 = self.OS_MISSION_ROW_NAME_AREA
         area = (x1, y + y1, x2, y + y2)
         ocr = Ocr(area, lang='cnocr', letter=(255, 255, 255), threshold=128, name='OCR_OS_MISSION_NAME')
         try:
@@ -290,65 +284,6 @@ class MissionHandler(GlobeOperation, ZoneManager):
             logger.info('[大世界处理-任务] 领取非塞壬研究任务')
             return True
 
-        return False
-
-    def _os_mission_overview_rows(self):
-        """扫描日常任务板的「接受」按钮，并判定每一行是不是塞壬研究任务。
-
-        返回每个「接受」按钮的匹配 y 坐标与判定结果。塞壬研究任务在任务总览被接受后
-        就会完成兑换（消耗作战补给凭证），所以必须在接受这一步就跳过。
-
-        Returns:
-            list[tuple[int, bool, str]]: 每行的 (y, 是否塞壬研究, 识别到的任务名)。
-
-        Pages:
-            in: MISSION_OVERVIEW_CHECK
-            out: MISSION_OVERVIEW_CHECK
-        """
-        rows = []
-        for y, _ in self._os_mission_scan_rows(MISSION_OVERVIEW_ACCEPT_SINGLE):
-            name = self._os_mission_row_name(y, area=self.OS_MISSION_OVERVIEW_NAME_AREA)
-            if name:
-                is_siren = is_siren_research_mission(name)
-            else:
-                # 读不出任务名时保守跳过。塞壬研究一旦被接受就立刻消耗作战补给凭证，
-                # 错接的代价远大于少接一次；界面淡入导致的偶发读空会在下一轮自动恢复。
-                logger.warning(f'[大世界处理-任务] 任务名识别失败，保守跳过该行 y={y}')
-                is_siren = True
-            rows.append((y, is_siren, name))
-        return rows
-
-    def _os_mission_overview_accept_one(self, rows):
-        """逐个接受非塞壬研究任务。
-
-        Args:
-            rows (list[tuple[int, bool, str]]): _os_mission_overview_rows() 的结果。
-
-        Returns:
-            bool: 是否点击了某个「接受」按钮。
-
-        Pages:
-            in: MISSION_OVERVIEW_CHECK
-            out: MISSION_OVERVIEW_CHECK
-        """
-        # 与「一键接受」共用同一个节流计时器，保持约 2 秒的点击间隔
-        timer = getattr(self, 'interval_timer', {}).get(MISSION_OVERVIEW_ACCEPT_SINGLE.name)
-        if timer is not None and not timer.reached():
-            return False
-
-        for y, is_siren, name in rows:
-            if is_siren:
-                logger.info(f'[大世界处理-任务] 跳过塞壬研究任务不接取: {name}')
-                continue
-            # 名称带行号，避免多行接取共用同名按钮时触发点击洪水保护
-            target = MISSION_OVERVIEW_ACCEPT_SINGLE.move(
-                (0, y - MISSION_OVERVIEW_ACCEPT_SINGLE.area[1]),
-                name=f'MISSION_OVERVIEW_ACCEPT_Y{y}')
-            self.device.click(target)
-            if timer is not None:
-                timer.reset()
-            logger.info(f'[大世界处理-任务] 接取非塞壬研究任务: {name}')
-            return True
         return False
 
     def os_mission_quit(self):
@@ -422,11 +357,6 @@ class MissionHandler(GlobeOperation, ZoneManager):
         """
         在任务总览中接受所有任务。
 
-        开启「不做塞壬研究任务」时，任务板上只要出现塞壬研究任务就不点「一键接受」
-        （它会把整板任务一起接掉），改为逐行接受并跳过塞壬研究行。
-        塞壬研究在被接受的那一刻就会完成兑换、消耗作战补给凭证，所以必须在接取
-        这一步拦住，光靠领奖时跳过是拦不住的。
-
         Args:
             skip_siren_mission (bool): 是否跳过塞壬研究任务。
             skip_first_screenshot (bool): 是否跳过第一次截图。
@@ -474,29 +404,12 @@ class MissionHandler(GlobeOperation, ZoneManager):
                 success = True
                 break
 
-            if skip_siren_mission:
-                rows = self._os_mission_overview_rows()
-                has_siren = any(is_siren for _, is_siren, _ in rows)
-                if not has_siren:
-                    # 任务板上没有塞壬研究任务，保持原有的一键接受
-                    if self.appear_then_click(MISSION_OVERVIEW_ACCEPT, offset=(20, 20), interval=2):
-                        self.interval_reset(MISSION_OVERVIEW_ACCEPT_SINGLE)
-                        continue
-                # 有塞壬研究任务时，「一键接受」会把它们一起接掉，改为逐行接受并跳过
-                if self._os_mission_overview_accept_one(rows):
-                    self.interval_reset(MISSION_OVERVIEW_ACCEPT)
-                    continue
-                # 只有整板都是塞壬研究才退出；仍有普通任务时继续循环等待节流窗口
-                if rows and all(is_siren for _, is_siren, _ in rows):
-                    logger.info('[大世界处理-任务] 剩余任务均为塞壬研究，跳过不接取')
-                    break
-            else:
-                if self.appear_then_click(MISSION_OVERVIEW_ACCEPT, offset=(20, 20), interval=2):
-                    self.interval_reset(MISSION_OVERVIEW_ACCEPT_SINGLE)
-                    continue
-                if self.appear_then_click(MISSION_OVERVIEW_ACCEPT_SINGLE, offset=(20, 20), interval=2):
-                    self.interval_reset(MISSION_OVERVIEW_ACCEPT)
-                    continue
+            if self.appear_then_click(MISSION_OVERVIEW_ACCEPT, offset=(20, 20), interval=2):
+                self.interval_reset(MISSION_OVERVIEW_ACCEPT_SINGLE)
+                continue
+            if self.appear_then_click(MISSION_OVERVIEW_ACCEPT_SINGLE, offset=(20, 20), interval=2):
+                self.interval_reset(MISSION_OVERVIEW_ACCEPT)
+                continue
 
         # is_in_globe
         self.ui_back(appear_button=MISSION_OVERVIEW_CHECK, check_button=self.is_in_globe,
