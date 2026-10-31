@@ -437,6 +437,10 @@
     "MeowfficerScore": {
       "name": "指挥喵评分",
       "help": "识别指挥喵天赋，按公开攻略口径评分"
+    },
+    "IslandProductionPlanner": {
+      "name": "岛屿生产规划器",
+      "help": "移植自 ALAS 的岛屿生产规划器：扫描岛屿科技，用线性规划算出每日生产与出售方案（在岛币净收入不低于下限的前提下季节 PT 最多），并写入各店铺后厨、经营商品、挂机生产与农田作物目标。实际生产仍由各岛屿任务执行。"
     }
   },
   "Scheduler": {
@@ -4147,6 +4151,10 @@
       "name": "农田作物底线",
       "help": "建议660及以上"
     },
+    "CropTargets": {
+      "name": "按作物设置补种目标",
+      "help": "每行一条「作物: 目标库存」，如\ncorn: 200\nwheat: 80\n列出的作物库存低于自己的目标时补种，未列出的作物沿用「农田作物底线」；目标填 0 表示不补种该作物。留空则全部使用「农田作物底线」。缺口比例最大的作物优先补种。\n可用作物：wheat, corn, rice, chinese_cabbage, potato, soybean, pasture, coffee_bean\n岛屿生产规划器运行后会自动改写本项。"
+    },
     "PlantPotatoes": {
       "name": "种小麦",
       "help": "",
@@ -4177,6 +4185,10 @@
     "MinOrchard": {
       "name": "水果底线",
       "help": ""
+    },
+    "CropTargets": {
+      "name": "按作物设置补种目标",
+      "help": "每行一条「作物: 目标库存」，如\napple: 150\nrubber: 0\n列出的作物库存低于自己的目标时补种，未列出的作物沿用「水果底线」；目标填 0 表示不补种该作物。留空则全部使用「水果底线」。缺口比例最大的作物优先补种。\n可用作物：apple, citrus, banana, mango, lemon, avocado, rubber, pear, persimmon\n岛屿生产规划器运行后会自动改写本项。"
     },
     "IgnoreAvocado": {
       "name": "忽视牛油果",
@@ -4214,6 +4226,10 @@
     "MinNursery": {
       "name": "苗圃作物底线",
       "help": ""
+    },
+    "CropTargets": {
+      "name": "按作物设置补种目标",
+      "help": "每行一条「作物: 目标库存」，如\nstrawberry: 120\ntea: 60\n列出的作物库存低于自己的目标时补种，未列出的作物沿用「苗圃作物底线」；目标填 0 表示不补种该作物。留空则全部使用「苗圃作物底线」。缺口比例最大的作物优先补种。\n可用作物：carrot, onion, flax, strawberry, cotton, tea, lavender, pineapple, asparagus\n岛屿生产规划器运行后会自动改写本项。"
     },
     "IgnorePineapple": {
       "name": "忽视菠萝",
@@ -6470,6 +6486,107 @@
     "WhiteBoxLimit": {
       "name": "保留每种白色装备箱 X 个",
       "help": ""
+    }
+  },
+  "IslandProductionPlanner": {
+    "_info": {
+      "name": "岛屿生产规划器",
+      "help": "首次使用：填好下方各店铺等级，商区角色在「经营模块」中设置；先不勾选「写入配置」运行一次，在日志中查看方案，再勾选写入。解锁新科技/岗位、改店铺等级或角色、换季后重新运行。"
+    },
+    "ApplySettings": {
+      "name": "写入配置",
+      "help": "关闭时只在日志中预览方案；开启后覆盖各店铺 Meal/MealNumber、AwayCook、经营商品，农田「按作物设置补种目标」，矿山/林场/渔场最低库存，牧场鸡肉/猪肉底线与牛奶/羊毛开关，以及制造业各产线岗位数。",
+      "True": "True",
+      "False": "False"
+    },
+    "RescanTechnology": {
+      "name": "重新扫描科技",
+      "help": "解锁新科技或岗位后开启。运行时进入岛屿科技页扫描，完成后自动关闭；没有保存过科技状态时也会扫描。",
+      "True": "True",
+      "False": "False"
+    },
+    "ScanSeasonTasks": {
+      "name": "扫描季节任务",
+      "help": "运行时进入季节页「任务」标签：先一键领取已完成任务的奖励，再读取未完成任务，把需要的物品写入「季节任务目标」。",
+      "True": "True",
+      "False": "False"
+    },
+    "SeasonTaskTargets": {
+      "name": "季节任务目标",
+      "help": "每行「物品英文名: 数量」，规划按本季剩余天数平均分配产量。开启「扫描季节任务」时每次运行自动改写；关闭后可手动编辑。"
+    },
+    "ExtraTargets": {
+      "name": "额外目标",
+      "help": "手动追加的备货目标，格式同上，也可写「物品: {count: 数量, period: 天数}」指定期限。AzurPilot 不自动处理季节订单，需要为订单备货时把订单物品写在这里。无法生产的物品会被忽略并在日志中提示。"
+    },
+    "DailyProfitLowerLimit": {
+      "name": "每日岛币净收入下限",
+      "help": "方案每天岛币净变化不低于此值。可填负数（用岛币换 PT）或 0（收支平衡）。无可行方案时调低。"
+    },
+    "DailyBufferSafetyMargin": {
+      "name": "日缓冲安全余量",
+      "help": "按比例放大每日消耗目标，如 0.1 为多备 10%。"
+    },
+    "FieldsEfficiency": {
+      "name": "农田效率加成",
+      "help": "丰壤农田的产出加成，来自岛屿「角色收集奖励」，按游戏内已领取的奖励数值选择（0 / 4% / 12%）。不确定时选 0：规划会略低估产量，只会多种一点，不会出错。",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "OrchardEfficiency": {
+      "name": "果园效率加成",
+      "help": "坠香果园的产出加成，来自岛屿「角色收集奖励」，按游戏内已领取的奖励数值选择（0 / 4% / 12%）。不确定时选 0：规划会略低估产量，只会多种一点，不会出错。",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "NurseryEfficiency": {
+      "name": "苗圃效率加成",
+      "help": "青芽苗圃的产出加成，来自岛屿「角色收集奖励」，按游戏内已领取的奖励数值选择（0 / 4% / 12%）。不确定时选 0：规划会略低估产量，只会多种一点，不会出错。",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "RestaurantGrade": {
+      "name": "有鱼餐馆等级",
+      "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "TeahouseGrade": {
+      "name": "白熊饮品等级",
+      "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "JuuEateryGrade": {
+      "name": "啾啾简餐等级",
+      "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "GrillGrade": {
+      "name": "乌鱼烤肉等级",
+      "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "JuuCoffeeGrade": {
+      "name": "啾咖啡等级",
+      "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
     }
   },
   "AutoEquip": {

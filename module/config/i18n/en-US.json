@@ -437,6 +437,10 @@
     "MeowfficerScore": {
       "name": "Meowfficer Score",
       "help": "Read meowfficer talents and score them with public guide rules"
+    },
+    "IslandProductionPlanner": {
+      "name": "Island Production Planner",
+      "help": "Island Production Planner ported from ALAS: scans island technology and uses linear programming to work out a daily production and sales plan (most season PT while keeping daily island coin income at or above a minimum). It writes the plan into each shop's kitchen list, business products, idle cooking and farm crop targets. The island tasks still do the actual work."
     }
   },
   "Scheduler": {
@@ -4147,6 +4151,10 @@
       "name": "Crop Stock Threshold",
       "help": "Recommended 660 or above."
     },
+    "CropTargets": {
+      "name": "Per-crop restock targets",
+      "help": "One \"crop: target stock\" per line, e.g.\ncorn: 200\nwheat: 80\nA listed crop is replanted when its stock drops below its own target; crops not listed use \"Crop stock threshold\". A target of 0 means never replant that crop. Leave empty to use \"Crop stock threshold\" for every crop. The crop furthest below its target is planted first.\nCrops: wheat, corn, rice, chinese_cabbage, potato, soybean, pasture, coffee_bean\nThe Island Production Planner rewrites this setting when it runs."
+    },
     "PlantPotatoes": {
       "name": "Plant Wheat",
       "help": "",
@@ -4177,6 +4185,10 @@
     "MinOrchard": {
       "name": "Fruit Stock Threshold",
       "help": ""
+    },
+    "CropTargets": {
+      "name": "Per-crop restock targets",
+      "help": "One \"crop: target stock\" per line, e.g.\napple: 150\nrubber: 0\nA listed crop is replanted when its stock drops below its own target; crops not listed use \"Fruit stock threshold\". A target of 0 means never replant that crop. Leave empty to use \"Fruit stock threshold\" for every crop. The crop furthest below its target is planted first.\nCrops: apple, citrus, banana, mango, lemon, avocado, rubber, pear, persimmon\nThe Island Production Planner rewrites this setting when it runs."
     },
     "IgnoreAvocado": {
       "name": "Ignore Avocado",
@@ -4214,6 +4226,10 @@
     "MinNursery": {
       "name": "Nursery Crop Stock Threshold",
       "help": ""
+    },
+    "CropTargets": {
+      "name": "Per-crop restock targets",
+      "help": "One \"crop: target stock\" per line, e.g.\nstrawberry: 120\ntea: 60\nA listed crop is replanted when its stock drops below its own target; crops not listed use \"Nursery crop stock threshold\". A target of 0 means never replant that crop. Leave empty to use \"Nursery crop stock threshold\" for every crop. The crop furthest below its target is planted first.\nCrops: carrot, onion, flax, strawberry, cotton, tea, lavender, pineapple, asparagus\nThe Island Production Planner rewrites this setting when it runs."
     },
     "IgnorePineapple": {
       "name": "Ignore Pineapple",
@@ -6470,6 +6486,107 @@
     "WhiteBoxLimit": {
       "name": "Keep X boxes of each type of white equipment",
       "help": ""
+    }
+  },
+  "IslandProductionPlanner": {
+    "_info": {
+      "name": "Island Production Planner",
+      "help": "First use: set each shop grade below; waitresses are set in \"Business Module\". Run once with \"Write settings\" off and read the plan in the log, then turn it on and run again. Re-run after unlocking technology or posts, changing a shop grade or waitress, or when the season changes."
+    },
+    "ApplySettings": {
+      "name": "Write settings",
+      "help": "Off: only preview the plan in the log. On: overwrite each shop's Meal/MealNumber, AwayCook and business products, the farm \"Per-crop restock targets\", mine/forest/fishery minimum stock, ranch chicken/pork minimums and milk/wool switches, and the number of posts per factory line.",
+      "True": "True",
+      "False": "False"
+    },
+    "RescanTechnology": {
+      "name": "Rescan technology",
+      "help": "Turn on after unlocking new technology or posts. The run opens the island Technology page to scan it and turns this off afterwards. It also scans when no technology status is saved yet.",
+      "True": "True",
+      "False": "False"
+    },
+    "ScanSeasonTasks": {
+      "name": "Scan season tasks",
+      "help": "Each run opens the Tasks tab of the season page, claims rewards for finished tasks, reads the unfinished ones and writes the items they need into \"Season task targets\".",
+      "True": "True",
+      "False": "False"
+    },
+    "SeasonTaskTargets": {
+      "name": "Season task targets",
+      "help": "One \"item English name: amount\" per line; the plan spreads production over the days left in the season. Rewritten on every run while \"Scan season tasks\" is on; edit it by hand when that is off."
+    },
+    "ExtraTargets": {
+      "name": "Extra targets",
+      "help": "Extra stock goals you add by hand, same format, or \"item: {count: amount, period: days}\" for a deadline. AzurPilot does not handle season orders, so to stock up for an order, write its items here. Items that cannot be produced yet are skipped with a note in the log."
+    },
+    "DailyProfitLowerLimit": {
+      "name": "Minimum daily island coin income",
+      "help": "The plan keeps the daily net change in island coins at or above this. Can be negative (spend coins for PT) or 0 (break even). Lower it if no plan is found."
+    },
+    "DailyBufferSafetyMargin": {
+      "name": "Daily buffer safety margin",
+      "help": "Scales daily usage targets up, e.g. 0.1 keeps 10% extra."
+    },
+    "FieldsEfficiency": {
+      "name": "Farmland efficiency bonus",
+      "help": "Faircrop Fields output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "OrchardEfficiency": {
+      "name": "Orchard efficiency bonus",
+      "help": "Sweetscent Orchard output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "NurseryEfficiency": {
+      "name": "Nursery efficiency bonus",
+      "help": "Newsprout Nursery output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "RestaurantGrade": {
+      "name": "Fish Restaurant grade",
+      "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "TeahouseGrade": {
+      "name": "Polar Bear Drinks grade",
+      "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "JuuEateryGrade": {
+      "name": "Juu Eatery grade",
+      "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "GrillGrade": {
+      "name": "Squid Grill grade",
+      "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "JuuCoffeeGrade": {
+      "name": "Juu Coffee grade",
+      "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
     }
   },
   "AutoEquip": {

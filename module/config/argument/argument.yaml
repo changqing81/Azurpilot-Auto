@@ -1624,6 +1624,9 @@ IslandFarm:
   WorkerFilter: |-
     WorkerJuu
   MinFarm: 660
+  CropTargets:
+    type: textarea
+    value: ''
   PlantPotatoes:
     value: 4
     option: [ 0, 1, 2, 3, 4 ]
@@ -1634,6 +1637,9 @@ IslandOrchard:
   WorkerFilter: |-
     WorkerJuu
   MinOrchard: 300
+  CropTargets:
+    type: textarea
+    value: ''
   IgnoreAvocado: true
   PlantRubber:
     value: 0
@@ -1646,6 +1652,9 @@ IslandNursery:
   WorkerFilter: |-
     WorkerJuu
   MinNursery: 0
+  CropTargets:
+    type: textarea
+    value: ''
   IgnorePineapple: true
   PlantLavender:
     value: 2
@@ -2331,6 +2340,47 @@ BoxDisassemble:
   BlueBoxLimit: 1000
   UseWhiteBox: true
   WhiteBoxLimit: 2000
+IslandProductionPlanner:
+  ApplySettings:
+    type: checkbox
+    value: false
+    option: [ true, false ]
+  RescanTechnology:
+    type: checkbox
+    value: true
+    option: [ true, false ]
+  ScanSeasonTasks:
+    type: checkbox
+    value: true
+    option: [ true, false ]
+  SeasonTaskTargets:
+    type: textarea
+    value: ''
+  ExtraTargets:
+    type: textarea
+    value: ''
+  DailyProfitLowerLimit: 50000
+  DailyBufferSafetyMargin: 0
+  FieldsEfficiency:
+    value: 0
+    option: [ 0, 4, 12 ]
+  OrchardEfficiency:
+    value: 0
+    option: [ 0, 4, 12 ]
+  NurseryEfficiency:
+    value: 0
+    option: [ 0, 4, 12 ]
+  RestaurantGrade: &IslandPlannerGrade
+    value: bronze
+    option: [ bronze, silver, gold, diamond ]
+  TeahouseGrade:
+    <<: *IslandPlannerGrade
+  JuuEateryGrade:
+    <<: *IslandPlannerGrade
+  GrillGrade:
+    <<: *IslandPlannerGrade
+  JuuCoffeeGrade:
+    <<: *IslandPlannerGrade
 AutoEquip:
   ShipLimit:
     value: 0

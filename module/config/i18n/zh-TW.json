@@ -437,6 +437,10 @@
     "MeowfficerScore": {
       "name": "指揮喵評分",
       "help": "識別指揮喵天賦，依公開攻略口徑評分"
+    },
+    "IslandProductionPlanner": {
+      "name": "島嶼生產規劃器",
+      "help": "移植自 ALAS 的島嶼生產規劃器：掃描島嶼科技，用線性規劃算出每日生產與出售方案（在島幣淨收入不低於下限的前提下季節 PT 最多），並寫入各店鋪後廚、經營商品、掛機生產與農田作物目標。實際生產仍由各島嶼任務執行。"
     }
   },
   "Scheduler": {
@@ -4147,6 +4151,10 @@
       "name": "農田作物底線",
       "help": "建議660及以上"
     },
+    "CropTargets": {
+      "name": "按作物設定補種目標",
+      "help": "每行一條「作物: 目標庫存」，如\ncorn: 200\nwheat: 80\n列出的作物庫存低於自己的目標時補種，未列出的作物沿用「農田作物底線」；目標填 0 表示不補種該作物。留空則全部使用「農田作物底線」。缺口比例最大的作物優先補種。\n可用作物：wheat, corn, rice, chinese_cabbage, potato, soybean, pasture, coffee_bean\n島嶼生產規劃器執行後會自動改寫本項。"
+    },
     "PlantPotatoes": {
       "name": "種小麥",
       "help": "",
@@ -4177,6 +4185,10 @@
     "MinOrchard": {
       "name": "水果底線",
       "help": ""
+    },
+    "CropTargets": {
+      "name": "按作物設定補種目標",
+      "help": "每行一條「作物: 目標庫存」，如\napple: 150\nrubber: 0\n列出的作物庫存低於自己的目標時補種，未列出的作物沿用「水果底線」；目標填 0 表示不補種該作物。留空則全部使用「水果底線」。缺口比例最大的作物優先補種。\n可用作物：apple, citrus, banana, mango, lemon, avocado, rubber, pear, persimmon\n島嶼生產規劃器執行後會自動改寫本項。"
     },
     "IgnoreAvocado": {
       "name": "忽視酪梨",
@@ -4214,6 +4226,10 @@
     "MinNursery": {
       "name": "苗圃作物底線",
       "help": ""
+    },
+    "CropTargets": {
+      "name": "按作物設定補種目標",
+      "help": "每行一條「作物: 目標庫存」，如\nstrawberry: 120\ntea: 60\n列出的作物庫存低於自己的目標時補種，未列出的作物沿用「苗圃作物底線」；目標填 0 表示不補種該作物。留空則全部使用「苗圃作物底線」。缺口比例最大的作物優先補種。\n可用作物：carrot, onion, flax, strawberry, cotton, tea, lavender, pineapple, asparagus\n島嶼生產規劃器執行後會自動改寫本項。"
     },
     "IgnorePineapple": {
       "name": "忽視鳳梨",
@@ -6470,6 +6486,107 @@
     "WhiteBoxLimit": {
       "name": "保留每種白色裝備箱 X 個",
       "help": ""
+    }
+  },
+  "IslandProductionPlanner": {
+    "_info": {
+      "name": "島嶼生產規劃器",
+      "help": "首次使用：填好下方各店鋪等級，商區角色在「經營模組」中設定；先不勾選「寫入設定」執行一次，在日誌中查看方案，再勾選寫入。解鎖新科技/崗位、改店鋪等級或角色、換季後重新執行。"
+    },
+    "ApplySettings": {
+      "name": "寫入設定",
+      "help": "關閉時只在日誌中預覽方案；開啟後覆蓋各店鋪 Meal/MealNumber、AwayCook、經營商品，農田「按作物設定補種目標」，礦山/林場/漁場最低庫存，牧場雞肉/豬肉底線與牛奶/羊毛開關，以及製造業各產線崗位數。",
+      "True": "True",
+      "False": "False"
+    },
+    "RescanTechnology": {
+      "name": "重新掃描科技",
+      "help": "解鎖新科技或崗位後開啟。執行時進入島嶼科技頁掃描，完成後自動關閉；沒有儲存過科技狀態時也會掃描。",
+      "True": "True",
+      "False": "False"
+    },
+    "ScanSeasonTasks": {
+      "name": "掃描季節任務",
+      "help": "執行時進入季節頁「任務」標籤：先一鍵領取已完成任務的獎勵，再讀取未完成任務，把需要的物品寫入「季節任務目標」。",
+      "True": "True",
+      "False": "False"
+    },
+    "SeasonTaskTargets": {
+      "name": "季節任務目標",
+      "help": "每行「物品英文名: 數量」，規劃按本季剩餘天數平均分配產量。開啟「掃描季節任務」時每次執行自動改寫；關閉後可手動編輯。"
+    },
+    "ExtraTargets": {
+      "name": "額外目標",
+      "help": "手動追加的備貨目標，格式同上，也可寫「物品: {count: 數量, period: 天數}」指定期限。AzurPilot 不自動處理季節訂單，需要為訂單備貨時把訂單物品寫在這裡。無法生產的物品會被忽略並在日誌中提示。"
+    },
+    "DailyProfitLowerLimit": {
+      "name": "每日島幣淨收入下限",
+      "help": "方案每天島幣淨變化不低於此值。可填負數（用島幣換 PT）或 0（收支平衡）。無可行方案時調低。"
+    },
+    "DailyBufferSafetyMargin": {
+      "name": "日緩衝安全餘量",
+      "help": "按比例放大每日消耗目標，如 0.1 為多備 10%。"
+    },
+    "FieldsEfficiency": {
+      "name": "農田效率加成",
+      "help": "豐壤農田的產出加成，來自島嶼「角色收集獎勵」，按遊戲內已領取的獎勵數值選擇（0 / 4% / 12%）。不確定時選 0：規劃會略低估產量，只會多種一點，不會出錯。",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "OrchardEfficiency": {
+      "name": "果園效率加成",
+      "help": "墜香果園的產出加成，來自島嶼「角色收集獎勵」，按遊戲內已領取的獎勵數值選擇（0 / 4% / 12%）。不確定時選 0：規劃會略低估產量，只會多種一點，不會出錯。",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "NurseryEfficiency": {
+      "name": "苗圃效率加成",
+      "help": "青芽苗圃的產出加成，來自島嶼「角色收集獎勵」，按遊戲內已領取的獎勵數值選擇（0 / 4% / 12%）。不確定時選 0：規劃會略低估產量，只會多種一點，不會出錯。",
+      "0": "0",
+      "4": "4",
+      "12": "12"
+    },
+    "RestaurantGrade": {
+      "name": "有魚餐館等級",
+      "help": "遊戲內該店鋪的等級，決定貨架數量（銅/銀 2、金 3、鑽石 4）與貨架容量（銅 5，其餘 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "TeahouseGrade": {
+      "name": "白熊飲品等級",
+      "help": "遊戲內該店鋪的等級，決定貨架數量（銅/銀 2、金 3、鑽石 4）與貨架容量（銅 5，其餘 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "JuuEateryGrade": {
+      "name": "啾啾簡餐等級",
+      "help": "遊戲內該店鋪的等級，決定貨架數量（銅/銀 2、金 3、鑽石 4）與貨架容量（銅 5，其餘 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "GrillGrade": {
+      "name": "烏魚烤肉等級",
+      "help": "遊戲內該店鋪的等級，決定貨架數量（銅/銀 2、金 3、鑽石 4）與貨架容量（銅 5，其餘 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
+    },
+    "JuuCoffeeGrade": {
+      "name": "啾咖啡等級",
+      "help": "遊戲內該店鋪的等級，決定貨架數量（銅/銀 2、金 3、鑽石 4）與貨架容量（銅 5，其餘 6）。",
+      "bronze": "bronze",
+      "silver": "silver",
+      "gold": "gold",
+      "diamond": "diamond"
     }
   },
   "AutoEquip": {

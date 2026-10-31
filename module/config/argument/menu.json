@@ -155,7 +155,8 @@
       "AzurLaneUncensored",
       "GameManager",
       "EmulatorManager",
-      "MeowfficerScore"
+      "MeowfficerScore",
+      "IslandProductionPlanner"
     ]
   }
 }
