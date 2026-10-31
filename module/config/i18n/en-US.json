@@ -310,6 +310,10 @@
       "name": "Cross-Month Daily",
       "help": "    AzurPilot will enter Operation Siren 10 minutes before the cross-month reset, wait for the reset without exiting, then complete the new day's OpSi daily, Obscured Zone, Abyssal Zone and Meowfficer Farming to earn extra rewards. When running OpSi Daily, it follows the \"OpSi - Daily\" task settings, and likewise for others.\n    Important: Do not operate the game while AzurPilot is waiting for the cross-month reset."
     },
+    "IslandProductionPlanner": {
+      "name": "Island Production Planner",
+      "help": "Island Production Planner ported from ALAS: scans island technology and uses linear programming to work out a daily production and sales plan (most season PT while keeping daily island coin income at or above a minimum). It writes the plan into each shop's kitchen list, business products, idle cooking and farm crop targets. The island tasks still do the actual work."
+    },
     "IslandPlan": {
       "name": "Island Plan (Unified Scheduling)",
       "help": "Runs all island sub-modules in a single visit: every due sub-module is executed in the order of the task list, then no island visit happens until the configured interval elapses.\nAfter enabling this task, disable the individual scheduling of the other island tasks to avoid duplicate visits."
@@ -437,10 +441,6 @@
     "MeowfficerScore": {
       "name": "Meowfficer Score",
       "help": "Read meowfficer talents and score them with public guide rules"
-    },
-    "IslandProductionPlanner": {
-      "name": "Island Production Planner",
-      "help": "Island Production Planner ported from ALAS: scans island technology and uses linear programming to work out a daily production and sales plan (most season PT while keeping daily island coin income at or above a minimum). It writes the plan into each shop's kitchen list, business products, idle cooking and farm crop targets. The island tasks still do the actual work."
     }
   },
   "Scheduler": {
@@ -6517,7 +6517,7 @@
     },
     "ExtraTargets": {
       "name": "Extra targets",
-      "help": "Extra stock goals you add by hand, same format, or \"item: {count: amount, period: days}\" for a deadline. AzurPilot does not handle season orders, so to stock up for an order, write its items here. Items that cannot be produced yet are skipped with a note in the log."
+      "help": "Extra stock goals you add by hand, same format, or \"item: {{count: amount, period: days}}\" for a deadline. AzurPilot does not handle season orders, so to stock up for an order, write its items here. Items that cannot be produced yet are skipped with a note in the log."
     },
     "DailyProfitLowerLimit": {
       "name": "Minimum daily island coin income",
@@ -6551,42 +6551,42 @@
     "RestaurantGrade": {
       "name": "Fish Restaurant grade",
       "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "gold": "Gold",
+      "diamond": "Diamond"
     },
     "TeahouseGrade": {
       "name": "Polar Bear Drinks grade",
       "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "gold": "Gold",
+      "diamond": "Diamond"
     },
     "JuuEateryGrade": {
       "name": "Juu Eatery grade",
       "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "gold": "Gold",
+      "diamond": "Diamond"
     },
     "GrillGrade": {
       "name": "Squid Grill grade",
       "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "gold": "Gold",
+      "diamond": "Diamond"
     },
     "JuuCoffeeGrade": {
       "name": "Juu Coffee grade",
       "help": "The shop's grade in game. It sets the number of shelves (bronze/silver 2, gold 3, diamond 4) and shelf capacity (bronze 5, others 6).",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "Bronze",
+      "silver": "Silver",
+      "gold": "Gold",
+      "diamond": "Diamond"
     }
   },
   "AutoEquip": {

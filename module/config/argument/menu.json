@@ -112,6 +112,7 @@
     "menu": "collapse",
     "page": "setting",
     "tasks": [
+      "IslandProductionPlanner",
       "IslandPlan",
       "IslandBusiness",
       "IslandFarm",
@@ -155,8 +156,7 @@
       "AzurLaneUncensored",
       "GameManager",
       "EmulatorManager",
-      "MeowfficerScore",
-      "IslandProductionPlanner"
+      "MeowfficerScore"
     ]
   }
 }

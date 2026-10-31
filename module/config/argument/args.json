@@ -16333,6 +16333,186 @@
       }
     }
   },
+  "IslandProductionPlanner": {
+    "Scheduler": {
+      "Enable": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "PushNotification": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "NextRun": {
+        "type": "datetime",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime"
+      },
+      "Command": {
+        "type": "input",
+        "value": "IslandProductionPlanner",
+        "display": "hide"
+      },
+      "SuccessInterval": {
+        "type": "input",
+        "value": 0,
+        "display": "hide"
+      },
+      "FailureInterval": {
+        "type": "input",
+        "value": 120,
+        "display": "hide"
+      },
+      "ServerUpdate": {
+        "type": "input",
+        "value": "00:00",
+        "display": "hide"
+      },
+      "Sensitive": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      }
+    },
+    "IslandProductionPlanner": {
+      "ApplySettings": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "RescanTechnology": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "ScanSeasonTasks": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "SeasonTaskTargets": {
+        "type": "textarea",
+        "value": ""
+      },
+      "ExtraTargets": {
+        "type": "textarea",
+        "value": ""
+      },
+      "DailyProfitLowerLimit": {
+        "type": "input",
+        "value": 50000
+      },
+      "DailyBufferSafetyMargin": {
+        "type": "input",
+        "value": 0
+      },
+      "FieldsEfficiency": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          4,
+          12
+        ]
+      },
+      "OrchardEfficiency": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          4,
+          12
+        ]
+      },
+      "NurseryEfficiency": {
+        "type": "select",
+        "value": 0,
+        "option": [
+          0,
+          4,
+          12
+        ]
+      },
+      "RestaurantGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "TeahouseGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "JuuEateryGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "GrillGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      },
+      "JuuCoffeeGrade": {
+        "type": "select",
+        "value": "bronze",
+        "option": [
+          "bronze",
+          "silver",
+          "gold",
+          "diamond"
+        ]
+      }
+    },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
   "IslandPlan": {
     "Scheduler": {
       "Enable": {
@@ -20281,135 +20461,6 @@
         "validate": [
           1,
           60
-        ]
-      }
-    },
-    "Storage": {
-      "Storage": {
-        "type": "storage",
-        "value": {},
-        "valuetype": "ignore",
-        "display": "disabled"
-      }
-    }
-  },
-  "IslandProductionPlanner": {
-    "IslandProductionPlanner": {
-      "ApplySettings": {
-        "type": "checkbox",
-        "value": false,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "RescanTechnology": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "ScanSeasonTasks": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "SeasonTaskTargets": {
-        "type": "textarea",
-        "value": ""
-      },
-      "ExtraTargets": {
-        "type": "textarea",
-        "value": ""
-      },
-      "DailyProfitLowerLimit": {
-        "type": "input",
-        "value": 50000
-      },
-      "DailyBufferSafetyMargin": {
-        "type": "input",
-        "value": 0
-      },
-      "FieldsEfficiency": {
-        "type": "select",
-        "value": 0,
-        "option": [
-          0,
-          4,
-          12
-        ]
-      },
-      "OrchardEfficiency": {
-        "type": "select",
-        "value": 0,
-        "option": [
-          0,
-          4,
-          12
-        ]
-      },
-      "NurseryEfficiency": {
-        "type": "select",
-        "value": 0,
-        "option": [
-          0,
-          4,
-          12
-        ]
-      },
-      "RestaurantGrade": {
-        "type": "select",
-        "value": "bronze",
-        "option": [
-          "bronze",
-          "silver",
-          "gold",
-          "diamond"
-        ]
-      },
-      "TeahouseGrade": {
-        "type": "select",
-        "value": "bronze",
-        "option": [
-          "bronze",
-          "silver",
-          "gold",
-          "diamond"
-        ]
-      },
-      "JuuEateryGrade": {
-        "type": "select",
-        "value": "bronze",
-        "option": [
-          "bronze",
-          "silver",
-          "gold",
-          "diamond"
-        ]
-      },
-      "GrillGrade": {
-        "type": "select",
-        "value": "bronze",
-        "option": [
-          "bronze",
-          "silver",
-          "gold",
-          "diamond"
-        ]
-      },
-      "JuuCoffeeGrade": {
-        "type": "select",
-        "value": "bronze",
-        "option": [
-          "bronze",
-          "silver",
-          "gold",
-          "diamond"
         ]
       }
     },

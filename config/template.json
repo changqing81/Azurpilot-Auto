@@ -3170,6 +3170,38 @@
       "Storage": {}
     }
   },
+  "IslandProductionPlanner": {
+    "Scheduler": {
+      "Enable": false,
+      "PushNotification": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "IslandProductionPlanner",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00",
+      "Sensitive": false
+    },
+    "IslandProductionPlanner": {
+      "ApplySettings": false,
+      "RescanTechnology": true,
+      "ScanSeasonTasks": true,
+      "SeasonTaskTargets": null,
+      "ExtraTargets": null,
+      "DailyProfitLowerLimit": 50000,
+      "DailyBufferSafetyMargin": 0,
+      "FieldsEfficiency": 0,
+      "OrchardEfficiency": 0,
+      "NurseryEfficiency": 0,
+      "RestaurantGrade": "bronze",
+      "TeahouseGrade": "bronze",
+      "JuuEateryGrade": "bronze",
+      "GrillGrade": "bronze",
+      "JuuCoffeeGrade": "bronze"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
   "IslandPlan": {
     "Scheduler": {
       "Enable": false,
@@ -3873,28 +3905,6 @@
       "DeviceInterval": 2,
       "ScanLimit": 0,
       "ScanPasses": 12
-    },
-    "Storage": {
-      "Storage": {}
-    }
-  },
-  "IslandProductionPlanner": {
-    "IslandProductionPlanner": {
-      "ApplySettings": false,
-      "RescanTechnology": true,
-      "ScanSeasonTasks": true,
-      "SeasonTaskTargets": null,
-      "ExtraTargets": null,
-      "DailyProfitLowerLimit": 50000,
-      "DailyBufferSafetyMargin": 0,
-      "FieldsEfficiency": 0,
-      "OrchardEfficiency": 0,
-      "NurseryEfficiency": 0,
-      "RestaurantGrade": "bronze",
-      "TeahouseGrade": "bronze",
-      "JuuEateryGrade": "bronze",
-      "GrillGrade": "bronze",
-      "JuuCoffeeGrade": "bronze"
     },
     "Storage": {
       "Storage": {}

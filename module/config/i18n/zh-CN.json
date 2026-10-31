@@ -310,6 +310,10 @@
       "name": "跨月每日",
       "help": "    AzurPilot将在大世界跨月重置之前10分钟进入大世界，等待大世界重置但不退出大世界，然后完成新一天的大世界每日、隐秘海域、深渊坐标和短猫相接，以获得额外的金菜。运行大世界每日时，按\"大世界每日\"任务设置运行，其余同理。\n    重要：AzurPilot等待跨月期间，请不要操作游戏。"
     },
+    "IslandProductionPlanner": {
+      "name": "岛屿生产规划器",
+      "help": "移植自 ALAS 的岛屿生产规划器：扫描岛屿科技，用线性规划算出每日生产与出售方案（在岛币净收入不低于下限的前提下季节 PT 最多），并写入各店铺后厨、经营商品、挂机生产与农田作物目标。实际生产仍由各岛屿任务执行。"
+    },
     "IslandPlan": {
       "name": "岛屿计划（统一调度）",
       "help": "统一运行岛屿下的子模块：一次进岛按清单跑完所有到期任务，结束后在设定的间隔时间内不再进入岛屿。\n启用本任务后请关闭其它岛屿子任务的独立调度，避免重复进岛。"
@@ -437,10 +441,6 @@
     "MeowfficerScore": {
       "name": "指挥喵评分",
       "help": "识别指挥喵天赋，按公开攻略口径评分"
-    },
-    "IslandProductionPlanner": {
-      "name": "岛屿生产规划器",
-      "help": "移植自 ALAS 的岛屿生产规划器：扫描岛屿科技，用线性规划算出每日生产与出售方案（在岛币净收入不低于下限的前提下季节 PT 最多），并写入各店铺后厨、经营商品、挂机生产与农田作物目标。实际生产仍由各岛屿任务执行。"
     }
   },
   "Scheduler": {
@@ -6517,7 +6517,7 @@
     },
     "ExtraTargets": {
       "name": "额外目标",
-      "help": "手动追加的备货目标，格式同上，也可写「物品: {count: 数量, period: 天数}」指定期限。AzurPilot 不自动处理季节订单，需要为订单备货时把订单物品写在这里。无法生产的物品会被忽略并在日志中提示。"
+      "help": "手动追加的备货目标，格式同上，也可写「物品: {{count: 数量, period: 天数}}」指定期限。AzurPilot 不自动处理季节订单，需要为订单备货时把订单物品写在这里。无法生产的物品会被忽略并在日志中提示。"
     },
     "DailyProfitLowerLimit": {
       "name": "每日岛币净收入下限",
@@ -6551,42 +6551,42 @@
     "RestaurantGrade": {
       "name": "有鱼餐馆等级",
       "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "铜",
+      "silver": "银",
+      "gold": "金",
+      "diamond": "钻石"
     },
     "TeahouseGrade": {
       "name": "白熊饮品等级",
       "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "铜",
+      "silver": "银",
+      "gold": "金",
+      "diamond": "钻石"
     },
     "JuuEateryGrade": {
       "name": "啾啾简餐等级",
       "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "铜",
+      "silver": "银",
+      "gold": "金",
+      "diamond": "钻石"
     },
     "GrillGrade": {
       "name": "乌鱼烤肉等级",
       "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "铜",
+      "silver": "银",
+      "gold": "金",
+      "diamond": "钻石"
     },
     "JuuCoffeeGrade": {
       "name": "啾咖啡等级",
       "help": "游戏内该店铺的等级，决定货架数量（铜/银 2、金 3、钻石 4）与货架容量（铜 5，其余 6）。",
-      "bronze": "bronze",
-      "silver": "silver",
-      "gold": "gold",
-      "diamond": "diamond"
+      "bronze": "铜",
+      "silver": "银",
+      "gold": "金",
+      "diamond": "钻石"
     }
   },
   "AutoEquip": {

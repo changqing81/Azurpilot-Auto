@@ -406,6 +406,9 @@ Island:
   menu: 'collapse'
   page: 'setting'
   tasks:
+    IslandProductionPlanner:
+      - Scheduler
+      - IslandProductionPlanner
     IslandPlan:
       - Scheduler
       - IslandPlan
@@ -517,8 +520,6 @@ Tool:
       - EmulatorManager
     MeowfficerScore:
       - MeowfficerScore
-    IslandProductionPlanner:
-      - IslandProductionPlanner
 Dashboard:
   page: dashboard
   tasks:
