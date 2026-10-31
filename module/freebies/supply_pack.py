@@ -16,6 +16,34 @@ from module.ui.page import page_shop, page_supply_pack
 
 
 class SupplyPack(CampaignStatus):
+    def supply_pack_find(self, supply_pack, skip_first_screenshot=True):
+        """在补给包列表中查找指定补给包，最多向左滑动 8 次。
+
+        Args:
+            supply_pack (Button): 目标补给包按钮。
+            skip_first_screenshot (bool): 是否跳过首次截图。
+
+        Returns:
+            bool: 是否找到补给包。
+
+        Pages:
+            in: page_supply_pack
+            out: page_supply_pack
+        """
+        for attempt in range(9):
+            if skip_first_screenshot:
+                skip_first_screenshot = False
+            else:
+                self.device.screenshot()
+
+            if self.appear(supply_pack, offset=(0, -20, 400, 20)):
+                return True
+            if attempt < 8:
+                self.device.swipe_vector((-400, 0), box=(230, 200, 1060, 600))
+
+        logger.warning(f'[免费福利-补给] 左滑 8 次后仍未找到 {supply_pack}')
+        return False
+
     def supply_pack_buy(self, supply_pack, skip_first_screenshot=True):
         """
         Args:
@@ -26,6 +54,8 @@ class SupplyPack(CampaignStatus):
             bool: If bought.
         """
         logger.hr('购买补给包')
+        if not self.supply_pack_find(supply_pack, skip_first_screenshot=skip_first_screenshot):
+            return False
         [self.interval_clear(asset) for asset in [GET_ITEMS_1, GET_ITEMS_2, supply_pack, BUY_CONFIRM]]
 
         logger.info(f'[免费福利-补给] 购买 {supply_pack}')
