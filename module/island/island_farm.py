@@ -481,13 +481,20 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
                 continue
             if self.appear(ISLAND_SELECT_PRODUCT_CHECK, offset=1):
                 if self.select_product(selection, selection_check):
-                    if self.ensure_select_product_material(
-                            item_button=seed_config['shop'],
-                            required_quantity=seed_config['seed_number'],
-                            shop_check=ISLAND_SHOP_SEED_TAB_CHECK,
-                            item_name=f"{product}种子",
-                    ):
+                    # seed_number 是补货目标而非单次需求；补货买不起时，
+                    # 现有种子够页面显示的单次需求就直接种，不够才跳过
+                    material = self.ensure_select_product_material(
+                        item_button=seed_config['shop'],
+                        required_quantity=seed_config['seed_number'],
+                        shop_check=ISLAND_SHOP_SEED_TAB_CHECK,
+                        item_name=f"{self._item_cn(product)}种子",
+                    )
+                    if material == MATERIAL_RESTOCKED:
                         continue
+                    if material == MATERIAL_INSUFFICIENT:
+                        logger.warning(f"[岛屿-农田] {self._item_cn(product)}种子不足且无法补买，跳过本次种植")
+                        self.back_to_postmanage_from_dispatch()
+                        return False
                     self.device.sleep(0.3)
                     if not self.confirm_post_add_order(f"{product}种植派遣"):
                         self.back_to_postmanage_from_dispatch()
@@ -523,9 +530,9 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
         self.check_inventory_and_prepare_lists()
 
         logger.info("[岛屿-农田] \n当前库存统计:")
-        logger.info(f"[岛屿-农田] 农场库存: {self.inventory_counts['farm']}")
-        logger.info(f"[岛屿-农田] 果园库存: {self.inventory_counts['orchard']}")
-        logger.info(f"[岛屿-农田] 苗圃库存: {self.inventory_counts['nursery']}")
+        logger.info(f"[岛屿-农田] 农场库存: {self._inv_cn(self.inventory_counts['farm'])}")
+        logger.info(f"[岛屿-农田] 果园库存: {self._inv_cn(self.inventory_counts['orchard'])}")
+        logger.info(f"[岛屿-农田] 苗圃库存: {self._inv_cn(self.inventory_counts['nursery'])}")
 
         self.goto_postmanage()
         self.post_manage_mode(POST_MANAGE_PRODUCTION)
@@ -584,9 +591,9 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
                         'time_var_name': time_var_name
                     })
 
-        # 滑动到苗圃位置
+        # 滑动到苗圃位置（滑动距离不够时自动补滑，直到苗圃岗位出现）
         self.device.sleep(1)
-        self.post_manage_up_swipe(450)
+        self.post_manage_swipe_until_appear(ISLAND_NURSERY_POST1, min_swipes=1)
         self.device.sleep(0.5)  # 等待滑动动画完成
 
         # 然后遍历苗圃
@@ -681,7 +688,7 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
             # 然后处理苗圃的播种
             category = 'nursery'
             if idle_posts[category]:
-                self.post_manage_up_swipe(450)
+                self.post_manage_swipe_until_appear(ISLAND_NURSERY_POST1, min_swipes=1)
                 self.device.sleep(0.5)
                 idle_posts_list = idle_posts[category]
                 crops_to_plant = all_plants_to_plant[category]

@@ -312,15 +312,20 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler):
                 continue
             if self.appear(ISLAND_SELECT_PRODUCT_CHECK, offset=1):
                 if self.select_product(selection, selection_check):
-                    if self.ensure_select_product_material(
-                            item_button=item_config['shop'],
-                            required_quantity=required_quantity,
-                            shop_check=ISLAND_FRY_SHOP_CHECK,
-                            item_name=f"{product}鱼苗",
-                            tab_check=tab_check,
-                            tab_button=tab_button,
-                    ):
+                    material = self.ensure_select_product_material(
+                        item_button=item_config['shop'],
+                        required_quantity=required_quantity,
+                        shop_check=ISLAND_FRY_SHOP_CHECK,
+                        item_name=f"{product}鱼苗",
+                        tab_check=tab_check,
+                        tab_button=tab_button,
+                    )
+                    if material == MATERIAL_RESTOCKED:
                         continue
+                    if material == MATERIAL_INSUFFICIENT:
+                        logger.warning(f"[岛屿-渔场] {self._item_cn(product)}鱼苗不足且无法补买，跳过本次养殖")
+                        self.back_to_postmanage_from_dispatch()
+                        return False
                     self.device.sleep(0.3)
                     if not self.confirm_post_add_order(f"{product}养殖派遣"):
                         self.back_to_postmanage_from_dispatch()

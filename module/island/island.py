@@ -57,6 +57,18 @@ OCR_SELECT_PRODUCT_MATERIAL_COUNTER_AREAS = (
     (775, 536, 850, 562),
 )
 
+# 岗位列表滑动参数：单次滑动距离与「找不到目标岗位」时的最大补滑次数。
+# 模拟器/云手机上一次滑动实际滚动的距离常常不够，只滑固定次数会把目标岗位停在画面外。
+ISLAND_POST_SWIPE_STEP = 450
+ISLAND_POST_SWIPE_SEARCH_MAX = 8
+
+# 材料补货状态：ensure_select_product_material 的三态返回值。
+# READY 可直接确认派遣；RESTOCKED 离开过产品选择页，调用方需重新选择产品；
+# INSUFFICIENT 补货失败且不够一次派遣，调用方应跳过该岗位。
+MATERIAL_READY = 'ready'
+MATERIAL_RESTOCKED = 'restocked'
+MATERIAL_INSUFFICIENT = 'insufficient'
+
 # select_product 中滑动操作的点击记录名称，提取为常量避免硬编码多处不一致
 SELECTION_UP_SWIPE_NAME = "SelectionUpSwipe"
 # select_product 最大滑动尝试次数，覆盖列表底部产品（海参等位于列表末尾）
@@ -146,6 +158,10 @@ class Island(SelectCharacter):
         self.post_open_retry_swipe = False
         self.post_open_retry_swipe_limit = 1
         self.post_open_full_retry_limit = 1
+
+    def _inv_cn(self, mapping):
+        """将库存字典的键翻译为中文，仅用于日志输出，不修改原字典。"""
+        return {self._item_cn(key): value for key, value in mapping.items()}
 
     def _item_cn(self, name):
         """返回岛屿物品英文 key 对应的中文名；无映射时原样返回。"""
@@ -901,6 +917,33 @@ class Island(SelectCharacter):
     def post_manage_down_swipe(self,distance):
         self.device.swipe_vector(vector=(0, distance), box=(688, 69, 725, 656), name="PostDownSwipe")
         self.device.click(POST_MANAGE_SWIPE_STOP, control_check=False)
+    def post_manage_swipe_until_appear(self, post, min_swipes=1, max_swipes=None, offset=300):
+        """向下补滑，直到目标岗位按钮出现。
+
+        先按原有调参滑动 min_swipes 次，之后每次滑动都检测目标岗位；模拟器/云手机
+        上一次滑动实际滚动的距离不够时，会自动继续补滑，避免岗位按钮停在画面外。
+
+        Args:
+            post (Button): 目标岗位按钮。
+            min_swipes (int): 至少滑动的次数，保留原有调参位置。
+            max_swipes (int): 最大滑动次数，默认 ISLAND_POST_SWIPE_SEARCH_MAX。
+            offset (int): 岗位按钮模板匹配的搜索偏移。
+
+        Returns:
+            bool: 补滑后是否识别到目标岗位按钮。
+        """
+        max_swipes = max(max_swipes or ISLAND_POST_SWIPE_SEARCH_MAX, min_swipes)
+        for i in range(max_swipes + 1):
+            # 滑动后用最新截图判断目标岗位是否出现
+            self.device.screenshot()
+            if i >= min_swipes and self.appear(post, offset=offset):
+                return True
+            if i == max_swipes:
+                break
+            self.post_manage_up_swipe(ISLAND_POST_SWIPE_STEP)
+            self.device.sleep(0.3)
+        return False
+
     def post_manage_swipe(self,count):
         if count >= 2:
             for _ in range(count):
@@ -1242,31 +1285,95 @@ class Island(SelectCharacter):
         logger.warning("[岛屿] 从补货商店返回岗位产品选择页超时")
         return False
 
-    def ensure_select_product_material(self, item_button, required_quantity, shop_check,
-                                       item_name=None, tab_check=None, tab_button=None):
-        """
-        在岗位产品选择页读取当前材料数量，不足时进入对应商店补买。
+    @staticmethod
+    def parse_select_product_material_required(counter_text):
+        """解析材料计数文本中斜杠右侧的单次派遣需求数。
+
+        Args:
+            counter_text (str): 规范化后的材料文本（如 "35/9" 或 "110/(2+6)"）。
 
         Returns:
-            bool: True 表示发生过补货，调用方需要重新选择产品；False 表示库存已足够。
+            int: 需求数之和；没有斜杠或没有数字时返回 0，表示未知。
+        """
+        if '/' not in counter_text:
+            return 0
+        required_text = counter_text.split('/', 1)[1]
+        return sum(int(number) for number in re.findall(r'\d+', required_text))
+
+    @staticmethod
+    def plan_select_product_material(current, target, page_required, failed_quantity=None):
+        """根据库存、目标库存和此前购买失败的数量，决定材料是否补货。
+
+        补到 target 只是尽力而为：一旦这个数量买不起，库存已够页面显示的单次派遣
+        需求（page_required）时直接派遣；不够时只补差到单次需求，比失败数量还少才尝试。
+
+        Args:
+            current (int): 当前库存。
+            target (int): 目标库存（如种子的 seed_number）。
+            page_required (int): 页面显示的单次派遣需求，0 表示未识别。
+            failed_quantity (int, optional): 本次任务中已购买失败的最小数量。默认为 None。
+
+        Returns:
+            tuple[str, int]: (MATERIAL_READY | 'buy' | MATERIAL_INSUFFICIENT, 购买数量)。
+        """
+        if current >= target:
+            return MATERIAL_READY, 0
+        if failed_quantity is None or target - current < failed_quantity:
+            return 'buy', target - current
+        if page_required <= 0:
+            # 需求数没识别到：有库存就交给确认派遣按钮判断，没有库存只能跳过
+            return (MATERIAL_READY, 0) if current > 0 else (MATERIAL_INSUFFICIENT, 0)
+        if current >= page_required:
+            return MATERIAL_READY, 0
+        if page_required - current < failed_quantity:
+            return 'buy', page_required - current
+        return MATERIAL_INSUFFICIENT, 0
+
+    def ensure_select_product_material(self, item_button, required_quantity, shop_check,
+                                       item_name=None, tab_check=None, tab_button=None):
+        """在岗位产品选择页读取当前材料数量，不足时进入对应商店补买。
+
+        Args:
+            item_button (Button): 商店中商品图标按钮。
+            required_quantity (int): 所需材料数量。
+            shop_check (Button): 商店界面判定按钮。
+            item_name (str, optional): 商品名称。默认为 None。
+            tab_check (Button, optional): 商店页签判定按钮。默认为 None。
+            tab_button (Button, optional): 商店页签点击按钮。默认为 None。
+
+        Returns:
+            str: MATERIAL_READY 表示可直接确认派遣；MATERIAL_RESTOCKED 表示离开过产品选择页，
+                调用方需要重新选择产品；MATERIAL_INSUFFICIENT 表示补货失败且不够一次派遣，调用方应跳过岗位。
         """
         required_quantity = max(1, int(required_quantity))
         current_quantity, counter_text = self.ocr_select_product_material_detail(expected_quantity=required_quantity)
+        page_required = self.parse_select_product_material_required(counter_text)
         display_name = item_name or getattr(item_button, 'name', '材料')
-        logger.info(f"[岛屿] {display_name}页面材料: {counter_text}，当前库存: {current_quantity}，目标库存: {required_quantity}")
+        cn_name = self._item_cn(display_name)
+        logger.info(f"[岛屿] {cn_name}页面材料: {counter_text}，当前库存: {current_quantity}，目标库存: {required_quantity}")
 
-        if current_quantity >= required_quantity:
-            return False
+        # 本次任务中每种材料买不起的最小数量；Island.__init__ 在测试中可能被替换，按需创建
+        failed_quantities = getattr(self, '_material_buy_failed', None)
+        if failed_quantities is None:
+            failed_quantities = self._material_buy_failed = {}
+        failed_quantity = failed_quantities.get(display_name)
 
-        buy_quantity = required_quantity - current_quantity
-        logger.info(f"[岛屿] {display_name}数量不足，进入商店补买 {buy_quantity} 个")
-        if not self.goto_shop_from_select_product(
+        action, buy_quantity = self.plan_select_product_material(
+            current_quantity, required_quantity, page_required, failed_quantity)
+        if action == MATERIAL_READY:
+            if current_quantity < required_quantity:
+                logger.info(f"[岛屿] {cn_name}补货失败，现有库存够本次派遣（需要 {page_required}），直接派遣")
+            return MATERIAL_READY
+        if action == MATERIAL_INSUFFICIENT:
+            logger.warning(f"[岛屿] {cn_name}补货失败且库存不够本次派遣（{counter_text}），跳过该岗位")
+            return MATERIAL_INSUFFICIENT
+
+        logger.info(f"[岛屿] {cn_name}数量不足，进入商店补买 {buy_quantity} 个")
+        if self.goto_shop_from_select_product(
             shop_check=shop_check,
             tab_check=tab_check,
             tab_button=tab_button,
-        ):
-            return True
-        if not self.buy_shop_item(
+        ) and self.buy_shop_item(
             item_button=item_button,
             quantity=buy_quantity,
             shop_check=shop_check,
@@ -1274,9 +1381,13 @@ class Island(SelectCharacter):
             tab_check=tab_check,
             tab_button=tab_button,
         ):
-            return True
+            self.back_to_select_product_after_shop()
+            return MATERIAL_RESTOCKED
+
+        failed_quantities[display_name] = min(buy_quantity, failed_quantity or buy_quantity)
+        logger.warning(f"[岛屿] {cn_name}补买 {buy_quantity} 个失败，返回产品选择页按现有库存处理")
         self.back_to_select_product_after_shop()
-        return True
+        return MATERIAL_RESTOCKED
 
     def goto_mill(self, max_attempts=3):
         for attempt in range(max_attempts):
