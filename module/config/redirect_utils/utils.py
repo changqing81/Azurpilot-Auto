@@ -249,3 +249,30 @@ def opsi_record_redirect(value):
     """
     # 本地为本地档位体系：旧值若带 upload 档，先转成本地档再铺给 8 个开关。
     return [drop_record_local_redirect(value)] * len(OPSI_RECORD_ARGS)
+
+
+def fleet_training_hours_redirect(value):
+    """旧培养间隔从分钟换算为小时，保持原有实际等待时间。"""
+    return value / 60
+
+
+def fleet_training_interval_redirect(value):
+    """合并旧独立间隔；优先启用项的最短间隔，已有共用值保持不变。"""
+    if not isinstance(value, dict):
+        return 6.0
+    shared = value.get('FleetTraining', {})
+    if isinstance(shared, dict) and 'CheckIntervalHours' in shared:
+        return shared['CheckIntervalHours']
+    configured, enabled = [], []
+    for name in ('FleetLevelTraining', 'FleetAffinityTraining'):
+        fields = value.get(name, {})
+        if not isinstance(fields, dict):
+            continue
+        hours = fields.get('CheckIntervalHours')
+        if hours is None and type(fields.get('CheckInterval')) in (int, float):
+            hours = fleet_training_hours_redirect(fields['CheckInterval'])
+        if type(hours) in (int, float) and 0 <= hours < float('inf'):
+            configured.append(hours)
+            if fields.get('Enabled') is True:
+                enabled.append(hours)
+    return min(enabled or configured, default=6.0)

@@ -4,6 +4,9 @@
 （ADB、uiautomator2、minitouch、Hermit、MaaTouch、scrcpy、nemu_ipc）
 自动分发到对应的底层实现。
 """
+from contextlib import contextmanager
+from contextvars import ContextVar
+
 from module.device.session import session_guard
 from module.base.button import Button
 from module.base.decorator import cached_property
@@ -15,6 +18,26 @@ from module.device.method.minitouch import Minitouch
 from module.device.method.nemu_ipc import NemuIpc
 from module.device.method.scrcpy import Scrcpy
 from module.logger import logger
+
+# 当前调用期间的输入间隔覆盖值。None 表示沿用配置里的常规节奏。
+_CONTROL_INTERVAL = ContextVar('control_interval', default=None)
+
+
+@contextmanager
+def control_interval(interval):
+    """仅在当前调用期间增加输入间隔，退出或异常时恢复原有操作节奏。"""
+    token = _CONTROL_INTERVAL.set(interval)
+    try:
+        yield
+    finally:
+        _CONTROL_INTERVAL.reset(token)
+
+
+def wait_control_interval(device):
+    """输入节流不代替界面就绪判断；调用方仍需用新截图确认状态。"""
+    interval = _CONTROL_INTERVAL.get()
+    if interval is not None:
+        device.sleep(interval)
 
 
 class Control(Hermit, Minitouch, Scrcpy, MaaTouch, NemuIpc):

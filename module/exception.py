@@ -198,6 +198,10 @@ class MindCalculatorScanError(RequestHumanTakeover):
     """船坞识别或精确定位无法确认；结束工具任务并保留旧清单，不重启模拟器。"""
 
 
+class FleetManagementError(RequestHumanTakeover):
+    """编队页面、卡面或操作结果未确认；不靠OCR判断，也不通过重启重复换船。"""
+
+
 class AutoSearchSetError(Exception):
     """自动搜索设置失败。
 

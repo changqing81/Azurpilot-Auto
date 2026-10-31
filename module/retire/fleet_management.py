@@ -1,11 +1,17 @@
 """舰队管理扫描任务。"""
 
+from module.base.button import Button
 from module.base.timer import Timer
 from module.config.time_source import now as current_time
 from module.logger import logger
 from module.retire.dock import Dock
 from module.retire.scanner import FleetManagementScanner
 from module.ui.page import page_dock
+
+
+def position_button(area, name):
+    """编队页舰位按钮：只按位置点击，不做颜色或模板判定。"""
+    return Button(area, (0, 0, 0), area, name=name)
 
 
 class FleetManagement(Dock):
