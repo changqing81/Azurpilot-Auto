@@ -441,10 +441,28 @@ def build_event_calculator_html(scope_id: str) -> str:
 #{scope_id} button:hover {{
   background: rgba(128, 128, 128, .22) !important;
 }}
+/* 表格骨架：display 必须显式写回 table。计算器挂在 #markdown-body 下面，
+   PyWebIO 自带的 markdown.min.css（GitHub 风格）会命中这几张表：
+   .markdown-body table {{ display: block; width: 100%; overflow: auto }}，
+   表格变成块级滚动容器后，表头与表体各自独立排版 —— 浏览器不再按
+   列宽对齐，宽列（滑杆）被挤扁、窄列被撑开，暗色下更明显。 */
 #{scope_id} table {{
+  display: table;
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+}}
+/* 同一份 markdown.min.css 还给 tr / td / th 定了浅色底和 1px 浅灰线：
+   tr 是 #fff 底、偶数行是 #f6f8fa 斑马纹、格子线是 #dfe2e5。
+   深色面板里整张表就是一块白底 + 浅灰斑马，白字压白底几乎看不见。
+   这里把行底色清成透明，让面板/主题底色透上来，并清掉斑马纹与那条
+   浅色分隔线；格子线沿用下面 td/th 的半透明灰，四套主题都适用。 */
+#{scope_id} tr {{
+  background-color: transparent;
+  border-top: 0;
+}}
+#{scope_id} tr:nth-child(2n) {{
+  background-color: transparent;
 }}
 #{scope_id} th,
 #{scope_id} td {{
