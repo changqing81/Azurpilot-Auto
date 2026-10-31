@@ -1085,8 +1085,39 @@ class GeneratedConfig:
     FleetTech_Record = {}
 
     # 配置组 `FleetInfo`
+    FleetInfo_UpdateEmotion = True
     FleetInfo_Result = {}
     FleetInfo_Record = datetime.datetime(2020, 1, 1, 0, 0)
+
+    # 配置组 `FleetRotation`
+    FleetRotation_Enabled = False
+    FleetRotation_SelectedOnly = False
+    FleetRotation_Rules = '{}'
+    FleetRotation_State = {}
+
+    # 配置组 `FleetLevelTraining`
+    FleetLevelTraining_Enabled = False
+    FleetLevelTraining_Target = 120
+
+    # 配置组 `FleetAffinityTraining`
+    FleetAffinityTraining_Enabled = False
+    FleetAffinityTraining_Target = 100
+
+    # 配置组 `FleetDorm`
+    FleetDorm_Enabled = False
+    FleetDorm_Floor = 'floor_1'  # floor_1, floor_2
+
+    # 配置组 `FleetTraining`
+    FleetTraining_StopOnComplete = False
+    FleetTraining_Notify = False
+    FleetTraining_FullScanRecord = datetime.datetime(2020, 1, 1, 0, 0)
+    FleetTraining_CheckIntervalHours = 6.0
+    FleetTraining_State = {}
+
+    # 配置组 `FleetEquipment`
+    FleetEquipment_Enabled = False
+    FleetEquipment_Codes = '{}'
+    FleetEquipment_State = {}
 
     # 配置组 `Daemon`
     Daemon_EnterMap = True

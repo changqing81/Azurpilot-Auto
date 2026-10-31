@@ -3767,8 +3767,39 @@
   },
   "FleetInfo": {
     "FleetInfo": {
+      "UpdateEmotion": true,
       "Result": {},
       "Record": "2020-01-01 00:00:00"
+    },
+    "FleetRotation": {
+      "Enabled": false,
+      "SelectedOnly": false,
+      "Rules": "{}",
+      "State": {}
+    },
+    "FleetLevelTraining": {
+      "Enabled": false,
+      "Target": 120
+    },
+    "FleetAffinityTraining": {
+      "Enabled": false,
+      "Target": 100
+    },
+    "FleetDorm": {
+      "Enabled": false,
+      "Floor": "floor_1"
+    },
+    "FleetTraining": {
+      "StopOnComplete": false,
+      "Notify": false,
+      "FullScanRecord": "2020-01-01 00:00:00",
+      "CheckIntervalHours": 6.0,
+      "State": {}
+    },
+    "FleetEquipment": {
+      "Enabled": false,
+      "Codes": "{}",
+      "State": {}
     },
     "Storage": {
       "Storage": {}

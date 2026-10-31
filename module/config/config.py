@@ -566,6 +566,19 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         if self.auto_update:
             self.update()
 
+    def cross_set_many(self, values):
+        """按配置路径批量排队修改；自动更新时提交，multi_set 内留待退出提交。
+
+        Args:
+            values (dict[str, Any]): 配置路径到新值的映射。
+        """
+        # 调度期间的强制覆盖路径不被普通写回篡改（本仓库无 _scheduler_overrides 时保护集为空）。
+        overlay = getattr(self, '_scheduler_overrides', {})
+        protected = {self.bound[key] for key in overlay if key in self.bound}
+        self.modified.update({path: value for path, value in values.items() if path not in protected})
+        if self.auto_update:
+            self.update()
+
     def task_delay(self, success=None, server_update=None, target=None, minute=None, task=None):
         """设置 Scheduler.NextRun，延迟任务的下次运行时间。
 

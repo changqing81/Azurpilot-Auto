@@ -20041,6 +20041,10 @@
   },
   "FleetInfo": {
     "FleetInfo": {
+      "UpdateEmotion": {
+        "type": "checkbox",
+        "value": true
+      },
       "Result": {
         "type": "stored",
         "value": {},
@@ -20050,6 +20054,108 @@
         "type": "stored",
         "value": "2020-01-01 00:00:00",
         "validate": "datetime",
+        "display": "hide"
+      }
+    },
+    "FleetRotation": {
+      "Enabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "SelectedOnly": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Rules": {
+        "type": "textarea",
+        "value": "{}"
+      },
+      "State": {
+        "type": "storage",
+        "value": {}
+      }
+    },
+    "FleetLevelTraining": {
+      "Enabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Target": {
+        "type": "input",
+        "value": 120,
+        "validate": [
+          1,
+          125
+        ]
+      }
+    },
+    "FleetAffinityTraining": {
+      "Enabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Target": {
+        "type": "input",
+        "value": 100,
+        "validate": [
+          1,
+          200
+        ]
+      }
+    },
+    "FleetDorm": {
+      "Enabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Floor": {
+        "type": "select",
+        "value": "floor_1",
+        "option": [
+          "floor_1",
+          "floor_2"
+        ]
+      }
+    },
+    "FleetTraining": {
+      "StopOnComplete": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Notify": {
+        "type": "checkbox",
+        "value": false
+      },
+      "FullScanRecord": {
+        "type": "stored",
+        "value": "2020-01-01 00:00:00",
+        "validate": "datetime",
+        "display": "hide"
+      },
+      "CheckIntervalHours": {
+        "type": "input",
+        "value": 6.0,
+        "valuetype": "float",
+        "validate": "^[0-9]+(?:.[0-9]+)?(?:[eE][+-]?[0-9]+)?$"
+      },
+      "State": {
+        "type": "stored",
+        "value": {},
+        "display": "hide"
+      }
+    },
+    "FleetEquipment": {
+      "Enabled": {
+        "type": "checkbox",
+        "value": false
+      },
+      "Codes": {
+        "type": "textarea",
+        "value": "{}"
+      },
+      "State": {
+        "type": "stored",
+        "value": {},
         "display": "hide"
       }
     },

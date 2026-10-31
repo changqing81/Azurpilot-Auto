@@ -486,6 +486,12 @@ FleetManagement:
   tasks:
     FleetInfo:
       - FleetInfo
+      - FleetRotation
+      - FleetLevelTraining
+      - FleetAffinityTraining
+      - FleetDorm
+      - FleetTraining
+      - FleetEquipment
     FleetScan: []
     MindCalculatorScan:
       - MindCalculator

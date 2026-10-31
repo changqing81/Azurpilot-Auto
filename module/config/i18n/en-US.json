@@ -6413,6 +6413,10 @@
       "name": "Fleet information",
       "help": "Stores fleet scan results. Existing reliable readings can passively reduce uncertainty in calibrated morale without additional scans or waits."
     },
+    "UpdateEmotion": {
+      "name": "Update morale during scan",
+      "help": "Choose whether to read morale for this scan. When disabled, existing slot morale references are retained and recovery-phase learning is skipped."
+    },
     "Result": {
       "name": "Scan result",
       "help": "Ships grouped by category and fleet number"
@@ -6420,6 +6424,116 @@
     "Record": {
       "name": "Scan time",
       "help": "Time when the latest fleet scan completed"
+    }
+  },
+  "FleetRotation": {
+    "_info": {
+      "name": "Rotation configuration",
+      "help": "Normal main and event stages only; disabled by default."
+    },
+    "Enabled": {
+      "name": "Enable morale scheduling",
+      "help": "Normal main and event stages only; disabled by default."
+    },
+    "SelectedOnly": {
+      "name": "Calculate morale for rotating ships only",
+      "help": "Off by default. When enabled, only selected slots control morale waiting and rotation; warnings from fixed ships may be confirmed. When disabled, wait for the whole fleet minimum. Both modes track training ships and retain task morale controls for rotation."
+    },
+    "Rules": {
+      "name": "Rotation rules",
+      "help": "Configure slots and sources for each fleet. Slots stay unchanged by default. Reserves rotate in number order."
+    },
+    "State": {
+      "name": "Rotation history",
+      "help": "Stores the last reserve and completed slots. Check the in-game formation before clearing."
+    }
+  },
+  "FleetLevelTraining": {
+    "_info": {
+      "name": "Level training",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Enabled": {
+      "name": "Enabled",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Target": {
+      "name": "Target level",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    }
+  },
+  "FleetAffinityTraining": {
+    "_info": {
+      "name": "Affinity training",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Enabled": {
+      "name": "Enabled",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    },
+    "Target": {
+      "name": "Target affinity",
+      "help": "Off by default. Uses training slots and reserves. Verify every enabled goal on the same ship before completion; morale swaps keep progress."
+    }
+  },
+  "FleetDorm": {
+    "_info": {
+      "name": "Rest after rotation",
+      "help": "After all swaps, arrange the entire current fleet on the selected dorm floor, then continue the task."
+    },
+    "Enabled": {
+      "name": "Enable rest after rotation",
+      "help": "Off by default. Clear the selected floor and select the entire current fleet by its number, including fixed slots. Priority: all-battle fleet, mob fleet, boss fleet. Skip rest and continue if the floor is locked, slots are insufficient or selection cannot be verified. CN only."
+    },
+    "Floor": {
+      "name": "Dorm floor",
+      "help": "Train on the first floor or rest on the second. Floors and slots are not purchased automatically.",
+      "floor_1": "floor_1",
+      "floor_2": "floor_2"
+    }
+  },
+  "FleetTraining": {
+    "_info": {
+      "name": "Training records",
+      "help": "Persists verified readings, completed goals and pending swaps across restarts."
+    },
+    "StopOnComplete": {
+      "name": "Stop after all current training ships graduate",
+      "help": "Off by default. Stop the current task once all selected ships meet their enabled level/affinity goals. Keep early graduates in place."
+    },
+    "Notify": {
+      "name": "Training and replacement notifications",
+      "help": "Off by default. Report checks, graduation, replacements and replacement/dorm/equipment failures. Reuses existing readings and sends to the launcher and global OnePush channel."
+    },
+    "FullScanRecord": {
+      "name": "Last full fleet scan",
+      "help": "Updated only after a successful full scan; partial scheduling reads do not reset this time."
+    },
+    "CheckIntervalHours": {
+      "name": "Level/affinity check interval (hours)",
+      "help": "Defaults to 6 hours for level and affinity checks only; nonnegative decimals with no upper limit. Read participating active fleets when due and swap only after all enabled graduation goals are met. Morale reserve triggers independently. Confirmed swaps always scan all fleets without another interval. 0 checks after every battle."
+    },
+    "State": {
+      "name": "Training records",
+      "help": "Persists verified readings, completed goals and pending swaps across restarts."
+    }
+  },
+  "FleetEquipment": {
+    "_info": {
+      "name": "Automatic equipment",
+      "help": "Unequip outgoing ships and apply incoming ship codes by actual type. Off by default."
+    },
+    "Enabled": {
+      "name": "Enable automatic equipment",
+      "help": "When off, keep the original smart rotation behavior."
+    },
+    "Codes": {
+      "name": "Equipment codes by type",
+      "help": "Up to three codes per type, ordered by actual slot separately in each row. Empty positions are skipped; old single codes remain first."
+    },
+    "State": {
+      "name": "Pending equipment",
+      "help": "Pending target slots are processed before resuming a task when enabled."
     }
   },
   "Daemon": {
