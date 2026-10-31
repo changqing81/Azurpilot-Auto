@@ -1675,6 +1675,10 @@ class AzurLaneAutoScript:
         from module.retire.fleet_tech_scan import FleetTechScan
         FleetTechScan(config=self.config, device=self.device, task="FleetTechScan").run()
 
+    def island_production_planner(self):
+        from module.island_planner.planner import IslandProductionPlanner
+        IslandProductionPlanner(config=self.config, device=self.device, task="IslandProductionPlanner").run()
+
     def game_manager(self):
         from module.daemon.game_manager import GameManager
         GameManager(config=self.config, device=self.device, task="GameManager").run()

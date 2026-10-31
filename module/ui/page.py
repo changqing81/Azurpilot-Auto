@@ -414,6 +414,8 @@ page_island_visit = Page(ISLAND_VISIT_CHECK)
 page_island_mill = Page(ISLAND_MILL_CHECK)
 page_island_season = Page(ISLAND_SEASON_CHECK)
 page_island_phone = Page(ISLAND_PHONE_CHECK)
+# 岛屿科技页（岛屿生产规划器扫描科技树），跳转与返回沿用 ALAS
+page_island_technology = Page(ISLAND_TECHNOLOGY_CHECK)
 
 page_dormmenu.link(button=DORMMENU_GOTO_ISLAND, destination=page_island)
 page_island_message.link(button=DORMMENU_GOTO_ISLAND_MESSAGE, destination=page_island)
@@ -433,6 +435,9 @@ page_island_management.link(button=ISLAND_MANAGEMENT_GOTO_VISIT, destination=pag
 page_island_visit.link(button=ISLAND_VISIT_GOTO_MANAGEMENT, destination=page_island_management)
 page_island_mill.link(button=ISLAND_MILL_GOTO_ISLAND, destination=page_island)
 page_island_season.link(button=ISLAND_SEASON_GOTO_ISLAND, destination=page_island)
+page_island.link(button=ISLAND_GOTO_ISLAND_TECHNOLOGY, destination=page_island_technology)
+page_island.link(button=ISLAND_GOTO_ISLAND_SEASON, destination=page_island_season)
+page_island_technology.link(button=BACK_ARROW_WHITE, destination=page_island)
 page_island_phone.link(button=ISLAND_PHONE_GOTO_MAIN, destination=page_main)
 page_island_phone.link(button=ISLAND_PHONE_GOTO_ISLAND, destination=page_island)
 page_island_phone.link(button=ISLAND_PHONE_GOTO_ISLAND_MANAGE, destination=page_island_management)
