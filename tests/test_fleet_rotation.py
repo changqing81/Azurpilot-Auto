@@ -21,9 +21,6 @@ from module.runtime.fleet_rotation import (ROTATION_PATH, begin_round, calibrati
 from module.runtime.fleet_equipment import EQUIPMENT_PATH
 
 
-RULE = {'slots': [4, 5, 6], 'sources': [3, 4, 5, 6]}
-
-
 class ConfigFileFixture:
     """最小的临时配置文件容器，替代新前端的 ConfigService。
 
@@ -44,6 +41,9 @@ class ConfigFileFixture:
     def write_json(self, path, data):
         from module.config.utils import write_file
         write_file(path, data)
+
+
+RULE = {'slots': [4, 5, 6], 'sources': [3, 4, 5, 6]}
 
 
 class RuleTests(unittest.TestCase):

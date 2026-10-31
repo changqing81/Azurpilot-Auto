@@ -615,7 +615,14 @@ class AzurLaneAutoScript:
                 'recoverable' — 可恢复的失败，不计入连续失败限制。
         """
         from module.campaign.recovery import campaign_recovery_scope
+        from module.runtime.preview import set_task
         command = inflection.underscore(command)
+        set_task(inflection.camelize(command))
+        # 会话按任务隔离；换船入口恢复持久扫描计时，不因任务重开而重扫。
+        rotation_context = self.__dict__.setdefault('_fleet_rotation_context', {})
+        if rotation_context.get('task') != inflection.camelize(command):
+            rotation_context.clear()
+            rotation_context['task'] = inflection.camelize(command)
         recovery = self.__dict__.get('_campaign_recovery')
         if recovery is not None and command not in (
                 'restart', inflection.underscore(recovery.runner.config.task.command)):
@@ -1535,35 +1542,31 @@ class AzurLaneAutoScript:
         from module.campaign.os_run import OSCampaignRun
         OSCampaignRun(config=self.config, device=self.device).opsi_daily_delay()
 
-    def main(self):
+    def _run_campaign(self):
+        """主线与普通活动槽位的战役调用；断点由公共 CampaignRun 保存。"""
         from module.campaign.run import CampaignRun
-        CampaignRun(config=self.config, device=self.device).run(
+        runner = CampaignRun(config=self.config, device=self.device)
+        runner._fleet_rotation_context = self.__dict__.setdefault('_fleet_rotation_context', {})
+        runner.run(
             name=self.config.Campaign_Name, folder=self.config.Campaign_Event, mode=self.config.Campaign_Mode)
+
+    def main(self):
+        self._run_campaign()
 
     def main2(self):
-        from module.campaign.run import CampaignRun
-        CampaignRun(config=self.config, device=self.device).run(
-            name=self.config.Campaign_Name, folder=self.config.Campaign_Event, mode=self.config.Campaign_Mode)
+        self._run_campaign()
 
     def main3(self):
-        from module.campaign.run import CampaignRun
-        CampaignRun(config=self.config, device=self.device).run(
-            name=self.config.Campaign_Name, folder=self.config.Campaign_Event, mode=self.config.Campaign_Mode)
+        self._run_campaign()
 
     def event(self):
-        from module.campaign.run import CampaignRun
-        CampaignRun(config=self.config, device=self.device).run(
-            name=self.config.Campaign_Name, folder=self.config.Campaign_Event, mode=self.config.Campaign_Mode)
+        self._run_campaign()
 
     def event2(self):
-        from module.campaign.run import CampaignRun
-        CampaignRun(config=self.config, device=self.device).run(
-            name=self.config.Campaign_Name, folder=self.config.Campaign_Event, mode=self.config.Campaign_Mode)
+        self._run_campaign()
 
     def event3(self):
-        from module.campaign.run import CampaignRun
-        CampaignRun(config=self.config, device=self.device).run(
-            name=self.config.Campaign_Name, folder=self.config.Campaign_Event, mode=self.config.Campaign_Mode)
+        self._run_campaign()
 
     def raid(self):
         from module.raid.run import RaidRun
