@@ -27,10 +27,12 @@ from module.base.button import Button
 from module.base.decorator import run_once
 from module.base.timer import Timer
 from module.combat.assets import GET_ITEMS_1, GET_ITEMS_2, GET_SHIP
+from module.config.deep import deep_get
 from module.exception import (GameNotRunningError, GamePageUnknownError,
                               RequestHumanTakeover)
 from module.exercise.assets import EXERCISE_PREPARATION
-from module.handler.assets import (AUTO_SEARCH_MENU_EXIT, BATTLE_PASS_NEW_SEASON, BATTLE_PASS_NOTICE, GAME_TIPS,
+from module.handler.assets import (AUTO_SEARCH_MENU_EXIT, BATTLE_PASS_NEW_SEASON, BATTLE_PASS_NOTICE,
+                                   BILIBILI_LOGIN_BUTTON, BILIBILI_LOGIN_RECORD, GAME_TIPS,
                                    LOGIN_ANNOUNCE, LOGIN_ANNOUNCE_2, LOGIN_CHECK, LOGIN_RETURN_SIGN,
                                    MAINTENANCE_ANNOUNCE, MONTHLY_PASS_NOTICE)
 from module.handler.info_handler import InfoHandler
@@ -672,6 +674,8 @@ class UI(InfoHandler):
                 self.interval_reset(WITHDRAW)
 
         # 登录相关
+        if self.handle_bilibili_login_record():
+            return True
         if self.appear_then_click(LOGIN_CHECK, offset=(30, 30), interval=3):
             return True
         if self.appear_then_click(MAINTENANCE_ANNOUNCE, offset=(30, 30), interval=3):
@@ -710,6 +714,28 @@ class UI(InfoHandler):
             self.device.click(MAIN_TAB_SWITCH_WHITE)
             return True
 
+        return False
+
+    def handle_bilibili_login_record(self):
+        """处理 B 站客户端偶发的已保存账号登录记录弹窗。
+
+        Pages:
+            in: 游戏开始画面上的登录记录弹窗
+            out: 等待 B 站登录完成后的游戏画面
+
+        Returns:
+            bool: 是否点击了弹窗的登录按钮。
+        """
+        if (self.config.SERVER != 'cn'
+                or deep_get(self.config.data, 'Alas.Emulator.PackageName', default='')
+                != 'com.bilibili.azurlane'):
+            return False
+        if not self.match_template_color(BILIBILI_LOGIN_RECORD, offset=(5, 5)):
+            return False
+        if self.match_template_color(BILIBILI_LOGIN_BUTTON, offset=(5, 5), interval=3):
+            self.device.click(BILIBILI_LOGIN_BUTTON)
+            logger.info('[登录] 点击 B 站登录记录弹窗的登录按钮')
+            return True
         return False
 
     def handle_idle_page(self):
