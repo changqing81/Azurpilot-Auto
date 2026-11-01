@@ -260,6 +260,9 @@ class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
             active_patch.stop()
 
     def test_tab_table_appends_the_two_fleet_panels(self):
+        """科技列表 / 心智计算器已随配置移回「舰队管理 → 舰队信息」，
+        统计页页签表不再包含 fleet / mind 两个面板；scope 结构保留，
+        便于日后恢复页签时直接把 STAT_PANELS 追加回 _STAT_TABS。"""
         from module.webui.app_statistics_page import _STAT_PANEL_SCOPES, _STAT_TABS
 
         self.assertEqual(
@@ -268,16 +271,11 @@ class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
                 ("commission", "Gui.Stat.TabCommission"),
                 ("research", "Gui.Stat.TabResearch"),
                 ("resource", "Gui.Stat.TabResource"),
-                ("fleet", "Gui.FleetTechnology.TabTech"),
-                ("mind", "Gui.FleetTechnology.TabMind"),
             ],
             [(panel, key) for panel, key, _badge in _STAT_TABS],
         )
-                # ft_toolbar 必须跟着 ft_tech 一起搬进「科技列表」面板：漏搬会让扫描
-        # 工具栏留在页面最底部（真机截图里那条割裂白条）。
-        # ft_toolbar 不在搬迁清单里：它是 ft_tech 的子 scope，位置由
-        # _ft_render_tech_tab 的 put_scope 声明顺序决定（搬迁一律 appendChild
-        # 到面板末尾，列进来会把扫描行甩到表格之后）。
+        # scope 结构保留：ft_toolbar 必须是 ft_tech 的子 scope（历史上
+        # 漏搬会让扫描工具栏甩到页面最底部），恢复页签时沿用。
         self.assertEqual(("ft_tech",), _STAT_PANEL_SCOPES["fleet"])
         self.assertEqual(("ft_mind",), _STAT_PANEL_SCOPES["mind"])
         self.assertNotIn("ft_toolbar", _STAT_PANEL_SCOPES["fleet"])
@@ -307,10 +305,11 @@ class TestFleetPanelsOnStatisticsPage(unittest.TestCase):
                 # 两个桥：ft_bridge 转表格点击，st_bridge 转页签点击 + 面板高度回传
         self.assertEqual(["ft_bridge_pin", "st_bridge_pin"], inputs)
         tabs_html = next(html for html in htmls if "st-tabs" in html)
-        for panel in ("fleet", "mind"):
-            self.assertIn(f'data-panel="{panel}"', tabs_html)
-        self.assertIn("Gui.FleetTechnology.TabTech", tabs_html)
-        self.assertIn("Gui.FleetTechnology.TabMind", tabs_html)
+        # fleet / mind 页签已移除，页签栏不再输出这两个面板
+        self.assertNotIn('data-panel="fleet"', tabs_html)
+        self.assertNotIn('data-panel="mind"', tabs_html)
+        self.assertNotIn("Gui.FleetTechnology.TabTech", tabs_html)
+        self.assertNotIn("Gui.FleetTechnology.TabMind", tabs_html)
 
 
 class TabSwitchScriptTests(unittest.TestCase):
