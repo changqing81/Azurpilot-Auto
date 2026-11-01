@@ -16,6 +16,7 @@ from module.webui.app_dependencies import (
     put_html,
     put_input,
     put_scope,
+    pin_on_change,
     put_select,
     put_text,
     t,
@@ -64,8 +65,13 @@ def _fm_bridge_script() -> str:
         "var TABS=" + tabs_json + ";"
         "var bridge=function(){return document.querySelector('input[name=" + json.dumps(FM_BRIDGE_PIN) + "]')};"
         "var send=function(obj){var b=bridge();if(!b)return;"
-        "b.value=JSON.stringify(obj);b.dispatchEvent(new Event('change',{bubbles:true}));};"
-        "页签点击" + ""
+        "b.value=JSON.stringify(obj);b.dispatchEvent(new Event('input',{bubbles:true}));b.dispatchEvent(new Event('change',{bubbles:true}));};"
+        "var sendTab=function(panel){"
+        "var box=document.getElementById('pywebio-scope-fm-hidden-actions');"
+        "var btns=box?box.querySelectorAll('button'):[];"
+        "for(var k=0;k<btns.length;k++){if((btns[k].textContent||'').trim()==='tab:'+panel){btns[k].click();return true;}}"
+        "send({action:'tab',panel:panel});return false;};"
+        "\n// 页签点击\n"
         "var bar=document.querySelector('.fm-tabs');if(!bar)return;"
         "bar.addEventListener('click',function(ev){"
         "var btn=ev.target.closest('.fm-tab');if(!btn)return;"
@@ -76,10 +82,10 @@ def _fm_bridge_script() -> str:
         "document.querySelectorAll('.fm-page').forEach(function(p){"
         "p.classList.toggle('fm-on',p.dataset.panel===panel);});"
         "var target=document.querySelector('.fm-page[data-panel='+JSON.stringify(panel)+']');"
-        "if(target&&!target.dataset.loaded){send({action:'tab',panel:panel});}"
+        "if(target&&!target.dataset.loaded){target.dataset.loaded='1';sendTab(panel);}"
         "try{localStorage.setItem('__alasFmPanel',panel);}catch(e){}"
         "});"
-        "// 规则编辑器：勾选即改样式；保存时收集整份规则" + ""
+        "// 规则编辑器：勾选即改样式；保存时收集整份规则\n" + ""
         "var state={};"
         "document.addEventListener('change',function(ev){"
         "var el=ev.target;"
@@ -97,7 +103,7 @@ def _fm_bridge_script() -> str:
         "var tag=lb.querySelector('.fm-ck-tag');if(!tag)return;"
         "var on=s.slots.indexOf(n)>=0;"
         "tag.textContent=on?" + json.dumps(t("Gui.FleetRotation.Swap")) + ":" + json.dumps(t("Gui.FleetRotation.Keep")) + ";" +
-        "tag.classList.toggle('keep',!on);}})}"
+        "tag.classList.toggle('keep',!on);})}"
         "else if(kind==='sources'){"
         "el.closest('.fm-pills').querySelectorAll('.fm-pill').forEach(function(p){"
         "var cb=p.querySelector('input');"
@@ -662,13 +668,27 @@ class FleetManagementMixin(WebUIMixinBase):
                               + '</div></div>')],
                 )
 
-        # 桥 pin + 页签/规则编辑器的交互脚本
+        # 桥 pin + 隐藏真实按钮 + 页签/规则编辑器的交互脚本。
+        # 主通道是隐藏按钮（真实回调，远控 P2P 链路不丢）；pin 兜底——
+        # 统计页实测（2026-10-21 真机）：pin 的 change 事件在部分环境服务端收不到。
+        with use_scope("fm-hidden-actions", clear=True):
+            put_buttons(
+                [
+                    {"label": "tab:info", "value": "tab:info"},
+                    {"label": "tab:rotation", "value": "tab:rotation"},
+                    {"label": "tab:training", "value": "tab:training"},
+                    {"label": "tab:equipment", "value": "tab:equipment"},
+                    {"label": "save", "value": "save"},
+                ],
+                onclick=self._fm_on_buttons,
+            )
         put_scope("fm-bridge", [put_input(name=FM_BRIDGE_PIN, value="")])
         put_html(_fm_bridge_script())
         self._fm_bind_bridge()
 
     def _fm_bind_bridge(self) -> None:
-        """绑定页签/规则桥的 pin 监听；重复进入页面不重复绑定。"""
+        """绑定桥 pin 监听；重复进入页面不重复绑定。"""
+
         if getattr(self, "_fm_callbacks_bound", False):
             return
         pin_on_change(
@@ -678,6 +698,12 @@ class FleetManagementMixin(WebUIMixinBase):
             serial_mode=True,
         )
         self._fm_callbacks_bound = True
+
+    def _fm_on_buttons(self, value: str) -> None:
+        """隐藏按钮回调：页签切换的可靠通道（payload 经桥 pin 传递）。"""
+        panel = str(value).split(":", 1)[-1]
+        if panel in ("info", "rotation", "training", "equipment"):
+            self._fm_render_panel(panel)
 
     def _fm_on_bridge(self, value) -> None:
         """桥 pin 回调：按 payload 分派页签切换与规则保存。"""

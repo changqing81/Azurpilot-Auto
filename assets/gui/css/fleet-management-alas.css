@@ -15,6 +15,9 @@
    响应式：1180 → 900 → 640
    ========================================================================== */
 
+/* 页签/保存的隐藏真实按钮：仅作服务端回调通道，不参与视觉 */
+#pywebio-scope-fm-hidden-actions{display:none!important;height:0!important;overflow:hidden!important}
+
 /* ---------- 0. 局部变量别名 ---------- */
 #pywebio-scope-content {
     --fm-surface: var(--alas-entry-surface);
