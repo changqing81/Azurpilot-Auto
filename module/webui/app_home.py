@@ -2128,8 +2128,13 @@ class HomeMixin(WebUIMixinBase):
             # 远控抖动走到兜底刷新时会整页重载、新开一个会话：默认落回总览会
             # 把用户从他正看的页面「刷」走。这里按 init_menu 记下的页面名恢复；
             # 总览已由 ui_alas 渲染过、不认识的名字也回退总览（不重复渲染）。
+            # 任务配置页（含舰队信息这类即时渲染页）一律不恢复：GUI 重启后
+            # 停在配置页没有意义，用户要的是调度总览；浏览器残留的旧页面名
+            # 也不再生效。
             last_page = localstorage.get(Frame.LAST_PAGE_KEY)
-            if last_page and last_page != "Overview":
+            named = {"Overview", "Stat", "HomePage", "Develop", "Setting",
+                     "Utils", "Update", "Remote"}
+            if last_page in named - {"Overview"}:
                 renderer = self.page_renderer(last_page)
                 if renderer is not None:
                     try:
