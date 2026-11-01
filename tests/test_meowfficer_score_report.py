@@ -178,7 +178,9 @@ class MeowfficerScorePanelWiringTests(unittest.TestCase):
         from module.webui.utils import webui_style_names
 
         base = ['alas', 'alas-pc', 'entry-alas', 'statistics-alas', 'stat-delta-alas',
-                'meowfficer-score-alas', 'meow-loot-alas', 'fleet-tech-alas']
+                'meowfficer-score-alas', 'meow-loot-alas', 'fleet-tech-alas',
+                # 舰队管理四页签（872818c3d2 新增，utils.webui_style_names 已注册）
+                'fleet-management-alas']
         theme_files = {
             'default': ['light-alas'],
             'light': ['light-alas'],
