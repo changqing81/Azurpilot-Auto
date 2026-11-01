@@ -157,6 +157,41 @@ class FleetEmotion:
         """
         return DIC_LIMIT[self.control]
 
+    # ---- 以下为智能换船的只读兼容层（上游 FleetEmotion 接口）----
+    # 本心情模型以整队 Value 数值记录，没有逐舰位的恢复相位账本；
+    # state 用配置里的数值即时构建，lower/upper 与 current 一致。
+    # 换船代码经 calibrate_selected 校准后改用 context 里的培养相位账本，
+    # 不会读取这里；普通任务不读这些属性，行为与从前完全一致。
+
+    @property
+    def state(self):
+        """智能换船兼容：用当前配置数值构建恢复状态。
+
+        Returns:
+            EmotionRecoveryState | None: 本地数值模型总能给出当前值，因此
+                仅在配置值尚未初始化（None）时返回 None，其余时候返回
+                以 current 为下限的即时状态。
+        """
+        value = self.value
+        if type(value) is not int:
+            return None
+        from module.combat.emotion_state import EmotionRecoveryState
+        from module.config.time_source import now
+        return EmotionRecoveryState.calibrate(
+            value, now(), self.recover, self.oath, self.onsen)
+
+    @property
+    def lower(self):
+        """智能换船兼容：实测最低心情。
+
+        本地模型只有整队一个数值，最低值就是 current 推算值。
+        """
+        return self.current
+
+    def require_calibration(self):
+        """智能换船兼容：本地模型总能从配置读出数值，无需人工校准。"""
+        return None
+
     @property
     def max(self):
         """

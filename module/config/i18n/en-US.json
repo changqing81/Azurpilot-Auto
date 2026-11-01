@@ -386,10 +386,6 @@
       "name": "Fleet Information",
       "help": "View the latest fleet scan result"
     },
-    "FleetScan": {
-      "name": "Fleet Scan",
-      "help": "Scan ships assigned to fleets"
-    },
     "MindCalculatorScan": {
       "name": "Cognitive chip dock scan",
       "help": "Scan a CN dock at 1280×720 and review results in the cognitive chip calculator. Keeps old data until completion; resets dock filters."

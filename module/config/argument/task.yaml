@@ -492,7 +492,6 @@ FleetManagement:
       - FleetDorm
       - FleetTraining
       - FleetEquipment
-    FleetScan: []
     MindCalculatorScan:
       - MindCalculator
     FleetTechScan:

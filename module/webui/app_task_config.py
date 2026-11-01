@@ -119,10 +119,10 @@ class TaskConfigMixin(WebUIMixinBase):
 
             if task_data.get("menu") == "collapse":
                 if menu == "FleetManagement":
-                    # 该组的内容（科技列表 / 心智计算器）已迁入统计页页签，
-                    # 侧栏不再保留入口；组内四个任务的
-                    # 配置页与之前一样，仍可通过「搜索配置」进入。
-                    continue
+                    # 科技列表 / 心智计算器已迁入统计页页签，舰队扫描无配置项：
+                    # 三者不进侧栏（仍可通过「搜索配置」进入）。
+                    # 侧栏只保留「舰队信息」——船坞扫描结果 + 智能换船全套配置。
+                    task_data = {**task_data, "tasks": ["FleetInfo"]}
                 task_btn_list = []
                 for task in task_data.get("tasks", []):
                     task_btn_list.append(

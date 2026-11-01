@@ -3805,11 +3805,6 @@
       "Storage": {}
     }
   },
-  "FleetScan": {
-    "Storage": {
-      "Storage": {}
-    }
-  },
   "MindCalculatorScan": {
     "MindCalculator": {
       "MinLevel": 95,

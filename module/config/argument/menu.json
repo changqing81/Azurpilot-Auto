@@ -137,7 +137,6 @@
     "page": "setting",
     "tasks": [
       "FleetInfo",
-      "FleetScan",
       "MindCalculatorScan",
       "FleetTechScan"
     ]
