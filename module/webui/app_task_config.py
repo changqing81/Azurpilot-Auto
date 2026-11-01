@@ -121,8 +121,10 @@ class TaskConfigMixin(WebUIMixinBase):
                 if menu == "FleetManagement":
                     # 科技列表 / 心智计算器已迁入统计页页签，舰队扫描无配置项：
                     # 三者不进侧栏（仍可通过「搜索配置」进入）。
-                    # 侧栏只保留「舰队信息」——船坞扫描结果 + 智能换船全套配置。
+                    # 侧栏只保留「舰队信息」，且走即时渲染的四页签界面
+                    # （fleet_info_page），不是配置表单页。
                     task_data = {**task_data, "tasks": ["FleetInfo"]}
+                    _onclick = lambda task="FleetInfo": self.fleet_info_page(task)
                 task_btn_list = []
                 for task in task_data.get("tasks", []):
                     task_btn_list.append(
@@ -399,6 +401,11 @@ class TaskConfigMixin(WebUIMixinBase):
             expand_group: 指定初始展开的分组名（搜索跳转用）；
                 未指定时展开第一个分组。
         """
+        if task == "FleetInfo":
+            # 舰队信息走四页签界面（扫描结果 + 换船配置/调度/装备），
+            # 搜索配置与仪表盘按钮的跳转同样生效。
+            self.fleet_info_page("FleetInfo")
+            return
         config = self.alas_config.read_file(self.alas_name)
         self.init_menu(name=task, skip_clear=True)
         self.set_title(t(f"Task.{task}.name"))
