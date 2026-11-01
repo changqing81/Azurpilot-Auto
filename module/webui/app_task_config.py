@@ -415,7 +415,7 @@ class TaskConfigMixin(WebUIMixinBase):
             # 舰队信息走四页签界面（扫描结果 + 换船配置/调度/装备），
             # 搜索配置与仪表盘按钮的跳转同样生效。
             # 搜索命中的组映射到对应页签：换船组→换船配置，培养组→换船调度。
-            tab = _FM_GROUP_TO_TAB.get(expand_group or "", "info")
+            tab = self._FM_GROUP_TO_TAB.get(expand_group or "", "info")
             self.fleet_info_page("FleetInfo", tab=tab)
             return
         config = self.alas_config.read_file(self.alas_name)

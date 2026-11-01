@@ -17,7 +17,7 @@ import traceback
 from hashlib import sha256
 from pathlib import Path
 from queue import Queue
-from typing import Callable, Generator, List
+from typing import Callable, Dict, Generator, List
 
 import pywebio
 from pywebio.exceptions import SessionException

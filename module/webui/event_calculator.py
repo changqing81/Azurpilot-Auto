@@ -9,7 +9,7 @@ import re
 import time
 from datetime import datetime
 from html import escape
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import requests
 
