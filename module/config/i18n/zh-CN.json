@@ -7024,6 +7024,9 @@
     },
     "FleetRotation": {
       "TabTitle": "换船配置",
+      "SelectedOnly": "仅计算更换舰船心情",
+      "LevelTarget": "目标等级",
+      "AffinityTarget": "目标好感",
       "FleetTitle": "第 {number} 舰队",
       "Slots": "舰位设置",
       "Sources": "候补舰队（多选）",
@@ -7040,7 +7043,8 @@
       "Last": "上轮来源：第 {number} 舰队",
       "LastFavourite": "上轮来源：常用",
       "Uncertain": "上轮未完成，下次运行会自动清理旧记录并重扫实际编队。",
-      "None": "尚未轮换"
+      "None": "尚未轮换",
+      "EnabledCount": "启用中 {count} / 4"
     },
     "FleetTraining": {
       "TabTitle": "换船调度",
@@ -7059,9 +7063,13 @@
       "Actual": "实际舰队",
       "CheckedAt": "最近核对时间",
       "Empty": "尚无实读记录",
-      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。"
+      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。",
+      "StopOnComplete": "全部完成后停止调度",
+      "Notify": "完成时发送通知",
+      "CheckIntervalHours": "检查间隔（小时）"
     },
     "FleetDorm": {
+      "Floor": "目标楼层",
       "Floor1": "一楼（训练）",
       "Floor2": "二楼（休息）"
     },

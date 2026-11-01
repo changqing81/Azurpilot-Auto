@@ -7024,6 +7024,9 @@
     },
     "FleetRotation": {
       "TabTitle": "交代設定",
+      "SelectedOnly": "交換艦の士気のみ計算",
+      "LevelTarget": "目標レベル",
+      "AffinityTarget": "目標好感度",
       "FleetTitle": "第 {number} 艦隊",
       "Slots": "配置設定",
       "Sources": "候補艦隊（複数）",
@@ -7040,7 +7043,8 @@
       "Last": "上轮来源：第 {number} 舰队",
       "LastFavourite": "上轮来源：常用",
       "Uncertain": "上轮未完成，下次运行会自动清理旧记录并重扫实际编队。",
-      "None": "まだローテなし"
+      "None": "まだローテなし",
+      "EnabledCount": "有効 {count} / 4"
     },
     "FleetTraining": {
       "TabTitle": "交代スケジュール",
@@ -7059,9 +7063,13 @@
       "Actual": "实际舰队",
       "CheckedAt": "最近核对时间",
       "Empty": "尚无实读记录",
-      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。"
+      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。",
+      "StopOnComplete": "すべて完了後に调度を停止",
+      "Notify": "完了時に通知を送信",
+      "CheckIntervalHours": "チェック間隔（時間）"
     },
     "FleetDorm": {
+      "Floor": "目標フロア",
       "Floor1": "1階（訓練）",
       "Floor2": "2階（休憩）"
     },

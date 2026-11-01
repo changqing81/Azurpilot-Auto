@@ -7024,6 +7024,9 @@
     },
     "FleetRotation": {
       "TabTitle": "Rotation",
+      "SelectedOnly": "Only count swapped ships' morale",
+      "LevelTarget": "Target level",
+      "AffinityTarget": "Target affinity",
       "FleetTitle": "Fleet {number}",
       "Slots": "Fleet slots",
       "Sources": "Reserve fleets (multiple)",
@@ -7040,7 +7043,8 @@
       "Last": "Last reserve: Fleet {number}",
       "LastFavourite": "Last reserve: Favourites",
       "Uncertain": "Previous round incomplete; cleared and rescanned on next run.",
-      "None": "No rotation yet"
+      "None": "No rotation yet",
+      "EnabledCount": "{count} / 4 enabled"
     },
     "FleetTraining": {
       "TabTitle": "Scheduling",
@@ -7059,9 +7063,13 @@
       "Actual": "Actual fleet",
       "CheckedAt": "Last checked",
       "Empty": "No records yet",
-      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。"
+      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。",
+      "StopOnComplete": "Stop scheduling after all complete",
+      "Notify": "Notify on completion",
+      "CheckIntervalHours": "Check interval (hours)"
     },
     "FleetDorm": {
+      "Floor": "Target floor",
       "Floor1": "First floor (training)",
       "Floor2": "Second floor (rest)"
     },

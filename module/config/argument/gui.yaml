@@ -102,6 +102,10 @@ FleetManagement:
 
 FleetRotation:
   TabTitle:
+  SelectedOnly:
+  LevelTarget:
+  AffinityTarget:
+  EnabledCount:
   FleetTitle:
   Slots:
   Sources:
@@ -138,8 +142,12 @@ FleetTraining:
   CheckedAt:
   Empty:
   DormNote:
+  StopOnComplete:
+  Notify:
+  CheckIntervalHours:
 
 FleetDorm:
+  Floor:
   Floor1:
   Floor2:
 

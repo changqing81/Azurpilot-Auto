@@ -89,6 +89,17 @@ def _fm_bridge_script() -> str:
         "var state={};"
         "document.addEventListener('change',function(ev){"
         "var el=ev.target;"
+        # 调度设置：开关（fm-sw-*）与参数（data-fm-setting）即点即存（JS 内另有 // 注释）
+        "if(el.id&&el.id.indexOf('fm-sw-')===0){"
+        "var key=el.id.slice(6);"
+        "var map={rotation:'rotation.enabled',level:'level.enabled',affinity:'affinity.enabled',dorm:'dorm.enabled',equipment:'equipment.enabled'};"
+        "var card=el.closest('.fm-panel');"
+        "if(card){card.classList.toggle('fm-state-on',el.checked);card.classList.toggle('fm-state-off',!el.checked);}"
+        "send({action:'saveTraining',settings:{},switch:key+'|'+(el.checked?'1':'0'),target:map[key]||''});"
+        "return;}"
+        "if(el.dataset&&el.dataset.fmSetting){"
+        "send({action:'saveTraining',settings:{},setting:el.dataset.fmSetting+'|'+el.value,target:''});"
+        "return;}"
         "if(!el.dataset||!el.dataset.fleet)return;"
         "var f=el.dataset.fleet,kind=el.dataset.kind,num=parseInt(el.dataset.num,10);"
         "var s=state[f]=state[f]||{slots:[],sources:[],favourite:false};"
@@ -124,6 +135,25 @@ def _fm_bridge_script() -> str:
         "});"
         "})();"
         "</script>"
+    )
+
+
+def _fm_hero_html(gui) -> str:
+    """页头横幅：纯白卡片风，右侧显示四路调度启用数。"""
+    config = gui.alas_config.read_file(gui.alas_name)
+    flags = [
+        deep_get(config, "FleetInfo.FleetRotation.Enabled", default=False),
+        deep_get(config, "FleetInfo.FleetLevelTraining.Enabled", default=False),
+        deep_get(config, "FleetInfo.FleetAffinityTraining.Enabled", default=False),
+        deep_get(config, "FleetInfo.FleetDorm.Enabled", default=False),
+    ]
+    enabled = sum(1 for f in flags if f is True)
+    return (
+        '<div class="fm-hero"><div><h1>' + escape(t("Gui.FleetManagement.PageTitle")) + "</h1>"
+        '<div class="fm-hero-sub">' + escape(t("Gui.FleetRotation.Help")) + "</div></div>"
+        '<div class="fm-hero-badge"><span class="fm-dot"></span>'
+        + escape(t("Gui.FleetRotation.EnabledCount", count=enabled))
+        + "</div></div>"
     )
 
 
@@ -260,31 +290,88 @@ def _fm_render_rotation_panel(gui) -> str:
     )
 
 
+def _fm_switch_html(switch_id: str, checked: bool) -> str:
+    """可点击的开关控件（纯 HTML，状态经桥保存）。"""
+    return (
+        '<label class="fm-switch"><input type="checkbox" id="' + switch_id + '"'
+        + (" checked" if checked else "") + '><span class="fm-switch-track"></span></label>'
+    )
+
+
 def _fm_render_training_panel(gui) -> str:
-    """换船调度面板：四个调度开关卡 + 培养实读表。"""
+    """换船调度面板：四个调度的真实设置卡（开关 + 参数）+ 培养实读表。
+
+    开关与参数改动即时经桥保存（saveTraining action），无需额外保存按钮。
+    """
     config = gui.alas_config.read_file(gui.alas_name)
 
     def flag(path):
         return deep_get(config, path, default=False) is True
 
-    switches = [
-        ("Gui.FleetTraining.MoraleTitle", flag("FleetInfo.FleetRotation.Enabled")),
-        ("Gui.FleetTraining.LevelTitle", flag("FleetInfo.FleetLevelTraining.Enabled")),
-        ("Gui.FleetTraining.AffinityTitle", flag("FleetInfo.FleetAffinityTraining.Enabled")),
-        ("Gui.FleetTraining.DormTitle", flag("FleetInfo.FleetDorm.Enabled")),
-    ]
-    cards = []
-    for key, on in switches:
-        cards.append(
-            '<section class="fm-panel"><div class="fm-panel-head"><h2>'
-            + escape(t(key)) + '</h2>'
-            + ('<span class="fm-badge ok">' + escape(t("Gui.FleetTraining.On")) + '</span>'
-               if on else '<span class="fm-badge low">' + escape(t("Gui.FleetTraining.Off")) + '</span>')
-            + "</div></section>"
+    rotation_on = flag("FleetInfo.FleetRotation.Enabled")
+    selected_only = flag("FleetInfo.FleetRotation.SelectedOnly")
+    level_on = flag("FleetInfo.FleetLevelTraining.Enabled")
+    level_target = deep_get(config, "FleetInfo.FleetLevelTraining.Target", default=120)
+    affinity_on = flag("FleetInfo.FleetAffinityTraining.Enabled")
+    affinity_target = deep_get(config, "FleetInfo.FleetAffinityTraining.Target", default=100)
+    dorm_on = flag("FleetInfo.FleetDorm.Enabled")
+    dorm_floor = deep_get(config, "FleetInfo.FleetDorm.Floor", default="floor_1")
+    stop_on_complete = flag("FleetInfo.FleetTraining.StopOnComplete")
+    notify = flag("FleetInfo.FleetTraining.Notify")
+    interval = deep_get(config, "FleetInfo.FleetTraining.CheckIntervalHours", default=6.0)
+
+    def card(title_key, body, switch_id=None, on=False):
+        head = '<h2>' + escape(t(title_key)) + '</h2>'
+        state = ""
+        if switch_id:
+            head += _fm_switch_html(switch_id, on)
+            state = " fm-state-on" if on else " fm-state-off"
+        return (
+            '<section class="fm-panel' + state + '"><div class="fm-panel-head">' + head + '</div>'
+            '<div class="fm-panel-body">' + body + "</div></section>"
         )
 
-    interval = deep_get(config, "FleetInfo.FleetTraining.CheckIntervalHours", default=6.0)
-    dorm_floor = deep_get(config, "FleetInfo.FleetDorm.Floor", default="floor_1")
+    morale_body = (
+        '<label class="fm-ck fm-sub"><input type="checkbox" data-fm-setting="rotation.selectedOnly"'
+        + (" checked" if selected_only else "") + '>'
+        + escape(t("Gui.FleetRotation.SelectedOnly")) + "</label>"
+        '<p class="fm-hint">' + escape(t("Gui.FleetRotation.SelectedOnly")) + "</p>"
+    )
+    level_body = (
+        '<label class="fm-num">' + escape(t("Gui.FleetRotation.LevelTarget"))
+        + '<input class="fm-input" type="number" min="1" max="125" data-fm-setting="level.target" value="'
+        + str(level_target) + '"></label>'
+    )
+    affinity_body = (
+        '<label class="fm-num">' + escape(t("Gui.FleetRotation.AffinityTarget"))
+        + '<input class="fm-input" type="number" min="1" max="200" data-fm-setting="affinity.target" value="'
+        + str(affinity_target) + '"></label>'
+    )
+    floor1 = '<option value="floor_1"' + (" selected" if dorm_floor == "floor_1" else "") + ">" \
+        + escape(t("Gui.FleetDorm.Floor1")) + "</option>"
+    floor2 = '<option value="floor_2"' + (" selected" if dorm_floor == "floor_2" else "") + ">" \
+        + escape(t("Gui.FleetDorm.Floor2")) + "</option>"
+    dorm_body = (
+        '<label class="fm-num">' + escape(t("Gui.FleetDorm.Floor"))
+        + '<select class="fm-input" data-fm-setting="dorm.floor">' + floor1 + floor2 + "</select></label>"
+    )
+    run_body = (
+        '<label class="fm-ck fm-sub"><input type="checkbox" data-fm-setting="training.stopOnComplete"'
+        + (" checked" if stop_on_complete else "") + '>' + escape(t("Gui.FleetTraining.StopOnComplete")) + "</label>"
+        '<label class="fm-ck fm-sub"><input type="checkbox" data-fm-setting="training.notify"'
+        + (" checked" if notify else "") + '>' + escape(t("Gui.FleetTraining.Notify")) + "</label>"
+        '<label class="fm-num">' + escape(t("Gui.FleetTraining.CheckIntervalHours"))
+        + '<input class="fm-input" type="number" min="1" max="24" step="0.5" data-fm-setting="training.interval" value="'
+        + str(interval) + '"></label>'
+    )
+
+    cards = (
+        card("Gui.FleetTraining.MoraleTitle", morale_body, "fm-sw-rotation", rotation_on)
+        + card("Gui.FleetTraining.LevelTitle", level_body, "fm-sw-level", level_on)
+        + card("Gui.FleetTraining.AffinityTitle", affinity_body, "fm-sw-affinity", affinity_on)
+        + card("Gui.FleetTraining.DormTitle", dorm_body, "fm-sw-dorm", dorm_on)
+        + card("Gui.FleetTraining.IntervalTitle", run_body)
+    )
 
     training_state = deep_get(config, "FleetInfo.FleetTraining.State", default={})
     training_state = training_state if isinstance(training_state, dict) else {}
@@ -309,12 +396,8 @@ def _fm_render_training_panel(gui) -> str:
     floor_key = "Gui.FleetDorm.Floor1" if dorm_floor == "floor_1" else "Gui.FleetDorm.Floor2"
     return (
         '<p class="fm-hint">' + escape(t("Gui.FleetTraining.Help")) + "</p>"
-        '<div class="fm-grid">' + "".join(cards) + "</div>"
+        '<div class="fm-grid">' + cards + "</div>"
         '<div class="fm-panel" style="margin-top:4px"><div class="fm-panel-head">'
-        '<h2>' + escape(t("Gui.FleetTraining.IntervalTitle")) + '</h2></div>'
-        '<div class="fm-panel-body"><p class="fm-hint">'
-        + escape(t("Gui.FleetTraining.IntervalHelp", hours=interval)) + "</p></div></div>"
-        '<div class="fm-panel" style="margin-top:14px"><div class="fm-panel-head">'
         '<h2>' + escape(t("Gui.FleetTraining.RecordTitle")) + '</h2></div>'
         '<div class="fm-panel-body">' + training_table + "</div></div>"
         '<p class="fm-hint" style="margin-top:10px">'
@@ -362,12 +445,16 @@ def _fm_render_equipment_panel(gui) -> str:
         )
 
     enabled = deep_get(config, "FleetInfo.FleetEquipment.Enabled", default=False) is True
-    state_key = "Gui.FleetEquipment.Enabled" if enabled else "Gui.FleetEquipment.Disabled"
+    switch_html = (
+        '<div class="fm-equip-head">'
+        + '<span class="fm-hint" style="margin:0">' + escape(t("Gui.FleetEquipment.EditViaForm")) + "</span>"
+        + _fm_switch_html("fm-sw-equipment", enabled)
+        + "</div>"
+    )
     return (
         '<p class="fm-hint">' + escape(t("Gui.FleetEquipment.Help")) + "</p>"
-        '<p class="fm-note">' + escape(t("Gui.FleetEquipment.EditViaForm"))
-        + "<b>" + escape(t(state_key)) + "</b></p>"
-        '<div class="fm-grid">' + "".join(cards) + "</div>"
+        + switch_html
+        + '<div class="fm-grid">' + "".join(cards) + "</div>"
     )
 
 
@@ -616,6 +703,53 @@ class FleetManagementMixin(WebUIMixinBase):
         self.alas_config.cross_set_many(changes)
         toast(t("Gui.FleetRotation.Saved"), color="success")
 
+    _FM_SWITCH_PATHS = {
+        "rotation": "FleetInfo.FleetRotation.Enabled",
+        "level": "FleetInfo.FleetLevelTraining.Enabled",
+        "affinity": "FleetInfo.FleetAffinityTraining.Enabled",
+        "dorm": "FleetInfo.FleetDorm.Enabled",
+        "equipment": "FleetInfo.FleetEquipment.Enabled",
+    }
+    _FM_SETTING_PATHS = {
+        "rotation.selectedOnly": "FleetInfo.FleetRotation.SelectedOnly",
+        "level.target": "FleetInfo.FleetLevelTraining.Target",
+        "affinity.target": "FleetInfo.FleetAffinityTraining.Target",
+        "dorm.floor": "FleetInfo.FleetDorm.Floor",
+        "training.stopOnComplete": "FleetInfo.FleetTraining.StopOnComplete",
+        "training.notify": "FleetInfo.FleetTraining.Notify",
+        "training.interval": "FleetInfo.FleetTraining.CheckIntervalHours",
+    }
+
+    def _fm_save_training(self, payload: dict) -> None:
+        """保存调度设置（开关或单项参数，即点即存）。"""
+        changes = {}
+        switch = payload.get("switch")
+        if isinstance(switch, str) and "|" in switch:
+            key, val = switch.split("|", 1)
+            path = self._FM_SWITCH_PATHS.get(key)
+            if path:
+                changes[path] = val == "1"
+        setting = payload.get("setting")
+        if isinstance(setting, str) and "|" in setting:
+            key, val = setting.split("|", 1)
+            path = self._FM_SETTING_PATHS.get(key)
+            if path:
+                if key in ("level.target", "affinity.target"):
+                    try:
+                        val = max(1, int(float(val)))
+                    except (TypeError, ValueError):
+                        return
+                elif key == "training.interval":
+                    try:
+                        val = min(24.0, max(1.0, float(val)))
+                    except (TypeError, ValueError):
+                        return
+                changes[path] = val
+        if not changes:
+            return
+        self.alas_config.cross_set_many(changes)
+        toast(t("Gui.FleetRotation.Saved"), color="success")
+
     @use_scope("content", clear=True)
     def fleet_scan_page(self, task: str = "FleetScan") -> None:
         """展示舰队扫描的一次性触发入口。"""
@@ -645,6 +779,9 @@ class FleetManagementMixin(WebUIMixinBase):
         """
         self.init_menu(name=task)
         self.set_title(t("Gui.FleetManagement.PageTitle"))
+
+        # 页头横幅：标题 + 副标题 + 四路调度启用统计（B 版仪表盘风格）
+        put_html(_fm_hero_html(self))
 
         # 页签条（裸 HTML，点击经桥 pin 回调服务端懒加载其余面板）
         put_html(_fm_tabs_html(active=tab))
@@ -720,6 +857,8 @@ class FleetManagementMixin(WebUIMixinBase):
                 self._fm_render_panel(panel)
         elif action == "saveRotation":
             self._fm_save_rotation(payload)
+        elif action == "saveTraining":
+            self._fm_save_training(payload)
 
     def _fm_render_panel(self, panel: str) -> None:
         """按需渲染指定页签的面板内容（懒加载）。"""
