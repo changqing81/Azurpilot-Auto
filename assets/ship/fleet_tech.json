@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "source_commit": "6a9e95792cd201463d4cf80a2ab731ee66c671b7",
-  "updated_at": "2026-10-23",
+  "source_commit": "361d754aac7fcb07a890752cdb657bca48f85bf1",
+  "updated_at": "2026-10-30",
   "ships": [
     {
       "group_type": 10000,
