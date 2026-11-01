@@ -132,6 +132,13 @@
       "IslandPearlSell"
     ]
   },
+  "DockLeveling": {
+    "menu": "collapse",
+    "page": "setting",
+    "tasks": [
+      "DockLeveling"
+    ]
+  },
   "FleetManagement": {
     "menu": "collapse",
     "page": "setting",

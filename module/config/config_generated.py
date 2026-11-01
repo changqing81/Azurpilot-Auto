@@ -443,6 +443,11 @@ class GeneratedConfig:
     BuyFurniture_BuyOption = 'all'  # set, all
     BuyFurniture_LastRun = datetime.datetime(2020, 1, 1, 0, 0)
 
+    # 配置组 `DockLeveling`
+    DockLeveling_Enable = False
+    DockLeveling_TargetLevel = 100
+    DockLeveling_DormRest = True
+
     # 配置组 `Meowfficer`
     Meowfficer_BuyAmount = 1
     Meowfficer_FortChoreMeowfficer = True

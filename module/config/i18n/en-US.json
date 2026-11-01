@@ -32,6 +32,10 @@
       "name": "Island Plan",
       "help": ""
     },
+    "DockLeveling": {
+      "name": "Dock Leveling",
+      "help": "Menu.DockLeveling.help"
+    },
     "FleetManagement": {
       "name": "Fleet Management",
       "help": ""
@@ -381,6 +385,11 @@
     "IslandPearlSell": {
       "name": "Weekly Pearl Trade",
       "help": "Only supports minitouch. Process pearls every Tuesday at 01:00."
+    },
+    "DockLeveling": {
+      "name": "Dock Leveling",
+      "help": "Automatically swap low-level dock ships into the battle fleet for leveling; graduated ships step down for the next batch. Leveling itself is done by existing farm tasks; this task only swaps ships on schedule.",
+      "desc": "Swap low-level ships from dock into battle fleet"
     },
     "FleetInfo": {
       "name": "Fleet Information",
@@ -2464,6 +2473,24 @@
     "LastRun": {
       "name": "Last check time",
       "help": "Record the time of the last check to prevent the task from running repeatedly. The check interval is 6 days. This value is automatically recorded and generally does not need to be modified."
+    }
+  },
+  "DockLeveling": {
+    "_info": {
+      "name": "DockLeveling._info.name",
+      "help": "DockLeveling._info.help"
+    },
+    "Enable": {
+      "name": "DockLeveling.Enable.name",
+      "help": "DockLeveling.Enable.help"
+    },
+    "TargetLevel": {
+      "name": "DockLeveling.TargetLevel.name",
+      "help": "DockLeveling.TargetLevel.help"
+    },
+    "DormRest": {
+      "name": "DockLeveling.DormRest.name",
+      "help": "DockLeveling.DormRest.help"
     }
   },
   "Meowfficer": {
@@ -7067,6 +7094,15 @@
       "StopOnComplete": "Stop scheduling after all complete",
       "Notify": "Notify on completion",
       "CheckIntervalHours": "Check interval (hours)"
+    },
+    "DockLeveling": {
+      "Enable": "Leveling swap (auto pick low-level ships from dock)",
+      "TargetLevel": "Target level",
+      "DormRest": "Send graduated ships to dorm floor 1",
+      "info": {
+        "name": "Dock Leveling",
+        "help": "Automatically swap low-level dock ships into the battle fleet for leveling."
+      }
     },
     "FleetDorm": {
       "Help": "Dorm swap: ships swapped out of battle with low morale are sent to dorm automatically; they return via swap scheduling when rested. Toggle at card top-right.",

@@ -2301,6 +2301,11 @@
       "BuyOption": "all",
       "LastRun": "2020-01-01 00:00:00"
     },
+    "DockLeveling": {
+      "Enable": false,
+      "TargetLevel": 100,
+      "DormRest": true
+    },
     "Storage": {
       "Storage": {}
     }
@@ -3760,6 +3765,21 @@
       "BuyNextRun": "2020-01-01 00:00:00",
       "DailyPriceRefresh": false,
       "NextPearlTradeTime": "2020-01-01 00:00:00"
+    },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "DockLeveling": {
+    "Scheduler": {
+      "Enable": false,
+      "PushNotification": false,
+      "NextRun": "2020-01-01 00:00:00",
+      "Command": "DockLeveling",
+      "SuccessInterval": 0,
+      "FailureInterval": 120,
+      "ServerUpdate": "00:00",
+      "Sensitive": false
     },
     "Storage": {
       "Storage": {}

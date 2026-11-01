@@ -13,7 +13,9 @@ from typing import Iterator
 from deploy.atomic import atomic_remove, atomic_replace, atomic_write
 
 
-WORKER_REGISTRY_FILE = Path("./cache/webui-workers.json")
+# 可用环境变量重定向到独立文件：并行测试实例与正式 GUI 互不抢占单实例锁，
+# 测试结束也不需要触碰正式登记（2026-11-01 事故：测试实例借走登记文件，正式 GUI 启动被拒）。
+WORKER_REGISTRY_FILE = Path(os.environ.get("AZURPILOT_WORKER_REGISTRY", "./cache/webui-workers.json"))
 LEGACY_WORKER_REGISTRY_FILE = Path("./config/webui-workers.json")
 DEFAULT_WORKER_REGISTRY_FILE = WORKER_REGISTRY_FILE
 REGISTRY_LOCK_TIMEOUT = 10.0

@@ -32,6 +32,10 @@
       "name": "島嶼計劃",
       "help": ""
     },
+    "DockLeveling": {
+      "name": "練級換船",
+      "help": "Menu.DockLeveling.help"
+    },
     "FleetManagement": {
       "name": "艦隊管理",
       "help": ""
@@ -381,6 +385,11 @@
     "IslandPearlSell": {
       "name": "每週珍珠採購與售賣",
       "help": "僅支援minitouch。每週二 01:00 自動處理珍珠：先採購本週珍珠，再售賣已有珍珠。金幣一定要夠購買200x220個這是最低要求能一次買光本週珍珠, 否則可能會報錯."
+    },
+    "DockLeveling": {
+      "name": "練級換船",
+      "help": "開啟後自動從船塢挑低於目標等級的艦船換上出擊編隊練級；畢業船讓位，換下一批低等級船。練級靠現有的出擊任務刷圖，本任務只負責換船，按調度週期執行。",
+      "desc": "從船塢挑低等級艦船換上出擊編隊練級"
     },
     "FleetInfo": {
       "name": "艦隊資訊",
@@ -2464,6 +2473,24 @@
     "LastRun": {
       "name": "上次檢查時間",
       "help": "記錄上一次檢查的時間以防止任務重複執行，檢查間隔為6天，這個數值是自動記錄的，一般不需要修改"
+    }
+  },
+  "DockLeveling": {
+    "_info": {
+      "name": "DockLeveling._info.name",
+      "help": "DockLeveling._info.help"
+    },
+    "Enable": {
+      "name": "DockLeveling.Enable.name",
+      "help": "DockLeveling.Enable.help"
+    },
+    "TargetLevel": {
+      "name": "DockLeveling.TargetLevel.name",
+      "help": "DockLeveling.TargetLevel.help"
+    },
+    "DormRest": {
+      "name": "DockLeveling.DormRest.name",
+      "help": "DockLeveling.DormRest.help"
     }
   },
   "Meowfficer": {
@@ -7067,6 +7094,15 @@
       "StopOnComplete": "全部完成後停止調度",
       "Notify": "完成時發送通知",
       "CheckIntervalHours": "檢查間隔（小時）"
+    },
+    "DockLeveling": {
+      "Enable": "練級換船（船塢低等級自動換上）",
+      "TargetLevel": "目標等級",
+      "DormRest": "畢業船自動掛後宅一樓",
+      "info": {
+        "name": "練級換船",
+        "help": "開啟後自動從船塢挑低於目標等級的艦船換上出擊編隊練級，畢業船讓位換下一批。"
+      }
     },
     "FleetDorm": {
       "Help": "後宅換船：出擊換下的低心情艦船自動送進後宅休息，回滿後再由換船調度換回。開關在卡片右上角。",

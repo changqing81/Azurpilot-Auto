@@ -271,6 +271,8 @@ Reward:
       - Scheduler
       - Dorm
       - BuyFurniture
+      - DockLeveling
+      - DockLeveling
     Meowfficer:
       - Scheduler
       - Meowfficer
@@ -477,6 +479,15 @@ Island:
     IslandPearlSell:
       - Scheduler
       - IslandPearlSell
+
+# ==================== Dock Leveling ====================
+
+DockLeveling:
+  menu: collapse
+  page: setting
+  tasks:
+    DockLeveling:
+      - Scheduler
 
 # ==================== Fleet Management ====================
 

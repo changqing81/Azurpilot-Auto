@@ -949,6 +949,12 @@ BuyFurniture:
     value: all
     option: [set, all]
   LastRun: 2020-01-01 00:00:00
+DockLeveling:
+  Enable: false
+  TargetLevel:
+    value: 100
+    validate: [1, 125]
+  DormRest: true
 Meowfficer:
   BuyAmount: 1
   FortChoreMeowfficer: true

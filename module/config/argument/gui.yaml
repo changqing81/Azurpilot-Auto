@@ -146,6 +146,14 @@ FleetTraining:
   Notify:
   CheckIntervalHours:
 
+DockLeveling:
+  info:
+    name:
+    help:
+  Enable:
+  TargetLevel:
+  DormRest:
+
 FleetDorm:
   Help:
   Floor:
