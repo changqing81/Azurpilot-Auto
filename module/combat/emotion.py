@@ -163,6 +163,10 @@ class FleetEmotion:
     # 换船代码经 calibrate_selected 校准后改用 context 里的培养相位账本，
     # 不会读取这里；普通任务不读这些属性，行为与从前完全一致。
 
+    # 培养账本覆写位：RotationEmotion._get_recovered 用 copy(fleet) 后写入
+    # 培养相位账本；为 None 时回落到整队数值模型。
+    _state_override = None
+
     @property
     def state(self):
         """智能换船兼容：用当前配置数值构建恢复状态。
@@ -172,6 +176,8 @@ class FleetEmotion:
                 仅在配置值尚未初始化（None）时返回 None，其余时候返回
                 以 current 为下限的即时状态。
         """
+        if self._state_override is not None:
+            return self._state_override
         value = self.value
         if type(value) is not int:
             return None
@@ -179,6 +185,11 @@ class FleetEmotion:
         from module.config.time_source import now
         return EmotionRecoveryState.calibrate(
             value, now(), self.recover, self.oath, self.onsen)
+
+    @state.setter
+    def state(self, value):
+        """允许换船逻辑把培养相位账本临时挂到账本副本上（copy(fleet) 后赋值）。"""
+        self._state_override = value
 
     @property
     def lower(self):
@@ -385,7 +396,9 @@ class Emotion:
             self.update()
             self.record()
             self.show()
-            recovered = self.public_fleet.get_recovered(reduce)
+            # 经 self._get_recovered 走两参形式：RotationEmotion 用它接入培养账本，
+            # 直接调 fleet.get_recovered 会绕过培养相位，把整队低值当判定依据。
+            recovered = self._get_recovered(self.public_fleet, reduce)
             delay = recovered > current_time()
             return recovered, delay
 
@@ -408,9 +421,72 @@ class Emotion:
         self.update()
         self.record()
         self.show()
-        recovered = max([f.get_recovered(b) for f, b in zip(self.fleets, battle)])
+        # 与上游一致：经 self._get_recovered 两参形式判定，培养舰位的相位账本
+        # 才能替换整队 Value 参与计算；待命舰队（b=0）不参与，其未校准状态
+        # 不能阻塞正在出击的舰队。
+        recovered = max((self._get_recovered(f, b) for f, b in zip(self.fleets, battle) if b > 0),
+                        default=current_time())
         delay = recovered > current_time()
         return recovered, delay
+
+    def emergency_reset(self):
+        """心情清零保底。计算模式下出现红脸弹窗时调用。
+
+        本地数值模型没有逐舰位恢复相位，直接把受管理舰队的 Value 置 0、
+        Record 置当前时刻：0 是保守起点，恢复条件正确且无额外消耗时，
+        下限恢复到出击要求后即可自动继续。
+
+        培养相位账本（RotationEmotion）覆写本方法做同样的整队清零外，
+        还会失效培养账本强制重扫。
+        """
+        fleets = [self.public_fleet] if self.using_public else self.fleets
+        record_time = current_time()
+        with self.config.multi_set():
+            for fleet in fleets:
+                fleet.current = 0
+                setattr(self.config, fleet.value_name, 0)
+                setattr(self.config, fleet.value_name.replace('Value', 'Record'),
+                        record_time)
+
+    def _get_recovered(self, fleet, expected_reduce):
+        """心情不足后恢复到预留值的统一入口。
+
+        上游智能换船经 RotationEmotion._get_recovered 覆写此方法接入培养
+        相位账本；_check_reduce / wait / check_fleet 一律经它判定，避免
+        直接调 fleet.get_recovered 绕过覆写。
+
+        预留值（Emotion_MinReserve）仅在计算模式下生效：心情不足时把恢复
+        目标从控制线抬高到预留值（港区等恢复条件有上限，预留不能造成
+        永远无法结束的等待），等待状态记入 Emotion_RecoveryWait。
+
+        Args:
+            fleet (FleetEmotion): 参与判定的舰队账本。
+            expected_reduce (int): 预期情绪减少量。
+
+        Returns:
+            datetime.datetime: 恢复到控制阈值/预留值的时间。
+        """
+        recovered = fleet.get_recovered(expected_reduce)
+        reserve = getattr(self.config, 'Emotion_MinReserve', 0) if self.is_calculate else 0
+        waiting = list(getattr(self.config, 'Emotion_RecoveryWait', None) or [])
+        key = str(fleet.fleet)
+        was_waiting = key in waiting
+        if reserve > 0 and (recovered > current_time() or was_waiting):
+            target = min(reserve, fleet.max)
+            state = fleet.state
+            if state is not None:
+                recovered = max(recovered, state.recovered_at(target))
+            if recovered > current_time():
+                if not was_waiting:
+                    waiting.append(key)
+                    logger.info(f'[心情-预留] 舰队 {fleet.fleet} 心情不足，恢复至至少 {target} 后继续')
+            elif was_waiting:
+                waiting.remove(key)
+        elif was_waiting:
+            waiting.remove(key)
+        if was_waiting != (key in waiting):
+            self.config.Emotion_RecoveryWait = waiting or None
+        return recovered
 
     def check_reduce(self, battle):
         """进入战役前检查情绪。
@@ -481,6 +557,9 @@ class Emotion:
         else:
             fleet.current -= self.reduce_shipwreck
             self.total_reduced += self.reduce_shipwreck
+        # 心情没有负值；固定红脸 0 时再遭遇船难会扣到负数，写回配置会让
+        # 数值模型在下次 calibrate 时抛 ValueError。钳到 0。
+        fleet.current = max(fleet.current, 0)
         self.record()
         self.show()
 

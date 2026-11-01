@@ -22,7 +22,8 @@ from module.base.base import ModuleBase
 from module.base.button import Button
 from module.base.timer import Timer
 from module.base.utils import *
-from module.exception import GameNotRunningError, GameTooManyClickError
+from module.combat.assets import BATTLE_PREPARATION
+from module.exception import CampaignEnd, GameNotRunningError, GameTooManyClickError, ScriptEnd
 from module.handler.assets import *
 from module.logger import logger
 from module.os_handler.assets import CLICK_SAFE_AREA as OS_CLICK_SAFE_AREA
@@ -214,6 +215,62 @@ class InfoHandler(ModuleBase):
         return appear
 
     def handle_combat_low_emotion(self):
+        """
+        处理低情绪出击警告弹窗（红脸弹窗）。
+
+        - ignore 模式（含 calculate_ignore）：点击确认继续出击
+        - calculate 模式（不含 ignore）：正常不应出现红脸弹窗（已预检），
+          若出现则视为异常，取消弹窗退出关卡、心情清零、延时任务
+
+        作战档案出击后的「消耗档案密钥」弹窗同样由 POPUP_CANCEL /
+        POPUP_CONFIRM 这两个通用按钮组成，仅凭按钮判定会把出击被数据密钥
+        弹窗拦住误判成红脸弹窗（取消弹窗、清零心情、延后任务），
+        因此先交给 handle_use_data_key() 处理。
+
+        Returns:
+            bool: 是否处理了弹窗。calculate 模式下若触发保底会抛出 ScriptEnd。
+
+        Raises:
+            ScriptEnd: calculate 模式下出现红脸弹窗时，心情清零并延时后抛出。
+        """
+        # 作战档案强制启用数据密钥，此时的双按钮弹窗优先按数据密钥弹窗处理
+        if self.handle_use_data_key():
+            return True
+
+        # 培养换船进行中：培养舰位实测心情充足时，固定红脸弹窗按用户
+        # 配置确认（固定舰队的低心情不影响培养账本），不触发保底。
+        from module.campaign.fleet_rotation_emotion import RotationEmotion
+        if isinstance(self.emotion, RotationEmotion) and self.emotion.rotation_enabled:
+            if self.emotion.rotation_popup_allowed():
+                return self.handle_popup_confirm('IGNORE_LOW_EMOTION')
+
+        # calculate 模式保底：正常不应出现红脸弹窗
+        # 若出现则可能是ALAS计算错误或用户手动操作，需异常处理
+        if self.emotion.is_calculate and not self.emotion.is_ignore:
+            if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
+                logger.warning('[心情-保底] 计算模式下出现红脸弹窗，'
+                               '可能是ALAS计算错误或用户手动操作')
+                logger.hr('心情异常保底')
+                # 退出关卡（弹窗已取消，阻止战斗）
+                # 捕获 withdraw() 抛出的 CampaignEnd，确保后续心情清零和延时被执行
+                try:
+                    self._emotion_emergency_exit()
+                except CampaignEnd:
+                    logger.info('[心情-保底] 撤退完成，已回到关卡页面')
+                # 按下次完整出击预留心情；没有地图战斗次数的任务至少预留一场。
+                battle = max(1, getattr(self, '_map_battle', 1))
+                # 培养换船进行中：账本以培养舰位实测为准，弹窗说明读数已过期，
+                # 退出后重扫培养舰位；培养恢复预留仍按原调度延迟。
+                from module.campaign.fleet_rotation_emotion import RotationEmotion
+                if isinstance(self.emotion, RotationEmotion) and self.emotion.rotation_enabled:
+                    self.emotion.delay_rotation_popup(battle)
+                else:
+                    # 从0建立有效的保守恢复起点，任务重载后仍可自动恢复。
+                    self.emotion.emergency_reset()
+                    recovered, _ = self.emotion._check_reduce(battle)
+                    self.config.task_delay(target=recovered)
+                raise ScriptEnd('[心情-保底] 计算模式红脸弹窗，心情清零并延时')
+
         if not self.emotion.is_ignore:
             return False
 
@@ -222,6 +279,46 @@ class InfoHandler(ModuleBase):
             # 避免误点 AUTO_SEARCH_MAP_OPTION_OFF
             self.interval_reset(AUTO_SEARCH_MAP_OPTION_OFF)
         return result
+
+    def _emotion_emergency_exit(self):
+        """
+        红脸弹窗保底退出关卡。
+
+        取消弹窗后，依次处理战斗准备界面、自动搜索菜单、地图界面，
+        直到回到关卡选择页面或超时。用于 calculate 模式下出现红脸弹窗的
+        异常保底流程，确保游戏回到关卡选择页面后再延时任务。
+
+        Pages:
+            in: 红脸弹窗已取消，可能在战斗准备/地图/自动搜索菜单
+            out: is_in_stage() 或超时
+        """
+        from module.ui.assets import BACK_ARROW
+        timeout = Timer(30, count=60).start()
+        while 1:
+            self.device.screenshot()
+
+            if timeout.reached():
+                logger.warning('[心情-保底] 退出关卡超时')
+                break
+
+            if self.handle_popup_cancel('IGNORE_LOW_EMOTION'):
+                continue
+            if self.handle_story_skip():
+                continue
+            # 战斗准备界面：点击返回
+            if self.appear(BATTLE_PREPARATION, offset=(20, 20), interval=2):
+                self.device.click(BACK_ARROW)
+                continue
+            # 自动搜索菜单：退出
+            if self.handle_auto_search_exit():
+                continue
+            # 已回到关卡页面
+            if self.is_in_stage():
+                break
+            # 在地图中：撤退（withdraw 在 MapOperation 中，部分子类可能没有）
+            if self.is_in_map() and hasattr(self, 'withdraw'):
+                self.withdraw()
+                break
 
     def handle_use_data_key(self):
         if not self.config.USE_DATA_KEY:

@@ -36,6 +36,25 @@ ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path(__file__).reso
 SKIP_DIRS = {'.venv', '__pycache__', '.git', 'node_modules', 'log', 'webapp'}
 
 
+def is_internal_module(module):
+    """判断 import 的模块是否属于本仓库。
+
+    第三方/标准库模块（如 pywebio、starlette）没有源码可查，不能拿仓库内
+    同名定义去推断它的签名 —— 那会把 `pywebio.config(css_file=...)` 错配到
+    仓库里另一个叫 `config` 的函数上，产生纯误报。
+
+    Args:
+        module (str | None): `ImportFrom.module`；相对导入为 None。
+
+    Returns:
+        bool: 属于本仓库（或无模块名的相对导入）时为 True。
+    """
+    if not module:
+        return True
+    top = module.split('.')[0]
+    return (ROOT / top).is_dir() or (ROOT / f'{top}.py').is_file()
+
+
 def iter_py_files(root):
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith('.')]
@@ -63,15 +82,22 @@ class Collector(ast.NodeVisitor):
         self.calls = []                    # (class|None, kind, target, kwargs, line, receiver)
         self.attr_types = defaultdict(set)  # (class, attr) -> {类型名}
         self.aliases = {}                  # 本文件内的 import 别名: 别名 -> 原名
+        self.external_names = set()         # 来自仓库外的名字，签到不查
 
     def visit_ImportFrom(self, node):
+        internal = is_internal_module(node.module)
         for a in node.names:
-            self.aliases[a.asname or a.name] = a.name
+            alias = a.asname or a.name
+            self.aliases[alias] = a.name
+            if not internal:
+                self.external_names.add(alias)
 
     def visit_Import(self, node):
         for a in node.names:
             if a.asname:
                 self.aliases[a.asname] = a.name.split('.')[-1]
+                if not is_internal_module(a.name):
+                    self.external_names.add(a.asname)
 
     def _record_class(self, node):
         info = {'bases': [], 'methods': {}, 'init': None}
@@ -196,6 +222,7 @@ def main():
     calls = []
     attr_types = defaultdict(set)
     aliases_by_file = {}
+    external_by_file = {}
     for path in files:
         try:
             tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
@@ -212,6 +239,7 @@ def main():
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 functions_by_name[node.name].append(func_params(node))
         aliases_by_file[rel] = c.aliases
+        external_by_file[rel] = c.external_names
         functions.extend(c.functions)
         methods.extend(c.methods)
         calls.extend((rel, *x) for x in c.calls)
@@ -234,6 +262,11 @@ def main():
     checked = 0
     for rel, cls, kind, target, kwargs, line, receiver, n_pos, has_star in calls:
         if kind == 'name':
+            # 来自仓库外的符号（pywebio / starlette 等）没有源码可查，
+            # 拿仓库内同名定义去判定只会误报，直接跳过。
+            if target in external_by_file.get(rel, set()):
+                unresolved['external'] += 1
+                continue
             # 同文件内的 import 别名：`OSShopItemGrid as ItemGrid` → 按 OSShopItemGrid 解析
             name = aliases_by_file.get(rel, {}).get(target, target)
             cands = list(functions_by_name.get(name, []))

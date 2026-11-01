@@ -14,6 +14,21 @@ from module.retire.scanner import Ship
 
 TASKS = (GemsFarming, Ambush11)
 
+# 各任务类的方法分别定义在自己的模块里（fleet_selection.py 的 mixin 已无人继承），
+# patch 模板表必须落在实现所在模块，否则 patch 无效、真 cv2 匹配会被触发。
+TASK_MODULE = {GemsFarming: gems_farming, Ambush11: ambush_1_1}
+
+
+def patch_templates(task, kind, templates):
+    """按任务实现模块 patch TEMPLATE_COMMON_CV / TEMPLATE_COMMON_DD。"""
+    return patch.object(TASK_MODULE[task], f'TEMPLATE_COMMON_{kind}', templates)
+
+
+def patch_ship_scanner(task, ships):
+    """按任务实现模块 patch ShipScanner 为内存 Scanner。"""
+    return patch.object(TASK_MODULE[task], 'ShipScanner',
+                        side_effect=lambda **limits: Scanner(ships, **limits))
+
 
 def runner(task, **settings):
     instance = object.__new__(task)
@@ -74,7 +89,7 @@ class CandidateSelectionTest(unittest.TestCase):
         templates = {'BOGUE': template('bogue', 'bogue-low-emotion', 'bogue-high-level'),
                      'LANGLEY': template('langley', 'langley-low-level')}
         for task in TASKS:
-            with self.subTest(task=task.__name__), patch.object(fleet_selection, 'TEMPLATE_COMMON_CV', templates):
+            with self.subTest(task=task.__name__), patch_templates(task, 'CV', templates):
                 found = runner(task).find_all_backline_candidates(Scanner(ships), ['bogue', 'langley'])
             self.assertEqual(['langley-low-level', 'bogue', 'langley', 'bogue-high-level', 'bogue-low-emotion'],
                              [item.button for item in found])
@@ -85,7 +100,7 @@ class CandidateSelectionTest(unittest.TestCase):
         templates = {'CASSIN': template('cassin', 'both'),
                      'DOWNES': template('downes', 'downes-happy', 'both')}
         for task in TASKS:
-            with self.subTest(task=task.__name__), patch.object(fleet_selection, 'TEMPLATE_COMMON_DD', templates):
+            with self.subTest(task=task.__name__), patch_templates(task, 'DD', templates):
                 found = runner(task).find_all_vanguard_candidates(Scanner(ships), ['cassin', 'downes'])
             self.assertEqual(['downes-happy', 'cassin', 'both', 'downes'], [item.button for item in found])
 
@@ -105,10 +120,20 @@ class CandidateSelectionTest(unittest.TestCase):
                 instance.get_common_ship_filter.return_value = names
                 candidate = ship('second')
                 instance.find_candidates = Mock(side_effect=[[], [candidate], [], [], [candidate]])
-                self.assertEqual([candidate], instance.find_custom_candidates(Mock(), ship_type))
+                # fallback 校验用模块级模板表做单点匹配；桩成永远命中的模板避免触发 cv2。
+                with patch_templates(task, ship_type.upper(),
+                                     {name.upper(): template(*names) for name in names}):
+                    self.assertEqual([candidate], instance.find_custom_candidates(Mock(), ship_type))
                 descending = ship_type == 'dd'
-                self.assertEqual([call(not descending), call(descending)],
-                                 instance.dock_sort_method_dsc_set.call_args_list)
+                if task is Ambush11:
+                    # ambush 实现：倒序后命中次级候补时经其 919 行恢复排序
+                    # （带 wait_loading=False），与 gems 的 878 行细节不同。
+                    self.assertEqual([call(not descending),
+                                      call(descending, wait_loading=False)],
+                                     instance.dock_sort_method_dsc_set.call_args_list)
+                else:
+                    self.assertEqual([call(not descending), call(descending)],
+                                     instance.dock_sort_method_dsc_set.call_args_list)
 
     def test_template_list_retains_first_matching_template_preference(self):
         scanner = Scanner([ship('second'), ship('first')])
@@ -127,7 +152,7 @@ class LevelPolicyTest(unittest.TestCase):
                  ship('tired', level=10, emotion=7, fleet=1), ship('other-fleet', fleet=2)]
         for task in TASKS:
             instance = runner(task)
-            with patch.object(fleet_selection, 'ShipScanner', side_effect=lambda **limits: Scanner(ships, **limits)):
+            with patch_ship_scanner(task, ships):
                 selected = instance.get_common_rarity_cv()
             self.assertEqual(['min', 'max'], [item.button for item in selected])
 
@@ -138,7 +163,7 @@ class LevelPolicyTest(unittest.TestCase):
                     instance = runner(task, SERVER=server, GemsFarming_AllowHighFlagshipLevel=True)
                     instance.find_custom_candidates = Mock(return_value=[])
                     ships = [ship('below', level=level-1), ship('match', level=level), ship('above', level=level+1)]
-                    with patch.object(fleet_selection, 'ShipScanner', side_effect=lambda **limits: Scanner(ships, **limits)):
+                    with patch_ship_scanner(task, ships):
                         selected = instance.get_common_rarity_cv()
                     self.assertEqual(['match'], [item.button for item in selected])
 
@@ -147,7 +172,7 @@ class LevelPolicyTest(unittest.TestCase):
             instance = runner(task, GemsFarming_CommonCV='custom')
             instance.find_custom_candidates = Mock(return_value=[])
             ships = [ship('idle', emotion=0), ship('other-fleet', emotion=0, fleet=2)]
-            with patch.object(fleet_selection, 'ShipScanner', side_effect=lambda **limits: Scanner(ships, **limits)):
+            with patch_ship_scanner(task, ships):
                 selected = instance.get_common_rarity_cv(emotion=0)
             self.assertEqual(['idle'], [item.button for item in selected])
 
@@ -156,7 +181,7 @@ class LevelPolicyTest(unittest.TestCase):
             instance = runner(task, GemsFarming_UseEmotionFirst=True)
             winner, current = ship('winner'), ship('current', fleet=1)
             instance.find_all_backline_candidates = Mock(return_value=[winner, current])
-            with patch.object(fleet_selection, 'ShipScanner', side_effect=lambda **limits: Scanner([current], **limits)):
+            with patch_ship_scanner(task, [current]):
                 self.assertEqual([winner], instance.get_common_rarity_cv())
                 instance.find_all_backline_candidates.side_effect = [[], []]
                 self.assertEqual([current], instance.get_common_rarity_cv())
@@ -205,7 +230,9 @@ class FleetInteractionTest(unittest.TestCase):
     def test_mro_preserves_campaign_super_and_short_circuits_task_limits(self):
         for task in TASKS:
             instance = runner(task)
-            self.assertLess(task.__mro__.index(FleetSelectionMixin), task.__mro__.index(CampaignRun))
+            # 两任务各自实现 triggered_stop_condition（fleet_selection.py 的
+            # FleetSelectionMixin 已无人继承），并经 super() 调用 CampaignRun。
+            self.assertIn('triggered_stop_condition', vars(task))
             with patch.object(CampaignRun, 'triggered_stop_condition', autospec=True, return_value=False) as parent:
                 self.assertFalse(instance.triggered_stop_condition(oil_check=False))
                 parent.assert_called_once_with(instance, oil_check=False)
@@ -243,6 +270,7 @@ class FleetInteractionTest(unittest.TestCase):
                                      trace.mock_calls)
 
     def test_hard_mode_uses_correct_fleet_buttons(self):
+        from module.equipment import assets as equip_assets
         for task in TASKS:
             for order, suffix in [('fleet1_all_fleet2_standby', '1'), ('fleet1_standby_fleet2_all', '2')]:
                 instance = runner(task, Fleet_FleetOrder=order)
@@ -250,8 +278,10 @@ class FleetInteractionTest(unittest.TestCase):
                 instance.hard_mode_override()
                 self.assertTrue(instance.hard_mode)
                 self.assertIs(instance.fleet_detail_enter_flagship,
-                              getattr(fleet_selection, f'FLEET_DETAIL_ENTER_FLAGSHIP_HARD_{suffix}'))
-                self.assertIs(instance._fleet_detail_enter.__func__, FleetSelectionMixin._fleet_detail_enter_hard)
+                              getattr(equip_assets, f'FLEET_DETAIL_ENTER_FLAGSHIP_HARD_{suffix}'))
+                # 困难模式的进入函数切到各任务自己的 *_hard 实现
+                self.assertIs(instance._fleet_detail_enter.__func__,
+                              task._fleet_detail_enter_hard)
 
     def test_dock_enter_handles_tip_and_ready_state(self):
         for task in TASKS:
@@ -279,7 +309,8 @@ class FleetInteractionTest(unittest.TestCase):
             instance.appear_then_click = Mock(side_effect=[False, False, False, False, True, False, False, False])
             instance.handle_retirement = Mock(side_effect=[True, False, False])
             instance._fleet_detail_enter_hard(1)
-            instance.campaign.ensure_campaign_ui.assert_called_once_with('campaign_2_1', mode='normal')
+            # 两份实现都只按 stage 重新导航，不传 mode
+            instance.campaign.ensure_campaign_ui.assert_called_once_with('campaign_2_1')
             self.assertEqual(3, instance.device.screenshot.call_count)
             self.assertEqual(2, instance.appear_then_click.call_args_list.count(call(instance.campaign.ENTRANCE, interval=2)))
 

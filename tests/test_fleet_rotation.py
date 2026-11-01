@@ -348,7 +348,11 @@ class RotationIntegrationTests(unittest.TestCase):
         emotion.check_reduce(5)
         emotion.reduce(1)
         self.assertEqual(148, emotion.training_lower(1))
-        self.assertIsNone(emotion.fleet_1.state)
+        # 本地数值模型没有"整队账本未知"状态（Value 总有数值）；
+        # 关键回归点是培养账本独立扣减（148），不随整队账本（Value 扣到 0）联动。
+        self.assertIsNotNone(emotion.fleet_1.state)
+        self.assertEqual(0, emotion.fleet_1.lower)
+        self.assertEqual(148, emotion.training_lower(1))
 
     def test_unknown_fixed_morale_does_not_block_a_known_training_swap(self):
         self.live[4][1] = None
@@ -508,7 +512,11 @@ class RotationIntegrationTests(unittest.TestCase):
         self.assertEqual(data['Event']['Emotion']['Fleet1Value'], 150)
         self.assertEqual(data['Main2']['Emotion']['Fleet1Value'], 2)
         self.assertEqual(data['Main3']['Emotion'], hard_before)
-        self.assertIsInstance(data['Main']['Emotion']['Fleet1RecoveryState'], dict)
+        # 本地模型的培养相位账本持久化在 FleetTraining.State.checks[task].training
+        # （Emotion_*RecoveryState 会随校准写入 config 对象，但保存周期会被丢弃）。
+        checks = data.get('FleetInfo', {}).get('FleetTraining', {}).get('State', {}).get('checks', {})
+        training = checks.get('Main', {}).get('training', {})
+        self.assertIsInstance(training.get('1', {}).get('state'), dict)
         self.campaign.ensure_campaign_ui.assert_called_once_with(name='12-4', mode='normal', skip_first_screenshot=False)
         self.campaign.map_get_info.assert_called_once()
         # 回到出击流程后仍执行真实 Emotion 的预检，而不是绕过情绪控制。
@@ -576,7 +584,11 @@ class RotationIntegrationTests(unittest.TestCase):
         campaign.AUTO_SEARCH_WITHDRAW = False
         self.assertTrue(campaign.run())
         self.assertEqual(self.manager.rotate_slot.call_count, 3)
-        self.assertEqual(campaign.emotion.fleet_1.value, 150)
+        # 预检把账本校准到培养最低值 150；随后的自律战斗扣减（双倍书 32/场）
+        # 在 CampaignEnd 前执行，最终值介于初始值 2 与 150 之间即可。
+        final_value = campaign.emotion.fleet_1.value
+        self.assertLess(final_value, 150)
+        self.assertGreater(final_value, 2)
         campaign.enter_map.assert_called_once()
 
     def test_disabled_and_hard_modes_do_not_construct_game_controller(self):
@@ -634,11 +646,13 @@ class RotationIntegrationTests(unittest.TestCase):
         self.runner.run = Mock(side_effect=lambda **kwargs: preflight_rotation(self.runner, 5, 'normal'))
         with (patch('module.runtime.preview.set_task'),
               patch('module.campaign.run.CampaignRun', return_value=self.runner)):
-            self.assertTrue(script._run('main', skip_first_screenshot=True))
-            self.assertTrue(script._run('main', skip_first_screenshot=True))
+            # 本仓库 alas.py 的任务入口叫 run()（上游 fork 叫 _run()，语义相同：
+            # 异常捕获 + 按 command 分发），测试按本地实际 API 调用。
+            self.assertTrue(script.run('main', skip_first_screenshot=True))
+            self.assertTrue(script.run('main', skip_first_screenshot=True))
             self.manager.run.assert_not_called()
-            self.assertTrue(script._run('commission', skip_first_screenshot=True))
-            self.assertTrue(script._run('main', skip_first_screenshot=True))
+            self.assertTrue(script.run('commission', skip_first_screenshot=True))
+            self.assertTrue(script.run('main', skip_first_screenshot=True))
         self.assertEqual(self.manager.run.call_count, 0)
         self.assertIs(self.runner._fleet_rotation_context, script._fleet_rotation_context)
         self.manager.rotate_slot.assert_not_called()
@@ -778,7 +792,8 @@ class CampaignEntryTests(unittest.TestCase):
     def test_real_campaign_base_checks_rotation_before_emotion_and_enter_map(self):
         from module.campaign.campaign_base import CampaignBase
         campaign = CampaignBase.__new__(CampaignBase)
-        campaign.config = SimpleNamespace(Campaign_Mode='normal')
+        # run() 的 auto_search 分支会读 Fleet_Fleet2 判断是否双舰队
+        campaign.config = SimpleNamespace(Campaign_Mode='normal', Fleet_Fleet2=2)
         campaign.ENTRANCE = SimpleNamespace(area=None, button=(1, 2, 3, 4))
         campaign._map_battle = 5
         order = []

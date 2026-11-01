@@ -92,6 +92,9 @@ class RotationEmotion(Emotion):
             # 复用原控制线、单图消耗、恢复预留和配置冲突检查，不改写整队账本。
             training = copy(fleet)
             training.state = state
+            # get_recovered 读 self.current / self.limit；账本副本的 current
+            # 必须跟随培养相位，否则整队低值（如固定红脸 20）会盖过培养账本。
+            training.current = state.value
             recovered = max(recovered, super()._get_recovered(training, expected_reduce))
         return recovered
 

@@ -885,7 +885,9 @@ class FleetManagement(Dock):
         reference_updated = False
         if update_emotion:
             try:
-                self.run(update_emotion=True)
+                # run() 本身就是「重新扫描参考信息及心情」，
+                # 它只接受 self、没有 update_emotion 参数（传了会 TypeError）。
+                self.run()
                 reference_updated = True
             except (FleetManagementError, GameStuckError, GameTooManyClickError) as exc:
                 logger.warning(f'舰位互换已完成，参考信息尚未刷新：{exc}')

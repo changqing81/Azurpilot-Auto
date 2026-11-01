@@ -183,7 +183,8 @@ class TrainingSession:
         self.sources_refreshed = True
         logger.info('已确认需要换船，完整扫描全舰队后再选择候补')
         self.manager.finish_rotation()
-        self.manager.run(update_emotion=True)
+        # FleetManagement.run() 就是完整扫描并校准心情，不接受 update_emotion 参数
+        self.manager.run()
         self.inventory_fleets.update(range(1, 7))
         snapshots = {fleet: recorded_morale(self.result, fleet) for fleet in range(1, 7)}
         self.config.cross_set_many(calibration_changes(self.config.data, snapshots, now()))
