@@ -776,6 +776,8 @@ def webui_style_names(theme=None, is_mobile=None) -> list:
         "meow-loot-alas",
         # 舰队科技列表页（汇总/筛选/双层表头表格；结构色走 --alas-entry-*）
         "fleet-tech-alas",
+        # 舰队管理四页签（舰队信息/换船配置/换船调度/换船装备）
+        "fleet-management-alas",
     ]
     styles.extend(webui_theme_style_names(theme))
     return styles

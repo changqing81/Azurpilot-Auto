@@ -96,6 +96,60 @@ FleetManagement:
   Ships:
   SurfaceFleet:
   UnderwaterFleet:
+  PageTitle:
+  ScanTitle:
+  ScanHint:
+
+FleetRotation:
+  TabTitle:
+  FleetTitle:
+  Slots:
+  Sources:
+  Swap:
+  Keep:
+  Favourite:
+  FavouriteHelp:
+  Help:
+  Duplicates:
+  Save:
+  Reset:
+  Saved:
+  InvalidRules:
+  Last:
+  LastFavourite:
+  Uncertain:
+  None:
+
+FleetTraining:
+  TabTitle:
+  Help:
+  MoraleTitle:
+  LevelTitle:
+  AffinityTitle:
+  DormTitle:
+  "On":
+  "Off":
+  IntervalTitle:
+  IntervalHelp:
+  RecordTitle:
+  Fleet:
+  Actual:
+  CheckedAt:
+  Empty:
+  DormNote:
+
+FleetDorm:
+  Floor1:
+  Floor2:
+
+FleetEquipment:
+  TabTitle:
+  Code:
+  Placeholder:
+  Help:
+  EditViaForm:
+  Enabled:
+  Disabled:
 
 FleetTechnology:
   SelectPage:

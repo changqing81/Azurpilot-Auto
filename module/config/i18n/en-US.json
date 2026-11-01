@@ -7017,7 +7017,61 @@
       "Fleet": "Fleet",
       "Ships": "Ships",
       "SurfaceFleet": "Surface Fleets",
-      "UnderwaterFleet": "Underwater Fleets"
+      "UnderwaterFleet": "Underwater Fleets",
+      "PageTitle": "Fleet Management",
+      "ScanTitle": "Fleet Scan",
+      "ScanHint": "Scanning walks through formations to record ships and morale."
+    },
+    "FleetRotation": {
+      "TabTitle": "Rotation",
+      "FleetTitle": "Fleet {number}",
+      "Slots": "Fleet slots",
+      "Sources": "Reserve fleets (multiple)",
+      "Swap": "Rotate",
+      "Keep": "Keep",
+      "Favourite": "Favourites",
+      "FavouriteHelp": "默认关闭。对应舰位的候补舰队均无可选舰船后，才从常用中选择；自动排除已编队、占用、同名待核对和已毕业舰船。常用选船当前仅支持国服。",
+      "Help": "为心情、等级、好感调度统一设置更换舰位与候补舰队。仅联动普通主线和活动图，固定舰位保持不变；具体行为由换船调度中的开关决定。",
+      "Duplicates": "舰队扫描和智能换船暂不支持区分多艘同名舰船，请避免在参与舰队中放入同名舰船；身份无法唯一确认时会停止换船。",
+      "Save": "Save rules",
+      "Reset": "Clear rotation history",
+      "Saved": "Rotation rules saved",
+      "InvalidRules": "Invalid rotation rules, not saved",
+      "Last": "Last reserve: Fleet {number}",
+      "LastFavourite": "Last reserve: Favourites",
+      "Uncertain": "Previous round incomplete; cleared and rescanned on next run.",
+      "None": "No rotation yet"
+    },
+    "FleetTraining": {
+      "TabTitle": "Scheduling",
+      "Help": "三种调度共用换船配置里的舰位与候补舰队；低心情、毕业检查按各自开关触发。",
+      "MoraleTitle": "Morale scheduling",
+      "LevelTitle": "Level training",
+      "AffinityTitle": "Affinity training",
+      "DormTitle": "Rest after rotation",
+      "On": "On",
+      "Off": "Off",
+      "IntervalTitle": "Check interval",
+      "IntervalHelp": "当前 {hours} 小时，仅用于等级和好感检查。调整请到搜索配置的 FleetTraining.CheckIntervalHours。",
+      "RecordTitle": "Training records",
+      "Fleet": "Fleet",
+      "Actual": "Actual fleet",
+      "CheckedAt": "Last checked",
+      "Empty": "No records yet",
+      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。"
+    },
+    "FleetDorm": {
+      "Floor1": "First floor (training)",
+      "Floor2": "Second floor (rest)"
+    },
+    "FleetEquipment": {
+      "TabTitle": "Equipment",
+      "Code": "Equipment code",
+      "Placeholder": "Empty: skip this slot",
+      "Help": "仅联动智能换船，默认关闭。确定来源与舰位后，先清空所有待换出舰船的装备；换船全部完成后，按换入舰船详情左上角的舰种应用对应装备码，最后回到主界面继续任务。",
+      "EditViaForm": "装备码为只读展示，编辑请到搜索配置的 FleetEquipment.Codes。当前状态：",
+      "Enabled": "enabled",
+      "Disabled": "disabled"
     },
     "FleetTechnology": {
       "SelectPage": "Select this page",

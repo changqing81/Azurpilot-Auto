@@ -7017,7 +7017,61 @@
       "Fleet": "艦隊",
       "Ships": "艦船",
       "SurfaceFleet": "水上艦隊",
-      "UnderwaterFleet": "水下艦隊"
+      "UnderwaterFleet": "水下艦隊",
+      "PageTitle": "艦隊管理",
+      "ScanTitle": "艦隊掃描",
+      "ScanHint": "掃描會進編隊頁逐隊記錄艦船與心情，供換船與後宅休息使用。"
+    },
+    "FleetRotation": {
+      "TabTitle": "換船配置",
+      "FleetTitle": "第 {number} 艦隊",
+      "Slots": "艦位設定",
+      "Sources": "候補艦隊（多选）",
+      "Swap": "換船",
+      "Keep": "不变",
+      "Favourite": "常用",
+      "FavouriteHelp": "默认关闭。对应艦位的候補艦隊均无可选艦船后，才从常用中选择；自动排除已编队、占用、同名待核对和已毕业艦船。常用选船當前僅支援国服。",
+      "Help": "为心情、等级、好感调度统一設定更换艦位与候補艦隊。僅联动普通主线和活动图，固定艦位保持不变；具体行为由換船调度中的开关决定。",
+      "Duplicates": "艦隊掃描和智能換船暂不支援区分多艘同名艦船，请避免在参与艦隊中放入同名艦船；身份无法唯一確認时会停止換船。",
+      "Save": "保存规则",
+      "Reset": "清空輪換記錄",
+      "Saved": "換船规则已保存",
+      "InvalidRules": "輪換规则格式不正确，未保存",
+      "Last": "上轮来源：第 {number} 艦隊",
+      "LastFavourite": "上轮来源：常用",
+      "Uncertain": "上轮未完成，下次运行会自动清理旧記錄并重扫实际编队。",
+      "None": "尚未輪換"
+    },
+    "FleetTraining": {
+      "TabTitle": "換船调度",
+      "Help": "三种调度共用換船配置里的艦位与候補艦隊；低心情、毕业检查按各自开关触发。",
+      "MoraleTitle": "心情调度",
+      "LevelTitle": "等级培养",
+      "AffinityTitle": "好感培养",
+      "DormTitle": "換船休息",
+      "On": "已啟用",
+      "Off": "未啟用",
+      "IntervalTitle": "检查间隔",
+      "IntervalHelp": "當前 {hours} 小时，僅用于等级和好感检查。调整请到搜索配置的 FleetTraining.CheckIntervalHours。",
+      "RecordTitle": "培养实读記錄",
+      "Fleet": "艦隊",
+      "Actual": "实际艦隊",
+      "CheckedAt": "最近核对时间",
+      "Empty": "尚无实读記錄",
+      "DormNote": "換船休息目标樓層：{floor}。多队換船按全队出击、道中队、Boss队优先。樓層未解锁、栏位不足或选择无法確認时跳过休息并继续任务。當前僅支援国服。"
+    },
+    "FleetDorm": {
+      "Floor1": "一樓（訓練）",
+      "Floor2": "二樓（休息）"
+    },
+    "FleetEquipment": {
+      "TabTitle": "換船裝備",
+      "Code": "裝備码",
+      "Placeholder": "未填写：跳过此顺序位",
+      "Help": "僅联动智能換船，默认关闭。确定来源与艦位后，先清空所有待换出艦船的裝備；換船全部完成后，按换入艦船详情左上角的舰种应用对应裝備码，最后回到主界面继续任务。",
+      "EditViaForm": "裝備码为只读展示，编辑请到搜索配置的 FleetEquipment.Codes。當前状态：",
+      "Enabled": "已啟用",
+      "Disabled": "未啟用"
     },
     "FleetTechnology": {
       "SelectPage": "全選本頁",

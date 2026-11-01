@@ -7017,7 +7017,61 @@
       "Fleet": "艦隊",
       "Ships": "艦船",
       "SurfaceFleet": "水上艦隊",
-      "UnderwaterFleet": "水中艦隊"
+      "UnderwaterFleet": "水中艦隊",
+      "PageTitle": "艦隊管理",
+      "ScanTitle": "艦隊スキャン",
+      "ScanHint": "編成ページを巡回して艦船と感情を記録します。"
+    },
+    "FleetRotation": {
+      "TabTitle": "交代設定",
+      "FleetTitle": "第 {number} 艦隊",
+      "Slots": "配置設定",
+      "Sources": "候補艦隊（複数）",
+      "Swap": "交代",
+      "Keep": "不変",
+      "Favourite": "常用",
+      "FavouriteHelp": "默认关闭。对应舰位的候补舰队均无可选舰船后，才从常用中选择；自动排除已编队、占用、同名待核对和已毕业舰船。常用选船当前仅支持国服。",
+      "Help": "为心情、等级、好感调度统一设置更换舰位与候补舰队。仅联动普通主线和活动图，固定舰位保持不变；具体行为由换船调度中的开关决定。",
+      "Duplicates": "舰队扫描和智能换船暂不支持区分多艘同名舰船，请避免在参与舰队中放入同名舰船；身份无法唯一确认时会停止换船。",
+      "Save": "ルールを保存",
+      "Reset": "ローテ記録をクリア",
+      "Saved": "换船规则已保存",
+      "InvalidRules": "轮换规则格式不正确，未保存",
+      "Last": "上轮来源：第 {number} 舰队",
+      "LastFavourite": "上轮来源：常用",
+      "Uncertain": "上轮未完成，下次运行会自动清理旧记录并重扫实际编队。",
+      "None": "まだローテなし"
+    },
+    "FleetTraining": {
+      "TabTitle": "交代スケジュール",
+      "Help": "三种调度共用换船配置里的舰位与候补舰队；低心情、毕业检查按各自开关触发。",
+      "MoraleTitle": "感情スケジュール",
+      "LevelTitle": "レベル育成",
+      "AffinityTitle": "好感度育成",
+      "DormTitle": "交代後の休憩",
+      "On": "有効",
+      "Off": "無効",
+      "IntervalTitle": "检查间隔",
+      "IntervalHelp": "当前 {hours} 小时，仅用于等级和好感检查。调整请到搜索配置的 FleetTraining.CheckIntervalHours。",
+      "RecordTitle": "培养实读记录",
+      "Fleet": "舰队",
+      "Actual": "实际舰队",
+      "CheckedAt": "最近核对时间",
+      "Empty": "尚无实读记录",
+      "DormNote": "换船休息目标楼层：{floor}。多队换船按全队出击、道中队、Boss队优先。楼层未解锁、栏位不足或选择无法确认时跳过休息并继续任务。当前仅支持国服。"
+    },
+    "FleetDorm": {
+      "Floor1": "1階（訓練）",
+      "Floor2": "2階（休憩）"
+    },
+    "FleetEquipment": {
+      "TabTitle": "交代装備",
+      "Code": "装備コード",
+      "Placeholder": "未填写：跳过此顺序位",
+      "Help": "仅联动智能换船，默认关闭。确定来源与舰位后，先清空所有待换出舰船的装备；换船全部完成后，按换入舰船详情左上角的舰种应用对应装备码，最后回到主界面继续任务。",
+      "EditViaForm": "装备码为只读展示，编辑请到搜索配置的 FleetEquipment.Codes。当前状态：",
+      "Enabled": "已启用",
+      "Disabled": "未启用"
     },
     "FleetTechnology": {
       "SelectPage": "このページを全選択",

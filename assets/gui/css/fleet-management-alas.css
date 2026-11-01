@@ -1,0 +1,223 @@
+/* ==========================================================================
+   舰队管理 · 四页签界面（fleet-management-alas.css）
+   --------------------------------------------------------------------------
+   结构：页头（标题 + 扫描开关）→ 药丸页签 → 四个面板
+         舰队信息 / 换船配置 / 换船调度 / 换船装备
+
+   设计约束（同 statistics-alas.css）：
+   1. 本文件不定义颜色常量，全部消费 --alas-entry-* 变量，
+      换主题、加主题都不需要动本文件。
+   2. 全部规则限定在 #pywebio-scope-content 内，类名统一 fm- 前缀，
+      不与 .card / .chip 等共用类名冲突。
+   3. 布局对照上游 fleet-switch.css 与 components.css 的
+      .fleet-grid / .panel / .fleet-column，用本地变量等价呈现。
+
+   响应式：1180 → 900 → 640
+   ========================================================================== */
+
+/* ---------- 0. 局部变量别名 ---------- */
+#pywebio-scope-content {
+    --fm-surface: var(--alas-entry-surface);
+    --fm-surface-muted: var(--alas-entry-surface-muted);
+    --fm-text: var(--alas-entry-text);
+    --fm-muted: var(--alas-entry-muted);
+    --fm-border: var(--alas-entry-border);
+    --fm-divider: var(--alas-entry-divider);
+    --fm-accent: var(--alas-entry-accent);
+    --fm-on-accent: var(--alas-entry-on-accent);
+    --fm-accent-soft: var(--alas-entry-accent-soft);
+    --fm-card-shadow: 0 1px 3px rgba(16, 24, 40, .06);
+}
+
+/* ---------- 1. 页签条（药丸式，对照 fleet-switch-tabs） ---------- */
+.fm-tabs {
+    display: flex;
+    align-self: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    margin: 0 0 14px;
+    border: 1px solid var(--fm-border);
+    border-radius: 9px;
+    background: var(--fm-surface-muted);
+}
+.fm-tabs .fm-tab {
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 14px;
+    background: transparent;
+    color: var(--fm-text);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.5;
+    cursor: pointer;
+    font-family: inherit;
+}
+.fm-tabs .fm-tab:hover { border-color: var(--fm-accent); background: var(--fm-accent-soft); }
+.fm-tabs .fm-tab.fm-on {
+    background: var(--fm-accent);
+    border-color: var(--fm-accent);
+    color: var(--fm-on-accent);
+}
+
+/* 页签面板：只有激活的显示 */
+.fm-page { display: none; }
+.fm-page.fm-on { display: block; min-width: 0; }
+
+/* ---------- 2. 面板与网格（对照 .panel / .fleet-grid） ---------- */
+.fm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px;
+    margin: 14px 0;
+}
+.fm-panel {
+    background: var(--fm-surface);
+    border: 1px solid var(--fm-border);
+    border-radius: 12px;
+    box-shadow: var(--fm-card-shadow);
+    overflow: hidden;
+    min-width: 0;
+}
+.fm-panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--fm-divider);
+}
+.fm-panel-head h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fm-text);
+}
+.fm-panel-body { padding: 14px 18px; }
+
+/* ---------- 3. 舰队信息卡片（对照 .fleet-column） ---------- */
+.fm-col { padding: 14px 20px; border-bottom: 1px solid var(--fm-divider); }
+.fm-col:last-child { border-bottom: 0; }
+.fm-col h3 {
+    font-size: 10.5px;
+    color: var(--fm-muted);
+    font-weight: 600;
+    margin: 0 0 10px;
+    letter-spacing: .5px;
+}
+.fm-ship {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 0;
+    font-size: 12.5px;
+    color: var(--fm-text);
+}
+.fm-ship + .fm-ship { border-top: 1px dashed var(--fm-divider); }
+.fm-ship .fm-ship-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-ship .fm-ship-meta {
+    color: var(--fm-muted);
+    font-size: 11px;
+    font-family: var(--alas-entry-mono, Consolas, monospace);
+    white-space: nowrap;
+}
+.fm-empty { color: var(--fm-muted); font-size: 12.5px; padding: 6px 0; }
+
+/* ---------- 4. 复选组（舰位/候补，对照 .checkbox-label） ---------- */
+.fm-checks { display: grid; gap: 2px; }
+.fm-ck {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 0;
+    font-size: 12.5px;
+    color: var(--fm-text);
+    cursor: pointer;
+    user-select: none;
+}
+.fm-ck input { accent-color: var(--fm-accent); width: 14px; height: 14px; margin: 0; }
+.fm-ck .fm-ck-tag { color: var(--fm-accent); font-weight: 600; font-size: 11.5px; }
+.fm-ck .fm-ck-tag.keep { color: var(--fm-muted); font-weight: 400; }
+
+/* 候补舰队药丸组 */
+.fm-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.fm-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    border: 1px solid var(--fm-border);
+    border-radius: 7px;
+    padding: 5px 10px;
+    cursor: pointer;
+    background: var(--fm-surface);
+    color: var(--fm-text);
+    user-select: none;
+}
+.fm-pill input { accent-color: var(--fm-accent); margin: 0; }
+.fm-pill.fm-on {
+    border-color: var(--fm-accent);
+    background: var(--fm-accent-soft);
+    color: var(--fm-accent);
+    font-weight: 600;
+}
+
+/* ---------- 5. 输入与按钮 ---------- */
+.fm-input, .fm-select {
+    border: 1px solid var(--fm-border);
+    border-radius: 7px;
+    padding: 6px 10px;
+    background: var(--fm-surface);
+    color: var(--fm-text);
+    font-family: inherit;
+    font-size: 13px;
+}
+.fm-input:focus, .fm-select:focus { outline: none; border-color: var(--fm-accent); }
+.fm-input[readonly] { color: var(--fm-muted); }
+.fm-btn {
+    border: 1px solid var(--fm-border);
+    background: var(--fm-surface);
+    color: var(--fm-text);
+    border-radius: 8px;
+    padding: 7px 15px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+}
+.fm-btn.fm-primary {
+    background: var(--fm-accent);
+    border-color: var(--fm-accent);
+    color: var(--fm-on-accent);
+    font-weight: 600;
+}
+.fm-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ---------- 6. 数据表（换船调度的实读表） ---------- */
+.fm-table-wrap { overflow-x: auto; }
+.fm-table { width: 100%; min-width: 780px; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+.fm-table th, .fm-table td { padding: 8px 13px; border-bottom: 1px solid var(--fm-divider); text-align: left; }
+.fm-table th { background: var(--fm-surface-muted); font-size: 11.5px; color: var(--fm-muted); font-weight: 600; }
+.fm-table tbody tr:hover { background: var(--fm-accent-soft); }
+.fm-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; }
+.fm-badge.ok { background: rgba(22, 163, 74, .12); color: #15803d; }
+.fm-badge.low { background: rgba(217, 119, 6, .14); color: #b45309; }
+
+/* ---------- 7. 页头动作区 ---------- */
+.fm-head-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.fm-hint { color: var(--fm-muted); font-size: 12.5px; margin: 6px 0; }
+.fm-note {
+    border-left: 3px solid var(--fm-accent);
+    background: var(--fm-accent-soft);
+    border-radius: 0 8px 8px 0;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    color: var(--fm-text);
+    margin: 10px 0;
+}
+
+/* ---------- 8. 响应式 ---------- */
+@media (max-width: 900px) {
+    .fm-grid { grid-template-columns: 1fr; }
+}
