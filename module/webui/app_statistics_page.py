@@ -39,16 +39,18 @@ from module.webui.app_dependencies import (
 from module.webui.app_fleet_technology import BRIDGE_PIN, build_fleet_tech_bridge_script
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
+from module.webui.fleet_tech_view import STAT_PANELS
 
 
 # 面板顺序即页签顺序。元组为 (面板 id, 页签文案 i18n 键, 徽标 i18n 键或 None)
-# 舰队科技列表 / 心智计算器已随其配置移回「舰队管理 → 舰队信息」，不再作为
-# 统计页页签展示；渲染入口与 scope 结构保留，便于日后需要时直接恢复。
 _STAT_TABS = (
     ("opsi", "Gui.Stat.TabOpsi", None),
     ("commission", "Gui.Stat.TabCommission", None),
     ("research", "Gui.Stat.TabResearch", None),
     ("resource", "Gui.Stat.TabResource", None),
+    # 舰队科技列表 / 心智计算器：内容宿主 scope 分别为 ft_tech / ft_mind，
+    # 由 FleetTechnologyMixin 渲染（见 app_fleet_technology）。
+    *((panel, key, None) for panel, key in STAT_PANELS),
 )
 
 # 页头「数据源」状态：最新写入超过这么多天就提示未更新。
