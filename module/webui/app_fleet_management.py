@@ -74,8 +74,8 @@ def _fm_bridge_script() -> str:
         "var on=b===btn;b.classList.toggle('fm-on',on);"
         "b.setAttribute('aria-selected',on?'true':'false');});"
         "document.querySelectorAll('.fm-page').forEach(function(p){"
-        "p.classList.toggle('fm-on',p.id==='fm-page-'+panel);});"
-        "var target=document.getElementById('fm-page-'+panel);"
+        "p.classList.toggle('fm-on',p.dataset.panel===panel);});"
+        "var target=document.querySelector('.fm-page[data-panel='+JSON.stringify(panel)+']');"
         "if(target&&!target.dataset.loaded){send({action:'tab',panel:panel});}"
         "try{localStorage.setItem('__alasFmPanel',panel);}catch(e){}"
         "});"
@@ -643,16 +643,23 @@ class FleetManagementMixin(WebUIMixinBase):
         # 页签条（裸 HTML，点击经桥 pin 回调服务端懒加载其余面板）
         put_html(_fm_tabs_html(active=tab))
 
-        # 四个面板容器：默认页签直接渲染，其余放骨架，切页签时经桥按需渲染
+        # 四个面板容器：默认页签直接渲染，其余放骨架，切页签时经桥按需渲染。
+        # scope 名不能带空格（PyWebIO 校验字母/数字/-/_），显隐类挂在内层 div 上。
         for panel, _key in FM_TABS:
-            if panel == tab:
-                put_scope(f"fm-page-{panel} fm-on", [_fm_render_panel_content(self, panel)])
+            on = panel == tab
+            inner = ('<div class="fm-page' + (' fm-on' if on else '')
+                     + '" data-panel="' + panel + '">')
+            if on:
+                put_scope(
+                    f"fm-page-{panel}",
+                    [put_html(inner + _fm_render_panel_content(self, panel) + "</div>")],
+                )
             else:
                 put_scope(
                     f"fm-page-{panel}",
-                    [put_html('<div class="fm-empty" id="fm-skeleton" data-for="'
+                    [put_html(inner + '<div class="fm-empty" id="fm-skeleton" data-for="'
                               + panel + '">' + escape(t("Gui.FleetTraining.Loading"))
-                              + '</div>')],
+                              + '</div></div>')],
                 )
 
         # 桥 pin + 页签/规则编辑器的交互脚本
@@ -691,15 +698,12 @@ class FleetManagementMixin(WebUIMixinBase):
     def _fm_render_panel(self, panel: str) -> None:
         """按需渲染指定页签的面板内容（懒加载）。"""
         with use_scope(f"fm-page-{panel}", clear=True):
-            put_html(_fm_render_panel_content(self, panel))
-        # 渲染完成后通知前端撤骨架、点亮已加载标记
+            inner = '<div class="fm-page fm-on" data-panel="' + panel + '">'
+            put_html(inner + _fm_render_panel_content(self, panel) + "</div>")
+        # 渲染完成后通知前端撤骨架
         from pywebio.session import run_js
         run_js(
-            "(function(){var p=document.getElementById('fm-page-"
-            + panel
-            + "');"
-            "if(p){p.classList.add('fm-on');p.dataset.loaded='1';}"
-            "var sk=document.getElementById('fm-skeleton');"
+            "(function(){var sk=document.getElementById('fm-skeleton');"
             "if(sk&&sk.dataset.for==='" + panel + "'){sk.remove();}"
             "})();"
         )
