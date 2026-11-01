@@ -163,10 +163,13 @@ class ResearchStatsTodayMonthTest(unittest.TestCase):
         item = summary['items'][0]
         # 今天 2 张 + 本月 1 号 3 张 + 200 天前 5 张；没有时间戳的那条不进窗口
         self.assertEqual(item['amount'], 10)
-        self.assertEqual(item['today'], 2)
-        # 「本月」= 今天那条 + 本月 1 号那条；即使今天就是 1 号，两条也在同一个月里
+        # 月初当天"本月 1 号"与"今天"是同一日历日，1 号样本（3 张）天然同时
+        # 落进 today 与 month 两个桶（2+3=5）；其余日子 today 只有 2。
+        expect_today = 5 if self.now.day == 1 else 2
+        self.assertEqual(item['today'], expect_today)
+        # 「本月」= 今天那条 + 本月 1 号那条，任何一天都同月，恒为 5
         self.assertEqual(item['month'], 5)
-        self.assertEqual(summary['today'], 2)
+        self.assertEqual(summary['today'], expect_today)
         self.assertEqual(summary['month'], 5)
 
     def test_missing_timestamp_is_excluded(self):
