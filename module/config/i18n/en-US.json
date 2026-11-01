@@ -7045,6 +7045,7 @@
     "FleetTraining": {
       "TabTitle": "Scheduling",
       "Help": "三种调度共用换船配置里的舰位与候补舰队；低心情、毕业检查按各自开关触发。",
+      "Loading": "Loading…",
       "MoraleTitle": "Morale scheduling",
       "LevelTitle": "Level training",
       "AffinityTitle": "Affinity training",

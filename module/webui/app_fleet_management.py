@@ -121,11 +121,11 @@ def _fm_bridge_script() -> str:
     )
 
 
-def _fm_tabs_html() -> str:
+def _fm_tabs_html(active: str = "info") -> str:
     """药丸式页签条。交互由 fm_bridge JS 接管（切页签 + 懒加载）。"""
     buttons = []
     for i, (panel, key) in enumerate(FM_TABS):
-        on = " fm-on" if i == 0 else ""
+        on = " fm-on" if panel == active else ""
         buttons.append(
             '<button class="fm-tab' + on + '" type="button" role="tab"'
             ' data-panel="' + panel + '"'
@@ -135,6 +135,17 @@ def _fm_tabs_html() -> str:
             + escape(t(key)) + "</button>"
         )
     return '<div class="fm-tabs" role="tablist">' + "".join(buttons) + "</div>"
+
+
+def _fm_render_panel_content(gui, panel: str) -> str:
+    """按面板 id 渲染内容（容器与懒加载分派共用）。"""
+    if panel == "rotation":
+        return _fm_render_rotation_panel(gui)
+    if panel == "training":
+        return _fm_render_training_panel(gui)
+    if panel == "equipment":
+        return _fm_render_equipment_panel(gui)
+    return _fm_render_info_panel(gui)
 
 
 def _fm_render_info_panel(gui) -> str:
@@ -619,23 +630,30 @@ class FleetManagementMixin(WebUIMixinBase):
         self.task_handler.add(button.g(), 1, True)
 
     @use_scope("content", clear=True)
-    def fleet_info_page(self, task: str = "FleetInfo") -> None:
-        """舰队管理主页：舰队信息 + 智能换船三个子页（页签容器）。"""
+    def fleet_info_page(self, task: str = "FleetInfo", tab: str = "info") -> None:
+        """舰队管理主页：舰队信息 + 智能换船三个子页（页签容器）。
+
+        Args:
+            task: 任务名（固定 FleetInfo）。
+            tab: 初始页签；搜索配置跳转按命中组落到对应页签。
+        """
         self.init_menu(name=task)
         self.set_title(t("Gui.FleetManagement.PageTitle"))
 
         # 页签条（裸 HTML，点击经桥 pin 回调服务端懒加载其余面板）
-        put_html(self._fm_tabs_html())
+        put_html(_fm_tabs_html(active=tab))
 
-        # 四个面板容器：info 直接渲染，其余先放骨架，切页签时经桥按需渲染
-        put_scope("fm-page-info fm-on", [_fm_render_info_panel(self)])
-        for panel, _key in FM_TABS[1:]:
-            put_scope(
-                f"fm-page-{panel}",
-                [put_html('<div class="fm-empty" id="fm-skeleton" data-for="'
-                          + panel + '">' + escape(t("Gui.FleetTraining.Loading"))
-                          + '</div>')],
-            )
+        # 四个面板容器：默认页签直接渲染，其余放骨架，切页签时经桥按需渲染
+        for panel, _key in FM_TABS:
+            if panel == tab:
+                put_scope(f"fm-page-{panel} fm-on", [_fm_render_panel_content(self, panel)])
+            else:
+                put_scope(
+                    f"fm-page-{panel}",
+                    [put_html('<div class="fm-empty" id="fm-skeleton" data-for="'
+                              + panel + '">' + escape(t("Gui.FleetTraining.Loading"))
+                              + '</div>')],
+                )
 
         # 桥 pin + 页签/规则编辑器的交互脚本
         put_scope("fm-bridge", [put_input(name=FM_BRIDGE_PIN, value="")])
@@ -673,14 +691,7 @@ class FleetManagementMixin(WebUIMixinBase):
     def _fm_render_panel(self, panel: str) -> None:
         """按需渲染指定页签的面板内容（懒加载）。"""
         with use_scope(f"fm-page-{panel}", clear=True):
-            if panel == "info":
-                put_html(_fm_render_info_panel(self))
-            elif panel == "rotation":
-                put_html(_fm_render_rotation_panel(self))
-            elif panel == "training":
-                put_html(_fm_render_training_panel(self))
-            elif panel == "equipment":
-                put_html(_fm_render_equipment_panel(self))
+            put_html(_fm_render_panel_content(self, panel))
         # 渲染完成后通知前端撤骨架、点亮已加载标记
         from pywebio.session import run_js
         run_js(

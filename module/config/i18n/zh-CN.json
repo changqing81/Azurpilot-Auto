@@ -7045,6 +7045,7 @@
     "FleetTraining": {
       "TabTitle": "换船调度",
       "Help": "三种调度共用换船配置里的舰位与候补舰队；低心情、毕业检查按各自开关触发。",
+      "Loading": "加载中…",
       "MoraleTitle": "心情调度",
       "LevelTitle": "等级培养",
       "AffinityTitle": "好感培养",
