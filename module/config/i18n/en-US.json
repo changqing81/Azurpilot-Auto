@@ -32,10 +32,6 @@
       "name": "Island Plan",
       "help": ""
     },
-    "DockLeveling": {
-      "name": "Dock Leveling",
-      "help": "Swap low-level dock ships into the battle fleet for leveling; graduates step down for the next batch."
-    },
     "FleetManagement": {
       "name": "Fleet Management",
       "help": ""
@@ -385,10 +381,6 @@
     "IslandPearlSell": {
       "name": "Weekly Pearl Trade",
       "help": "Only supports minitouch. Process pearls every Tuesday at 01:00."
-    },
-    "DockLeveling": {
-      "name": "Dock Leveling",
-      "help": "Automatically swap low-level dock ships into the battle fleet for leveling; graduated ships step down for the next batch. Leveling itself is done by existing farm tasks; this task only swaps ships on schedule."
     },
     "FleetInfo": {
       "name": "Fleet Information",
