@@ -17,6 +17,10 @@
 
 /* 页签/保存的隐藏真实按钮：仅作服务端回调通道，不参与视觉 */
 #pywebio-scope-fm-hidden-actions{display:none!important;height:0!important;overflow:hidden!important}
+/* 规则/设置桥的隐藏 pin：只留 DOM 供脚本派发事件；漏了这条会把
+   payload JSON（如 {"action":"saveTraining"...}）直接显示在页面底部
+   ——统计页 2026-10-21 同款事故。 */
+#pywebio-scope-fm-bridge{display:none!important}
 
 /* ---------- 0. 局部变量别名 ---------- */
 #pywebio-scope-content {

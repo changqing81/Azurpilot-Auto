@@ -7027,6 +7027,7 @@
       "SelectedOnly": "交換艦の士気のみ計算",
       "LevelTarget": "目標レベル",
       "AffinityTarget": "目標好感度",
+      "EnabledCount": "有効 {count} / 4",
       "FleetTitle": "第 {number} 艦隊",
       "Slots": "配置設定",
       "Sources": "候補艦隊（複数）",
@@ -7043,8 +7044,7 @@
       "Last": "上轮来源：第 {number} 舰队",
       "LastFavourite": "上轮来源：常用",
       "Uncertain": "上轮未完成，下次运行会自动清理旧记录并重扫实际编队。",
-      "None": "まだローテなし",
-      "EnabledCount": "有効 {count} / 4"
+      "None": "まだローテなし"
     },
     "FleetTraining": {
       "TabTitle": "交代スケジュール",
@@ -7069,6 +7069,7 @@
       "CheckIntervalHours": "チェック間隔（時間）"
     },
     "FleetDorm": {
+      "Help": "寮室交換：出撃で交換した士気の低い艦船を自動的に寮室へ送り、回復したら交換スケジュールで戻します。スイッチはカード右上。",
       "Floor": "目標フロア",
       "Floor1": "1階（訓練）",
       "Floor2": "2階（休憩）"

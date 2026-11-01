@@ -7027,6 +7027,7 @@
       "SelectedOnly": "僅計算更換艦船心情",
       "LevelTarget": "目標等級",
       "AffinityTarget": "目標好感",
+      "EnabledCount": "啟用中 {count} / 4",
       "FleetTitle": "第 {number} 艦隊",
       "Slots": "艦位設定",
       "Sources": "候補艦隊（多选）",
@@ -7043,8 +7044,7 @@
       "Last": "上轮来源：第 {number} 艦隊",
       "LastFavourite": "上轮来源：常用",
       "Uncertain": "上轮未完成，下次运行会自动清理旧記錄并重扫实际编队。",
-      "None": "尚未輪換",
-      "EnabledCount": "啟用中 {count} / 4"
+      "None": "尚未輪換"
     },
     "FleetTraining": {
       "TabTitle": "換船调度",
@@ -7069,6 +7069,7 @@
       "CheckIntervalHours": "檢查間隔（小時）"
     },
     "FleetDorm": {
+      "Help": "後宅換船：出擊換下的低心情艦船自動送進後宅休息，回滿後再由換船調度換回。開關在卡片右上角。",
       "Floor": "目標樓層",
       "Floor1": "一樓（訓練）",
       "Floor2": "二樓（休息）"

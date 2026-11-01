@@ -7027,6 +7027,7 @@
       "SelectedOnly": "Only count swapped ships' morale",
       "LevelTarget": "Target level",
       "AffinityTarget": "Target affinity",
+      "EnabledCount": "{count} / 4 enabled",
       "FleetTitle": "Fleet {number}",
       "Slots": "Fleet slots",
       "Sources": "Reserve fleets (multiple)",
@@ -7043,8 +7044,7 @@
       "Last": "Last reserve: Fleet {number}",
       "LastFavourite": "Last reserve: Favourites",
       "Uncertain": "Previous round incomplete; cleared and rescanned on next run.",
-      "None": "No rotation yet",
-      "EnabledCount": "{count} / 4 enabled"
+      "None": "No rotation yet"
     },
     "FleetTraining": {
       "TabTitle": "Scheduling",
@@ -7069,6 +7069,7 @@
       "CheckIntervalHours": "Check interval (hours)"
     },
     "FleetDorm": {
+      "Help": "Dorm swap: ships swapped out of battle with low morale are sent to dorm automatically; they return via swap scheduling when rested. Toggle at card top-right.",
       "Floor": "Target floor",
       "Floor1": "First floor (training)",
       "Floor2": "Second floor (rest)"

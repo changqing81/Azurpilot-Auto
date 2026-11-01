@@ -62,6 +62,9 @@ def _fm_bridge_script() -> str:
     return (
         "<script>"
         "(function(){"
+        # 整段脚本每次进页都会重新注入；document 级监听器不随 scope 清理，
+        # 重复注册会让一次点击触发 N 次 send（双 toast 的根源）。
+        "if(window.__fmBridgeInstalled)return;window.__fmBridgeInstalled=true;"
         "var TABS=" + tabs_json + ";"
         "var bridge=function(){return document.querySelector('input[name=" + json.dumps(FM_BRIDGE_PIN) + "]')};"
         "var send=function(obj){var b=bridge();if(!b)return;"
@@ -71,9 +74,8 @@ def _fm_bridge_script() -> str:
         "var btns=box?box.querySelectorAll('button'):[];"
         "for(var k=0;k<btns.length;k++){if((btns[k].textContent||'').trim()==='tab:'+panel){btns[k].click();return true;}}"
         "send({action:'tab',panel:panel});return false;};"
-        "\n// 页签点击\n"
-        "var bar=document.querySelector('.fm-tabs');if(!bar)return;"
-        "bar.addEventListener('click',function(ev){"
+        "\n// 页签点击（document 委托：页签条随 scope 重渲染，监听器只绑一次）\n"
+        "document.addEventListener('click',function(ev){"
         "var btn=ev.target.closest('.fm-tab');if(!btn)return;"
         "var panel=btn.dataset.panel;"
         "document.querySelectorAll('.fm-tab').forEach(function(b){"
@@ -352,6 +354,7 @@ def _fm_render_training_panel(gui) -> str:
     floor2 = '<option value="floor_2"' + (" selected" if dorm_floor == "floor_2" else "") + ">" \
         + escape(t("Gui.FleetDorm.Floor2")) + "</option>"
     dorm_body = (
+        '<p class="fm-hint">' + escape(t("Gui.FleetDorm.Help")) + "</p>"
         '<label class="fm-num">' + escape(t("Gui.FleetDorm.Floor"))
         + '<select class="fm-input" data-fm-setting="dorm.floor">' + floor1 + floor2 + "</select></label>"
     )
