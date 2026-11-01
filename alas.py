@@ -1293,9 +1293,6 @@ class AzurLaneAutoScript:
         from module.dorm.dorm import RewardDorm
         RewardDorm(config=self.config, device=self.device).run()
 
-    def dock_leveling(self):
-        from module.dorm.dock_leveling import DockLeveling
-        DockLeveling(config=self.config, device=self.device).run()
 
     def meowfficer(self):
         from module.meowfficer.meowfficer import RewardMeowfficer

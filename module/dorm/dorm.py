@@ -24,6 +24,7 @@ from module.dorm.assets import *
 from module.dorm.buy_furniture import BuyFurniture
 from module.dorm.daily_mission import FOOD_FEED_AMOUNT, is_done_today, select_food_index
 from module.handler.assets import POPUP_CONFIRM
+from module.exception import FleetManagementError
 from module.logger import logger
 from module.ocr.ocr import Digit, DigitCounter
 from module.template.assets import TEMPLATE_DORM_COIN, TEMPLATE_DORM_LOVE
@@ -818,6 +819,16 @@ class RewardDorm(UI):
                       collect=self.config.Dorm_Collect,
                       buy_furniture=self.config.BuyFurniture_Enable,
                       daily_mission=daily_mission)
+
+        # 练级换船：在后宅任务内执行（配置组 DockLeveling，开关与目标等级都在后宅页）。
+        # 找到船坞里低于目标等级的未编队舰船就换上已毕业（达到目标等级）的舰位；
+        # 没找到保持现状，不做任何修改。
+        if self.config.DockLeveling_Enable:
+            from module.dorm.dock_leveling import DockLeveling
+            try:
+                DockLeveling(config=self.config, device=self.device).run()
+            except FleetManagementError as exc:
+                logger.warning(f'练级换船中断，保持现状：{exc}')
 
         # Scheduler
         ships = self.get_dorm_ship_amount()
