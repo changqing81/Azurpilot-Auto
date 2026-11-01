@@ -147,7 +147,7 @@ FleetTraining:
   CheckIntervalHours:
 
 DockLeveling:
-  info:
+  _info:
     name:
     help:
   Enable:

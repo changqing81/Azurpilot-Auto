@@ -34,7 +34,7 @@
     },
     "DockLeveling": {
       "name": "練級換船",
-      "help": "Menu.DockLeveling.help"
+      "help": "從船塢挑低等級艦船換上出擊編隊練級，畢業船讓位換下一批。"
     },
     "FleetManagement": {
       "name": "艦隊管理",
@@ -388,8 +388,7 @@
     },
     "DockLeveling": {
       "name": "練級換船",
-      "help": "開啟後自動從船塢挑低於目標等級的艦船換上出擊編隊練級；畢業船讓位，換下一批低等級船。練級靠現有的出擊任務刷圖，本任務只負責換船，按調度週期執行。",
-      "desc": "從船塢挑低等級艦船換上出擊編隊練級"
+      "help": "開啟後自動從船塢挑低於目標等級的艦船換上出擊編隊練級；畢業船讓位，換下一批低等級船。練級靠現有的出擊任務刷圖，本任務只負責換船，按調度週期執行。"
     },
     "FleetInfo": {
       "name": "艦隊資訊",
@@ -2477,20 +2476,20 @@
   },
   "DockLeveling": {
     "_info": {
-      "name": "DockLeveling._info.name",
-      "help": "DockLeveling._info.help"
+      "name": "練級換船",
+      "help": "開啟後自動從船塢挑低於目標等級的艦船換上出擊編隊練級，畢業船讓位換下一批。"
     },
     "Enable": {
-      "name": "DockLeveling.Enable.name",
-      "help": "DockLeveling.Enable.help"
+      "name": "練級換船",
+      "help": "排程到點後從船塢挑低於目標等級的未編隊艦船換上出擊編隊練級。"
     },
     "TargetLevel": {
-      "name": "DockLeveling.TargetLevel.name",
-      "help": "DockLeveling.TargetLevel.help"
+      "name": "目標等級",
+      "help": "練到該等級即畢業，自動換下一批低等級艦船。"
     },
     "DormRest": {
-      "name": "DockLeveling.DormRest.name",
-      "help": "DockLeveling.DormRest.help"
+      "name": "畢業船掛後宅",
+      "help": "畢業艦船換下後自動送進後宅一樓掛機。"
     }
   },
   "Meowfficer": {
@@ -7096,13 +7095,10 @@
       "CheckIntervalHours": "檢查間隔（小時）"
     },
     "DockLeveling": {
+      "_info": "Gui.DockLeveling._info",
       "Enable": "練級換船（船塢低等級自動換上）",
       "TargetLevel": "目標等級",
-      "DormRest": "畢業船自動掛後宅一樓",
-      "info": {
-        "name": "練級換船",
-        "help": "開啟後自動從船塢挑低於目標等級的艦船換上出擊編隊練級，畢業船讓位換下一批。"
-      }
+      "DormRest": "畢業船自動掛後宅一樓"
     },
     "FleetDorm": {
       "Help": "後宅換船：出擊換下的低心情艦船自動送進後宅休息，回滿後再由換船調度換回。開關在卡片右上角。",

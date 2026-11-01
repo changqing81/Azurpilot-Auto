@@ -34,7 +34,7 @@
     },
     "DockLeveling": {
       "name": "Dock Leveling",
-      "help": "Menu.DockLeveling.help"
+      "help": "Swap low-level dock ships into the battle fleet for leveling; graduates step down for the next batch."
     },
     "FleetManagement": {
       "name": "Fleet Management",
@@ -388,8 +388,7 @@
     },
     "DockLeveling": {
       "name": "Dock Leveling",
-      "help": "Automatically swap low-level dock ships into the battle fleet for leveling; graduated ships step down for the next batch. Leveling itself is done by existing farm tasks; this task only swaps ships on schedule.",
-      "desc": "Swap low-level ships from dock into battle fleet"
+      "help": "Automatically swap low-level dock ships into the battle fleet for leveling; graduated ships step down for the next batch. Leveling itself is done by existing farm tasks; this task only swaps ships on schedule."
     },
     "FleetInfo": {
       "name": "Fleet Information",
@@ -2477,20 +2476,20 @@
   },
   "DockLeveling": {
     "_info": {
-      "name": "DockLeveling._info.name",
-      "help": "DockLeveling._info.help"
+      "name": "Dock Leveling",
+      "help": "Automatically swap low-level dock ships into the battle fleet for leveling; graduated ships step down for the next batch."
     },
     "Enable": {
-      "name": "DockLeveling.Enable.name",
-      "help": "DockLeveling.Enable.help"
+      "name": "Dock leveling swap",
+      "help": "On schedule, pick unassigned ships below the target level from the dock and swap them into the battle fleet."
     },
     "TargetLevel": {
-      "name": "DockLeveling.TargetLevel.name",
-      "help": "DockLeveling.TargetLevel.help"
+      "name": "Target level",
+      "help": "Ships graduate at this level and the next batch of low-level ships is swapped in."
     },
     "DormRest": {
-      "name": "DockLeveling.DormRest.name",
-      "help": "DockLeveling.DormRest.help"
+      "name": "Send graduates to dorm",
+      "help": "Graduated ships are automatically placed in dorm floor 1."
     }
   },
   "Meowfficer": {
@@ -7096,13 +7095,10 @@
       "CheckIntervalHours": "Check interval (hours)"
     },
     "DockLeveling": {
+      "_info": "Gui.DockLeveling._info",
       "Enable": "Leveling swap (auto pick low-level ships from dock)",
       "TargetLevel": "Target level",
-      "DormRest": "Send graduated ships to dorm floor 1",
-      "info": {
-        "name": "Dock Leveling",
-        "help": "Automatically swap low-level dock ships into the battle fleet for leveling."
-      }
+      "DormRest": "Send graduated ships to dorm floor 1"
     },
     "FleetDorm": {
       "Help": "Dorm swap: ships swapped out of battle with low morale are sent to dorm automatically; they return via swap scheduling when rested. Toggle at card top-right.",

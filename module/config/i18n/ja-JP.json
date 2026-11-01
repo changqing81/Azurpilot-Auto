@@ -34,7 +34,7 @@
     },
     "DockLeveling": {
       "name": "練級交換",
-      "help": "Menu.DockLeveling.help"
+      "help": "ドックから低レベル艦を編隊に交換して練級。卒業艦は入れ替わり次批へ。"
     },
     "FleetManagement": {
       "name": "艦隊管理",
@@ -388,8 +388,7 @@
     },
     "DockLeveling": {
       "name": "練級交換",
-      "help": "ドックから低レベル艦を編隊に自動交換して練級。卒業艦は入れ替わり次批へ。練級自体は既存の出撃タスクが行い、本タスクは交換のみ担当。",
-      "desc": "ドックから低レベル艦を編隊に交換して練級"
+      "help": "ドックから低レベル艦を編隊に自動交換して練級。卒業艦は入れ替わり次批へ。練級自体は既存の出撃タスクが行い、本タスクは交換のみ担当。"
     },
     "FleetInfo": {
       "name": "艦隊情報",
@@ -2477,20 +2476,20 @@
   },
   "DockLeveling": {
     "_info": {
-      "name": "DockLeveling._info.name",
-      "help": "DockLeveling._info.help"
+      "name": "練級交換",
+      "help": "ドックから低レベル艦を編隊に自動交換して練級。卒業艦は入れ替わり次批へ。"
     },
     "Enable": {
-      "name": "DockLeveling.Enable.name",
-      "help": "DockLeveling.Enable.help"
+      "name": "練級交換",
+      "help": "スケジュール毎にドックから目標レベル未満の未編成艦を選び、出撃編隊に交換します。"
     },
     "TargetLevel": {
-      "name": "DockLeveling.TargetLevel.name",
-      "help": "DockLeveling.TargetLevel.help"
+      "name": "目標レベル",
+      "help": "このレベルに達したら卒業し、次の低レベル艦と交換します。"
     },
     "DormRest": {
-      "name": "DockLeveling.DormRest.name",
-      "help": "DockLeveling.DormRest.help"
+      "name": "卒業艦を寮室へ",
+      "help": "卒業艦は自動的に寮室1階へ送られます。"
     }
   },
   "Meowfficer": {
@@ -7096,13 +7095,10 @@
       "CheckIntervalHours": "チェック間隔（時間）"
     },
     "DockLeveling": {
+      "_info": "Gui.DockLeveling._info",
       "Enable": "練級交換（ドックから低レベル艦を自動選択）",
       "TargetLevel": "目標レベル",
-      "DormRest": "卒業艦を自動的に寮室1階へ",
-      "info": {
-        "name": "練級交換",
-        "help": "ドックから低レベル艦を編隊に自動交換して練級します。"
-      }
+      "DormRest": "卒業艦を自動的に寮室1階へ"
     },
     "FleetDorm": {
       "Help": "寮室交換：出撃で交換した士気の低い艦船を自動的に寮室へ送り、回復したら交換スケジュールで戻します。スイッチはカード右上。",

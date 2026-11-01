@@ -34,7 +34,7 @@
     },
     "DockLeveling": {
       "name": "练级换船",
-      "help": "Menu.DockLeveling.help"
+      "help": "从船坞挑低等级舰船换上出击编队练级，毕业船让位换下一批。"
     },
     "FleetManagement": {
       "name": "舰队管理",
@@ -388,8 +388,7 @@
     },
     "DockLeveling": {
       "name": "练级换船",
-      "help": "开启后自动从船坞挑低于目标等级的舰船换上出击编队练级；毕业船让位，换下一批低等级船。练级靠现有的出击任务刷图，本任务只负责换船，按调度周期执行。",
-      "desc": "从船坞挑低等级舰船换上出击编队练级"
+      "help": "开启后自动从船坞挑低于目标等级的舰船换上出击编队练级；毕业船让位，换下一批低等级船。练级靠现有的出击任务刷图，本任务只负责换船，按调度周期执行。"
     },
     "FleetInfo": {
       "name": "舰队信息",
@@ -2477,20 +2476,20 @@
   },
   "DockLeveling": {
     "_info": {
-      "name": "DockLeveling._info.name",
-      "help": "DockLeveling._info.help"
+      "name": "练级换船",
+      "help": "开启后自动从船坞挑低于目标等级的舰船换上出击编队练级，毕业船让位换下一批。"
     },
     "Enable": {
-      "name": "DockLeveling.Enable.name",
-      "help": "DockLeveling.Enable.help"
+      "name": "练级换船",
+      "help": "开启后调度器周期性检查：船坞里挑低于目标等级的未编队舰船换上出击编队练级。"
     },
     "TargetLevel": {
-      "name": "DockLeveling.TargetLevel.name",
-      "help": "DockLeveling.TargetLevel.help"
+      "name": "目标等级",
+      "help": "练到该等级即毕业，自动换下一批低等级舰船。"
     },
     "DormRest": {
-      "name": "DockLeveling.DormRest.name",
-      "help": "DockLeveling.DormRest.help"
+      "name": "毕业船挂后宅",
+      "help": "毕业舰船换下后自动送进后宅一楼挂机。"
     }
   },
   "Meowfficer": {
@@ -7096,13 +7095,10 @@
       "CheckIntervalHours": "检查间隔（小时）"
     },
     "DockLeveling": {
+      "_info": "Gui.DockLeveling._info",
       "Enable": "练级换船（船坞低等级自动换上）",
       "TargetLevel": "目标等级",
-      "DormRest": "毕业船自动挂后宅一楼",
-      "info": {
-        "name": "练级换船",
-        "help": "开启后自动从船坞挑低于目标等级的舰船换上出击编队练级，毕业船让位换下一批。"
-      }
+      "DormRest": "毕业船自动挂后宅一楼"
     },
     "FleetDorm": {
       "Help": "后宅换船：出击换下的低心情舰船自动送进后宅休息，回满后再由换船调度换回。开关在卡片右上角。",
