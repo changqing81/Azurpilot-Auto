@@ -29,8 +29,10 @@ import time
 from contextlib import suppress
 
 import inflection
+import numpy as np
 
 from module.base.timer import Timer
+from module.base.utils import location2node
 from module.config.config import TaskEnd
 from module.config.utils import get_os_reset_remain
 from module.exception import (
@@ -1802,88 +1804,372 @@ class OSMap(OSFleet, Map, GlobeCamera, StorageHandler, StrategicSearchHandler):
                 return True
             return False
 
-        grids = self.view.select(is_fleet_mechanism=True)
-        if (
-            self.is_in_task_explore
-            and "is_fleet_mechanism" not in self._solved_map_event
-            and grids
-            and grids[0].is_fleet_mechanism
-        ):
-            grid = grids[0]
-            logger.info(f"[大世界-搜索] 在 {grid} 找到舰队机关")
-            pressed = self._press_fleet_mechanism(grid, drop=drop)
-
+        if self.is_in_task_explore and "is_fleet_mechanism" not in self._solved_map_event:
+            # 待办第二踩时第一踩格已被舰队踩住、不再被识别为机关，
+            # 直接用记录下来的坐标续做，不能再去"找当前可见的机关"。
             if self._solved_fleet_mechanism:
-                if pressed:
-                    logger.info("[大世界-搜索] 所有舰队机关已解决")
-                    self.os_auto_search_run(drop=drop)
-                    self._solved_map_event.add("is_fleet_mechanism")
-                    self._fleet_mechanism_second_fleet = None
-                else:
-                    logger.warning(
-                        "[大世界-搜索] 第二支舰队未确认踩上机关"
-                        "（可能被路径阻挡或停在机关旁遮挡识别），保留机关状态待后续重扫重试"
-                    )
-                return True
-            if pressed:
-                logger.info("[大世界-搜索] 一个舰队机关已解决")
-                self._solved_fleet_mechanism = True
-                self._fleet_mechanism_second_fleet = self.get_second_fleet()
-            else:
-                logger.warning(
-                    "[大世界-搜索] 第一支舰队未确认踩上机关"
-                    "（可能被路径阻挡或停在机关旁遮挡识别），保留机关状态待后续重扫重试"
-                )
-            return True
+                return self._handle_fleet_mechanism(None, drop=drop)
+            first_global = self._find_fleet_mechanism_first()
+            if first_global is not None:
+                return self._handle_fleet_mechanism(first_global, drop=drop)
 
         logger.info("[大世界-事件] 无地图事件")
         return False
 
-    def _press_fleet_mechanism(self, grid, drop=None):
-        """
-        点击舰队机关并验证舰队确实踩上机关格。
+    # 单次 _press_fleet_mechanism 的点击上限。舰队常停在机关旁，
+    # 再点一次即一步踩上，3 次足够且能避免在机关上死循环。
+    _FLEET_MECHANISM_CLICK_LIMIT = 3
 
-        机关格的识别依赖上边缘的青色描边（predict_fleet_mechanism），
-        舰队停在机关上或机关上方都会打断描边，导致"视野里没有机关"，
-        因此不能以机关是否可见来判断解锁与否。这里以舰队落点为准：
-        点击后等待移动稳定，将当前舰队所在格子与被点击的机关格比对；
-        未踩上时按记住的坐标原地重试——舰队通常就停在机关旁，
-        再点一次即一步踩上，最多尝试 3 次。
+    def _view_loc_to_global(self, location):
+        """
+        把当前视野局部坐标换算成海域全局坐标。
+
+        视野坐标每帧随摄像机变化（view.load 会按 grids_offset 归一化），
+        换队或平移镜头后同一格子的 location 完全不同，因此跨越多次操作的
+        「待办目标」必须存全局坐标，不能存局部坐标。
 
         Args:
-            grid: 机关所在的格子。
+            location (tuple): 视野局部坐标 (x, y)。
+
+        Returns:
+            tuple: 海域全局坐标 (x, y)。
+        """
+        local = np.array(location)
+        global_ = local + np.array(self.camera) - np.array(self.view.center_loca)
+        return tuple(int(v) for v in global_.tolist())
+
+    def _global_to_view_loc(self, location):
+        """
+        把海域全局坐标换算成当前视野局部坐标。
+
+        Args:
+            location (tuple): 海域全局坐标 (x, y)。
+
+        Returns:
+            tuple: 当前视野内的局部坐标 (x, y)。
+        """
+        global_ = np.array(location)
+        local = global_ - np.array(self.camera) + np.array(self.view.center_loca)
+        return tuple(int(v) for v in local.tolist())
+
+    def _visible_mechanism_globals(self):
+        """
+        列出当前视野内所有可见机关格的海域全局坐标。
+
+        机关格靠上边缘的青色描边识别；一旦被舰队踩住，描边被打断，
+        该格就不再出现在这里——所以"看不见"本身既可能是踩住，也可能
+        只是跑出视野，需要结合点击前后的状态区分。
+
+        Returns:
+            list[tuple]: 按与摄像机距离升序排列的全局坐标列表。
+        """
+        grids = [g for g in self.view.select(is_fleet_mechanism=True) if g.is_fleet_mechanism]
+        grids = sorted(
+            grids,
+            key=lambda g: float(
+                sum((a - b) ** 2 for a, b in zip(g.location, self.view.center_loca))
+            ),
+        )
+        return [self._view_loc_to_global(g.location) for g in grids]
+
+    @staticmethod
+    def _is_adjacent(loc_a, loc_b):
+        """
+        判断两个全局坐标是否上下左右相邻。
+
+        Args:
+            loc_a (tuple): 坐标 A。
+            loc_b (tuple): 坐标 B。
+
+        Returns:
+            bool: 是否相邻。
+        """
+        return (
+            abs(loc_a[0] - loc_b[0]) + abs(loc_a[1] - loc_b[1])
+        ) == 1
+
+    def _find_fleet_mechanism_first(self):
+        """
+        挑选第一踩的机关格。
+
+        视野里可能只认得出机关两格中的一格（描边完整性受舰队遮挡、机位、
+        描边识别阈值影响），因此这里只要求看到"一格"即可开踩，不要求
+        同时看到相邻两格——否则机关会被整轮跳过、永远不解锁。
+
+        Returns:
+            tuple | None: 第一踩的全局坐标，视野内无机关时返回 None。
+        """
+        candidates = self._visible_mechanism_globals()
+        if not candidates:
+            return None
+        return candidates[0]
+
+    def _find_fleet_mechanism_second(self, first_global):
+        """
+        挑选第二踩的机关格：必须与第一踩格**相邻**。
+
+        这是修掉"随便找个可见机关当第二踩"的关键——不要求同一对，
+        踩完照样宣布解锁，实际机关根本没解开。
+
+        Args:
+            first_global (tuple): 第一踩格的海域全局坐标。
+
+        Returns:
+            tuple | None: 第二踩的全局坐标，视野内没有与之相邻的机关时返回 None。
+        """
+        for candidate in self._visible_mechanism_globals():
+            if self._is_adjacent(candidate, first_global):
+                return candidate
+        return None
+
+    def _handle_fleet_mechanism(self, first_global, drop=None):
+        """
+        依次用两支不同舰队踩上机关的两格。
+
+        Args:
+            first_global (tuple | None): 第一踩格的海域全局坐标。
+                None 表示续做已记录在案的第二踩。
+            drop: 掉落记录对象。
+
+        Returns:
+            bool: True 表示本轮已对机关采取动作，调用方需要新截图。
+        """
+        if not self._solved_fleet_mechanism:
+            # ---- 第一踩 ----
+            if first_global is None:
+                logger.info("[大世界-搜索] 没有可作第一踩的机关格")
+                return False
+            logger.info(
+                f"[大世界-搜索] 找到舰队机关 {location2node(first_global)}"
+            )
+            if not self._press_fleet_mechanism(first_global, drop=drop):
+                logger.warning(
+                    "[大世界-搜索] 第一支舰队未确认踩上机关"
+                    "（可能被路径阻挡），保留机关状态待后续重扫重试"
+                )
+                return True
+            self._solved_fleet_mechanism = True
+            self._fleet_mechanism_first_global = first_global
+            self._fleet_mechanism_first_fleet = self.fleet_selector.get()
+            self._fleet_mechanism_second_fleet = self.get_second_fleet()
+            logger.info(
+                f"[大世界-搜索] 第一踩完成（舰队 {self._fleet_mechanism_first_fleet} "
+                f"踩住 {location2node(first_global)}），"
+                f"待舰队 {self._fleet_mechanism_second_fleet} 踩相邻的第二格"
+            )
+            return True
+
+        # ---- 第二踩 ----
+        first_global = getattr(self, "_fleet_mechanism_first_global", None)
+        if first_global is None:
+            logger.warning("[大世界-搜索] 机关第一踩坐标丢失，重新开始配对")
+            self._solved_fleet_mechanism = False
+            self._clear_fleet_mechanism_state()
+            return True
+
+        # 第二踩必须是**与第一踩相邻**的另一格机关，不能随便挑可见机关
+        second_global = self._find_fleet_mechanism_second(first_global)
+        if second_global is None:
+            # 第一踩格已被踩住、描边消失，第二格此刻可能也不在视野内；
+            # 换回第一队会作废第一脚，因此只保留状态等下一轮重扫。
+            logger.info(
+                f"[大世界-搜索] 第一踩 {location2node(first_global)} 已就位，"
+                "但视野内找不到与之相邻的第二格机关，保留状态待重扫"
+            )
+            return True
+
+        first_fleet = getattr(self, "_fleet_mechanism_first_fleet", None)
+        second_fleet = self._fleet_mechanism_second_fleet or self.get_second_fleet()
+        # 必须换一支舰队：第一队离开第一格去踩第二格，第一脚就作废了
+        self.fleet_set(second_fleet)
+        current = self.fleet_selector.get()
+        if current == first_fleet:
+            logger.warning(
+                f"[大世界-搜索] 未能切换到第二支舰队（当前仍是 {current}），"
+                "跳过本次第二踩，避免第一脚作废"
+            )
+            return True
+
+        logger.info(
+            f"[大世界-搜索] 由舰队 {current} 前往第二踩 "
+            f"{location2node(second_global)}（与第一踩相邻）"
+        )
+        if not self._press_fleet_mechanism(second_global, drop=drop):
+            logger.warning(
+                "[大世界-搜索] 第二支舰队未确认踩上机关"
+                "（可能被路径阻挡），保留机关状态待后续重扫重试"
+            )
+            return True
+
+        if self._is_fleet_mechanism_unlocked(first_global, second_global):
+            logger.info(
+                f"[大世界-搜索] 机关 {location2node(first_global)} / "
+                f"{location2node(second_global)} 两格均已踩住，解锁成功"
+            )
+            self.os_auto_search_run(drop=drop)
+            self._solved_map_event.add("is_fleet_mechanism")
+            self._clear_fleet_mechanism_state()
+        else:
+            logger.warning(
+                "[大世界-搜索] 第二踩已就位但未确认解锁，保留状态待后续重扫重试"
+            )
+        return True
+
+    def _is_fleet_mechanism_unlocked(self, first_global, second_global):
+        """
+        判定机关是否已解锁：两格上的机关描边都不见了。
+
+        机关格被舰队踩住后上边缘的青色描边被打断，predict_fleet_mechanism
+        返回 False，这是「该格已被舰队占据」的可靠信号。
+
+        注意：不能用 convert_radar_to_local((0, 0)) 反查舰队落点来判定 ——
+        该帧识别不到当前舰队时会退化成「假设摄像机中心即当前舰队」，
+        而摄像机中心恰好是刚点击的格子，判定会恒真，属于自我证明。
+
+        两格都必须落在当前视野内且都看不到描边才判解锁；只要有一格在
+        视野外就已失去判据，返回 False 交给下一轮重扫重试。
+
+        Args:
+            first_global (tuple): 第一踩的海域全局坐标。
+            second_global (tuple): 第二踩的海域全局坐标。
+
+        Returns:
+            bool: 两格均已不再显示机关描边。
+        """
+        self.device.screenshot()
+        self.update_os()
+        self.view.predict()
+
+        unexplained = []
+        for global_loc in (first_global, second_global):
+            view_loc = self._global_to_view_loc(global_loc)
+            if view_loc not in self.view:
+                unexplained.append(f"{location2node(global_loc)}(视野外)")
+                continue
+            if self.view[view_loc].is_fleet_mechanism:
+                unexplained.append(location2node(global_loc))
+
+        if unexplained:
+            logger.info(
+                f"[大世界-搜索] 机关格 {unexplained} 仍可见或不可见，未判定为解锁"
+            )
+            return False
+
+        logger.info(
+            f"[大世界-搜索] 机关 {location2node(first_global)} / "
+            f"{location2node(second_global)} 描边均已消失，判定解锁"
+        )
+        return True
+
+    def _clear_fleet_mechanism_state(self):
+        """清除双舰队机关的配对与待办状态。"""
+        self._fleet_mechanism_first_global = None
+        self._fleet_mechanism_second_global = None
+        self._fleet_mechanism_first_fleet = None
+        self._fleet_mechanism_second_fleet = None
+
+    def _press_fleet_mechanism(self, target_global, drop=None):
+        """
+        点击机关格，并确认舰队确实踩到了该格。
+
+        判据只有一条可靠信号：机关格被舰队踩住后，上边缘的青色描边被打断
+        （predict_fleet_mechanism 从 True 变 False）。点击前的值会在进入
+        本方法时先采样一次做基线——原本就不是机关格（描边不可见）的格子
+        不能用「现在不是机关」来证明踩上了，否则普通海面会恒判成功。
+
+        Args:
+            target_global (tuple): 机关格的海域全局坐标 (x, y)。
             drop: 掉落记录对象。
 
         Returns:
             bool: 舰队是否踩上机关格。
         """
-        target_loc = grid.location
-        for attempt in range(1, 4):
-            logger.info(f"[大世界-搜索] 点击舰队机关 {grid} (第 {attempt}/3 次)")
-            self.device.click(grid)
+        target_global = tuple(int(v) for v in target_global)
+
+        for attempt in range(1, self._FLEET_MECHANISM_CLICK_LIMIT + 1):
+            view_loc = self._ensure_mechanism_in_view(target_global)
+            if view_loc is None:
+                logger.warning(
+                    f"[大世界-搜索] 机关 {location2node(target_global)} 不在当前视野，"
+                    "无法点击"
+                )
+                return False
+
+            # 点击前采样基线：只有"原本看得见描边"的格子，描边消失才能证明踩上
+            before = bool(self.view[view_loc].is_fleet_mechanism)
+
+            logger.info(
+                f"[大世界-搜索] 点击舰队机关 {location2node(target_global)} "
+                f"(第 {attempt}/{self._FLEET_MECHANISM_CLICK_LIMIT} 次，"
+                f"点击前描边={before})"
+            )
+            self.device.click(self.view[view_loc])
             self.wait_until_walk_stable(
                 drop=drop, walk_out_of_step=False, confirm_timer=Timer(1.5, count=4)
             )
-            try:
-                fleet = self.convert_radar_to_local((0, 0))
-            except KeyError:
-                fleet = None
-            if fleet is not None and fleet.location == target_loc:
-                return True
-            # 未踩上：机关格可能被舰队遮挡而从视野中消失，按坐标找回后继续点
+
             self.device.screenshot()
             self.update_os()
             self.view.predict()
-            same = [
-                g for g in self.view.select(is_fleet_mechanism=True)
-                if g.location == target_loc
-            ]
-            if not same:
-                same = self.view.select(location=target_loc)
-            if not same:
-                logger.warning(f"[大世界-搜索] 机关 {target_loc} 不在当前视野，停止重试")
-                break
-            grid = same[0]
+            if self._mechanism_pressed(target_global, was_mechanism=before):
+                return True
+
+        return False
+
+    def _ensure_mechanism_in_view(self, target_global):
+        """
+        确保机关格处于当前视野内，并返回其视野局部坐标。
+
+        换队后镜会跟随新舰队，机关可能跑出视野；此时用 focus_to 拖回来。
+
+        Args:
+            target_global (tuple): 机关格的海域全局坐标。
+
+        Returns:
+            tuple | None: 视野局部坐标，无法进入视野时返回 None。
+        """
+        view_loc = self._global_to_view_loc(target_global)
+        if view_loc in self.view:
+            return view_loc
+
+        try:
+            self.focus_to(tuple(target_global), swipe_limit=(6, 5))
+        except (MapDetectionError, MapWalkError) as e:
+            logger.warning(
+                f"[大世界-搜索] 聚焦机关 {location2node(target_global)} 失败: {e}"
+            )
+            return None
+
+        self.device.screenshot()
+        self.update_os()
+        self.view.predict()
+        view_loc = self._global_to_view_loc(target_global)
+        return view_loc if view_loc in self.view else None
+
+    def _mechanism_pressed(self, target_global, was_mechanism):
+        """
+        判断舰队是否已踩住目标机关格。
+
+        Args:
+            target_global (tuple): 机关格的海域全局坐标。
+            was_mechanism (bool): 点击前该格是否为可见机关（描边存在）。
+
+        Returns:
+            bool: 已踩上。
+        """
+        view_loc = self._global_to_view_loc(target_global)
+        if view_loc not in self.view:
+            return False
+        grid = self.view[view_loc]
+
+        # 该格出现当前舰队的绿色箭头，直接证明踩上
+        if grid.is_current_fleet:
+            return True
+
+        # 点击前可见描边、点击后描边消失 => 被舰队踩住
+        if was_mechanism and not grid.is_fleet_mechanism:
+            return True
+
         return False
 
     def map_rescan_once(self, rescan_mode="full", drop=None):
