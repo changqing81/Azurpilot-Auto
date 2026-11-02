@@ -279,16 +279,20 @@ def _fm_render_rotation_panel(gui) -> str:
             "</section>"
         )
 
-    return (
-        '<p class="fm-hint">' + escape(t("Gui.FleetRotation.Help")) + "</p>"
-        '<p class="fm-hint">' + escape(t("Gui.FleetRotation.Duplicates")) + "</p>"
-        '<div class="fm-grid">' + "".join(cards) + "</div>"
-        '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">'
+    actions = (
+        '<div class="fm-actions">'
         '<button class="fm-btn fm-primary" id="fm-save-rules">'
         + escape(t("Gui.FleetRotation.Save")) + "</button>"
         '<button class="fm-btn" id="fm-reset-state">'
         + escape(t("Gui.FleetRotation.Reset")) + "</button>"
         "</div>"
+    )
+
+    return (
+        '<p class="fm-hint">' + escape(t("Gui.FleetRotation.Help")) + "</p>"
+        '<p class="fm-hint">' + escape(t("Gui.FleetRotation.Duplicates")) + "</p>"
+        + actions
+        + '<div class="fm-grid">' + "".join(cards) + "</div>"
     )
 
 

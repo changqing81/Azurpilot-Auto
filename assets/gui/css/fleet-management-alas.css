@@ -81,6 +81,30 @@
     margin: 14px 0;
 }
 .fleet-grid .panel { margin: 0; }
+
+/* 卡片外框：每支舰队一块独立面板，靠边框与阴影区分归属 */
+.panel {
+    background: var(--fm-surface);
+    border: 1px solid var(--fm-border);
+    border-radius: 12px;
+    box-shadow: var(--fm-card-shadow);
+    overflow: hidden;
+    min-width: 0;
+}
+.panel-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--fm-divider);
+    background: var(--fm-surface-muted);
+}
+.panel-heading h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--fm-text);
+}
 .fm-info-panel { display: flex; flex-direction: column; }
 .fm-info-panel .fleet-column { padding: 16px 20px; border-bottom: 1px solid var(--fm-divider); }
 .fm-info-panel .fleet-column:last-child { border-bottom: 0; }
@@ -157,7 +181,10 @@
 }
 .fm-empty { color: var(--fm-muted); font-size: 12.5px; padding: 6px 0; }
 
-/* ---------- 4. 复选组（舰位/候补，对照 .checkbox-label） ---------- */
+/* ---------- 4. 复选组（舰位/候补）----------
+   主题 advanced-material-alas.css §7.3 把全局 input[type=checkbox] 做成了
+   iOS 开关，这里用「#pywebio-scope-content + 类型选择器」的更高特异性还原成
+   方形勾选框，并自绘对勾；候补药丸直接隐藏 checkbox，只保留数字外观。 */
 .fm-checks { display: grid; gap: 2px; }
 .fm-ck {
     display: flex;
@@ -169,31 +196,108 @@
     cursor: pointer;
     user-select: none;
 }
-.fm-ck input { accent-color: var(--fm-accent); width: 14px; height: 14px; margin: 0; }
+
+/* 主题（light/alight/dark 各版）对 input[type=checkbox] 的每个属性都用了
+   !important（见 light-alas.css §MD3 开关样式），因此这里的覆盖也必须 !important，
+   否则特异性再高也压不过。 */
+#pywebio-scope-content .fm-ck input[type="checkbox"],
+#pywebio-scope-content .fm-pill input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    width: 17px !important;
+    height: 17px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid var(--fm-border) !important;
+    border-radius: 4px !important;
+    background: var(--fm-surface) !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    transition: none !important;
+    vertical-align: middle;
+}
+/* 压掉主题的开关旋钮（::before 的 content 也是 !important） */
+#pywebio-scope-content .fm-ck input[type="checkbox"]::before,
+#pywebio-scope-content .fm-pill input[type="checkbox"]::before {
+    content: none !important;
+    display: none !important;
+}
+#pywebio-scope-content .fm-ck input[type="checkbox"]:hover,
+#pywebio-scope-content .fm-ck input[type="checkbox"]:active,
+#pywebio-scope-content .fm-pill input[type="checkbox"]:hover {
+    transform: none !important;
+    border-color: var(--fm-accent) !important;
+}
+/* 选中：蓝底白勾 */
+#pywebio-scope-content .fm-ck input[type="checkbox"]:checked,
+#pywebio-scope-content .fm-pill input[type="checkbox"]:checked {
+    background: var(--fm-accent) !important;
+    background-color: var(--fm-accent) !important;
+    border-color: var(--fm-accent) !important;
+}
+#pywebio-scope-content .fm-ck input[type="checkbox"]:checked::before,
+#pywebio-scope-content .fm-pill input[type="checkbox"]:checked::before {
+    content: none !important;
+    display: none !important;
+}
+#pywebio-scope-content .fm-ck input[type="checkbox"]:checked::after,
+#pywebio-scope-content .fm-pill input[type="checkbox"]:checked::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 5px !important;
+    top: 2px !important;
+    width: 4px !important;
+    height: 9px !important;
+    border: solid var(--fm-on-accent) !important;
+    border-width: 0 2px 2px 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    transform: rotate(45deg) !important;
+}
+
 .fm-ck .fm-ck-tag { color: var(--fm-accent); font-weight: 600; font-size: 11.5px; }
 .fm-ck .fm-ck-tag.keep { color: var(--fm-muted); font-weight: 400; }
 
-/* 候补舰队药丸组 */
+/* 候补舰队药丸组：只显示数字/文字，状态由 :has 驱动（不依赖 JS 切类） */
 .fm-pills { display: flex; flex-wrap: wrap; gap: 8px; }
 .fm-pill {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12.5px;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 46px;
+    height: 44px;
+    padding: 0 12px;
+    font-size: 13px;
+    line-height: 1;
     border: 1px solid var(--fm-border);
-    border-radius: 7px;
-    padding: 5px 10px;
+    border-radius: 10px;
     cursor: pointer;
     background: var(--fm-surface);
     color: var(--fm-text);
     user-select: none;
+    transition: border-color .15s ease, background-color .15s ease, color .15s ease;
 }
-.fm-pill input { accent-color: var(--fm-accent); margin: 0; }
-.fm-pill.fm-on {
+#pywebio-scope-content .fm-pill input[type="checkbox"] {
+    display: none !important;
+}
+.fm-pill:hover { border-color: var(--fm-accent); }
+.fm-pill.fm-on,
+#pywebio-scope-content .fm-pill:has(input[type="checkbox"]:checked) {
     border-color: var(--fm-accent);
     background: var(--fm-accent-soft);
     color: var(--fm-accent);
     font-weight: 600;
+}
+
+/* 页面级动作按钮行（换船配置的保存/清空，放在顶部） */
+.fm-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0 4px;
 }
 
 /* ---------- 5. 输入与按钮 ---------- */
@@ -227,6 +331,41 @@
 .fm-btn:disabled { opacity: .45; cursor: not-allowed; }
 
 /* ---------- 6. 数据表（换船调度的实读表） ---------- */
+/* PyWebIO 自带 markdown.min.css 给了 tr 白底与偶数行浅灰斑马
+   （.markdown-body table tr{background:#fff} / tr:nth-child(2n){#f6f8fa}），
+   暗色 / 高级材质 / 透明主题下会糊成一块白底（同 fleet-tech 页 2026-10-16 的问题）。
+   行色统一交回面板表面，分隔线走 --fm-divider。 */
+#pywebio-scope-content .fm-table,
+#pywebio-scope-content .fm-table tbody,
+#pywebio-scope-content .fm-table tr,
+#pywebio-scope-content .fm-table tr:nth-child(2n) {
+    background: transparent;
+    background-color: transparent;
+    border-top-color: transparent;
+}
+#pywebio-scope-content .fm-table td {
+    background: transparent;
+    color: var(--fm-text);
+}
+/* markdown.min.css 同时给单元格四周加了 #dfe2e5 的 1px 边框，暗色下是一圈亮线；
+   只保留底部 --fm-divider 分隔线。 */
+#pywebio-scope-content .fm-table th,
+#pywebio-scope-content .fm-table td {
+    border: 0;
+    border-bottom: 1px solid var(--fm-divider);
+}
+#pywebio-scope-content .fm-table th {
+    background: var(--fm-surface-muted);
+    color: var(--fm-muted);
+}
+#pywebio-scope-content .fm-table tbody tr:hover,
+#pywebio-scope-content .fm-table tbody tr:hover td {
+    background: var(--fm-accent-soft);
+}
+#pywebio-scope-content .fm-table .fm-empty {
+    color: var(--fm-muted);
+}
+
 .fm-table-wrap { overflow-x: auto; }
 .fm-table { width: 100%; min-width: 780px; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
 .fm-table th, .fm-table td { padding: 8px 13px; border-bottom: 1px solid var(--fm-divider); text-align: left; }
