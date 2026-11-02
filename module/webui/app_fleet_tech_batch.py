@@ -120,7 +120,8 @@ class FleetTechBatchMixin:
             return
         instance, revision = self.alas_name, self._ft_revision
         with popup(t('Gui.FleetTechnology.BatchTitle', count=len(gids))):
-            put_html(f'<p>{escape(t("Gui.FleetTechnology.BatchHint"))}</p>')
+            put_html('<p class="ft-batch-hint">'
+                     + escape(t("Gui.FleetTechnology.BatchHint")) + '</p>')
             for name, label in (('owned', t('Gui.FleetTechnology.Owned')),
                                 ('full_star', t('Gui.FleetTechnology.Star')), ('lv120', 'Lv.120')):
                 pin[f'ft_batch_{name}'] = 'keep'
@@ -139,14 +140,14 @@ class FleetTechBatchMixin:
             put_input(name='ft_batch_level', type='number', value='',
                       placeholder=t('Gui.FleetTechnology.LevelPlaceholder'))
             put_buttons([
-                {'label': t('Gui.FleetTechnology.PresetOwned'), 'value': 'owned'},
-                {'label': t('Gui.FleetTechnology.PresetStar'), 'value': 'full_star'},
-                {'label': t('Gui.FleetTechnology.Preset120'), 'value': 'lv120'},
+                {'label': t('Gui.FleetTechnology.PresetOwned'), 'value': 'owned', 'color': 'secondary'},
+                {'label': t('Gui.FleetTechnology.PresetStar'), 'value': 'full_star', 'color': 'secondary'},
+                {'label': t('Gui.FleetTechnology.Preset120'), 'value': 'lv120', 'color': 'secondary'},
             ], onclick=self._ft_batch_preset, small=True)
             put_buttons([
-                {'label': t('Gui.FleetTechnology.Save'), 'value': 'save'},
-                {'label': t('Gui.FleetTechnology.Restore'), 'value': 'restore'},
-                {'label': t('Gui.FleetTechnology.Cancel'), 'value': 'cancel'},
+                {'label': t('Gui.FleetTechnology.Restore'), 'value': 'restore', 'color': 'secondary'},
+                {'label': t('Gui.FleetTechnology.Cancel'), 'value': 'cancel', 'color': 'light'},
+                {'label': t('Gui.FleetTechnology.Save'), 'value': 'save', 'color': 'primary'},
             ], onclick=lambda action: self._ft_batch_save(action, gids, instance, revision))
 
     @render_locked
