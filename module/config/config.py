@@ -49,26 +49,40 @@ def resolve_ocr_device(backend, device):
     return device
 
 
-# 总览显示值（Dashboard.*）：只喂 GUI 总览，黄币/石油这类资源每次刷新都会写，
-# 保存日志降为 debug，避免高频刷「保存配置」行。混入其它键时照旧 INFO，
-# 不会掩盖他人改动的保存记录。
+# 脚本内部状态键：只喂 GUI 总览或调度器自身，脚本按轮/按事件高频写入，
+# 不是用户手动改的配置。保存日志默认降为 debug，否则一轮能刷十几行
+# 「保存配置」（2026-11-02 真机买行动力：一次购买连刷 6 行）。
+# - Dashboard.*：总览显示值（黄币/石油/行动力等），每次读数都会写；
+# - OpsiScheduling.Storage.Storage：智能调度/行动力账本/买行动力计数的运行状态，
+#   模板里是个空挂载点，用户不可见。
+# 混入任何用户可见配置时照旧 INFO，不掩盖真实改动的保存记录。
 DISPLAY_SAVE_KEY_PREFIX = 'Dashboard.'
+INTERNAL_SAVE_KEY_PREFIXES = (
+    DISPLAY_SAVE_KEY_PREFIX,
+    'OpsiScheduling.Storage.Storage.',
+)
+INTERNAL_SAVE_KEYS = frozenset({'OpsiScheduling.Storage.Storage'})
 
 
 def is_internal_only_modified(modified, extra_keys=()) -> bool:
-    """待写键是否全为脚本内部状态（总览显示值，或调用方额外指定的内部键）。
+    """待写键是否全为脚本内部状态（总览显示值、调度器运行状态或调用方额外声明的键）。
 
     Args:
         modified (dict): config.modified 的待写集合。
         extra_keys (tuple[str, ...]): 额外的内部状态键（如行动力账本状态）。
 
     Returns:
-        bool: 全部键都是内部状态时返回 True（此时 Config.save(quiet=True) 合适）。
+        bool: 全部键都是内部状态时返回 True（Config.save() 会自动静默）。
     """
     if not modified:
         return False
     extra = set(extra_keys)
-    return all(str(key).startswith(DISPLAY_SAVE_KEY_PREFIX) or key in extra for key in modified)
+    return all(
+        key in extra
+        or key in INTERNAL_SAVE_KEYS
+        or str(key).startswith(INTERNAL_SAVE_KEY_PREFIXES)
+        for key in modified
+    )
 
 
 class TaskEnd(Exception):
@@ -445,9 +459,10 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
 
         Args:
             mod_name (str): 写入的模块名。
-            quiet (bool): 仅含脚本内部状态（行动力账本、总览显示键等）的保存，
-                日志降为 debug，避免按轮刷「保存配置」行；混入其它改动时
-                调用方应传 False，保证别人的改动照旧有 INFO 记录。
+            quiet (bool): 强制静默。默认（False）也会自动判定：待写键全是
+                脚本内部状态（总览显示值、OpsiScheduling.Storage.Storage 运行
+                状态）时降为 debug，避免按轮刷「保存配置」行；混入任何用户
+                可见配置时照旧 INFO，不会掩盖真实改动。
         """
         if not self.modified:
             return False
@@ -455,6 +470,7 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
         for path, value in self.modified.items():
             deep_set(self.data, keys=path, value=value)
 
+        quiet = quiet or is_internal_only_modified(self.modified)
         log = logger.debug if quiet else logger.info
         log(
             f"[配置] 保存配置 {filepath_config(self.config_name, mod_name)}, "
@@ -941,7 +957,7 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
     def FLEET_BOSS(self, value):
         self._fleet_boss = value
 
-    def temporary(self, **kwargs):
+    def temporary(self, quiet=False, **kwargs):
         """临时覆盖部分设置，之后恢复。
 
         用法:
@@ -950,13 +966,16 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
             backup.recover()
 
         Args:
+            quiet (bool): 覆盖与恢复的写盘不刷「保存配置」行。脚本内部动作
+                （如买行动力时临时禁用购买上限）用它，避免每次买都刷两行
+                用户可见配置的保存记录。默认 False，照旧 INFO。
             **kwargs: 要临时覆盖的配置项。
 
         Returns:
             ConfigBackup: 备份对象，可用于恢复原配置。
         """
         backup = ConfigBackup(config=self)
-        backup.cover(**kwargs)
+        backup.cover(quiet=quiet, **kwargs)
         return backup
 
 
@@ -973,16 +992,49 @@ class ConfigBackup:
         self.config = config
         self.backup = {}
         self.kwargs = {}
+        # 覆盖/恢复的写盘是否静默（见 AzurLaneConfig.temporary）
+        self.quiet = False
 
-    def cover(self, **kwargs):
+    def _apply(self, values):
+        """写入一组配置值：quiet 时批量写完后一次性静默落盘。
+
+        非 quiet 保持原行为——逐个 setattr，每次都经 auto_update 立即写盘
+        并记 INFO。quiet 时关掉 auto_update 攒完一起写，日志降 debug，
+        避免「临时覆盖 → 恢复」每次刷两行「保存配置」。
+        """
+        if not self.quiet:
+            for key, value in values.items():
+                self.config.__setattr__(key, value)
+            return
+        auto_update = getattr(self.config, 'auto_update', True)
+        self.config.auto_update = False
+        try:
+            for key, value in values.items():
+                self.config.__setattr__(key, value)
+        finally:
+            self.config.auto_update = auto_update
+        self._refresh_attributes(values)
+        self.config.save(quiet=True)
+
+    def _refresh_attributes(self, values):
+        """把值同步到内存属性。
+
+        非静默路径靠 update() → load() → bind() 刷新绑定属性；静默路径跳过
+        update()（否则 save 会照旧记 INFO），必须自己写实例属性，否则块内
+        读到的还是覆盖前的旧值（如「临时把购买上限设 0」失效）。
+        """
+        for key, value in values.items():
+            self.config.__dict__[key] = value
+
+    def cover(self, quiet=False, **kwargs):
+        self.quiet = quiet
         self.kwargs = kwargs
-        for key, value in kwargs.items():
+        for key in kwargs:
             self.backup[key] = self.config.__getattribute__(key)
-            self.config.__setattr__(key, value)
+        self._apply(kwargs)
 
     def recover(self):
-        for key, value in self.backup.items():
-            self.config.__setattr__(key, value)
+        self._apply(self.backup)
 
     def __enter__(self):
         return self

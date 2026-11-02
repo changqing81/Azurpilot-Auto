@@ -422,7 +422,7 @@ class TestFallback(EntryScanTestCase):
 
 
 class TestInternalOnlyModified(unittest.TestCase):
-    """总览显示值判据：只有 Dashboard.* 与调用方声明的内部键才算内部状态。"""
+    """内部状态判据：总览显示值、调度器运行状态（Storage.Storage）与调用方声明的键。"""
 
     def test_display_values_are_internal(self):
         from module.config.config import is_internal_only_modified
@@ -436,6 +436,22 @@ class TestInternalOnlyModified(unittest.TestCase):
             extra_keys=('OpsiScheduling.Storage.Storage.ApLedgerState',),
         ))
 
+    def test_smart_scheduling_state_is_internal(self):
+        """Storage.Storage 整个子树是脚本运行状态，不需要调用方逐个声明。"""
+        from module.config.config import is_internal_only_modified
+
+        self.assertTrue(is_internal_only_modified(
+            {'OpsiScheduling.Storage.Storage.ApLedgerState': {}}
+        ))
+        self.assertTrue(is_internal_only_modified({
+            'OpsiScheduling.Storage.Storage.BuyActionPointCount': 1,
+            'OpsiScheduling.Storage.Storage.BuyActionPointMonthWeeksUsed': ['2026-W45'],
+        }))
+        # 整棵 Storage 挂载点写回（清键时走整 dict 写）
+        self.assertTrue(is_internal_only_modified(
+            {'OpsiScheduling.Storage.Storage': {'BuyActionPointCount': 1}}
+        ))
+
     def test_mixed_or_empty_is_not_internal(self):
         from module.config.config import is_internal_only_modified
 
@@ -444,9 +460,9 @@ class TestInternalOnlyModified(unittest.TestCase):
         self.assertFalse(is_internal_only_modified(
             {'Dashboard.Oil.Value': 1, 'Scheduler.NextRun': 'x'}
         ))
-        # 没有声明为内部键的状态键不算内部状态
+        # 内部状态与用户可见配置混写时必须照旧 INFO
         self.assertFalse(is_internal_only_modified(
-            {'OpsiScheduling.Storage.Storage.ApLedgerState': {}}
+            {'OpsiScheduling.Storage.Storage.ApLedgerState': {}, 'Main.Campaign.Name': '12-4'}
         ))
 
 
@@ -666,15 +682,93 @@ class TestQuietConfigSave(unittest.TestCase):
         self.assertEqual(config.modified, {})
         self.assertTrue(config.write_file.called)
 
-    def test_normal_save_logs_info(self):
+    def test_internal_state_save_defaults_to_debug(self):
+        """内部状态（Storage/Dashboard）不传 quiet 也自动降 debug。"""
         from module.config import config as config_module
 
-        config = self.make_config({'OpsiScheduling.Storage.Storage.ApLedgerState': {'v': 1}})
+        for modified in (
+            {'OpsiScheduling.Storage.Storage.ApLedgerState': {'v': 1}},
+            {'Dashboard.ActionPoint.Value': 155, 'Dashboard.ActionPoint.Total': 1505},
+        ):
+            config = self.make_config(modified)
+            with patch.object(config_module.logger, 'info') as info, \
+                    patch.object(config_module.logger, 'debug') as debug:
+                config.save()
+            debug.assert_called_once()
+            info.assert_not_called()
+
+    def test_user_config_save_logs_info(self):
+        from module.config import config as config_module
+
+        config = self.make_config({'OpsiGeneral.OpsiGeneral.BuyActionPointLimit': 0})
         with patch.object(config_module.logger, 'info') as info, \
                 patch.object(config_module.logger, 'debug') as debug:
             config.save()
         info.assert_called_once()
         debug.assert_not_called()
+
+    def test_mixed_save_logs_info(self):
+        """内部状态混入用户配置时照旧 INFO，不掩盖真实改动。"""
+        from module.config import config as config_module
+
+        config = self.make_config({
+            'OpsiScheduling.Storage.Storage.ApLedgerState': {'v': 1},
+            'OpsiGeneral.OpsiGeneral.BuyActionPointLimit': 0,
+        })
+        with patch.object(config_module.logger, 'info') as info, \
+                patch.object(config_module.logger, 'debug') as debug:
+            config.save()
+        info.assert_called_once()
+        debug.assert_not_called()
+
+
+class TestTemporaryQuietCover(unittest.TestCase):
+    """temporary(quiet=True)：临时覆盖与恢复都静默，值仍生效并落盘。"""
+
+    def make_config(self):
+        from module.config.config import AzurLaneConfig
+
+        config = AzurLaneConfig.__new__(AzurLaneConfig)
+        config.modified = {}
+        config.data = {}
+        config.config_name = 'ap_entry_scan_test_nonexistent'
+        config.auto_update = True
+        config.bound = {
+            'OpsiGeneral_BuyActionPointLimit':
+                'OpsiGeneral.OpsiGeneral.BuyActionPointLimit',
+        }
+        config.write_file = MagicMock()
+        # 绕过 __setattr__ 预置「用户当前值」
+        config.__dict__['OpsiGeneral_BuyActionPointLimit'] = 5
+        # 真实 update() 会读盘 + 重绑任务，这里只保留「改了就保存」的语义
+        config.update = lambda: config.save()
+        return config
+
+    def test_quiet_cover_and_recover_log_debug_only(self):
+        from module.config import config as config_module
+
+        config = self.make_config()
+        with patch.object(config_module.logger, 'info') as info, \
+                patch.object(config_module.logger, 'debug') as debug:
+            with config.temporary(OpsiGeneral_BuyActionPointLimit=0, quiet=True):
+                self.assertEqual(config.OpsiGeneral_BuyActionPointLimit, 0)
+        info.assert_not_called()
+        self.assertTrue(debug.called)
+        # 退出后恢复用户原值，auto_update 复位，待写集合已落盘清空
+        self.assertEqual(config.OpsiGeneral_BuyActionPointLimit, 5)
+        self.assertTrue(config.auto_update)
+        self.assertEqual(config.modified, {})
+        self.assertTrue(config.write_file.called)
+
+    def test_default_cover_still_logs_info(self):
+        """不带 quiet 的临时覆盖照旧各记一次 INFO（用户可见配置改动留痕）。"""
+        from module.config import config as config_module
+
+        config = self.make_config()
+        with patch.object(config_module.logger, 'info') as info:
+            with config.temporary(OpsiGeneral_BuyActionPointLimit=0):
+                pass
+        self.assertEqual(info.call_count, 2)
 
 
 class TestTaskWiring(unittest.TestCase):
