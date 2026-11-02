@@ -146,7 +146,7 @@ class SmartSchedulingConfig:
         self.task_delay_calls.append((args, kwargs))
 
     @staticmethod
-    def temporary(**kwargs):
+    def temporary(quiet=False, **kwargs):
         return nullcontext()
 
     @staticmethod
@@ -161,7 +161,7 @@ class MeowPreserveConfig:
         self.OS_ACTION_POINT_PRESERVE = 180
 
     @contextmanager
-    def temporary(self, **kwargs):
+    def temporary(self, quiet=False, **kwargs):
         backup = {key: getattr(self, key) for key in kwargs}
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -364,7 +364,7 @@ class StrongholdNotFoundConfig:
         pass
 
     @staticmethod
-    def temporary(**kwargs):
+    def temporary(quiet=False, **kwargs):
         return nullcontext()
 
     @staticmethod

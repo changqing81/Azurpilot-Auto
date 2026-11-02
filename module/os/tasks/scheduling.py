@@ -1537,7 +1537,9 @@ class OpsiScheduling(CoinTaskMixin, OSMap):
                 self.STATE_KEY_BUY_AP_LIMIT_BACKUP, int(limit)
             )
         try:
-            with self.config.temporary(OpsiGeneral_BuyActionPointLimit=0):
+            # quiet=True：临时把上限改成 0 与恢复都是脚本内部动作，
+            # 写盘日志降 debug，否则每次买行动力多刷两行「保存配置」
+            with self.config.temporary(OpsiGeneral_BuyActionPointLimit=0, quiet=True):
                 yield
         finally:
             self._clear_smart_scheduling_state_value(
