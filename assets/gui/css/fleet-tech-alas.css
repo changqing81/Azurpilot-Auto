@@ -755,10 +755,56 @@
     opacity: .45;
     cursor: default;
 }
-[id^="pywebio-scope-ft_"] .ft-table input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+/* 主题（light/dark 各版）对 input[type=checkbox] 的每个属性都写了 !important
+   （见 light-alas.css §MD3 开关样式），只设宽高会被压回 iOS 开关形态，
+   这里补成方形勾选框并自绘对勾，几何与列内位置保持原样。 */
+[id^="pywebio-scope-ft_"] input[type="checkbox"] {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+    width: 17px !important;
+    height: 17px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid var(--alas-entry-border, #dfe2e5) !important;
+    border-radius: 4px !important;
+    background: var(--alas-entry-surface, #fff) !important;
+    box-shadow: none !important;
+    transition: none !important;
+    vertical-align: middle;
     cursor: pointer;
+}
+[id^="pywebio-scope-ft_"] input[type="checkbox"]::before {
+    content: none !important;
+    display: none !important;
+}
+[id^="pywebio-scope-ft_"] input[type="checkbox"]:hover,
+[id^="pywebio-scope-ft_"] input[type="checkbox"]:active {
+    transform: none !important;
+    border-color: var(--alas-entry-accent, #4a90e2) !important;
+}
+[id^="pywebio-scope-ft_"] input[type="checkbox"]:checked {
+    background: var(--alas-entry-accent, #4a90e2) !important;
+    background-color: var(--alas-entry-accent, #4a90e2) !important;
+    border-color: var(--alas-entry-accent, #4a90e2) !important;
+}
+[id^="pywebio-scope-ft_"] input[type="checkbox"]:checked::before {
+    content: none !important;
+    display: none !important;
+}
+[id^="pywebio-scope-ft_"] input[type="checkbox"]:checked::after {
+    content: "" !important;
+    position: absolute !important;
+    left: 5px !important;
+    top: 2px !important;
+    width: 4px !important;
+    height: 9px !important;
+    border: solid var(--alas-entry-on-accent, #fff) !important;
+    border-width: 0 2px 2px 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    transform: rotate(45deg) !important;
 }
 [id^="pywebio-scope-ft_"] .ft-table tr.ft-selected td {
     box-shadow: inset 0 2px 0 var(--alas-entry-accent, #4a90e2),
