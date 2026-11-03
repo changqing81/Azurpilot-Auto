@@ -403,6 +403,24 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* 净赚体力的色调用正负决定（本页约定：负数=净消耗=绿，正数=净盈余=红，
+   与常规「绿增红减」相反，2026-11-03 用户要求）。未加类时沿用原 --st-gain。 */
+#pywebio-scope-statistics-content .opsi-net-value.is-neg {
+    color: var(--st-gain);
+}
+
+#pywebio-scope-statistics-content .opsi-net-value.is-pos {
+    color: var(--st-loss);
+}
+
+#pywebio-scope-statistics-content .opsi-net-line b.is-net.is-neg {
+    color: var(--st-gain);
+}
+
+#pywebio-scope-statistics-content .opsi-net-line b.is-net.is-pos {
+    color: var(--st-loss);
+}
+
 #pywebio-scope-statistics-content .opsi-net-bars {
     margin-top: 11px;
     padding-top: 10px;

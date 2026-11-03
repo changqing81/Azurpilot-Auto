@@ -305,6 +305,15 @@ class OpsiStatisticsMixin(WebUIMixinBase):
         if isinstance(net_ap, int) and net_ap >= 0:
             net_ap_text = f"+{net_ap_text}"
 
+        # 净赚体力的色调随正负变化：负数（净消耗）用绿色，正数（净盈余）用红色
+        # ——与常规「绿增红减」相反，是本页约定的口径（2026-11-03 用户要求）。
+        if isinstance(net_ap, int) and net_ap < 0:
+            net_tone = " is-neg"
+        elif isinstance(net_ap, int) and net_ap > 0:
+            net_tone = " is-pos"
+        else:
+            net_tone = ""
+
         net = {
             "label": t("Gui.Stat.NetAP"),
             "value": net_ap_text,
@@ -319,6 +328,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             "ratio_value": net_ratio,
             "month": month,
             "source": "cl1_data.db",
+            "tone": net_tone,
         }
 
         # 右侧 12 张卡：把「次数 / 概率」「战斗 / 一轮」这类成对指标各合成一张，
@@ -514,6 +524,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
         return tpl.format(
             net_label=html_escape(str(net["label"])),
             net_value=net["value"],
+            net_tone=net.get("tone", ""),
             bought_label=html_escape(str(net["bought_label"])),
             bought_value=net["bought_value"],
             # 当月购买体力是收支条的满格基准
@@ -525,6 +536,7 @@ class OpsiStatisticsMixin(WebUIMixinBase):
             loop_value=html_escape(str(net["loop_value"])),
             ratio_label=html_escape(str(net["ratio_label"])),
             ratio_value=html_escape(str(net["ratio_value"])),
+            ratio_tone=net.get("tone", ""),
             month=html_escape(str(net["month"])),
             source=html_escape(str(net["source"])),
             cards="".join(cards),
