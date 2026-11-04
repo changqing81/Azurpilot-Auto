@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -1252,6 +1253,11 @@ class ThemeCssSwapTests(unittest.TestCase):
 
 class TestWebUIImports(unittest.TestCase):
     def test_entry_does_not_eagerly_import_image_stack(self):
+        # 子进程会打中文启动横幅：Windows 上子进程按 locale(GBK) 写、父进程
+        # 按 GBK 读，遇到横幅里的制表符就 UnicodeDecodeError，reader 线程炸掉
+        # 后 stdout 直接变 None（表现为本机恒红、CI(Linux/UTF-8) 不红）。
+        # 两端都钉成 UTF-8 才稳定：子进程 PYTHONUTF8=1，父进程显式 encoding。
+        env = {**os.environ, "PYTHONUTF8": "1"}
         result = subprocess.run(
             [
                 sys.executable,
@@ -1266,6 +1272,9 @@ class TestWebUIImports(unittest.TestCase):
             check=True,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
         )
 
         self.assertEqual("0 0 0", result.stdout.strip().splitlines()[-1])
