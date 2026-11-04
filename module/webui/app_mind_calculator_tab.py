@@ -219,24 +219,46 @@ class MindCalculatorTabMixin(MindBatchMixin, WebUIMixinBase):
                       label=t('Gui.MindCalculator.FilterMin'), value=self._mc_min)
             put_input(name='mc_max', type='number',
                       label=t('Gui.MindCalculator.FilterMax'), value=self._mc_max)
+            put_scope('ft_mind_cap')
+            put_buttons([{'label': t('Gui.MindCalculator.Add'), 'value': 'add'}],
+                        onclick=self._mc_add_popup)
+            put_scope('ft_mind_batch')
+            put_buttons(
+                [{'label': t('Gui.MindCalculator.Import'), 'value': 'import'},
+                 {'label': t('Gui.MindCalculator.Screenshots'), 'value': 'shots'},
+                 {'label': t('Gui.MindCalculator.ExportJson'), 'value': 'json'},
+                 {'label': t('Gui.MindCalculator.ExportCsv'), 'value': 'csv'}],
+                onclick=self._mc_on_io)
+        self._mc_render_cap()
+        self._mc_render_batch_button()
+
+    @render_locked
+    def _mc_render_cap(self):
+        """满级筛选胶囊单独一个 scope：切换只重绘这一组按钮。
+
+        2026-11-04 现场：整行重绘会把搜索框、两个下拉和两个等级输入一起重建，
+        用户正在看的筛选控件闪一下、焦点丢失，而且重建后的控件与服务端状态
+        容易错位（下拉显示「计入舰船」但列表按旧条件过滤，看起来「选什么都
+        是 0」）。切换筛选只重绘胶囊与清单，其余控件原地不动。
+        """
+        with use_scope('ft_mind_cap', clear=True):
             put_buttons(
                 [{'label': t('Gui.MindCalculator.MindBelow'), 'value': 'below',
                   'color': 'primary' if self._mc_mind == 'below' else 'secondary'},
                  {'label': t('Gui.MindCalculator.MindMaxed'), 'value': 'maxed',
                   'color': 'primary' if self._mc_mind == 'maxed' else 'secondary'}],
                 onclick=self._mc_on_mind, small=True)
-            put_buttons([{'label': t('Gui.MindCalculator.Add'), 'value': 'add'}],
-                        onclick=self._mc_add_popup)
+
+    @render_locked
+    def _mc_render_batch_button(self):
+        """批量编辑开关单独一个 scope：开/关只换这一个按钮与清单。"""
+        with use_scope('ft_mind_batch', clear=True):
             put_buttons(
                 [{'label': t('Gui.MindCalculator.BatchExit') if self._mc_batch
                   else t('Gui.MindCalculator.BatchEdit'),
                   'value': 'batch',
-                  'color': 'primary' if self._mc_batch else 'secondary'},
-                 {'label': t('Gui.MindCalculator.Import'), 'value': 'import'},
-                 {'label': t('Gui.MindCalculator.Screenshots'), 'value': 'shots'},
-                 {'label': t('Gui.MindCalculator.ExportJson'), 'value': 'json'},
-                 {'label': t('Gui.MindCalculator.ExportCsv'), 'value': 'csv'}],
-                onclick=self._mc_on_io)
+                  'color': 'primary' if self._mc_batch else 'secondary'}],
+                onclick=self._mc_on_batch_toggle)
 
     def _mc_render_list(self):
         """过滤后的清单表 + 批量工具栏 + 分页 + 计数；筛选/翻页后只重绘这里。
@@ -330,7 +352,7 @@ class MindCalculatorTabMixin(MindBatchMixin, WebUIMixinBase):
             return
         self._mc_mind = 'all' if self._mc_mind == value else value
         self._mc_page = 0
-        self._mc_render_filters()
+        self._mc_render_cap()
         self._mc_render_list()
 
     @render_locked
@@ -338,7 +360,7 @@ class MindCalculatorTabMixin(MindBatchMixin, WebUIMixinBase):
         """批量编辑开关：打开后表格出现勾选列，关闭时选择一并作废。"""
         self._mc_batch = not self._mc_batch
         self._mc_page = 0
-        self._mc_render_filters()
+        self._mc_render_batch_button()
         self._mc_render_list()
 
     @render_locked
@@ -485,10 +507,8 @@ class MindCalculatorTabMixin(MindBatchMixin, WebUIMixinBase):
 
     @render_locked
     def _mc_on_io(self, value):
-        """操作入口：批量开关 / 导入 / 导出。"""
-        if value == 'batch':
-            self._mc_on_batch_toggle()
-        elif value == 'import':
+        """导入 / 导出入口：弹上传表单或直接下载。"""
+        if value == 'import':
             self._mc_import_list()
         elif value == 'shots':
             self._mc_import_shots()

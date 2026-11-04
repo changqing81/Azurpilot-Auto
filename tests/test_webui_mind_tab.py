@@ -494,6 +494,7 @@ class MindIoCallbackTest(unittest.TestCase):
                 patch(f'{MODULE}.put_input',
                       side_effect=lambda *a, **kw: captured.append(kw) or _FakeOutput('input')), \
                 patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
                 patch(f'{MODULE}.put_buttons',
                       side_effect=lambda *a, **kw: buttons.append(a[0] if a else []) or _FakeOutput('buttons')):
             h._mc_render_filters()
@@ -540,21 +541,29 @@ class MindIoCallbackTest(unittest.TestCase):
                 patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
                 patch(f'{MODULE}.put_input', side_effect=lambda *a, **kw: _FakeOutput('input')), \
                 patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
                 patch(f'{MODULE}.put_buttons',
                       side_effect=lambda *a, **kw: buttons.append(a[0] if a else []) or _FakeOutput('buttons')):
             h._mc_render_filters()
         values = [button.get('value') for group in buttons for button in group]
         for expected in ('below', 'maxed', 'batch', 'add', 'import', 'shots', 'json', 'csv'):
             self.assertIn(expected, values)
-        cap_colors = {button['value']: button.get('color') for button in buttons[0]}
-        self.assertEqual(cap_colors, {'below': 'secondary', 'maxed': 'secondary'})
+        cap = next(group for group in buttons
+                   if any(button.get('value') == 'below' for button in group))
+        self.assertEqual({button['value']: button.get('color') for button in cap},
+                         {'below': 'secondary', 'maxed': 'secondary'})
 
     def test_level_cap_filter_toggles_and_resets_page(self):
-        """同一项再点一次回到「全部」；未知值忽略；每次切换都重绘列表。"""
+        """同一项再点一次回到「全部」；未知值忽略；每次切换都重绘列表。
+
+        切换只看胶囊与清单：整行筛选控件（搜索框/下拉/等级输入）不得被重建，
+        否则用户正在看的控件会闪一下、状态与显示容易错位。
+        """
         h = _MindHarness()
         h._mc_state()
         h._mc_page = 3
-        with patch.object(h, '_mc_render_filters'), \
+        with patch.object(h, '_mc_render_filters') as render_filters, \
+                patch.object(h, '_mc_render_cap'), \
                 patch.object(h, '_mc_render_list') as render_list:
             h._mc_on_mind('below')
             self.assertEqual((h._mc_mind, h._mc_page), ('below', 0))
@@ -563,16 +572,22 @@ class MindIoCallbackTest(unittest.TestCase):
             h._mc_on_mind('bogus')
             self.assertEqual(h._mc_mind, 'all')
         self.assertEqual(render_list.call_count, 2)
+        render_filters.assert_not_called()
 
-    def test_batch_toggle_opens_and_closes_from_action_row(self):
-        """批量开关：筛选行的 batch 按钮与 _mc_on_batch_toggle 是同一入口。"""
+    def test_batch_toggle_only_redraws_button_and_list(self):
+        """批量开关只重绘它自己的按钮与清单，不重建整行筛选控件。"""
         h = _MindHarness()
         h._mc_state()
-        with patch.object(h, '_mc_render_filters'), patch.object(h, '_mc_render_list'):
-            h._mc_on_io('batch')
+        with patch.object(h, '_mc_render_filters') as render_filters, \
+                patch.object(h, '_mc_render_batch_button') as render_button, \
+                patch.object(h, '_mc_render_list') as render_list:
+            h._mc_on_batch_toggle()
             self.assertTrue(h._mc_batch)
             h._mc_on_batch_toggle()
             self.assertFalse(h._mc_batch)
+        self.assertEqual(render_button.call_count, 2)
+        self.assertEqual(render_list.call_count, 2)
+        render_filters.assert_not_called()
 
 
 class MindScanStartTest(unittest.TestCase):
