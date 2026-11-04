@@ -16432,6 +16432,22 @@
         "type": "textarea",
         "value": ""
       },
+      "ScanCargoOrders": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "CargoTargets": {
+        "type": "textarea",
+        "value": ""
+      },
+      "CargoTargetDays": {
+        "type": "input",
+        "value": 1
+      },
       "ExtraTargets": {
         "type": "textarea",
         "value": ""
@@ -17767,6 +17783,20 @@
         "type": "textarea",
         "value": ""
       },
+      "DefaultCrop": {
+        "type": "select",
+        "value": "wheat",
+        "option": [
+          "wheat",
+          "corn",
+          "rice",
+          "chinese_cabbage",
+          "potato",
+          "soybean",
+          "pasture",
+          "coffee_bean"
+        ]
+      },
       "PlantPotatoes": {
         "type": "select",
         "value": 4,
@@ -17805,6 +17835,21 @@
       "IgnoreAvocado": {
         "type": "checkbox",
         "value": true
+      },
+      "DefaultCrop": {
+        "type": "select",
+        "value": "rubber",
+        "option": [
+          "apple",
+          "citrus",
+          "banana",
+          "mango",
+          "lemon",
+          "avocado",
+          "rubber",
+          "pear",
+          "persimmon"
+        ]
       },
       "PlantRubber": {
         "type": "select",
@@ -17846,6 +17891,21 @@
       "IgnorePineapple": {
         "type": "checkbox",
         "value": true
+      },
+      "DefaultCrop": {
+        "type": "select",
+        "value": "lavender",
+        "option": [
+          "carrot",
+          "onion",
+          "flax",
+          "strawberry",
+          "cotton",
+          "tea",
+          "lavender",
+          "pineapple",
+          "asparagus"
+        ]
       },
       "PlantLavender": {
         "type": "select",
@@ -17993,6 +18053,22 @@
       "MinSeaCucumber": {
         "type": "input",
         "value": 50
+      },
+      "MinKoiCarp": {
+        "type": "input",
+        "value": 0
+      },
+      "MinMackerel": {
+        "type": "input",
+        "value": 0
+      },
+      "MinFreshwaterFishMeat": {
+        "type": "input",
+        "value": 0
+      },
+      "MinSaltwaterFishMeat": {
+        "type": "input",
+        "value": 0
       },
       "PlantYellowfinTuna": {
         "type": "select",
