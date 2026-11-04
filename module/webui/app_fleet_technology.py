@@ -37,6 +37,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 from module.webui.app_fleet_tech_batch import FleetTechBatchMixin, batch_bridge_script
+from module.webui.app_mind_batch import mind_batch_bridge_script
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
 from module.webui.utils import scan_window_active
@@ -63,8 +64,12 @@ def build_fleet_tech_bridge_script(pin_name):
     除 ``click`` 外再绑 ``touchend``（500ms 去重）：手机浏览器在容器可滑动、
     或手指带一点位移时会把轻点判成滑动而**根本不发 click**，表现为「点了
     完全没反应」（2026-10-16 真机反馈；鼠标路径实测正常，差异在触摸手势）。
+
+    同时拼上心智清单的批量勾选桥（另一套选择器与 root scope，见
+    app_mind_batch.mind_batch_bridge_script）：统计页只注入一次脚本，
+    合并成一条 run_js 才能守住「一帧一条 JS 命令」的红线。
     """
-    return batch_bridge_script(pin_name) + f"""
+    return batch_bridge_script(pin_name) + mind_batch_bridge_script(pin_name) + f"""
         (function () {{
             var listenerName = "__alasFleetTechClick";
             if (window[listenerName]) return;
@@ -526,8 +531,8 @@ class FleetTechnologyMixin(FleetTechBatchMixin, WebUIMixinBase):
                 self._ft_edit_popup(int(item))
             except ValueError:
                 return
-        elif kind in ('medit', 'mdel'):
-            # 心智计算器清单行的编辑 / 删除，由其 Mixin 承接。
+        elif kind in ('medit', 'mdel', 'mbatch'):
+            # 心智计算器清单行的编辑 / 删除 / 批量动作，由其 Mixin 承接。
             self._mc_on_bridge(value)
 
     @render_locked

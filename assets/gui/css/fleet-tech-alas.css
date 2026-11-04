@@ -650,6 +650,36 @@
     width: 150px;
 }
 
+/* 批量编辑：首列多出复选框，上面按 nth-child 定的列宽整体后移一位，
+   复选框列给 34px；批量表多一个 class，特异性高过上面的非批量规则。 */
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(1) {
+    width: 34px;
+}
+
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(2) {
+    width: 26%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(3) {
+    width: 10%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(4) {
+    width: 12%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(5) {
+    width: 13%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(6) {
+    width: 13%;
+}
+
+#pywebio-scope-ft_mind_list .ft-table.ft-batch th:nth-child(7) {
+    width: 150px;
+}
+
 #pywebio-scope-ft_mind_list .ft-table th,
 #pywebio-scope-ft_mind_list .ft-table td {
     overflow: hidden;

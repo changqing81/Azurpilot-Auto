@@ -13,6 +13,7 @@ from module.config.transaction import config_transaction
 from module.config.utils import filepath_config
 from module.runtime import mind_calculator as mind_calc
 from module.webui import mind_calculator_view as mind_view
+from module.webui.app_mind_batch import MindBatchMixin
 from module.webui.app_dependencies import (
     BinarySwitchButton,
     State,
@@ -56,8 +57,12 @@ MAX_SHIPS = 5000
 STATUS_OPTIONS = ('included', 'review', 'excluded')
 
 
-class MindCalculatorTabMixin(WebUIMixinBase):
-    """统计页「心智计算器」页签的会话控制器。"""
+class MindCalculatorTabMixin(MindBatchMixin, WebUIMixinBase):
+    """统计页「心智计算器」页签的会话控制器。
+
+    批量编辑（勾选 → 批量改状态/等级）由 MindBatchMixin 承接，本类只负责
+    筛选/分页/单行编辑与批量开关的状态。
+    """
 
     # ---------- 状态与数据 ----------
 
@@ -74,6 +79,8 @@ class MindCalculatorTabMixin(WebUIMixinBase):
             self._mc_rarity = ''
             self._mc_min = ''
             self._mc_max = ''
+            self._mc_mind = 'all'
+            self._mc_batch = False
             self._mc_page = 0
 
     def _mc_load(self, force=False):
@@ -186,10 +193,11 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         add_switch_button_task(self.task_handler, button)
 
     def _mc_render_filters(self):
-        """清单操作行：搜索 + 状态 + 基础稀有度 + 等级范围 + 添加 / 导入 / 导出。
+        """清单操作行：搜索 + 状态 + 稀有度 + 等级范围 + 满级筛选 + 操作按钮。
 
         添加舰船与导入导出按钮组与筛选控件同排（原为清单下方的独立两行，
-        现上移至此），窄屏由 flex-wrap 自然换行。
+        现上移至此），窄屏由 flex-wrap 自然换行。「未满级 / 已满级」是一组
+        筛选胶囊（同一项再点一次回到全部），批量编辑开关也在这排里。
         """
         statuses, rarities = mind_view.filter_options()
         with use_scope('ft_mind_filters', clear=True):
@@ -211,24 +219,38 @@ class MindCalculatorTabMixin(WebUIMixinBase):
                       label=t('Gui.MindCalculator.FilterMin'), value=self._mc_min)
             put_input(name='mc_max', type='number',
                       label=t('Gui.MindCalculator.FilterMax'), value=self._mc_max)
+            put_buttons(
+                [{'label': t('Gui.MindCalculator.MindBelow'), 'value': 'below',
+                  'color': 'primary' if self._mc_mind == 'below' else 'secondary'},
+                 {'label': t('Gui.MindCalculator.MindMaxed'), 'value': 'maxed',
+                  'color': 'primary' if self._mc_mind == 'maxed' else 'secondary'}],
+                onclick=self._mc_on_mind, small=True)
             put_buttons([{'label': t('Gui.MindCalculator.Add'), 'value': 'add'}],
                         onclick=self._mc_add_popup)
             put_buttons(
-                [{'label': t('Gui.MindCalculator.Import'), 'value': 'import'},
+                [{'label': t('Gui.MindCalculator.BatchExit') if self._mc_batch
+                  else t('Gui.MindCalculator.BatchEdit'),
+                  'value': 'batch',
+                  'color': 'primary' if self._mc_batch else 'secondary'},
+                 {'label': t('Gui.MindCalculator.Import'), 'value': 'import'},
                  {'label': t('Gui.MindCalculator.Screenshots'), 'value': 'shots'},
                  {'label': t('Gui.MindCalculator.ExportJson'), 'value': 'json'},
                  {'label': t('Gui.MindCalculator.ExportCsv'), 'value': 'csv'}],
                 onclick=self._mc_on_io)
 
     def _mc_render_list(self):
-        """过滤后的清单表 + 分页 + 计数；筛选/翻页后只重绘这里。"""
-        rows = mind_view.calculate_rows(self._mc_ships)[1]
-        rows = mind_view.filter_rows(rows, self._mc_query, self._mc_status,
-                                     self._mc_rarity, self._mc_min, self._mc_max)
+        """过滤后的清单表 + 批量工具栏 + 分页 + 计数；筛选/翻页后只重绘这里。
+
+        批量模式下表格多一列原生复选框（勾选只活在浏览器里），工具栏的
+        「本页已选」计数与按钮由 app_mind_batch 的桥脚本驱动。
+        """
+        rows = self._mc_filtered_rows()
         shown, page, pages = mind_view.page_slice(rows, self._mc_page)
         self._mc_page = page
         with use_scope('ft_mind_list', clear=True):
-            put_html(mind_view.ships_table_html(shown, self._mc_result))
+            if self._mc_batch:
+                put_html(self._mc_batch_toolbar(len(rows)))
+            put_html(mind_view.ships_table_html(shown, self._mc_result, self._mc_batch))
             if not shown:
                 put_html(f'<p class="ft-empty">{t("Gui.MindCalculator.Empty")}</p>')
             put_row(
@@ -246,8 +268,11 @@ class MindCalculatorTabMixin(WebUIMixinBase):
 
     @render_locked
     def _mc_on_bridge(self, value):
-        """清单行钩子点击（编辑 / 删除）经点击桥转发到此。"""
+        """清单钩子点击（编辑 / 删除 / 批量动作）经点击桥转发到此。"""
         kind, _, item = str(value or '').partition('|')
+        if kind == 'mbatch':
+            self._mc_batch_open(item)
+            return
         try:
             index = int(item)
         except ValueError:
@@ -295,6 +320,25 @@ class MindCalculatorTabMixin(WebUIMixinBase):
         elif kind == 'max':
             self._mc_max = str(value or '')
         self._mc_page = 0
+        self._mc_render_list()
+
+    @render_locked
+    def _mc_on_mind(self, value):
+        """满级筛选胶囊：同一项再点一次回到「全部」。"""
+        value = str(value or '')
+        if value not in ('below', 'maxed'):
+            return
+        self._mc_mind = 'all' if self._mc_mind == value else value
+        self._mc_page = 0
+        self._mc_render_filters()
+        self._mc_render_list()
+
+    @render_locked
+    def _mc_on_batch_toggle(self, _value=None):
+        """批量编辑开关：打开后表格出现勾选列，关闭时选择一并作废。"""
+        self._mc_batch = not self._mc_batch
+        self._mc_page = 0
+        self._mc_render_filters()
         self._mc_render_list()
 
     @render_locked
@@ -441,8 +485,10 @@ class MindCalculatorTabMixin(WebUIMixinBase):
 
     @render_locked
     def _mc_on_io(self, value):
-        """导入 / 导出入口：弹上传表单或直接下载。"""
-        if value == 'import':
+        """操作入口：批量开关 / 导入 / 导出。"""
+        if value == 'batch':
+            self._mc_on_batch_toggle()
+        elif value == 'import':
             self._mc_import_list()
         elif value == 'shots':
             self._mc_import_shots()

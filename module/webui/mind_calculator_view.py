@@ -13,6 +13,9 @@ from module.webui.lang import t
 
 PAGE_SIZE = 50
 STATUS_FILTERS = ('all', 'included', 'merged', 'review', 'excluded')
+# 满级筛选：只有「计入」行参与判定。已满 120 级的计入行 mind=0，未满级
+# 的计入行 mind>0，两者互补；同名合并/待核对/排除行不计心智，都不算进来。
+MIND_FILTERS = ('all', 'below', 'maxed')
 STAGE_LABEL_KEYS = ('Stage0', 'Stage1', 'Stage2', 'Stage3', 'Stage4', 'Stage5')
 IMPORT_ACCEPT = ('.json', '.csv')
 SHOT_ACCEPT = ('.png', '.jpg', '.jpeg', '.webp')
@@ -32,8 +35,14 @@ def calculate_rows(ships):
     return result, list(enumerate(result['ships']))
 
 
-def filter_rows(rows, query, status_filter, rarity_filter, min_level, max_level):
-    """搜索船名 + 状态 + 基础稀有度 + 等级范围过滤；保留原始索引。"""
+def filter_rows(rows, query, status_filter, rarity_filter, min_level, max_level,
+                mind_filter='all'):
+    """搜索船名 + 状态 + 基础稀有度 + 等级范围 + 满级过滤；保留原始索引。
+
+    mind_filter 只认 MIND_FILTERS 的三档：below 留下未满级（还要消耗心智
+    单元Ⅰ）的计入行，maxed 留下已满 120 级（心智单元Ⅰ=0）的计入行，
+    其他值按「全部」处理。
+    """
     needle = (query or '').strip().casefold()
     output = []
     for index, row in rows:
@@ -48,6 +57,11 @@ def filter_rows(rows, query, status_filter, rarity_filter, min_level, max_level)
             continue
         if max_level and (not isinstance(level, int) or level > int(max_level)):
             continue
+        if mind_filter in ('below', 'maxed'):
+            included = row.get('status') == 'included'
+            maxed = included and not (row.get('mind') or 0)
+            if not (maxed if mind_filter == 'maxed' else included and not maxed):
+                continue
         output.append((index, row))
     return output
 
@@ -117,8 +131,12 @@ def summary_table_html(result):
     )
 
 
-def ships_table_html(rows_page, result):
-    """舰船清单表：船名（来源）/ 等级 / 基础稀有度 / 状态 / 心智 / 操作。"""
+def ships_table_html(rows_page, result, edit_mode=False):
+    """舰船清单表：船名（来源）/ 等级 / 基础稀有度 / 状态 / 心智 / 操作。
+
+    edit_mode 打开时首列追加原生复选框（批量编辑用）：勾选在浏览器本地
+    响应，只有批量动作才把本页选择发给服务端（见 app_mind_batch 的桥）。
+    """
     body = []
     for index, row in rows_page:
         status = row['status']
@@ -129,9 +147,15 @@ def ships_table_html(rows_page, result):
         status_cell = (
             f'<span class="ft-status ft-mind-status-{status}">{status_label(status)}</span>'
         )
+        select_cell = (
+            f'<td><input type="checkbox" data-mc-select="{index}" '
+            f'aria-label="{html_escape(str(row.get("name") or ""), quote=True)}"></td>'
+            if edit_mode else ''
+        )
         body.append(
             f'<tr class="ft-mind-{status}">'
-            f'<td class="ft-name">{name}{source_html}</td>'
+            + select_cell
+            + f'<td class="ft-name">{name}{source_html}</td>'
             f'<td class="ft-num">{row.get("level") if isinstance(row.get("level"), int) else "—"}</td>'
             f'<td>{rarity}</td>'
             f'<td class="ft-status-cell">{status_cell}</td>'
@@ -143,9 +167,16 @@ def ships_table_html(rows_page, result):
             f'{t("Gui.MindCalculator.Delete")}</button>'
             '</td></tr>'
         )
+    select_head = (
+        '<th><input type="checkbox" data-mc-select-page '
+        f'aria-label="{html_escape(t("Gui.MindCalculator.SelectPage"), quote=True)}"></th>'
+        if edit_mode else ''
+    )
+    table_class = 'ft-table ft-batch' if edit_mode else 'ft-table'
     return (
-        '<div class="ft-table-scroll"><table class="ft-table"><thead><tr>'
-        f'<th>{t("Gui.MindCalculator.Name")}</th>'
+        f'<div class="ft-table-scroll"><table class="{table_class}"><thead><tr>'
+        + select_head
+        + f'<th>{t("Gui.MindCalculator.Name")}</th>'
         f'<th>{t("Gui.MindCalculator.Level")}</th>'
         f'<th>{t("Gui.MindCalculator.BaseRarity")}</th>'
         f'<th>{t("Gui.MindCalculator.Status")}</th>'

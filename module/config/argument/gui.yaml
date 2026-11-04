@@ -346,6 +346,8 @@ MindCalculator:
   FilterRarity:
   AllRarities:
   Filter:
+  MindBelow:
+  MindMaxed:
   Name:
   Level:
   BaseRarity:
@@ -397,6 +399,23 @@ MindCalculator:
   ExportCsv:
   ExportReady:
   Cancel:
+  BatchEdit:
+  BatchExit:
+  SelectPage:
+  Selected:
+  BatchSelected:
+  BatchAll:
+  SelectionHint:
+  BatchTitle:
+  BatchHint:
+  Keep:
+  SetLevel:
+  LevelPlaceholder:
+  PresetIncluded:
+  PresetExcluded:
+  Preset120:
+  NoChanges:
+  BatchLevelRequired:
 
 MeowfficerScore:
   Title:
