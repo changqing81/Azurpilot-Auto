@@ -288,7 +288,15 @@ class PlannerTaskTest(unittest.TestCase):
         planner.config = FakeConfig(technology, IslandProductionPlanner_RescanTechnology=False, **overrides)
         planner.get_technology_status = lambda: self.fail('saved technology must not trigger a scan')
         planner.scan_season_task_targets = lambda: {3009: 30}
-        return planner, planner.run()
+        # 赛季剩余天数来自真实日期：临近赛季结束时只剩不到 1 天，产能不足以
+        # 完成用例目标，「应有可行方案」的用例会随日期变红（2026-11-04 实测
+        # 本季剩余 0.7 天，test_targets_reach_kitchen_settings 必然失败）。
+        # 钉成固定值，让整组用例与运行日期无关。
+        with patch(
+            'module.island_planner.planner.get_current_season_remaining_days',
+            return_value=30,
+        ):
+            return planner, planner.run()
 
     def test_preview_does_not_write(self):
         planner, result = self.run_planner()
