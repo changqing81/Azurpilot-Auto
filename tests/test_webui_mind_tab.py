@@ -527,6 +527,54 @@ class MindIoCallbackTest(unittest.TestCase):
         self.assertEqual([item['value'] for item in captured], ['review', 'excluded', 'included'])
 
 
+    def test_filter_row_exposes_level_cap_and_batch_buttons(self):
+        """筛选行必须同时给出「未满级 / 已满级」与批量编辑入口。
+
+        未满级/已满级是筛选胶囊（不是下拉），激活态用 primary 区分，
+        未激活用 secondary —— put_buttons 带 link_style 时会忽略 color。
+        """
+        h = _MindHarness()
+        h._mc_state()
+        buttons = []
+        with patch(f'{MODULE}.t', side_effect=lambda key, **kw: key), \
+                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.put_input', side_effect=lambda *a, **kw: _FakeOutput('input')), \
+                patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
+                patch(f'{MODULE}.put_buttons',
+                      side_effect=lambda *a, **kw: buttons.append(a[0] if a else []) or _FakeOutput('buttons')):
+            h._mc_render_filters()
+        values = [button.get('value') for group in buttons for button in group]
+        for expected in ('below', 'maxed', 'batch', 'add', 'import', 'shots', 'json', 'csv'):
+            self.assertIn(expected, values)
+        cap_colors = {button['value']: button.get('color') for button in buttons[0]}
+        self.assertEqual(cap_colors, {'below': 'secondary', 'maxed': 'secondary'})
+
+    def test_level_cap_filter_toggles_and_resets_page(self):
+        """同一项再点一次回到「全部」；未知值忽略；每次切换都重绘列表。"""
+        h = _MindHarness()
+        h._mc_state()
+        h._mc_page = 3
+        with patch.object(h, '_mc_render_filters'), \
+                patch.object(h, '_mc_render_list') as render_list:
+            h._mc_on_mind('below')
+            self.assertEqual((h._mc_mind, h._mc_page), ('below', 0))
+            h._mc_on_mind('below')
+            self.assertEqual(h._mc_mind, 'all')
+            h._mc_on_mind('bogus')
+            self.assertEqual(h._mc_mind, 'all')
+        self.assertEqual(render_list.call_count, 2)
+
+    def test_batch_toggle_opens_and_closes_from_action_row(self):
+        """批量开关：筛选行的 batch 按钮与 _mc_on_batch_toggle 是同一入口。"""
+        h = _MindHarness()
+        h._mc_state()
+        with patch.object(h, '_mc_render_filters'), patch.object(h, '_mc_render_list'):
+            h._mc_on_io('batch')
+            self.assertTrue(h._mc_batch)
+            h._mc_on_batch_toggle()
+            self.assertFalse(h._mc_batch)
+
+
 class MindScanStartTest(unittest.TestCase):
     """扫描按钮：写等级范围 → 走通用两段式启动（worker 存活时先停后启）。"""
 
