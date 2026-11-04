@@ -1559,3 +1559,214 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* --------------------------------------------------------------------------
+   9. 委托统计页 · 钻石委托成功率区块（.gem-*）
+   --------------------------------------------------------------------------
+   由 module/webui/app_stat_commission_gem.py 输出。
+   ⚠️ 这里**必须**走类名而不是在 Python 里拼内联 style：远控（P2P）下这段
+   HTML 每次重绘都要经 WebSocket 分片传，2026-11-04 实测内联 style 占整块
+   68% 的字节（20KB 里 13.7KB）；挪到本文件后整块降到 9.5KB，且样式随 CSS
+   只加载一次。
+   ⚠️ 选择器都带 #pywebio-scope-statistics-content 前缀：alas.css 里有
+   「#pywebio-scope-commission_income > div { display: block !important }」
+   这类高特异度规则，前缀不足会被压掉。
+   -------------------------------------------------------------------------- */
+
+#pywebio-scope-statistics-content .commission-gem-section {
+    margin-top: 4px;
+}
+
+#pywebio-scope-statistics-content .gem-divider {
+    height: 1px;
+    margin: 24px 0 18px;
+    background: var(--st-divider);
+}
+
+/* 标题行 */
+#pywebio-scope-statistics-content .gem-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+#pywebio-scope-statistics-content .gem-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+}
+
+#pywebio-scope-statistics-content .gem-title {
+    font-size: .95rem;
+    font-weight: 600;
+    color: inherit;
+}
+
+/* 当前口径徽标：跟随上方今日/本周/本月按钮，标出这块正在看哪一档 */
+#pywebio-scope-statistics-content .gem-period-badge {
+    padding: 1px 8px;
+    border-radius: 10px;
+    background: rgba(64, 128, 255, .12);
+    color: inherit;
+    font-size: .72rem;
+    line-height: 1.6;
+    opacity: .9;
+}
+
+#pywebio-scope-statistics-content .gem-suffix {
+    font-size: .75rem;
+    opacity: .55;
+}
+
+#pywebio-scope-statistics-content .gem-hint {
+    font-size: .75rem;
+    opacity: .55;
+    margin-bottom: 12px;
+}
+
+/* 表格容器：五列在手机窄屏下仍会挤，给表格最小可读宽度 + 横向滚动，
+   不靠缩字号解决（缩到 10px 就没法读了） */
+#pywebio-scope-statistics-content .gem-scroll {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table {
+    width: 100% !important;
+    min-width: 360px;
+    max-width: none !important;
+    border-collapse: collapse;
+    font-size: .82rem;
+    table-layout: fixed;
+    display: table;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table th {
+    padding: 7px 8px;
+    background: rgba(128, 128, 128, .1);
+    border-bottom: 1px solid var(--st-divider);
+    font-weight: 500;
+    opacity: .8;
+    font-size: .76rem;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-th-left {
+    text-align: left !important;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-th-right {
+    text-align: right !important;
+}
+
+/* 列宽：时长列最宽（含奖励区间副标题），三列数字等宽 */
+#pywebio-scope-statistics-content .commission-gem-table col.gem-col-duration { width: 34%; }
+#pywebio-scope-statistics-content .commission-gem-table col.gem-col-rate { width: 22%; }
+#pywebio-scope-statistics-content .commission-gem-table col.gem-col-num { width: 14%; }
+
+#pywebio-scope-statistics-content .commission-gem-table tbody tr.gem-row {
+    border-bottom: 1px solid rgba(128, 128, 128, .1);
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-duration-cell {
+    padding: 8px;
+    vertical-align: middle;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-duration-inner {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff4757;
+    flex-shrink: 0;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-duration-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-duration-name {
+    color: inherit;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-duration-expect {
+    font-size: .7rem;
+    opacity: .6;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-rate-cell {
+    padding: 8px;
+    text-align: right;
+    vertical-align: middle;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-num-cell {
+    padding: 8px;
+    text-align: right;
+    vertical-align: middle;
+    font-family: 'JetBrains Mono NL', monospace;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-rate {
+    font-size: .88rem;
+    font-weight: 600;
+    line-height: 1.1;
+}
+
+/* 0% 压灰：别和真有数据的格子一样抢眼，看表时不用逐个读 */
+#pywebio-scope-statistics-content .commission-gem-table .gem-rate-dim {
+    opacity: .45;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-bar {
+    height: 3px;
+    margin: 3px 0 0;
+    border-radius: 2px;
+    background: rgba(128, 128, 128, .18);
+    overflow: hidden;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-bar-fill {
+    height: 100%;
+    background: #ff4757;
+    border-radius: 2px;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-placeholder {
+    opacity: .45;
+}
+
+/* 合计行：与上方三档时长分开，整行加重 */
+#pywebio-scope-statistics-content .commission-gem-table tbody tr.gem-row-total td {
+    border-top: 2px solid rgba(128, 128, 128, .25);
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-total-label {
+    padding: 9px 8px;
+}
+
+#pywebio-scope-statistics-content .gem-nodata {
+    font-size: .75rem;
+    opacity: .5;
+    margin-top: 10px;
+}

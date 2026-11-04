@@ -81,6 +81,7 @@ def get_commission_income_summary(
     period: str = 'month',
     year: int = None,
     month: int = None,
+    entries: List[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """获取委托收益聚合摘要。
 
@@ -89,6 +90,10 @@ def get_commission_income_summary(
         period: 'day' | 'week' | 'month'
         year: 年份
         month: 月份
+        entries: 已读出的当月委托收益条目。调用方若已为其他用途读过
+            同一个月的整包数据，传进来可省掉一次整月 JSON 反序列化
+            （单月最多 5000 条，2026-09/10 实测整包 2.3MB，一次要 40~60ms）。
+            为 None 时按原样自行查库。
 
     Returns:
         {
@@ -110,7 +115,8 @@ def get_commission_income_summary(
     if month is None:
         month = now.month
 
-    entries = cl1_db.get_commission_income(instance, year, month)
+    if entries is None:
+        entries = cl1_db.get_commission_income(instance, year, month)
     filtered = _filter_entries_by_period(entries, period, now)
 
     totals: Dict[str, int] = {}

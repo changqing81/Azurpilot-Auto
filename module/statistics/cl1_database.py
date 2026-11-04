@@ -17,6 +17,77 @@ from module.config.time_source import now as current_time
 from module.logger import logger
 
 
+def _aggregate_gem_commission_stats(
+    entries: List[Dict[str, Any]],
+    now: datetime,
+    year: int,
+    month: int,
+) -> Dict[str, Dict[int, Dict[str, Any]]]:
+    """把钻石委托条目聚合成「今日 / 本周 / 本月 × 2/4/8 小时」的统计桶。
+
+    纯函数，时间基准由调用方传入 —— 单测要能钉死 now，否则跨午夜、
+    跨周一的用例会随机翻车。
+
+    Args:
+        entries: 钻石委托条目，每条含 ts（ISO 时间）/ duration（小时）/ reward（钻石数）
+        now: 统计基准时间
+        year: 所选年份
+        month: 所选月份
+
+    Returns:
+        {'today': {2: 桶, 4: 桶, 8: 桶}, 'week': {...}, 'month': {...}}，
+        桶结构为 {count, success, reward, rate}。所选月份不是当前月时
+        today / week 恒为空桶（这两档锚定当前日期，套在历史月没有意义）。
+    """
+    is_current_month = (year, month) == (now.year, now.month)
+    today = now.date()
+    week_start = today - timedelta(days=today.weekday())
+
+    def _bucket() -> Dict[int, Dict[str, Any]]:
+        return {hour: {"count": 0, "success": 0, "reward": 0} for hour in (2, 4, 8)}
+
+    result: Dict[str, Dict[int, Dict[str, Any]]] = {
+        "today": _bucket(),
+        "week": _bucket(),
+        "month": _bucket(),
+    }
+
+    for entry in entries or []:
+        try:
+            ts = datetime.fromisoformat(entry.get("ts", ""))
+            duration = int(entry.get("duration", 0))
+            reward = int(entry.get("reward", 0))
+        except (AttributeError, TypeError, ValueError):
+            # 脏条目（缺 ts / duration 非法）单独跳过，不能拖垮整张统计表
+            continue
+        if duration not in (2, 4, 8):
+            continue
+
+        targets = []
+        if ts.year == year and ts.month == month:
+            targets.append(result["month"])
+        if is_current_month:
+            if ts.date() == today:
+                targets.append(result["today"])
+            if week_start <= ts.date() <= today:
+                targets.append(result["week"])
+
+        for bucket in targets:
+            item = bucket[duration]
+            item["count"] += 1
+            item["reward"] += reward
+            # 历史条目里的 success 字段由 reward > 0 推出，这里统一按 reward 判定
+            if reward > 0:
+                item["success"] += 1
+
+    for bucket in result.values():
+        for item in bucket.values():
+            count = item["count"]
+            item["rate"] = round(item["success"] * 100 / count, 1) if count else 0.0
+
+    return result
+
+
 class Cl1Database:
     @staticmethod
     def _coerce_int(value: Any) -> int:
@@ -1696,81 +1767,77 @@ class Cl1Database:
         data = self.get_stats(instance, month_key)
         return data.get("gem_commission_entries", [])
 
+    def get_gem_commission_stats_by_periods(
+        self,
+        instance: str,
+        year: int = None,
+        month: int = None,
+        month_data: Dict[str, Any] = None,
+    ) -> Dict[str, Dict[int, Dict[str, Any]]]:
+        """一次读出今日 / 本周 / 本月三档钻石委托统计。
+
+        统计页要同屏展示三个口径，逐期调用 get_gem_commission_stats 会把
+        整月 JSON 解析三遍（单月条目上限 5000 条），因此在这里一次性聚合。
+        今日 / 本周锚定的是当前日期，只有查看当前月时才成立；历史月份下
+        这两档返回空桶，由视图层显示占位符。
+
+        Args:
+            instance: 实例名称
+            year: 年份，默认当前年
+            month: 月份，默认当前月
+            month_data: 该月的整包统计数据。调用方已读过同一个月时传进来，
+                可省掉一次整月 JSON 反序列化（单月最高 2.3MB，一次 40~60ms）
+
+        Returns:
+            {'today': {2: 桶, 4: 桶, 8: 桶}, 'week': {...}, 'month': {...}}，
+            每个桶含 count（结算总次数）/ success（成功次数）/ reward（钻石数）/
+            rate（成功率百分比）。失败记录由任务侧在委托到期未获钻石时写入
+            reward=0，因此 count 包含失败次数。
+        """
+        now = datetime.now()
+        if year is None or month is None:
+            year = year or now.year
+            month = month or now.month
+        if month_data is None:
+            month_data = self.get_stats(instance, f"{year:04d}-{month:02d}")
+        entries = list(month_data.get("gem_commission_entries", []))
+        # 本周跨月时把上一月的条目也算进 week 桶；month 桶仍按所选月过滤
+        if (year, month) == (now.year, now.month):
+            week_start = now.date() - timedelta(days=now.date().weekday())
+            if (week_start.year, week_start.month) != (year, month):
+                prev_month_date = datetime(year, month, 1) - timedelta(days=1)
+                entries.extend(
+                    self.get_gem_commissions(
+                        instance, prev_month_date.year, prev_month_date.month
+                    )
+                )
+
+        return _aggregate_gem_commission_stats(entries, now, year, month)
+
     def get_gem_commission_stats(
-        self, instance: str, period: str = "month"
-    ) -> Dict[str, Dict[str, Any]]:
-        """获取钻石委托统计。
+        self,
+        instance: str,
+        period: str = "month",
+        year: int = None,
+        month: int = None,
+    ) -> Dict[int, Dict[str, Any]]:
+        """获取单档钻石委托统计（推送文案用）。
 
         Args:
             instance: 实例名称
             period: 统计周期，today / week / month
+            year: 年份，默认当前年；仅 period='month' 时影响结果
+            month: 月份，默认当前月；仅 period='month' 时影响结果
 
         Returns:
-            {
-                2: {"count": N, "success": N, "reward": N, "rate": 0.0},
-                4: {...},
-                8: {...},
-            }
+            {2: {"count": N, "success": N, "reward": N, "rate": 0.0}, 4: {...}, 8: {...}}
         """
         if period not in ("today", "week", "month"):
             period = "month"
-
-        now = datetime.now()
-        today = now.date()
-        week_start = today - timedelta(days=today.weekday())
-
-        entries = list(self.get_gem_commissions(instance, now.year, now.month))
-
-        if week_start.month != now.month or week_start.year != now.year:
-            prev = now.replace(day=1) - timedelta(days=1)
-            entries.extend(self.get_gem_commissions(instance, prev.year, prev.month))
-
-        def _bucket():
-            return {
-                2: {"count": 0, "success": 0, "reward": 0},
-                4: {"count": 0, "success": 0, "reward": 0},
-                8: {"count": 0, "success": 0, "reward": 0},
-            }
-
-        result = {
-            "today": _bucket(),
-            "week": _bucket(),
-            "month": _bucket(),
-        }
-
-        for entry in entries:
-            try:
-                ts = datetime.fromisoformat(entry.get("ts", ""))
-                duration = self._coerce_int(entry.get("duration", 0))
-                reward = self._coerce_int(entry.get("reward", 0))
-                success = bool(entry.get("success", False))
-
-                if duration not in (2, 4, 8):
-                    continue
-
-                periods = []
-                if ts.year == now.year and ts.month == now.month:
-                    periods.append(result["month"])
-                if ts.date() == today:
-                    periods.append(result["today"])
-                if week_start <= ts.date() <= today:
-                    periods.append(result["week"])
-
-                for period_data in periods:
-                    item = period_data[duration]
-                    item["count"] += 1
-                    item["reward"] += reward
-                    if success:
-                        item["success"] += 1
-            except Exception:
-                continue
-
-        for period_data in result.values():
-            for item in period_data.values():
-                count = item["count"]
-                item["rate"] = round(item["success"] * 100 / count, 1) if count else 0.0
-
-        return result[period]
+        stats = self.get_gem_commission_stats_by_periods(
+            instance, year=year, month=month
+        )
+        return stats[period]
 
     # ========== 钻石委托运行列表持久化 ==========
 

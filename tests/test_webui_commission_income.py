@@ -76,10 +76,15 @@ class LoadCommissionIncomeDataTest(unittest.TestCase):
 
     def _load(self, harness):
         mock_db = MagicMock()
-        mock_db.get_commission_income.return_value = [
-            _entry("2026-08-03T10:00:00"),
-            _entry("2026-08-01T09:00:00"),
-        ]
+        # 视图层现在只读一次月数据（get_stats），明细/汇总/钻石统计都从里面取
+        mock_db.get_stats.return_value = {
+            "commission_income_entries": [
+                _entry("2026-08-03T10:00:00"),
+                _entry("2026-08-01T09:00:00"),
+            ],
+            "gem_commission_entries": [],
+        }
+        mock_db.get_gem_commission_stats_by_periods.return_value = {}
         # summary 聚合走 commission_income_stats 模块级绑定的 db 引用，
         # 与 webui 局部导入的 db 一并 patch，避免测试摸到真实 SQLite
         with patch("module.webui.app_stat_commission.t", side_effect=lambda key, **kw: key), \
@@ -94,9 +99,9 @@ class LoadCommissionIncomeDataTest(unittest.TestCase):
         self.assertEqual(data["period"], "month")
         self.assertFalse(data["is_current_month"])
         self.assertEqual(data["month_suffix"], " · 2026-08")
-        # 明细来自所选月份且按时间倒序（load 一次 + summary 聚合一次，共 2 次同参调用）
-        self.assertEqual(mock_db.get_commission_income.call_count, 2)
-        mock_db.get_commission_income.assert_called_with("alas", 2026, 8)
+        # 整月数据只读一次（汇总与钻石统计都复用它，不再各读一遍）
+        self.assertEqual(mock_db.get_stats.call_count, 1)
+        mock_db.get_stats.assert_called_with("alas", "2026-08")
         self.assertEqual(
             [entry["ts"] for entry in data["recent"]],
             ["2026-08-03T10:00:00", "2026-08-01T09:00:00"],
@@ -109,8 +114,8 @@ class LoadCommissionIncomeDataTest(unittest.TestCase):
         self.assertEqual(data["period"], "day")
         self.assertTrue(data["is_current_month"])
         self.assertEqual(data["month_suffix"], "")
-        mock_db.get_commission_income.assert_called_with(
-            "alas", data["selected_year"], data["selected_month"]
+        mock_db.get_stats.assert_called_with(
+            "alas", f"{data['selected_year']:04d}-{data['selected_month']:02d}"
         )
 
 
@@ -299,7 +304,8 @@ class CommissionIconInlineTest(unittest.TestCase):
     def test_load_builds_inline_icon_map(self):
         harness = _CommissionHarness()
         mock_db = MagicMock()
-        mock_db.get_commission_income.return_value = []
+        mock_db.get_stats.return_value = {"commission_income_entries": [], "gem_commission_entries": []}
+        mock_db.get_gem_commission_stats_by_periods.return_value = {}
         with patch("module.webui.app_stat_commission.t", side_effect=lambda key, **kw: key), \
                 patch("module.statistics.cl1_database.db", new=mock_db), \
                 patch("module.statistics.commission_income_stats.cl1_db", new=mock_db):

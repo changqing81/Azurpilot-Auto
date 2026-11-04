@@ -899,6 +899,17 @@ Stat:
   CommissionIncomeTotalCommissions:
   CommissionIncomeRecentTitle:
   CommissionIncomeMonthPicker:
+  CommissionGemTitle:
+  CommissionGemHint:
+  CommissionGemHeaderDuration:
+  CommissionGemHeaderRate:
+  CommissionGemHeaderSuccessCount:
+  CommissionGemHeaderTotalCount:
+  CommissionGemHeaderReward:
+  CommissionGemDurationHour:
+  CommissionGemExpect:
+  CommissionGemRowTotal:
+  CommissionGemNoData:
   DeltaPeriodDay:
   DeltaPeriodWeek:
   DeltaPeriodMonth:

@@ -20,7 +20,7 @@ from module.webui.app_dependencies import (
 )
 
 
-from module.webui.app_types import WebUIMixinBase
+from module.webui.app_stat_commission_gem import CommissionGemStatisticsMixin
 from module.webui.base import render_locked
 
 
@@ -120,8 +120,12 @@ def _effective_commission_period(
     return "month"
 
 
-class CommissionIncomeStatisticsMixin(WebUIMixinBase):
-    """WebUI 委托收益统计视图。"""
+class CommissionIncomeStatisticsMixin(CommissionGemStatisticsMixin):
+    """WebUI 委托收益统计视图。
+
+    钻石委托成功率区块（2/4/8 小时 × 今日/本周/本月）由
+    `app_stat_commission_gem` 的 mixin 提供，共用本次数据加载结果。
+    """
 
     @render_locked
     def _render_commission_income(self):
@@ -189,9 +193,11 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
 
         is_current_month = (year, month) == (now.year, now.month)
 
-        # 明细列表跟随所选月份查询，与汇总口径保持一致；
-        # 无数据的月份返回空列表，页面复用既有空态展示
-        recent_entries = cl1_db.get_commission_income(instance_name, year, month)
+        # 本月整包数据只读一次：明细、汇总、钻石统计都从这里取。
+        # 2026-09/10 单月整包 2.3MB，反序列化要 40~60ms，读三遍就是页面
+        # 加载里最大的一笔开销（远控下感知更明显）。
+        month_data = cl1_db.get_stats(instance_name, f"{year:04d}-{month:02d}")
+        recent_entries = list(month_data.get("commission_income_entries", []))
         recent_entries.sort(key=lambda entry: entry.get("ts", ""), reverse=True)
 
         return {
@@ -202,7 +208,11 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
             # 历史月份下明细标题追加月份标识，当前月保持原样
             "month_suffix": "" if is_current_month else f" · {year}-{month:02d}",
             "summary": get_commission_income_summary(
-                instance_name, period=period, year=year, month=month
+                instance_name,
+                period=period,
+                year=year,
+                month=month,
+                entries=recent_entries,
             ),
             "recent": recent_entries,
             "item_name_map": item_name_map,
@@ -211,6 +221,10 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
             "item_meta": COMMISSION_ITEM_META,
             "item_name_lookup": COMMISSION_ITEM_NAME_MAP,
             "tracked_items": COMMISSION_TRACKED_ITEMS,
+            # 钻石委托成功率：复用同一个月的整包数据，三档口径一次聚合
+            "gem_stats": self._load_gem_commission_stats(
+                instance_name, year, month, month_data=month_data
+            ),
         }
 
     def _build_commission_income_html(self, income_data):
@@ -468,6 +482,7 @@ class CommissionIncomeStatisticsMixin(WebUIMixinBase):
             )
             self._output_commission_month_switch(income_data)
             put_html(table_html, scope="commission_income")
+            put_html(self._build_commission_gem_html(income_data), scope="commission_income")
             put_html(recent_html, scope="commission_income")
             if len(income_data["recent"]) > _COMMISSION_RECENT_PAGE_SIZE:
                 self._output_recent_pagination(len(income_data["recent"]))
