@@ -6,14 +6,18 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from module.device.session import DeviceSessionExpired, RecoveryStopped
-from module.exception import EmulatorOpBusy, RecoveryFailed
+from module.exception import EmulatorOpBusy, RecoveryCoolingDown, RecoveryFailed
 from module.handler.emulator_health import AdbProbe
-from module.handler.emulator_recovery_state import InstanceLease, RecoveryBlocked
+from module.handler.emulator_recovery_state import CoolingDown, InstanceLease, RecoveryBlocked
 from module.logger import logger
 from module.notify import handle_notify
 
 
 RECOVERY_TIMEOUT = 420
+# 纯启动（实例本来就停着）只下发一条拉起命令，风险远低于「先杀进程再启动」，
+# 因此不消耗 CrashMaxRestarts 额度，只用短冷却限速，防止命令风暴。
+LAUNCH_COOLDOWN_SECONDS = 30
+LAUNCH_WINDOW_SECONDS = 1800
 
 
 class EmulatorRecovery:
@@ -128,6 +132,23 @@ class EmulatorRecovery:
         self.alas.config.task_call('Restart')
         return True
 
+    @staticmethod
+    def _instance_running(target):
+        """探测实例当前是否在运行，探测失败一律按「在运行」处理。
+
+        保守方向很重要：把正在运行的实例误判成已停止，就会走上不受配额
+        约束的纯启动路径，等于绕过卡死保护。已有的恢复流程里 stop() 幂等、
+        多走一次无害，所以这里宁可严格。
+
+        Returns:
+            bool: True 表示在运行（或无法确认，按在运行处理）。
+        """
+        try:
+            return bool(target.running())
+        except Exception as exc:
+            logger.warning(f'[模拟器恢复] 无法确认实例运行状态，按运行中处理: {exc}')
+            return True
+
     def probe(self, platform=None):
         """冻结明确的 serial 和已解析 ADB 路径，删除 Device 不改变探测目标。"""
         device = self.alas.__dict__.get('device')
@@ -143,6 +164,7 @@ class EmulatorRecovery:
 
         Raises:
             RecoveryBlocked: 当前状态不允许执行（旧执行者存活、目标变更等）。
+            RecoveryCoolingDown: 预算仍在冷却期，本轮未执行任何启停，等剩余秒数即可。
             RecoveryFailed: 本轮恢复未成功，属设备侧问题，调用方应退避重试。
         """
         if threading.get_ident() != self.owner:
@@ -187,11 +209,25 @@ class EmulatorRecovery:
                 probe = self.probe(platform)
                 with InstanceLease(target.identity) as lease:
                     checkpoint()
-                    lease.reserve(
-                        maximum=max(1, self.option('EmulatorManagement', 'CrashMaxRestarts', 3)),
-                        window=max(1, self.option('EmulatorManagement', 'CrashRestartWindowHours', 6)) * 3600,
-                        cooldown=max(60, self.option('EmulatorManagement', 'CrashCooldownSeconds', 600)),
-                    )
+                    # 实例已经停着时本轮只会执行 start：这是开机、用户手动关闭
+                    # 模拟器之后的正常路径，不该消耗「卡死重启」额度，也不该被
+                    # 600 秒冷却拦在门外。2026-11-04 实测：手动叉掉模拟器后重启
+                    # 脚本，冷却未过 → 一次都没有真正尝试启动，只刷了 6 分钟
+                    # 「仍在恢复冷却期」，用户看到的就是"明明能启动却拉不起来"。
+                    if self._instance_running(target):
+                        lease.reserve(
+                            maximum=max(1, self.option('EmulatorManagement', 'CrashMaxRestarts', 3)),
+                            window=max(1, self.option('EmulatorManagement', 'CrashRestartWindowHours', 6)) * 3600,
+                            cooldown=max(60, self.option('EmulatorManagement', 'CrashCooldownSeconds', 600)),
+                        )
+                    else:
+                        logger.info('[模拟器恢复] 实例当前未运行，本轮只做拉起，不占用卡死重启额度')
+                        lease.reserve(
+                            maximum=None,
+                            window=LAUNCH_WINDOW_SECONDS,
+                            cooldown=LAUNCH_COOLDOWN_SECONDS,
+                            bucket='launch',
+                        )
                     old = self.alas.__dict__.get('device')
                     if old is not None:
                         old.close_session()
@@ -236,6 +272,15 @@ class EmulatorRecovery:
             # 人为终止（用户关开关/取消）沿用原语义；设备侧失败改为可重试。
             if any(isinstance(exc, RecoveryStopped) for exc in error):
                 raise RecoveryStopped(detail)
+            # 冷却中：本轮没有执行任何启停动作，等冷却结束再来，别当成设备故障。
+            # 不推送、不计失败轮次——旧实现把它包装成 RecoveryFailed，600 秒
+            # 冷却被报成连续 3 轮「恢复失败」并逐轮推送，掩盖了真实原因。
+            cooling = next((item for item in error if isinstance(item, CoolingDown)), None)
+            if cooling is not None:
+                self.alas.__dict__.pop('device', None)
+                logger.warning(f'[模拟器恢复] 冷却中，本轮未执行启停: {cooling}')
+                raise RecoveryCoolingDown(str(cooling), remain=cooling.remain,
+                                          record=cooling.record)
             # 失败也要丢弃旧 Device：失效会话只在本对象上生效，缓存若留在
             # alas.__dict__，下一轮 Restart 的 session_guard 会立刻抛
             # DeviceSessionExpired——此时 pending 已消费完，run() 只能

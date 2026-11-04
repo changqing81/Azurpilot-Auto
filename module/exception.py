@@ -159,6 +159,25 @@ class RecoveryFailed(Exception):
     pass
 
 
+class RecoveryCoolingDown(RecoveryFailed):
+    """恢复预算仍在冷却期：本轮没有执行任何启停动作。
+
+    与 RecoveryFailed 的其它形态区分开：这不是"模拟器起不来"，
+    而是"上一轮恢复刚记过账，还没到下一次允许动手的时间"。调用方
+    不该按失败反向累计、也不该推送告警（否则每轮冷却都推一条，
+    用户被刷屏却看不到真实原因），等到点后再重试即可，通常一次就成功。
+
+    Attributes:
+        remain (int): 距离冷却结束的秒数（至少 1）。
+        record (str | None): 预算记录文件路径，便于人工核查或清除额度。
+    """
+
+    def __init__(self, message, remain=0, record=None):
+        super().__init__(message)
+        self.remain = max(1, int(remain))
+        self.record = record
+
+
 class NativeIpcTimeout(EmulatorNotRunningError):
     """模拟器原生 IPC 在一分钟预算内没有返回。
 

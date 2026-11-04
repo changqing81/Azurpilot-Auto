@@ -182,6 +182,11 @@ class AzurLaneAutoScript:
         self.consecutive_adb_offline += 1
         try:
             return self.recovery.restart(source)
+        except RecoveryCoolingDown:
+            # 冷却中不是恢复失败：剩余秒数要留给调度器决定等多久。
+            # 这里吞成 False 会让 device 属性一律报「本轮恢复未成功」，
+            # 于是退避 20 秒一轮反复重建 Device，注定再次撞上同一条冷却。
+            raise
         except RecoveryFailed as e:
             # 设备侧恢复失败（停不下来、起不来、超时、预算耗尽）不是脚本的错。
             # 返回 False 让调用方按既有退避逻辑重试，绝不终止调度进程。
@@ -194,6 +199,37 @@ class AzurLaneAutoScript:
                 if guard is not None:
                     guard.stop()
             raise
+
+    def _wait_recovery_cooldown(self, exc):
+        """冷却期主动等到点，避免 20 秒一轮的无效探测把日志刷满。
+
+        冷却期内没有执行任何启停动作，此时重建 Device 只会重复失败：
+        每轮 5 个端口的设备探测约 10 秒，却注定被同一条预算记录拦下。
+        按剩余秒数分段睡眠，同时保持对停止事件的响应。
+
+        Args:
+            exc (RecoveryCoolingDown): 携带 remain 秒数与预算记录路径。
+        """
+        total = max(1, int(getattr(exc, 'remain', 1)) + 1)
+        record = getattr(exc, 'record', None)
+        logger.warning(
+            f'[Alas] 模拟器恢复冷却中，{total} 秒后重试（本轮未执行任何启停动作）'
+            + (f'；预算记录 {record}' if record else '')
+        )
+        deadline = time.monotonic() + total
+        # stop_event 声明为类属性（默认 None），外部注入时才在实例字典里，
+        # 所以必须用 getattr：直接查 __dict__ 会漏掉类默认值导致无法响应停止。
+        event = getattr(self, 'stop_event', None)
+        while True:
+            remain = deadline - time.monotonic()
+            if remain <= 0:
+                return
+            if event is not None:
+                if event.wait(min(5.0, remain)):
+                    logger.info('[Alas] 冷却等待期间收到停止信号')
+                    return
+            else:
+                time.sleep(min(5.0, remain))
 
     def _wait_adb_ready_after_restart(self):
         """只验证系统就绪，不在探测中创建 Device 或嵌套启动模拟器。"""
@@ -675,12 +711,21 @@ class AzurLaneAutoScript:
             try:
                 if self.recovery.handle_pending():
                     return 'recoverable'
+            except RecoveryCoolingDown as cooling:
+                # 冷却中：等到点再重试，本轮不计失败、不推送。
+                self._wait_recovery_cooldown(cooling)
+                return 'recoverable'
             except RecoveryFailed as failed:
                 # 恢复没成功是设备侧问题：退避后继续，不结束脚本进程。
                 # 返回 False 会累计失败次数并可能触发停止，因此按可恢复处理。
                 logger.error(f'[Alas] 旧设备会话失效后的恢复未成功，稍后重试: {failed}')
                 return 'recoverable'
             raise RecoveryStopped('旧设备会话已失效，停止当前配置')
+        except RecoveryCoolingDown as e:
+            # 冷却中：本轮没有执行任何启停动作，等剩余时间过去再试。
+            self._last_task_error = 'RecoveryCoolingDown'
+            self._wait_recovery_cooldown(e)
+            return 'recoverable'
         except RecoveryFailed as e:
             # 设备初始化阶段的重启没能成功（例如 device 属性里那一轮）。
             # 这是设备侧问题，退避后继续调度；不计入任务失败次数。
@@ -2098,6 +2143,11 @@ class AzurLaneAutoScript:
                 try:
                     if self.recovery.handle_pending():
                         continue
+                except RecoveryCoolingDown as cooling:
+                    # 冷却中：等到点再说，不累计连续失败轮次，也不推送。
+                    del_cached_property(self, 'device')
+                    self._wait_recovery_cooldown(cooling)
+                    continue
                 except RecoveryFailed as failed:
                     # 后台请求的恢复没成功：退避后继续调度，绝不结束进程。
                     # 7x24 场景下一次设备故障不该让整台机器停工；连续失败只
@@ -2322,6 +2372,13 @@ class AzurLaneAutoScript:
                 self.watchdog.stop()
                 self.crash_guard.stop()
                 break
+
+            # 冷却期不执行任何启停，等到点再来：不计入连续失败、不推送、
+            # 也不走指数退避（否则 600 秒冷却会被报成 3 轮「恢复失败」）。
+            except RecoveryCoolingDown as e:
+                del_cached_property(self, 'device')
+                self._wait_recovery_cooldown(e)
+                continue
 
             # 设备侧恢复失败（模拟器没能重启起来）不是脚本缺陷：退避后继续，
             # 绝不累计到全局失败上限而退出进程。
