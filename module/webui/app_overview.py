@@ -1,5 +1,7 @@
 """WebUI实例概览和守护模式"""
 
+import html
+
 from module.webui.app_dependencies import (
     BinarySwitchButton,
     LogRes,
@@ -146,6 +148,29 @@ def _local_commit_version() -> tuple:
     return _LOCAL_COMMIT_CACHE
 
 
+def _overview_group_title(title: str, count_key: str = "") -> str:
+    """拼出总览分组标题的 HTML（可选带任务数量徽标）。
+
+    渲染线程不读任务队列（队列数据由后台刷新任务 alas_update_overview_task
+    负责），所以徽标这里只发一个空 span，数字由后台任务用 run_js 填。
+    空徽标由 CSS :empty 隐藏，避免首帧闪一个空药丸。
+
+    Args:
+        title: 已翻译的标题文本（如「队列中」）。
+        count_key: 徽标 id 后缀；为空表示该分组不显示数量（运行中）。
+
+    Returns:
+        可直接交给 put_html 的 <p> 字符串。
+    """
+    badge = (
+        f'<span class="overview-task-count" '
+        f'id="overview-count-{count_key}"></span>'
+        if count_key
+        else ""
+    )
+    return f'<p class="overview-group-title">{html.escape(title)}{badge}</p>'
+
+
 class OverviewMixin(WebUIMixinBase):
     """WebUI实例概览和守护模式"""
 
@@ -219,10 +244,14 @@ class OverviewMixin(WebUIMixinBase):
                     put_scope("running_tasks"),
                 ],
             )
+            # 队列中 / 等待中带任务数量徽标（「运行中」通常只有 1 条，不加）。
+            # 徽标数字由 alas_update_overview_task 填，见 _overview_group_title。
             put_scope(
                 "pending",
                 [
-                    put_text(t("Gui.Overview.Pending")),
+                    put_html(
+                        _overview_group_title(t("Gui.Overview.Pending"), "pending")
+                    ),
                     put_html('<hr class="hr-group">'),
                     put_scope("pending_tasks"),
                 ],
@@ -230,7 +259,9 @@ class OverviewMixin(WebUIMixinBase):
             put_scope(
                 "waiting",
                 [
-                    put_text(t("Gui.Overview.Waiting")),
+                    put_html(
+                        _overview_group_title(t("Gui.Overview.Waiting"), "waiting")
+                    ),
                     put_html('<hr class="hr-group">'),
                     put_scope("waiting_tasks"),
                 ],

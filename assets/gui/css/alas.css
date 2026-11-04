@@ -841,6 +841,29 @@ pre.rich-traceback-code {
     height: 100%;
 }
 
+/* 总览「队列中 / 等待中」标题右侧的任务数量徽标。
+   数字由后台刷新任务 (alas_update_overview_task) 用 run_js 写入 textContent；
+   页面刚渲染时徽标是空的，用 :empty 藏掉，避免先闪一个空药丸。
+   配色用中性半透明灰，light / dark / transparent / advanced-material 都成立。 */
+#pywebio-scope-pending>p .overview-task-count,
+#pywebio-scope-waiting>p .overview-task-count {
+    display: inline-block;
+    margin-left: .4rem;
+    padding: 0 .45rem;
+    border-radius: 999px;
+    background: rgba(128, 128, 128, .18);
+    color: inherit;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: 1.45;
+    vertical-align: .08em;
+}
+
+#pywebio-scope-pending>p .overview-task-count:empty,
+#pywebio-scope-waiting>p .overview-task-count:empty {
+    display: none;
+}
+
 #pywebio-scope-logs {
     display: grid;
     grid-auto-flow: column;

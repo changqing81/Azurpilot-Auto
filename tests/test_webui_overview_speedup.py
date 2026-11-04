@@ -1,11 +1,12 @@
 """总览/切页加载提速优化的单元测试。
 
-覆盖五项：
+覆盖六项：
 1. LogRes.groups 进程级缓存（dashboard.yaml 是打包定义，进程内只需读一次）
 2. 总览任务列表刷新的配置 mtime 短路（文件未变不重做 load）
 3. 总览版本号进程级缓存（不再每 60s 付一次 git 子进程）
 4. 日志首显只发尾部 dom_max_chunks 条（前端反正按上限裁掉更早的）
 5. 切实例时菜单结构不变则整块跳过重建
+6. 队列中 / 等待中标题上的任务数量徽标（数字与列表同源，一条 run_js）
 """
 
 import unittest
@@ -61,8 +62,8 @@ class TestOverviewTaskMtimeShortCircuit(unittest.TestCase):
         ), patch("module.webui.app_dashboard.put_column"), patch(
             "module.webui.app_dashboard.put_button"
         ), patch("module.webui.app_dashboard.put_text"), patch(
-            "module.webui.app_dashboard.t", lambda key: key
-        ):
+            "module.webui.app_dashboard.run_js"
+        ), patch("module.webui.app_dashboard.t", lambda key: key):
             DashboardMixin.alas_update_overview_task(stub)
 
     def test_load_skipped_while_file_unchanged(self):
@@ -197,6 +198,112 @@ class TestMenuStructSigSkip(unittest.TestCase):
             ["search", "items", "overview", "search", "items", "overview"],
             "语言变化必须重建菜单",
         )
+
+
+class TestOverviewTaskCountBadge(unittest.TestCase):
+    """队列中 / 等待中的任务数量徽标：数字必须与列表同源、0 也要显示。"""
+
+    def _stub(self, pending_count, waiting_count, alive=True):
+        from tests.test_webui_render_lock import _OverviewTaskStub
+
+        def tasks(n):
+            return [
+                SimpleNamespace(command=f"Task{i}", next_run="2026-01-01 00:00:00")
+                for i in range(n)
+            ]
+
+        stub = _OverviewTaskStub()
+        stub.alas_config = SimpleNamespace(
+            load=lambda: None,
+            get_next_task=lambda: None,
+            pending_task=tasks(pending_count),
+            waiting_task=tasks(waiting_count),
+        )
+        stub.alas = SimpleNamespace(alive=alive)
+        return stub
+
+    def _run(self, stub):
+        from module.webui.app_dashboard import DashboardMixin
+
+        with patch("module.webui.app_dashboard.clear"), patch(
+            "module.webui.app_dashboard.use_scope"
+        ), patch("module.webui.app_dashboard.put_column"), patch(
+            "module.webui.app_dashboard.put_button"
+        ), patch("module.webui.app_dashboard.put_text"), patch(
+            "module.webui.app_dashboard.run_js"
+        ) as run_js_mock, patch("module.webui.app_dashboard.t", lambda key: key):
+            DashboardMixin.alas_update_overview_task(stub)
+        return run_js_mock
+
+    def test_badge_excludes_running_task(self):
+        """运行中的那条不在队列中计数里（列表也把它摘出去了）。"""
+        stub = self._stub(pending_count=3, waiting_count=1)
+        run_js_mock = self._run(stub)
+        script = run_js_mock.call_args[0][0]
+        self.assertIn("overview-count-pending", script)
+        self.assertIn("overview-count-waiting", script)
+        self.assertIn('"2"', script, "队列中数量应扣掉正在运行的那条")
+        self.assertIn('"1"', script)
+
+    def test_badge_counted_when_instance_stopped(self):
+        """实例没跑时 pending_task 全部算队列中。"""
+        stub = self._stub(pending_count=3, waiting_count=0, alive=False)
+        script = self._run(stub).call_args[0][0]
+        self.assertIn('"3"', script)
+        self.assertIn('"0"', script, "等待中为空也要显示 0")
+
+    def test_badge_single_run_js_message(self):
+        """两个徽标必须合并成一条 run_js，不能一次刷新发两条命令。"""
+        stub = self._stub(pending_count=1, waiting_count=1, alive=False)
+        run_js_mock = self._run(stub)
+        self.assertEqual(run_js_mock.call_count, 1)
+
+    def test_run_js_failure_keeps_snapshot_for_retry(self):
+        """徽标更新失败：不得把异常抛给调度器，也别提交快照（否则数字永久停在旧值）。
+
+        任务调度器遇到异常会直接移除任务，列表就永久不刷新了，所以这里必须
+        原地降级：列表照常渲染，只丢这一轮的数字，下轮按同样的 diff 重试。
+        """
+        from module.webui.app_dashboard import DashboardMixin
+
+        stub = self._stub(pending_count=2, waiting_count=1, alive=False)
+        with patch("module.webui.app_dashboard.clear"), patch(
+            "module.webui.app_dashboard.use_scope"
+        ), patch("module.webui.app_dashboard.put_column"), patch(
+            "module.webui.app_dashboard.put_button"
+        ), patch("module.webui.app_dashboard.put_text"), patch(
+            "module.webui.app_dashboard.run_js", side_effect=RuntimeError("boom")
+        ), patch("module.webui.app_dashboard.logger"), patch(
+            "module.webui.app_dashboard.t", lambda key: key
+        ):
+            DashboardMixin.alas_update_overview_task(stub)
+
+        self.assertIsNone(
+            stub._overview_snapshot,
+            "徽标更新失败时不提交快照，下一轮才会重算并重试写入",
+        )
+
+
+class TestOverviewGroupTitleHtml(unittest.TestCase):
+    """分组标题 HTML：只有指定 count_key 才带徽标，标题文本要转义。"""
+
+    def test_badge_span_only_when_count_key_given(self):
+        from module.webui.app_overview import _overview_group_title
+
+        with_badge = _overview_group_title("队列中", "pending")
+        self.assertIn('<span class="overview-task-count"', with_badge)
+        self.assertIn('id="overview-count-pending"', with_badge)
+        self.assertIn("</span></p>", with_badge)
+
+        no_badge = _overview_group_title("运行中")
+        self.assertNotIn("<span", no_badge)
+        self.assertEqual(no_badge, '<p class="overview-group-title">运行中</p>')
+
+    def test_title_is_html_escaped(self):
+        from module.webui.app_overview import _overview_group_title
+
+        markup = _overview_group_title("<b>x</b>", "pending")
+        self.assertIn("&lt;b&gt;x&lt;/b&gt;", markup)
 
 
 if __name__ == "__main__":

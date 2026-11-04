@@ -371,8 +371,8 @@ class TestOverviewTaskInterrupt(unittest.TestCase):
         ) as clear_mock, patch("module.webui.app_dashboard.put_column"), patch(
             "module.webui.app_dashboard.put_button"
         ), patch("module.webui.app_dashboard.put_text"), patch(
-            "module.webui.app_dashboard.t", lambda key: key
-        ):
+            "module.webui.app_dashboard.run_js"
+        ), patch("module.webui.app_dashboard.t", lambda key: key):
             DashboardMixin.alas_update_overview_task(stub)
         self.assertIsNotNone(stub._overview_snapshot)
         # 三个任务列表 scope（running/pending/waiting）都被重绘

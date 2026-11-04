@@ -40,6 +40,29 @@ from module.config.utils import filepath_config
 _OVERVIEW_MTIME_MISSING = object()
 
 
+def _overview_count_js(pending: int, waiting: int) -> str:
+    """拼出「队列中 / 等待中」数量徽标的客户端更新脚本。
+
+    合成一条 run_js（一次刷新只发一条命令）；只改徽标的 textContent，
+    不重建标题 <p>，因此不会引起列表上方的布局跳动。
+    """
+
+    def setter(key: str, count: int) -> str:
+        var = f"el_{key}"
+        badge_id = json.dumps(f"overview-count-{key}")
+        return (
+            f"var {var}=document.getElementById({badge_id});"
+            f"if({var}){var}.textContent={json.dumps(str(count))};"
+        )
+
+    return (
+        "(function(){"
+        + setter("pending", pending)
+        + setter("waiting", waiting)
+        + "})();"
+    )
+
+
 class DashboardMixin(WebUIMixinBase):
     """WebUI仪表盘刷新逻辑"""
 
@@ -139,6 +162,21 @@ class DashboardMixin(WebUIMixinBase):
                     put_task(task)
             else:
                 put_text(t("Gui.Overview.NoTask")).style("--overview-notask-text--")
+
+        # 队列中 / 等待中标题上的任务数量徽标：与列表同一次刷新写入（数字
+        # 与列表必然同源，分开算会不同步）。0 也照常显示 —— 用户要的是
+        # 「总数量」，有 0 这个读数才能一眼确认队列真的空了。
+        #
+        # 徽标走的是 JS 通道，是本任务里唯一会「发命令给浏览器」的步骤：会话
+        # 断开/远控掉线时 run_js 会抛。不能让这个异常穿出去 —— 任务调度器遇
+        # 到异常会直接把任务移除，列表+徽标就永久停在旧内容（且不再自动恢复）。
+        # 失败时保持快照不提交，下一轮按同样的 diff 重试；列表照常显示，只是
+        # 数字暂时停在旧值，属可降级的损失。
+        try:
+            run_js(_overview_count_js(len(pending), len(waiting)))
+        except Exception as e:
+            logger.warning(f"[WebUI-总览] 任务数量徽标更新失败，下轮重试: {e}")
+            return
 
         # 渲染完整完成才提交快照：上方让位中断时快照保持旧值，下轮重渲染
         self._overview_snapshot = snapshot
