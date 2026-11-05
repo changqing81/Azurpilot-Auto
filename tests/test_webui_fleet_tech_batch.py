@@ -79,6 +79,60 @@ class FleetTechBatchTest(unittest.TestCase):
         self.assertTrue(all(c['restore'] for c in changes))
         self.assertEqual(self.save.call_args.kwargs, {'expected_revision': 'initial'})
 
+    # ---------- 「只看满星未确认」与批量编辑必须同一套筛选 ----------
+
+    def _pending_row(self, gid, name, full_star=None, owned=True):
+        """带科技的舰船行：pending_star 判定要用到 technology/owned/full_star。"""
+        row = _row(gid, name=name, owned=owned, full_star=full_star)
+        row['technology'] = {'pt_get': 1, 'pt_upgrage': 2, 'pt_level': 3, 'max_star': 5,
+                             'add_get_shiptype': [1], 'add_get_attr': 1, 'add_get_value': 1,
+                             'add_level_shiptype': [1], 'add_level_attr': 1, 'add_level_value': 1}
+        return row
+
+    def test_pending_filter_narrows_batch_all_targets(self):
+        """开了「只看满星未确认」后，「批量编辑全部」只能覆盖筛出来的那些。"""
+        self.h._ft_rows = [
+            self._pending_row(10001, '未确认A'),
+            self._pending_row(10002, '已满星', full_star=True),
+            self._pending_row(10003, '未拥有', owned=False),
+            self._pending_row(10004, '未确认B'),
+        ]
+        self.h._ft_pending = True
+        callback = self.open_and_callback('all')
+        self.h._ft_batch_preset('lv120')
+        callback('save')
+        self.assertEqual([c['group_type'] for c in self.save.call_args.args[0]], [10001, 10004])
+
+    def test_pending_filter_accepts_ids_visible_in_filtered_table(self):
+        """勾选筛选后表格里看到的行必须能打开弹窗（曾经因漏传 pending 静默返回）。
+
+        未确认的那条排在第 2 页之后：如果批量编辑按未筛选的全集算「当前页」，
+        它就不在允许范围里，点了没有任何反应。
+        """
+        self.h._ft_rows = [self._pending_row(gid, f'已满星{gid}', full_star=True)
+                           for gid in range(10000, 10060)]
+        self.h._ft_rows.append(self._pending_row(20001, '未确认'))
+        self.h._ft_pending = True
+        self.h._ft_page = 0
+        self.h._ft_batch_open('[20001]')
+        self.assertTrue(self.outputs, msg='筛选后可见的行应当能打开批量编辑')
+
+    def test_table_and_batch_use_the_same_row_set(self):
+        """表格显示的行数必须等于批量「全部」的目标数，两处算筛选的参数不能各写一套。"""
+        from module.webui import app_fleet_technology as page
+        self.h._ft_rows = [self._pending_row(10001, '未确认A'),
+                           self._pending_row(10002, '已满星', full_star=True)]
+        self.h._ft_pending = True
+        self.h._ft_edit = True
+        output = []
+        with ExitStack() as stack:
+            for name, real in _CHECKED_API.items():
+                stack.enter_context(patch.object(page, name, _checked(name, real, output)))
+            FleetTechnologyMixin._ft_render_table(self.h)
+        html = ''.join(args[0] for name, args, _ in output if name == 'put_html')
+        self.assertIn('data-ft-select="10001"', html)
+        self.assertNotIn('data-ft-select="10002"', html)
+
     def test_rejects_non_page_ids_and_invalid_payloads(self):
         for payload in ('[99999]', '[true]', '{}', 'null', 'bad', '[]', '[10102,"10103"]'):
             with self.subTest(payload=payload):

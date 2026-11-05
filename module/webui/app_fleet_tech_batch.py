@@ -100,9 +100,11 @@ class FleetTechBatchMixin:
         """冻结目标舰船、配置实例和记录版本；后台刷新不能扩大本次修改范围。"""
         if not self._ft_edit:
             return
+        # 必须与表格用同一套筛选参数：漏掉某一项时批量范围会与用户看到的
+        # 不一致，勾选的舰船会被判定为「不在当前页」而静默返回（点了没反应）
         rows = view.arrange_rows(self._ft_rows, self._ft_filters, self._ft_query,
                                  self._ft_scope, self._ft_stage,
-                                 self._ft_sort_key, self._ft_sort_direction)
+                                 self._ft_sort_key, self._ft_sort_direction, self._ft_pending)
         if payload == 'all':
             gids = tuple(row['group_type'] for row in rows)
         else:
