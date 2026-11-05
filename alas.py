@@ -339,6 +339,7 @@ class AzurLaneAutoScript:
             '开服后自动启动'
         )
         started_at = time.monotonic()
+        poll_failed = False
         while not checker.is_available():
             if self.stop_event is not None and self.stop_event.is_set():
                 logger.info('[Alas] 检测到更新事件，停止维护等待（模拟器保持关闭）')
@@ -353,7 +354,17 @@ class AzurLaneAutoScript:
                 self.stop_event.wait(MAINTENANCE_POLL_SECONDS)
             else:
                 time.sleep(MAINTENANCE_POLL_SECONDS)
-            checker.check_now()
+            # 查询可能因网络抖动抛异常（ServerChecker.check_now 对非 ScriptError
+            # 会原样外抛）。等待期间必须吞掉继续轮询，否则会把模拟器丢在"已关闭"
+            # 状态里跑飞出去。失败只提示一次，后续降级为 debug 免得刷屏。
+            try:
+                checker.check_now()
+            except Exception as poll_error:
+                if not poll_failed:
+                    logger.warning(f'[Alas] 服务器状态查询失败，继续等待开服: {poll_error}')
+                    poll_failed = True
+                else:
+                    logger.debug(f'[Alas] 服务器状态查询仍然失败: {poll_error}')
         logger.info('[Alas] 服务器已开服，准备启动模拟器')
         return True
 
