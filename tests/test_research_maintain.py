@@ -7,15 +7,15 @@
 
 import unittest
 from contextlib import ExitStack
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
 from module.config.config import AzurLaneConfig, name_to_function
 from module.config.time_source import now as current_time
-from module.config.utils import read_file
+from module.config.utils import get_server_next_update, read_file
 from module.research.research import (RESEARCH_MAINTAIN_LEAD_MINUTES,
                                       RESEARCH_MAINTAIN_RETRY_MINUTES,
-                                      RewardResearch)
+                                      RewardResearch, maintain_clamp_target)
 
 
 def make_config(**groups):
@@ -106,7 +106,7 @@ class TestRunBranches(unittest.TestCase):
         """照常运行阶段：Σ 排程越过强制运行点时钳到维护前 60 分钟。"""
         runner = self.make_runner()
         maintain = current_time() + timedelta(hours=3)
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(maintain, '今天有维护', True)), \
                 self.patch_game(times=(timedelta(hours=3), None, None, None, None)):
             runner.run()
@@ -117,7 +117,7 @@ class TestRunBranches(unittest.TestCase):
         """照常运行阶段：Σ 排程远早于强制运行点时不钳制。"""
         runner = self.make_runner()
         maintain = current_time() + timedelta(hours=3)
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(maintain, '今天有维护', True)), \
                 self.patch_game(times=(timedelta(minutes=10), None, None, None, None)):
             runner.run()
@@ -128,7 +128,7 @@ class TestRunBranches(unittest.TestCase):
         """强制运行阶段队列未做满：15 分钟后再运行一次。"""
         runner = self.make_runner()
         maintain = current_time() + timedelta(minutes=30)
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(maintain, '今天有维护', True)), \
                 self.patch_game(slot=2):
             runner.run()
@@ -140,7 +140,7 @@ class TestRunBranches(unittest.TestCase):
         """强制运行阶段队列做满：排程不早于维护开始。"""
         runner = self.make_runner()
         maintain = current_time() + timedelta(minutes=50)
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(maintain, '今天有维护', True)), \
                 self.patch_game(times=(timedelta(minutes=30), None, None, None, None), slot=0):
             runner.run()
@@ -150,7 +150,7 @@ class TestRunBranches(unittest.TestCase):
         """强制运行阶段队列做满且 Σ 排程晚于维护开始：不钳制。"""
         runner = self.make_runner()
         maintain = current_time() + timedelta(minutes=30)
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(maintain, '今天有维护', True)), \
                 self.patch_game(times=(timedelta(hours=3), None, None, None, None), slot=0):
             runner.run()
@@ -160,17 +160,45 @@ class TestRunBranches(unittest.TestCase):
         """今天的维护已经开始：不再算维护模式，走正常批量流程。"""
         runner = self.make_runner()
         maintain = current_time() - timedelta(minutes=30)
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(maintain, '维护已经过去', True)), \
                 patch.object(RewardResearch, 'ui_ensure', autospec=True), \
                 patch.object(RewardResearch, '_run_batch', autospec=True) as fake_batch:
             runner.run()
         fake_batch.assert_called_once()
 
-    def test_no_maintenance_today_runs_normally(self):
-        """维护不是今天（或没有公告）：走正常批量流程。"""
+    def test_overnight_maintenance_clamps_to_lead(self):
+        """下次维护在明天上午：批量 Σ 排程跨过它时钳到维护前 60 分钟。
+
+        回归 2026-11-05 事故：21:10 排程跨过次日 10:00 维护，只查「今天」的
+        公告查不到，NextRun 被排到 10:08，维护前 1 小时的强制运行点（9:00）
+        一次没醒。
+        """
         runner = self.make_runner()
-        with patch('module.research.research.query_maintain_today', autospec=True,
+        maintain = current_time() + timedelta(hours=13)   # 次日 10:00 的维护
+        with patch('module.research.research.query_next_maintain', autospec=True,
+                   return_value=(maintain, '下次维护 明天 10:00 停服', True)), \
+                self.patch_game(times=(timedelta(hours=12, minutes=55), None, None, None, None)):
+            runner.run()
+        lead = (maintain - timedelta(minutes=RESEARCH_MAINTAIN_LEAD_MINUTES)).replace(microsecond=0)
+        self.assertEqual(runner.config.Scheduler_NextRun, lead)
+
+    def test_far_maintenance_keeps_normal_schedule(self):
+        """下次维护在几天后：不钳制，按 Σ+3min 排程。"""
+        runner = self.make_runner()
+        maintain = current_time() + timedelta(days=3)
+        with patch('module.research.research.query_next_maintain', autospec=True,
+                   return_value=(maintain, '下次维护 3 天后停服', True)), \
+                self.patch_game(times=(timedelta(hours=3), None, None, None, None)):
+            runner.run()
+        expected = (current_time() + timedelta(hours=3, minutes=3)).replace(microsecond=0)
+        self.assertAlmostEqual(runner.config.Scheduler_NextRun, expected,
+                               delta=timedelta(seconds=5))
+
+    def test_no_maintenance_runs_normally(self):
+        """没有下一次维护（查不到公告 / 维护已开始）：走正常批量流程。"""
+        runner = self.make_runner()
+        with patch('module.research.research.query_next_maintain', autospec=True,
                    return_value=(None, '下次维护不是今天', True)), \
                 patch.object(RewardResearch, 'ui_ensure', autospec=True), \
                 patch.object(RewardResearch, '_run_batch', autospec=True) as fake_batch:
@@ -180,7 +208,7 @@ class TestRunBranches(unittest.TestCase):
     def test_switch_off_skips_query(self):
         """「维护当天科研」关闭：不查公告，直接走正常批量流程。"""
         runner = self.make_runner(MaintainFill=False)
-        with patch('module.research.research.query_maintain_today', autospec=True) as fake_query, \
+        with patch('module.research.research.query_next_maintain', autospec=True) as fake_query, \
                 patch.object(RewardResearch, 'ui_ensure', autospec=True), \
                 patch.object(RewardResearch, '_run_batch', autospec=True) as fake_batch:
             runner.run()
@@ -190,7 +218,7 @@ class TestRunBranches(unittest.TestCase):
     def test_batch_mode_off_skips_query(self):
         """批量模式关闭：维护开关不生效，不查公告，走普通模式流程。"""
         runner = self.make_runner(BatchMode=False)
-        with patch('module.research.research.query_maintain_today', autospec=True) as fake_query, \
+        with patch('module.research.research.query_next_maintain', autospec=True) as fake_query, \
                 patch.object(RewardResearch, 'ui_ensure', autospec=True) as fake_ui, \
                 patch.object(RewardResearch, 'queue_enter', autospec=True), \
                 patch.object(RewardResearch, 'queue_receive', autospec=True), \
@@ -226,14 +254,27 @@ class TestBatchScheduleClamp(unittest.TestCase):
         lead = (maintain - timedelta(minutes=RESEARCH_MAINTAIN_LEAD_MINUTES)).replace(microsecond=0)
         self.assertEqual(runner.config.Scheduler_NextRun, lead)
 
-    def test_normal_stage_empty_queue_waits_for_lead(self):
-        """照常阶段队列读空：仍排到强制运行点，保证维护前醒一次。"""
+    def test_normal_stage_empty_queue_retries_daily_before_lead(self):
+        """照常阶段队列读空：按服务器刷新重试，但不越过强制运行点。
+
+        不能只排到 lead：下一次维护在几天后时会白睡几天。
+        """
         runner = self.make_runner()
         maintain = current_time() + timedelta(hours=2)
         with self.patch_snapshot([None, None, None, None, None]):
             runner._batch_schedule(maintain=maintain)
         lead = (maintain - timedelta(minutes=RESEARCH_MAINTAIN_LEAD_MINUTES)).replace(microsecond=0)
-        self.assertEqual(runner.config.Scheduler_NextRun, lead)
+        update = get_server_next_update(runner.config.Scheduler_ServerUpdate).replace(microsecond=0)
+        self.assertEqual(runner.config.Scheduler_NextRun, min(update, lead))
+
+    def test_far_maintenance_empty_queue_does_not_sleep_for_days(self):
+        """下次维护在 3 天后、队列读空：不能睡到维护前 1 小时。"""
+        runner = self.make_runner()
+        maintain = current_time() + timedelta(days=3)
+        with self.patch_snapshot([None, None, None, None, None]):
+            runner._batch_schedule(maintain=maintain)
+        # 只会排在服务器刷新（24 小时内），不会拖到 3 天后的强制运行点
+        self.assertLess(runner.config.Scheduler_NextRun - current_time(), timedelta(days=1))
 
     def test_maintain_stage_clamps_to_maintenance(self):
         """强制运行阶段：Σ 排程早于维护开始时钳到维护开始。"""
@@ -261,6 +302,43 @@ class TestBatchScheduleClamp(unittest.TestCase):
         expected = current_time() + timedelta(hours=3, minutes=3)
         self.assertAlmostEqual(runner.config.Scheduler_NextRun, expected,
                                delta=timedelta(seconds=5))
+
+
+class TestMaintainClampTarget(unittest.TestCase):
+    """调度器级兜底：科研 NextRun 跨过下一次维护时改写到强制运行点。"""
+
+    def test_clamps_overnight_schedule(self):
+        """回归 2026-11-05：11-04 21:10 排到 11-05 10:08，维护 10:00，应钳到 09:00。"""
+        target = maintain_clamp_target(
+            next_run=datetime(2026, 11, 5, 10, 8),
+            maintain=datetime(2026, 11, 5, 10, 0),
+            now=datetime(2026, 11, 4, 21, 10),
+        )
+        self.assertEqual(target, datetime(2026, 11, 5, 9, 0))
+
+    def test_keeps_schedule_before_lead(self):
+        """排程本来就早于强制运行点：不改。"""
+        self.assertIsNone(maintain_clamp_target(
+            next_run=datetime(2026, 11, 5, 8, 0),
+            maintain=datetime(2026, 11, 5, 10, 0),
+            now=datetime(2026, 11, 4, 21, 10),
+        ))
+
+    def test_keeps_schedule_inside_window(self):
+        """已经在维护前 1 小时窗口内：不改，交给强制运行逻辑。"""
+        self.assertIsNone(maintain_clamp_target(
+            next_run=datetime(2026, 11, 5, 10, 8),
+            maintain=datetime(2026, 11, 5, 10, 0),
+            now=datetime(2026, 11, 5, 9, 30),
+        ))
+
+    def test_no_maintain_keeps_schedule(self):
+        """没有下一次维护：不改。"""
+        self.assertIsNone(maintain_clamp_target(
+            next_run=datetime(2026, 11, 5, 10, 8),
+            maintain=None,
+            now=datetime(2026, 11, 4, 21, 10),
+        ))
 
 
 if __name__ == '__main__':

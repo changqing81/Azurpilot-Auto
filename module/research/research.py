@@ -31,7 +31,7 @@ from module.research.assets import *
 from module.research.project import get_research_finished
 from module.research.rqueue import ResearchQueue
 from module.research.selector import RESEARCH_ENTRANCE, ResearchSelector
-from module.server_maintain import query_maintain_today
+from module.server_maintain import query_next_maintain
 from module.storage.storage import StorageHandler
 from module.ui.assets import RESEARCH_CHECK
 from module.ui.page import page_research
@@ -40,6 +40,28 @@ from module.ui.page import page_research
 RESEARCH_MAINTAIN_LEAD_MINUTES = 60
 # 强制运行后队列仍未做满时，隔多久再运行一次（维护开始前最多重试 4 次）
 RESEARCH_MAINTAIN_RETRY_MINUTES = 15
+
+
+def maintain_clamp_target(next_run, maintain, now):
+    """科研排程跨过下一次维护时，返回应改写的强制运行点。
+
+    批量模式一次排 12~16 小时，跨夜时会排到第二天维护开始之后，维护前
+    1 小时的强制运行点就永远不会醒。这里给出应改写的 NextRun。
+
+    Args:
+        next_run (datetime.datetime): 当前的科研排程。
+        maintain (datetime.datetime | None): 还没开始的下一次维护开始时间。
+        now (datetime.datetime): 当前时间。
+
+    Returns:
+        datetime.datetime | None: 需要钳制时返回强制运行点，否则 None。
+    """
+    if maintain is None:
+        return None
+    lead = maintain - timedelta(minutes=RESEARCH_MAINTAIN_LEAD_MINUTES)
+    if now >= lead or next_run <= lead:
+        return None
+    return lead
 
 
 def batch_all_completed(times):
@@ -809,15 +831,16 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         逐槽 OCR 可能整体读空（实测会把正在运行的队列误判为全空，
         一路推迟到服务器刷新）；重拍仍为 0 才是真正的全空。
 
-        传入 maintain（维护当天科研）时按阶段钳制排程：
+        传入 maintain（维护当天科研，还没开始的下一次维护，可能是明天的）时按阶段钳制排程：
         - 维护前 1 小时之前（照常运行阶段）：排程不越过维护前 1 小时——
           队列再长也要在强制运行点醒一次，收光已完成并检查队列做满与否；
+          队列读空（填满失败）按服务器刷新每天重试，同样不越过强制运行点；
         - 维护前 1 小时之内（强制运行阶段）：做满后排程不早于维护开始，
           醒来时维护中由调度器的服务器状态检查拦到维护结束再收；
           队列读空（填满失败）则隔 15 分钟重试。
 
         Args:
-            maintain (datetime.datetime | None): 今天维护的开始时间，None 表示不钳制。
+            maintain (datetime.datetime | None): 还没开始的下一次维护的开始时间，None 表示不钳制。
 
         Pages:
             in: is_in_research
@@ -839,10 +862,12 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         if current_time() < lead:
             # 照常运行阶段：按 Σ 排程，但不越过强制运行点
             if total > timedelta(0):
-                target = min(current_time() + total + timedelta(minutes=3), lead)
+                self.config.task_delay(
+                    target=min(current_time() + total + timedelta(minutes=3), lead))
             else:
-                target = lead
-            self.config.task_delay(target=target)
+                # 队列读空（填满失败）：按服务器刷新每天重试，同样不越过强制运行点。
+                # 只排到 lead 会让下一次维护在几天后时白睡几天。
+                self.config.task_delay(server_update=True, target=lead)
             return
 
         # 强制运行阶段：做满后醒在维护结束之后；读空兜底 15 分钟重试
@@ -865,7 +890,7 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         用户手动加入项目、手动收取部分项目均可在下一轮快照中自然收敛。
 
         Args:
-            maintain (datetime.datetime | None): 今天维护的开始时间（未开始）。
+            maintain (datetime.datetime | None): 还没开始的下一次维护的开始时间。
                 传入时（维护当天科研）排程不越过维护前 1 小时，保证强制
                 运行点醒一次；None 按正常节奏排程。
 
@@ -944,14 +969,16 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
             out: page_research, with research project information, but it's still page_research.
                     or page_main
         """
-        # 维护当天科研：查公告不需要进游戏，识别到今天有维护时照常运行，
-        # 由排程保证维护前 1 小时强制运行一次
+        # 维护当天科研：查公告不需要进游戏。查的是「还没开始的下一次维护」而不是
+        # 「今天的维护」——批量排程一次跨 12~16 小时，跨夜时只查今天会把 NextRun
+        # 排到第二天维护开始之后，强制运行点永远醒不来（2026-11-05 实测：
+        # 11-04 21:10 排到 11-05 10:08，9:00 一次没醒）。已开始的维护查询本身会排除。
         maintain = None
         if self.config.Research_BatchMode and self.config.Research_MaintainFill:
-            maintain, reason, queried = query_maintain_today(self.config.SERVER)
+            maintain, reason, queried = query_next_maintain(self.config.SERVER)
             logger.attr('维护当天科研', reason if queried else f'未查到公告（{reason}）')
             if maintain is not None and maintain <= current_time():
-                # 今天的维护已经开始，不再算维护模式，免得维护中反复进游戏
+                # 查询到使用之间可能正好跨过维护开始，兜一层，免得维护中反复进游戏
                 maintain = None
 
         self.ui_ensure(page_research)
