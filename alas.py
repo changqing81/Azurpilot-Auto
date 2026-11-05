@@ -2041,6 +2041,36 @@ class AzurLaneAutoScript:
             if self.config.should_reload():
                 return False
 
+    def _clamp_research_maintain(self, task):
+        """科研排程跨过下一次维护时，拉回维护前 1 小时强制运行一次。
+
+        公告按固定检查点（00:05 / 06:00 / 18:00）查询，其余时间读缓存，
+        所以这里通常只是一次内存查表，不会拖慢任务切换。
+
+        Args:
+            task (Function): 本轮调度选中的任务。
+
+        Returns:
+            bool: True 表示已改写 NextRun，调用方应重新选任务。
+        """
+        if task.command != 'Research':
+            return False
+        if not (self.config.Research_BatchMode and self.config.Research_MaintainFill):
+            return False
+
+        from module.research.research import maintain_clamp_target
+        from module.server_maintain import query_next_maintain_cached
+
+        maintain, _, _ = query_next_maintain_cached(self.config.SERVER)
+        target = maintain_clamp_target(task.next_run, maintain, current_time())
+        if target is None:
+            return False
+
+        logger.info(f'[科研-维护] NextRun {task.next_run} 跨过维护 {maintain}，'
+                    f'钳到强制运行点 {target}')
+        self.config.task_delay(target=target)
+        return True
+
     def get_next_task(self):
         """
         获取下一个待执行的任务。
@@ -2082,6 +2112,12 @@ class AzurLaneAutoScript:
                     self.config.task_delay(task.command, target=current_time() + timedelta(hours=24))
                     del_cached_property(self, 'config')
                     continue
+
+            # 科研跨夜维护兜底：排程越过维护前 1 小时时拉回来强制运行一次。
+            # 公告只在 00:05 / 06:00 / 18:00 三个检查点查询，其余时间读缓存。
+            if self._clamp_research_maintain(task):
+                del_cached_property(self, 'config')
+                continue
 
             from module.base.resource import release_resources
             if self.config.task.command != 'Alas':
