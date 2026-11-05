@@ -22,6 +22,15 @@ MAINTAIN_API = 'https://api-blhx-maintain.nanoda.work/api/maintenance'
 # 接口里服务器时区的形状，如 `UTC+8`、`UTC-7`、`UTC+08:00`
 MAINTAIN_TIMEZONE = re.compile(r'^UTC([+-])(\d{1,2})(?::?(\d{2}))?$')
 
+# 公告一天只在这几个时间点查（用户设定），其余时间读缓存，避免频繁请求接口
+MAINTAIN_CHECK_POINTS = ('00:05', '06:00', '18:00')
+# 同一个检查点内查询失败的最多重试次数与间隔：接口抖动时能兜住，又不会变成轮询
+MAINTAIN_FAILED_RETRY_LIMIT = 3
+MAINTAIN_FAILED_RETRY_MINUTES = 30
+
+# server -> 本检查点的查询结果，进程内缓存，不落盘
+_check_cache = {}
+
 
 def query_maintain_payload(server):
     """查询停服维护接口，取出指定游戏服务器的那一份公告。
@@ -85,6 +94,32 @@ def parse_maintain_timezone(payload, default):
     offset = timedelta(hours=int(match.group(2)), minutes=int(match.group(3) or 0))
     return offset if match.group(1) == '+' else -offset
 
+def _parse_maintain_start(payload, default, server):
+    """把一条维护公告解析成本机时间的维护开始时间。
+
+    Args:
+        payload (dict): query_maintain_payload 返回的该服务器公告。
+        default (datetime.timedelta): 兜底时区偏移，公告没写时区时用它。
+        server (str): 游戏服务器标识，取不到公告名时用作占位。
+
+    Returns:
+        tuple[datetime.datetime | None, str, str]:
+            (维护开始时间, 公告名, 失败原因)。时间无法识别时开始时间为 None。
+    """
+    try:
+        start = datetime.strptime(
+            f"{payload.get('maintenance_date', '')} {payload.get('start_time', '')}",
+            '%Y-%m-%d %H:%M')
+    except ValueError:
+        logger.warning(f'[维护公告] 维护公告时间无法识别，按不维护处理: '
+                       f"{payload.get('maintenance_date')} {payload.get('start_time')}")
+        return None, '', '维护公告时间无法识别'
+
+    # 服务器本地时间 → 本机时间，后续调度用的都是本机时间
+    offset = parse_maintain_timezone(payload, default)
+    start = start.replace(tzinfo=timezone(offset)).astimezone().replace(tzinfo=None)
+    return start, (payload.get('name') or server), ''
+
 
 def query_maintain_today(server):
     """今天有没有停服维护，有的话返回维护开始时间（可能已经开始）。
@@ -106,18 +141,9 @@ def query_maintain_today(server):
     if payload is None:
         return None, error, False
 
-    try:
-        start = datetime.strptime(
-            f"{payload.get('maintenance_date', '')} {payload.get('start_time', '')}",
-            '%Y-%m-%d %H:%M')
-    except ValueError:
-        logger.warning(f'[维护公告] 维护公告时间无法识别，按不维护处理: '
-                       f"{payload.get('maintenance_date')} {payload.get('start_time')}")
-        return None, '维护公告时间无法识别', False
-
-    # 服务器本地时间 → 本机时间，后续调度用的都是本机时间
-    offset = parse_maintain_timezone(payload, default)
-    start = start.replace(tzinfo=timezone(offset)).astimezone().replace(tzinfo=None)
+    start, name, error = _parse_maintain_start(payload, default, server)
+    if start is None:
+        return None, error, False
 
     now = current_time()
     if start.date() != now.date():
@@ -127,5 +153,102 @@ def query_maintain_today(server):
     if start <= now:
         return start, f'今天 {start} 的维护已经过去', True
 
-    name = payload.get('name') or server
     return start, f'今天 {start} 停服维护（{name}）', True
+
+
+def query_next_maintain(server):
+    """下一次停服维护的开始时间，不限「今天」。
+
+    批量科研一次排程就跨 12~16 小时，经常跨过第二天的维护开始点。只认「今天」
+    的查询在跨夜时查不到，排程会直接落到维护开始之后，维护前 1 小时的强制运行
+    点永远醒不来（2026-11-05 实测：21:10 排到次日 10:08，9:00 一次没醒）。
+    这里返回还没开始的下一次维护，让排程能提前钳到强制点。
+
+    Args:
+        server (str): 游戏服务器标识，cn / en / jp / tw。
+
+    Returns:
+        tuple[datetime.datetime | None, str, bool]:
+            (下次维护开始时间, 原因, 这次有没有成功查到公告)。
+            已经开始的维护不返回，调用方按「不在维护模式」处理。
+    """
+    payload, default, error = query_maintain_payload(server)
+    if payload is None:
+        return None, error, False
+
+    start, name, error = _parse_maintain_start(payload, default, server)
+    if start is None:
+        return None, error, False
+
+    if start <= current_time():
+        return None, f'{start} 的维护已经开始', True
+
+    return start, f'下次维护 {start} 停服（{name}）', True
+
+
+def _check_slot(now):
+    """当前所处的公告检查点：不晚于 now 的最近一个检查点。
+
+    检查点是 00:05 / 06:00 / 18:00，凌晨 00:05 之前算作前一天的 18:00，
+    这样一个检查点窗口内只查一次公告。
+
+    Args:
+        now (datetime.datetime): 当前时间。
+
+    Returns:
+        datetime.datetime: 检查点时间。
+    """
+    today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    points = []
+    for days in (0, 1):
+        base = today - timedelta(days=days)
+        for text in MAINTAIN_CHECK_POINTS:
+            hour, minute = (int(x) for x in text.split(':'))
+            point = base.replace(hour=hour, minute=minute)
+            if point <= now:
+                points.append(point)
+    return max(points)
+
+
+def query_next_maintain_cached(server):
+    """按固定检查点查询下一次维护，同一检查点内只请求一次接口。
+
+    调度器每次挑任务都会调用本函数，所以命中缓存时必须是纯内存操作。
+    查询失败时允许在同一检查点内每 MAINTAIN_FAILED_RETRY_MINUTES 分钟重试，
+    至多累计 MAINTAIN_FAILED_RETRY_LIMIT 次，避免接口抖动让整段窗口失去公告，
+    又不会把固定检查变成轮询。
+
+    Args:
+        server (str): 游戏服务器标识，cn / en / jp / tw。
+
+    Returns:
+        tuple[datetime.datetime | None, str, bool]:
+            (下次维护开始时间, 原因, 这次有没有成功查到公告)。
+    """
+    now = current_time()
+    slot = _check_slot(now)
+    entry = _check_cache.get(server)
+
+    attempts = 1
+    if entry is not None and entry['slot'] == slot:
+        retry = (
+            not entry['queried']
+            and entry['attempts'] < MAINTAIN_FAILED_RETRY_LIMIT
+            and now - entry['last_attempt'] >= timedelta(minutes=MAINTAIN_FAILED_RETRY_MINUTES)
+        )
+        if not retry:
+            return entry['maintain'], entry['reason'], entry['queried']
+        attempts = entry['attempts'] + 1
+
+    maintain, reason, queried = query_next_maintain(server)
+    _check_cache[server] = {
+        'slot': slot,
+        'maintain': maintain,
+        'reason': reason,
+        'queried': queried,
+        'attempts': attempts,
+        'last_attempt': now,
+    }
+    logger.info(f'[维护公告] 检查点 {slot:%m-%d %H:%M} 查询：{reason}'
+                + ('' if queried else '（查询失败，暂按无维护处理）'))
+    return maintain, reason, queried
