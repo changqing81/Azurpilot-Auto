@@ -105,11 +105,8 @@
       "ScreenshotInterval": 0.3,
       "CombatScreenshotInterval": 1.0,
       "TaskHoardingDuration": 0,
-      "CloseEmulatorDuringLongWait": true,
       "WhenTaskQueueEmpty": "goto_main",
-      "WhenSchedulerStopped": "stay_there",
-      "WarmupEnable": true,
-      "WarmupMinutes": 15
+      "WhenSchedulerStopped": "stay_there"
     },
     "DropRecord": {
       "SaveFolder": "./screenshots",
@@ -167,6 +164,13 @@
       "CrashCooldownSeconds": 600,
       "CrashMaxRestarts": 3,
       "CrashRestartWindowHours": 6
+    },
+    "EmulatorOptimization": {
+      "CloseEmulatorDuringLongWait": true,
+      "CloseEmulatorLongWaitMinutes": 180,
+      "CloseEmulatorDuringMaintenance": false,
+      "WarmupEnable": true,
+      "WarmupMinutes": 15
     },
     "Storage": {
       "Storage": {}

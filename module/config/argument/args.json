@@ -434,14 +434,6 @@
         "type": "input",
         "value": 0
       },
-      "CloseEmulatorDuringLongWait": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
       "WhenTaskQueueEmpty": {
         "type": "select",
         "value": "goto_main",
@@ -459,22 +451,6 @@
           "goto_main",
           "close_game",
           "close_emulator"
-        ]
-      },
-      "WarmupEnable": {
-        "type": "checkbox",
-        "value": true,
-        "option": [
-          true,
-          false
-        ]
-      },
-      "WarmupMinutes": {
-        "type": "input",
-        "value": 15,
-        "validate": [
-          1,
-          1440
         ]
       }
     },
@@ -923,6 +899,48 @@
         "validate": [
           1,
           48
+        ]
+      }
+    },
+    "EmulatorOptimization": {
+      "CloseEmulatorDuringLongWait": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "CloseEmulatorLongWaitMinutes": {
+        "type": "input",
+        "value": 180,
+        "validate": [
+          1,
+          10080
+        ]
+      },
+      "CloseEmulatorDuringMaintenance": {
+        "type": "checkbox",
+        "value": false,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "WarmupEnable": {
+        "type": "checkbox",
+        "value": true,
+        "option": [
+          true,
+          false
+        ]
+      },
+      "WarmupMinutes": {
+        "type": "input",
+        "value": 15,
+        "validate": [
+          1,
+          1440
         ]
       }
     },

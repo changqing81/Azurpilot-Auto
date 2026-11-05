@@ -771,6 +771,35 @@ class ConfigUpdater:
         for group, args in EMULATOR_SETTINGS_GROUPS.items()
         for arg in args
     ]
+    # 2026.11.05 模拟器"省资源"设置（长等待关闭模拟器 + 任务前预热）从
+    # Alas.Optimization 整体迁到 EmulatorSettings.EmulatorOptimization：GUI 上
+    # 归入"模拟器设置"页的「优化设置」分组，与"模拟器设置 / 实例信息 /
+    # 模拟器管理"平级。group 名变了，不在 EMULATOR_SETTINGS_GROUPS 里，单独列。
+    # 同一天里长等待关闭模拟器曾短暂落在 EmulatorSettings.EmulatorManagement，
+    # 因此该组也列一条来源；config_redirect 里同一 target 由后写入的覆盖
+    # 先写入的，所以"更新"的来源必须排在后面。
+    redirection += [
+        (
+            'Alas.Optimization.CloseEmulatorDuringLongWait',
+            'EmulatorSettings.EmulatorOptimization.CloseEmulatorDuringLongWait',
+        ),
+        (
+            'EmulatorSettings.EmulatorManagement.CloseEmulatorDuringLongWait',
+            'EmulatorSettings.EmulatorOptimization.CloseEmulatorDuringLongWait',
+        ),
+        (
+            'EmulatorSettings.EmulatorManagement.CloseEmulatorLongWaitMinutes',
+            'EmulatorSettings.EmulatorOptimization.CloseEmulatorLongWaitMinutes',
+        ),
+        (
+            'Alas.Optimization.WarmupEnable',
+            'EmulatorSettings.EmulatorOptimization.WarmupEnable',
+        ),
+        (
+            'Alas.Optimization.WarmupMinutes',
+            'EmulatorSettings.EmulatorOptimization.WarmupMinutes',
+        ),
+    ]
     # 说明：Error.AdbOfflineRestart 死开关的修复**不需要** redirection。
     # 该开关从未被任何代码读取，模拟器离线时一直是"总是重启"。修复后它真正生效，
     # 做法是把模板默认值从 false 改为 true（见 argument.yaml）：

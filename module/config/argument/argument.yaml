@@ -264,23 +264,12 @@ Optimization:
   ScreenshotInterval: 0.3
   CombatScreenshotInterval: 1.0
   TaskHoardingDuration: 0
-  CloseEmulatorDuringLongWait:
-    type: checkbox
-    value: true
-    option: [true, false]
   WhenTaskQueueEmpty:
     value: goto_main
     option: [stay_there, goto_main, close_game]
   WhenSchedulerStopped:
     value: stay_there
     option: [stay_there, goto_main, close_game, close_emulator]
-  WarmupEnable:
-    type: checkbox
-    value: true
-    option: [true, false]
-  WarmupMinutes:
-    value: 15
-    validate: [1, 1440]
 DropRecord:
   SaveFolder: ./screenshots
   ResearchRecord:
@@ -2549,6 +2538,28 @@ EmulatorManagement:
   CrashRestartWindowHours:
     value: 6
     validate: [1, 48]
+# 模拟器"省资源"设置：长等待时关模拟器 + 任务前预热。
+# GUI 上在"模拟器设置"页显示为「优化设置」，与"模拟器设置 / 实例信息 /
+# 模拟器管理"平级（2026-11-05 从 Alas 任务的 Optimization 组整体搬出）。
+EmulatorOptimization:
+  CloseEmulatorDuringLongWait:
+    type: checkbox
+    value: true
+    option: [true, false]
+  CloseEmulatorLongWaitMinutes:
+    value: 180
+    validate: [1, 10080]
+  CloseEmulatorDuringMaintenance:
+    type: checkbox
+    value: false
+    option: [true, false]
+  WarmupEnable:
+    type: checkbox
+    value: true
+    option: [true, false]
+  WarmupMinutes:
+    value: 15
+    validate: [1, 1440]
 EmulatorManager:
   EnableRemoteSSH:
     type: checkbox

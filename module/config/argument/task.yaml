@@ -15,6 +15,7 @@ Alas:
       - Emulator
       - EmulatorInfo
       - EmulatorManagement
+      - EmulatorOptimization
     General:
       - Log
       - Retirement

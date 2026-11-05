@@ -149,11 +149,8 @@ class GeneratedConfig:
     Optimization_ScreenshotInterval = 0.3
     Optimization_CombatScreenshotInterval = 1.0
     Optimization_TaskHoardingDuration = 0
-    Optimization_CloseEmulatorDuringLongWait = True  # True, False
     Optimization_WhenTaskQueueEmpty = 'goto_main'  # stay_there, goto_main, close_game
     Optimization_WhenSchedulerStopped = 'stay_there'  # stay_there, goto_main, close_game, close_emulator
-    Optimization_WarmupEnable = True  # True, False
-    Optimization_WarmupMinutes = 15
 
     # 配置组 `DropRecord`
     DropRecord_SaveFolder = './screenshots'
@@ -1199,6 +1196,13 @@ class GeneratedConfig:
     EmulatorManagement_CrashCooldownSeconds = 600
     EmulatorManagement_CrashMaxRestarts = 3
     EmulatorManagement_CrashRestartWindowHours = 6
+
+    # 配置组 `EmulatorOptimization`
+    EmulatorOptimization_CloseEmulatorDuringLongWait = True  # True, False
+    EmulatorOptimization_CloseEmulatorLongWaitMinutes = 180
+    EmulatorOptimization_CloseEmulatorDuringMaintenance = False  # True, False
+    EmulatorOptimization_WarmupEnable = True  # True, False
+    EmulatorOptimization_WarmupMinutes = 15
 
     # 配置组 `EmulatorManager`
     EmulatorManager_EnableRemoteSSH = False  # True, False

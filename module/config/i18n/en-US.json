@@ -906,12 +906,6 @@
       "name": "Hoard Tasks for X Minutes",
       "help": "Can reduce the frequency of game operations during reward collection\nAfter a task is triggered, wait X minutes, then execute all hoarded tasks at once"
     },
-    "CloseEmulatorDuringLongWait": {
-      "name": "Close Emulator During Long Wait",
-      "help": "When the next task is more than 3 hours away, close the emulator during the wait to save memory and CPU.",
-      "True": "Enabled",
-      "False": "Disabled"
-    },
     "WhenTaskQueueEmpty": {
       "name": "When Task Queue Is Empty",
       "help": "Closing the game when there are no tasks can reduce CPU usage during reward collection",
@@ -926,16 +920,6 @@
       "goto_main": "Go to Main Menu",
       "close_game": "Close Game",
       "close_emulator": "Close Emulator"
-    },
-    "WarmupEnable": {
-      "name": "Start the emulator and game before the next task",
-      "help": "When the emulator/game was closed during a wait (emulator closed on a long wait, or game closed when the task queue is empty), start the emulator and game and log in before the next task begins, so the task runs on time instead of a cold start at task time. While enabled, waits shorter than the lead time no longer close the game.",
-      "True": "Enabled",
-      "False": "Disabled"
-    },
-    "WarmupMinutes": {
-      "name": "Start the emulator and game X minutes before the task",
-      "help": "How many minutes before the task the warm-up launch begins; used until a measured startup time exists. After each successful warm-up the actual startup time is recorded, and later warm-ups launch by 'last measured + 2 minutes', so the game is ready about 2 minutes before the task."
     }
   },
   "DropRecord": {
@@ -6919,6 +6903,38 @@
     "CrashRestartWindowHours": {
       "name": "Restart counting window (hours)",
       "help": "Time window used to count restarts. Once the maximum number of restarts is reached within the window, automatic recovery stops. Default 6 hours."
+    }
+  },
+  "EmulatorOptimization": {
+    "_info": {
+      "name": "Optimization",
+      "help": ""
+    },
+    "CloseEmulatorDuringLongWait": {
+      "name": "Close Emulator During Long Wait",
+      "help": "When the next task is more than the threshold below away, close the emulator during the wait to save memory and CPU. Before the task starts, the emulator is pre-started and logged in using the warm-up lead in this group. Remote devices (wireless ADB / SSH) have no local emulator instance to close, so this switch has no effect on them.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "CloseEmulatorLongWaitMinutes": {
+      "name": "Close emulator wait threshold (minutes)",
+      "help": "Close the emulator during the wait when the next task is more than this many minutes away. Default 180 minutes (3 hours), range 1~10080 (7 days)."
+    },
+    "CloseEmulatorDuringMaintenance": {
+      "name": "Close Emulator During Server Maintenance",
+      "help": "When enabled and the game server is under maintenance, the emulator is shut down to save memory and CPU, the server status is polled every minute (plain HTTP, the emulator is not needed), and the emulator is started and logged in automatically once the server is back. Note: the reopening can only be detected by polling, so startup lags the real reopening by about 1-2 minutes. Remote devices (wireless ADB / SSH) have no local instance to close, so this switch has no effect on them.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "WarmupEnable": {
+      "name": "Pre-start Emulator and Game Before Tasks",
+      "help": "When enabled, if the emulator/game was closed during the wait (long-wait emulator close, or game closed when the task queue is empty), the emulator and game are started and logged in ahead of time so the task can run immediately instead of suffering a cold start. While warm-up is enabled, short waits shorter than the lead time no longer close the game.",
+      "True": "Enabled",
+      "False": "Disabled"
+    },
+    "WarmupMinutes": {
+      "name": "Pre-start X Minutes Before Task",
+      "help": "How long before the task start time to pre-start, used only for the first warm-up without a measured record. After each successful warm-up the actual duration is recorded, and it then leads by 'last measured duration + 2 minutes', so the game is ready about 2 minutes before the task."
     }
   },
   "EmulatorManager": {

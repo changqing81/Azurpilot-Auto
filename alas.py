@@ -66,6 +66,13 @@ def _get_task_display_name(task_command):
 
 
 
+# 游戏维护期间关闭模拟器时，查询服务器状态的间隔（秒）。
+# 开服时间只能靠轮询发现，间隔越短发现越早，请求也越频繁。
+MAINTENANCE_POLL_SECONDS = 60
+# 关着模拟器等开服的最长时长（小时）：超过就放弃关闭等待，交回调度器处理，
+# 避免服务器状态接口异常导致模拟器整夜不开。
+MAINTENANCE_MAX_WAIT_HOURS = 24
+
 
 class AzurLaneAutoScript:
     stop_event: threading.Event = None
@@ -274,10 +281,106 @@ class AzurLaneAutoScript:
             logger.warning(f'[Alas] 长时间等待后启动模拟器失败，继续调度恢复流程: {e}')
             return False
 
+    def _close_emulator_for_maintenance(self, checker):
+        """服务器维护中时关闭模拟器，关着轮询到开服。
+
+        背景：维护期间游戏登录不了，旧逻辑是模拟器一直开着、用 HTTP 轮询
+        服务器状态（ServerChecker），开服后 task_call('Restart')。模拟器白占
+        几个小时内存和 CPU。开启 EmulatorOptimization.CloseEmulatorDuringMaintenance
+        后改为：先关模拟器，再关着轮询（查询走 HTTP，不需要模拟器），开服后
+        交给 Restart 拉起并登录。
+
+        只处理本地可管理的模拟器实例：远程设备（无线 ADB / SSH）没有可关闭的
+        进程，直接返回 False 走原有等待逻辑。
+
+        Args:
+            checker (ServerChecker): 服务器状态检查器。
+
+        Returns:
+            bool: True 表示本次确实关闭过模拟器且服务器已恢复可用，调用方必须
+                调用 task_call('Restart') 把模拟器拉起来；False 表示没有关闭，
+                调用方按原有逻辑 wait_until_available()。
+        """
+        if not getattr(self.config, 'EmulatorOptimization_CloseEmulatorDuringMaintenance', False):
+            return False
+        if checker.is_available():
+            return False
+        if 'device' not in self.__dict__:
+            # 设备还没初始化，说明模拟器本来就没在跑，没有可关的东西
+            return False
+        try:
+            emulator_instance = self.device.emulator_instance
+        except Exception as e:
+            logger.warning(f'[Alas] 维护期间读取模拟器实例失败，按常规等待: {e}')
+            return False
+        if emulator_instance is None:
+            logger.info('[Alas] 远程设备没有可关闭的本地模拟器实例，按常规等待维护结束')
+            return False
+
+        from module.base.resource import release_resources
+
+        logger.hr('[Alas] 游戏维护中，关闭模拟器等待开服', level=1)
+        release_resources()
+        self.device.release_during_wait()
+        try:
+            stopped = bool(self.device.emulator_stop())
+        except Exception as e:
+            logger.warning(f'[Alas] 维护期间关闭模拟器失败，按常规等待: {e}')
+            stopped = False
+        # 关成功必须丢掉设备缓存，否则后续代码会拿着断开的连接继续操作；
+        # 关失败也要丢，下次访问会重建。
+        del_cached_property(self, 'device')
+        if not stopped:
+            logger.warning('[Alas] 维护期间关闭模拟器失败，保持模拟器运行继续等待')
+            return False
+
+        logger.info(
+            f'[Alas] 已关闭模拟器，每 {MAINTENANCE_POLL_SECONDS} 秒查询一次服务器状态，'
+            '开服后自动启动'
+        )
+        started_at = time.monotonic()
+        while not checker.is_available():
+            if self.stop_event is not None and self.stop_event.is_set():
+                logger.info('[Alas] 检测到更新事件，停止维护等待（模拟器保持关闭）')
+                return True
+            if time.monotonic() - started_at > MAINTENANCE_MAX_WAIT_HOURS * 3600:
+                logger.warning(
+                    f'[Alas] 关闭模拟器等待已超过 {MAINTENANCE_MAX_WAIT_HOURS} 小时仍未开服，'
+                    '放弃关闭等待，交回调度器处理'
+                )
+                return True
+            if self.stop_event is not None:
+                self.stop_event.wait(MAINTENANCE_POLL_SECONDS)
+            else:
+                time.sleep(MAINTENANCE_POLL_SECONDS)
+            checker.check_now()
+        logger.info('[Alas] 服务器已开服，准备启动模拟器')
+        return True
+
+    def _long_wait_close_emulator_minutes(self):
+        """读取「长时间等待时关闭模拟器」的等待阈值（分钟）。
+
+        配置项 EmulatorSettings.EmulatorOptimization.CloseEmulatorLongWaitMinutes
+        是自由填写的输入框，前端校验只在 GUI 生效，因此这里做兜底：读不到、
+        非数字、小于 1 一律回落到默认 180 分钟（即改造前硬编码的 3 小时），
+        避免脏配置把模拟器关得过于频繁或永不关闭。
+
+        Returns:
+            int: 触发关闭模拟器所需的等待时长，单位分钟。
+        """
+        try:
+            minutes = int(
+                getattr(self.config, 'EmulatorOptimization_CloseEmulatorLongWaitMinutes', 180)
+            )
+        except (TypeError, ValueError):
+            return 180
+        return minutes if minutes >= 1 else 180
+
     def _warmup_lead_seconds(self, cold):
         """按场景计算任务预热提前量（秒）。
 
-        有实测记录时用「上次实测 + 2 分钟」，否则回退配置 Optimization.WarmupMinutes。
+        有实测记录时用「上次实测 + 2 分钟」，否则回退配置
+        EmulatorSettings.EmulatorOptimization.WarmupMinutes。
         预留 2 分钟余量，使游戏就绪后仅空转约 2 分钟：既不会延误任务，也不过度提前空转。
 
         Args:
@@ -292,7 +395,7 @@ class AzurLaneAutoScript:
         )
         if measured:
             return measured + 120
-        minutes = int(getattr(self.config, 'Optimization_WarmupMinutes', 15) or 15)
+        minutes = int(getattr(self.config, 'EmulatorOptimization_WarmupMinutes', 15) or 15)
         return max(minutes, 1) * 60
 
     @staticmethod
@@ -874,6 +977,12 @@ class AzurLaneAutoScript:
                 )
                 exit(1)
             else:
+                if checker is not None and self._close_emulator_for_maintenance(checker):
+                    # 维护期间关掉模拟器并等到了开服：交给 Restart 重新拉起并登录。
+                    # 服务器维护属于可自动恢复的情况，不计入任务失败次数。
+                    self.last_emulator_restart_time = time.monotonic()
+                    self.config.task_call('Restart')
+                    return 'recoverable'
                 if checker is not None:
                     checker.wait_until_available()
                 return False
@@ -1929,7 +2038,7 @@ class AzurLaneAutoScript:
                 self.is_first_task = False
                 method = self.config.Optimization_WhenTaskQueueEmpty
                 wait_duration = task.next_run - current_time()
-                warmup_enable = bool(getattr(self.config, 'Optimization_WarmupEnable', True))
+                warmup_enable = bool(getattr(self.config, 'EmulatorOptimization_WarmupEnable', True))
 
                 # 任务预热可用性：仅对非 Restart 任务预热（Restart 任务自身会启动
                 # 模拟器/游戏并登录，无需也不应预热），且剩余等待须超过对应场景
@@ -1941,14 +2050,15 @@ class AzurLaneAutoScript:
                     lead = self._warmup_lead_seconds(cold)
                     return task.next_run - current_time() > timedelta(seconds=lead)
 
+                close_wait_minutes = self._long_wait_close_emulator_minutes()
                 if (
-                    self.config.Optimization_CloseEmulatorDuringLongWait
-                    and wait_duration > timedelta(hours=3)
+                    self.config.EmulatorOptimization_CloseEmulatorDuringLongWait
+                    and wait_duration > timedelta(minutes=close_wait_minutes)
                     and 'device' in self.__dict__ and self.device.emulator_instance is not None  # 远程设备（无线 ADB / SSH）没有本地模拟器实例可管理，跳过关闭流程，走常规等待逻辑
                 ):
                     logger.info(
                         f'下一个任务 `{task.command}` 将在 {wait_duration} 后运行，'
-                        '等待期间关闭模拟器'
+                        f'超过设定的 {close_wait_minutes} 分钟，等待期间关闭模拟器'
                         + ('，并启用任务预热提前启动' if can_warmup(True) else '')
                     )
                     release_resources()
@@ -2175,6 +2285,13 @@ class AzurLaneAutoScript:
                 # 不能因为查不到服务器状态而阻断挂机）
                 checker = self.checker
                 if checker is not None:
+                    if self._close_emulator_for_maintenance(checker):
+                        # 维护期间关掉的模拟器已经等到开服：重置定时重启基准，
+                        # 让 Restart 重新拉起模拟器并登录（等价于做过一次重启）
+                        self.last_emulator_restart_time = time.monotonic()
+                        del_cached_property(self, 'config')
+                        self.config.task_call('Restart')
+                        continue
                     checker.wait_until_available()
                 if checker is not None and checker.is_recovered():
                     # 服务器恢复后强制刷新配置，修复阻塞期间配置未更新的问题
