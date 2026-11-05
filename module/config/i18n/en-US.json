@@ -7198,6 +7198,7 @@
       "Count": "Tech ships at Lv.120",
       "Confirmed": "Confirmed tech points",
       "PendingStar": "Max stars unconfirmed: ",
+      "PendingOnly": "Unconfirmed only",
       "Version": "Data version",
       "All": "All",
       "Tech": "With technology",

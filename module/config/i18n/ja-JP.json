@@ -7198,6 +7198,7 @@
       "Count": "技術艦船 Lv.120",
       "Confirmed": "確認済み技術ポイント",
       "PendingStar": "突破未確認：",
+      "PendingOnly": "未確認のみ",
       "Version": "データ更新日",
       "All": "すべて",
       "Tech": "技術対象",

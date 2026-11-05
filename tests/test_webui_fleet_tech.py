@@ -108,6 +108,48 @@ class FleetTechViewTest(unittest.TestCase):
         self.assertEqual(self._names(query='dewey'), ['杜威'])
         self.assertEqual(self._names(query='不存在'), [])
 
+    # ---------- 满星未确认筛选 ----------
+
+    def test_pending_star_predicate(self):
+        """有科技 + 已拥有 + 星级未知才算「满星未确认」。"""
+        cases = [
+            ({'technology': {'pt_get': 1}, 'owned': True, 'full_star': None}, True),
+            ({'technology': {'pt_get': 1}, 'owned': True, 'full_star': True}, False),
+            ({'technology': {'pt_get': 1}, 'owned': True, 'full_star': False}, False),
+            ({'technology': {'pt_get': 1}, 'owned': False, 'full_star': None}, False),
+            ({'technology': {'pt_get': 1}, 'owned': None, 'full_star': None}, False),
+            ({'technology': None, 'owned': True, 'full_star': None}, False),
+        ]
+        for row, expected in cases:
+            with self.subTest(row=row):
+                self.assertIs(view.pending_star(row), expected)
+
+    def test_pending_filter_keeps_only_unconfirmed_rows(self):
+        # fixture 里只有卡辛（10103）是「已拥有 + 星级未知」
+        self.assertEqual(self._names(pending=True), ['卡辛'])
+        # 不传或传 False 时行为与改动前完全一致
+        self.assertEqual(self._names(),
+                         ['无科技船', '杜威', '卡辛', '联动船', '方案舰'])
+        self.assertEqual(self._names(pending=False), self._names())
+
+    def test_pending_filter_is_and_with_other_groups(self):
+        """与其它筛选组是「且」：筛到别的类型时结果为空，而不是放开 pending。"""
+        self.assertEqual(self._names(pending=True, filters={'type': ['front']}), ['卡辛'])
+        self.assertEqual(self._names(pending=True, filters={'type': ['back']}), [])
+        self.assertEqual(self._names(pending=True, query='杜威'), [])
+
+    def test_pending_filter_count_matches_summary_number(self):
+        """筛出来的行数必须等于摘要里那个数字，否则用户点了会对不上账。"""
+        from module.runtime import fleet_tech as tech
+        catalog = tech.public_catalog()
+        for record in ({}, {'observed': {'10102': 100}}, {'observed': {'10102': 125}},
+                       {'observed': {'10102': 100}, 'manual': {'10102': {'full_star': True}}}):
+            with self.subTest(record=record):
+                report = tech.report(record)
+                rows = view.combine_rows(catalog, report)
+                matched = [row for row in rows if view.pending_star(row)]
+                self.assertEqual(len(matched), report['pending_star'])
+
     def test_bonus_type_and_attr_require_technology(self):
         self.assertEqual(self._names(filters={'bonusType': ['1']}), ['杜威', '卡辛'])
         # 无科技船被排除；方案舰的加成目标是战巡(4)

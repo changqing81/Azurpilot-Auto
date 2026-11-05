@@ -192,6 +192,7 @@ FleetTechnology:
   Count:
   Confirmed:
   PendingStar:
+  PendingOnly:
   Version:
   All:
   Tech:

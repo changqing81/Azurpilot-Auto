@@ -320,6 +320,11 @@ class FleetTechPageTest(unittest.TestCase):
         h._ft_on_toggle('bogus')
         self.assertFalse(hasattr(h, '_ft_bogus'))
         self.assertIn('table', h.render_log)
+        # 「只看满星未确认」是同一种开关：翻转后表格重绘
+        h._ft_on_toggle('pending')
+        self.assertTrue(h._ft_pending)
+        h._ft_on_toggle('pending')
+        self.assertFalse(h._ft_pending)
 
     def test_page_buttons_adjust_and_clamp_slice(self):
         h = self.harness
@@ -737,3 +742,50 @@ class FleetTechI18nTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+
+class PendingToolbarButtonTest(unittest.TestCase):
+    """工具栏第 4 个按钮：满星未确认筛选，label 上直接带待确认数量。
+
+    harness 把渲染函数都打桩了，所以这里单独 patch PyWebIO 输出层、
+    调真方法，只看 put_buttons 收到的按钮定义。
+    """
+
+    def _buttons(self, harness):
+        from module.webui import app_fleet_technology as app
+        captured = {}
+
+        def fake_put_buttons(buttons, **kwargs):
+            captured['buttons'] = buttons
+
+        with patch.object(app, 'use_scope'), \
+             patch.object(app, 'put_row'), \
+             patch.object(app, 'put_html'), \
+             patch.object(app, 'put_buttons', side_effect=fake_put_buttons):
+            FleetTechnologyMixin._ft_render_functions(harness)
+        return captured['buttons']
+
+    def test_pending_button_sits_after_the_three_switches(self):
+        h = _Harness()
+        buttons = self._buttons(h)
+        self.assertEqual([item['value'] for item in buttons], ['edit', 'bonuses', 'extra', 'pending'])
+
+    def test_pending_button_label_has_no_number(self):
+        """按钮只做筛选，不显示待确认数量（数量在顶部摘要里已经有了）。"""
+        h = _Harness()
+        buttons = self._buttons(h)
+        self.assertEqual(buttons[-1]['label'], view.t('Gui.FleetTechnology.PendingOnly'))
+        self.assertNotRegex(buttons[-1]['label'], r'\\d')
+
+    def test_pending_button_does_not_depend_on_report(self):
+        """不读 report：报告还没加载时按钮照样渲染得出来。"""
+        h = _Harness()
+        h._ft_report = None
+        buttons = self._buttons(h)
+        self.assertEqual(buttons[-1]['value'], 'pending')
+    def test_pending_button_color_follows_state(self):
+        h = _Harness()
+        self.assertEqual(self._buttons(h)[-1]['color'], 'secondary')
+        h._ft_pending = True
+        self.assertEqual(self._buttons(h)[-1]['color'], 'primary')

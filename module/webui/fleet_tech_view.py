@@ -74,9 +74,27 @@ def effect_text(row, stage):
     return f"{classes} {attr_label(tech[f'add_{stage}_attr'])}+{tech[f'add_{stage}_value']}"
 
 
-def matches(row, filters, query, scope, stage='all'):
-    """组合筛选：组内多选为或，组间为且；加成组在最后统一判断。"""
+def pending_star(row):
+    """该舰船是否属于「满星未确认」：有科技、已拥有，但星级是否满还未知。
+
+    与 module/runtime/fleet_tech.report() 里 pending_star 的计数口径一致
+    （那边是 owned and full_star is None，且该舰有科技）。这条口径决定
+    「统计摘要里那个数字」和「筛出来的行数」必须相等，否则用户点筛选会
+    得到和摘要对不上的条目。
+    """
+    return bool(row.get('technology')) and bool(row.get('owned')) and row.get('full_star') is None
+
+
+def matches(row, filters, query, scope, stage='all', pending=False):
+    """组合筛选：组内多选为或，组间为且；加成组在最后统一判断。
+
+    Args:
+        pending: True 时只保留「满星未确认」的行（判定见 pending_star），
+            与其他筛选组是「且」的关系。
+    """
     tech = row.get('technology')
+    if pending and not pending_star(row):
+        return False
     if scope == 'tech' and not tech:
         return False
     if scope == 'none' and tech:
@@ -138,9 +156,9 @@ def sort_value(row, key):
     return row['code']
 
 
-def arrange_rows(rows, filters, query, scope, stage, sort_key, sort_direction):
+def arrange_rows(rows, filters, query, scope, stage, sort_key, sort_direction, pending=False):
     """筛选 + 排序，返回展示顺序的完整行列表。"""
-    selected = [row for row in rows if matches(row, filters, query, scope, stage)]
+    selected = [row for row in rows if matches(row, filters, query, scope, stage, pending)]
     if sort_key not in SORT_KEYS:
         sort_key, sort_direction = 'code', 1
     return sorted(selected, key=lambda row: _CompareKey(sort_value(row, sort_key), sort_direction))

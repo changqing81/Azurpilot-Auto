@@ -183,6 +183,7 @@ class FleetTechnologyMixin(FleetTechBatchMixin, WebUIMixinBase):
             self._ft_edit = False
             self._ft_bonuses = False
             self._ft_extra = False
+            self._ft_pending = False
             self._ft_page = 0
             self._ft_sort_key = 'code'
             self._ft_sort_direction = 1
@@ -402,6 +403,13 @@ class FleetTechnologyMixin(FleetTechBatchMixin, WebUIMixinBase):
                 'value': key,
                 'color': 'primary' if getattr(self, f'_ft_{key}') else 'secondary',
             } for key, name in (('edit', 'Edit'), ('bonuses', 'Bonuses'), ('extra', 'Extra'))]
+            # 「只看满星未确认」：与其他三项同级的筛选开关，点一下把表格筛到
+            # 这些舰船（口径同 fleet_tech.report 的 pending_star），再点一次取消
+            buttons.append({
+                'label': t('Gui.FleetTechnology.PendingOnly'),
+                'value': 'pending',
+                'color': 'primary' if self._ft_pending else 'secondary',
+            })
             put_row(
                 [put_html(f'<div class="ft-filter-label">{t("Gui.FleetTechnology.Functions")}</div>'),
                  put_buttons(buttons, onclick=self._ft_on_toggle)],
@@ -486,7 +494,7 @@ class FleetTechnologyMixin(FleetTechBatchMixin, WebUIMixinBase):
         """表格 + 分页 + 页脚；筛选/排序/翻页后只重绘这里与计数。"""
         rows = view.arrange_rows(self._ft_rows, self._ft_filters, self._ft_query,
                                  self._ft_scope, self._ft_stage,
-                                 self._ft_sort_key, self._ft_sort_direction)
+                                 self._ft_sort_key, self._ft_sort_direction, self._ft_pending)
         shown, page, pages = view.page_slice(rows, self._ft_page)
         self._ft_page = page
         with use_scope('ft_table', clear=True):
@@ -559,8 +567,8 @@ class FleetTechnologyMixin(FleetTechBatchMixin, WebUIMixinBase):
 
     @render_locked
     def _ft_on_toggle(self, value):
-        """功能开关：记录编辑模式 / 总属性加成 / 显示额外筛选。"""
-        if value not in ('edit', 'bonuses', 'extra'):
+        """功能开关：记录编辑模式 / 总属性加成 / 显示额外筛选 / 只看满星未确认。"""
+        if value not in ('edit', 'bonuses', 'extra', 'pending'):
             return
         setattr(self, f'_ft_{value}', not getattr(self, f'_ft_{value}'))
         self._ft_page = 0
