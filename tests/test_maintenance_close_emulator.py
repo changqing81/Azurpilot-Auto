@@ -143,6 +143,46 @@ class TestSuccessPath(unittest.TestCase):
             self.assertTrue(script._close_emulator_for_maintenance(checker))
 
 
+class TestStuckBranch(unittest.TestCase):
+    """维护期间"画面静止"被判卡死的修复。
+
+    背景：2026-11-05 10:00 国服维护，脚本 10:01 检测到账号登出，随后画面持续
+    静止，10:04 判 GameStuckError、推了一条"游戏卡住"告警并重启游戏——实际
+    只是维护。卡死分支必须先确认服务器状态，是维护就按维护处理。
+    """
+
+    def setUp(self):
+        import alas as alas_module
+
+        self.source = inspect.getsource(alas_module.AzurLaneAutoScript.run)
+
+    def test_consults_server_before_stuck_verdict(self):
+        stuck_at = self.source.index('except (GameStuckError, GameTooManyClickError)')
+        count_at = self.source.index('consecutive_game_stuck += 1')
+        check_at = self.source.index('check_now()', stuck_at)
+        self.assertLess(check_at, count_at, '必须先查服务器状态，再计入卡死次数')
+
+    def test_maintenance_returns_before_stuck_alarm(self):
+        stuck_at = self.source.index('except (GameStuckError, GameTooManyClickError)')
+        block = self.source[stuck_at:stuck_at + 3000]
+        maintenance_at = block.index('_close_emulator_for_maintenance')
+        alarm_at = block.index('游戏卡住 - 将自动重启游戏')
+        self.assertLess(maintenance_at, alarm_at, '维护分支必须早于"游戏卡住"告警')
+
+    def test_keeps_legacy_flow_when_server_available(self):
+        """服务器可用时卡死流程不能变：仍然累计次数、仍然重启。"""
+        stuck_at = self.source.index('except (GameStuckError, GameTooManyClickError)')
+        block = self.source[stuck_at:stuck_at + 3000]
+        self.assertIn('consecutive_game_stuck += 1', block)
+        self.assertIn("self.config.task_call('Restart')", block)
+
+    def test_no_false_failure_count_on_maintenance(self):
+        """维护走 'recoverable'，不累计失败次数。"""
+        stuck_at = self.source.index('except (GameStuckError, GameTooManyClickError)')
+        block = self.source[stuck_at:stuck_at + 1500]
+        self.assertIn("return 'recoverable'", block)
+
+
 class TestCallSites(unittest.TestCase):
     """两处调用点都必须接上新方法，否则功能等于没开。"""
 

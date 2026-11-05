@@ -876,6 +876,34 @@ class AzurLaneAutoScript:
             self.config.task_call('Restart')
             return 'recoverable'
         except (GameStuckError, GameTooManyClickError) as e:
+            # 服务器维护时，游戏会停在维护公告／登录后的空白页不动：画面持续静止、
+            # 点什么都推进不了，和"真卡死"长得一模一样。判定卡死之前先查一次
+            # 服务器状态，确认是维护就直接按维护处理——不要走卡死流程（那会白等
+            # 几分钟、推一条"游戏卡住"的告警、再白白重启一次游戏）。
+            checker = self.checker
+            in_maintenance = False
+            if checker is not None:
+                # 状态查询本身可能因网络抖动抛异常（ServerChecker.check_now 对
+                # 非 ScriptError 会原样外抛）。查不到就当"不是维护"，走原有卡死
+                # 流程，绝不因为一次探测失败把卡死处理变成新的崩溃。
+                try:
+                    checker.check_now()
+                    in_maintenance = not checker.is_available()
+                except Exception as probe_error:
+                    logger.warning(f'[Alas] 卡死判定前查询服务器状态失败，按普通卡死处理: {probe_error}')
+                    in_maintenance = False
+            if in_maintenance:
+                logger.warning('[Alas] 画面无法推进，但服务器正在维护，按维护处理而不是卡死')
+                self._last_task_error = 'ServerMaintenance'
+                if self._close_emulator_for_maintenance(checker):
+                    self.last_emulator_restart_time = time.monotonic()
+                else:
+                    # 开关关闭／远程设备／关闭失败：就地关开着等开服，
+                    # 也不要反复重启游戏
+                    checker.wait_until_available()
+                self.config.task_call('Restart')
+                return 'recoverable'
+
             self._last_task_error = type(e).__name__
             # 游戏卡住或点击过多，尝试重启游戏；连续卡死则重启模拟器
             logger.error_context(
