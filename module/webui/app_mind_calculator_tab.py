@@ -13,7 +13,7 @@ from module.config.transaction import config_transaction
 from module.config.utils import filepath_config
 from module.runtime import mind_calculator as mind_calc
 from module.webui import mind_calculator_view as mind_view
-from module.webui.app_mind_batch import MindBatchMixin
+from module.webui.app_mind_batch import LEVEL_CAP, MindBatchMixin
 from module.webui.app_dependencies import (
     BinarySwitchButton,
     State,
@@ -413,9 +413,36 @@ class MindCalculatorTabMixin(MindBatchMixin, WebUIMixinBase):
                 scope=scope,
             )
             put_scope('ft_mind_edit_error', scope=scope)
-            put_buttons([{'label': t('Gui.MindCalculator.Save'), 'value': 'save'}],
-                        onclick=[lambda: self._mc_popup_save(index, scope)],
-                        scope=scope)
+            put_buttons(
+                [{'label': t('Gui.MindCalculator.Preset120'), 'value': 'lv120',
+                  'color': 'secondary'},
+                 {'label': t('Gui.MindCalculator.Save'), 'value': 'save'}],
+                onclick=[lambda: self._mc_popup_level_120(index, scope),
+                         lambda: self._mc_popup_save(index, scope)],
+                scope=scope)
+
+    @render_locked
+    def _mc_popup_level_120(self, index, scope):
+        """快捷：把等级直接写成 120 级并保存，省掉「输入 120 → 点保存」两步。
+
+        状态沿用弹窗里的选择，只有「待核对」例外——它本来的含义是「等级不
+        确定」，既然一键定了 120 级就按「计入」处理；用户明确选的「排除」
+        保持排除，不会被这条快捷改动。
+        """
+        status = str(pin[f'mc_status_{index}'] or 'included')
+        if status not in STATUS_OPTIONS or status == 'review':
+            status = 'included'
+        ships = list(self._mc_ships)
+        ships[index] = dict(ships[index], level=LEVEL_CAP,
+                            excluded=status == 'excluded',
+                            review=status == 'review')
+        error = self._mc_save(ships)
+        if error:
+            self._mc_popup_error(scope, error)
+            return
+        close_popup()
+        toast(t('Gui.MindCalculator.Saved'), color='success')
+        self._mc_render_after_change()
 
     @render_locked
     def _mc_popup_save(self, index, scope):

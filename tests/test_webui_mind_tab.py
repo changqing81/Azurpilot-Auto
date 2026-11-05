@@ -590,6 +590,69 @@ class MindIoCallbackTest(unittest.TestCase):
         render_filters.assert_not_called()
 
 
+    def test_edit_popup_offers_level_120_shortcut(self):
+        """编辑弹窗必须带「快捷：设为120级」，且它与「保存」各接各的回调。
+
+        现场（2026-11-05 截图）：每艘船要改到 120 级都得手输一遍数字再保存，
+        用户要求给个一键按钮。
+        """
+        h = _MindHarness()
+        h._mc_state()
+        h._mc_ships = _ships()
+        captured = []
+        with patch(f'{MODULE}.popup', side_effect=lambda *a, **kw: _FakeOutput('popup')), \
+                patch(f'{MODULE}.put_input', side_effect=lambda *a, **kw: _FakeOutput('input')), \
+                patch(f'{MODULE}.put_select', side_effect=lambda *a, **kw: _FakeOutput('select')), \
+                patch(f'{MODULE}.put_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.put_buttons',
+                      side_effect=lambda *a, **kw: captured.append((a, kw)) or _FakeOutput('buttons')):
+            h._mc_edit_popup(0)
+        buttons, kwargs = captured[-1]
+        self.assertEqual([b['value'] for b in buttons[0]], ['lv120', 'save'])
+        self.assertEqual(buttons[0][0]['label'], 'Gui.MindCalculator.Preset120')
+        self.assertEqual(len(kwargs['onclick']), 2)
+
+    def test_level_120_shortcut_writes_120_and_respects_status(self):
+        """一键 120：等级直接写 120；待核对按计入处理，明确排除的保持排除。"""
+        h = _MindHarness()
+        h._mc_state()
+        h._mc_ships = _ships()
+        scope = _FakeOutput('popup')
+        cases = {'included': (False, False), 'excluded': (True, False), 'review': (False, False)}
+        for status, (excluded, review) in cases.items():
+            with self.subTest(status=status), \
+                    patch(f'{MODULE}.pin', _FakePin({'mc_status_0': status})), \
+                    patch(f'{MODULE}.close_popup') as close_popup, \
+                    patch(f'{MODULE}.toast'), \
+                    patch.object(h, '_mc_save', return_value=None) as save, \
+                    patch.object(h, '_mc_render_after_change') as refresh:
+                h._mc_popup_level_120(0, scope)
+            saved = save.call_args[0][0]
+            self.assertEqual(saved[0]['level'], 120)  # 满级目标 120，不是等级上限 125
+            self.assertEqual(saved[0]['excluded'], excluded)
+            self.assertEqual(saved[0]['review'], review)
+            self.assertEqual(saved[0]['name'], _ships()[0]['name'])
+            close_popup.assert_called_once()
+            refresh.assert_called_once()
+
+    def test_level_120_shortcut_keeps_popup_on_save_error(self):
+        """保存冲突时弹窗不关，错误显示在弹窗里。"""
+        h = _MindHarness()
+        h._mc_state()
+        h._mc_ships = _ships()
+        scope = _FakeOutput('popup')
+        with patch(f'{MODULE}.pin', _FakePin({'mc_status_0': 'included'})), \
+                patch(f'{MODULE}.close_popup') as close_popup, \
+                patch(f'{MODULE}.use_scope', side_effect=lambda name, **kw: _FakeOutput(name)), \
+                patch(f'{MODULE}.put_error') as put_error, \
+                patch.object(h, '_mc_save', return_value='清单已被其他操作更新'), \
+                patch.object(h, '_mc_render_after_change') as refresh:
+            h._mc_popup_level_120(0, scope)
+        put_error.assert_called_once()
+        close_popup.assert_not_called()
+        refresh.assert_not_called()
+
+
 class MindScanStartTest(unittest.TestCase):
     """扫描按钮：写等级范围 → 走通用两段式启动（worker 存活时先停后启）。"""
 

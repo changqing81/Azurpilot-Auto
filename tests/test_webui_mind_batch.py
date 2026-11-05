@@ -186,13 +186,28 @@ class MindBatchTest(unittest.TestCase):
         self.after.assert_not_called()
 
     def test_presets_only_fill_the_form(self):
+        """快捷只填表；「设为120级」填的必须是 120，不是等级上限 125。
+
+        2026-11-05 现场：这里把 MAX_LEVEL(125) 当目标等级用，批量点
+        「快捷：设为120级」填出来的是 125。
+        """
+        self.assertEqual(batch.LEVEL_CAP, 120)
+        self.assertNotEqual(batch.LEVEL_CAP, batch.MAX_LEVEL)
         self.open_batch('[0]')
         self.h._mc_batch_preset('level120')
         self.assertEqual(self.pins['mc_batch_level_mode'], 'set')
-        self.assertEqual(self.pins['mc_batch_level'], '125')
+        self.assertEqual(self.pins['mc_batch_level'], '120')
         self.h._mc_batch_preset('excluded')
         self.assertEqual(self.pins['mc_batch_status'], 'excluded')
         self.assertEqual(self.pins['mc_batch_level_mode'], 'keep')
+
+    def test_level_120_preset_saves_120_not_cap(self):
+        """点「快捷：设为120级」再保存，落盘等级必须是 120。"""
+        callback = self.open_batch('[0,1]')
+        self.h._mc_batch_preset('level120')
+        callback('save')
+        saved = self.save.call_args[0][0]
+        self.assertEqual([ship['level'] for ship in saved[:2]], [120, 120])
 
 
 class MindBatchRenderTest(unittest.TestCase):

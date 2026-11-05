@@ -17,7 +17,12 @@ from module.webui.base import render_locked
 
 # 批量弹窗里可选的状态：单行编辑的三态（同名合并是计算态，不能手选）。
 BATCH_STATUSES = ('included', 'review', 'excluded')
+# 等级输入/校验的合法上限（觉醒 125 级）。
 MAX_LEVEL = 125
+# 清单的「满级」目标。心智计算器只算到 120 级（120→125 不计心智），
+# 快捷按钮写的是这个值，不能拿 MAX_LEVEL 顶替（2026-11-05 现场：批量
+# 「快捷：设为120级」把等级填成了 125）。
+LEVEL_CAP = 120
 
 
 def mind_batch_bridge_script(pin_name):
@@ -212,7 +217,7 @@ class MindBatchMixin:
             return
         pin['mc_batch_status'] = field if field in BATCH_STATUSES else 'keep'
         if field == 'level120':
-            pin['mc_batch_level_mode'], pin['mc_batch_level'] = 'set', str(MAX_LEVEL)
+            pin['mc_batch_level_mode'], pin['mc_batch_level'] = 'set', str(LEVEL_CAP)
         else:
             pin['mc_batch_level_mode'], pin['mc_batch_level'] = 'keep', ''
 
