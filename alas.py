@@ -281,6 +281,21 @@ class AzurLaneAutoScript:
             logger.warning(f'[Alas] 长时间等待后启动模拟器失败，继续调度恢复流程: {e}')
             return False
 
+    def _log_poll_error_once(self, error):
+        """维护等待中的轮询失败只提示一次，之后降级为 debug。
+
+        维护通常持续几个小时，接口或网络抽风时会每轮都失败；每次都打
+        WARNING 会把日志区刷满，而"仍在等"这件事本身没有变化。
+
+        Args:
+            error (Exception): 本次轮询抛出的异常。
+        """
+        if not getattr(self, '_poll_error_reported', False):
+            logger.warning(f'[Alas] 服务器状态查询失败，继续等待开服: {error}')
+            self._poll_error_reported = True
+        else:
+            logger.debug(f'[Alas] 服务器状态查询仍然失败: {error}')
+
     def _close_emulator_for_maintenance(self, checker):
         """服务器维护中时关闭模拟器，关着轮询到开服。
 
@@ -339,8 +354,17 @@ class AzurLaneAutoScript:
             '开服后自动启动'
         )
         started_at = time.monotonic()
-        poll_failed = False
-        while not checker.is_available():
+        self._poll_error_reported = False
+        while True:
+            # 整个轮询体都必须兜住异常：等待期间任何一处抛出去，都会落到调度器
+            # 的全局异常处理、把已经关掉的模拟器丢在"已关闭"状态里跑飞。
+            # 查询失败只提示一次，后续降级 debug，免得维护期间刷屏。
+            try:
+                if checker.is_available():
+                    logger.info('[Alas] 服务器已开服，准备启动模拟器')
+                    return True
+            except Exception as poll_error:
+                self._log_poll_error_once(poll_error)
             if self.stop_event is not None and self.stop_event.is_set():
                 logger.info('[Alas] 检测到更新事件，停止维护等待（模拟器保持关闭）')
                 return True
@@ -354,19 +378,10 @@ class AzurLaneAutoScript:
                 self.stop_event.wait(MAINTENANCE_POLL_SECONDS)
             else:
                 time.sleep(MAINTENANCE_POLL_SECONDS)
-            # 查询可能因网络抖动抛异常（ServerChecker.check_now 对非 ScriptError
-            # 会原样外抛）。等待期间必须吞掉继续轮询，否则会把模拟器丢在"已关闭"
-            # 状态里跑飞出去。失败只提示一次，后续降级为 debug 免得刷屏。
             try:
                 checker.check_now()
             except Exception as poll_error:
-                if not poll_failed:
-                    logger.warning(f'[Alas] 服务器状态查询失败，继续等待开服: {poll_error}')
-                    poll_failed = True
-                else:
-                    logger.debug(f'[Alas] 服务器状态查询仍然失败: {poll_error}')
-        logger.info('[Alas] 服务器已开服，准备启动模拟器')
-        return True
+                self._log_poll_error_once(poll_error)
 
     def _long_wait_close_emulator_minutes(self):
         """读取「长时间等待时关闭模拟器」的等待阈值（分钟）。
@@ -2281,6 +2296,11 @@ class AzurLaneAutoScript:
 
         while 1:
             try:
+                # 每进入一轮新调度就重置"错误现场已保存"标记：上一轮任务级异常
+                # 保存过现场后，若调度停在等待里（如维护等待、长等待）没走到
+                # 下一个"开始任务"，标记会一直留着，导致下一轮真正的未处理异常
+                # 被当成"已保存"而丢掉堆栈（2026-11-05 10:21 EOFError 现场丢失）。
+                self._error_scene_saved = False
                 # 检查来自GUI的更新事件
                 if self.stop_event is not None:
                     if self.stop_event.is_set():

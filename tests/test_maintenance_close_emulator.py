@@ -183,6 +183,35 @@ class TestStuckBranch(unittest.TestCase):
         self.assertIn("return 'recoverable'", block)
 
 
+class TestPollRobustness(unittest.TestCase):
+    """轮询期间的异常不能把已经关掉的模拟器丢在外面。
+
+    2026-11-05 10:21 的实例：关掉模拟器等了 16 分钟后，等待里抛出 EOFError，
+    直接落到调度器全局异常处理，整轮调度重启（模拟器虽然仍是关着的，但
+    状态机被外部打断）。现在轮询体整段兜底。
+    """
+
+    def test_survives_poll_exception(self):
+        script, device = make_script()
+        checker = Mock()
+        # 入口判可用一次 → 循环里第一次抛异常 → 之后可用
+        checker.is_available = Mock(side_effect=[False, RuntimeError('EOFError 模拟'), True])
+        checker.check_now = Mock()
+        with patch('module.base.resource.release_resources'), \
+                patch('alas.time.sleep'):
+            self.assertTrue(script._close_emulator_for_maintenance(checker))
+        device.emulator_stop.assert_called_once()
+
+    def test_poll_error_logged_once(self):
+        script, _ = make_script()
+        script._poll_error_reported = False
+        with patch('alas.logger') as log:
+            script._log_poll_error_once(RuntimeError('boom'))
+            script._log_poll_error_once(RuntimeError('boom'))
+        self.assertEqual(log.warning.call_count, 1)
+        self.assertEqual(log.debug.call_count, 1)
+
+
 class TestCallSites(unittest.TestCase):
     """两处调用点都必须接上新方法，否则功能等于没开。"""
 
@@ -202,6 +231,17 @@ class TestCallSites(unittest.TestCase):
         # 维护属于可自动恢复，不能计入任务失败次数
         idx = source.index('_close_emulator_for_maintenance')
         self.assertIn("return 'recoverable'", source[idx:idx + 600])
+
+    def test_error_scene_flag_reset_each_round(self):
+        """错误现场标记必须每轮重置，否则等待期间的下一个异常会丢堆栈。"""
+        import alas as alas_module
+
+        source = inspect.getsource(alas_module.AzurLaneAutoScript.loop)
+        while_at = source.index('while 1:')
+        try_at = source.index('try:', while_at)
+        head = source[try_at:try_at + 800]
+        self.assertIn('_error_scene_saved = False', head,
+                      '每轮循环开头要清标记，否则任务级异常保存过现场后会一直残留')
 
     def test_default_is_disabled(self):
         from module.config.config_generated import GeneratedConfig
