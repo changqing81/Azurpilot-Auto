@@ -5,10 +5,16 @@ from pathlib import Path
 
 import module.config.server as server
 
+# 本文件夹具都是 EN 服截图，import 期需要按 en 建识别对象。
+# ⚠️ 必须立刻还原：unittest discover 会先 import 全部测试模块再执行，
+# 在这里长期把 server 改成 'en' 会让后续所有依赖国服判断的用例连环失败
+# （2026-11-05 实测：fleet_tech_scan 报「仅支持国服」、fleet_ship_names 的
+# 名字纠正与确认缓存全部失效、os_boss_clear_victory 成片报错）。
+_previous_server = server.server
 server.server = 'en'
-
 from module.base.utils import load_image  # noqa: E402
 from module.island import island_fish_meat as fm  # noqa: E402
+server.server = _previous_server
 
 FIXTURES = Path(__file__).resolve().parent / 'fixtures' / 'island_fish_meat'
 
@@ -18,6 +24,13 @@ def image(name):
 
 
 class PlanTest(unittest.TestCase):
+    def setUp(self):
+        self._prev = server.server
+        server.server = 'en'
+
+    def tearDown(self):
+        server.server = self._prev
+
     def test_sources(self):
         # 鲤鱼（5003）每条 3 个淡水鱼肉，黄鳍金枪鱼（5107）每条 18 个海水鱼肉
         self.assertEqual(fm.FISH_MEAT_SOURCES[fm.FRESHWATER_FISH_MEAT][5003], 3)
@@ -36,6 +49,13 @@ class PlanTest(unittest.TestCase):
 
 
 class ScreenTest(unittest.TestCase):
+    def setUp(self):
+        self._prev = server.server
+        server.server = 'en'
+
+    def tearDown(self):
+        server.server = self._prev
+
     def test_exchange_page(self):
         page = image('exchange_page')
         self.assertTrue(fm.fish_meat_tab_active(page))
@@ -57,6 +77,13 @@ class ScreenTest(unittest.TestCase):
 
 
 class FishMeatKeepTest(unittest.TestCase):
+    def setUp(self):
+        self._prev = server.server
+        server.server = 'en'
+
+    def tearDown(self):
+        server.server = self._prev
+
     def test_fishery_ids_are_exchangeable(self):
         from module.island.island_fishery import FISH_MEAT_FISH_IDS
         self.assertTrue(set(FISH_MEAT_FISH_IDS.values()) <= set(fm.FISH_MEAT_YIELD))
