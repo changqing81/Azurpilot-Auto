@@ -12,7 +12,7 @@
 
 import unittest
 
-from module.island.island_cargo_preparation import cargo_can_start
+from module.island.island_cargo_preparation import cargo_can_start, should_replace_unfillable
 
 
 class CargoPreparationStartTests(unittest.TestCase):
@@ -67,6 +67,26 @@ class CargoPreparationStartTests(unittest.TestCase):
                 refresh=False,
             )
         )
+
+
+class CargoPreparationReplaceTests(unittest.TestCase):
+    """更换委托会扣除运输次数且不退还已提交货物，只更换尚未提交、仍缺货的委托。"""
+
+    def test_untouched_short_commission_is_replaced(self):
+        """尚未提交任何货物且缺货的委托应当更换。"""
+        self.assertTrue(should_replace_unfillable(short=True, delivered=False, refresh=False))
+
+    def test_partly_delivered_commission_is_kept(self):
+        """已提交部分货物的委托更换后不退还，必须保留等待补齐。"""
+        self.assertFalse(should_replace_unfillable(short=True, delivered=True, refresh=False))
+
+    def test_fillable_commission_is_kept(self):
+        """货物能凑齐的委托不需要更换。"""
+        self.assertFalse(should_replace_unfillable(short=False, delivered=False, refresh=False))
+
+    def test_blacklisted_commission_uses_blacklist_path(self):
+        """命中黑名单的委托走黑名单更换路径，不重复计入缺货更换。"""
+        self.assertFalse(should_replace_unfillable(short=True, delivered=False, refresh=True))
 
 
 if __name__ == '__main__':
