@@ -17,7 +17,8 @@
     self.method(...)          按 MRO 解析，含仓库内基类
     super().method(...)       从本类基类开始解析
     self.attr.method(...)     按 self.x = Xxx(...) / 类型注解 / @property 返回注解推断类型
-    Name(...)                 仓库内的类 __init__ 与模块级函数（含同文件 import ... as 别名）
+    Name(...)                 仓库内的类 __init__ 与模块级函数（含同文件 import ... as 别名），
+                              函数体内定义的嵌套函数按调用点作用域由内向外优先解析
 
 判定规则保守：**只有所有同名候选都不接受时才报**（宁可漏报不误报）。
 已知盲区：推断不出类型的 `self.attr.method()`、实现在仓库外的方法、未知符号的 `Name(...)`，
@@ -83,6 +84,8 @@ class Collector(ast.NodeVisitor):
         self.attr_types = defaultdict(set)  # (class, attr) -> {类型名}
         self.aliases = {}                  # 本文件内的 import 别名: 别名 -> 原名
         self.external_names = set()         # 来自仓库外的名字，签到不查
+        self.local_defs = defaultdict(list)  # 嵌套函数名 -> [(作用域路径, params)]
+        self.scope_of_call = {}             # id(Call 节点) -> 所在函数的作用域路径
 
     def visit_ImportFrom(self, node):
         internal = is_internal_module(node.module)
@@ -174,6 +177,34 @@ class Collector(ast.NodeVisitor):
                                     and t.value.id == 'self'):
                                 add(t.attr, ann_by_param[sub.value.id])
 
+    def _mark_scopes(self, node, stack=()):
+        """标出每个调用点所在的函数作用域路径，并登记嵌套函数定义。
+
+        Python 里函数体内定义的嵌套函数会遮蔽同名的模块级函数/类。只按名字匹配
+        会把它错配到别处的同名定义上（如 emulator_health.py 的局部 query() 被
+        匹配到别的模块级 query()），产生纯误报。这里记下作用域路径，解析时由内
+        向外查找，找不到才回退到原来的全局匹配。
+
+        Args:
+            node (ast.AST): 当前遍历到的节点。
+            stack (tuple[str, ...]): 当前所在的函数名路径，进入类边界时重置。
+        """
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                path = stack + (child.name,)
+                if stack:
+                    # 定义在函数体内 → 嵌套函数，只对所在作用域可见
+                    self.local_defs[child.name].append((path, func_params(child)))
+                for sub in ast.walk(child):
+                    if isinstance(sub, ast.Call):
+                        self.scope_of_call[id(sub)] = path
+                self._mark_scopes(child, path)
+            elif isinstance(child, ast.ClassDef):
+                # 类边界重置作用域：类方法之间互不可见
+                self._mark_scopes(child, ())
+            else:
+                self._mark_scopes(child, stack)
+
     def visit_Module(self, node):
         for item in node.body:
             if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -182,6 +213,7 @@ class Collector(ast.NodeVisitor):
 
     def visit_ClassDef(self, node):
         self._record_class(node)
+        self._mark_scopes(node)
         for sub in ast.walk(node):
             if not isinstance(sub, ast.Call):
                 continue
@@ -191,6 +223,7 @@ class Collector(ast.NodeVisitor):
             if not kwargs and n_pos <= 1:
                 continue
             f = sub.func
+            scope = self.scope_of_call.get(id(sub), ())
             if isinstance(f, ast.Attribute):
                 chain = []
                 cur = f
@@ -200,13 +233,13 @@ class Collector(ast.NodeVisitor):
                 chain.reverse()
                 if isinstance(cur, ast.Name):
                     if cur.id == 'self' and len(chain) == 1:
-                        self.calls.append((node.name, 'self', chain[0], kwargs, sub.lineno, 'self.' + chain[0], n_pos, has_star))
+                        self.calls.append((node.name, 'self', chain[0], kwargs, sub.lineno, 'self.' + chain[0], n_pos, has_star, scope))
                     elif cur.id == 'self':
-                        self.calls.append((node.name, 'chain', chain[-1], kwargs, sub.lineno, 'self.' + '.'.join(chain), n_pos, has_star))
+                        self.calls.append((node.name, 'chain', chain[-1], kwargs, sub.lineno, 'self.' + '.'.join(chain), n_pos, has_star, scope))
                     elif cur.id == 'super':
-                        self.calls.append((node.name, 'super', chain[-1], kwargs, sub.lineno, 'super().' + chain[-1], n_pos, has_star))
+                        self.calls.append((node.name, 'super', chain[-1], kwargs, sub.lineno, 'super().' + chain[-1], n_pos, has_star, scope))
             elif isinstance(f, ast.Name):
-                self.calls.append((node.name, 'name', f.id, kwargs, sub.lineno, f.id, n_pos, has_star))
+                self.calls.append((node.name, 'name', f.id, kwargs, sub.lineno, f.id, n_pos, has_star, scope))
         # 类定义本身不要再被父级 walk 重复处理
         for sub in node.body:
             if not isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -223,6 +256,7 @@ def main():
     attr_types = defaultdict(set)
     aliases_by_file = {}
     external_by_file = {}
+    local_defs_by_file = {}
     for path in files:
         try:
             tree = ast.parse(path.read_text(encoding='utf-8', errors='replace'))
@@ -240,6 +274,7 @@ def main():
                 functions_by_name[node.name].append(func_params(node))
         aliases_by_file[rel] = c.aliases
         external_by_file[rel] = c.external_names
+        local_defs_by_file[rel] = c.local_defs
         functions.extend(c.functions)
         methods.extend(c.methods)
         calls.extend((rel, *x) for x in c.calls)
@@ -260,7 +295,7 @@ def main():
     problems = []
     unresolved = defaultdict(int)
     checked = 0
-    for rel, cls, kind, target, kwargs, line, receiver, n_pos, has_star in calls:
+    for rel, cls, kind, target, kwargs, line, receiver, n_pos, has_star, scope in calls:
         if kind == 'name':
             # 来自仓库外的符号（pywebio / starlette 等）没有源码可查，
             # 拿仓库内同名定义去判定只会误报，直接跳过。
@@ -269,8 +304,19 @@ def main():
                 continue
             # 同文件内的 import 别名：`OSShopItemGrid as ItemGrid` → 按 OSShopItemGrid 解析
             name = aliases_by_file.get(rel, {}).get(target, target)
-            cands = list(functions_by_name.get(name, []))
-            cands += [i['init'] for i in classes.get(name, []) if i['init']]
+            # 先按调用点的函数作用域由内向外找嵌套函数（局部定义会遮蔽全局同名定义），
+            # 找不到才回退到模块级函数 / 类 __init__ 的全局匹配。
+            cands = []
+            local = local_defs_by_file.get(rel, {})
+            for depth in range(len(scope), 0, -1):
+                prefix = scope[:depth]
+                hits = [p for path, p in local.get(name, []) if path == prefix + (name,)]
+                if hits:
+                    cands = hits
+                    break
+            if not cands:
+                cands = list(functions_by_name.get(name, []))
+                cands += [i['init'] for i in classes.get(name, []) if i['init']]
         elif kind == 'super':
             cands = []
             for info in classes.get(cls, []):
