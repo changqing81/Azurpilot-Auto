@@ -378,7 +378,7 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
                 return item['name']
         return None
 
-    def decided_lists(self, post_button, post_id, category, time_var_name):
+    def decided_lists(self, post_button, post_id, category, time_var_name) -> bool:
         """
         检查指定岗位的状态并更新相关列表。
 
@@ -392,9 +392,19 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
             post_id (str): 岗位标识，如 'ISLAND_FARM_POST1'。
             category (str): 区域类型，'farm'、'orchard' 或 'nursery'。
             time_var_name (str): 对应的时间变量名，用于存储完成时间。
+
+        Returns:
+            bool: 成功打开岗位时为 True；岗位尚未解锁时为 False。
         """
         self.post_close()
-        self.post_open(post_button)
+        if not self.post_open(post_button):
+            self.posts[post_id]['crop'] = None
+            setattr(self, time_var_name, None)
+            post_index = int(post_id[-1]) - 1
+            if category in self.time_vars and post_index < len(self.time_vars[category]):
+                self.time_vars[category][post_index] = None
+            logger.info(f"[岛屿-农田] {post_id}: 岗位未解锁，跳过")
+            return False
         self.device.screenshot()
         if self.appear(ISLAND_WORK_COMPLETE, offset=1):
             self.posts[post_id]['crop'] = None
@@ -415,6 +425,7 @@ class IslandFarm(Island, WarehouseOCR, LoginHandler):
             self.posts[post_id]['crop'] = None
             setattr(self, time_var_name, None)
         self.post_get_and_close()
+        return True
 
     def get_orchard_character_filter(self, product):
         """根据小天城橡胶树开关生成果园派遣角色优先级。"""
