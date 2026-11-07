@@ -7951,6 +7951,8 @@
       "CommissionGemDurationHour": "{hour} 小时",
       "CommissionGemExpect": "奖励 {low}~{high}",
       "CommissionGemRowTotal": "合计",
+      "CommissionGemRowAllTime": "历史累计",
+      "CommissionGemAllTimeScope": "全部月份",
       "CommissionGemNoData": "所选时段没有钻石委托记录，委托结算后自动更新",
       "DeltaPeriodDay": "日",
       "DeltaPeriodWeek": "周",

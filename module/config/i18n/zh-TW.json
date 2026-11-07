@@ -7951,6 +7951,8 @@
       "CommissionGemDurationHour": "{hour} 小時",
       "CommissionGemExpect": "獎勵 {low}~{high}",
       "CommissionGemRowTotal": "合計",
+      "CommissionGemRowAllTime": "歷史累計",
+      "CommissionGemAllTimeScope": "全部月份",
       "CommissionGemNoData": "所選時段沒有鑽石委託記錄，委託結算後自動更新",
       "DeltaPeriodDay": "日",
       "DeltaPeriodWeek": "週",

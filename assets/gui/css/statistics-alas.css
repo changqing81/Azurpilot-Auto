@@ -1770,3 +1770,30 @@
     opacity: .5;
     margin-top: 10px;
 }
+
+/* 历史累计行：全月份汇总，跟上面「合计」（当前口径）区分开 ——
+   虚线分隔 + 极淡钻石底色，一眼看出这是另一套口径 */
+#pywebio-scope-statistics-content .commission-gem-table tbody tr.gem-row-alltime td {
+    border-top: 1px dashed rgba(128, 128, 128, .3);
+    background: rgba(255, 71, 87, .06);
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-alltime-label {
+    padding: 9px 8px;
+    line-height: 1.25;
+}
+
+/* 「全部月份」小字：说明这一行的统计范围，不靠用户猜 */
+#pywebio-scope-statistics-content .commission-gem-table .gem-alltime-sub {
+    display: block;
+    margin-top: 1px;
+    font-size: .7rem;
+    font-weight: 400;
+    opacity: .55;
+}
+
+/* 累计钻石数：整块里用户最关心的就是这一个数，给钻石红 */
+#pywebio-scope-statistics-content .commission-gem-table .gem-reward-strong {
+    color: #ff4757;
+}

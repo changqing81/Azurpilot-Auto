@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 """委托统计页的钻石委托成功率区块（跟随今日/本周/本月口径）。
 
-覆盖四块：
+覆盖五块：
 1. 聚合纯函数：三档口径的边界（今日 / 本周跨月 / 历史月）、脏条目、成功率；
 2. 数据层：一次读盘返回三档，与旧的单档接口结果一致；传入月数据可免读库；
-3. 视图层：只显示当前口径、一个数字一格、💎 不出现、样式走 CSS 类；
-4. 真实中文文案渲染：i18n 键缺失或被生成器重置时立即失败。
+3. 历史累计（全部月份）：跨月求和、脏条目与其它实例不计入、空库给零桶；
+4. 视图层：只显示当前口径、一个数字一格、💎 不出现、样式走 CSS 类；
+5. 真实中文文案渲染：i18n 键缺失或被生成器重置时立即失败。
 """
 import re
 import tempfile
@@ -269,6 +270,120 @@ class GemBlockHtmlTest(unittest.TestCase):
         self.assertIn("&#8212;", html)
 
 
+class GemTotalsDbTest(unittest.TestCase):
+    """数据层：历史累计跨全部月份，不受口径与所选年月影响。"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.database = Cl1Database(db_path=Path(self._tmp.name) / "cl1.sqlite3")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _write_month(self, month_key, entries):
+        data = self.database.get_stats("alas", month_key)
+        data["gem_commission_entries"] = entries
+        self.database.save_stats("alas", month_key, data)
+
+    def test_sums_across_every_month(self):
+        self._write_month(
+            "2026-09",
+            [_entry("2026-09-03T18:41:36", 2, 0), _entry("2026-09-04T18:41:36", 4, 34)],
+        )
+        self._write_month("2026-10", [_entry("2026-10-01T08:04:57", 2, 20)])
+        self._write_month("2026-11", [_entry("2026-11-01T04:39:54", 8, 60)])
+        totals = self.database.get_gem_commission_totals("alas")
+        self.assertEqual(totals[2], _bucket(2, 1, 20))
+        self.assertEqual(totals[4], _bucket(1, 1, 34))
+        self.assertEqual(totals[8], _bucket(1, 1, 60))
+
+    def test_dirty_entries_are_skipped(self):
+        self._write_month(
+            "2026-11",
+            [
+                {"duration": 2, "reward": 10},          # 缺 ts
+                _entry("not-a-time", 2, 10),            # ts 不像 ISO 时间
+                _entry("2026-11-04T09:00:00", 3, 10),   # 非法时长
+                _entry("2026-11-04T09:00:00", 2, 12),
+            ],
+        )
+        totals = self.database.get_gem_commission_totals("alas")
+        # 只统计 ts 形如 ISO 时间且时长属于 2/4/8 的条目
+        self.assertEqual(totals[2]["count"], 1)
+        self.assertEqual(totals[2]["reward"], 12)
+        self.assertEqual(totals[4]["count"], 0)
+        self.assertEqual(totals[8]["count"], 0)
+
+    def test_other_instance_is_not_mixed_in(self):
+        data = self.database.get_stats("其他实例", "2026-11")
+        data["gem_commission_entries"] = [_entry("2026-11-01T09:00:00", 2, 99)]
+        self.database.save_stats("其他实例", "2026-11", data)
+        self._write_month("2026-11", [_entry("2026-11-02T09:00:00", 2, 10)])
+        totals = self.database.get_gem_commission_totals("alas")
+        self.assertEqual(totals[2], _bucket(1, 1, 10))
+
+    def test_empty_database_gives_zero_buckets(self):
+        totals = self.database.get_gem_commission_totals("alas")
+        for hour in (2, 4, 8):
+            self.assertEqual(totals[hour], _bucket(0, 0, 0))
+
+
+class GemAllTimeRowHtmlTest(unittest.TestCase):
+    """视图层：历史累计行 = 全部月份，且不随上方口径变化。"""
+
+    TOTALS = {2: _bucket(254, 82, 1252), 4: _bucket(96, 19, 595), 8: _bucket(24, 6, 391)}
+
+    def _build(self, gem_stats, gem_totals, period="month"):
+        harness = CommissionGemStatisticsMixin.__new__(CommissionGemStatisticsMixin)
+        with patch(
+            "module.webui.app_stat_commission_gem.t", side_effect=lambda key, **kw: key
+        ):
+            return harness._build_commission_gem_html(
+                {
+                    "gem_stats": gem_stats,
+                    "gem_totals": gem_totals,
+                    "period": period,
+                    "is_current_month": True,
+                    "month_suffix": "",
+                }
+            )
+
+    def test_alltime_row_shows_cross_month_sums(self):
+        html = self._build(_sample_stats(), self.TOTALS)
+        self.assertIn("gem-row-alltime", html)
+        self.assertIn("Gui.Stat.CommissionGemRowAllTime", html)
+        self.assertIn("Gui.Stat.CommissionGemAllTimeScope", html)
+        # 374 次 / 107 成功 / 2238 钻石 / 28.6%
+        self.assertIn(">374</td>", html)
+        self.assertIn(">107</td>", html)
+        self.assertIn(">2238</td>", html)
+        self.assertIn("28.6%", html)
+        # 钻石数用类名强调，不靠内联样式
+        self.assertIn("gem-reward-strong", html)
+
+    def test_alltime_row_ignores_selected_period(self):
+        """今日口径下累计行仍是全部月份的数 —— 这就是「总成功率」的意义。"""
+        html = self._build(_sample_stats(), self.TOTALS, period="day")
+        self.assertIn("gem-row-alltime", html)
+        self.assertIn(">2238</td>", html)
+
+    def test_alltime_row_absent_without_totals(self):
+        for totals in (None, {}, {2: _bucket(0, 0, 0), 4: _bucket(0, 0, 0), 8: _bucket(0, 0, 0)}):
+            html = self._build(_sample_stats(), totals)
+            self.assertNotIn("gem-row-alltime", html, totals)
+
+    def test_alltime_row_keeps_five_columns(self):
+        html = self._build(_sample_stats(), self.TOTALS)
+        # 表头仍是 5 列；数据行 = 3 档 + 合计 + 历史累计
+        self.assertEqual(html.count("<th "), 5)
+        self.assertEqual(html.count("<tr"), 6)
+
+    def test_styles_stay_in_css_classes(self):
+        html = self._build(_sample_stats(), self.TOTALS)
+        for bad in ("color:", "background:", "font-size:"):
+            self.assertNotIn(bad, html, bad)
+
+
 class GemBlockRealI18nTest(unittest.TestCase):
     """真实中文文案：键缺失或被生成器重置成 key 时这里会挂。"""
 
@@ -293,12 +408,16 @@ class GemBlockRealI18nTest(unittest.TestCase):
         html = harness._build_commission_gem_html(
             {
                 "gem_stats": _sample_stats(),
+                "gem_totals": GemAllTimeRowHtmlTest.TOTALS,
                 "period": "month",
                 "is_current_month": True,
                 "month_suffix": "",
             }
         )
-        for label in ("钻石委托成功率", "委托时长", "成功率", "成功次数", "委托次数", "获得钻石", "合计", "本月"):
+        for label in (
+            "钻石委托成功率", "委托时长", "成功率", "成功次数", "委托次数",
+            "获得钻石", "合计", "本月", "历史累计", "全部月份",
+        ):
             self.assertIn(label, html, f"文案缺失: {label}")
         self.assertNotIn("Gui.Stat.CommissionGem", html)
         self.assertNotIn("U0001F48E", html)

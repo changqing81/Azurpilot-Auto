@@ -225,6 +225,8 @@ class CommissionIncomeStatisticsMixin(CommissionGemStatisticsMixin):
             "gem_stats": self._load_gem_commission_stats(
                 instance_name, year, month, month_data=month_data
             ),
+            # 历史累计：全部月份汇总，与所选年月 / 口径无关
+            "gem_totals": self._load_gem_commission_totals(instance_name),
         }
 
     def _build_commission_income_html(self, income_data):

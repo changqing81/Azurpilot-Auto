@@ -1839,6 +1839,63 @@ class Cl1Database:
         )
         return stats[period]
 
+    def get_gem_commission_totals(self, instance: str) -> Optional[Dict[int, Dict[str, Any]]]:
+        """累计（全部月份）钻石委托统计，供统计页「历史累计」行使用。
+
+        与按口径统计的区别：不锚定今日 / 本周 / 本月，也不看页面选中的年月，
+        而是把 cl1_data 里该实例所有月份的结算记录一起算 —— 用户真正关心的是
+        「到目前这一共委托了多少次、成功多少次、拿到多少钻石」。
+
+        用 SQLite 的 json_each 在库内聚合，只回传 2/4/8 三行结果：逐月反序列化
+        整包 JSON（单月最高 2.3MB，本机 6 个月合计约 90ms）在这里没有必要。
+        子查询里的 json_valid 先把坏行挡掉，避免一行脏 JSON 拖垮整个查询。
+
+        Args:
+            instance: 实例名称
+
+        Returns:
+            {2: {"count": N, "success": N, "reward": N, "rate": 0.0}, 4: {...}, 8: {...}}；
+            duration 不是 2 / 4 / 8 或 ts 形状不像 ISO 时间的脏条目不计入（与
+            按口径统计的脏数据处理保持一致）。查询失败返回 None，
+            由视图层跳过累计行，不影响三档表的渲染。
+        """
+        totals = {
+            hour: {"count": 0, "success": 0, "reward": 0, "rate": 0.0}
+            for hour in (2, 4, 8)
+        }
+        sql = """
+            SELECT CAST(json_extract(e.value, '$.duration') AS INTEGER) AS duration,
+                   COUNT(*) AS total_count,
+                   SUM(CASE WHEN CAST(json_extract(e.value, '$.reward') AS INTEGER) > 0
+                            THEN 1 ELSE 0 END) AS success_count,
+                   SUM(CAST(json_extract(e.value, '$.reward') AS INTEGER)) AS reward_sum
+            FROM (
+                SELECT data_json FROM cl1_data
+                WHERE instance = ? AND json_valid(data_json)
+            ) AS c, json_each(c.data_json, '$.gem_commission_entries') AS e
+            WHERE json_extract(e.value, '$.ts') LIKE '____-__-__T__:__:%'
+              AND CAST(json_extract(e.value, '$.duration') AS INTEGER) IN (2, 4, 8)
+            GROUP BY duration
+        """
+        try:
+            with closing(sqlite3.connect(self.db_path)) as conn:
+                rows = conn.execute(sql, (instance,)).fetchall()
+        except Exception as e:
+            logger.warning(f"[Statistics] 读取钻石委托累计统计失败 {instance}: {e}")
+            return None
+
+        for duration, count, success, reward in rows:
+            item = totals.get(int(duration))
+            if item is None:
+                continue
+            item["count"] = int(count or 0)
+            item["success"] = int(success or 0)
+            item["reward"] = int(reward or 0)
+            item["rate"] = (
+                round(item["success"] * 100 / item["count"], 1) if item["count"] else 0.0
+            )
+        return totals
+
     # ========== 钻石委托运行列表持久化 ==========
 
     def save_running_gem_commissions(

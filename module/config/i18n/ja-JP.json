@@ -7951,6 +7951,8 @@
       "CommissionGemDurationHour": "{hour} 時間",
       "CommissionGemExpect": "報酬 {low}~{high}",
       "CommissionGemRowTotal": "合計",
+      "CommissionGemRowAllTime": "全期間累計",
+      "CommissionGemAllTimeScope": "全期間",
       "CommissionGemNoData": "この期間のダイヤ委託記録はありません。委託精算後に自動更新されます",
       "DeltaPeriodDay": "日",
       "DeltaPeriodWeek": "週",

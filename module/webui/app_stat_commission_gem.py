@@ -7,6 +7,11 @@
 
 刻意不复用推送文案的排版：推送是竖排文字，界面里用表格 + 进度条才看得懂
 三档之间的差异。
+
+表格底部两行都是「合计」，但口径不同：
+- 「合计」= 当前所选口径（今日 / 本周 / 本月）下三档相加；
+- 「历史累计」= 库里全部月份的汇总，不随口径与所选年月变化，
+  用来回答「到现在一共委托了多少次、成功多少、拿到多少钻石」。
 """
 
 from module.webui.app_dependencies import logger, t
@@ -84,6 +89,25 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
             logger.warning(f"[WebUI-统计] 钻石委托统计读取失败: {e}")
             return None
 
+    def _load_gem_commission_totals(self, instance_name):
+        """读取全部月份的钻石委托累计统计（历史累计行用）。
+
+        只读不写，聚合在数据库侧完成（见 Cl1Database.get_gem_commission_totals）。
+
+        Args:
+            instance_name: 实例名称
+
+        Returns:
+            dict: {2/4/8: 桶}；查询失败返回 None，由渲染层跳过累计行。
+        """
+        from module.statistics.cl1_database import db as cl1_db
+
+        try:
+            return cl1_db.get_gem_commission_totals(instance_name)
+        except Exception as e:
+            logger.warning(f"[WebUI-统计] 钻石委托累计统计读取失败: {e}")
+            return None
+
     def _build_commission_gem_html(self, income_data) -> str:
         """构造钻石委托成功率区块的 HTML。
 
@@ -112,6 +136,10 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
         period = income_data.get("period", "month")
         bucket_key = _GEM_PERIOD_BUCKETS.get(period, "month")
         bucket = stats.get(bucket_key) if isinstance(stats.get(bucket_key), dict) else {}
+        # 累计行与口径无关：读不到就当没有，三档表照常渲染
+        totals = income_data.get("gem_totals")
+        if not isinstance(totals, dict):
+            totals = {}
 
         html = (
             '<div class="commission-gem-section" style="width: 100% !important; '
@@ -120,7 +148,7 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
         # 与上方收益表格之间的分隔线
         html += '<div class="gem-divider"></div>'
         html += self._build_gem_header_html(income_data.get("month_suffix", ""), bucket_key)
-        html += self._build_gem_table_html(bucket)
+        html += self._build_gem_table_html(bucket, totals)
 
         # 该口径下没有任何结算记录时给一句提示，避免用户对着满屏「—」猜
         if not _gem_has_data(bucket):
@@ -144,8 +172,13 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
             + '<div class="gem-hint">' + t("Gui.Stat.CommissionGemHint") + "</div>"
         )
 
-    def _build_gem_table_html(self, bucket: dict) -> str:
-        """五列表格：委托时长 / 成功率 / 成功次数 / 委托次数 / 获得钻石。"""
+    def _build_gem_table_html(self, bucket: dict, totals=None) -> str:
+        """五列表格：委托时长 / 成功率 / 成功次数 / 委托次数 / 获得钻石。
+
+        Args:
+            bucket: 当前口径下的 {2/4/8: 桶}
+            totals: 全部月份的累计桶；为空时不追加「历史累计」行
+        """
         html = (
             '<div class="gem-scroll">'
             '<table class="commission-income-table commission-gem-table">'
@@ -175,14 +208,39 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
         html += '<td class="gem-duration-cell gem-total-label">' + t("Gui.Stat.CommissionGemRowTotal") + "</td>"
         html += self._build_gem_value_cells(total)
         html += "</tr>"
+        # 历史累计：全部月份，不随口径/年月变化
+        if _gem_has_data(totals):
+            html += self._build_gem_alltime_row_html(totals)
         return html + "</tbody></table></div>"
 
+    def _build_gem_alltime_row_html(self, totals: dict) -> str:
+        """「历史累计」行：全部月份汇总，钻石数用钻石色点出来。"""
+        total = _sum_gem_bucket(totals)
+        return (
+            '<tr class="gem-row gem-row-alltime">'
+            '<td class="gem-duration-cell gem-alltime-label">'
+            + t("Gui.Stat.CommissionGemRowAllTime")
+            + '<span class="gem-alltime-sub">'
+            + t("Gui.Stat.CommissionGemAllTimeScope")
+            + "</span></td>"
+            + self._build_gem_value_cells(total, alltime=True)
+            + "</tr>"
+        )
+
     @staticmethod
-    def _build_gem_value_cells(bucket) -> str:
-        """四格数据：成功率 / 成功次数 / 委托次数 / 获得钻石。"""
+    def _build_gem_value_cells(bucket, alltime: bool = False) -> str:
+        """四格数据：成功率 / 成功次数 / 委托次数 / 获得钻石。
+
+        Args:
+            bucket: 统计桶
+            alltime: 累计行传 True，钻石数额外用钻石色强调（用户最关心的就是它）
+        """
         html = '<td class="gem-rate-cell">' + _build_gem_rate_html(bucket) + "</td>"
         for field in ("success", "count", "reward"):
-            html += '<td class="gem-num-cell">' + _build_gem_number_html(bucket, field) + "</td>"
+            classes = "gem-num-cell"
+            if alltime and field == "reward":
+                classes += " gem-reward-strong"
+            html += f'<td class="{classes}">' + _build_gem_number_html(bucket, field) + "</td>"
         return html
 
 

@@ -929,6 +929,8 @@ Stat:
   CommissionGemDurationHour:
   CommissionGemExpect:
   CommissionGemRowTotal:
+  CommissionGemRowAllTime:
+  CommissionGemAllTimeScope:
   CommissionGemNoData:
   DeltaPeriodDay:
   DeltaPeriodWeek:

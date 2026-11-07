@@ -7951,6 +7951,8 @@
       "CommissionGemDurationHour": "{hour} h",
       "CommissionGemExpect": "Reward {low}-{high}",
       "CommissionGemRowTotal": "Total",
+      "CommissionGemRowAllTime": "All-time",
+      "CommissionGemAllTimeScope": "All months",
       "CommissionGemNoData": "No gem commission recorded in this range. It updates automatically after settlement.",
       "DeltaPeriodDay": "Day",
       "DeltaPeriodWeek": "Week",
