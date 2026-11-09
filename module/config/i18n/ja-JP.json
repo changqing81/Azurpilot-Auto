@@ -4215,7 +4215,9 @@
       "avocado": "アボカド",
       "rubber": "ゴム",
       "pear": "宵月梨",
-      "persimmon": "柿"
+      "persimmon": "柿",
+      "sugar_tangerine": "砂糖橘",
+      "green_jujube": "青棗"
     },
     "PlantRubber": {
       "name": "ゴムを植える",
@@ -4522,7 +4524,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber1": {
       "name": "メニュー1数量",
@@ -4545,7 +4549,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber2": {
       "name": "メニュー2数量",
@@ -4568,7 +4574,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber3": {
       "name": "メニュー3数量",
@@ -4591,7 +4599,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber4": {
       "name": "メニュー4数量",
@@ -4614,7 +4624,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber5": {
       "name": "メニュー5数量",
@@ -4637,7 +4649,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber6": {
       "name": "メニュー6数量",
@@ -4660,7 +4674,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber7": {
       "name": "メニュー7数量",
@@ -4683,7 +4699,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "MealNumber8": {
       "name": "メニュー8数量",
@@ -4712,7 +4730,9 @@
       "fo_tiao": "仏跳牆",
       "onion_fish": "玉ねぎ蒸し魚",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     }
   },
   "IslandTeahouse": {
@@ -5125,7 +5145,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber1": {
       "name": "メニュー1数量",
@@ -5144,7 +5166,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber2": {
       "name": "メニュー2数量",
@@ -5163,7 +5187,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber3": {
       "name": "メニュー3数量",
@@ -5182,7 +5208,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber4": {
       "name": "メニュー4数量",
@@ -5201,7 +5229,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber5": {
       "name": "メニュー5数量",
@@ -5220,7 +5250,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber6": {
       "name": "メニュー6数量",
@@ -5239,7 +5271,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber7": {
       "name": "メニュー7数量",
@@ -5258,7 +5292,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber8": {
       "name": "メニュー8数量",
@@ -5283,7 +5319,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     }
   },
   "IslandJuuCoffee": {
@@ -5685,7 +5723,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5725,7 +5768,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Product1": {
       "name": "メニュー1",
@@ -5738,7 +5786,9 @@
       "fo_tiao": "仏跳牆",
       "amaranth_rice_ball": "アマランスおにぎり",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "Product2": {
       "name": "メニュー2",
@@ -5751,7 +5801,9 @@
       "fo_tiao": "仏跳牆",
       "amaranth_rice_ball": "アマランスおにぎり",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "Product3": {
       "name": "メニュー3",
@@ -5764,7 +5816,9 @@
       "fo_tiao": "仏跳牆",
       "amaranth_rice_ball": "アマランスおにぎり",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "Product4": {
       "name": "メニュー4",
@@ -5777,7 +5831,9 @@
       "fo_tiao": "仏跳牆",
       "amaranth_rice_ball": "アマランスおにぎり",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "Product5": {
       "name": "メニュー5",
@@ -5790,7 +5846,9 @@
       "fo_tiao": "仏跳牆",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "SeasonalFallback": {
       "name": "季節代替メニュー",
@@ -5803,7 +5861,9 @@
       "fo_tiao": "佛跳牆",
       "amaranth_rice_ball": "莧菜飯糰",
       "matsutake_chicken_soup": "松茸チキンスープ",
-      "persimmon_cake": "柿のケーキ"
+      "persimmon_cake": "柿のケーキ",
+      "shiitake_chicken_soup": "椎茸チキンスープ",
+      "green_jujube_porridge": "青棗のお粥"
     },
     "BoostReplaceFilter": {
       "name": "ブースト置き換えフィルター",
@@ -5853,7 +5913,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -5893,7 +5958,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Product1": {
       "name": "メニュー1",
@@ -6033,7 +6103,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -6073,7 +6148,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Product1": {
       "name": "メニュー1",
@@ -6083,7 +6163,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product2": {
       "name": "メニュー2",
@@ -6093,7 +6175,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product3": {
       "name": "メニュー3",
@@ -6103,7 +6187,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product4": {
       "name": "メニュー4",
@@ -6113,7 +6199,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product5": {
       "name": "メニュー5",
@@ -6123,7 +6211,9 @@
       "succulently_sweet": "スイートコンボ",
       "berry_orange": "ベリーオレンジデザートセット",
       "strawberry_charlotte": "シャーロット",
-      "seafood_rice": "シーフードライス"
+      "seafood_rice": "シーフードライス",
+      "water_chestnut_cake": "馬蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "BoostReplaceFilter": {
       "name": "ブースト置き換えフィルター",
@@ -6173,7 +6263,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -6213,7 +6308,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Product1": {
       "name": "商品1",
@@ -6318,7 +6418,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Char2": {
       "name": "キャラクター2",
@@ -6358,7 +6463,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "RoyalFortune",
       "DaVinci": "DaVinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "長門",
+      "Agir": "エーギル",
+      "HwahJah": "華甲",
+      "Argus": "アーガス",
+      "Ognevoy": "オグネヴォイ"
     },
     "Product1": {
       "name": "商品1",

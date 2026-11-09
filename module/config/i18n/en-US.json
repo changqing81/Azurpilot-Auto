@@ -4215,7 +4215,9 @@
       "avocado": "Avocado",
       "rubber": "Rubber",
       "pear": "Yoizuki Pear",
-      "persimmon": "Kaki Persimmon"
+      "persimmon": "Kaki Persimmon",
+      "sugar_tangerine": "Sugar Tangerine",
+      "green_jujube": "Green Jujube"
     },
     "PlantRubber": {
       "name": "Plant Rubber",
@@ -4522,7 +4524,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber1": {
       "name": "Meal 1 Quantity",
@@ -4545,7 +4549,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber2": {
       "name": "Meal 2 Quantity",
@@ -4568,7 +4574,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber3": {
       "name": "Meal 3 Quantity",
@@ -4591,7 +4599,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber4": {
       "name": "Meal 4 Quantity",
@@ -4614,7 +4624,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber5": {
       "name": "Meal 5 Quantity",
@@ -4637,7 +4649,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber6": {
       "name": "Meal 6 Quantity",
@@ -4660,7 +4674,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber7": {
       "name": "Meal 7 Quantity",
@@ -4683,7 +4699,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "MealNumber8": {
       "name": "Meal 8 Quantity",
@@ -4712,7 +4730,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "onion_fish": "Steamed Onion Fish",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     }
   },
   "IslandTeahouse": {
@@ -5125,7 +5145,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber1": {
       "name": "Meal 1 Quantity",
@@ -5144,7 +5166,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber2": {
       "name": "Meal 2 Quantity",
@@ -5163,7 +5187,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber3": {
       "name": "Meal 3 Quantity",
@@ -5182,7 +5208,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber4": {
       "name": "Meal 4 Quantity",
@@ -5201,7 +5229,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber5": {
       "name": "Meal 5 Quantity",
@@ -5220,7 +5250,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber6": {
       "name": "Meal 6 Quantity",
@@ -5239,7 +5271,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber7": {
       "name": "Meal 7 Quantity",
@@ -5258,7 +5292,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "MealNumber8": {
       "name": "Meal 8 Quantity",
@@ -5283,7 +5319,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     }
   },
   "IslandJuuCoffee": {
@@ -5685,7 +5723,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Char2": {
       "name": "Character 2",
@@ -5725,7 +5768,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Product1": {
       "name": "Product 1",
@@ -5738,7 +5786,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "amaranth_rice_ball": "Amaranth Rice Ball",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "Product2": {
       "name": "Product 2",
@@ -5751,7 +5801,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "amaranth_rice_ball": "Amaranth Rice Ball",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "Product3": {
       "name": "Product 3",
@@ -5764,7 +5816,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "amaranth_rice_ball": "Amaranth Rice Ball",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "Product4": {
       "name": "Product 4",
@@ -5777,7 +5831,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "amaranth_rice_ball": "Amaranth Rice Ball",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "Product5": {
       "name": "Product 5",
@@ -5790,7 +5846,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "amaranth_rice_ball": "Amaranth Rice Ball",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "SeasonalFallback": {
       "name": "Seasonal Fallback",
@@ -5803,7 +5861,9 @@
       "fo_tiao": "Buddha Jumps Over the Wall",
       "amaranth_rice_ball": "Amaranth Rice Ball",
       "matsutake_chicken_soup": "Matsutake Chicken Soup",
-      "persimmon_cake": "Persimmon Cake"
+      "persimmon_cake": "Persimmon Cake",
+      "shiitake_chicken_soup": "Shiitake Chicken Soup",
+      "green_jujube_porridge": "Green Jujube Porridge"
     },
     "BoostReplaceFilter": {
       "name": "Boost Replace Filter",
@@ -5853,7 +5913,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Char2": {
       "name": "Character 2",
@@ -5893,7 +5958,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Product1": {
       "name": "Product 1",
@@ -6033,7 +6103,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Char2": {
       "name": "Character 2",
@@ -6073,7 +6148,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Product1": {
       "name": "Product 1",
@@ -6083,7 +6163,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "Product2": {
       "name": "Product 2",
@@ -6093,7 +6175,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "Product3": {
       "name": "Product 3",
@@ -6103,7 +6187,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "Product4": {
       "name": "Product 4",
@@ -6113,7 +6199,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "Product5": {
       "name": "Product 5",
@@ -6123,7 +6211,9 @@
       "succulently_sweet": "Sweet Combo",
       "berry_orange": "Berry Orange Dessert Set",
       "strawberry_charlotte": "Strawberry Charlotte",
-      "seafood_rice": "Seafood Rice"
+      "seafood_rice": "Seafood Rice",
+      "water_chestnut_cake": "Water Chestnut Cake",
+      "sugar_tangerine_daifuku": "Sugar Tangerine Daifuku"
     },
     "BoostReplaceFilter": {
       "name": "Boost Replace Filter",
@@ -6173,7 +6263,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Char2": {
       "name": "Character 2",
@@ -6213,7 +6308,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Product1": {
       "name": "Product 1",
@@ -6318,7 +6418,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Char2": {
       "name": "Character 2",
@@ -6358,7 +6463,12 @@
       "Mogador": "Mogador",
       "RoyalFortune": "Royal Fortune",
       "DaVinci": "Da Vinci",
-      "Taihou": "Taihou"
+      "Taihou": "Taihou",
+      "Nagato": "Nagato",
+      "Agir": "Agir",
+      "HwahJah": "Hwah Jah",
+      "Argus": "Argus",
+      "Ognevoy": "Ognevoy"
     },
     "Product1": {
       "name": "Product 1",

@@ -4215,7 +4215,9 @@
       "avocado": "牛油果",
       "rubber": "橡胶",
       "pear": "秋月梨",
-      "persimmon": "柿子"
+      "persimmon": "柿子",
+      "sugar_tangerine": "砂糖橘",
+      "green_jujube": "青枣"
     },
     "PlantRubber": {
       "name": "种橡胶",
@@ -4522,7 +4524,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber1": {
       "name": "餐品1数量",
@@ -4545,7 +4549,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber2": {
       "name": "餐品2数量",
@@ -4568,7 +4574,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber3": {
       "name": "餐品3数量",
@@ -4591,7 +4599,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber4": {
       "name": "餐品4数量",
@@ -4614,7 +4624,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber5": {
       "name": "餐品5数量",
@@ -4637,7 +4649,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber6": {
       "name": "餐品6数量",
@@ -4660,7 +4674,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber7": {
       "name": "餐品7数量",
@@ -4683,7 +4699,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "MealNumber8": {
       "name": "餐品8数量",
@@ -4712,7 +4730,9 @@
       "fo_tiao": "佛跳墙",
       "onion_fish": "洋葱蒸鱼",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     }
   },
   "IslandTeahouse": {
@@ -5125,7 +5145,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber1": {
       "name": "餐品1数量",
@@ -5144,7 +5166,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber2": {
       "name": "餐品2数量",
@@ -5163,7 +5187,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber3": {
       "name": "餐品3数量",
@@ -5182,7 +5208,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber4": {
       "name": "餐品4数量",
@@ -5201,7 +5229,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber5": {
       "name": "餐品5数量",
@@ -5220,7 +5250,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber6": {
       "name": "餐品6数量",
@@ -5239,7 +5271,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber7": {
       "name": "餐品7数量",
@@ -5258,7 +5292,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "MealNumber8": {
       "name": "餐品8数量",
@@ -5283,7 +5319,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     }
   },
   "IslandJuuCoffee": {
@@ -5685,7 +5723,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Char2": {
       "name": "角色2",
@@ -5725,7 +5768,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Product1": {
       "name": "餐品1",
@@ -5738,7 +5786,9 @@
       "fo_tiao": "佛跳墙",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "Product2": {
       "name": "餐品2",
@@ -5751,7 +5801,9 @@
       "fo_tiao": "佛跳墙",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "Product3": {
       "name": "餐品3",
@@ -5764,7 +5816,9 @@
       "fo_tiao": "佛跳墙",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "Product4": {
       "name": "餐品4",
@@ -5777,7 +5831,9 @@
       "fo_tiao": "佛跳墙",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "Product5": {
       "name": "餐品5",
@@ -5790,7 +5846,9 @@
       "fo_tiao": "佛跳墙",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "SeasonalFallback": {
       "name": "季节餐品备用餐品",
@@ -5803,7 +5861,9 @@
       "fo_tiao": "佛跳墙",
       "amaranth_rice_ball": "苋菜饭团",
       "matsutake_chicken_soup": "松茸鸡汤",
-      "persimmon_cake": "柿子饼"
+      "persimmon_cake": "柿子饼",
+      "shiitake_chicken_soup": "冬菇炖鸡",
+      "green_jujube_porridge": "青枣粥"
     },
     "BoostReplaceFilter": {
       "name": "有鱼餐馆加成替换过滤",
@@ -5853,7 +5913,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Char2": {
       "name": "角色2",
@@ -5893,7 +5958,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Product1": {
       "name": "餐品1",
@@ -6033,7 +6103,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Char2": {
       "name": "角色2",
@@ -6073,7 +6148,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Product1": {
       "name": "餐品1",
@@ -6083,7 +6163,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product2": {
       "name": "餐品2",
@@ -6093,7 +6175,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product3": {
       "name": "餐品3",
@@ -6103,7 +6187,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product4": {
       "name": "餐品4",
@@ -6113,7 +6199,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "Product5": {
       "name": "餐品5",
@@ -6123,7 +6211,9 @@
       "succulently_sweet": "香甜组合",
       "berry_orange": "莓果香橙甜点组",
       "strawberry_charlotte": "草莓夏洛特",
-      "seafood_rice": "海鲜饭"
+      "seafood_rice": "海鲜饭",
+      "water_chestnut_cake": "马蹄糕",
+      "sugar_tangerine_daifuku": "砂糖橘大福"
     },
     "BoostReplaceFilter": {
       "name": "啾啾简餐加成替换过滤",
@@ -6173,7 +6263,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Char2": {
       "name": "角色2",
@@ -6213,7 +6308,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Product1": {
       "name": "餐品1",
@@ -6318,7 +6418,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Char2": {
       "name": "角色2",
@@ -6358,7 +6463,12 @@
       "Mogador": "莫加多尔",
       "RoyalFortune": "皇家财富号",
       "DaVinci": "达芬奇",
-      "Taihou": "大凤"
+      "Taihou": "大凤",
+      "Nagato": "长门",
+      "Agir": "埃吉尔",
+      "HwahJah": "华甲",
+      "Argus": "百眼巨人",
+      "Ognevoy": "火力"
     },
     "Product1": {
       "name": "餐品1",
