@@ -4343,6 +4343,18 @@
       "name": "Shell Stock Threshold",
       "help": ""
     },
+    "MinCatfish": {
+      "name": "IslandFishery.MinCatfish.name",
+      "help": "IslandFishery.MinCatfish.help"
+    },
+    "MinKoiCarp": {
+      "name": "Koi carp stock threshold",
+      "help": ""
+    },
+    "MinCommonCarp": {
+      "name": "IslandFishery.MinCommonCarp.name",
+      "help": "IslandFishery.MinCommonCarp.help"
+    },
     "MinShrimp": {
       "name": "Shrimp Stock Threshold",
       "help": ""
@@ -4361,10 +4373,6 @@
     },
     "MinSeaCucumber": {
       "name": "Sea Cucumber Stock Threshold",
-      "help": ""
-    },
-    "MinKoiCarp": {
-      "name": "Koi carp stock threshold",
       "help": ""
     },
     "MinMackerel": {
@@ -4386,6 +4394,25 @@
       "1": "1",
       "2": "2",
       "3": "3"
+    },
+    "DefaultFish": {
+      "name": "IslandFishery.DefaultFish.name",
+      "help": "IslandFishery.DefaultFish.help",
+      "shell": "Shellfish",
+      "catfish": "Catfish",
+      "koi_carp": "Koi Carp",
+      "common_carp": "Common Carp",
+      "shrimp": "Freshwater Shrimp",
+      "crayfish": "Crayfish",
+      "bass": "Sea Bass",
+      "crab": "Crab",
+      "squid": "Squid",
+      "mackerel": "Mackerel",
+      "tuna": "Tuna",
+      "salmon": "Salmon",
+      "red_sea_bream": "Red Sea Bream",
+      "yellowfin_tuna": "Yellowfin Tuna",
+      "sea_cucumber": "Sea Cucumber"
     },
     "RancherFilter": {
       "name": "Character Filter",
@@ -4413,6 +4440,15 @@
       "2": "2",
       "3": "3",
       "4": "+4%"
+    },
+    "DefaultOre": {
+      "name": "IslandMine.DefaultOre.name",
+      "help": "IslandMine.DefaultOre.help",
+      "Copper": "Copper Ore",
+      "Aluminium": "Bauxite Ore",
+      "Iron": "Iron Ore",
+      "Sulphur": "Sulfur",
+      "Silver": "Silver Ore"
     },
     "WorkerFilter": {
       "name": "Mine Worker Filter",
@@ -4460,6 +4496,13 @@
       "2": "2",
       "3": "3",
       "4": "+4%"
+    },
+    "DefaultWood": {
+      "name": "IslandForest.DefaultWood.name",
+      "help": "IslandForest.DefaultWood.help",
+      "Practical": "Workable Wood",
+      "Selected": "Premium Wood",
+      "Elegant": "Elegant Wood"
     },
     "WorkerFilter": {
       "name": "Forest Worker Filter",
@@ -5519,6 +5562,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "WoodProcessing.Products.name",
+      "help": "WoodProcessing.Products.help"
     }
   },
   "ElectronicProcessing": {
@@ -5532,6 +5579,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "ElectronicProcessing.Products.name",
+      "help": "ElectronicProcessing.Products.help"
     }
   },
   "Industrial": {
@@ -5545,6 +5596,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "Industrial.Products.name",
+      "help": "Industrial.Products.help"
     }
   },
   "Handmade": {
@@ -5558,6 +5613,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "Handmade.Products.name",
+      "help": "Handmade.Products.help"
     }
   },
   "IslandAirDrop": {
@@ -6775,6 +6834,53 @@
       "True": "Enabled",
       "False": "Disabled"
     },
+    "Season": {
+      "name": "IslandProductionPlanner.Season.name",
+      "help": "IslandProductionPlanner.Season.help",
+      "auto": "Auto",
+      "season_1": "Season 1",
+      "season_2": "Season 2",
+      "season_3": "Season 3",
+      "season_4": "Season 4",
+      "season_5": "Season 5"
+    },
+    "Priority": {
+      "name": "IslandProductionPlanner.Priority.name",
+      "help": "IslandProductionPlanner.Priority.help",
+      "pt": "Dev Points",
+      "coins": "Island Coins"
+    },
+    "FillSparePosts": {
+      "name": "IslandProductionPlanner.FillSparePosts.name",
+      "help": "IslandProductionPlanner.FillSparePosts.help",
+      "True": "True",
+      "False": "False"
+    },
+    "AutoPositions": {
+      "name": "IslandProductionPlanner.AutoPositions.name",
+      "help": "IslandProductionPlanner.AutoPositions.help",
+      "True": "True",
+      "False": "False"
+    },
+    "UnlockedFish": {
+      "name": "IslandProductionPlanner.UnlockedFish.name",
+      "help": "IslandProductionPlanner.UnlockedFish.help",
+      "shell": "Shellfish",
+      "catfish": "Catfish",
+      "koi_carp": "Koi Carp",
+      "common_carp": "Common Carp",
+      "shrimp": "Freshwater Shrimp",
+      "crayfish": "Crayfish",
+      "bass": "Sea Bass",
+      "crab": "Crab",
+      "squid": "Squid",
+      "mackerel": "Mackerel",
+      "tuna": "Tuna",
+      "salmon": "Salmon",
+      "red_sea_bream": "Red Sea Bream",
+      "yellowfin_tuna": "Yellowfin Tuna",
+      "sea_cucumber": "Sea Cucumber"
+    },
     "RescanTechnology": {
       "name": "Rescan technology",
       "help": "Turn on after unlocking new technology or posts. The run opens the island Technology page to scan it and turns this off afterwards. It also scans when no technology status is saved yet.",
@@ -7535,7 +7641,7 @@
       "BatchEdit": "Batch edit",
       "BatchExit": "Exit batch",
       "SelectPage": "Select page",
-      "Selected": "Selected",
+      "Selected": "Premium Wood",
       "BatchSelected": "Edit selected",
       "BatchAll": "Edit all filtered ({count})",
       "SelectionHint": "Selection applies to this page only; paging, filtering or refreshing clears it. Use \"Edit all filtered\" across pages.",

@@ -10,7 +10,14 @@ from module.island.island_fish_meat import FRESHWATER_FISH_MEAT, SALTWATER_FISH_
 from module.base.button import Button
 
 def _click_area(device, area):
-    """从区域坐标创建临时Button并点击，避免多服务器Button兼容问题"""
+    """从区域坐标创建临时按钮并点击。
+
+    避免多服务器 Button 实例的定义兼容性差异。
+
+    Args:
+        device: 设备交互实例。
+        area (dict | tuple): 点击区域或包含服务器键名坐标的字典。
+    """
     a = area.get('cn', area) if isinstance(area, dict) else area
     btn = Button(area=a, color=(0,0,0), button=a, file='')
     device.click(btn)
@@ -45,78 +52,130 @@ DISPATCH_STAMINA_MIN = 98
 
 # 可兑换鱼肉的鱼：渔场产品名 -> 物品 ID（兑换时按对应的养殖底线保留）
 FISH_MEAT_FISH_IDS = {
-    'bass': 5007,
-    'yellowfin_tuna': 5107,
+    'catfish': 5002,
     'koi_carp': 5003,
+    'common_carp': 5004,
+    'bass': 5007,
     'mackerel': 5102,
+    'tuna': 5103,
+    'salmon': 5104,
+    'red_sea_bream': 5105,
+    'yellowfin_tuna': 5107,
 }
 
 
 class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
+    """岛屿渔场自动化管理器。
+
+    继承 Island（岛屿基础操作）、WarehouseOCR（仓库 OCR 识别）和
+    LoginHandler（登录处理），实现渔场岗位巡检、鱼获收获、鱼苗补购与养殖派遣。
+
+    Attributes:
+        dispatch_stamina_min (int): 角色派遣最低体力阈值。
+        fishery_positions (int): 渔场岗位配置数量。
+        fishery_threshold (dict): 各鱼获库存最低阈值配置。
+        plant_yellowfin_tuna (int): 默认产品的目标岗位数（配置名沿用 PlantYellowfinTuna）。
+        default_fish (str): 所有底线达标后，空闲岗位养殖的默认产品。
+        rancher_filter (str): 渔场角色筛选配置。
+        FISHERY_ITEMS (list): 渔场产品及其对应商店、产量与页签配置。
+        name_to_config (dict): 产品内部名称到配置的映射。
+        posts (dict): 岗位按钮、当前养殖品与状态字典。
+        to_plant_list (list): 待补养殖的产品需求队列。
+        inventory_counts (dict): 仓库库存统计。
+        fishery_times (list): 各岗位预计完成时间列表。
+    """
     def __init__(self, *args, **kwargs):
         Island.__init__(self, *args, **kwargs)
         WarehouseOCR.__init__(self)
         self.dispatch_stamina_min = DISPATCH_STAMINA_MIN
         self.fishery_positions = self.config.IslandFishery_Positions
+        # 顺序与游戏内渔场产品列表一致
         self.fishery_threshold = {
-            'bass': self.config.IslandFishery_MinBass,
-            'yellowfin_tuna': self.config.IslandFishery_MinYellowfinTuna,
             'shell': self.config.IslandFishery_MinShell,
-            'shrimp': self.config.IslandFishery_MinShrimp,
-            'crab': self.config.IslandFishery_MinCrab,
-            'crayfish': self.config.IslandFishery_MinCrayfish,
-            'squid': self.config.IslandFishery_MinSquid,
-            'sea_cucumber': self.config.IslandFishery_MinSeaCucumber,
+            'catfish': self.config.IslandFishery_MinCatfish,
             'koi_carp': self.config.IslandFishery_MinKoiCarp,
+            'common_carp': self.config.IslandFishery_MinCommonCarp,
+            'shrimp': self.config.IslandFishery_MinShrimp,
+            'crayfish': self.config.IslandFishery_MinCrayfish,
+            'bass': self.config.IslandFishery_MinBass,
+            'crab': self.config.IslandFishery_MinCrab,
+            'squid': self.config.IslandFishery_MinSquid,
             'mackerel': self.config.IslandFishery_MinMackerel,
+            'tuna': self.config.IslandFishery_MinTuna,
+            'salmon': self.config.IslandFishery_MinSalmon,
+            'red_sea_bream': self.config.IslandFishery_MinRedSeaBream,
+            'yellowfin_tuna': self.config.IslandFishery_MinYellowfinTuna,
+            'sea_cucumber': self.config.IslandFishery_MinSeaCucumber,
         }
         self.plant_yellowfin_tuna = self.config.IslandFishery_PlantYellowfinTuna
+        self.default_fish = self.config.IslandFishery_DefaultFish
         self.rancher_filter = self.config.IslandFishery_RancherFilter
 
         # 产品配置
+        # 顺序与游戏内渔场产品列表一致。鲶鱼、鲫鱼、鲤鱼、马鲛鱼、金枪鱼、三文鱼、红鲷鱼的识别图取自国际服截图
+        # （国服同名图为同一截图，供 button_extract 识别）；尚无岗位“生产中”图，工作中的岗位按未知产品处理。
+        # 黑鲷鱼该账号未解锁、没有截图，暂不支持
         self.FISHERY_ITEMS = [
-            {'name': 'bass', 'template': TEMPLATE_BASS, 'var_name': 'bass',
-             'selection': SELECT_BASS, 'selection_check': SELECT_BASS_CHECK,
-             'post_action': POST_BASS, 'category': 'fishery',
-             'shop': SHOP_FRY_BASS, 'tab': 'freshwater', 'yield': 6, 'buy_max': 4},
-            {'name': 'yellowfin_tuna', 'template': TEMPLATE_YELLOWFIN_TUNA, 'var_name': 'yellowfin_tuna',
-             'selection': SELECT_YELLOWFIN_TUNA, 'selection_check': SELECT_YELLOWFIN_TUNA_CHECK,
-             'post_action': POST_YELLOWFIN_TUNA, 'category': 'fishery',
-             'shop': SHOP_FRY_YELLOWFIN_TUNA, 'tab': 'seawater', 'yield': 2, 'buy_max': 4},
-            {'name': 'shell', 'template': TEMPLATE_SHELL, 'var_name': 'shell',
+            {'cn_name': '贝壳', 'name': 'shell', 'template': TEMPLATE_SHELL, 'var_name': 'shell',
              'selection': SELECT_SHELL, 'selection_check': SELECT_SHELL_CHECK,
              'post_action': POST_SHELL, 'category': 'fishery',
              'shop': SHOP_FRY_SHELL, 'tab': 'other', 'yield': 10, 'buy_max': 4},
-            {'name': 'shrimp', 'template': TEMPLATE_SHRIMP, 'var_name': 'shrimp',
-             'selection': SELECT_SHRIMP, 'selection_check': SELECT_SHRIMP_CHECK,
-             'post_action': POST_SHRIMP, 'category': 'fishery',
-             'shop': SHOP_FRY_SHRIMP, 'tab': 'other', 'yield': 12, 'buy_max': 7},
-            {'name': 'crayfish', 'template': TEMPLATE_CRAYFISH, 'var_name': 'crayfish',
-             'selection': SELECT_CRAYFISH, 'selection_check': SELECT_CRAYFISH_CHECK,
-             'post_action': POST_CRAYFISH, 'category': 'fishery',
-             'shop': SHOP_FRY_CRAYFISH, 'tab': 'other', 'yield': 8, 'buy_max': 4},
-            {'name': 'crab', 'template': TEMPLATE_CRAB, 'var_name': 'crab',
-             'selection': SELECT_CRAB, 'selection_check': SELECT_CRAB_CHECK,
-             'post_action': POST_CRAB, 'category': 'fishery',
-             'shop': SHOP_FRY_CRAB, 'tab': 'other', 'yield': 4, 'buy_max': 4},
-            {'name': 'squid', 'template': TEMPLATE_SQUID, 'var_name': 'squid',
-             'selection': SELECT_SQUID, 'selection_check': SELECT_SQUID_CHECK,
-             'post_action': POST_SQUID, 'category': 'fishery',
-             'shop': SHOP_FRY_SQUID, 'tab': 'other', 'yield': 4, 'buy_max': 4},
-            {'name': 'sea_cucumber', 'template': TEMPLATE_SEA_CUCUMBER, 'var_name': 'sea_cucumber',
-             'selection': SELECT_SEA_CUCUMBER, 'selection_check': SELECT_SEA_CUCUMBER_CHECK,
-             'post_action': POST_SEA_CUCUMBER, 'category': 'fishery',
-             'shop': SHOP_FRY_SEA_CUCUMBER, 'tab': 'other', 'yield': 2, 'buy_max': 4},
-            # 鲤鱼、马鲛鱼：识别图取自国际服截图（国服同名图为同一截图，供 button_extract 识别）；
-            # 尚无岗位“生产中”图，工作中的岗位按未知产品处理
+            {'cn_name': '鲶鱼', 'name': 'catfish', 'template': TEMPLATE_CATFISH, 'var_name': 'catfish',
+             'selection': SELECT_CATFISH, 'selection_check': SELECT_CATFISH_CHECK,
+             'post_action': None, 'category': 'fishery',
+             'shop': SHOP_FRY_CATFISH, 'tab': 'freshwater', 'yield': 2, 'buy_max': 4},
             {'cn_name': '鲤鱼', 'name': 'koi_carp', 'template': TEMPLATE_KOI_CARP, 'var_name': 'koi_carp',
              'selection': SELECT_KOI_CARP, 'selection_check': SELECT_KOI_CARP_CHECK,
              'post_action': None, 'category': 'fishery',
              'shop': SHOP_FRY_KOI_CARP, 'tab': 'freshwater', 'yield': 4, 'buy_max': 4},
+            {'cn_name': '鲫鱼', 'name': 'common_carp', 'template': TEMPLATE_COMMON_CARP, 'var_name': 'common_carp',
+             'selection': SELECT_COMMON_CARP, 'selection_check': SELECT_COMMON_CARP_CHECK,
+             'post_action': None, 'category': 'fishery',
+             'shop': SHOP_FRY_COMMON_CARP, 'tab': 'freshwater', 'yield': 6, 'buy_max': 4},
+            {'cn_name': '小河虾', 'name': 'shrimp', 'template': TEMPLATE_SHRIMP, 'var_name': 'shrimp',
+             'selection': SELECT_SHRIMP, 'selection_check': SELECT_SHRIMP_CHECK,
+             'post_action': POST_SHRIMP, 'category': 'fishery',
+             'shop': SHOP_FRY_SHRIMP, 'tab': 'other', 'yield': 12, 'buy_max': 7},
+            {'cn_name': '小龙虾', 'name': 'crayfish', 'template': TEMPLATE_CRAYFISH, 'var_name': 'crayfish',
+             'selection': SELECT_CRAYFISH, 'selection_check': SELECT_CRAYFISH_CHECK,
+             'post_action': POST_CRAYFISH, 'category': 'fishery',
+             'shop': SHOP_FRY_CRAYFISH, 'tab': 'other', 'yield': 8, 'buy_max': 4},
+            {'cn_name': '鲈鱼', 'name': 'bass', 'template': TEMPLATE_BASS, 'var_name': 'bass',
+             'selection': SELECT_BASS, 'selection_check': SELECT_BASS_CHECK,
+             'post_action': POST_BASS, 'category': 'fishery',
+             'shop': SHOP_FRY_BASS, 'tab': 'freshwater', 'yield': 6, 'buy_max': 4},
+            {'cn_name': '螃蟹', 'name': 'crab', 'template': TEMPLATE_CRAB, 'var_name': 'crab',
+             'selection': SELECT_CRAB, 'selection_check': SELECT_CRAB_CHECK,
+             'post_action': POST_CRAB, 'category': 'fishery',
+             'shop': SHOP_FRY_CRAB, 'tab': 'other', 'yield': 4, 'buy_max': 4},
+            {'cn_name': '鱿鱼', 'name': 'squid', 'template': TEMPLATE_SQUID, 'var_name': 'squid',
+             'selection': SELECT_SQUID, 'selection_check': SELECT_SQUID_CHECK,
+             'post_action': POST_SQUID, 'category': 'fishery',
+             'shop': SHOP_FRY_SQUID, 'tab': 'other', 'yield': 4, 'buy_max': 4},
             {'cn_name': '马鲛鱼', 'name': 'mackerel', 'template': TEMPLATE_MACKEREL, 'var_name': 'mackerel',
              'selection': SELECT_MACKEREL, 'selection_check': SELECT_MACKEREL_CHECK,
              'post_action': None, 'category': 'fishery',
              'shop': SHOP_FRY_MACKEREL, 'tab': 'seawater', 'yield': 4, 'buy_max': 4},
+            {'cn_name': '金枪鱼', 'name': 'tuna', 'template': TEMPLATE_TUNA, 'var_name': 'tuna',
+             'selection': SELECT_TUNA, 'selection_check': SELECT_TUNA_CHECK,
+             'post_action': None, 'category': 'fishery',
+             'shop': SHOP_FRY_TUNA, 'tab': 'seawater', 'yield': 2, 'buy_max': 4},
+            {'cn_name': '三文鱼', 'name': 'salmon', 'template': TEMPLATE_SALMON, 'var_name': 'salmon',
+             'selection': SELECT_SALMON, 'selection_check': SELECT_SALMON_CHECK,
+             'post_action': None, 'category': 'fishery',
+             'shop': SHOP_FRY_SALMON, 'tab': 'seawater', 'yield': 4, 'buy_max': 4},
+            {'cn_name': '红鲷鱼', 'name': 'red_sea_bream', 'template': TEMPLATE_RED_SEA_BREAM, 'var_name': 'red_sea_bream',
+             'selection': SELECT_RED_SEA_BREAM, 'selection_check': SELECT_RED_SEA_BREAM_CHECK,
+             'post_action': None, 'category': 'fishery',
+             'shop': SHOP_FRY_RED_SEA_BREAM, 'tab': 'seawater', 'yield': 4, 'buy_max': 4},
+            {'cn_name': '黄鳍金枪鱼', 'name': 'yellowfin_tuna', 'template': TEMPLATE_YELLOWFIN_TUNA, 'var_name': 'yellowfin_tuna',
+             'selection': SELECT_YELLOWFIN_TUNA, 'selection_check': SELECT_YELLOWFIN_TUNA_CHECK,
+             'post_action': POST_YELLOWFIN_TUNA, 'category': 'fishery',
+             'shop': SHOP_FRY_YELLOWFIN_TUNA, 'tab': 'seawater', 'yield': 2, 'buy_max': 4},
+            {'cn_name': '海参', 'name': 'sea_cucumber', 'template': TEMPLATE_SEA_CUCUMBER, 'var_name': 'sea_cucumber',
+             'selection': SELECT_SEA_CUCUMBER, 'selection_check': SELECT_SEA_CUCUMBER_CHECK,
+             'post_action': POST_SEA_CUCUMBER, 'category': 'fishery',
+             'shop': SHOP_FRY_SEA_CUCUMBER, 'tab': 'other', 'yield': 2, 'buy_max': 4},
         ]
 
         self.name_to_config = {}
@@ -135,7 +194,10 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
         self.fishery_times = [None] * self.fishery_positions
 
     def check_inventory_and_prepare_list(self):
-        """检查库存并准备需要补种的列表（根据产量计算需购买鱼苗数）"""
+        """检查库存并准备需要补种的列表。
+
+        根据各产品单次产量向上取整计算所需鱼苗数，并加入待养殖队列。
+        """
         inventory = self.warehouse_inventory()
         self.inventory_counts = inventory
         self.to_plant_list = []
@@ -148,13 +210,21 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
             if count < threshold:
                 deficit = threshold - count
                 fry_needed = (deficit + yield_amount - 1) // yield_amount  # 向上取整
-                logger.info(f"[岛屿-渔场] {item_name}: 库存{count}<阈值{threshold}, 缺{deficit}, "
+                logger.info(f"[岛屿-渔场] {self._item_cn(item_name)}: 库存{count}<阈值{threshold}, 缺{deficit}, "
                             f"每苗产{yield_amount}, 需购买{fry_needed}个鱼苗")
                 for _ in range(fry_needed):
                     self.to_plant_list.append(item_name)
 
     def _remove_plant_demand(self, product, quantity):
-        """从补种需求中扣除已在岗位中的鱼苗数量。"""
+        """从补种需求中扣除已在岗位中的鱼苗数量。
+
+        Args:
+            product (str): 目标产品内部名称。
+            quantity (int): 需要扣除的鱼苗数量。
+
+        Returns:
+            int: 实际成功扣除的数量。
+        """
         removed = 0
         for _ in range(max(0, quantity)):
             try:
@@ -165,7 +235,17 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
         return removed
 
     def _build_supply_plant_products(self, idle_count):
-        """按库存升序轮转分配岗位，未达标物品优先补足（如 A B C A B ...）。"""
+        """按库存升序轮转分配岗位，未达标物品优先补足。
+
+        Args:
+            idle_count (int): 当前可用空闲岗位数。
+
+        Returns:
+            tuple[list[str], int, dict[str, int]]:
+                - products_to_plant: 安排养殖的产品名称列表。
+                - remaining_idle: 剩余未分配的空闲岗位数。
+                - supply_post_counts: 各产品分配的补库存岗位数映射。
+        """
         # 收集未达标产品及其所需岗位数，按当前库存升序排序（库存最少的最优先）
         demand = []
         for item_config in self.FISHERY_ITEMS:
@@ -179,7 +259,7 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
             stock = self.inventory_counts.get(product, 0)
             demand.append((product, post_needed, stock))
             logger.info(
-                f"{product}: 需养殖{fry_needed}个鱼苗，每岗容量{post_capacity}，"
+                f"{self._item_cn(product)}: 需养殖{fry_needed}个鱼苗，每岗容量{post_capacity}，"
                 f"库存{stock}，需要{post_needed}个岗位"
             )
 
@@ -211,28 +291,52 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
             post_number = post_info.get('runs') or 1
             removed = self._remove_plant_demand(product_name, post_number)
             if removed:
-                logger.info(f"[岛屿-渔场] 已在养殖中的{product_name}扣除补种需求: {removed}/{post_number} ({post_id})")
+                logger.info(f"[岛屿-渔场] 已在养殖中的{self._item_cn(product_name)}扣除补种需求: {removed}/{post_number} ({post_id})")
 
     @staticmethod
     def _post_available_for_dispatch(post_info):
-        """只有检测后处于空闲状态的岗位才可在本轮派遣。"""
+        """检查岗位是否可用于本轮派遣。
+
+        只有检测后处于空闲状态的岗位才可在本轮派遣。
+
+        Args:
+            post_info (dict): 岗位信息字典。
+
+        Returns:
+            bool: 岗位是否处于空闲可派遣状态。
+        """
         return post_info.get('state') == 'idle'
 
-    def _planned_fry_purchase_quantity(self, product, post_count, supply_post_counts, default_post_counts):
-        """计算本轮需要购买的鱼苗数量，保证每个同类岗位至少能下单。"""
-        buy_max = self.name_to_config[product].get('buy_max', 4)
-        post_capacity = buy_max + 1
+    def _planned_fry_target_quantity(self, product, post_count, supply_post_counts, default_post_counts):
+        """计算岗位需要的鱼苗总量。
+
+        已有库存与补购差额由派遣页确认。
+
+        Args:
+            product (str): 目标产品内部名称。
+            post_count (int): 分配给该产品的岗位数量。
+            supply_post_counts (dict): 补库存岗位数映射。
+            default_post_counts (dict): 默认产品岗位数映射。
+
+        Returns:
+            tuple[int, int, int]:
+                - 本轮目标鱼苗总量。
+                - 该产品总需求缺口。
+                - 单岗位最大容量。
+        """
+        post_capacity = self.name_to_config[product].get('buy_max', 4) + 1
         supply_posts = supply_post_counts.get(product, 0)
         default_posts = default_post_counts.get(product, 0)
         supply_demand = len([p for p in self.to_plant_list if p == product])
-        max_purchase = post_count * buy_max
-        base_purchase = min(supply_demand, supply_posts * buy_max) + default_posts * buy_max
-        min_purchase_for_posts = min(max_purchase, post_capacity * (post_count - 1) + 1)
-        total_purchase = min(max_purchase, max(base_purchase, min_purchase_for_posts))
-        return total_purchase, supply_demand, buy_max
+        total_target = min(supply_demand, supply_posts * post_capacity) + default_posts * post_capacity
+        return min(post_count * post_capacity, total_target), supply_demand, post_capacity
 
     def warehouse_inventory(self):
-        """获取仓库库存信息"""
+        """获取渔场仓库库存信息。
+
+        Returns:
+            dict[str, int]: 各渔场产品名称到库存数量的映射。
+        """
         self.warehouse_filter('fishery')
         image = self.device.screenshot()
         results = {}
@@ -240,17 +344,29 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
             count = self.ocr_item_quantity(image, item_config['template'])
             results[item_config['name']] = count
             setattr(self, item_config['var_name'], count)
-            logger.info(f"{item_config['name']}: {count}")
+            logger.info(f"{item_config.get('cn_name', item_config['name'])}: {count}")
         return results
 
     def post_plant_check(self):
-        """检查岗位正在生产什么"""
+        """检查岗位当前正在生产的产品类型。
+
+        Returns:
+            str | None: 正在生产的产品内部名称，未识别到则返回 None。
+        """
         for item in self.FISHERY_ITEMS:
             if item['post_action'] is not None and self.appear(item['post_action']):
                 return item['name']
         return None
 
     def _fishery_tab_buttons(self, target_tab):
+        """获取鱼苗商店指定分类页签的检测与切换按钮。
+
+        Args:
+            target_tab (str): 目标分类页签（'freshwater'、'seawater' 或 'other'）。
+
+        Returns:
+            tuple[Button, Button] | tuple[None, None]: 页签检测按钮与点击切换按钮。
+        """
         if target_tab == 'freshwater':
             return ISLAND_FISH_FRY_SHOP_FRESHWATER_CHECK, ISLAND_FISH_FRY_SHOP_FRESHWATER
         if target_tab == 'seawater':
@@ -261,7 +377,16 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
         return None, None
 
     def decided_lists(self, post_button, post_id, post_index):
-        """检查岗位状态并更新列表，同时记录完成时间"""
+        """检查岗位状态并更新列表，同时记录完成时间与收取成品。
+
+        Args:
+            post_button (Button): 岗位按钮。
+            post_id (str): 岗位标识，如 'ISLAND_FISHERY_POST1'。
+            post_index (int): 岗位索引下标（从 0 开始）。
+
+        Returns:
+            bool: 是否在本轮成功收取了已完成鱼获。
+        """
         collected = False
         was_complete = False
         self.post_close()
@@ -310,7 +435,17 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
         return collected
 
     def post_plant(self, post_button, product, post_index, required_quantity=1):
-        """在指定岗位种植指定产品，并记录完成时间"""
+        """在指定岗位养殖指定产品，并记录完成时间。
+
+        Args:
+            post_button (Button): 岗位按钮。
+            product (str): 养殖产品内部名称。
+            post_index (int): 岗位索引下标。
+            required_quantity (int): 计划养殖数量，默认为 1。
+
+        Returns:
+            bool: 养殖操作是否成功。
+        """
         self.post_close()
         self.post_open(post_button)
         self.device.screenshot()
@@ -328,7 +463,7 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
                         self.back_to_postmanage_from_dispatch()
                         return False
                 else:
-                    logger.warning(f"[岛屿-渔场] {product}养殖派遣无可用角色: {self.rancher_filter}")
+                    logger.warning(f"[岛屿-渔场] {self._item_cn(product)}养殖派遣无可用角色: {self.rancher_filter}")
                     self.back_to_postmanage_from_dispatch()
                     return False
                 continue
@@ -338,7 +473,7 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
                         item_button=item_config['shop'],
                         required_quantity=required_quantity,
                         shop_check=ISLAND_FRY_SHOP_CHECK,
-                        item_name=f"{product}鱼苗",
+                        item_name=f"{self._item_cn(product)}鱼苗",
                         tab_check=tab_check,
                         tab_button=tab_button,
                     )
@@ -382,33 +517,46 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
                 break
         if product in self.to_plant_list:
             removed = self._remove_plant_demand(product, post_number)
-            logger.info(f"[岛屿-渔场] 已安排养殖{product}扣除补种需求: {removed}/{post_number}")
+            logger.info(f"[岛屿-渔场] 已安排养殖{self._item_cn(product)}扣除补种需求: {removed}/{post_number}")
 
         # 关闭详情弹窗，防止后续操作被弹窗遮挡
         self.post_close()
         return True
 
     def _build_fry_quantity_queue(self, products_to_plant, supply_post_counts, default_post_counts):
-        """按岗位顺序分配本轮每个渔场岗位需要补足的鱼苗数量。"""
+        """按岗位顺序分配本轮每个渔场岗位需要补足的鱼苗数量。
+
+        Args:
+            products_to_plant (list[str]): 待养殖产品队列。
+            supply_post_counts (dict): 补库存岗位数映射。
+            default_post_counts (dict): 默认产品岗位数映射。
+
+        Returns:
+            list[int]: 各岗位目标鱼苗数量队列。
+        """
         product_counts = {}
         for product_name in products_to_plant:
             product_counts[product_name] = product_counts.get(product_name, 0) + 1
 
         product_quantities = {}
         for product, count in product_counts.items():
-            total_purchase, supply_demand, buy_max = self._planned_fry_purchase_quantity(
+            total_target, supply_demand, post_capacity = self._planned_fry_target_quantity(
                 product, count, supply_post_counts, default_post_counts
             )
             logger.info(
                 f"{product}鱼苗补货计划，补种需求{supply_demand}个，排产{count}岗，"
-                f"本轮目标{total_purchase}个，每岗上限{buy_max}个"
+                f"本轮目标{total_target}个，每岗容量{post_capacity}个"
             )
-            remaining = total_purchase
+            # 补库存岗位只补剩余需求，默认岗位始终按容量安排。
+            remaining = total_target - default_post_counts.get(product, 0) * post_capacity
             quantities = []
-            for _ in range(count):
-                buy_qty = min(buy_max, remaining) if remaining > 0 else 1
-                quantities.append(max(1, buy_qty))
-                remaining -= buy_qty
+            for index in range(count):
+                if index < supply_post_counts.get(product, 0):
+                    target_quantity = min(post_capacity, max(0, remaining))
+                    remaining -= target_quantity
+                else:
+                    target_quantity = post_capacity
+                quantities.append(target_quantity)
             product_quantities[product] = quantities
 
         quantity_queue = []
@@ -420,6 +568,17 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
         return quantity_queue
 
     def run(self, ranch_finish_times=None):
+        """运行渔场自动化管理主流程。
+
+        首轮巡检并收获鱼获，读取库存，分配空闲岗位补种或默认养殖，
+        并计算合并下次运行时间。
+
+        Args:
+            ranch_finish_times (list[datetime], optional): 牧场任务的完成时间列表，用于合并调度。
+
+        Raises:
+            GameBugError: 遇到游戏内部错误需要重启时抛出。
+        """
         self.island_error = False
 
         # 重置渔场时间追踪列表
@@ -470,7 +629,7 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
         self._remove_working_fishery_demand()
 
         logger.info("[岛屿-渔场] \n当前库存统计:")
-        logger.info(f"[岛屿-渔场] 渔场库存: {self.inventory_counts}")
+        logger.info(f"[岛屿-渔场] 渔场库存: {self._inv_cn(self.inventory_counts)}")
 
         self.goto_postmanage()
         self.post_manage_mode(POST_MANAGE_PRODUCTION)
@@ -485,31 +644,27 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
             products_to_plant, remaining_idle, supply_post_counts = self._build_supply_plant_products(len(idle_posts))
             default_post_counts = {}
 
-            # 继续用剩余空闲岗位满足默认黄鳍金枪鱼岗位数
+            # 继续用剩余空闲岗位满足默认产品岗位数；配置了未知产品时退回黄鳍金枪鱼
+            default_fish = self.default_fish if self.default_fish in self.name_to_config else 'yellowfin_tuna'
             already_planted_default = 0
             for i in range(self.fishery_positions):
                 post_id = f'ISLAND_FISHERY_POST{i + 1}'
-                if self.posts[post_id]['crop'] == 'yellowfin_tuna':
+                if self.posts[post_id]['crop'] == default_fish:
                     already_planted_default += 1
 
-            logger.info(f"[岛屿-渔场] 已有{already_planted_default}个岗位养殖了黄鳍金枪鱼，配置要求{self.plant_yellowfin_tuna}个")
+            logger.info(f"[岛屿-渔场] 已有{already_planted_default}个岗位养殖了默认产品"
+                        f"{self.name_to_config[default_fish]['cn_name']}，配置要求{self.plant_yellowfin_tuna}个")
 
             need_default = max(0, self.plant_yellowfin_tuna - already_planted_default)
 
             if remaining_idle > 0 and need_default > 0:
                 actual_default = min(remaining_idle, need_default)
                 for _ in range(actual_default):
-                    products_to_plant.append('yellowfin_tuna')
-                    default_post_counts['yellowfin_tuna'] = default_post_counts.get('yellowfin_tuna', 0) + 1
+                    products_to_plant.append(default_fish)
+                    default_post_counts[default_fish] = default_post_counts.get(default_fish, 0) + 1
 
             if products_to_plant:
                 logger.info(f"[岛屿-渔场] \n需要养殖的产品: {products_to_plant}")
-                fry_quantity_queue = self._build_fry_quantity_queue(
-                    products_to_plant,
-                    supply_post_counts,
-                    default_post_counts,
-                )
-
                 # 养殖
                 for i, post_info in enumerate(idle_posts):
                     if i >= len(products_to_plant):
@@ -517,7 +672,17 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
                         continue
 
                     product_to_plant = products_to_plant[i]
-                    required_quantity = fry_quantity_queue[i]
+                    # 上一岗可能失败或按现有库存多养，按实际扣减后的需求重算。
+                    fry_quantity_queue = self._build_fry_quantity_queue(
+                        products_to_plant[i:], supply_post_counts, default_post_counts
+                    )
+                    required_quantity = fry_quantity_queue[0]
+                    if supply_post_counts.get(product_to_plant, 0):
+                        supply_post_counts[product_to_plant] -= 1
+                    else:
+                        default_post_counts[product_to_plant] -= 1
+                    if required_quantity <= 0:
+                        continue
                     logger.info(f"[岛屿-渔场] 尝试养殖渔场岗位{post_info['post_id']}: {product_to_plant}")
 
                     success = self.post_plant(
@@ -532,7 +697,8 @@ class IslandFishery(Island, WarehouseOCR, LoginHandler, IslandFishMeatExchange):
 
         logger.info("[岛屿-渔场] \n渔场管理完成！")
 
-        # 鱼肉不足目标时把鱼兑换成鱼肉（目标为 0 时跳过，岛屿生产规划器会按货运缺口与菜品用量写入）
+        # 鱼肉不足目标时把鱼兑换成鱼肉（目标为 0 时跳过，岛屿生产规划器会按货运缺口与菜品用量写入）；
+        # 兑换时保留各鱼的养殖底线，避免把菜品要用的鱼换光
         self.run_fish_meat_exchange({
             FRESHWATER_FISH_MEAT: getattr(self.config, 'IslandFishery_MinFreshwaterFishMeat', 0),
             SALTWATER_FISH_MEAT: getattr(self.config, 'IslandFishery_MinSaltwaterFishMeat', 0),

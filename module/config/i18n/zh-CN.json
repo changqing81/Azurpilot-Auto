@@ -4343,6 +4343,18 @@
       "name": "贝壳底线",
       "help": ""
     },
+    "MinCatfish": {
+      "name": "IslandFishery.MinCatfish.name",
+      "help": "IslandFishery.MinCatfish.help"
+    },
+    "MinKoiCarp": {
+      "name": "鲤鱼底线",
+      "help": ""
+    },
+    "MinCommonCarp": {
+      "name": "IslandFishery.MinCommonCarp.name",
+      "help": "IslandFishery.MinCommonCarp.help"
+    },
     "MinShrimp": {
       "name": "小河虾底线",
       "help": ""
@@ -4361,10 +4373,6 @@
     },
     "MinSeaCucumber": {
       "name": "海参底线",
-      "help": ""
-    },
-    "MinKoiCarp": {
-      "name": "鲤鱼底线",
       "help": ""
     },
     "MinMackerel": {
@@ -4386,6 +4394,25 @@
       "1": "1",
       "2": "2",
       "3": "3"
+    },
+    "DefaultFish": {
+      "name": "IslandFishery.DefaultFish.name",
+      "help": "IslandFishery.DefaultFish.help",
+      "shell": "贝类",
+      "catfish": "鲶鱼",
+      "koi_carp": "鲤鱼",
+      "common_carp": "鲫鱼",
+      "shrimp": "小河虾",
+      "crayfish": "小龙虾",
+      "bass": "鲈鱼",
+      "crab": "螃蟹",
+      "squid": "鱿鱼",
+      "mackerel": "马鲛鱼",
+      "tuna": "金枪鱼",
+      "salmon": "三文鱼",
+      "red_sea_bream": "红鲷鱼",
+      "yellowfin_tuna": "黄鳍金枪鱼",
+      "sea_cucumber": "海参"
     },
     "RancherFilter": {
       "name": "使用角色",
@@ -4413,6 +4440,15 @@
       "2": "2",
       "3": "3",
       "4": "+4%"
+    },
+    "DefaultOre": {
+      "name": "IslandMine.DefaultOre.name",
+      "help": "IslandMine.DefaultOre.help",
+      "Copper": "铜矿",
+      "Aluminium": "铝矿",
+      "Iron": "铁矿",
+      "Sulphur": "硫矿",
+      "Silver": "银矿"
     },
     "WorkerFilter": {
       "name": "矿山使用角色",
@@ -4460,6 +4496,13 @@
       "2": "2",
       "3": "3",
       "4": "+4%"
+    },
+    "DefaultWood": {
+      "name": "IslandForest.DefaultWood.name",
+      "help": "IslandForest.DefaultWood.help",
+      "Practical": "实用之木",
+      "Selected": "精选之木",
+      "Elegant": "典雅之木"
     },
     "WorkerFilter": {
       "name": "林场使用角色",
@@ -5519,6 +5562,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "WoodProcessing.Products.name",
+      "help": "WoodProcessing.Products.help"
     }
   },
   "ElectronicProcessing": {
@@ -5532,6 +5579,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "ElectronicProcessing.Products.name",
+      "help": "ElectronicProcessing.Products.help"
     }
   },
   "Industrial": {
@@ -5545,6 +5596,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "Industrial.Products.name",
+      "help": "Industrial.Products.help"
     }
   },
   "Handmade": {
@@ -5558,6 +5613,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "Handmade.Products.name",
+      "help": "Handmade.Products.help"
     }
   },
   "IslandAirDrop": {
@@ -6774,6 +6833,53 @@
       "help": "关闭时只在日志中预览方案；开启后覆盖各店铺 Meal/MealNumber、AwayCook、经营商品，农田「按作物设置补种目标」，矿山/林场/渔场最低库存，牧场鸡肉/猪肉底线与牛奶/羊毛开关，以及制造业各产线岗位数。",
       "True": "开启",
       "False": "关闭"
+    },
+    "Season": {
+      "name": "IslandProductionPlanner.Season.name",
+      "help": "IslandProductionPlanner.Season.help",
+      "auto": "自动",
+      "season_1": "第1赛季",
+      "season_2": "第2赛季",
+      "season_3": "第3赛季",
+      "season_4": "第4赛季",
+      "season_5": "第5赛季"
+    },
+    "Priority": {
+      "name": "IslandProductionPlanner.Priority.name",
+      "help": "IslandProductionPlanner.Priority.help",
+      "pt": "开发PT",
+      "coins": "岛币"
+    },
+    "FillSparePosts": {
+      "name": "IslandProductionPlanner.FillSparePosts.name",
+      "help": "IslandProductionPlanner.FillSparePosts.help",
+      "True": "True",
+      "False": "False"
+    },
+    "AutoPositions": {
+      "name": "IslandProductionPlanner.AutoPositions.name",
+      "help": "IslandProductionPlanner.AutoPositions.help",
+      "True": "True",
+      "False": "False"
+    },
+    "UnlockedFish": {
+      "name": "IslandProductionPlanner.UnlockedFish.name",
+      "help": "IslandProductionPlanner.UnlockedFish.help",
+      "shell": "贝类",
+      "catfish": "鲶鱼",
+      "koi_carp": "鲤鱼",
+      "common_carp": "鲫鱼",
+      "shrimp": "小河虾",
+      "crayfish": "小龙虾",
+      "bass": "鲈鱼",
+      "crab": "螃蟹",
+      "squid": "鱿鱼",
+      "mackerel": "马鲛鱼",
+      "tuna": "金枪鱼",
+      "salmon": "三文鱼",
+      "red_sea_bream": "红鲷鱼",
+      "yellowfin_tuna": "黄鳍金枪鱼",
+      "sea_cucumber": "海参"
     },
     "RescanTechnology": {
       "name": "重新扫描科技",

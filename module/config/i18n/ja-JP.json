@@ -4343,6 +4343,18 @@
       "name": "貝殻在庫閾値",
       "help": ""
     },
+    "MinCatfish": {
+      "name": "IslandFishery.MinCatfish.name",
+      "help": "IslandFishery.MinCatfish.help"
+    },
+    "MinKoiCarp": {
+      "name": "コイ在庫閾値",
+      "help": ""
+    },
+    "MinCommonCarp": {
+      "name": "IslandFishery.MinCommonCarp.name",
+      "help": "IslandFishery.MinCommonCarp.help"
+    },
     "MinShrimp": {
       "name": "エビ在庫閾値",
       "help": ""
@@ -4361,10 +4373,6 @@
     },
     "MinSeaCucumber": {
       "name": "ナマコ在庫閾値",
-      "help": ""
-    },
-    "MinKoiCarp": {
-      "name": "コイ在庫閾値",
       "help": ""
     },
     "MinMackerel": {
@@ -4386,6 +4394,25 @@
       "1": "1",
       "2": "2",
       "3": "3"
+    },
+    "DefaultFish": {
+      "name": "IslandFishery.DefaultFish.name",
+      "help": "IslandFishery.DefaultFish.help",
+      "shell": "貝",
+      "catfish": "ナマズ",
+      "koi_carp": "コイ",
+      "common_carp": "フナ",
+      "shrimp": "川エビ",
+      "crayfish": "ザリガニ",
+      "bass": "スズキ",
+      "crab": "カニ",
+      "squid": "イカ",
+      "mackerel": "サワラ",
+      "tuna": "マグロ",
+      "salmon": "サーモン",
+      "red_sea_bream": "マダイ",
+      "yellowfin_tuna": "キハダ",
+      "sea_cucumber": "ナマコ"
     },
     "RancherFilter": {
       "name": "キャラクターフィルター",
@@ -4413,6 +4440,15 @@
       "2": "2",
       "3": "3",
       "4": "+4%"
+    },
+    "DefaultOre": {
+      "name": "IslandMine.DefaultOre.name",
+      "help": "IslandMine.DefaultOre.help",
+      "Copper": "銅鉱石",
+      "Aluminium": "アルミ鉱石",
+      "Iron": "鉄鉱石",
+      "Sulphur": "硫黄鉱石",
+      "Silver": "銀鉱石"
     },
     "WorkerFilter": {
       "name": "鉱山作業員フィルター",
@@ -4460,6 +4496,13 @@
       "2": "2",
       "3": "3",
       "4": "+4%"
+    },
+    "DefaultWood": {
+      "name": "IslandForest.DefaultWood.name",
+      "help": "IslandForest.DefaultWood.help",
+      "Practical": "実用の木材",
+      "Selected": "プレミアム木材",
+      "Elegant": "エレガント木材"
     },
     "WorkerFilter": {
       "name": "林場作業員フィルター",
@@ -5519,6 +5562,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "WoodProcessing.Products.name",
+      "help": "WoodProcessing.Products.help"
     }
   },
   "ElectronicProcessing": {
@@ -5532,6 +5579,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "ElectronicProcessing.Products.name",
+      "help": "ElectronicProcessing.Products.help"
     }
   },
   "Industrial": {
@@ -5545,6 +5596,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "Industrial.Products.name",
+      "help": "Industrial.Products.help"
     }
   },
   "Handmade": {
@@ -5558,6 +5613,10 @@
       "0": "0%",
       "1": "1",
       "2": "2"
+    },
+    "Products": {
+      "name": "Handmade.Products.name",
+      "help": "Handmade.Products.help"
     }
   },
   "IslandAirDrop": {
@@ -6774,6 +6833,53 @@
       "help": "無効ならログで計画をプレビューするだけです。有効にすると各店舗の Meal/MealNumber、AwayCook、経営商品、農地の「作物ごとの補充目標」、鉱山・林場・漁場の最低在庫、牧場の鶏肉/豚肉の下限と牛乳/羊毛の切替、製造業各ラインの持ち場数を上書きします。",
       "True": "有効",
       "False": "無効"
+    },
+    "Season": {
+      "name": "IslandProductionPlanner.Season.name",
+      "help": "IslandProductionPlanner.Season.help",
+      "auto": "自動",
+      "season_1": "シーズン1",
+      "season_2": "シーズン2",
+      "season_3": "シーズン3",
+      "season_4": "シーズン4",
+      "season_5": "シーズン5"
+    },
+    "Priority": {
+      "name": "IslandProductionPlanner.Priority.name",
+      "help": "IslandProductionPlanner.Priority.help",
+      "pt": "開発Pt",
+      "coins": "島コイン"
+    },
+    "FillSparePosts": {
+      "name": "IslandProductionPlanner.FillSparePosts.name",
+      "help": "IslandProductionPlanner.FillSparePosts.help",
+      "True": "True",
+      "False": "False"
+    },
+    "AutoPositions": {
+      "name": "IslandProductionPlanner.AutoPositions.name",
+      "help": "IslandProductionPlanner.AutoPositions.help",
+      "True": "True",
+      "False": "False"
+    },
+    "UnlockedFish": {
+      "name": "IslandProductionPlanner.UnlockedFish.name",
+      "help": "IslandProductionPlanner.UnlockedFish.help",
+      "shell": "貝",
+      "catfish": "ナマズ",
+      "koi_carp": "コイ",
+      "common_carp": "フナ",
+      "shrimp": "川エビ",
+      "crayfish": "ザリガニ",
+      "bass": "スズキ",
+      "crab": "カニ",
+      "squid": "イカ",
+      "mackerel": "サワラ",
+      "tuna": "マグロ",
+      "salmon": "サーモン",
+      "red_sea_bream": "マダイ",
+      "yellowfin_tuna": "キハダ",
+      "sea_cucumber": "ナマコ"
     },
     "RescanTechnology": {
       "name": "技術を再スキャン",
