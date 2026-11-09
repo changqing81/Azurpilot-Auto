@@ -19,8 +19,23 @@ from module.config.server import DICT_PACKAGE_TO_ACTIVITY
 from module.device.connection import Connection
 from module.device.method.utils import (ImageTruncated, PackageNotInstalled, RETRY_TRIES, handle_adb_error,
                                         handle_unknown_host_service, possible_reasons, retry_sleep)
-from module.exception import EmulatorNotRunningError, RequestHumanTakeover
+from module.exception import EmulatorNotRunningError, RequestHumanTakeover, U2AgentNotReady
 from module.logger import logger
+
+
+def _is_agent_404(e) -> bool:
+    """判断是否为 uiautomator2 agent 返回 HTTP 404。
+
+    现象：RuntimeError('device agent responds with an error code 404', '')
+    含义：到 atx-agent 的 TCP 可达，但 agent 半初始化（如 MuMu12 冷启动
+    早期 /shell 路由未就绪），模拟器本体存活。此时该异常不是 OSError，
+    不会被 retry 白名单捕获重试，直接穿透到 retry_wrapper 顶层被归类为
+    EmulatorNotRunningError——而截图/触摸等不依赖 agent 的通道完全正常，
+    造成"模拟器明明活着却报连接中断"的误判（2026-11-08 事故）。
+    """
+    if e is None:
+        return False
+    return 'device agent responds with an error code 404' in str(e)
 
 
 def retry(func):
@@ -31,6 +46,10 @@ def retry(func):
             self (Uiautomator2):
         """
         init = None
+        # 记录最后一次异常，供循环结束后区分"agent 未就绪(404)"与"模拟器真的死了"。
+        # 无法在 except 分支里区分是因为 404 抛的是 uiautomator2 的 RuntimeError，
+        # 归一成哪种异常要等重试全部结束才知道。
+        last_error = None
         for _ in range(RETRY_TRIES):
             try:
                 if callable(init):
@@ -83,6 +102,7 @@ def retry(func):
                     break
             # RuntimeError: USB device 127.0.0.1:5555 is offline
             except RuntimeError as e:
+                last_error = e
                 if handle_adb_error(e):
                     def init():
                         self.adb_reconnect()
@@ -126,6 +146,21 @@ def retry(func):
             'app_current_uiautomator2',
             'app_stop_uiautomator2',
         ]:
+            # agent 半初始化（404）不等于模拟器死亡：模拟器本体、截图、触摸、
+            # ADB shell 都正常，只是 atx-agent 的 /shell 路由还没挂上。
+            # 启动类方法在这里改抛 U2AgentNotReady，让 app_start_uiautomator2
+            # 降级走 ADB am start；否则会被归类成 EmulatorNotRunningError
+            # 触发整轮模拟器重启（2026-11-09：stop 成功把游戏停掉、
+            # start 却按"模拟器已死"炸掉，游戏停在桌面起不来）。
+            # 只对启动类方法转换：截图/查询/停止已在上游方法内自处理 404，
+            # 转换它们会改变既有调用方的异常约定。
+            if func.__name__ in ('_app_start_u2_am', '_app_start_u2_monkey') \
+                    and _is_agent_404(last_error):
+                logger.warning(
+                    f'[设备-U2] 重试 {func.__name__}() 命中 atx-agent 404，'
+                    f'agent 未就绪而非模拟器死亡，交由调用方降级 ADB'
+                )
+                raise U2AgentNotReady(str(last_error))
             # app_stop_uiautomator2 失败属于应用重启失败，按项目规则
             # 必须抛 EmulatorNotRunningError 触发模拟器重启，
             # 而非 RequestHumanTakeover（会被错误地视为不可恢复）
@@ -290,9 +325,21 @@ class Uiautomator2(Connection):
         """
         Returns:
             str: 包名。
+
+        atx-agent 404（半初始化）时降级走 ADB dumpsys 查询：模拟器本体
+        存活，只是 agent 未就绪，不应误判为"模拟器连接中断"。降级期间
+        每轮仍先尝试 u2，恢复后自动回到 u2 通道。
         """
-        result = self.u2.app_current()
-        return result['package']
+        # 404 短路重试：agent 未就绪时盲目重试只会烧完 RETRY_TRIES，
+        # 直接降级到与 agent 无关的 ADB 通道
+        try:
+            result = self.u2.app_current()
+            return result['package']
+        except RuntimeError as e:
+            if _is_agent_404(e):
+                logger.warning('[设备-U2] atx-agent 返回 404（未就绪），本次改走 ADB 查询前台应用')
+                return self.app_current_adb()
+            raise
 
     @retry
     def _app_start_u2_monkey(self, package_name=None, allow_failure=False):
@@ -427,13 +474,25 @@ class Uiautomator2(Connection):
         if not activity_name:
             activity_name = DICT_PACKAGE_TO_ACTIVITY.get(package_name)
 
-        if activity_name:
+        # agent 404（半初始化）时整体降级 ADB am start。启动路径同样依赖
+        # atx-agent 的 /shell，不兜底就会出现"app_stop 已降级成功把游戏停掉、
+        # app_start 却 404 崩掉，游戏停在桌面起不来"（2026-11-09 事故）。
+        try:
+            if activity_name:
+                if self._app_start_u2_am(package_name, activity_name, allow_failure):
+                    return True
+            if self._app_start_u2_monkey(package_name, allow_failure):
+                return True
             if self._app_start_u2_am(package_name, activity_name, allow_failure):
                 return True
-        if self._app_start_u2_monkey(package_name, allow_failure):
-            return True
-        if self._app_start_u2_am(package_name, activity_name, allow_failure):
-            return True
+        except (RuntimeError, U2AgentNotReady) as e:
+            # RuntimeError：直接调用 u2 抛的原生 404；
+            # U2AgentNotReady：_app_start_u2_am/monkey 经 retry_wrapper 归一后的 404。
+            # 两者都必须降级，否则会以 EmulatorNotRunningError 炸成"模拟器已死"。
+            if _is_agent_404(e) or isinstance(e, U2AgentNotReady):
+                logger.warning('[设备-U2] atx-agent 返回 404（未就绪），本次改走 ADB 启动应用')
+                return self.app_start_adb(package_name, activity_name, allow_failure)
+            raise
 
         logger.error('[设备-U2] 所有尝试失败')
         return False
@@ -441,17 +500,32 @@ class Uiautomator2(Connection):
     @retry
     @session_guard
     def app_stop_uiautomator2(self, package_name=None):
+        # agent 404 时降级 am force-stop，语义同 app_current_uiautomator2
         if not package_name:
             package_name = self.package
-        self.u2.app_stop(package_name)
+        try:
+            self.u2.app_stop(package_name)
+        except RuntimeError as e:
+            if _is_agent_404(e):
+                logger.warning('[设备-U2] atx-agent 返回 404（未就绪），本次改走 ADB force-stop')
+                self.adb_shell(['am', 'force-stop', package_name])
+            else:
+                raise
 
     @retry
     @session_guard
     def dump_hierarchy_uiautomator2(self) -> etree._Element:
-        content = self.u2.dump_hierarchy(compressed=False)
-        # print(content)
-        hierarchy = etree.fromstring(content.encode('utf-8'))
-        return hierarchy
+        # agent 404 时降级走 dump_hierarchy_adb（adb shell uiautomator dump），
+        # 否则会抛 RequestHumanTakeover 误报"需要人工介入"
+        try:
+            content = self.u2.dump_hierarchy(compressed=False)
+            # print(content)
+            return etree.fromstring(content.encode('utf-8'))
+        except RuntimeError as e:
+            if _is_agent_404(e):
+                logger.warning('[设备-U2] atx-agent 返回 404（未就绪），本次改走 ADB dump_hierarchy')
+                return self.dump_hierarchy_adb()
+            raise
 
     def uninstall_uiautomator2(self):
         logger.info('[设备-U2] 移除uiautomator2')

@@ -22,6 +22,8 @@
     - GameNotRunningError: 游戏未运行
     - GamePageUnknownError: 无法识别当前页面
     - EmulatorNotRunningError: 模拟器未运行
+    - U2AgentNotReady: atx-agent 未就绪（HTTP 404），模拟器本体存活，
+      调用方应降级纯 ADB 通道而非重启模拟器
 
 开发者/脚本错误：
     - ScriptError: 脚本逻辑错误（通常是代码 bug）
@@ -145,6 +147,25 @@ class EmulatorNotRunningError(Exception):
     """模拟器未运行。
 
     当 ADB 连接失败且模拟器进程不存在时抛出。
+    """
+    pass
+
+
+class U2AgentNotReady(Exception):
+    """uiautomator2 的 atx-agent 已启动但尚未就绪（HTTP 404）。
+
+    典型场景：MuMu12 冷启动/agent 重启后的一段时间里，到 atx-agent 的 TCP
+    可达、但 /shell 路由尚未挂上，u2 抛
+    RuntimeError('device agent responds with an error code 404', '')。
+
+    这与 EmulatorNotRunningError 有本质区别：模拟器本体存活，截图、触摸、
+    ADB shell 等不经过 agent 的通道完全正常，**不应该**触发"重启模拟器"级别
+    的恢复（那会白等一轮 600 秒冷却，甚至把游戏停在桌面起不来）。
+    调用方应降级到纯 ADB 通道（am start / am force-stop / dumpsys）。
+
+    注意：EmulatorNotRunningError 直接继承 Exception 而非 RuntimeError，
+    所以"except RuntimeError"抓不到 retry_wrapper 归一后的结果——早期修复
+    正是在这里踩坑（2026-11-09）。
     """
     pass
 
