@@ -103,6 +103,14 @@ def retry(func):
             # RuntimeError: USB device 127.0.0.1:5555 is offline
             except RuntimeError as e:
                 last_error = e
+                # agent 未就绪（404）与 ADB / 模拟器状态无关。交给 handle_adb_error
+                # 会打完整 traceback + 三条 "Emulator died, please restart emulator"
+                # 的 possible_reasons，用户看到会以为模拟器真的挂了（2026-11-09
+                # 连续两次误以为修复没生效）。这里只留一条 WARNING 并结束重试，
+                # 由调用方降级纯 ADB 通道。
+                if _is_agent_404(e):
+                    logger.warning(f'[设备-U2] atx-agent 未就绪（HTTP 404），非 ADB 故障，本轮改走 ADB: {e}')
+                    break
                 if handle_adb_error(e):
                     def init():
                         self.adb_reconnect()

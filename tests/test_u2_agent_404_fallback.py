@@ -18,7 +18,7 @@
 让真实 retry_wrapper 参与，确保测的是线上真实异常路径。
 """
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from module.device.method.adb import Adb
 from module.device.method.uiautomator_2 import Uiautomator2
@@ -173,6 +173,52 @@ class TestDumpHierarchy404Fallback(unittest.TestCase):
         device.u2.dump_hierarchy.return_value = '<hierarchy><node/></hierarchy>'
         device.dump_hierarchy_uiautomator2()
         device.dump_hierarchy_adb.assert_not_called()
+
+
+class Test404DiagnosticsSuppressed(unittest.TestCase):
+    """404 不得走 handle_adb_error 的诊断分支。
+
+    handle_adb_error 对未知文本会打 traceback + 三条
+    "Emulator died, please restart emulator" 的 possible_reasons，
+    而 404 根本与 ADB/模拟器无关。这些噪音会让用户误以为模拟器真的挂了
+    （2026-11-09 用户连续两次因此以为修复没生效）。
+    """
+
+    def _make_device(self):
+        device = MagicMock(spec=Uiautomator2)
+        device.package = _PKG
+        device.u2 = MagicMock()
+        device.u2.shell.side_effect = _agent_404()
+        device.u2.app_info.side_effect = _agent_404()
+        device._app_start_u2_am = Uiautomator2._app_start_u2_am.__get__(device)
+        device.app_start_uiautomator2 = Uiautomator2.app_start_uiautomator2.__get__(device)
+        device.app_start_adb = MagicMock(return_value=True)
+        return device
+
+    def test_404_does_not_call_handle_adb_error(self):
+        """404 时不应调用 handle_adb_error（它会打误导性的 Emulator died）。"""
+        device = self._make_device()
+        with patch('module.device.method.uiautomator_2.handle_adb_error') as handler, \
+                patch('module.device.method.uiautomator_2.possible_reasons') as reasons:
+            device.app_start_uiautomator2(_PKG, _ACT, False)
+        handler.assert_not_called()
+        reasons.assert_not_called()
+
+    def test_non_404_runtime_error_still_uses_handle_adb_error(self):
+        """非 404 的 RuntimeError 仍要走原有诊断链路（不能误删）。"""
+        device = MagicMock(spec=Uiautomator2)
+        device.package = _PKG
+        device.u2 = MagicMock()
+        device.u2.shell.side_effect = RuntimeError('device offline')
+        device.u2.app_info.side_effect = RuntimeError('device offline')
+        device._app_start_u2_am = Uiautomator2._app_start_u2_am.__get__(device)
+        device.app_start_uiautomator2 = Uiautomator2.app_start_uiautomator2.__get__(device)
+        device.app_start_adb = MagicMock(return_value=True)
+        with patch('module.device.method.uiautomator_2.handle_adb_error',
+                   return_value=False) as handler:
+            with self.assertRaises(EmulatorNotRunningError):
+                device.app_start_uiautomator2(_PKG, _ACT, False)
+        handler.assert_called()
 
 
 if __name__ == '__main__':
