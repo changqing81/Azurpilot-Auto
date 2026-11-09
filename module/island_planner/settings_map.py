@@ -111,8 +111,8 @@ THRESHOLD_GROUPS = {
     'fishery': {
         5001: 'IslandRancher.IslandFishery.MinShell',
         5002: 'IslandRancher.IslandFishery.MinCatfish',
-        5003: 'IslandRancher.IslandFishery.MinKoiCarp',
         5004: 'IslandRancher.IslandFishery.MinCommonCarp',
+        5003: 'IslandRancher.IslandFishery.MinKoiCarp',
         5005: 'IslandRancher.IslandFishery.MinShrimp',
         5006: 'IslandRancher.IslandFishery.MinCrayfish',
         5007: 'IslandRancher.IslandFishery.MinBass',

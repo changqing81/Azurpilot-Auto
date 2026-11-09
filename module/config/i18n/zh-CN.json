@@ -4331,29 +4331,21 @@
       "2": "2",
       "3": "3"
     },
-    "MinBass": {
-      "name": "鲈鱼底线",
-      "help": ""
-    },
-    "MinYellowfinTuna": {
-      "name": "黄鳍金枪鱼底线",
-      "help": ""
-    },
     "MinShell": {
       "name": "贝壳底线",
       "help": ""
     },
     "MinCatfish": {
-      "name": "IslandFishery.MinCatfish.name",
-      "help": "IslandFishery.MinCatfish.help"
+      "name": "鲶鱼底线",
+      "help": ""
+    },
+    "MinCommonCarp": {
+      "name": "鲫鱼底线",
+      "help": ""
     },
     "MinKoiCarp": {
       "name": "鲤鱼底线",
       "help": ""
-    },
-    "MinCommonCarp": {
-      "name": "IslandFishery.MinCommonCarp.name",
-      "help": "IslandFishery.MinCommonCarp.help"
     },
     "MinShrimp": {
       "name": "小河虾底线",
@@ -4361,6 +4353,10 @@
     },
     "MinCrayfish": {
       "name": "小龙虾底线",
+      "help": ""
+    },
+    "MinBass": {
+      "name": "鲈鱼底线",
       "help": ""
     },
     "MinCrab": {
@@ -4371,12 +4367,28 @@
       "name": "鱿鱼底线",
       "help": ""
     },
-    "MinSeaCucumber": {
-      "name": "海参底线",
-      "help": ""
-    },
     "MinMackerel": {
       "name": "马鲛鱼底线",
+      "help": ""
+    },
+    "MinTuna": {
+      "name": "金枪鱼底线",
+      "help": ""
+    },
+    "MinSalmon": {
+      "name": "三文鱼底线",
+      "help": ""
+    },
+    "MinRedSeaBream": {
+      "name": "红鲷鱼底线",
+      "help": ""
+    },
+    "MinYellowfinTuna": {
+      "name": "黄鳍金枪鱼底线",
+      "help": ""
+    },
+    "MinSeaCucumber": {
+      "name": "海参底线",
       "help": ""
     },
     "MinFreshwaterFishMeat": {
@@ -4396,8 +4408,8 @@
       "3": "3"
     },
     "DefaultFish": {
-      "name": "IslandFishery.DefaultFish.name",
-      "help": "IslandFishery.DefaultFish.help",
+      "name": "默认鱼种",
+      "help": "",
       "shell": "贝类",
       "catfish": "鲶鱼",
       "koi_carp": "鲤鱼",

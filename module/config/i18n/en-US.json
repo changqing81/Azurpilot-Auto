@@ -4331,29 +4331,21 @@
       "2": "2",
       "3": "3"
     },
-    "MinBass": {
-      "name": "Bass Stock Threshold",
-      "help": ""
-    },
-    "MinYellowfinTuna": {
-      "name": "Yellowfin Tuna Stock Threshold",
-      "help": ""
-    },
     "MinShell": {
       "name": "Shell Stock Threshold",
       "help": ""
     },
     "MinCatfish": {
-      "name": "IslandFishery.MinCatfish.name",
-      "help": "IslandFishery.MinCatfish.help"
+      "name": "Catfish Stock Threshold",
+      "help": ""
+    },
+    "MinCommonCarp": {
+      "name": "Common Carp Stock Threshold",
+      "help": ""
     },
     "MinKoiCarp": {
       "name": "Koi carp stock threshold",
       "help": ""
-    },
-    "MinCommonCarp": {
-      "name": "IslandFishery.MinCommonCarp.name",
-      "help": "IslandFishery.MinCommonCarp.help"
     },
     "MinShrimp": {
       "name": "Shrimp Stock Threshold",
@@ -4361,6 +4353,10 @@
     },
     "MinCrayfish": {
       "name": "Crayfish Stock Threshold",
+      "help": ""
+    },
+    "MinBass": {
+      "name": "Bass Stock Threshold",
       "help": ""
     },
     "MinCrab": {
@@ -4371,12 +4367,28 @@
       "name": "Squid Stock Threshold",
       "help": ""
     },
-    "MinSeaCucumber": {
-      "name": "Sea Cucumber Stock Threshold",
-      "help": ""
-    },
     "MinMackerel": {
       "name": "Mackerel stock threshold",
+      "help": ""
+    },
+    "MinTuna": {
+      "name": "Tuna Stock Threshold",
+      "help": ""
+    },
+    "MinSalmon": {
+      "name": "Salmon Stock Threshold",
+      "help": ""
+    },
+    "MinRedSeaBream": {
+      "name": "Red Sea Bream Stock Threshold",
+      "help": ""
+    },
+    "MinYellowfinTuna": {
+      "name": "Yellowfin Tuna Stock Threshold",
+      "help": ""
+    },
+    "MinSeaCucumber": {
+      "name": "Sea Cucumber Stock Threshold",
       "help": ""
     },
     "MinFreshwaterFishMeat": {
@@ -4396,8 +4408,8 @@
       "3": "3"
     },
     "DefaultFish": {
-      "name": "IslandFishery.DefaultFish.name",
-      "help": "IslandFishery.DefaultFish.help",
+      "name": "Default Fish",
+      "help": "",
       "shell": "Shellfish",
       "catfish": "Catfish",
       "koi_carp": "Koi Carp",
