@@ -16,13 +16,19 @@
 
 因此本测试**不 mock _app_start_u2_am**，只 mock u2 的 HTTP 侧，
 让真实 retry_wrapper 参与，确保测的是线上真实异常路径。
+
+覆盖范围只有三条路径：查前台应用 / 停止应用 / 启动应用。
+**不含 dump_hierarchy**：它的 ADB 降级会把 com.github.uiautomator
+（agent 本身）force-stop 掉，等于在 404 窗口期把正在初始化的 agent
+杀掉重启，因此刻意不做降级；且该分发器当前无活调用方（装备码流程
+直接调 dump_hierarchy_adb，不经此处）。
 """
 import unittest
 from unittest.mock import MagicMock, patch
 
 from module.device.method.adb import Adb
 from module.device.method.uiautomator_2 import Uiautomator2
-from module.exception import EmulatorNotRunningError, U2AgentNotReady
+from module.exception import EmulatorNotRunningError
 
 
 def _agent_404():
@@ -149,30 +155,6 @@ class TestAppStart404Fallback(unittest.TestCase):
         device.app_start_adb = MagicMock()
         self.assertTrue(device.app_start_uiautomator2(_PKG, _ACT, False))
         device.app_start_adb.assert_not_called()
-
-
-class TestDumpHierarchy404Fallback(unittest.TestCase):
-    """dump_hierarchy_uiautomator2: agent 404 时降级 ADB uiautomator dump。"""
-
-    def _make_device(self):
-        device = MagicMock(spec=Uiautomator2)
-        device.dump_hierarchy_uiautomator2 = Uiautomator2.dump_hierarchy_uiautomator2.__get__(device)
-        device.u2 = MagicMock()
-        device.u2.dump_hierarchy.side_effect = _agent_404()
-        device.dump_hierarchy_adb = MagicMock(return_value='<hierarchy/>')
-        return device
-
-    def test_404_falls_back_to_adb_dump(self):
-        device = self._make_device()
-        self.assertEqual(device.dump_hierarchy_uiautomator2(), '<hierarchy/>')
-        device.dump_hierarchy_adb.assert_called_once()
-
-    def test_u2_success_skips_adb(self):
-        device = self._make_device()
-        device.u2.dump_hierarchy.side_effect = None
-        device.u2.dump_hierarchy.return_value = '<hierarchy><node/></hierarchy>'
-        device.dump_hierarchy_uiautomator2()
-        device.dump_hierarchy_adb.assert_not_called()
 
 
 class Test404DiagnosticsSuppressed(unittest.TestCase):

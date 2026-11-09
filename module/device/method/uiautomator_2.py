@@ -523,17 +523,16 @@ class Uiautomator2(Connection):
     @retry
     @session_guard
     def dump_hierarchy_uiautomator2(self) -> etree._Element:
-        # agent 404 时降级走 dump_hierarchy_adb（adb shell uiautomator dump），
-        # 否则会抛 RequestHumanTakeover 误报"需要人工介入"
-        try:
-            content = self.u2.dump_hierarchy(compressed=False)
-            # print(content)
-            return etree.fromstring(content.encode('utf-8'))
-        except RuntimeError as e:
-            if _is_agent_404(e):
-                logger.warning('[设备-U2] atx-agent 返回 404（未就绪），本次改走 ADB dump_hierarchy')
-                return self.dump_hierarchy_adb()
-            raise
+        # 注意：这里不做 agent-404 的 ADB 降级。dump_hierarchy_adb() 在 dump
+        # 失败时会 force-stop com.github.uiautomator（见 adb.py），那正是本方法
+        # 依赖的 agent 本身——在 404 窗口期降级过去等于把正在初始化的 agent
+        # 杀掉重启，只会拉长故障窗口。
+        # 另：本分发器当前无活调用方（loop_hierarchy / get_cn_xp_hierarchy 均为
+        # 死代码），装备码流程是直接调 dump_hierarchy_adb() 的，不经此处。
+        content = self.u2.dump_hierarchy(compressed=False)
+        # print(content)
+        hierarchy = etree.fromstring(content.encode('utf-8'))
+        return hierarchy
 
     def uninstall_uiautomator2(self):
         logger.info('[设备-U2] 移除uiautomator2')
