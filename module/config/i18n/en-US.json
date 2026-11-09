@@ -1851,7 +1851,7 @@
     "LargeEnemyTolerance": {
       "name": "Fight up to X-star enemies",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "10": "10"
@@ -1865,14 +1865,14 @@
     "NonLargeEnterTolerance": {
       "name": "After entering the map, X fights no three-star enemies and retreats.",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     },
     "NonLargeRetreatTolerance": {
       "name": "Fight up to X non-three-star enemies",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "10": "10"
@@ -1881,7 +1881,7 @@
       "name": "Pick Up Ammo After X Battles",
       "help": "",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5"
     }
   },
@@ -2146,7 +2146,7 @@
     "BuyURShip": {
       "name": "Buy X UR Ships",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     },
@@ -2919,7 +2919,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -2954,7 +2954,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -2987,7 +2987,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6",
       "7": "7",
@@ -3005,7 +3005,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6",
       "7": "7",
@@ -3151,7 +3151,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -3169,7 +3169,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -3187,7 +3187,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -3205,7 +3205,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -3230,7 +3230,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     },
@@ -3247,7 +3247,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6"
     }
@@ -3287,7 +3287,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "12": "Don't delay"
     },
@@ -3341,7 +3341,7 @@
       "name": "SOS sortie chapter",
       "help": "",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6",
       "7": "7",
@@ -3502,7 +3502,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "Submarine": {
       "name": "Call submarine",
@@ -3678,7 +3678,7 @@
       "help": "Attack sea zones with specific Corrosion levels in clockwise order\nIt is recommended to choose 5 or 3, which has a higher cat point/AP ratio.",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5",
       "6": "6",
       "10": "Central Sea Zone"
@@ -3844,7 +3844,7 @@
     "CooldownHours": {
       "name": "Cooldown Hours",
       "help": "Cooldown period in hours after an auto-compose before the next one.",
-      "12": "+12%",
+      "12": "12",
       "24": "24",
       "48": "48",
       "72": "72"
@@ -3947,11 +3947,11 @@
     "BuyActionPointMonthWeeks": {
       "name": "Monthly Purchase Week Limit",
       "help": "Buy action points with oil in at most N weeks per month; which weeks depends on actual demand, first come first served. 0 means no limit. The month-end purchase block week still applies.",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%",
+      "4": "4",
       "5": "5"
     }
   },
@@ -4139,7 +4139,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "WorkerFilter": {
       "name": "Farm Worker Filter",
@@ -4168,11 +4168,11 @@
     "PlantPotatoes": {
       "name": "Plant Wheat",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     }
   },
   "IslandOrchard": {
@@ -4186,7 +4186,7 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "WorkerFilter": {
       "name": "Orchard Worker Filter",
@@ -4222,11 +4222,11 @@
     "PlantRubber": {
       "name": "Plant Rubber",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "AmagiChanRubber": {
       "name": "Amagi-chan Plants Rubber",
@@ -4276,7 +4276,7 @@
     "PlantLavender": {
       "name": "Plant Lavender",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     }
@@ -4402,7 +4402,7 @@
     "PlantYellowfinTuna": {
       "name": "Raise Yellowfin Tuna",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "3": "3"
@@ -4442,20 +4442,20 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "MineSilver": {
       "name": "Silver Mining Slots",
       "help": "Number of idle mine posts to produce Silver; remaining stay idle",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "DefaultOre": {
-      "name": "IslandMine.DefaultOre.name",
-      "help": "IslandMine.DefaultOre.help",
+      "name": "Default Ore",
+      "help": "Ore mined by spare mine posts once every ore floor is met",
       "Copper": "Copper Ore",
       "Aluminium": "Bauxite Ore",
       "Iron": "Iron Ore",
@@ -4498,20 +4498,20 @@
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "CutElegant": {
       "name": "Elegant Wood Slots",
       "help": "Number of idle forest posts to produce Elegant wood; remaining stay idle",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "+4%"
+      "4": "4"
     },
     "DefaultWood": {
-      "name": "IslandForest.DefaultWood.name",
-      "help": "IslandForest.DefaultWood.help",
+      "name": "Default Wood",
+      "help": "Wood cut by spare forest posts once every wood floor is met",
       "Practical": "Workable Wood",
       "Selected": "Premium Wood",
       "Elegant": "Elegant Wood"
@@ -5571,13 +5571,13 @@
     "Positions": {
       "name": "Position Count",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     },
     "Products": {
-      "name": "WoodProcessing.Products.name",
-      "help": "WoodProcessing.Products.help"
+      "name": "Wood Processing Products",
+      "help": "Products this post should prioritise, one per line; empty means default order"
     }
   },
   "ElectronicProcessing": {
@@ -5588,13 +5588,13 @@
     "Positions": {
       "name": "Position Count",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     },
     "Products": {
-      "name": "ElectronicProcessing.Products.name",
-      "help": "ElectronicProcessing.Products.help"
+      "name": "Electronic Processing Products",
+      "help": "Products this post should prioritise, one per line; empty means default order"
     }
   },
   "Industrial": {
@@ -5605,13 +5605,13 @@
     "Positions": {
       "name": "Position Count",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     },
     "Products": {
-      "name": "Industrial.Products.name",
-      "help": "Industrial.Products.help"
+      "name": "Industrial Goods",
+      "help": "Products this post should prioritise, one per line; empty means default order"
     }
   },
   "Handmade": {
@@ -5622,13 +5622,13 @@
     "Positions": {
       "name": "Position Count",
       "help": "",
-      "0": "0%",
+      "0": "0",
       "1": "1",
       "2": "2"
     },
     "Products": {
-      "name": "Handmade.Products.name",
-      "help": "Handmade.Products.help"
+      "name": "Handmade Goods",
+      "help": "Products this post should prioritise, one per line; empty means default order"
     }
   },
   "IslandAirDrop": {
@@ -6853,8 +6853,8 @@
       "False": "Disabled"
     },
     "Season": {
-      "name": "IslandProductionPlanner.Season.name",
-      "help": "IslandProductionPlanner.Season.help",
+      "name": "Target Season",
+      "help": "Season data used for planning; auto follows the in-game season",
       "auto": "Auto",
       "season_1": "Season 1",
       "season_2": "Season 2",
@@ -6863,26 +6863,26 @@
       "season_5": "Season 5"
     },
     "Priority": {
-      "name": "IslandProductionPlanner.Priority.name",
-      "help": "IslandProductionPlanner.Priority.help",
+      "name": "Planning Priority",
+      "help": "Development PT favours dev points, Island Coins favours coin income",
       "pt": "Dev Points",
       "coins": "Island Coins"
     },
     "FillSparePosts": {
-      "name": "IslandProductionPlanner.FillSparePosts.name",
-      "help": "IslandProductionPlanner.FillSparePosts.help",
+      "name": "Fill Spare Posts",
+      "help": "After targets are met, staff spare posts too so workers never idle",
       "True": "True",
       "False": "False"
     },
     "AutoPositions": {
-      "name": "IslandProductionPlanner.AutoPositions.name",
-      "help": "IslandProductionPlanner.AutoPositions.help",
+      "name": "Auto Positions",
+      "help": "Let the planner decide how many posts to open; off keeps current config",
       "True": "True",
       "False": "False"
     },
     "UnlockedFish": {
-      "name": "IslandProductionPlanner.UnlockedFish.name",
-      "help": "IslandProductionPlanner.UnlockedFish.help",
+      "name": "Unlocked Fish",
+      "help": "Fish unlocked for fish-meat exchange, leave locked ones unchecked",
       "shell": "Shellfish",
       "catfish": "Catfish",
       "koi_carp": "Koi Carp",
@@ -6944,23 +6944,23 @@
     "FieldsEfficiency": {
       "name": "Farmland efficiency bonus",
       "help": "Faircrop Fields output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
-      "0": "0%",
-      "4": "+4%",
-      "12": "+12%"
+      "0": "0",
+      "4": "4",
+      "12": "12"
     },
     "OrchardEfficiency": {
       "name": "Orchard efficiency bonus",
       "help": "Sweetscent Orchard output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
-      "0": "0%",
-      "4": "+4%",
-      "12": "+12%"
+      "0": "0",
+      "4": "4",
+      "12": "12"
     },
     "NurseryEfficiency": {
       "name": "Nursery efficiency bonus",
       "help": "Newsprout Nursery output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
-      "0": "0%",
-      "4": "+4%",
-      "12": "+12%"
+      "0": "0",
+      "4": "4",
+      "12": "12"
     },
     "RestaurantGrade": {
       "name": "Fish Restaurant grade",
@@ -7405,7 +7405,7 @@
       "CheckIntervalHours": "Check interval (hours)"
     },
     "DockLeveling": {
-      "_info": "Gui.DockLeveling._info",
+      "_info": "Dock Leveling Settings",
       "Enable": "Leveling swap (auto pick low-level ships from dock)",
       "TargetLevel": "Target level",
       "DormRest": "Send graduated ships to dorm floor 1"
