@@ -555,6 +555,28 @@ class InfoHandler(ModuleBase):
 
         return False
 
+    def handle_story_unlock_popup(self):
+        """
+        处理活动剧情全部解锁弹窗。
+
+        打过活动普通图或困难图的最后一个关卡后，游戏会弹出
+        「剧情「XXX」已全部解锁，可以前往回忆界面查看。」
+        的信息弹窗，需点击「取消」留在当前页面继续任务。
+
+        该方法本地独有：上游把 info_handler 重构成类属性 + story_skip 时
+        未保留它，而本地 ui.py / combat.py 仍在调用，故保留在此。
+
+        Returns:
+            是否处理了剧情解锁弹窗。
+        """
+        if self.appear(STORY_UNLOCK_CHECK, offset=(20, 20)) \
+                and self.appear(STORY_UNLOCK_CANCEL, offset=(20, 20), interval=2):
+            logger.info('[处理器-剧情解锁] 活动剧情已全部解锁，点击取消')
+            self.device.click(STORY_UNLOCK_CANCEL)
+            return True
+
+        return False
+
     story_popup_timeout = Timer(10, count=20)
     map_has_clear_mode = False  # 会在 fast_forward.py 中被覆盖
     map_is_threat_safe = False
