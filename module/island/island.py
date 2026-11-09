@@ -970,6 +970,11 @@ class Island(SelectCharacter):
         return False
 
     def post_manage_swipe(self,count):
+        # 岗位管理页会停留在上次使用的页签：经营任务结束后再进入时停在经营页签，
+        # 列表里没有农田行，怎么滑都到不了「顶部」。先切回生产页签再判断。
+        if self.appear(POST_MANAGE_BUSINESS) or self.appear(ISLAND_GATHER_COLLECT_CHECK, offset=30):
+            logger.info("[岛屿] 岗位管理页不在生产页签，先切回生产页签")
+            self.post_manage_mode(POST_MANAGE_PRODUCTION)
         if count >= 2:
             for _ in range(count):
                 self.post_manage_up_swipe(450)
