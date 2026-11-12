@@ -146,8 +146,19 @@ class ServerChecker:
                     if self._expired > 3:
                         logger.warning(f'[服务器检查] 时间戳 {self._timestamp} 已3次未更新。')
             elif resp.status_code == 404:
-                # API 数据库可能未收录新增服务器（如"长弓计划"），
-                # 检查本地服务器列表确认该服务器是否真实存在
+                # 社区 API 常滞后收录新服：实测（2026-11-12）它收录 69 个，
+                # 而本地列表有 71 个，差集正是「冬月计划」「长弓计划」——
+                # 对这两个名字 /server/get_state 稳定返回 404。
+                #
+                # 老逻辑此时只核对本地列表，名字存在就**假定可用**。但新服维护期间
+                # 游戏画面推不动，会一路走到卡死检测、连刷 3 次未处理异常后重启
+                # 模拟器——维护识别失败会带来一串本不该发生的副作用。
+                #
+                # 官方网关是同一份游戏数据（实测 cn 入口 0.1 秒返回完整列表，
+                # 两个新服都在列），且与本地列表同名可直接匹配，因此优先用它
+                # 确认真实状态；网关也不可用才退回原有的保守假定。
+                if self._load_gateway_server():
+                    return
                 if self._server_in_local_list():
                     self._push_state(True, f'服务器 "{self._server}" 可用（本地已验证，API未知）。')
                 else:
