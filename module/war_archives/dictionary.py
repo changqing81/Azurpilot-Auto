@@ -56,4 +56,6 @@ dic_archives_template = {
     # 借鉴 wess09/AzurPilot bd3926de2（合并 Lme master）：新增两个作战档案。
     'war_archives_20241024_cn': TEMPLATE_TEMPESTA_AND_THE_SLEEPING_SEA,
     'war_archives_20251023_cn': TEMPLATE_TEMPESTA_AND_ISLAS_DE_LIBERTAD,
+    # 愚者的天平（复刻档案，复用 event_20230817_cn 的剧情解锁逻辑）
+    'war_archives_20230817_cn': TEMPLATE_THE_FOOLS_SCALES,
 }
