@@ -22,9 +22,17 @@ from module.handler.task_failure_protection import Watchdog
 
 
 def _make_script():
-    """构造不跑 __init__ 的调度器实例，只带本次用到的状态字段。"""
+    """构造不跑 __init__ 的调度器实例，只带本次用到的状态字段。
+
+    状态文件相关方法整体替换掉：本测试只关心标志的生命周期，
+    不该真的往 log/ 写文件（会污染工作区，也让测试依赖 cwd）。
+    """
     script = object.__new__(alas_module.AzurLaneAutoScript)
     script._maintenance_waiting = False
+    script._maintenance_since = 0.0
+    script.config_name = 'unittest'
+    script._write_maintenance_state = lambda **kwargs: None
+    script._clear_maintenance_state = lambda: None
     return script
 
 
@@ -66,11 +74,17 @@ class TestMaintenanceWaitFlag(unittest.TestCase):
         self.assertFalse(script._maintenance_waiting)
 
     def test_all_maintenance_paths_are_wrapped(self):
-        """关模拟器轮询 + 3 处开模拟器轮询都要套进标志窗口。"""
+        """关模拟器轮询 + 3 处开模拟器轮询都要套进标志窗口。
+
+        第一处（关模拟器轮询）带 `emulator_closed=True`，用于让 WebUI 横幅
+        区分「模拟器已关闭」与「模拟器仍开着」两种等待形态，所以按前缀统计。
+        """
+        close_src = inspect.getsource(
+            alas_module.AzurLaneAutoScript._close_emulator_for_maintenance)
+        self.assertIn('with self._maintenance_wait(emulator_closed=True):', close_src)
+
         source = inspect.getsource(alas_module.AzurLaneAutoScript)
-        self.assertIn('with self._maintenance_wait():', inspect.getsource(
-            alas_module.AzurLaneAutoScript._close_emulator_for_maintenance))
-        self.assertEqual(source.count('with self._maintenance_wait():'), 4)
+        self.assertEqual(source.count('with self._maintenance_wait('), 4)
 
 
 class TestWatchdogHonoursMaintenanceFlag(unittest.TestCase):

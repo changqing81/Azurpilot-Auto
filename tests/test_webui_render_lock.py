@@ -322,6 +322,8 @@ class _OverviewTaskStub:
         # unbound 调用的替身不经过 DashboardMixin 的 MRO，
         # 钩子直接挂在实例上
         self._check_task_failure_notifications = lambda: None
+        # 维护等待横幅：同样按 MRO 外挂，本测试不关心横幅行为
+        self._update_maintenance_banner = lambda: None
         # mtime 短路：默认「看过同一 mtime」，mtime 语义测试自行覆盖
         from module.webui.app_dashboard import _OVERVIEW_MTIME_MISSING
 
