@@ -8344,6 +8344,7 @@
       "StateWaiting": "服务器维护中",
       "StateOpen": "服务器已开服",
       "DescWaiting": "模拟器已关闭，等待开服",
+      "DescRunning": "模拟器保持运行，等待开服",
       "DescOpen": "正在启动模拟器并登录",
       "Elapsed": "已等待",
       "NextPoll": "下次查询",

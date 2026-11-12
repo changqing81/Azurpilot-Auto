@@ -8344,6 +8344,7 @@
       "StateWaiting": "伺服器維護中",
       "StateOpen": "伺服器已開服",
       "DescWaiting": "模擬器已關閉，等待開服",
+      "DescRunning": "模擬器保持運行，等待開服",
       "DescOpen": "正在啟動模擬器並登入",
       "Elapsed": "已等待",
       "NextPoll": "下次查詢",

@@ -79,7 +79,10 @@ class DashboardMixin(WebUIMixinBase):
     def _maintenance_labels(self) -> dict:
         return {
             "state": t("Gui.Maintenance.StateWaiting"),
+            "state_open": t("Gui.Maintenance.StateOpen"),
             "desc": t("Gui.Maintenance.DescWaiting"),
+            "desc_running": t("Gui.Maintenance.DescRunning"),
+            "desc_open": t("Gui.Maintenance.DescOpen"),
             "elapsed": t("Gui.Maintenance.Elapsed"),
             "next": t("Gui.Maintenance.NextPoll"),
         }
@@ -91,8 +94,10 @@ class DashboardMixin(WebUIMixinBase):
             now = time.time()
             state = {
                 "waiting": True,
-                "since": now - 4212,   # 已等待 1:10:12
-                "last_poll": now - 18,  # 42 秒后下次查询
+                "emulator_closed": True,  # 与关模拟器等开服的真实形态一致
+                "server": "示例服务器",    # 演示服务器名（真实环境取配置值）
+                "since": now - 4212,      # 已等待 1:10:12
+                "last_poll": now - 18,    # 42 秒后下次查询
                 "poll_seconds": 60,
             }
             self._maint_demo_state = state
@@ -112,11 +117,23 @@ class DashboardMixin(WebUIMixinBase):
                 )
             )
             return
+        raw = maintenance_banner.read_state(self.alas_name)
         state = maintenance_banner.normalize(
-            maintenance_banner.read_state(self.alas_name),
-            getattr(self.alas, "alive", False),
+            raw, getattr(self.alas, "alive", False)
         )
-        key = json.dumps(state, sort_keys=True, ensure_ascii=False) if state else ""
+        # 去重键只取「显示什么」，不取倒计时用的 last_poll：
+        # 维护期间实例每 60 秒重写一次文件，last_poll 会变，但横幅内容不变，
+        # 用整份 state 做键会每分钟白发一条 run_js。
+        key = json.dumps(
+            {
+                "waiting": bool(state.get("waiting")) if state else False,
+                "opened": bool(state.get("opened")) if state else False,
+                "emulator_closed": bool(state.get("emulator_closed")) if state else False,
+            },
+            sort_keys=True,
+        ) if state else ""
+        # 「已开服」横幅在浏览器端按 TTL 自行收起；状态文件仍在时 normalize
+        # 到期返回 None，key 从有值退化成空串，正好触发一次隐藏。
         if key == getattr(self, "_maint_banner_key", None):
             return
         self._maint_banner_key = key

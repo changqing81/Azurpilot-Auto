@@ -380,3 +380,18 @@ html:root .alas-maint-banner__state {
 html:root .alas-maint-banner__dot {
     background: #fbbf24;
 }
+
+/* 维护横幅「服务器已开服」绿色态（深色主题） */
+html:root .alas-maint-banner.is-opened {
+    color: #bbf7d0;
+    border-color: rgba(34, 197, 94, .40);
+    background: linear-gradient(90deg, rgba(34, 197, 94, .16), rgba(34, 197, 94, .03));
+}
+
+html:root .alas-maint-banner.is-opened .alas-maint-banner__state {
+    color: #4ade80;
+}
+
+html:root .alas-maint-banner.is-opened .alas-maint-banner__dot {
+    background: #4ade80;
+}

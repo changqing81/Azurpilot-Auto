@@ -73,6 +73,9 @@ MAINTENANCE_POLL_SECONDS = 60
 # 关着模拟器等开服的最长时长（小时）：超过就放弃关闭等待，交回调度器处理，
 # 避免服务器状态接口异常导致模拟器整夜不开。
 MAINTENANCE_MAX_WAIT_HOURS = 24
+# 「服务器已开服」绿色横幅的停留时长（秒）。实例写完这份状态就不再管它，
+# 由 WebUI 按这个 TTL 自行隐藏，避免残留状态文件让横幅一直亮着。
+MAINTENANCE_OPENED_TTL = 8
 
 
 class AzurLaneAutoScript:
@@ -319,12 +322,21 @@ class AzurLaneAutoScript:
         self._maintenance_waiting = True
         self._maintenance_since = time.time()
         self._write_maintenance_state(emulator_closed=emulator_closed)
+        opened = False
         try:
             yield
+            # 正常退出 = 等到开服（异常/停止信号走 finally 的清除分支）。
+            # 写一份「已开服」状态留给 WebUI 亮绿色横幅，由它按 TTL 自行隐藏。
+            opened = True
         finally:
             self._maintenance_waiting = False
             self._maintenance_since = 0.0
-            self._clear_maintenance_state()
+            if opened:
+                self._write_maintenance_state(
+                    emulator_closed=emulator_closed, opened=True
+                )
+            else:
+                self._clear_maintenance_state()
 
     def _maintenance_state_path(self):
         """维护状态文件路径：WebUI 是独立进程，只能靠文件读这份状态。"""
@@ -344,15 +356,25 @@ class AzurLaneAutoScript:
         except Exception:
             return ''
 
-    def _write_maintenance_state(self, emulator_closed=False):
+    def _write_maintenance_state(self, emulator_closed=False, opened=False):
         """写维护状态供 WebUI 展示（横幅：已等待时长 / 下次查询倒计时）。
+
+        Args:
+            emulator_closed (bool): 等待时模拟器是否已关闭。决定横幅描述的
+                措辞（"模拟器已关闭" vs "模拟器保持运行"）。
+            opened (bool): True 表示维护已结束、服务器开服。WebUI 据此把
+                横幅切成绿色"服务器已开服"，停留 MAINTENANCE_OPENED_TTL 秒
+                后自行隐藏（不需要实例再写一次文件）。
 
         写失败只降级 debug：这是纯展示信息，不能反过来影响维护等待。
         """
+        now = time.time()
         payload = {
-            'waiting': True,
-            'since': self._maintenance_since or time.time(),
-            'last_poll': time.time(),
+            'waiting': not opened,
+            'opened': bool(opened),
+            'since': self._maintenance_since or now,
+            'last_poll': now,
+            'finished_at': now if opened else 0.0,
             'poll_seconds': MAINTENANCE_POLL_SECONDS,
             'server': self._maintenance_server_name(),
             'emulator_closed': bool(emulator_closed),

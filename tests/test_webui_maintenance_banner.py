@@ -18,7 +18,10 @@ from module.webui import maintenance_banner as mb
 
 LABELS = {
     "state": "服务器维护中",
+    "state_open": "服务器已开服",
     "desc": "模拟器已关闭，等待开服",
+    "desc_running": "模拟器保持运行，等待开服",
+    "desc_open": "正在启动模拟器并登录",
     "elapsed": "已等待",
     "next": "下次查询",
 }
@@ -51,6 +54,20 @@ class TestReadAndNormalize(unittest.TestCase):
     def test_normalize_drops_not_waiting(self):
         self.assertIsNone(mb.normalize({"waiting": False}, alive=True))
 
+    def test_normalize_keeps_opened_within_ttl(self):
+        """开服后要在 TTL 内保留绿色横幅。"""
+        state = {"opened": True, "finished_at": 1000}
+        self.assertIs(mb.normalize(state, alive=True, now=1000 + mb.OPENED_TTL - 1), state)
+
+    def test_normalize_drops_opened_after_ttl(self):
+        state = {"opened": True, "finished_at": 1000}
+        self.assertIsNone(mb.normalize(state, alive=True, now=1000 + mb.OPENED_TTL + 1))
+
+    def test_normalize_drops_opened_when_dead(self):
+        self.assertIsNone(
+            mb.normalize({"opened": True, "finished_at": 1000}, alive=False, now=1000)
+        )
+
     def test_normalize_drops_dead_instance(self):
         """进程被杀不会清状态文件，实例已停止时必须隐藏横幅。"""
         self.assertIsNone(mb.normalize({"waiting": True}, alive=False))
@@ -58,6 +75,39 @@ class TestReadAndNormalize(unittest.TestCase):
     def test_normalize_keeps_alive_waiting(self):
         state = {"waiting": True, "since": 1}
         self.assertIs(mb.normalize(state, alive=True), state)
+
+
+class TestServerText(unittest.TestCase):
+    """服务器名在横幅上的显示规则（含空值降级）。"""
+
+    def test_empty_forms_become_blank(self):
+        """未填 / disabled / auto / 空白都不该显示成服务器名。"""
+        for value in (None, "", "   ", "disabled", "DISABLED", "auto", "none"):
+            self.assertEqual(mb._server_text(value), "", f"{value!r} 应为空")
+
+    def test_real_name_kept(self):
+        self.assertEqual(mb._server_text("奥林匹克行动"), "奥林匹克行动")
+        self.assertEqual(mb._server_text("  Olympic  "), "Olympic")
+
+    def test_js_hides_server_span_when_blank(self):
+        js = mb.build_js(
+            {"waiting": True, "emulator_closed": True, "server": "", "since": 1, "last_poll": 2},
+            LABELS,
+        )
+        self.assertIn("srv.style.display='none'", js)
+
+    def test_js_shows_server_when_present(self):
+        js = mb.build_js(
+            {
+                "waiting": True,
+                "emulator_closed": True,
+                "server": "奥林匹克行动",
+                "since": 1,
+                "last_poll": 2,
+            },
+            LABELS,
+        )
+        self.assertIn("奥林匹克行动", js)
 
 
 class TestDomScript(unittest.TestCase):
@@ -73,9 +123,37 @@ class TestDomScript(unittest.TestCase):
         self.assertIn("display='none'", js)
         self.assertIn("clearInterval", js)
 
+    def test_desc_switches_by_emulator_closed(self):
+        """B 部分：模拟器关闭中 / 保持运行要显示不同描述。"""
+        closed = mb.build_js(
+            {"waiting": True, "emulator_closed": True, "since": 1, "last_poll": 2}, LABELS
+        )
+        self.assertIn(LABELS["desc"], closed)
+        self.assertNotIn(LABELS["desc_running"], closed)
+
+        running = mb.build_js(
+            {"waiting": True, "emulator_closed": False, "since": 1, "last_poll": 2}, LABELS
+        )
+        self.assertIn(LABELS["desc_running"], running)
+        self.assertNotIn(LABELS["desc"], running)
+
+    def test_opened_js_uses_green_state_and_auto_hides(self):
+        """C 部分：开服态用绿色 class、显示「已开服」，并按 TTL 自动收起。"""
+        js = mb.build_js({"opened": True, "since": 1000, "finished_at": 1001}, LABELS)
+        self.assertIn(LABELS["state_open"], js)
+        self.assertIn(LABELS["desc_open"], js)
+        self.assertIn("is-opened", js)
+        self.assertIn("open_ttl", js)
+
     def test_show_js_sets_text_and_ticks_every_second(self):
         js = mb.build_js(
-            {"waiting": True, "since": 1000, "last_poll": 1030, "poll_seconds": 60},
+            {
+                "waiting": True,
+                "emulator_closed": True,
+                "since": 1000,
+                "last_poll": 1030,
+                "poll_seconds": 60,
+            },
             LABELS,
         )
         self.assertIn(LABELS["state"], js)

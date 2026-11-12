@@ -8344,6 +8344,7 @@
       "StateWaiting": "Server maintenance",
       "StateOpen": "Server is back",
       "DescWaiting": "Emulator closed, waiting for server",
+      "DescRunning": "Emulator kept running, waiting for server",
       "DescOpen": "Starting emulator and logging in",
       "Elapsed": "Elapsed",
       "NextPoll": "Next check",
