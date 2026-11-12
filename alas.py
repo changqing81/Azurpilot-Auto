@@ -339,8 +339,16 @@ class AzurLaneAutoScript:
                 self._clear_maintenance_state()
 
     def _maintenance_state_path(self):
-        """维护状态文件路径：WebUI 是独立进程，只能靠文件读这份状态。"""
-        return os.path.join('log', f'{self.config_name}.maintenance.json')
+        """维护状态文件路径：WebUI 是独立进程，只能靠文件读这份状态。
+
+        取不到 config_name 时返回 None：状态文件是纯展示信息，用
+        SimpleNamespace 之类的轻量替身对象调用维护等待（单测、工具脚本）时
+        不该因为缺这一个字段就把主流程带崩。
+        """
+        name = getattr(self, 'config_name', None)
+        if not name:
+            return None
+        return os.path.join('log', f'{name}.maintenance.json')
 
     def _maintenance_server_name(self):
         """当前配置的服务器名，读不到返回空串（不影响等待本身）。
@@ -379,8 +387,10 @@ class AzurLaneAutoScript:
             'server': self._maintenance_server_name(),
             'emulator_closed': bool(emulator_closed),
         }
+        path = self._maintenance_state_path()
+        if not path:
+            return
         try:
-            path = self._maintenance_state_path()
             os.makedirs(os.path.dirname(path), exist_ok=True)
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(payload, f, ensure_ascii=False)
@@ -389,8 +399,11 @@ class AzurLaneAutoScript:
 
     def _clear_maintenance_state(self):
         """清除维护状态文件：WebUI 据此隐藏横幅。"""
+        path = self._maintenance_state_path()
+        if not path:
+            return
         try:
-            os.remove(self._maintenance_state_path())
+            os.remove(path)
         except OSError:
             pass
 
