@@ -356,6 +356,15 @@ class Watchdog:
             if not self._active or not self._enabled():
                 continue
 
+            # 维护等待是预期静默：主线程在轮询开服（可能数小时），
+            # 既不该报「无日志」，也不该触发强制定时重启。
+            # 2026-11-12：关模拟器等开服期间每 30 秒一条 WARNING 持续一小时。
+            # 维护等待是预期静默：主线程在轮询开服（可能数小时），
+            # 既不该报「无日志」，也不该触发强制定时重启。
+            # 2026-11-12：关模拟器等开服期间每 30 秒一条 WARNING 持续一小时。
+            if bool(getattr(self.alas, '_maintenance_waiting', False)):
+                continue
+
             # 检查 0：强制定时重启（维护性，跳动敏感任务）
             if self._check_force_scheduled_restart():
                 continue

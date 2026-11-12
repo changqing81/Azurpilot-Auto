@@ -4,6 +4,7 @@ import re
 import shutil
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 import inflection
@@ -117,6 +118,10 @@ class AzurLaneAutoScript:
         self._warmup_measured_game_only_seconds = None  # 模拟器保持运行，仅启动游戏
         # 渠道服悬浮球会话标志：调度器启动/游戏重启后仅处理一次
         self._channel_float_done = False
+        # 维护等待标志：主线程在静默轮询开服（可能数小时），供 Watchdog
+        # 跳过心跳/超时检测。维护期间轮询循环刻意不打日志，若不置位，
+        # Watchdog 会每 30 秒刷一条「无日志输出」误报（2026-11-12）。
+        self._maintenance_waiting = False
 
     @cached_property
     def recovery(self):
@@ -296,6 +301,25 @@ class AzurLaneAutoScript:
         else:
             logger.debug(f'[Alas] 服务器状态查询仍然失败: {error}')
 
+    @contextmanager
+    def _maintenance_wait(self):
+        """标记当前处于维护等待：主线程在静默轮询开服，不是卡死。
+
+        维护可能持续数小时，而两条等待路径（关模拟器轮询 / 开模拟器轮询）
+        都刻意不打日志以免刷屏。`watchdog.deactivate()` 要等任务返回才执行，
+        所以 Watchdog 整段时间都认为「任务执行中 + 无日志输出」，会每
+        `WATCHDOG_CHECK_INTERVAL` 秒（30 秒）刷一条 WARNING，把真正的
+        日志全淹掉（2026-11-12：持续一小时 120+ 条）。
+
+        置位窗口内 Watchdog 跳过心跳告警、任务超时与强制定时重启。
+        用 try/finally 保证异常、超时、停止信号三种退出都会清掉标志。
+        """
+        self._maintenance_waiting = True
+        try:
+            yield
+        finally:
+            self._maintenance_waiting = False
+
     def _close_emulator_for_maintenance(self, checker):
         """服务器维护中时关闭模拟器，关着轮询到开服。
 
@@ -355,33 +379,34 @@ class AzurLaneAutoScript:
         )
         started_at = time.monotonic()
         self._poll_error_reported = False
-        while True:
-            # 整个轮询体都必须兜住异常：等待期间任何一处抛出去，都会落到调度器
-            # 的全局异常处理、把已经关掉的模拟器丢在"已关闭"状态里跑飞。
-            # 查询失败只提示一次，后续降级 debug，免得维护期间刷屏。
-            try:
-                if checker.is_available():
-                    logger.info('[Alas] 服务器已开服，准备启动模拟器')
+        with self._maintenance_wait():
+            while True:
+                # 整个轮询体都必须兜住异常：等待期间任何一处抛出去，都会落到调度器
+                # 的全局异常处理、把已经关掉的模拟器丢在"已关闭"状态里跑飞。
+                # 查询失败只提示一次，后续降级 debug，免得维护期间刷屏。
+                try:
+                    if checker.is_available():
+                        logger.info('[Alas] 服务器已开服，准备启动模拟器')
+                        return True
+                except Exception as poll_error:
+                    self._log_poll_error_once(poll_error)
+                if self.stop_event is not None and self.stop_event.is_set():
+                    logger.info('[Alas] 检测到更新事件，停止维护等待（模拟器保持关闭）')
                     return True
-            except Exception as poll_error:
-                self._log_poll_error_once(poll_error)
-            if self.stop_event is not None and self.stop_event.is_set():
-                logger.info('[Alas] 检测到更新事件，停止维护等待（模拟器保持关闭）')
-                return True
-            if time.monotonic() - started_at > MAINTENANCE_MAX_WAIT_HOURS * 3600:
-                logger.warning(
-                    f'[Alas] 关闭模拟器等待已超过 {MAINTENANCE_MAX_WAIT_HOURS} 小时仍未开服，'
-                    '放弃关闭等待，交回调度器处理'
-                )
-                return True
-            if self.stop_event is not None:
-                self.stop_event.wait(MAINTENANCE_POLL_SECONDS)
-            else:
-                time.sleep(MAINTENANCE_POLL_SECONDS)
-            try:
-                checker.check_now()
-            except Exception as poll_error:
-                self._log_poll_error_once(poll_error)
+                if time.monotonic() - started_at > MAINTENANCE_MAX_WAIT_HOURS * 3600:
+                    logger.warning(
+                        f'[Alas] 关闭模拟器等待已超过 {MAINTENANCE_MAX_WAIT_HOURS} 小时仍未开服，'
+                        '放弃关闭等待，交回调度器处理'
+                    )
+                    return True
+                if self.stop_event is not None:
+                    self.stop_event.wait(MAINTENANCE_POLL_SECONDS)
+                else:
+                    time.sleep(MAINTENANCE_POLL_SECONDS)
+                try:
+                    checker.check_now()
+                except Exception as poll_error:
+                    self._log_poll_error_once(poll_error)
 
     def _long_wait_close_emulator_minutes(self):
         """读取「长时间等待时关闭模拟器」的等待阈值（分钟）。
@@ -926,7 +951,8 @@ class AzurLaneAutoScript:
                 else:
                     # 开关关闭／远程设备／关闭失败：就地关开着等开服，
                     # 也不要反复重启游戏
-                    checker.wait_until_available()
+                    with self._maintenance_wait():
+                        checker.wait_until_available()
                 self.config.task_call('Restart')
                 return 'recoverable'
 
@@ -1038,7 +1064,8 @@ class AzurLaneAutoScript:
                     self.config.task_call('Restart')
                     return 'recoverable'
                 if checker is not None:
-                    checker.wait_until_available()
+                    with self._maintenance_wait():
+                        checker.wait_until_available()
                 return False
         except ScriptError as e:
             # 代码 bug，先重试 3 次再退出，给瞬时性脚本错误缓冲
@@ -2387,7 +2414,8 @@ class AzurLaneAutoScript:
                         del_cached_property(self, 'config')
                         self.config.task_call('Restart')
                         continue
-                    checker.wait_until_available()
+                    with self._maintenance_wait():
+                        checker.wait_until_available()
                 if checker is not None and checker.is_recovered():
                     # 服务器恢复后强制刷新配置，修复阻塞期间配置未更新的问题
                     del_cached_property(self, 'config')
