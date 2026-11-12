@@ -7,6 +7,7 @@
 from module.base.timer import Timer
 from module.base.utils import get_color
 from module.logger import logger
+from module.os.assets import GLOBE_GOTO_MAP
 from module.os_handler.assets import *
 from module.os_handler.map_event import MapEventHandler
 from module.ui.scroll import Scroll
@@ -27,7 +28,18 @@ class StrategicSearchHandler(MapEventHandler):
             # 作战情报页面未关闭时先关闭，避免在错误页面上等待导致卡死
             if self.appear_then_click(MISSION_QUIT, offset=(20, 20), interval=2):
                 continue
-            if self.appear(AUTO_SEARCH_REWARD, offset=(50, 50)):
+            # 误入地球仪（作战总览）页面时没有策略搜索开关，先点回海域地图，
+            # 否则循环只截图不操作，最终被判为 GameStuckError 并重启游戏
+            if self.appear_then_click(GLOBE_GOTO_MAP, offset=(20, 20), interval=3):
+                logger.info('[大世界-策略] 误入地球仪，返回海域地图')
+                continue
+            # 结算弹窗或残留战斗结算页会遮挡策略搜索入口，必须先关闭；
+            # 这里只检测不点击会让循环在弹窗上一直空转
+            if self.appear_then_click(AUTO_SEARCH_REWARD, offset=(50, 50), interval=3):
+                continue
+            # 误入作战总览（情报界面）页面同样没有策略搜索开关，点该按钮退出
+            if self.appear_then_click(ORDER_CHECK, offset=(20, 20), interval=3):
+                logger.info('[大世界-策略] 误入作战总览，退出情报界面')
                 continue
             if self.match_template_color(STRATEGIC_SEARCH_MAP_OPTION_OFF, offset=(20, 20), interval=2):
                 self.device.click(STRATEGIC_SEARCH_MAP_OPTION_OFF)
