@@ -25,6 +25,21 @@ from module.map.assets import WITHDRAW
 from module.ocr.ocr import Ocr
 from module.template.assets import *
 
+# 数字章节索引的合理上限，超过即视为 OCR 误识别。
+#
+# 2026-11-11 12:05 事故：GemsFarming 切完困难模式后立刻做关卡 OCR，转场动画
+# 期间把"2-2"读成了 "31009"，_campaign_separate_name() 走 name[-1].isdigit()
+# 分支切成章节 '3100'。当时目标是第 2 章，diff = 2 - 3100 = -3098，被直接喂给
+# device.multi_click()：该函数是同步阻塞循环、全程不截图、循环内的 click 还带着
+# control_check=False 不记点击记录，于是点完 3098 下 CHAPTER_PREV（12:05:40 到
+# 12:18:35，整整 12 分 55 秒）才停下来，期间一次识别都没有。
+#
+# 游戏主体到 2026-11 为止只有 16 章，取 20 留出 4 章余量。
+# 【游戏更新到 21 章或更多时】必须同步调大这个值，否则会被当成误识别而拒绝——
+# 好消息是 tests/test_campaign_chapter_index_guard.py 会扫描 campaign_main 里的
+# 实际章节号，一旦出现超过该上限的章节，测试立刻变红提醒。
+MAX_CHAPTER_INDEX = 20
+
 
 class CampaignOcr(ModuleBase):
     """战役关卡 OCR 识别器。
@@ -46,17 +61,33 @@ class CampaignOcr(ModuleBase):
         """
         获取章节索引。
 
+        数字章节会校验上限，超出 MAX_CHAPTER_INDEX 直接按"识别失败"处理，
+        避免 OCR 把章节名读长（如 '2-2' 读成 '31009' → '3100'）后，把巨大的
+        差值交给 campaign_ensure_chapter() 去 multi_click() 盲点（见该常量注释）。
+
         Args:
             name (str, int): 章节名称或索引。
 
         Returns:
             int: 章节索引。
+
+        Raises:
+            CampaignNameError: 数字章节超出合理范围，视为 OCR 误识别。
         """
         if isinstance(name, int):
+            if name > MAX_CHAPTER_INDEX:
+                logger.warning(f'[战役-OCR] 章节索引异常: {name}，超过上限 {MAX_CHAPTER_INDEX}，'
+                               f'按识别失败处理')
+                raise CampaignNameError
             return name
         else:
             if name.isdigit():
-                return int(name)
+                index = int(name)
+                if index > MAX_CHAPTER_INDEX:
+                    logger.warning(f'[战役-OCR] 章节索引异常: {name}，超过上限 {MAX_CHAPTER_INDEX}，'
+                                   f'按识别失败处理')
+                    raise CampaignNameError
+                return index
             elif name in ['a', 'c', 'as', 'cs', 't', 'ht', 'ts', 'hts', 'sp', 'ex_sp']:
                 return 1
             elif name in ['b', 'd', 'bs', 'ds', 'ex_ex']:
@@ -377,11 +408,20 @@ class CampaignOcr(ModuleBase):
         """
         获取当前章节索引，供 ui_ensure_index 使用。
 
+        这里是"OCR 结果 → 章节索引"的唯一出口，所以越界校验放在这一层：
+        部分活动的 CampaignBase 会整段覆写 _campaign_get_chapter_index() 而
+        不调用 super()（event_20200917_cn、event_20201029_cn、event_20201126_cn、
+        event_20210121_cn、event_20210722_cn、war_archives_20190911_cn、
+        war_archives_20200917_cn 共 7 个），只改基类那一份会被它们绕过。
+
         Args:
             skip_first_screenshot: 是否跳过首次截图。
 
         Returns:
             int: 章节索引。
+
+        Raises:
+            CampaignNameError: 章节索引超出 MAX_CHAPTER_INDEX，视为 OCR 误识别。
         """
         timeout = Timer(2, count=4).start()
         while 1:
@@ -402,4 +442,11 @@ class CampaignOcr(ModuleBase):
             if self.handle_get_chapter_additional():
                 continue
 
-        return self._campaign_get_chapter_index(self.campaign_chapter)
+        index = self._campaign_get_chapter_index(self.campaign_chapter)
+        # 兜底校验：子类覆写的映射表不经过基类校验，这里再挡一次。
+        # 2026-11-11 12:05 事故就是 '3100' 直接进了 diff 计算（见 MAX_CHAPTER_INDEX 注释）。
+        if index > MAX_CHAPTER_INDEX:
+            logger.warning(f'[战役-OCR] 章节索引异常: {index}（章节 {self.campaign_chapter}），'
+                           f'超过上限 {MAX_CHAPTER_INDEX}，按识别失败处理')
+            raise CampaignNameError
+        return index
