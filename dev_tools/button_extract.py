@@ -185,7 +185,7 @@ class ModuleExtractor:
         if not os.path.exists(folder):
             os.mkdir(folder)
         docstring = self.read_docstring()
-        with open(os.path.join(folder, BUTTON_FILE), 'w', newline='') as f:
+        with open(os.path.join(folder, BUTTON_FILE), 'w', encoding='utf-8', newline='') as f:
             if docstring:
                 f.write(docstring + '\n\n')
             for text in self.expression:
