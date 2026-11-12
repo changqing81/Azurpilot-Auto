@@ -1440,3 +1440,62 @@ body.alas-login-page::after,
         background-position: 0 50%;
     }
 }
+
+/* --- 维护等待横幅（概览页顶部） ---
+   由 alas_update_overview_task 用 run_js 增量控制显隐与文案。
+   注意：坐标与配色不依赖 --alas-content-text —— 该变量在深色主题下没有
+   定义，会回退成深灰字，横幅在深底上完全看不清（实测截图确认）。 */
+.alas-maint-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 12px;
+    padding: 10px 14px;
+    border: 1px solid rgba(251, 191, 36, .45);
+    border-left: 4px solid #fbbf24;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(251, 191, 36, .18), rgba(251, 191, 36, .05));
+    color: #8a5a00;
+}
+
+.alas-maint-banner__dot {
+    flex: 0 0 auto;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f59e0b;
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, .18);
+}
+
+.alas-maint-banner__body {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-width: 0;
+}
+
+.alas-maint-banner__state {
+    color: #b45309;
+    font-size: .95rem;
+    font-weight: 700;
+}
+
+.alas-maint-banner__desc {
+    opacity: .85;
+    font-size: .86rem;
+}
+
+.alas-maint-banner__meta {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 18px;
+    margin-left: auto;
+    opacity: .9;
+    font-size: .82rem;
+}
+
+.alas-maint-banner__meta b {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}

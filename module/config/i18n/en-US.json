@@ -8339,6 +8339,18 @@
       "ButtonNext": "Next",
       "ButtonBack": "Back",
       "ButtonCreate": "Create & Finish"
+    },
+    "Maintenance": {
+      "StateWaiting": "Server maintenance",
+      "StateOpen": "Server is back",
+      "DescWaiting": "Emulator closed, waiting for server",
+      "DescOpen": "Starting emulator and logging in",
+      "Elapsed": "Elapsed",
+      "NextPoll": "Next check",
+      "TestShow": "Show maintenance banner (test)",
+      "TestHide": "Hide maintenance banner (test)",
+      "TestHintShown": "Test banner enabled, switch to Overview to view",
+      "TestHintHidden": "Test banner disabled"
     }
   }
 }

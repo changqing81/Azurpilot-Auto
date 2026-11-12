@@ -8339,6 +8339,18 @@
       "ButtonNext": "次へ",
       "ButtonBack": "戻る",
       "ButtonCreate": "作成して完了"
+    },
+    "Maintenance": {
+      "StateWaiting": "サーバーメンテナンス中",
+      "StateOpen": "サーバー復旧",
+      "DescWaiting": "エミュレーター停止中、復旧待ち",
+      "DescOpen": "エミュレーター起動とログイン中",
+      "Elapsed": "経過時間",
+      "NextPoll": "次回確認",
+      "TestShow": "メンテナンスバナー表示（テスト）",
+      "TestHide": "メンテナンスバナー非表示（テスト）",
+      "TestHintShown": "テストバナーを有効にしました。「概要」で確認してください",
+      "TestHintHidden": "テストバナーを無効にしました"
     }
   }
 }

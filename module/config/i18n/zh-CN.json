@@ -8339,6 +8339,18 @@
       "ButtonNext": "下一步",
       "ButtonBack": "上一步",
       "ButtonCreate": "创建并完成"
+    },
+    "Maintenance": {
+      "StateWaiting": "服务器维护中",
+      "StateOpen": "服务器已开服",
+      "DescWaiting": "模拟器已关闭，等待开服",
+      "DescOpen": "正在启动模拟器并登录",
+      "Elapsed": "已等待",
+      "NextPoll": "下次查询",
+      "TestShow": "显示维护横幅（测试）",
+      "TestHide": "隐藏维护横幅（测试）",
+      "TestHintShown": "已开启测试横幅，请切到「总览」查看",
+      "TestHintHidden": "已关闭测试横幅"
     }
   }
 }

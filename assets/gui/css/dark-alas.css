@@ -364,3 +364,19 @@ pre.rich-traceback-code {
 #pywebio-scope-statistics-content table.rd-table tr {
     background-color: transparent !important;
 }
+
+/* 维护等待横幅：深色主题下整套换亮黄系。
+   不能只改标题色——正文与 meta 仍会从父级继承深灰，实测在深底上不可读。 */
+html:root .alas-maint-banner {
+    color: #e8d9a8;
+    border-color: rgba(251, 191, 36, .40);
+    background: linear-gradient(90deg, rgba(251, 191, 36, .16), rgba(251, 191, 36, .03));
+}
+
+html:root .alas-maint-banner__state {
+    color: #fbbf24;
+}
+
+html:root .alas-maint-banner__dot {
+    background: #fbbf24;
+}

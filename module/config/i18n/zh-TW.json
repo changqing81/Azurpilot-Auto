@@ -8339,6 +8339,18 @@
       "ButtonNext": "下一步",
       "ButtonBack": "上一步",
       "ButtonCreate": "建立並完成"
+    },
+    "Maintenance": {
+      "StateWaiting": "伺服器維護中",
+      "StateOpen": "伺服器已開服",
+      "DescWaiting": "模擬器已關閉，等待開服",
+      "DescOpen": "正在啟動模擬器並登入",
+      "Elapsed": "已等待",
+      "NextPoll": "下次查詢",
+      "TestShow": "顯示維護橫幅（測試）",
+      "TestHide": "隱藏維護橫幅（測試）",
+      "TestHintShown": "已開啟測試橫幅，請切到「總覽」查看",
+      "TestHintHidden": "已關閉測試橫幅"
     }
   }
 }

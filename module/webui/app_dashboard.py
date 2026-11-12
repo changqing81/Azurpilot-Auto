@@ -27,6 +27,7 @@ from module.webui.app_dependencies import (
     use_scope,
 )
 
+from module.webui import maintenance_banner
 from module.webui.app_helpers import (
     timedelta_to_text,
 )
@@ -66,6 +67,76 @@ def _overview_count_js(pending: int, waiting: int) -> str:
 class DashboardMixin(WebUIMixinBase):
     """WebUI仪表盘刷新逻辑"""
 
+    # ------------------------------------------------------------------
+    # 维护等待横幅
+    #
+    # 实例侧（alas.py _maintenance_wait）会把等待状态写进
+    # log/<name>.maintenance.json；WebUI 是独立进程，只能读这份文件。
+    # 更新只在总览页的后台任务里做，且只发一条 run_js 增量改 DOM，
+    # 不触发整页重渲染（守住懒渲染 / 骨架屏的性能约定）。
+    # ------------------------------------------------------------------
+
+    def _maintenance_labels(self) -> dict:
+        return {
+            "state": t("Gui.Maintenance.StateWaiting"),
+            "desc": t("Gui.Maintenance.DescWaiting"),
+            "elapsed": t("Gui.Maintenance.Elapsed"),
+            "next": t("Gui.Maintenance.NextPoll"),
+        }
+
+    def _maintenance_demo_state(self) -> dict:
+        """测试模式的固定假数据：只生成一次，避免每轮刷新把倒计时重置。"""
+        state = getattr(self, "_maint_demo_state", None)
+        if state is None:
+            now = time.time()
+            state = {
+                "waiting": True,
+                "since": now - 4212,   # 已等待 1:10:12
+                "last_poll": now - 18,  # 42 秒后下次查询
+                "poll_seconds": 60,
+            }
+            self._maint_demo_state = state
+        return state
+
+    def _update_maintenance_banner(self) -> None:
+        """按实例状态文件的 diff 更新横幅；无变化不重发 JS。"""
+        if getattr(self, "_maint_demo", False):
+            # 测试模式接管：页面重渲染后（alas_overview 会把 key 清空）需要
+            # 重新补显，否则从开发者工具页切到总览会看不到横幅。
+            if getattr(self, "_maint_banner_key", None) == "demo":
+                return
+            self._maint_banner_key = "demo"
+            run_js(
+                maintenance_banner.build_js(
+                    self._maintenance_demo_state(), self._maintenance_labels()
+                )
+            )
+            return
+        state = maintenance_banner.normalize(
+            maintenance_banner.read_state(self.alas_name),
+            getattr(self.alas, "alive", False),
+        )
+        key = json.dumps(state, sort_keys=True, ensure_ascii=False) if state else ""
+        if key == getattr(self, "_maint_banner_key", None):
+            return
+        self._maint_banner_key = key
+        run_js(maintenance_banner.build_js(state, self._maintenance_labels()))
+
+    def _show_maintenance_demo(self) -> None:
+        """开发者工具：用假数据点亮横幅，便于人工验收样式与倒计时。"""
+        self._maint_demo_state = None
+        self._maint_banner_key = None
+        run_js(
+            maintenance_banner.build_js(
+                self._maintenance_demo_state(), self._maintenance_labels()
+            )
+        )
+
+    def _hide_maintenance_demo(self) -> None:
+        self._maint_demo_state = None
+        self._maint_banner_key = None
+        run_js(maintenance_banner.build_js(None, self._maintenance_labels()))
+
     def _overview_config_mtime(self):
         """当前实例配置文件的 mtime_ns；文件不存在时返回 None。
 
@@ -100,6 +171,10 @@ class DashboardMixin(WebUIMixinBase):
 
         # 检查任务失败保护通知
         self._check_task_failure_notifications()
+
+        # 维护等待横幅：必须在下面的 snapshot 提前 return 之前更新，
+        # 否则任务列表没变化时横幅永远不刷新。
+        self._update_maintenance_banner()
 
         if len(self.alas_config.pending_task) >= 1:
             if self.alas.alive:

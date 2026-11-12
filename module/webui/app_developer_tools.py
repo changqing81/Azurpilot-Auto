@@ -121,6 +121,30 @@ class DeveloperToolsMixin(WebUIMixinBase):
             scope="develop_detail",
         )
 
+        def _show_maint_banner_demo():
+            """测试用：用假数据点亮维护横幅（不依赖实例真实状态）。"""
+            self._maint_demo = True
+            self._maint_banner_key = None
+            self._show_maintenance_demo()
+            toast(t("Gui.Maintenance.TestHintShown"), color="info")
+
+        def _hide_maint_banner_demo():
+            self._maint_demo = False
+            self._maint_banner_key = None
+            self._hide_maintenance_demo()
+            toast(t("Gui.Maintenance.TestHintHidden"), color="info")
+
+        put_buttons(
+            buttons=[
+                {"label": t("Gui.Maintenance.TestShow"), "value": 1, "color": "warning"},
+                {"label": t("Gui.Maintenance.TestHide"), "value": 0, "color": "secondary"},
+            ],
+            onclick=lambda value: (
+                _show_maint_banner_demo() if value == 1 else _hide_maint_banner_demo()
+            ),
+            scope="develop_detail",
+        )
+
         def _get_debug_target_instance() -> Optional[str]:
             if getattr(self, "alas_name", ""):
                 return self.alas_name

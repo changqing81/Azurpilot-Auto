@@ -20,6 +20,7 @@ from module.webui.app_dependencies import (
 )
 
 
+from module.webui import maintenance_banner
 from module.webui.app_types import WebUIMixinBase
 from module.webui.base import render_locked
 from module.webui.instance_action import alas_ui_state, spawn_instance_action
@@ -204,6 +205,16 @@ class OverviewMixin(WebUIMixinBase):
     # 函数之间，导致装饰器挂到了 _spawn_instance_action 上、alas_overview 裸奔 ——
     # 总览内容不再清空内容区、也不再进 content scope，于是整页渲染进「菜单」
     # scope（调度器/统计界面看起来像二级菜单）且骨架屏永久残留。
+    @staticmethod
+    def _maintenance_banner_html() -> str:
+        """维护等待横幅的静态外壳（默认隐藏），文案由 JS 按状态填入。"""
+        return maintenance_banner.build_html(
+            {
+                "elapsed": t("Gui.Maintenance.Elapsed"),
+                "next": t("Gui.Maintenance.NextPoll"),
+            }
+        )
+
     @render_locked
     @use_scope("content", clear=True)
     def alas_overview(self) -> None:
@@ -211,6 +222,12 @@ class OverviewMixin(WebUIMixinBase):
         self.set_title(t(f"Gui.MenuAlas.Overview"))
         self._overview_snapshot = None
 
+        # 维护等待横幅：静态占位，显隐与文案由 alas_update_overview_task 用
+        # run_js 增量更新（不重渲染整页，避免破坏懒渲染与骨架屏约定）。
+        put_html(self._maintenance_banner_html())
+        # 页面重渲染后横幅元素是新的（默认隐藏），清掉去重键让后台任务
+        # 下一轮把当前状态（真实维护或测试模式）重新补显，否则要等状态变化。
+        self._maint_banner_key = None
         put_scope("overview", [put_scope("schedulers"), put_scope("logs")])
 
         with use_scope("schedulers"):

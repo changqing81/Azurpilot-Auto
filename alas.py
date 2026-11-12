@@ -122,6 +122,8 @@ class AzurLaneAutoScript:
         # 跳过心跳/超时检测。维护期间轮询循环刻意不打日志，若不置位，
         # Watchdog 会每 30 秒刷一条「无日志输出」误报（2026-11-12）。
         self._maintenance_waiting = False
+        # 维护等待开始时间戳（epoch 秒），供状态文件与 WebUI 计算已等待时长
+        self._maintenance_since = 0.0
 
     @cached_property
     def recovery(self):
@@ -302,7 +304,7 @@ class AzurLaneAutoScript:
             logger.debug(f'[Alas] 服务器状态查询仍然失败: {error}')
 
     @contextmanager
-    def _maintenance_wait(self):
+    def _maintenance_wait(self, emulator_closed=False):
         """标记当前处于维护等待：主线程在静默轮询开服，不是卡死。
 
         维护可能持续数小时，而两条等待路径（关模拟器轮询 / 开模拟器轮询）
@@ -315,10 +317,60 @@ class AzurLaneAutoScript:
         用 try/finally 保证异常、超时、停止信号三种退出都会清掉标志。
         """
         self._maintenance_waiting = True
+        self._maintenance_since = time.time()
+        self._write_maintenance_state(emulator_closed=emulator_closed)
         try:
             yield
         finally:
             self._maintenance_waiting = False
+            self._maintenance_since = 0.0
+            self._clear_maintenance_state()
+
+    def _maintenance_state_path(self):
+        """维护状态文件路径：WebUI 是独立进程，只能靠文件读这份状态。"""
+        return os.path.join('log', f'{self.config_name}.maintenance.json')
+
+    def _maintenance_server_name(self):
+        """当前配置的服务器名，读不到返回空串（不影响等待本身）。
+
+        注意：`self.config` 是 cached_property，取不到时会 `exit(1)`（SystemExit
+        不是 Exception 子类），所以这里必须连 BaseException 一起兜住——
+        但只兜读取失败，不能吞掉 KeyboardInterrupt 之外的退出语义。
+        """
+        try:
+            return str(self.config.Emulator_ServerName or '')
+        except SystemExit:
+            return ''
+        except Exception:
+            return ''
+
+    def _write_maintenance_state(self, emulator_closed=False):
+        """写维护状态供 WebUI 展示（横幅：已等待时长 / 下次查询倒计时）。
+
+        写失败只降级 debug：这是纯展示信息，不能反过来影响维护等待。
+        """
+        payload = {
+            'waiting': True,
+            'since': self._maintenance_since or time.time(),
+            'last_poll': time.time(),
+            'poll_seconds': MAINTENANCE_POLL_SECONDS,
+            'server': self._maintenance_server_name(),
+            'emulator_closed': bool(emulator_closed),
+        }
+        try:
+            path = self._maintenance_state_path()
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(payload, f, ensure_ascii=False)
+        except OSError as e:
+            logger.debug(f'[维护等待] 状态文件写入失败（不影响等待）: {e}')
+
+    def _clear_maintenance_state(self):
+        """清除维护状态文件：WebUI 据此隐藏横幅。"""
+        try:
+            os.remove(self._maintenance_state_path())
+        except OSError:
+            pass
 
     def _close_emulator_for_maintenance(self, checker):
         """服务器维护中时关闭模拟器，关着轮询到开服。
@@ -379,7 +431,7 @@ class AzurLaneAutoScript:
         )
         started_at = time.monotonic()
         self._poll_error_reported = False
-        with self._maintenance_wait():
+        with self._maintenance_wait(emulator_closed=True):
             while True:
                 # 整个轮询体都必须兜住异常：等待期间任何一处抛出去，都会落到调度器
                 # 的全局异常处理、把已经关掉的模拟器丢在"已关闭"状态里跑飞。
@@ -407,6 +459,8 @@ class AzurLaneAutoScript:
                     checker.check_now()
                 except Exception as poll_error:
                     self._log_poll_error_once(poll_error)
+                # 刷新状态文件：WebUI 横幅的「下次查询」倒计时按 last_poll 推算
+                self._write_maintenance_state(emulator_closed=True)
 
     def _long_wait_close_emulator_minutes(self):
         """读取「长时间等待时关闭模拟器」的等待阈值（分钟）。

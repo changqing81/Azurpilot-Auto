@@ -1084,3 +1084,15 @@ OOBE:
   ButtonNext:
   ButtonBack:
   ButtonCreate:
+
+Maintenance:
+  StateWaiting:
+  StateOpen:
+  DescWaiting:
+  DescOpen:
+  Elapsed:
+  NextPoll:
+  TestShow:
+  TestHide:
+  TestHintShown:
+  TestHintHidden:
