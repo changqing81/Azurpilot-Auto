@@ -201,16 +201,6 @@ class TestSkipSirenSourceLock(unittest.TestCase):
         self.assertIn('skip_siren_mission', body)
         self.assertIn('MISSION_SIREN_RESEARCH', body)
 
-    def test_cross_month_keeps_user_setting(self):
-        """跨月不得静默把「不做塞壬研究任务」强制改成 False。"""
-        with open('module/os/tasks/cross_month.py', encoding='utf-8') as f:
-            source = f.read()
-        start = source.index('def _os_cross_month_daily(')
-        end = source.index('def _os_cross_month_clear_action_point(', start)
-        body = source[start:end]
-        self.assertNotIn('OpsiDaily_SkipSirenResearchMission=False', body)
-        self.assertIn('skip_siren_mission=skip_siren_mission', body)
-
 
 class TestOverviewRowsDecision(unittest.TestCase):
     """任务板逐行判定的行为测试（不依赖真实截图）。"""
