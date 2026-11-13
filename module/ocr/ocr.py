@@ -43,6 +43,10 @@ class Ocr:
         self.threshold = threshold
         self.alphabet = alphabet
         self.lang = lang
+        # 最近一次识别送入模型的文本包围盒宽度（像素）。
+        # 数字残缺时（顶栏数字只渲染出末尾几位）包围盒会明显变窄，
+        # 调用方据此判断「画面还没画完」，避免把残缺字形当成完整数字。
+        self.last_text_width = 0
         if lang == 'azur_lane' and server.server in ['jp']:
             self.lang = 'azur_lane_' + server.server
 
@@ -103,6 +107,8 @@ class Ocr:
             image_list = [self.pre_process(crop(image, area)) for area in self.buttons]
         
         image_list = [crop_to_text(i) for i in image_list]
+        # 记录送入模型的文本宽度（多区域时取最宽），供调用方判断画面是否渲染完整
+        self.last_text_width = max((i.shape[1] for i in image_list), default=0)
 
         # 调试用：显示送入 OCR 模型的图像
         # self.cnocr.debug(image_list)
