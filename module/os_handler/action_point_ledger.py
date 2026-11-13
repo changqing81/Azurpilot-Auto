@@ -47,6 +47,11 @@ SOURCE_SHOP = 'shop'
 MAP_BAR_MAX_DIGITS = 4
 # 顶栏黄币允许的最大位数（黄币为七位数量级，≥9 位视为 OCR 拼接）
 COIN_MAX_DIGITS = 8
+# 顶栏黄币的最小合理位数：顶栏黄币常年五~六位，只剩一两位/三位基本是
+# 数字没画全时 OCR 把残缺字形当完整数字（2026-11-11 事故：218990 读成 4）。
+# 只在账本随行记录这里挡一下量级，真正参与调度的是 get_yellow_coins()，
+# 那边的残缺防护见 os_handler/os_status.py。
+COIN_MIN_DIGITS = 4
 
 
 class ActionPointLedger:
@@ -184,14 +189,16 @@ class ActionPointLedger:
         """顶栏黄币读数的 OCR 合法性门（正数门 + 位数门）。
 
         黄币与行动力不同，0 也是非法读数：界面未加载、被弹窗遮挡或
-        与相邻元素连读时都可能读到 0 或超长数字串。
+        与相邻元素连读时都可能读到 0 或超长数字串。位数过短同样是脏读数：
+        顶栏数字只画出末尾几位时，OCR 会把残缺字形当成完整数字，
+        读出「4」「450」这种量级完全丢失的值（2026-11-11 事故：218990 读成 4）。
 
         Args:
             value (int): 顶栏 OCR 的原始整数结果（含 -1 这类哨兵）。
 
         Returns:
             tuple[int | None, str]: (清洗后的值或 None, 原因)。
-                原因: 'empty' | 'non-positive' | 'len>8' | 'ok'
+                原因: 'empty' | 'non-positive' | 'len>8' | 'len<4' | 'ok'
         """
         if value is None:
             return None, 'empty'
@@ -203,6 +210,8 @@ class ActionPointLedger:
             return None, 'non-positive'
         if len(str(v)) > COIN_MAX_DIGITS:
             return None, 'len>8'
+        if len(str(v)) < COIN_MIN_DIGITS:
+            return None, f'len<{COIN_MIN_DIGITS}'
         return v, 'ok'
 
     # -------------------- 持久化 --------------------

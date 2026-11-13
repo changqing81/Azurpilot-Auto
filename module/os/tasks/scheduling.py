@@ -901,10 +901,24 @@ class CoinTaskMixin:
         获取本轮补黄币目标值。
 
         目标值与模拟器保持一致：侵蚀 1 保留值 + 回补阈值。
+        start_coins 只用于日志展示当前补黄币阶段的起点，不参与目标计算。
+
+        起点值会被持久化到配置里，因此必须挡住脏读数：一次 OCR 残缺把
+        黄币读成个位数（2026-11-11 事故：真值 218990 读成 4）就会把
+        「起始=4」永久写进配置，后续每轮日志都显示从 4 开始补，排查时
+        极易误导。这里对明显不合理的起点做自愈：与当前读数差两个数量级
+        以上时重置为当前读数。
         """
         start_coins = self._get_smart_scheduling_state_value(
             self.STATE_KEY_COIN_REPLENISH_START
         )
+        if start_coins is not None and self._coin_start_is_stale(
+                start_coins, yellow_coins):
+            logger.warning(
+                f'[大世界-智能调度] 补黄币起始值 {start_coins} 与当前读数 '
+                f'{yellow_coins} 量级不符，重置起点'
+            )
+            start_coins = None
         if start_coins is None or yellow_coins < start_coins:
             start_coins = yellow_coins
             self._set_smart_scheduling_state_value(
@@ -915,6 +929,32 @@ class CoinTaskMixin:
         return_threshold = self._get_smart_scheduling_operation_coins_return_threshold()
         target = cl1_preserve + return_threshold
         return target, start_coins, return_threshold
+
+    @staticmethod
+    def _coin_start_is_stale(start_coins, yellow_coins):
+        """判断补黄币起点值是否已被脏读数污染。
+
+        黄币在同一补黄币阶段里不会跨数量级变化（除了月末清仓，但那时
+        起点也会跟着重设）。起点与当前读数相差 100 倍以上时，基本可以
+        断定起点是某次 OCR 残缺读出来的残值。
+
+        Args:
+            start_coins (int | None): 配置里记录的起点值。
+            yellow_coins (int): 本次读到的黄币数量。
+
+        Returns:
+            bool: 起点明显不可信时返回 True。
+        """
+        try:
+            start_coins = int(start_coins)
+            yellow_coins = int(yellow_coins)
+        except (TypeError, ValueError):
+            return False
+        if start_coins <= 0 or yellow_coins <= 0:
+            return False
+        larger = max(start_coins, yellow_coins)
+        smaller = min(start_coins, yellow_coins)
+        return larger >= smaller * 100
 
     def _clear_coin_replenish_target(self):
         """清理本轮补黄币状态。"""
