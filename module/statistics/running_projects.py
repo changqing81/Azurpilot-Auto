@@ -139,6 +139,71 @@ def commission_display_name(genre, fallback=''):
     return fallback or (genre or '未知委托')
 
 
+# 各委托类型的合法时长档（小时）。运行中的委托卡片只显示倒计时，OCR 读到的
+# 不是总时长，必须用「已跑时长 + 剩余时长」去匹配最近的档位还原本项。
+# 钻石委托来自 app_stat_commission_gem._GEM_DURATIONS（只有 2/4/8 三档），
+# 其余按游戏实际档位整理：日常多为 2/4/8 小时，紧急 0.5~4 小时不等。
+COMMISSION_DURATION_SLOTS = {
+    'urgent_gem': (2, 4, 8),
+    'daily_resource': (2, 4, 8),
+    'daily_chip': (2, 4, 8),
+    'daily_event': (1, 2, 4),
+    'extra_drill': (0.5, 1, 2, 4),
+    'extra_part': (0.5, 1, 2, 4),
+    'extra_cube': (0.5, 1, 2, 4),
+    'extra_oil': (0.5, 1, 2, 4),
+    'extra_book': (0.5, 1, 2, 4),
+    'extra_box': (0.5, 1, 2, 4),
+    'extra_gem': (2, 4, 8),
+    'extra_retrofit': (1, 2, 4),
+    'extra_event': (1, 2, 4),
+    'urgent_drill': (0.5, 1, 2, 4),
+    'urgent_part': (0.5, 1, 2, 4),
+    'urgent_book': (0.5, 1, 2, 4),
+    'urgent_box': (0.5, 1, 2, 4),
+    'urgent_cube': (0.5, 1, 2, 4),
+    'urgent_ship': (1, 2, 4),
+    'urgent_event': (1, 2, 4),
+}
+
+
+def resolve_commission_duration(genre, remaining_h, elapsed_h=0):
+    """还原委托的总时长档（仅供参考，可能有误差）。
+
+    运行中的委托卡片只显示倒计时，Commission.duration 拿到的是剩余时间。
+    直接拿它当总时长会显示成「要员护送 28分」这种不存在的档位。
+
+    做法：拿「已跑时长 + 剩余时长」去该类型的合法档位里取最接近的一个。
+    **这不保证绝对准确**：委托卡片不显示总时长，当剩余 1.7 小时时，
+    它既可能是 2 小时委托跑到剩 1.7，也可能是 4 小时委托只剩 1.7，
+    无法区分。钻石委托只有 2/4/8 三档、间隔大，还原相当可靠；
+    紧急委托的 0.5/1/2/4 档位密集，存在误判可能。
+
+    因此调用方应把结果当成「估计的档位」，不要用于任何精确计算。
+
+    Args:
+        genre: Commission.genre，如 urgent_gem。
+        remaining_h: 剩余时长（小时）。
+        elapsed_h: 已跑时长（小时）；未知传 0。
+
+    Returns:
+        float: 最接近的合法档位（小时）；该类型没有档位表时返回
+            remaining_h + elapsed_h，不做猜测。
+    """
+    try:
+        remaining_h = float(remaining_h or 0)
+        elapsed_h = float(elapsed_h or 0)
+    except (TypeError, ValueError):
+        return 0
+    slots = COMMISSION_DURATION_SLOTS.get(genre)
+    if not slots:
+        # 没有档位表：只能用「已跑 + 剩余」，至少不把剩余当总长
+        return round(remaining_h + elapsed_h, 2)
+    total = remaining_h + elapsed_h
+    # 取差值最小的档位；差值相同时取较小档（剩余被 OCR 少读时 total 偏小）
+    return float(min(slots, key=lambda slot: (abs(slot - total), slot)))
+
+
 def commission_expected_items(genre):
     """委托类型 -> 预期物品 key 列表（供展示层查图标与中文名）。
 
@@ -245,20 +310,32 @@ def save_commission_snapshot(instance, commissions, now=None):
         try:
             if getattr(comm, 'status', '') != 'running':
                 continue
+            genre = str(getattr(comm, 'genre', '') or '')
             duration = getattr(comm, 'duration', None)
+            create_time = getattr(comm, 'create_time', None)
             finish_time = getattr(comm, 'finish_time', None)
             if not finish_time and duration:
                 finish_time = now + duration
+            # 运行中的委托卡片显示的是倒计时，duration 拿到的是剩余时间，
+            # 不能直接当总时长写库（否则会出现「要员护送 28分」这种不存在的档）。
+            # 用「已跑时长 + 剩余时长」去匹配该类型的合法档位还原。
+            remaining_h = (
+                duration.total_seconds() / 3600
+                if isinstance(duration, timedelta)
+                else 0
+            )
+            elapsed_h = 0
+            if isinstance(create_time, datetime):
+                elapsed_h = max((now - create_time).total_seconds() / 3600, 0)
+            duration_h = resolve_commission_duration(genre, remaining_h, elapsed_h)
             records.append(
                 {
                     'name': str(getattr(comm, 'name', '') or ''),
-                    'genre': str(getattr(comm, 'genre', '') or ''),
-                    'duration_h': round(duration.total_seconds() / 3600, 2)
-                    if isinstance(duration, timedelta)
-                    else 0,
-                    'start_time': _iso(getattr(comm, 'create_time', None) or now),
+                    'genre': genre,
+                    'duration_h': duration_h,
+                    'start_time': _iso(create_time or now),
                     'finish_time': _iso(finish_time or now),
-                    'items': commission_expected_items(getattr(comm, 'genre', '')),
+                    'items': commission_expected_items(genre),
                 }
             )
         except Exception as e:

@@ -235,7 +235,11 @@ class RunningProjectsMixin(WebUIMixinBase):
             str: 卡片 HTML。
         """
         name = escape(record.get('display_name') or '未知委托')
-        hours = _fmt_hours(record.get('duration_h'))
+        # 时长档是从剩余时间反推的估计值（委托卡片不显示总时长），加「约」
+        # 表明语义；钻石委托只有 2/4/8 三档，还原很准，紧急委托档位密集
+        # 可能差一档，所以不做成绝对断言。
+        hours_text = _fmt_hours(record.get('duration_h'))
+        hours = f'约{hours_text}' if hours_text else ''
         start = _fmt_time(record.get('start_dt'), now)
         finish = _fmt_time(record.get('finish_dt'), now)
         done, remain = _fmt_remain(record.get('finish_dt'), now)

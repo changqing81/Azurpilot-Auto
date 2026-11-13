@@ -387,5 +387,75 @@ class GhostCardRegressionTest(unittest.TestCase):
             rp.save_commission_snapshot("alas", [])
         self.assertEqual(self.db.get_running_projects("alas")["commissions"], [])
 
+class CommissionDurationRegressionTest(unittest.TestCase):
+    """回归：运行中委托的时长档被当成剩余时间。
+
+    委托卡片在「运行中」状态显示的是倒计时，Commission.duration 读到的是
+    剩余时间。早期实现直接拿它当总时长写库，界面上就出现「要员护送 28分」
+    这种不存在的档位（钻石委托只有 2/4/8 小时三档）。
+    """
+
+    def test_gem_slots_only_2_4_8(self):
+        """钻石委托无论剩余多少，还原结果必须落在 2/4/8 里。"""
+        from module.statistics.running_projects import resolve_commission_duration
+        for remaining in (0.1, 0.47, 0.8, 1.2, 1.9, 2.5, 3.3, 4.8, 7.9):
+            got = resolve_commission_duration("urgent_gem", remaining, 0)
+            self.assertIn(got, (2.0, 4.0, 8.0), f"剩余 {remaining}h 还原成了 {got}")
+
+    def test_gem_remaining_28min_becomes_2h(self):
+        """截图里那条「要员护送 28分」：28 分应还原成 2 小时档。"""
+        from module.statistics.running_projects import resolve_commission_duration
+        got = resolve_commission_duration("urgent_gem", 28 / 60, 0)
+        self.assertEqual(got, 2.0)
+
+    def test_elapsed_improves_accuracy(self):
+        """已知已跑时长时，能区分 4h 委托剩 1.5 还是 2h 委托剩 1.5。"""
+        from module.statistics.running_projects import resolve_commission_duration
+        # 剩余 1.5、已跑 2.5 -> 总 4h
+        self.assertEqual(resolve_commission_duration("urgent_gem", 1.5, 2.5), 4.0)
+        # 剩余 1.5、已跑 0.5 -> 总 2h
+        self.assertEqual(resolve_commission_duration("urgent_gem", 1.5, 0.5), 2.0)
+
+    def test_unknown_genre_not_forced_into_slots(self):
+        """没有档位表时不做猜测，返回已跑+剩余。"""
+        from module.statistics.running_projects import resolve_commission_duration
+        got = resolve_commission_duration("weird_type", 0.47, 0.1)
+        self.assertAlmostEqual(got, 0.57, places=2)
+
+    def test_snapshot_writes_slot_not_remaining(self):
+        """写库时 duration_h 必须是档位，不能是剩余时间。"""
+        from unittest.mock import patch, MagicMock
+        import module.statistics.cl1_database as cdb
+        from module.statistics import running_projects as rp
+
+        class FakeComm:
+            status = "running"
+            name = "NYB度假护卫"
+            genre = "urgent_gem"
+            duration = timedelta(minutes=28)   # 卡片上的倒计时
+            create_time = datetime(2026, 11, 13, 12, 16)
+            finish_time = datetime(2026, 11, 13, 12, 44)
+
+        fake = MagicMock()
+        with patch.object(cdb, "db", fake):
+            rp.save_commission_snapshot("alas", [FakeComm()])
+        rows = fake.save_running_commissions.call_args[0][1]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["duration_h"], 2.0, "28 分应还原成 2 小时档，而不是 0.47")
+
+    def test_card_shows_approximate_marker(self):
+        """卡片上的档位带「约」，表明是估计值而非精确总时长。"""
+        obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        now = datetime(2026, 11, 13, 10, 30)
+        html = obj._build_running_commission_html(
+            {"commissions": [{"display_name": "要员护送", "genre": "urgent_gem",
+                             "duration_h": 2, "start_dt": now - timedelta(minutes=32),
+                             "finish_dt": now + timedelta(minutes=88), "items": ["Gem"]}],
+             "research": []},
+            now,
+        )
+        self.assertIn("约2小时", html)
+
+
 if __name__ == "__main__":
     unittest.main()
