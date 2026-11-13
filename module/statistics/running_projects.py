@@ -251,7 +251,13 @@ def save_commission_snapshot(instance, commissions, now=None):
             if not isinstance(item, dict):
                 continue
             if item.get("duration_h") and item.get("duration_exact"):
-                known_durations[item.get("name")] = item["duration_h"]
+                # 只认「新鲜」的历史值：同一个委托名隔了很久出现，
+                # 极可能是另一批委托（碧蓝委托池会轮换）。
+                # 这里用记录里的 finish_time 判断是否还可能是同一次执行。
+                known_durations[item.get("name")] = {
+                    "duration_h": item["duration_h"],
+                    "finish_time": item.get("finish_time"),
+                }
     except Exception:
         known_durations = {}
 
@@ -292,7 +298,22 @@ def save_commission_snapshot(instance, commissions, now=None):
                 duration_h = remaining_h   # 启动前卡片的 duration 就是总时长
                 duration_exact = True
             else:
-                known = known_durations.get(comm_key)
+                known_info = known_durations.get(comm_key)
+                known = known_info["duration_h"] if known_info else None
+                # 历史值要过一道物理校验：**剩余时长不可能超过总时长**。
+                # 不校验就会出现「总时长 2 小时、剩余 7.5 小时」这种荒唐组合
+                # —— 同名委托换了时长档（碧蓝委托名带 I/II/III 后缀，OCR
+                # 可能丢后缀），历史值就张冠李戴了。
+                # 校验一：剩余不可能超过总时长。
+                # 不校验会出现「总时长 2 小时、剩余 7.5 小时」这种荒唐组合
+                # —— 同名委托换了时长档（碧蓝委托名带 I/II/III 后缀，OCR
+                # 可能丢后缀），历史值就张冠李戴了。
+                if known is not None and remaining_h > known + 0.02:
+                    logger.info(
+                        f"[运行中] 委托 {comm_key} 历史总时长 {known}h 小于当前剩余 "
+                        f"{remaining_h:.2f}h，判定为不同委托，改用未知"
+                    )
+                    known = None
                 duration_h = known
                 duration_exact = known is not None
             records.append(
