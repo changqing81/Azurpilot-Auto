@@ -164,6 +164,14 @@ class ResearchStatisticsMixin(WebUIMixinBase):
 
         with use_scope("research_stats", clear=True):
             put_html(build_title_block(escape(t("Gui.Stat.ResearchTitle"))))
+            # 进行中的科研贴在标题下：队列在跑什么比历史掉落更即时。
+            # 整块包 try/except，读库失败不能让科研掉落表一起白屏。
+            try:
+                running_html = self._build_running_research_html()
+                if running_html:
+                    put_html(running_html, scope="research_stats")
+            except Exception as e:
+                logger.warning(f"[WebUI-统计] 进行中科研区块跳过: {e}")
             if data is None:
                 put_html(build_muted_notice(escape(t("Gui.Stat.ResearchEmptyTitle"))))
                 return

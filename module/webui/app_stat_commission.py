@@ -450,6 +450,15 @@ class CommissionIncomeStatisticsMixin(CommissionGemStatisticsMixin):
         period = income_data["period"]
         is_current_month = income_data["is_current_month"]
         with use_scope("commission_income", clear=True):
+            # 运行中委托贴在面板最上方：用户打开委托页最想知道的是
+            # 「现在跑着什么、什么时候回来」，收益统计是回头看的东西。
+            # 整块包 try/except：这块读库失败绝不能连累收益表。
+            try:
+                running_html = self._build_running_commission_html()
+                if running_html:
+                    put_html(running_html, scope="commission_income")
+            except Exception as e:
+                logger.warning(f"[WebUI-统计] 运行中委托区块跳过: {e}")
             put_html(summary_html)
 
             def on_period_click(selected_period):

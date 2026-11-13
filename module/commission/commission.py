@@ -841,6 +841,28 @@ class RewardCommission(UI, InfoHandler):
         if not self.daily_choose and not self.urgent_choose:
             logger.info('[委托-执行] 没有选择任何委托')
 
+        # 把当前运行中的委托整体写进统计库，供 WebUI 统计页「正在进行中」区块展示。
+        # 放在最后统一写：daily_choose / urgent_choose 的启动是逐条进行的，
+        # 中途写会把「还没启动的」也当成运行中。失败只记 warning，不影响挂机。
+        #
+        # 口径是**全量覆盖**：self.daily / self.urgent 本身就是本次从游戏列表扫出来的
+        # 全部委托（含 finished / running / pending），把它们里 status=='running' 的
+        # 全部写进去，就等于「此刻真实在跑的委托」。空列表也照写（覆盖成空），
+        # 这样委托跑完、领完奖之后，统计页的卡片会自然消失，不会留成幽灵记录。
+        try:
+            from module.statistics.running_projects import save_commission_snapshot
+
+            scanned = list(self.daily or []) + list(self.urgent or [])
+            running = [
+                comm for comm in scanned if getattr(comm, 'status', '') == 'running'
+            ]
+            # 没有扫描结果时不要覆盖：可能是扫描失败，覆盖会把好数据清空
+            if scanned:
+                save_commission_snapshot(self.config.config_name, running)
+                logger.attr('运行中委托快照', len(running))
+        except Exception as e:
+            logger.warning(f'[委托-统计] 运行中委托快照写入失败: {e}')
+
     def _sync_running_gem_commissions(self):
         """同步 urgent 列表中钻石委托到数据库。
 

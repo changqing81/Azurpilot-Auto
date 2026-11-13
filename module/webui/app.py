@@ -415,6 +415,7 @@ def _build_alas_gui_class():
     from module.webui.app_stat_opsi import OpsiStatisticsMixin
     from module.webui.app_stat_opsi_export import OpsiExportMixin
     from module.webui.app_stat_research import ResearchStatisticsMixin
+    from module.webui.app_stat_running import RunningProjectsMixin
     from module.webui.app_stat_ship import ShipExperienceStatisticsMixin
     from module.webui.app_statistics_page import StatisticsPageMixin
     from module.webui.app_task_config import TaskConfigMixin
@@ -429,6 +430,7 @@ def _build_alas_gui_class():
         ShipExperienceStatisticsMixin,
         CommissionIncomeStatisticsMixin,
         ResearchStatisticsMixin,
+        RunningProjectsMixin,
         ResourceDeltaStatisticsMixin,
         MeowfficerScoreMixin,
         MindCalculatorTabMixin,

@@ -220,6 +220,17 @@ class Cl1Database:
                 columns = {row[1] for row in cursor.fetchall()}
                 if "data_json" not in columns:
                     cursor.execute("ALTER TABLE cl1_data ADD COLUMN data_json TEXT")
+                # 运行中的委托 / 科研单独一张轻量表：每次任务运行整体覆盖。
+                # 刻意不塞进 cl1_data 的月度整包——那份 JSON 单月可达 2.3MB，
+                # 反序列化 40~60ms，而运行中数据每几十秒就要变一次，读写它
+                # 会把统计页首屏拖慢（GUI 加载速度红线）。
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS running_projects (
+                        instance TEXT PRIMARY KEY,
+                        data_json TEXT,
+                        updated_at TEXT
+                    )
+""")
                 conn.commit()
         except Exception as e:
             logger.exception(f"初始化 CL1 数据库失败: {e}")
@@ -2084,6 +2095,97 @@ class Cl1Database:
         from module.base.async_executor import async_executor
 
         return async_executor.submit(self.get_commission_income, instance, year, month)
+
+    # ------------------------------------------------------------------
+    # 运行中的委托 / 科研（统计页「正在进行中」区块的数据源）
+    # ------------------------------------------------------------------
+    #
+    # 与 running_gem_commissions 的取舍不同：那份数据塞进月度整包，只记
+    # 钻石委托、按月归档算成功率。这里要的是「当前这一屏」的全量快照，
+    # 特点是读频繁（每次打开统计页）、写稀疏（每次任务运行一次）、
+    # 体积很小（十几条记录），所以单独建表整体覆盖：
+    #   1. 读一次只有几 KB，与 2.3MB 的月包完全隔离；
+    #   2. 整体覆盖而非逐条增删，任务失败留下的残缺记录下次运行自愈。
+
+    def _save_running_projects(self, instance: str, payload: Dict[str, Any]):
+        """整体覆盖某个实例的运行中快照。
+
+        Args:
+            instance: 实例名称
+            payload: {"commissions": [...], "research": {...}} 结构的快照
+        """
+        if not instance:
+            return
+        try:
+            with closing(sqlite3.connect(self.db_path)) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO running_projects "
+                    "(instance, data_json, updated_at) VALUES (?, ?, ?)",
+                    (
+                        instance,
+                        self._serialize_data(payload),
+                        datetime.now().isoformat(timespec="seconds"),
+                    ),
+                )
+                conn.commit()
+        except Exception as e:
+            logger.error(f"[Statistics] 保存运行中任务快照失败 {instance}: {e}")
+
+    def _load_running_projects(self, instance: str) -> Dict[str, Any]:
+        """读取某个实例的运行中快照；无记录或损坏时返回空结构。
+
+        Args:
+            instance: 实例名称
+
+        Returns:
+            dict: {"commissions": list, "research": dict, "updated_at": str}
+        """
+        empty = {"commissions": [], "research": {}, "updated_at": ""}
+        if not instance:
+            return empty
+        try:
+            with closing(sqlite3.connect(self.db_path)) as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "SELECT data_json, updated_at FROM running_projects WHERE instance = ?",
+                    (instance,),
+                )
+                row = cursor.fetchone()
+        except Exception as e:
+            logger.warning(f"[Statistics] 读取运行中任务快照失败 {instance}: {e}")
+            return empty
+        if not row:
+            return empty
+        data = self._deserialize_data(row[0])
+        if not isinstance(data, dict):
+            return empty
+        result = {
+            "commissions": data.get("commissions") or [],
+            "research": data.get("research") or {},
+            "updated_at": row[1] or "",
+        }
+        if not isinstance(result["commissions"], list):
+            result["commissions"] = []
+        if not isinstance(result["research"], dict):
+            result["research"] = {}
+        return result
+
+    def save_running_commissions(self, instance: str, commissions: List[Dict[str, Any]]):
+        """整体覆盖运行中的委托列表（保留已有的科研快照）。"""
+        current = self._load_running_projects(instance)
+        current["commissions"] = commissions if isinstance(commissions, list) else []
+        self._save_running_projects(instance, current)
+
+    def save_running_research(self, instance: str, research: Dict[str, Any]):
+        """整体覆盖运行中的科研快照（保留已有的委托列表）。"""
+        current = self._load_running_projects(instance)
+        current["research"] = research if isinstance(research, dict) else {}
+        self._save_running_projects(instance, current)
+
+    def get_running_projects(self, instance: str) -> Dict[str, Any]:
+        """读取运行中快照，供统计页「正在进行中」区块展示。"""
+        return self._load_running_projects(instance)
 
 
 # 单例实例

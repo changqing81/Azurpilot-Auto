@@ -1797,3 +1797,286 @@
 #pywebio-scope-statistics-content .commission-gem-table .gem-reward-strong {
     color: #ff4757;
 }
+
+
+/* --------------------------------------------------------------------------
+   8. 「正在进行中」区块（app_stat_running.py）
+   --------------------------------------------------------------------------
+   运行中的委托 / 科研项目卡片。三种版式由 Python 侧 _RUNNING_STYLE 切换：
+     cards   → .st-running-grid（卡片网格，默认）
+     table   → .st-running-table（紧凑表格）
+     compact → .st-running-compact（单行条目）
+   三套版式共用 .st-running-card 的视觉，只改容器排布，减少样式分支。
+   颜色全部消费 --st-*（本文件不定义颜色常量，换主题自动跟随）。 */
+
+#pywebio-scope-statistics-content .st-running-section {
+    margin-bottom: 16px;
+}
+
+#pywebio-scope-statistics-content .st-running-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+#pywebio-scope-statistics-content .st-running-title {
+    color: var(--st-text);
+    font-size: .95rem;
+    font-weight: 700;
+}
+
+#pywebio-scope-statistics-content .st-running-sub {
+    color: var(--st-muted);
+    font-size: .74rem;
+}
+
+#pywebio-scope-statistics-content .st-running-spacer {
+    flex: 1 1 auto;
+}
+
+#pywebio-scope-statistics-content .st-running-tag {
+    flex: none;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: .68rem;
+    line-height: 1.5;
+}
+
+#pywebio-scope-statistics-content .st-running-tag--ok {
+    color: var(--st-ok);
+    border-color: var(--st-ok);
+    background: var(--st-net-soft);
+}
+
+#pywebio-scope-statistics-content .st-running-tag--accent {
+    color: var(--st-accent);
+    border-color: var(--st-accent);
+    background: var(--st-accent-soft);
+}
+
+#pywebio-scope-statistics-content .st-running-tag--warn {
+    color: var(--st-warn);
+    border-color: var(--st-warn);
+    background: transparent;
+}
+
+/* ---- 版式一：卡片网格（默认） ---- */
+#pywebio-scope-statistics-content .st-running-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 10px;
+}
+
+/* ---- 版式二：紧凑表格 ---- */
+#pywebio-scope-statistics-content .st-running-table {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+#pywebio-scope-statistics-content .st-running-table .st-running-card {
+    display: grid;
+    grid-template-columns: minmax(150px, 1.4fr) 88px 88px minmax(96px, 1fr) 76px;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+}
+
+#pywebio-scope-statistics-content .st-running-td {
+    color: var(--st-muted);
+    font-size: .74rem;
+    white-space: nowrap;
+}
+
+#pywebio-scope-statistics-content .st-running-td-name {
+    color: var(--st-text);
+    font-size: .82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+#pywebio-scope-statistics-content .st-running-td-badge {
+    justify-self: end;
+}
+
+/* ---- 版式三：单行条目 ---- */
+#pywebio-scope-statistics-content .st-running-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+#pywebio-scope-statistics-content .st-running-compact .st-running-card {
+    padding: 8px 10px;
+}
+
+#pywebio-scope-statistics-content .st-running-compact .st-running-top {
+    margin-bottom: 4px;
+}
+
+#pywebio-scope-statistics-content .st-running-compact .st-running-times {
+    margin-top: 4px;
+}
+
+/* ---- 卡片本体（三版共用） ---- */
+#pywebio-scope-statistics-content .st-running-card {
+    padding: 10px 12px;
+    border: 1px solid var(--st-border);
+    border-radius: 10px;
+    background: var(--st-surface-muted);
+    min-width: 0;
+}
+
+#pywebio-scope-statistics-content .st-running-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#pywebio-scope-statistics-content .st-running-name {
+    color: var(--st-text);
+    font-size: .86rem;
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+#pywebio-scope-statistics-content .st-running-hours {
+    flex: none;
+    padding: 1px 7px;
+    border: 1px solid var(--st-divider);
+    border-radius: 5px;
+    background: var(--st-surface);
+    color: var(--st-muted);
+    font-size: .68rem;
+    line-height: 1.6;
+}
+
+#pywebio-scope-statistics-content .st-running-sub2 {
+    flex: none;
+    color: var(--st-muted);
+    font-size: .68rem;
+}
+
+#pywebio-scope-statistics-content .st-running-state {
+    margin-left: auto;
+    flex: none;
+    padding: 1px 9px;
+    border-radius: 999px;
+    color: var(--st-on-accent);
+    font-size: .68rem;
+    line-height: 1.6;
+}
+
+#pywebio-scope-statistics-content .st-running-state--running {
+    background: var(--st-ok);
+}
+
+#pywebio-scope-statistics-content .st-running-state--waiting {
+    background: var(--st-accent);
+}
+
+#pywebio-scope-statistics-content .st-running-state--queueoff,
+#pywebio-scope-statistics-content .st-running-state--settle {
+    background: var(--st-warn);
+    color: #fff;
+}
+
+#pywebio-scope-statistics-content .st-running-times {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    color: var(--st-muted);
+    font-size: .74rem;
+}
+
+#pywebio-scope-statistics-content .st-running-times b {
+    color: var(--st-text);
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .st-running-remain {
+    color: var(--st-ok);
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .st-running-remain--settle {
+    color: var(--st-warn);
+}
+
+#pywebio-scope-statistics-content .st-running-items {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+#pywebio-scope-statistics-content .st-running-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border: 1px solid var(--st-divider);
+    border-radius: 6px;
+    background: var(--st-surface);
+    color: var(--st-muted);
+    font-size: .7rem;
+    line-height: 1.6;
+}
+
+#pywebio-scope-statistics-content .st-running-item img {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    object-fit: contain;
+}
+
+#pywebio-scope-statistics-content .st-running-empty {
+    padding: 18px 16px;
+    border: 1px dashed var(--st-border);
+    border-radius: 10px;
+    background: var(--st-surface-muted);
+    color: var(--st-muted);
+    font-size: .78rem;
+    line-height: 1.9;
+    text-align: center;
+}
+
+#pywebio-scope-statistics-content .st-running-empty b {
+    color: var(--st-text);
+    font-weight: 600;
+}
+
+/* 窄屏：卡片与表格都收成单列（网格 auto-fill 在 320px 以下会溢出） */
+@media (max-width: 720px) {
+    #pywebio-scope-statistics-content .st-running-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #pywebio-scope-statistics-content .st-running-table .st-running-card {
+        grid-template-columns: 1fr auto;
+        row-gap: 6px;
+    }
+
+    #pywebio-scope-statistics-content .st-running-state {
+        margin-left: 0;
+    }
+
+    #pywebio-scope-statistics-content .st-running-td:nth-of-type(2),
+    #pywebio-scope-statistics-content .st-running-td:nth-of-type(3) {
+        display: none;
+    }
+}

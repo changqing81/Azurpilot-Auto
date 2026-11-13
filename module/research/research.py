@@ -574,6 +574,14 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
                 drop.clear()
 
         logger.info(f'[科研-队列] 从 {total} 个项目领取了奖励')
+        # 领完奖励后队列内容变了（已完成项被清掉），必须重建快照，
+        # 否则统计页会一直显示已经领过的项目。
+        try:
+            if total > 0:
+                self.device.screenshot()
+                self._save_research_snapshot([], in_queue_page=True)
+        except Exception as e:
+            logger.warning(f'[科研-统计] 领奖后刷新快照失败: {e}')
         return total
 
     def queue_quit(self, *args, **kwargs):
@@ -647,6 +655,9 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
         """
         logger.hr('填充科研队列', level=1)
         total = 0
+        # 本轮实际启动的项目，按入队顺序累计。
+        # 队列卡片 OCR 读不到项目名，只有启动时才知道名字，所以要在这里记。
+        started = []
         with self.stat.new(
                 genre='research', method=self.config.DropRecord_ResearchRecord
         ) as drop:
@@ -655,21 +666,269 @@ class RewardResearch(ResearchSelector, ResearchQueue, StorageHandler):
                     success = self.research_queue_append(drop=drop)
                     if success:
                         total += 1
+                        if self.research_project_started is not None:
+                            started.append(
+                                {
+                                    'name': self.research_project_started.name,
+                                    'series': self.research_project_started.raw_series,
+                                    'genre': self.research_project_started.genre,
+                                    'duration_h': self.research_project_started.duration,
+                                    'in_queue': True,
+                                }
+                            )
                     else:
                         logger.info(f'[科研-队列] 无法启动项目，停止填充队列，已添加: {total}')
+                        # 此刻在科研主页而非队列页：只能退回落库启动的项目
+                        self._save_research_snapshot(started, in_queue_page=False)
                         return total
                 else:
                     break
 
             # 运行第 6 个项目
             if include_sixth:
-                self.research_fill_sixth(drop=drop)
+                if self.research_fill_sixth(drop=drop):
+                    started.append(
+                        {
+                            'name': self.research_project_started.name,
+                            'series': self.research_project_started.raw_series,
+                            'genre': self.research_project_started.genre,
+                            'duration_h': self.research_project_started.duration,
+                            'in_queue': False,
+                        }
+                    )
             else:
                 logger.info('[科研-队列] 跳过第 6 个项目（批量模式过渡态）')
 
             logger.info(f'[科研-队列] 科研队列已填满，已添加: {total}')
+            # 读真实槽位状态再写快照：这是「现在到底在跑什么」的唯一真相，
+            # 也是已领取项目不残留的保证。读不到就退回只写本轮启动的项目。
+            in_queue, sixth = self._snapshot_read_queue()
+            self._save_research_snapshot(started, in_queue_page=in_queue, sixth=sixth)
             return total
 
+    def _read_queue_snapshot(self):
+        """读取队列页的真实状态，返回 (projects, durations, queue_slot)。
+
+        只读不点：这里不做任何游戏操作，纯粹把当前这一屏翻译成结构化数据。
+        必须在 is_in_queue 页面下调用。
+
+        Returns:
+            tuple[list, list, int]: (项目列表, 各槽显示时长, 空槽数)；
+                读取失败时返回 ([], [], None)。
+        """
+        try:
+            statuses = [
+                self._queue_status_detect(button)
+                for button in self.queue_status_grids.buttons
+            ]
+            durations = self.get_queue_display_times()
+            slot = self.get_queue_slot()
+            logger.attr('科研队列快照', statuses)
+
+            projects = []
+            for index, (status, duration) in enumerate(zip(statuses, durations)):
+                if status == 'empty':
+                    continue
+                display_h = (
+                    round(duration.total_seconds() / 3600, 2) if duration else 0
+                )
+                projects.append(
+                    {
+                        'name': '',
+                        'series': None,
+                        'genre': '',
+                        'duration_h': display_h,
+                        'slot': status,
+                        'in_queue': True,
+                    }
+                )
+            return projects, durations, slot
+        except Exception as e:
+            logger.warning(f'[科研-统计] 读取队列快照失败: {e}')
+            return [], [], None
+
+    def _save_research_snapshot(self, started, in_queue_page=None, sixth=None):
+        """按游戏队列的真实状态**重建**统计库里的科研快照。
+
+        两段信息各取所长：
+        - **槽位状态与时长**只有队列页读得到（5 槽 finished/running/waiting/empty
+          加各卡片显示时长），这是「现在到底在跑什么」的唯一真相；
+        - **项目名**只有启动时才知道（队列卡的 OCR 拿不到名字），来自本轮
+          started，或沿用上一轮已记录的名字。
+
+        所以流程是：读队列页真实状态 → 用本轮启动名按顺序补名 → 整体覆盖写库。
+        已完成/已领取的项目不会留在库里（这是旧实现的幽灵卡片来源），
+        队列彻底空了就显式清空。
+
+        整块包 try/except —— 统计展示失败绝不能影响科研任务本身。
+
+        Args:
+            started (list[dict]): 本轮启动的项目（按入队顺序），可为空。
+            in_queue_page (bool): 进入本方法时是否在队列页。None 表示不确定，
+                此时尝试自己判断；不为 True 时不做队列页读取（避免乱点）。
+            sixth (dict | None): 主页上第 6 个并行位的状态（_read_sixth_slot 的
+                返回值）。必须在进队列页**之前**于主页读取，队列页里读不到。
+        """
+        try:
+            from module.statistics import running_projects as rp
+
+            instance = self.config.config_name
+            # 只有确认在队列页才读状态，避免把主页的图当队列解析
+            if in_queue_page is None:
+                try:
+                    in_queue_page = bool(self.is_in_queue())
+                except Exception:
+                    in_queue_page = False
+
+            if in_queue_page:
+                projects, durations, slot = self._read_queue_snapshot()
+                # 第 6 位（队列外）在科研主页、不在队列页（队列页只有 5 个槽）。
+                # 调用方进队列页前已在主页读过，这里用传进来的结果；没有就不补
+                # （宁可少一条，也不编造一个不存在的第 6 位）。
+                if sixth is not None:
+                    projects.append(sixth)
+                if projects:
+                    self._fill_project_names(projects, started)
+                    rp.save_research_snapshot(
+                        instance, projects, durations=durations, queue_slot=slot
+                    )
+                    logger.attr('进行中科研快照', len(projects))
+                    return
+                if slot is not None:
+                    # 队列页读到了状态但全是空槽：队列确实空了，清掉历史记录
+                    logger.info('[科研-统计] 队列为空，清空进行中快照')
+                    rp.clear_research_snapshot(instance)
+                    return
+
+            # 不在队列页（或队列读取失败）：退回只写本轮启动的项目。
+            # 这时没有真实槽位信息，宁可少写也不要留着过期记录。
+            if started:
+                rp.save_research_snapshot(instance, started)
+                logger.attr('进行中科研快照(仅本轮)', len(started))
+        except Exception as e:
+            logger.warning(f'[科研-统计] 进行中科研快照写入失败: {e}')
+
+    def _snapshot_read_queue(self):
+        """为统计快照采集队列真实状态：先在主页抓第 6 位，再进队列页。
+
+        第 6 个并行位只体现在科研主页，队列页（5 个槽）里看不到；而队列槽位
+        只在队列页有。所以顺序必须是「主页读第 6 位 → 进队列页读 5 槽」，
+        倒过来就取不到第 6 位了。
+
+        代价是一次页面往返（2 次点击），只在填满队列后发生一次，不影响调度。
+
+        Returns:
+            tuple[bool, dict | None]: (是否成功处在队列页, 第 6 位状态)。
+        """
+        sixth = None
+        try:
+            in_queue = bool(self.is_in_queue())
+            if in_queue:
+                # 已在队列页：第 6 位这一刻读不到，跳过（下次填队列时补上）
+                return True, None
+            if not self.is_in_research():
+                logger.info('[科研-统计] 不在科研页，跳过队列快照')
+                return False, None
+            # 此刻在主页：先把第 6 位读掉，再进队列页
+            sixth = self._read_sixth_slot()
+            self.queue_enter()
+            in_queue = bool(self.is_in_queue())
+            if in_queue:
+                self.device.screenshot()
+            return in_queue, sixth
+        except Exception as e:
+            logger.warning(f'[科研-统计] 进入队列页读取快照失败: {e}')
+            return False, sixth
+
+    def _read_sixth_slot(self):
+        """读取主页上的第 6 个科研位（队列外），返回项目字典或 None。
+
+        队列页只有 5 个槽，第 6 个并行位只体现在科研主页：主页出现
+        waiting/running 卡位即为被占用（实测它固定显示在第 3 位，
+        与队列 5 槽状态互不影响）。
+
+        Returns:
+            dict | None: 被占用时返回 {'name':'', 'slot':..., 'in_queue':False}，
+                空闲或读不到时返回 None。
+        """
+        try:
+            if not self.is_in_research():
+                return None
+            status = self.get_research_status(self.device.image)
+            if 'detail' not in status:
+                return None
+            slot = None
+            if 'running' in status:
+                slot = 'running'
+            elif 'waiting' in status:
+                slot = 'waiting'
+            if slot is None:
+                return None
+            return {
+                'name': '',
+                'series': None,
+                'genre': '',
+                'duration_h': 0,
+                'slot': slot,
+                'in_queue': False,
+            }
+        except Exception as e:
+            logger.warning(f'[科研-统计] 读取第6位状态失败: {e}')
+            return None
+
+    def _fill_project_names(self, projects, started):
+        """给队列快照的项目补上名字与期数。
+
+        队列卡片 OCR 读不到项目名，只能按顺序对齐：
+        - 本轮启动的项目按 FIFO 顺序就是队列尾部的新项，先补最后几个；
+        - 其余位置沿用库里上一轮记录的名字（同名顺延），让运行中的老项目
+          仍有名字可显示。
+
+        Args:
+            projects (list[dict]): _read_queue_snapshot 的返回值，会被就地修改。
+            started (list[dict]): 本轮启动的项目。
+        """
+        # 上一轮已知的名字（按顺序）
+        try:
+            from module.statistics.cl1_database import db as cl1_db
+
+            previous = cl1_db.get_running_projects(self.config.config_name)
+            known = [
+                item
+                for item in (previous.get('research') or {}).get('records') or []
+                if isinstance(item, dict) and item.get('name')
+            ]
+        except Exception:
+            known = []
+
+        # 本轮启动的项目从队尾往前对齐（队列是 FIFO，新项在后面）
+        pending = list(started or [])
+        for index in range(len(projects) - 1, -1, -1):
+            if not pending:
+                break
+            item = pending.pop()
+            try:
+                duration_h = float(item.get('duration_h') or 0)
+            except (TypeError, ValueError):
+                duration_h = 0
+            projects[index].update(
+                {
+                    'name': item.get('name') or '',
+                    'series': item.get('series'),
+                    'genre': item.get('genre') or '',
+                    'duration_h': duration_h or projects[index].get('duration_h') or 0,
+                    'in_queue': True,
+                }
+            )
+
+        # 剩下的位置沿用旧名字（按顺序一一对应）
+        for index, project in enumerate(projects):
+            if project.get('name'):
+                continue
+            if index < len(known):
+                project['name'] = known[index].get('name') or ''
+                project['series'] = known[index].get('series')
+                project['genre'] = known[index].get('genre') or ''
     def research_fill_sixth(self, drop=None):
         """
         尝试在第 6 个并行位（队列外）再启动一个项目，能做就做。
