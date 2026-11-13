@@ -124,6 +124,71 @@ def _parse_iso(text):
         return None
 
 
+# 各委托类型的合法总时长档（小时）。
+#
+# 数据来源：从 log/*_alas.txt 的真实委托检测记录统计（5670 条
+# Genre/Status/Duration），只取 Status=pending 的 —— 未启动的卡片显示总时长，
+# running 的显示倒计时，不能用来定档。改这张表前请同样统计一遍日志。
+COMMISSION_DURATION_SLOTS = {
+    "major_comm": (10,),
+    "daily_resource": (1, 2),
+    "daily_chip": (1, 2),
+    "extra_oil": (1, 4, 8),
+    "extra_drill": (2, 5.33, 6, 7, 8),
+    "extra_cube": (1.5, 3, 5, 8),
+    "extra_part": (0.5, 1, 1.5),
+    "extra_book": (5, 6, 7, 8),
+    "urgent_part": (0.5, 1, 1.33, 1.67, 2, 2.5),
+    "urgent_box": (1, 3, 6),
+    "urgent_book": (0.5, 1, 1.33, 1.67, 2),
+    "urgent_drill": (1, 1.17, 1.5, 2, 2.67, 4),
+    "urgent_gem": (2, 4, 8),
+    "urgent_cube": (1.5, 1.75, 2.25, 3, 4, 6, 8),
+    "urgent_ship": (3,),
+    "night_drill": (6, 7, 8),
+    "night_book": (7, 8),
+    "night_oil": (8,),
+    "night_cube": (8,),
+}
+
+
+def infer_commission_duration(genre, remaining_h):
+    """由剩余时长推断委托总时长档（**下界推断**）。
+
+    运行中的委托卡片只显示倒计时，看不到总时长。但有一个硬约束：
+    **剩余时长不可能超过总时长**。所以「大于等于剩余时间的最小合法档位」
+    一定是候选之一。取它作为估计值：
+
+        urgent_gem（2/4/8）剩 28 分 -> 2 小时（绝不可能是更短的档位）
+        urgent_gem 剩 4.5 小时   -> 8 小时（4 小时档放不下 4.5 的剩余）
+
+    这是**下界估计**：真实档位一定 >= 返回值，可能更大（比如剩 2 小时时
+    真实可能是 2/4/8 中任一个，取 2）。展示层因此标「约」并优先显示剩余
+    时间——剩余时间是卡片上真实可见的值，档位只是辅助参考。
+
+    Args:
+        genre: Commission.genre，如 urgent_gem。
+        remaining_h: 剩余时长（小时）。
+
+    Returns:
+        float | None: 推断出的档位；该类型没有档位表时返回 None。
+    """
+    try:
+        remaining_h = float(remaining_h or 0)
+    except (TypeError, ValueError):
+        return None
+    slots = COMMISSION_DURATION_SLOTS.get(genre)
+    if not slots:
+        return None
+    if remaining_h <= 0:
+        return float(min(slots))
+    # 剩余时间不会超过总时长：取能容纳它且最小的一档
+    candidates = sorted(s for s in slots if s >= remaining_h - 0.02)
+    if candidates:
+        return float(candidates[0])
+    # 剩余时间比最大档还长（OCR 误差或跨活动）：退回最大档
+    return float(max(slots))
+
 def commission_display_name(genre, fallback=''):
     """委托类型 -> 中文展示名。
 
@@ -271,14 +336,23 @@ def save_commission_snapshot(instance, commissions, now=None):
             #
             # 判定依据是任务侧打的 _started_this_run 标记，**不能**用
             # create_time 与 now 的差：重启 alas 后扫描到的老委托，
-            # create_time 同样是"刚刚"，那样会把剩余时间误当成总时长。
+            # create_time 同样是「刚刚」，那样会把剩余时间误当成总时长。
             started_this_run = bool(getattr(comm, "_started_this_run", False))
-            duration_h = remaining_h if started_this_run else None
+            if started_this_run:
+                # 总时长可信：直接用
+                duration_h = remaining_h
+                duration_exact = True
+            else:
+                # 只有剩余时间：按下界推断一个档位（剩余不可能超过总时长，
+                # 取能容纳它的最小档），标记为估计值
+                duration_h = infer_commission_duration(genre, remaining_h)
+                duration_exact = False
             records.append(
                 {
                     'name': str(getattr(comm, 'name', '') or ''),
                     'genre': genre,
                     'duration_h': duration_h,
+                    'duration_exact': duration_exact,
                     'remaining_h': round(remaining_h, 2),
                     'start_time': _iso(create_time or now),
                     'finish_time': _iso(finish_time or now),

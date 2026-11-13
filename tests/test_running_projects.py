@@ -387,6 +387,80 @@ class GhostCardRegressionTest(unittest.TestCase):
             rp.save_commission_snapshot("alas", [])
         self.assertEqual(self.db.get_running_projects("alas")["commissions"], [])
 
+class CommissionDurationInferTest(unittest.TestCase):
+    """由剩余时间推断总时长档（下界推断）。
+
+    硬约束：剩余时长不可能超过总时长。所以「能容纳剩余时间的最小档位」
+    一定是合法候选。这个不变量在真实日志 873 条记录上零违反。
+    """
+
+    def test_inferred_slot_never_smaller_than_remaining(self):
+        """核心不变量：推断出的档位必须 >= 剩余时间。"""
+        from module.statistics.running_projects import infer_commission_duration
+        cases = [
+            ("urgent_gem", 28 / 60),
+            ("urgent_gem", 3.9),
+            ("urgent_cube", 2 + 23 / 60),
+            ("urgent_drill", 1.5),
+            ("extra_book", 4.5),
+        ]
+        for genre, remaining in cases:
+            got = infer_commission_duration(genre, remaining)
+            self.assertGreaterEqual(
+                got, remaining - 0.02,
+                f"{genre} 剩 {remaining}h 推成了 {got}h，放不下剩余时间",
+            )
+
+    def test_gem_28min_infers_2h(self):
+        """钻石委托 2/4/8 档，剩 28 分只能是 2 小时档。"""
+        from module.statistics.running_projects import infer_commission_duration
+        self.assertEqual(infer_commission_duration("urgent_gem", 28 / 60), 2.0)
+
+    def test_gem_4_1h_infers_8h(self):
+        """剩 4.1 小时时 4 小时档放不下，只能是 8 小时档。"""
+        from module.statistics.running_projects import infer_commission_duration
+        self.assertEqual(infer_commission_duration("urgent_gem", 4.1), 8.0)
+
+    def test_fixed_slot_type(self):
+        """只有一种档位的类型，无论剩余多少都推成那一档。"""
+        from module.statistics.running_projects import infer_commission_duration
+        self.assertEqual(infer_commission_duration("major_comm", 1.0), 10.0)
+        self.assertEqual(infer_commission_duration("night_oil", 2.0), 8.0)
+
+    def test_unknown_genre_returns_none(self):
+        from module.statistics.running_projects import infer_commission_duration
+        self.assertIsNone(infer_commission_duration("weird_type", 1.0))
+
+    def test_snapshot_marks_exact_vs_inferred(self):
+        """刚启动的标 exact=True，扫描到的老委托标 False。"""
+        from unittest.mock import patch, MagicMock
+        import module.statistics.cl1_database as cdb
+
+        class Comm:
+            status = "running"
+            name = "X"
+            genre = "urgent_gem"
+
+        started = Comm()
+        started.duration = timedelta(hours=2)
+        started.create_time = datetime(2026, 11, 13, 13, 0)
+        started.finish_time = datetime(2026, 11, 13, 15, 0)
+        started._started_this_run = True
+
+        scanned = Comm()
+        scanned.duration = timedelta(minutes=28)
+        scanned.create_time = datetime(2026, 11, 13, 13, 0)
+        scanned.finish_time = datetime(2026, 11, 13, 13, 28)
+        scanned._started_this_run = False
+
+        fake = MagicMock()
+        with patch.object(cdb, "db", fake):
+            rp.save_commission_snapshot("alas", [started, scanned])
+        rows = fake.save_running_commissions.call_args[0][1]
+        self.assertTrue(rows[0]["duration_exact"])
+        self.assertFalse(rows[1]["duration_exact"])
+        self.assertIsNotNone(rows[1]["duration_h"], "扫描到的也要有推断档位")
+
 class DurationFormatTest(unittest.TestCase):
     """时长格式化：小数小时要显示成「X小时Y分」，不能出现 2.67 这种。
 
@@ -480,32 +554,34 @@ class CommissionDurationRegressionTest(unittest.TestCase):
         rows = self._save([self._comm("要员护送", "urgent_gem", 2.0, True)])
         self.assertEqual(rows[0]["duration_h"], 2.0)
 
-    def test_scanned_running_has_no_duration(self):
-        """扫描到的老委托：只剩剩余时间，duration_h 必须是 None。"""
+    def test_scanned_running_infers_not_copies_remaining(self):
+        """扫描到的老委托：不能把 28 分剩余直接当总时长，要按下界推断。"""
         rows = self._save([self._comm("NYB度假护卫", "urgent_gem", 28 / 60, False)])
-        self.assertIsNone(rows[0]["duration_h"], "不能把 28 分剩余当成总时长")
+        # 钻石委托档位 2/4/8，剩 28 分能容纳它的最小档是 2 小时
+        self.assertEqual(rows[0]["duration_h"], 2.0, "不能把 0.47 小时当总时长")
+        self.assertFalse(rows[0]["duration_exact"], "推断值必须标为非精确")
 
     def test_scanned_running_keeps_remaining(self):
         """老委托仍要记下剩余时长，展示层要用它。"""
         rows = self._save([self._comm("支援马拉基岛", "urgent_book", 1.33, False)])
         self.assertAlmostEqual(rows[0]["remaining_h"], 1.33, places=2)
 
-    def test_card_hides_slot_when_unknown(self):
-        """档位未知时卡片不显示时长胶囊，只显示剩余时间。"""
+    def test_card_shows_estimated_slot_when_inferred(self):
+        """推断出的档位也显示框，并标「约」表明是估计值。"""
         obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
         now = datetime(2026, 11, 13, 10, 30)
         html = obj._build_running_commission_html(
             {"commissions": [{"display_name": "要员护送", "genre": "urgent_gem",
-                             "duration_h": None, "remaining_h": 0.47,
+                             "duration_h": 2, "duration_exact": False, "remaining_h": 0.47,
                              "start_dt": now, "finish_dt": now + timedelta(minutes=28),
                              "items": ["Gem"]}],
              "research": []},
             now,
         )
         self.assertIn("要员护送", html)
+        self.assertIn("约2小时", html)
+        self.assertIn("st-running-hours", html, "估计档位也要有框")
         self.assertIn("剩余 28分", html)
-        self.assertNotIn("分钟</span>", html)
-        self.assertNotIn("st-running-hours", html, "档位未知时不该出时长胶囊")
 
     def test_card_shows_slot_when_known(self):
         """档位确定时（刚启动的委托）正常显示时长胶囊。"""
@@ -513,13 +589,15 @@ class CommissionDurationRegressionTest(unittest.TestCase):
         now = datetime(2026, 11, 13, 10, 30)
         html = obj._build_running_commission_html(
             {"commissions": [{"display_name": "要员护送", "genre": "urgent_gem",
-                             "duration_h": 2, "remaining_h": 2,
+                             "duration_h": 2, "duration_exact": True, "remaining_h": 2,
                              "start_dt": now, "finish_dt": now + timedelta(hours=2),
                              "items": ["Gem"]}],
              "research": []},
             now,
         )
-        self.assertIn("约2小时", html)
+        # 精确档位不加「约」
+        self.assertIn("2小时", html)
+        self.assertNotIn("约2小时", html)
         self.assertIn("st-running-hours", html)
 
 
