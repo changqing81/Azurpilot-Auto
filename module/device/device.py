@@ -105,6 +105,10 @@ class Device(Screenshot, Control, AppControl, Input):
         'EQUIP_CONFIRM', 'EQUIP_CONFIRM_2',
         'GET_ITEMS_1_RETIREMENT_SAVE', 'ONE_CLICK_RETIREMENT',
     ]
+    # 单调递增的操作计数：每次点击/长按/滑动（凡走 handle_control_check 的）都 +1。
+    # 上层用它判断"这段循环里到底有没有真正操作过游戏"，比看 detect_record 可靠——
+    # 后者只要检测过就记录，不代表操作发生过。
+    click_count = 0
     stuck_timer = Timer(60, count=60).start()
     stuck_timer_long = Timer(195, count=195).start()
     stuck_long_wait_list = ['BATTLE_STATUS_S', 'PAUSE', 'LOGIN_CHECK', 'TEMPLATE_MANJUU']
@@ -129,6 +133,7 @@ class Device(Screenshot, Control, AppControl, Input):
         self.stuck_timer_long = Timer(195, count=195).start()
         self._stuck_image_timer = Timer(30, count=0)
         self._prev_fingerprint = None
+        self.click_count = 0
 
         for trial in range(4):
             try:
@@ -492,6 +497,7 @@ class Device(Screenshot, Control, AppControl, Input):
             raise GameNotRunningError('[设备-卡死] 游戏已退出')
 
     def handle_control_check(self, button):
+        self.click_count += 1
         self.stuck_record_clear()
         self.click_record_add(button)
         self.click_record_check()

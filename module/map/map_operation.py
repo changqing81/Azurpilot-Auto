@@ -20,7 +20,7 @@ import cv2
 
 from module.base.timer import Timer
 from module.config.time_source import now as current_time
-from module.exception import CampaignEnd, RequestHumanTakeover, ScriptEnd
+from module.exception import CampaignEnd, GameStuckError, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
 from module.handler.mystery import MysteryHandler
 from module.logger import logger
@@ -51,6 +51,13 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
     map_cat_attack_timer = Timer(2)
     map_clear_percentage_prev = -1
     map_clear_percentage_timer = Timer(0.3, count=1)
+    # 进入地图阶段的空闲兜底（秒）：连续这么久一次点击都没发生，说明画面卡在
+    # 认不出来的状态，或者所有分支都被上层拦下、没人真正操作游戏。
+    # 必须明显小于设备层的 60 秒卡死判定，否则会被判死并重启游戏。
+    # 2026-11-13 20:10:12 事故：Main2 刷 16-4，Research 到期后「再次前往」的
+    # 每次调用都被任务切换检查拦下、一次都没点，enter_map 循环空转 870 圈 190 秒，
+    # 最后由 [设备-卡死] 等待时间过长收场。详见 handler/auto_search.py。
+    enter_map_idle_timeout = 40
 
     # 屏幕上显示的舰队编号。
     fleet_show_index = 1
@@ -291,6 +298,12 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
         self.stage_entrance = button
         self.map_clear_percentage_prev = -1
         self.map_clear_percentage_timer.reset()
+        # 空闲兜底：连续 enter_map_idle_timeout 秒没有任何点击，判定画面卡死并主动报错。
+        # 正常进图流程每几秒就有一次点击（点关卡/地图准备/舰队准备），不会误伤。
+        # 计时器必须 start()：未启动的 Timer 首次 reached() 恒为 True（设计如此），
+        # 不启动会在第一帧就误报卡死。
+        idle_clicks = getattr(self.device, 'click_count', 0)
+        idle_timer = Timer(self.enter_map_idle_timeout).start()
 
         with self.stat.new(
                 genre=self.config.campaign_name, method=self.config.DropRecord_CombatRecord
@@ -314,6 +327,19 @@ class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHand
                                     "该关卡每天只能刷一次，"
                                     "但这是您第二次进入")
                     raise RequestHumanTakeover
+
+                # 空闲兜底：上图两个出口都按"点了几次"计数，只有点击才会累积；
+                # 一旦某个分支被上层拦下、整个循环一次都不点，那些计数永远是 0，
+                # 只能干等到设备层 60 秒判死并重启游戏。这里按"有没有真正操作过游戏"
+                # 兜底，先于设备层主动报错，附带当时认得出来的按钮便于定位。
+                current_clicks = getattr(self.device, 'click_count', 0)
+                if current_clicks != idle_clicks:
+                    idle_clicks = current_clicks
+                    idle_timer.reset()
+                if idle_timer.reached():
+                    logger.warning(f'[地图-操作] 进入 {button} 连续 {self.enter_map_idle_timeout}s 没有任何点击')
+                    logger.warning(f'[地图-操作] 当前画面识别结果: {self.device.detect_record}')
+                    raise GameStuckError(f'[地图-操作] 进入 {button} 超时，画面无任何可操作内容')
 
                 # 已在地图中
                 if not checked_in_map and self.is_in_map():
