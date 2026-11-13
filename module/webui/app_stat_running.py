@@ -85,13 +85,22 @@ def _fmt_remain(finish, now=None):
 
 
 def _fmt_hours(hours):
-    """时长（小时，float）-> 「4小时」「2.5小时」「30分」。
+    """时长（小时，float）-> 中文时长文本。
+
+    游戏里的时长档有 1.5 / 2.67 / 5.33 这类小数小时，直接显示成
+    「2.67小时」很误导（读不出是 2 小时 40 分）。统一换算成分钟再拆成
+    「X小时Y分」：
+        2       -> 2小时
+        1.5     -> 1小时30分
+        2.67    -> 2小时40分
+        0.5     -> 30分
+        5.33    -> 5小时20分
 
     Args:
-        hours: 小时数。
+        hours: 小时数（float 或可转 float 的值）。
 
     Returns:
-        str: 展示文本。
+        str: 展示文本；无效或非正数返回空串。
     """
     try:
         value = float(hours or 0)
@@ -99,11 +108,16 @@ def _fmt_hours(hours):
         return ''
     if value <= 0:
         return ''
-    if value < 1:
-        return f'{int(round(value * 60))}分'
-    if abs(value - round(value)) < 0.05:
-        return f'{int(round(value))}小时'
-    return f'{value:g}小时'
+    # 先统一到分钟（游戏档位都落在整分钟上，四舍五入不会有精度问题）
+    total_minutes = int(round(value * 60))
+    if total_minutes <= 0:
+        return ''
+    hours_part, minutes = divmod(total_minutes, 60)
+    if not hours_part:
+        return f'{minutes}分'
+    if not minutes:
+        return f'{hours_part}小时'
+    return f'{hours_part}小时{minutes}分'
 
 
 def _icon_data_uri(filename):

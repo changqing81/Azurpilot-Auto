@@ -387,6 +387,55 @@ class GhostCardRegressionTest(unittest.TestCase):
             rp.save_commission_snapshot("alas", [])
         self.assertEqual(self.db.get_running_projects("alas")["commissions"], [])
 
+class DurationFormatTest(unittest.TestCase):
+    """时长格式化：小数小时要显示成「X小时Y分」，不能出现 2.67 这种。
+
+    游戏真实的委托档位里就有 1.5 / 2.67 / 5.33 这类值，
+    直接显示「2.67小时」让人读不出是 2 小时 40 分。
+    """
+
+    def test_integer_hours(self):
+        from module.webui.app_stat_running import _fmt_hours
+        self.assertEqual(_fmt_hours(2), "2小时")
+        self.assertEqual(_fmt_hours(10), "10小时")
+
+    def test_decimal_hours_show_minutes(self):
+        from module.webui.app_stat_running import _fmt_hours
+        self.assertEqual(_fmt_hours(1.5), "1小时30分")
+        self.assertEqual(_fmt_hours(2.5), "2小时30分")
+
+    def test_no_decimal_point_in_output(self):
+        """任何档位都不能输出小数点，否则就是误导。"""
+        from module.webui.app_stat_running import _fmt_hours
+        for value in (1.5, 2.67, 5.33, 1.17, 1.33, 1.67, 2.25, 1.75):
+            text = _fmt_hours(value)
+            self.assertNotIn(".", text, f"{value} 输出成了 {text}")
+
+    def test_real_log_slots_render_readable(self):
+        """真实日志里出现过的档位都能渲染成可读文本。"""
+        from module.webui.app_stat_running import _fmt_hours
+        expected = {
+            1.5: "1小时30分",
+            2.67: "2小时40分",
+            5.33: "5小时20分",
+            1.17: "1小时10分",
+            1.33: "1小时20分",
+            1.67: "1小时40分",
+        }
+        for hours, want in expected.items():
+            self.assertEqual(_fmt_hours(hours), want)
+
+    def test_under_one_hour(self):
+        from module.webui.app_stat_running import _fmt_hours
+        self.assertEqual(_fmt_hours(0.5), "30分")
+        self.assertEqual(_fmt_hours(0.75), "45分")
+
+    def test_invalid_input(self):
+        from module.webui.app_stat_running import _fmt_hours
+        self.assertEqual(_fmt_hours(0), "")
+        self.assertEqual(_fmt_hours(None), "")
+        self.assertEqual(_fmt_hours("abc"), "")
+
 class CommissionDurationRegressionTest(unittest.TestCase):
     """回归：运行中委托的时长档被当成剩余时间。
 
