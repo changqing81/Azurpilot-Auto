@@ -217,6 +217,9 @@ class AutoSearchHandler(EnemySearchingHandler):
     auto_search_continue_interval = 0.5
     # 当前这屏菜单已点击的次数。菜单消失后归零，保证下一场战斗重新获得重试配额
     _auto_search_continue_attempts = 0
+    # 调度器要求切换任务时，退出结算菜单的最长等待（秒）。
+    # 必须明显小于设备层的 60 秒卡死判定，否则退不出去会被判死并重启游戏。
+    auto_search_switch_exit_timeout = 20
 
     def is_auto_search_running(self):
         """
@@ -268,15 +271,28 @@ class AutoSearchHandler(EnemySearchingHandler):
         不再按旧逻辑的 2 秒节流白等起步；每次点击前重新确认菜单仍在当前画面，
         界面已经跳转时立即收手，避免点到新画面的错误位置。
 
-        退出条件（任一满足即返回，交回调用方的原有逻辑）：
+        退出条件：
         - 菜单消失：点击已生效，界面已跳转，本屏点击计数清零；
         - 本屏菜单已点击满 auto_search_continue_retry 次而仍在：告警一次后不再点击，
-          由调用方继续走原有流程（地图操作循环自身的限次/超时与任务切换兜底），
+          由调用方继续走原有流程（地图操作循环自身的限次/超时兜底），
           不会无限连点，也不会让连点保护误报卡死；
-        - 调度器要求切换任务（config.task_switched）：立即停手让位。
+        - 调度器要求切换任务（config.task_switched）：这里只负责让位，不负责结束任务，
+          见下。
+
+        「让位」必须抛出 TaskEnd 真正把任务交出去：只 break 的话本函数返回后，
+        外层地图操作循环（MapOperation.enter_map）看到「再次前往」仍在画面上就
+        每帧 continue 重进本函数，而本函数又因 task_switched 一次都不点击——
+        整个循环没有任何点击，设备层的 60 秒卡死计时器不会被重置，最后以
+        GameStuckError 收场并重启游戏（2026-11-13 20:10:12 事故：Main2 刷 16-4，
+        Research 到期 190 秒空转 80 轮，0 次点击后报 [设备-卡死] 等待时间过长）。
+        退出前若还停在结算菜单，先按 ensure_auto_search_exit() 退回关卡页，
+        让调度器接手时游戏处在干净画面上。
 
         Returns:
             bool: 本轮是否点击过「再次前往」。
+
+        Raises:
+            TaskEnd: 调度器要求切换任务时抛出，由 alas.py 的调度循环正常收尾。
         """
         if not self.appear(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset):
             # 菜单不在：重置本屏计数，下一场战斗重新获得重试配额
@@ -287,7 +303,7 @@ class AutoSearchHandler(EnemySearchingHandler):
         clicked = False
         for _ in self.loop():
             if self.config.task_switched():
-                logger.info('[处理器-自动搜索] 检测到任务切换请求，「再次前往」停止重试')
+                self._stop_for_task_switched()
                 break
             if not self.appear(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset):
                 # 界面已经跳转：本次点击已生效
@@ -312,13 +328,31 @@ class AutoSearchHandler(EnemySearchingHandler):
         """点击自动搜索结算菜单的「再次前往」。
 
         每场战斗结束进入「合计获得奖励」菜单后立即点击，最多重试 6 次、
-        每次间隔 0.5 秒；失败或调度器要求切换任务时返回，见
-        handle_auto_search_continue_retry()。
+        每次间隔 0.5 秒；调度器要求切换任务时抛 TaskEnd 结束当前任务，
+        见 handle_auto_search_continue_retry()。
 
         Returns:
             bool: 是否点击过「再次前往」。
+
+        Raises:
+            TaskEnd: 调度器要求切换任务时抛出。
         """
         return self.handle_auto_search_continue_retry()
+
+    def _stop_for_task_switched(self):
+        """调度器要求切换任务时，退出结算菜单并结束当前任务。
+
+        只返回、不结束任务的写法会让外层地图操作循环空转（见
+        handle_auto_search_continue_retry 的说明）。这里先把游戏从
+        「合计获得奖励」菜单退回关卡页，再抛 TaskEnd 让调度器接手；
+        退出菜单有超时，退不出去也要让位——干等会被设备层判死并重启游戏。
+
+        Raises:
+            TaskEnd: 始终抛出，由 alas.py 的调度循环正常收尾。
+        """
+        logger.info('[处理器-自动搜索] 检测到任务切换请求，退出结算菜单后停止当前任务')
+        self.ensure_auto_search_exit(timeout=self.auto_search_switch_exit_timeout)
+        self.config.task_stop('调度器要求切换任务')
 
     def handle_auto_search_exit(self, drop=None):
         """
@@ -340,14 +374,28 @@ class AutoSearchHandler(EnemySearchingHandler):
         else:
             return False
 
-    def ensure_auto_search_exit(self, skip_first_screenshot=True):
-        """
+    def ensure_auto_search_exit(self, skip_first_screenshot=True, timeout=None):
+        """退出自动搜索结算菜单，回到关卡选择页。
+
+        Args:
+            skip_first_screenshot (bool): 是否跳过首次截图。
+            timeout (int | float | None): 退出流程的最长等待（秒）。
+                None 表示不加超时，保持原有行为；传数值时超时即返回 False。
+                调度器要求切换任务时用短超时，避免退不出去而空转到设备层判卡死。
+
+        Returns:
+            bool: 已回到关卡页返回 True；超时仍未退出返回 False。
+
         Pages:
             in: is_in_auto_search_menu
             out: page_campaign 或 page_event 或 page_sp
         """
         if not self.is_in_auto_search_menu():
             return False
+
+        exit_timer = None
+        if timeout is not None:
+            exit_timer = Timer(timeout, count=0).start()
 
         with self.stat.new(
                 genre=self.config.campaign_name, method=self.config.DropRecord_CombatRecord
@@ -359,10 +407,17 @@ class AutoSearchHandler(EnemySearchingHandler):
                     self.device.screenshot()
 
                 if self.handle_auto_search_exit(drop=drop):
+                    if exit_timer is not None:
+                        exit_timer.reset()
                     continue
 
                 # 结束条件
                 if self.is_in_stage():
                     break
+
+                if exit_timer is not None and exit_timer.reached():
+                    logger.warning(
+                        f'[处理器-自动搜索] 退出结算菜单超过 {timeout}s 仍未回到关卡页，放弃等待')
+                    return False
 
         return True

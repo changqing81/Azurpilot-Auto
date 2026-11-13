@@ -600,14 +600,27 @@ class FastForwardHandler(AutoSearchHandler):
             logger.info('情绪实例未加载，无法处理2倍经验书')
             return False
 
-        logger.info(f'[处理器-快进] 处理2倍经验书设置，模式={mode}')
         if mode == 'prep':
             book_check = BOOK_CHECK_PREP
             book_box = BOOK_BOX_PREP
         else:
             book_check = BOOK_CHECK_AUTO
             book_box = BOOK_BOX_AUTO
+            # 「合计获得奖励」结算菜单上并不显示二倍经验书开关。不加这一步的话，
+            # 每次在结算菜单上调用都要在 _set_2x_book_status 里白等
+            # confirm_timer(0.3s) 再打一行「地图无2倍经验书设置」；外层每轮重进
+            # 本函数，日志和耗时都被刷屏（2026-11-13 20:10:11 事故：结算菜单上
+            # 80 轮 × 2 次空跑）。
+            # 只对 auto 模式做这个快速判断：prep 模式的调用点已经先确认过
+            # FLEET_PREPARATION 画面，保留原来的 0.3s 等待，避免慢设备上
+            # 界面动画未完成时误判成"没有该设置"。
+            if not self.appear(book_check, offset=self._auto_search_menu_offset):
+                logger.info('[处理器-快进] 结算菜单上没有2倍经验书设置，跳过')
+                self.map_is_2x_book = False
+                self.emotion.map_is_2x_book = False
+                return False
 
+        logger.info(f'[处理器-快进] 处理2倍经验书设置，模式={mode}')
         state = 'on' if self.map_is_2x_book else 'off'
         if self._set_2x_book_status(state, book_check, book_box):
             self.emotion.map_is_2x_book = self.map_is_2x_book
