@@ -59,10 +59,11 @@
     /* 刷新按钮的环形箭头图标（内联 SVG，避免额外请求）。
        用 mask 引用，颜色由按钮的 currentColor 决定。 */
     --st-refresh-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 12a9 9 0 1 1-2.64-6.36'/%3E%3Cpolyline points='21 3 21 9 15 9'/%3E%3C/svg%3E");
-    /* 「进行中」区块的强调蓝：直接借主题的操作色（浅色 #2563eb / 深色
-       #60a5fa 两档都是标准蓝），既满足「不要绿色」又不必在本文件写死颜色，
-       换主题自动跟随。--rd- 那套涨跌色里的绿不适合做状态强调。 */
-    --st-running-blue: var(--alas-entry-action, #2563eb);
+    /* 「进行中」区块的强调蓝：对齐统计页月份胶囊那颗蓝（Bootstrap
+       primary #007bff），与页面其它蓝色元素同一家族，不再用绿色。
+       主题 CSS 在 statistics-alas.css 之后加载，暗色主题若要压暗，
+       在 dark-*.css 里覆盖本变量即可（见 dark-alas.css）。 */
+    --st-running-blue: #007bff;
 }
 
 /* --------------------------------------------------------------------------
