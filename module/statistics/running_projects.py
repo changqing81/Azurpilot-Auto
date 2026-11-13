@@ -124,71 +124,6 @@ def _parse_iso(text):
         return None
 
 
-# 各委托类型的合法总时长档（小时）。
-#
-# 数据来源：从 log/*_alas.txt 的真实委托检测记录统计（5670 条
-# Genre/Status/Duration），只取 Status=pending 的 —— 未启动的卡片显示总时长，
-# running 的显示倒计时，不能用来定档。改这张表前请同样统计一遍日志。
-COMMISSION_DURATION_SLOTS = {
-    "major_comm": (10,),
-    "daily_resource": (1, 2),
-    "daily_chip": (1, 2),
-    "extra_oil": (1, 4, 8),
-    "extra_drill": (2, 5.33, 6, 7, 8),
-    "extra_cube": (1.5, 3, 5, 8),
-    "extra_part": (0.5, 1, 1.5),
-    "extra_book": (5, 6, 7, 8),
-    "urgent_part": (0.5, 1, 1.33, 1.67, 2, 2.5),
-    "urgent_box": (1, 3, 6),
-    "urgent_book": (0.5, 1, 1.33, 1.67, 2),
-    "urgent_drill": (1, 1.17, 1.5, 2, 2.67, 4),
-    "urgent_gem": (2, 4, 8),
-    "urgent_cube": (1.5, 1.75, 2.25, 3, 4, 6, 8),
-    "urgent_ship": (3,),
-    "night_drill": (6, 7, 8),
-    "night_book": (7, 8),
-    "night_oil": (8,),
-    "night_cube": (8,),
-}
-
-
-def infer_commission_duration(genre, remaining_h):
-    """由剩余时长推断委托总时长档（**下界推断**）。
-
-    运行中的委托卡片只显示倒计时，看不到总时长。但有一个硬约束：
-    **剩余时长不可能超过总时长**。所以「大于等于剩余时间的最小合法档位」
-    一定是候选之一。取它作为估计值：
-
-        urgent_gem（2/4/8）剩 28 分 -> 2 小时（绝不可能是更短的档位）
-        urgent_gem 剩 4.5 小时   -> 8 小时（4 小时档放不下 4.5 的剩余）
-
-    这是**下界估计**：真实档位一定 >= 返回值，可能更大（比如剩 2 小时时
-    真实可能是 2/4/8 中任一个，取 2）。展示层因此标「约」并优先显示剩余
-    时间——剩余时间是卡片上真实可见的值，档位只是辅助参考。
-
-    Args:
-        genre: Commission.genre，如 urgent_gem。
-        remaining_h: 剩余时长（小时）。
-
-    Returns:
-        float | None: 推断出的档位；该类型没有档位表时返回 None。
-    """
-    try:
-        remaining_h = float(remaining_h or 0)
-    except (TypeError, ValueError):
-        return None
-    slots = COMMISSION_DURATION_SLOTS.get(genre)
-    if not slots:
-        return None
-    if remaining_h <= 0:
-        return float(min(slots))
-    # 剩余时间不会超过总时长：取能容纳它且最小的一档
-    candidates = sorted(s for s in slots if s >= remaining_h - 0.02)
-    if candidates:
-        return float(candidates[0])
-    # 剩余时间比最大档还长（OCR 误差或跨活动）：退回最大档
-    return float(max(slots))
-
 def commission_display_name(genre, fallback=''):
     """委托类型 -> 中文展示名。
 
@@ -305,12 +240,28 @@ def save_commission_snapshot(instance, commissions, now=None):
     if not instance:
         return
     now = now or datetime.now()
+    # 上一轮记下的「委托名 -> 总时长」。运行中的卡片只有倒计时，
+    # 老委托的总时长只能靠这份历史记录顺延，否则就是未知。
+    known_durations = {}
+    try:
+        from module.statistics.cl1_database import db as _db
+
+        previous = _db.get_running_projects(instance)
+        for item in previous.get("commissions") or []:
+            if not isinstance(item, dict):
+                continue
+            if item.get("duration_h") and item.get("duration_exact"):
+                known_durations[item.get("name")] = item["duration_h"]
+    except Exception:
+        known_durations = {}
+
     records = []
     for comm in commissions or []:
         try:
             if getattr(comm, 'status', '') != 'running':
                 continue
             genre = str(getattr(comm, 'genre', '') or '')
+            comm_key = str(getattr(comm, 'name', '') or '')
             duration = getattr(comm, 'duration', None)
             create_time = getattr(comm, 'create_time', None)
             finish_time = getattr(comm, 'finish_time', None)
@@ -327,26 +278,23 @@ def save_commission_snapshot(instance, commissions, now=None):
             elapsed_h = 0
             if isinstance(create_time, datetime):
                 elapsed_h = max((now - create_time).total_seconds() / 3600, 0)
-            # 两类委托的 duration 语义完全不同：
-            # A. 本任务刚启动的（commission_start 里调过 convert_to_running）：
-            #    duration 来自启动前的卡片，是真正的总时长，直接采信。
-            # B. 扫描时已经在跑的（含重启 alas 后扫到的）：
-            #    卡片显示倒计时，duration 是剩余时间；真实总时长 = 未知已跑 +
-            #    剩余，无法还原。对 B 类不编造档位，只记剩余时长。
+            # 总时长与剩余时长是**两个不同属性**，绝不能混用：
+            #   总时长 = 这个委托一共要做多久（游戏里只有未启动的卡片显示）；
+            #   剩余   = 还要做多久（运行中的卡片显示倒计时）。
+            # 拿剩余当总时长，等于「一节课 40 分钟、过了 25 分，写成这节课 15 分钟」。
             #
-            # 判定依据是任务侧打的 _started_this_run 标记，**不能**用
-            # create_time 与 now 的差：重启 alas 后扫描到的老委托，
-            # create_time 同样是「刚刚」，那样会把剩余时间误当成总时长。
+            # 运行中的卡片只有倒计时，读不到总时长。所以总时长只能来自两个地方：
+            #   1. 本任务启动它时，启动前卡片上的值（_started_this_run）；
+            #   2. 库里上一轮记下的总时长（同名委托顺延）。
+            # 两处都没有时，总时长就是**未知**，宁可不显示也不能拿剩余顶上。
             started_this_run = bool(getattr(comm, "_started_this_run", False))
             if started_this_run:
-                # 总时长可信：直接用
-                duration_h = remaining_h
+                duration_h = remaining_h   # 启动前卡片的 duration 就是总时长
                 duration_exact = True
             else:
-                # 只有剩余时间：按下界推断一个档位（剩余不可能超过总时长，
-                # 取能容纳它的最小档），标记为估计值
-                duration_h = infer_commission_duration(genre, remaining_h)
-                duration_exact = False
+                known = known_durations.get(comm_key)
+                duration_h = known
+                duration_exact = known is not None
             records.append(
                 {
                     'name': str(getattr(comm, 'name', '') or ''),

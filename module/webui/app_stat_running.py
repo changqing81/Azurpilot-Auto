@@ -249,15 +249,13 @@ class RunningProjectsMixin(WebUIMixinBase):
             str: 卡片 HTML。
         """
         name = escape(record.get('display_name') or '未知委托')
-        # 时长框始终显示：
-        # - 本任务刚启动的委托，duration 来自启动前卡片，是精确总时长；
-        # - 扫描时已在跑的，卡片只有倒计时，按「剩余不可能超过总时长」
-        #   推断出能容纳它的最小档，标「约」表明是估计值。
-        # 两者都显示框，避免卡片信息缺一块（旧版本对后者不显示框，看着像丢了）。
+        # 时长框显示的是**总时长**（这个委托一共要做多久），不是剩余时间。
+        # 运行中的游戏卡片只有倒计时，读不到总时长；拿剩余时间冒充总时长
+        # 等于「一节课 40 分钟、过了 25 分，写成这节课 15 分钟」。
+        # 所以总时长未知时**不显示这个框**，只靠下面的「剩余 X」表达信息。
         duration_h = record.get('duration_h')
         hours_text = _fmt_hours(duration_h) if duration_h else ''
-        exact = record.get('duration_exact', True)
-        hours = (hours_text if exact else f'约{hours_text}') if hours_text else ''
+        hours = hours_text
         start = _fmt_time(record.get('start_dt'), now)
         finish = _fmt_time(record.get('finish_dt'), now)
         done, remain = _fmt_remain(record.get('finish_dt'), now)
