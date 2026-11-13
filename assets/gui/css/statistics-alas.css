@@ -64,6 +64,9 @@
        主题 CSS 在 statistics-alas.css 之后加载，暗色主题若要压暗，
        在 dark-*.css 里覆盖本变量即可（见 dark-alas.css）。 */
     --st-running-blue: #007bff;
+    /* 同一颗蓝的淡底：标签胶囊用。用 rgba 直接写分量而不是 color-mix，
+       避免依赖较新的 CSS 函数（项目其余样式也没用 color-mix）。 */
+    --st-running-blue-soft: rgba(0, 123, 255, .10);
 }
 
 /* --------------------------------------------------------------------------
@@ -1851,9 +1854,11 @@
 }
 
 #pywebio-scope-statistics-content .st-running-tag--ok {
-    color: var(--st-ok);
-    border-color: var(--st-ok);
-    background: var(--st-net-soft);
+    /* 「进行中 N」统计标签：跟徽标同一颗蓝，不再用绿色（绿色在这里
+       读起来像「已完成」）。 */
+    color: var(--st-running-blue);
+    border-color: var(--st-running-blue);
+    background: var(--st-running-blue-soft);
 }
 
 #pywebio-scope-statistics-content .st-running-tag--accent {

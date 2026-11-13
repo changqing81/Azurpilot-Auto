@@ -28,7 +28,7 @@ _RUNNING_STYLE = 'cards'
 
 # 状态文案（纯展示层，不依赖 i18n：四语言加键流程反而更脆）
 _STATE_LABELS = {
-    'running': '运行中',
+    'running': '进行中',
     'waiting': '队列中',
     'queueoff': '队列外',
     'settle': '待结算',
@@ -213,7 +213,7 @@ class RunningProjectsMixin(WebUIMixinBase):
                 title='正在进行中的委托',
                 subtitle=f'共 {len(records)} 个',
                 tags=[
-                    (f'运行中 {running}', 'ok'),
+                    (f'进行中 {running}', 'ok'),
                     (f'待结算 {len(records) - running}', 'warn')
                     if len(records) - running
                     else None,
@@ -276,7 +276,7 @@ class RunningProjectsMixin(WebUIMixinBase):
                 return self._build_running_empty_html(
                     '进行中的科研项目',
                     '科研队列空闲',
-                    '科研任务填充队列后，这里会显示 1 条运行中 + 最多 5 条排队中',
+                    '科研任务填充队列后，这里会显示 1 条进行中 + 最多 5 条排队中',
                 )
             cards = [self._build_running_research_card(r, now) for r in records]
             running = 0
@@ -292,7 +292,7 @@ class RunningProjectsMixin(WebUIMixinBase):
                     running += 1
             tags = []
             if running:
-                tags.append((f'运行中 {running}', 'ok'))
+                tags.append((f'进行中 {running}', 'ok'))
             if queued:
                 tags.append((f'队列中 {queued}', 'accent'))
             if outside:
@@ -364,7 +364,7 @@ class RunningProjectsMixin(WebUIMixinBase):
             remain = ''
             done = False
         else:
-            badge = _STATE_LABELS.get(state, '运行中')
+            badge = _STATE_LABELS.get(state, '进行中')
             done, remain = _fmt_remain(record.get('finish_dt'), now)
         genre_label = record.get('genre_label') or ''
         items = self._build_running_research_items(record.get('items') or [])

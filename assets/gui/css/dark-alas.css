@@ -30,6 +30,7 @@ html:root {
    这里压暗一档到 #3b82f6：色相不变，只降亮度与饱和。 */
 html:root {
     --st-running-blue: #3b82f6;
+    --st-running-blue-soft: rgba(59, 130, 246, .16);
 }
 
 /* 不使用 !important，主题切换时新 CSS 后加载即覆盖旧规则。 */

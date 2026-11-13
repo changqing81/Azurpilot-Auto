@@ -39,6 +39,7 @@ html:root {
 	--alas-entry-on-action: #eff6ff;
 	/* 统计页「进行中」区块强调蓝：深底上 #007bff 偏刺眼，用 #3b82f6 一档柔和 */
 	--st-running-blue: #3b82f6;
+	--st-running-blue-soft: rgba(59, 130, 246, .16);
 	--alas-entry-success: #34d399;
 	--alas-entry-badge-error: #ff8a80;
 	--alas-entry-badge-updating: #fbbf24;
