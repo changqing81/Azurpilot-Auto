@@ -393,68 +393,85 @@ class CommissionDurationRegressionTest(unittest.TestCase):
     委托卡片在「运行中」状态显示的是倒计时，Commission.duration 读到的是
     剩余时间。早期实现直接拿它当总时长写库，界面上就出现「要员护送 28分」
     这种不存在的档位（钻石委托只有 2/4/8 小时三档）。
+
+    修复策略不是「反推档位」（仅凭剩余时间数学上无法唯一确定，真实日志
+    873 条里只有 10% 能定），而是区分两类委托：
+    - 本任务刚启动的：duration 是启动前卡片的总时长，可信；
+    - 扫描时已在跑的：只有剩余时间，只记 remaining_h，不编造总时长。
     """
 
-    def test_gem_slots_only_2_4_8(self):
-        """钻石委托无论剩余多少，还原结果必须落在 2/4/8 里。"""
-        from module.statistics.running_projects import resolve_commission_duration
-        for remaining in (0.1, 0.47, 0.8, 1.2, 1.9, 2.5, 3.3, 4.8, 7.9):
-            got = resolve_commission_duration("urgent_gem", remaining, 0)
-            self.assertIn(got, (2.0, 4.0, 8.0), f"剩余 {remaining}h 还原成了 {got}")
+    @staticmethod
+    def _comm(name, genre, remaining_h, started):
+        """构造一个假的 Commission 对象。"""
 
-    def test_gem_remaining_28min_becomes_2h(self):
-        """截图里那条「要员护送 28分」：28 分应还原成 2 小时档。"""
-        from module.statistics.running_projects import resolve_commission_duration
-        got = resolve_commission_duration("urgent_gem", 28 / 60, 0)
-        self.assertEqual(got, 2.0)
+        class Comm:
+            pass
 
-    def test_elapsed_improves_accuracy(self):
-        """已知已跑时长时，能区分 4h 委托剩 1.5 还是 2h 委托剩 1.5。"""
-        from module.statistics.running_projects import resolve_commission_duration
-        # 剩余 1.5、已跑 2.5 -> 总 4h
-        self.assertEqual(resolve_commission_duration("urgent_gem", 1.5, 2.5), 4.0)
-        # 剩余 1.5、已跑 0.5 -> 总 2h
-        self.assertEqual(resolve_commission_duration("urgent_gem", 1.5, 0.5), 2.0)
+        c = Comm()
+        c.status = "running"
+        c.name = name
+        c.genre = genre
+        c.duration = timedelta(hours=remaining_h)
+        c.create_time = datetime(2026, 11, 13, 13, 0)
+        c.finish_time = c.create_time + c.duration
+        c._started_this_run = started
+        return c
 
-    def test_unknown_genre_not_forced_into_slots(self):
-        """没有档位表时不做猜测，返回已跑+剩余。"""
-        from module.statistics.running_projects import resolve_commission_duration
-        got = resolve_commission_duration("weird_type", 0.47, 0.1)
-        self.assertAlmostEqual(got, 0.57, places=2)
-
-    def test_snapshot_writes_slot_not_remaining(self):
-        """写库时 duration_h 必须是档位，不能是剩余时间。"""
+    def _save(self, comms):
         from unittest.mock import patch, MagicMock
         import module.statistics.cl1_database as cdb
-        from module.statistics import running_projects as rp
-
-        class FakeComm:
-            status = "running"
-            name = "NYB度假护卫"
-            genre = "urgent_gem"
-            duration = timedelta(minutes=28)   # 卡片上的倒计时
-            create_time = datetime(2026, 11, 13, 12, 16)
-            finish_time = datetime(2026, 11, 13, 12, 44)
 
         fake = MagicMock()
         with patch.object(cdb, "db", fake):
-            rp.save_commission_snapshot("alas", [FakeComm()])
-        rows = fake.save_running_commissions.call_args[0][1]
-        self.assertEqual(len(rows), 1)
-        self.assertEqual(rows[0]["duration_h"], 2.0, "28 分应还原成 2 小时档，而不是 0.47")
+            rp.save_commission_snapshot("alas", comms)
+        return fake.save_running_commissions.call_args[0][1]
 
-    def test_card_shows_approximate_marker(self):
-        """卡片上的档位带「约」，表明是估计值而非精确总时长。"""
+    def test_started_this_run_uses_duration(self):
+        """本次刚启动的委托：duration 就是总时长，直接采信。"""
+        rows = self._save([self._comm("要员护送", "urgent_gem", 2.0, True)])
+        self.assertEqual(rows[0]["duration_h"], 2.0)
+
+    def test_scanned_running_has_no_duration(self):
+        """扫描到的老委托：只剩剩余时间，duration_h 必须是 None。"""
+        rows = self._save([self._comm("NYB度假护卫", "urgent_gem", 28 / 60, False)])
+        self.assertIsNone(rows[0]["duration_h"], "不能把 28 分剩余当成总时长")
+
+    def test_scanned_running_keeps_remaining(self):
+        """老委托仍要记下剩余时长，展示层要用它。"""
+        rows = self._save([self._comm("支援马拉基岛", "urgent_book", 1.33, False)])
+        self.assertAlmostEqual(rows[0]["remaining_h"], 1.33, places=2)
+
+    def test_card_hides_slot_when_unknown(self):
+        """档位未知时卡片不显示时长胶囊，只显示剩余时间。"""
         obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
         now = datetime(2026, 11, 13, 10, 30)
         html = obj._build_running_commission_html(
             {"commissions": [{"display_name": "要员护送", "genre": "urgent_gem",
-                             "duration_h": 2, "start_dt": now - timedelta(minutes=32),
-                             "finish_dt": now + timedelta(minutes=88), "items": ["Gem"]}],
+                             "duration_h": None, "remaining_h": 0.47,
+                             "start_dt": now, "finish_dt": now + timedelta(minutes=28),
+                             "items": ["Gem"]}],
+             "research": []},
+            now,
+        )
+        self.assertIn("要员护送", html)
+        self.assertIn("剩余 28分", html)
+        self.assertNotIn("分钟</span>", html)
+        self.assertNotIn("st-running-hours", html, "档位未知时不该出时长胶囊")
+
+    def test_card_shows_slot_when_known(self):
+        """档位确定时（刚启动的委托）正常显示时长胶囊。"""
+        obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        now = datetime(2026, 11, 13, 10, 30)
+        html = obj._build_running_commission_html(
+            {"commissions": [{"display_name": "要员护送", "genre": "urgent_gem",
+                             "duration_h": 2, "remaining_h": 2,
+                             "start_dt": now, "finish_dt": now + timedelta(hours=2),
+                             "items": ["Gem"]}],
              "research": []},
             now,
         )
         self.assertIn("约2小时", html)
+        self.assertIn("st-running-hours", html)
 
 
 if __name__ == "__main__":

@@ -235,10 +235,13 @@ class RunningProjectsMixin(WebUIMixinBase):
             str: 卡片 HTML。
         """
         name = escape(record.get('display_name') or '未知委托')
-        # 时长档是从剩余时间反推的估计值（委托卡片不显示总时长），加「约」
-        # 表明语义；钻石委托只有 2/4/8 三档，还原很准，紧急委托档位密集
-        # 可能差一档，所以不做成绝对断言。
-        hours_text = _fmt_hours(record.get('duration_h'))
+        # 时长档只在「本任务刚启动」的委托上有意义（那是启动前卡片上的总时长）。
+        # 扫描时就已经在跑的委托，卡片只显示倒计时，拿不到总时长，
+        # 此时**不显示档位**、也不反推 —— 任何反推都是猜（钻石 2/4/8 档，
+        # 剩余 1.6 小时既可能是 2h 跑过一段、4h 跑了一半，无法区分）。
+        # 这类委托用下方的「剩余 X」表达，那是卡片上真实可见的信息。
+        duration_h = record.get('duration_h')
+        hours_text = _fmt_hours(duration_h) if duration_h else ''
         hours = f'约{hours_text}' if hours_text else ''
         start = _fmt_time(record.get('start_dt'), now)
         finish = _fmt_time(record.get('finish_dt'), now)

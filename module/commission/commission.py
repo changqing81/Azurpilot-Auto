@@ -803,6 +803,8 @@ class RewardCommission(UI, InfoHandler):
         """
         self._commission_scan_all()
         logger.hr('Commission run', level=1)
+        # 记录本次真正启动的委托，供统计层区分「总时长可信」与「只有剩余时间」
+        self.comm_started_this_run = []
         if self.daily_choose:
             for comm in self.daily_choose:
                 self._commission_ensure_mode('daily')
@@ -810,6 +812,7 @@ class RewardCommission(UI, InfoHandler):
                 self.handle_info_bar()
                 if self._commission_find_and_start(comm, is_urgent=False):
                     comm.convert_to_running()
+                    self.comm_started_this_run.append(comm)
                 self._commission_mode_reset()
         if self.urgent_choose:
             for comm in self.urgent_choose:
@@ -818,6 +821,7 @@ class RewardCommission(UI, InfoHandler):
                 self.handle_info_bar()
                 if self._commission_find_and_start(comm, is_urgent=True):
                     comm.convert_to_running()
+                    self.comm_started_this_run.append(comm)
                     if comm.is_gem_commission:
                         try:
                             from module.statistics.cl1_database import db as cl1_db
@@ -856,6 +860,14 @@ class RewardCommission(UI, InfoHandler):
             running = [
                 comm for comm in scanned if getattr(comm, 'status', '') == 'running'
             ]
+            # 标记「本次真正启动」的委托：只有它们的 duration 是启动前卡片上的
+            # 总时长，可直接采信。扫描时就已经在跑的委托，卡片显示的是倒计时，
+            # 统计层不能把它当总时长用。
+            started_ids = {
+                id(comm) for comm in (getattr(self, 'comm_started_this_run', None) or [])
+            }
+            for comm in running:
+                setattr(comm, "_started_this_run", id(comm) in started_ids)
             # 没有扫描结果时不要覆盖：可能是扫描失败，覆盖会把好数据清空
             if scanned:
                 save_commission_snapshot(self.config.config_name, running)
