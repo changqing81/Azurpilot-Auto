@@ -273,36 +273,26 @@ class OpsiCrossMonth(OpsiScheduling):
     def _os_cross_month_daily(self):
         """阶段一：接取并完成大世界每日。"""
         logger.hr('跨月每日清理大世界每日', level=1)
-        # 跨月的目的是把旧任务清空，但「不做塞壬研究任务」是用户显式设置的支出约束
-        # （塞壬研究用黄币换紫币，消耗作战补给凭证），跨月不能静默把它关掉。
-        # 这里读取用户原配置并透传，只有在用户自己关掉该开关时才接取塞壬研究。
-        skip_siren_mission = bool(
-            self.config.cross_get('OpsiDaily.OpsiDaily.SkipSirenResearchMission', default=False)
-        )
         self.config.override(
             OpsiGeneral_DoRandomMapEvent=True,
             OpsiFleet_Fleet=self.config.cross_get('OpsiDaily.OpsiFleet.Fleet'),
             OpsiFleet_Submarine=False,
             # 每日任务
-            OpsiDaily_SkipSirenResearchMission=skip_siren_mission,
+            OpsiDaily_SkipSirenResearchMission=False,
             OpsiDaily_KeepMissionZone=False,
         )
-        if skip_siren_mission:
-            logger.info('[大世界-跨月] 沿用「不做塞壬研究任务」设置，跨月期间同样跳过塞壬研究')
-        else:
-            logger.info('[大世界-跨月] 「不做塞壬研究任务」未开启，跨月期间会正常接取塞壬研究')
         count = 0
         empty_trial = 0
         while True:
             # 如果无法接收更多每日任务，先完成已有任务再重试
-            success = self.os_mission_overview_accept(skip_siren_mission=skip_siren_mission)
+            success = self.os_mission_overview_accept()
             # 重新初始化区域名称
             # MISSION_ENTER 从右侧出现，需确认动画结束，否则会点击到 MAP_GOTO_GLOBE
             self.zone_init()
             if empty_trial >= 5:
                 logger.warning('5 分钟内没有找到大世界每日，停止等待')
                 break
-            count += self.os_finish_daily_mission(skip_siren_mission=skip_siren_mission)
+            count += self.os_finish_daily_mission()
             if not count:
                 logger.warning('未接取到大世界每日，可能游戏每日尚未刷新，等待 1 分钟')
                 empty_trial += 1
