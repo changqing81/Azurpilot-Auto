@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "source_commit": "3fb6befa2f969bd879de2341cdf41a571852a95f",
-  "updated_at": "2026-11-11",
+  "source_commit": "380d5c7dc95ca2ff4dc73c3403fb5233880980a2",
+  "updated_at": "2026-11-12",
   "ships": [
     {
       "group_type": 10000,
@@ -17049,6 +17049,20 @@
     {
       "group_type": 1170002,
       "code": 10172,
+      "handbook_type": 1,
+      "blueprint": false,
+      "technology": null
+    },
+    {
+      "group_type": 1180001,
+      "code": 10181,
+      "handbook_type": 1,
+      "blueprint": false,
+      "technology": null
+    },
+    {
+      "group_type": 1180002,
+      "code": 10182,
       "handbook_type": 1,
       "blueprint": false,
       "technology": null
