@@ -84,6 +84,39 @@ def _fmt_remain(finish, now=None):
     return False, f'剩余 {rest}秒'
 
 
+def _fmt_until(start, now=None):
+    """「还有多久开始」的文本，用于科研排队项。
+
+    科研是一个接一个串行做的，排在后面的项目在自己开始之前谈不上「剩余」，
+    只能表达「还要等前面几个做完，约 X 后轮到它」。
+
+    Args:
+        start: 预计开始时间。
+        now: 参考时间。
+
+    Returns:
+        str: 展示文本；已该开始或时间无效时返回空串。
+    """
+    if not isinstance(start, datetime):
+        return ''
+    if now is None:
+        now = datetime.now()
+    wait = start - now
+    total = int(wait.total_seconds())
+    if total <= 0:
+        return ''
+    hours, rest = divmod(total, 3600)
+    minutes = rest // 60
+    if hours >= 24:
+        days, hours = divmod(hours, 24)
+        return f'{days}天{hours}小时后开始'
+    if hours:
+        return f'{hours}小时{minutes:02d}分后开始'
+    if minutes:
+        return f'{minutes}分后开始'
+    return '即将开始'
+
+
 def _fmt_hours(hours):
     """时长（小时，float）-> 中文时长文本。
 
@@ -317,15 +350,60 @@ class RunningProjectsMixin(WebUIMixinBase):
                 tags.append((f'队列中 {queued}', 'accent'))
             if outside:
                 tags.append((f'队列外 {outside}', 'warn'))
+            # 科研与委托的本质差异：委托是**并行**槽位（4~5 个同时跑），
+            # 科研是**串行**队列（一个做完才轮到下一个）。界面必须让人一眼
+            # 看出这个先后关系，否则排队项看起来像在并行进行。
+            serial_note = (
+                '<div class="st-running-serial">'
+                '<span class="st-running-serial-arrow">→</span>'
+                '<span>科研逐个进行：当前项目完成后，队列里的下一个才开始</span>'
+                '</div>'
+            )
             return self._wrap_running_section(
                 title='进行中的科研项目',
-                subtitle='队列 FIFO，等待项为按链条推算的预计时间',
+                subtitle=self._research_summary_line(records, now),
                 tags=tags,
-                body=self._build_running_body(cards),
+                body=serial_note + self._build_running_body(cards),
             )
         except Exception as e:
             logger.warning(f'[WebUI-统计] 进行中科研渲染失败: {e}')
             return ''
+
+    def _research_summary_line(self, records, now):
+        """科研区块的副标题：说明队列总耗时。
+
+        科研串行执行，所以「整个队列什么时候跑完」= 最后一项的完成时间，
+        这个信息对用户比「排了几项」更有用。
+
+        Args:
+            records: 科研记录列表。
+            now: 参考时间。
+
+        Returns:
+            str: 副标题文本。
+        """
+        finishes = [
+            r.get("finish_dt")
+            for r in records or []
+            if isinstance(r.get("finish_dt"), datetime)
+            and r.get('in_queue', True)
+        ]
+        if not finishes:
+            return '科研逐个进行，一个完成后下一个才开始'
+        last = max(finishes)
+        if last <= now:
+            return '队列已全部完成，等待领取'
+        total = int((last - now).total_seconds())
+        hours, rest = divmod(total, 3600)
+        minutes = rest // 60
+        if hours >= 24:
+            days, hours = divmod(hours, 24)
+            span = f'{days}天{hours}小时'
+        elif hours:
+            span = f'{hours}小时{minutes:02d}分'
+        else:
+            span = f'{minutes}分'
+        return f'逐个进行，全部跑完约还需 {span}'
 
     @staticmethod
     def _research_slot_state(record, now):
@@ -380,8 +458,12 @@ class RunningProjectsMixin(WebUIMixinBase):
         finish = _fmt_time(record.get('finish_dt'), now)
         state, waiting = self._research_slot_state(record, now)
         if waiting:
-            badge = f'队列 {int(record.get("queue_index", 0))}'
-            remain = ''
+            # 排队项：科研是**串行**的，前面做完才轮到它。
+            # 所以这里要表达两件事：排第几位、还要等多久（= 它的开始时间）。
+            # 只显示「队列 N」会让它看起来像在并行跑，看不出排队关系。
+            seq = int(record.get("queue_index", 0))
+            badge = f'队列 {seq}'
+            remain = _fmt_until(record.get("start_dt"), now)
             done = False
         else:
             badge = _STATE_LABELS.get(state, '进行中')

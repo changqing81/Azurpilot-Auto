@@ -388,6 +388,102 @@ class GhostCardRegressionTest(unittest.TestCase):
         self.assertEqual(self.db.get_running_projects("alas")["commissions"], [])
 
 
+class ResearchSerialQueueTest(unittest.TestCase):
+    """科研是**串行**队列，委托是**并行**槽位，两者界面语义必须不同。
+
+    用户的话：科研一个一个做，不是一起做的。所以：
+    - 排队项不能显示「剩余 X」（它还没开始，谈不上剩余）；
+    - 排队项要显示「X 后开始」；
+    - 区块要说清「全部跑完还要多久」；
+    - 要有视觉提示表明逐个进行的先后关系。
+    """
+
+    @staticmethod
+    def _snapshot(durations, now):
+        """构造一个队首运行中 + 后续排队的队列快照。"""
+        records = []
+        cursor = now + timedelta(hours=1)  # 队首还剩 1 小时
+        for index, (name, hours) in enumerate(durations):
+            if index == 0:
+                records.append({
+                    "name": name, "genre": "G", "genre_label": "资金研究",
+                    "duration_h": hours, "queue_index": 0,
+                    "in_queue": True, "slot": "running",
+                    "start_dt": now - timedelta(hours=hours - 1),
+                    "finish_dt": cursor, "items": [],
+                })
+            else:
+                start = cursor
+                cursor = start + timedelta(hours=hours)
+                records.append({
+                    "name": name, "genre": "C", "genre_label": "活动研究",
+                    "duration_h": hours, "queue_index": index,
+                    "in_queue": True, "slot": "waiting",
+                    "start_dt": start, "finish_dt": cursor, "items": [],
+                })
+        return {"commissions": [], "research": records}
+
+    def test_queue_is_serial(self):
+        """后一项的开始时间必须等于前一项的结束时间（串行，不是并行）。"""
+        now = datetime(2026, 11, 14, 8, 0)
+        snapshot = self._snapshot([("A", 4), ("B", 8), ("C", 2)], now)
+        recs = snapshot["research"]
+        for prev, nxt in zip(recs, recs[1:]):
+            self.assertEqual(
+                prev["finish_dt"], nxt["start_dt"],
+                "科研是串行的：后一项必须在前一项结束的瞬间开始",
+            )
+
+    def test_waiting_item_shows_until_start_not_remaining(self):
+        """排队项显示「X 后开始」，不能显示「剩余 X」。"""
+        now = datetime(2026, 11, 14, 8, 0)
+        obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        html = obj._build_running_research_html(
+            self._snapshot([("A", 4), ("B", 8)], now), now
+        )
+        self.assertIn("后开始", html)
+        # 队首仍在跑，所以「剩余」只应出现在它身上
+        self.assertIn("剩余", html)
+        # 排队项文案必须是「X后开始」而不是「剩余 X」：
+        # 它还没开始，谈不上剩余。逐个检查排队卡片。
+        import re
+
+        for block in re.findall(
+            r'<div class="st-running-card">.*?</div></div>', html
+        ):
+            if "st-running-state--waiting" not in block:
+                continue
+            self.assertIn("后开始", block, "排队项应显示多久后开始")
+            self.assertNotIn("剩余", block, "排队项不该用「剩余」表述")
+
+    def test_subtitle_shows_total_queue_time(self):
+        """副标题要说明整个队列跑完还要多久（串行总耗时）。"""
+        now = datetime(2026, 11, 14, 8, 0)
+        obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        html = obj._build_running_research_html(
+            self._snapshot([("A", 4), ("B", 8), ("C", 2)], now), now
+        )
+        # 队首剩 1h + 8h + 2h = 11h
+        self.assertIn("11小时", html)
+
+    def test_serial_hint_present(self):
+        """必须有「科研逐个进行」的视觉提示。"""
+        now = datetime(2026, 11, 14, 8, 0)
+        obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        html = obj._build_running_research_html(
+            self._snapshot([("A", 4), ("B", 8)], now), now
+        )
+        self.assertIn("st-running-serial", html)
+        self.assertIn("逐个进行", html)
+
+    def test_empty_queue_has_no_serial_hint(self):
+        """空队列不显示串行提示（没有队列可串）。"""
+        obj = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        html = obj._build_running_research_html(
+            {"commissions": [], "research": []}, datetime(2026, 11, 14, 8, 0)
+        )
+        self.assertIn("st-running-empty", html)
+
 class DurationFormatTest(unittest.TestCase):
     """时长格式化：小数小时要显示成「X小时Y分」，不能出现 2.67 这种。
 

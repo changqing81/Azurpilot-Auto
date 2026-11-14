@@ -2090,3 +2090,28 @@
         display: none;
     }
 }
+
+
+/* 科研区块的「串行」提示条。
+   委托是并行槽位（4~5 个同时跑），科研是串行队列（一个做完才轮到下一个），
+   两者语义完全不同；这里用一条带箭头的说明带，让用户一眼看出先后关系，
+   而不是把排队项误读成在并行运行。 */
+#pywebio-scope-statistics-content .st-running-serial {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 10px;
+    padding: 6px 11px;
+    border-radius: 7px;
+    border: 1px dashed var(--st-border);
+    background: var(--st-surface-muted);
+    color: var(--st-muted);
+    font-size: .72rem;
+    line-height: 1.6;
+}
+
+#pywebio-scope-statistics-content .st-running-serial-arrow {
+    flex: none;
+    color: var(--st-running-blue, var(--st-accent));
+    font-weight: 700;
+}
