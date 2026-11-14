@@ -35,8 +35,10 @@ jobs:
             exit 0
           fi
           # 把当前 HEAD 转成孤儿快照：树不变、丢掉父链，gitcode 仓库只保留最新端
+          git config user.email "action@github.com"
+          git config user.name "github-actions"
           TREE=$(git log -1 --format='%T')
-          SNAPSHOT=$(git commit-tree "$TREE" -m "sync: mirror snapshot of ${GITHUB_SHA::7} (branch ${BRANCH})")
+          SNAPSHOT=$(git commit-tree "$TREE" -m "sync: mirror snapshot of ${GITHUB_SHA:0:7} (branch ${BRANCH})")
           git push --force \
             "https://gcw_BYvq9jGu:${GITCODE_TOKEN}@gitcode.com/gcw_BYvq9jGu/AzurPilot.git" \
             "${SNAPSHOT}:refs/heads/${BRANCH}"
