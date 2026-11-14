@@ -145,6 +145,40 @@ class FleetSelector:
                 main.device.click(self._choose)
                 click_timer.reset()
 
+    def switch_click_record_names(self):
+        """本次换队可能产生的点击按钮名。
+
+        下拉条里每一行都是用 get_button() 动态生成的 Button，名字形如
+        <BAR>_INDEX_<n>，因此这里按名字重新拼一遍，供清记录时使用。
+        潜艇舰队（StorageFleetSelector）比大世界多一行，靠 FLEET_LIST 长度区分。
+
+        Returns:
+            list[str]: 需要清理的按钮名列表。
+        """
+        names = [str(self._choose)]
+        names.extend(f'{self._bar}_INDEX_{index}' for index in range(1, len(self.FLEET_LIST) + 1))
+        return names
+
+    def clear_switch_click_record(self):
+        """确认换队成功后，清掉本次换队产生的点击记录。
+
+        为什么需要清：一次正常换队固定点两下（FLEET_CHOOSE + FLEET_BAR_INDEX_n），
+        这两个按钮的点击中心都落在设备层 4x3 网格的同一格，12/15 次就触发
+        GameTooManyClickError。大世界重扫一轮固定要换 5 次队（见 map_rescan 的
+        range(5)），逐队尝试装置/明石还要再换 3~4 次，累计必然超过阈值。
+        换队已经确认成功，说明点击有效，不该再算进「点击洪水」。
+
+        注意：只能在确认切换成功之后调用。open() / click() 的重试路径里唯一的
+        兜底就是点击频率检测（每次点击都会 stuck_record_clear()，计时器永远
+        重置），在重试路径里清记录会让真正的死循环失去保护。
+
+        Returns:
+            None
+        """
+        device = self.main.device
+        for name in self.switch_click_record_names():
+            device.click_record_remove(name)
+
     def click(self, index):
         """
         Choose a fleet on dropdown menu, and dropdown deactivated.
@@ -163,6 +197,10 @@ class FleetSelector:
             if not self.bar_opened():
                 # End
                 if self.get() == index:
+                    # 确认换队成功：下拉条已收起 + 当前舰队编号等于目标编号。
+                    # 此时才清点击记录；失败路径必须保留累积，否则点不开菜单的
+                    # 死循环会失去唯一的保护（见 clear_switch_click_record 注释）。
+                    self.clear_switch_click_record()
                     break
                 # Game can't response that fast
                 elif click_timer.reached():
