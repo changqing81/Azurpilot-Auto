@@ -19,8 +19,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # 完整历史：gitcode 拒收浅历史推送（shallow update not allowed）
-          fetch-depth: 0
+          # 只需最新端：gitcode 镜像已是孤儿快照仓库（2026-11-14 历史重置），
+          # 每次同步都推「无父快照提交」而不是完整历史，仓库体积不再增长。
+          # 浅克隆即足够（快照推的是单提交，无历史可补）。
+          fetch-depth: 1
 
       - name: Push to GitCode
         env:
@@ -32,7 +34,10 @@ jobs:
             echo "GITCODE_TOKEN 未配置，跳过 GitCode 同步"
             exit 0
           fi
+          # 把当前 HEAD 转成孤儿快照：树不变、丢掉父链，gitcode 仓库只保留最新端
+          TREE=$(git log -1 --format='%T')
+          SNAPSHOT=$(git commit-tree "$TREE" -m "sync: mirror snapshot of ${GITHUB_SHA::7} (branch ${BRANCH})")
           git push --force \
             "https://gcw_BYvq9jGu:${GITCODE_TOKEN}@gitcode.com/gcw_BYvq9jGu/AzurPilot.git" \
-            "HEAD:refs/heads/${BRANCH}"
-          echo "已同步 ${BRANCH} 到 GitCode"
+            "${SNAPSHOT}:refs/heads/${BRANCH}"
+          echo "已同步 ${BRANCH} 到 GitCode（快照模式，无历史）"
