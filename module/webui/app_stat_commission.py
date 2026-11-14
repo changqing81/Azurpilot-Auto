@@ -227,6 +227,8 @@ class CommissionIncomeStatisticsMixin(CommissionGemStatisticsMixin):
             ),
             # 历史累计：全部月份汇总，与所选年月 / 口径无关
             "gem_totals": self._load_gem_commission_totals(instance_name),
+            # 收益节奏：累计钻石按覆盖天数折算成日/周/月（表格「平均」行）
+            "gem_pace": self._load_gem_commission_pace(instance_name),
         }
 
     def _build_commission_income_html(self, income_data):

@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """委托统计页的钻石委托成功率区块（跟随今日/本周/本月口径）。
 
-覆盖五块：
+覆盖六块：
 1. 聚合纯函数：三档口径的边界（今日 / 本周跨月 / 历史月）、脏条目、成功率；
 2. 数据层：一次读盘返回三档，与旧的单档接口结果一致；传入月数据可免读库；
 3. 历史累计（全部月份）：跨月求和、脏条目与其它实例不计入、空库给零桶；
+4. 收益节奏（日均/周均/月均）：跨度天数、单条记录、空库、与累计钻石一致；
 4. 视图层：只显示当前口径、一个数字一格、💎 不出现、样式走 CSS 类；
 5. 真实中文文案渲染：i18n 键缺失或被生成器重置时立即失败。
 """
@@ -384,6 +385,171 @@ class GemAllTimeRowHtmlTest(unittest.TestCase):
             self.assertNotIn(bad, html, bad)
 
 
+class GemPaceDbTest(unittest.TestCase):
+    """数据层：日均 / 周均 / 月均按覆盖天数折算。"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.database = Cl1Database(db_path=Path(self._tmp.name) / "cl1.sqlite3")
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _write_month(self, month_key, entries):
+        data = self.database.get_stats("alas", month_key)
+        data["gem_commission_entries"] = entries
+        self.database.save_stats("alas", month_key, data)
+
+    def test_natural_week_and_month_averages(self):
+        # 9/3(第36周) 30 钻；9/7 与 9/12 同属第37周，合计 70 钻；全部落在 9 月
+        self._write_month(
+            "2026-09",
+            [
+                _entry("2026-09-03T08:00:00", 2, 30),
+                _entry("2026-09-07T08:00:00", 4, 40),
+                _entry("2026-09-12T08:00:00", 8, 0),
+                _entry("2026-09-12T20:00:00", 2, 30),
+            ],
+        )
+        pace = self.database.get_gem_commission_pace("alas")
+        self.assertEqual(pace["days"], 10)
+        self.assertEqual(pace["weeks"], 2)
+        self.assertEqual(pace["months"], 1)
+        self.assertEqual(pace["total"], 100)
+        self.assertEqual(pace["count"], 4)
+        # 日均 = 总钻 / 跨度天数
+        self.assertEqual(pace["avg_day"], 10.0)
+        # 周均 = (30 + 70) / 2 个自然周
+        self.assertEqual(pace["avg_week"], 50.0)
+        # 月均 = 100 / 1 个自然月（不是 10 × 30）
+        self.assertEqual(pace["avg_month"], 100.0)
+        self.assertEqual(pace["first_date"], "2026-09-03")
+        self.assertEqual(pace["last_date"], "2026-09-12")
+
+    def test_averages_are_per_natural_month_not_extrapolated(self):
+        # 9 月 100 钻、10 月 40 钻 -> 月均 70，而不是「总钻 / 天数 × 30」
+        self._write_month("2026-09", [_entry("2026-09-03T08:00:00", 2, 100)])
+        self._write_month("2026-10", [_entry("2026-10-20T08:00:00", 2, 40)])
+        pace = self.database.get_gem_commission_pace("alas")
+        self.assertEqual(pace["months"], 2)
+        self.assertEqual(pace["avg_month"], 70.0)
+        # 周均同理按自然周：W36=100、W43=40 => 70
+        self.assertEqual(pace["weeks"], 2)
+        self.assertEqual(pace["avg_week"], 70.0)
+
+    def test_single_record_counts_as_one_day(self):
+        self._write_month("2026-09", [_entry("2026-09-03T08:00:00", 2, 25)])
+        pace = self.database.get_gem_commission_pace("alas")
+        self.assertEqual(pace["days"], 1)
+        self.assertEqual(pace["weeks"], 1)
+        self.assertEqual(pace["months"], 1)
+        self.assertEqual(pace["avg_day"], 25.0)
+        self.assertEqual(pace["avg_week"], 25.0)
+        self.assertEqual(pace["avg_month"], 25.0)
+
+    def test_empty_database_returns_none(self):
+        self.assertIsNone(self.database.get_gem_commission_pace("alas"))
+
+    def test_dirty_entries_do_not_extend_span(self):
+        self._write_month(
+            "2026-09",
+            [
+                _entry("2026-09-10T08:00:00", 2, 20),
+                _entry("2026-09-11T08:00:00", 3, 99),      # 非法时长
+                {"duration": 2, "reward": 99},             # 缺 ts
+                _entry("not-a-time", 2, 99),               # ts 形状不对
+            ],
+        )
+        pace = self.database.get_gem_commission_pace("alas")
+        self.assertEqual(pace["days"], 1)
+        self.assertEqual(pace["weeks"], 1)
+        self.assertEqual(pace["months"], 1)
+        self.assertEqual(pace["total"], 20)
+        self.assertEqual(pace["count"], 1)
+
+    def test_total_matches_totals_api(self):
+        self._write_month(
+            "2026-10",
+            [_entry("2026-10-01T08:00:00", 2, 15), _entry("2026-10-02T08:00:00", 4, 25)],
+        )
+        totals = self.database.get_gem_commission_totals("alas")
+        pace = self.database.get_gem_commission_pace("alas")
+        self.assertEqual(pace["total"], sum(bucket["reward"] for bucket in totals.values()))
+
+
+class GemPaceRowHtmlTest(unittest.TestCase):
+    """视图层：表格里的「平均」行。"""
+
+    PACE = {
+        "days": 10,
+        "weeks": 2,
+        "months": 1,
+        "total": 100,
+        "count": 4,
+        "avg_day": 10.0,
+        "avg_week": 50.0,
+        "avg_month": 100.0,
+        "first_date": "2026-09-03",
+        "last_date": "2026-09-12",
+    }
+
+    def _build(self, gem_stats, gem_totals, gem_pace):
+        harness = CommissionGemStatisticsMixin.__new__(CommissionGemStatisticsMixin)
+        with patch(
+            "module.webui.app_stat_commission_gem.t", side_effect=lambda key, **kw: key
+        ):
+            return harness._build_commission_gem_html(
+                {
+                    "gem_stats": gem_stats,
+                    "gem_totals": gem_totals,
+                    "gem_pace": gem_pace,
+                    "period": "month",
+                    "is_current_month": True,
+                    "month_suffix": "",
+                }
+            )
+
+    def test_pace_row_renders_three_averages(self):
+        html = self._build(_sample_stats(), GemAllTimeRowHtmlTest.TOTALS, self.PACE)
+        self.assertIn("gem-row-pace", html)
+        self.assertIn("Gui.Stat.CommissionGemRowPace", html)
+        self.assertIn("Gui.Stat.CommissionGemPaceDay", html)
+        self.assertIn("Gui.Stat.CommissionGemPaceWeek", html)
+        self.assertIn("Gui.Stat.CommissionGemPaceMonth", html)
+        # 数值：+10.0 / +50.0 / +100.0（自然周、自然月平均）
+        self.assertIn("+10.0", html)
+        self.assertIn("+50.0", html)
+        self.assertIn("+100.0", html)
+        # 后四列合并
+        self.assertIn('colspan="4"', html)
+
+    def test_pace_row_absent_without_data(self):
+        for pace in (None, {}, {"days": 0}):
+            html = self._build(_sample_stats(), GemAllTimeRowHtmlTest.TOTALS, pace)
+            self.assertNotIn("gem-row-pace", html, pace)
+
+    def test_pace_row_keeps_five_columns(self):
+        html = self._build(_sample_stats(), GemAllTimeRowHtmlTest.TOTALS, self.PACE)
+        self.assertEqual(html.count("<th "), 5)
+        # 3 档 + 合计 + 历史累计 + 平均 = 6 个数据行
+        self.assertEqual(html.count("<tr"), 7)
+
+    def test_pace_uses_thousands_separator(self):
+        pace = dict(self.PACE, avg_month=1234.5)
+        html = self._build(_sample_stats(), GemAllTimeRowHtmlTest.TOTALS, pace)
+        self.assertIn("+1,234.5", html)
+
+    def test_pace_scope_shows_all_three_denominators(self):
+        """副标题要同时给出天/周/月分母，否则用户只能猜月均是怎么平均的。"""
+        html = self._build(_sample_stats(), GemAllTimeRowHtmlTest.TOTALS, self.PACE)
+        self.assertIn("Gui.Stat.CommissionGemPaceScope", html)
+
+    def test_pace_styles_stay_in_css_classes(self):
+        html = self._build(_sample_stats(), GemAllTimeRowHtmlTest.TOTALS, self.PACE)
+        for bad in ("color:", "background:", "font-size:"):
+            self.assertNotIn(bad, html, bad)
+
+
 class GemBlockRealI18nTest(unittest.TestCase):
     """真实中文文案：键缺失或被生成器重置成 key 时这里会挂。"""
 
@@ -409,6 +575,7 @@ class GemBlockRealI18nTest(unittest.TestCase):
             {
                 "gem_stats": _sample_stats(),
                 "gem_totals": GemAllTimeRowHtmlTest.TOTALS,
+                "gem_pace": GemPaceRowHtmlTest.PACE,
                 "period": "month",
                 "is_current_month": True,
                 "month_suffix": "",
@@ -417,6 +584,7 @@ class GemBlockRealI18nTest(unittest.TestCase):
         for label in (
             "钻石委托成功率", "委托时长", "成功率", "成功次数", "委托次数",
             "获得钻石", "合计", "本月", "历史累计", "全部月份",
+            "平均", "日均", "周均", "月均",
         ):
             self.assertIn(label, html, f"文案缺失: {label}")
         self.assertNotIn("Gui.Stat.CommissionGem", html)

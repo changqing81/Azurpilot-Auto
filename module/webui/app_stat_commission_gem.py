@@ -108,6 +108,23 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
             logger.warning(f"[WebUI-统计] 钻石委托累计统计读取失败: {e}")
             return None
 
+    def _load_gem_commission_pace(self, instance_name):
+        """读取日均 / 周均 / 月均收益节奏（表格「平均」行用）。
+
+        Args:
+            instance_name: 实例名称
+
+        Returns:
+            dict: 见 Cl1Database.get_gem_commission_pace；读不到返回 None。
+        """
+        from module.statistics.cl1_database import db as cl1_db
+
+        try:
+            return cl1_db.get_gem_commission_pace(instance_name)
+        except Exception as e:
+            logger.warning(f"[WebUI-统计] 钻石委托收益节奏读取失败: {e}")
+            return None
+
     def _build_commission_gem_html(self, income_data) -> str:
         """构造钻石委托成功率区块的 HTML。
 
@@ -140,6 +157,10 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
         totals = income_data.get("gem_totals")
         if not isinstance(totals, dict):
             totals = {}
+        # 平均行同样与口径无关：全部月份按时长跨度折算
+        pace = income_data.get("gem_pace")
+        if not isinstance(pace, dict):
+            pace = {}
 
         html = (
             '<div class="commission-gem-section" style="width: 100% !important; '
@@ -148,7 +169,7 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
         # 与上方收益表格之间的分隔线
         html += '<div class="gem-divider"></div>'
         html += self._build_gem_header_html(income_data.get("month_suffix", ""), bucket_key)
-        html += self._build_gem_table_html(bucket, totals)
+        html += self._build_gem_table_html(bucket, totals, pace)
 
         # 该口径下没有任何结算记录时给一句提示，避免用户对着满屏「—」猜
         if not _gem_has_data(bucket):
@@ -172,12 +193,13 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
             + '<div class="gem-hint">' + t("Gui.Stat.CommissionGemHint") + "</div>"
         )
 
-    def _build_gem_table_html(self, bucket: dict, totals=None) -> str:
+    def _build_gem_table_html(self, bucket: dict, totals=None, pace=None) -> str:
         """五列表格：委托时长 / 成功率 / 成功次数 / 委托次数 / 获得钻石。
 
         Args:
             bucket: 当前口径下的 {2/4/8: 桶}
             totals: 全部月份的累计桶；为空时不追加「历史累计」行
+            pace: 收益节奏（日均/周均/月均）；为空时不追加「平均」行
         """
         html = (
             '<div class="gem-scroll">'
@@ -211,7 +233,55 @@ class CommissionGemStatisticsMixin(WebUIMixinBase):
         # 历史累计：全部月份，不随口径/年月变化
         if _gem_has_data(totals):
             html += self._build_gem_alltime_row_html(totals)
+        # 平均收益：累计钻石按覆盖天数折算成日/周/月
+        if pace:
+            html += self._build_gem_pace_row_html(pace)
         return html + "</tbody></table></div>"
+
+    def _build_gem_pace_row_html(self, pace: dict) -> str:
+        """「平均」行：日均 / 周均 / 月均钻石，后四列合并成一排胶囊。
+
+        不在成功率/次数列里硬塞数字 —— 平均值没有「成功率」这回事，
+        留白比编一个数字更诚实。
+        """
+        try:
+            days = int(pace.get("days") or 0)
+            weeks = int(pace.get("weeks") or 0)
+            months = int(pace.get("months") or 0)
+        except (TypeError, ValueError):
+            days = weeks = months = 0
+        if days <= 0:
+            return ""
+        html = (
+            '<tr class="gem-row gem-row-pace">'
+            '<td class="gem-duration-cell gem-pace-label">'
+            + t("Gui.Stat.CommissionGemRowPace")
+            + '<span class="gem-pace-sub">'
+            + t(
+                "Gui.Stat.CommissionGemPaceScope",
+                days=days,
+                weeks=weeks,
+                months=months,
+            )
+            + "</span></td>"
+            '<td class="gem-pace-cell" colspan="4"><div class="gem-pace-list">'
+        )
+        for label_key, field in (
+            ("Gui.Stat.CommissionGemPaceDay", "avg_day"),
+            ("Gui.Stat.CommissionGemPaceWeek", "avg_week"),
+            ("Gui.Stat.CommissionGemPaceMonth", "avg_month"),
+        ):
+            try:
+                value = float(pace.get(field) or 0)
+            except (TypeError, ValueError):
+                value = 0.0
+            html += (
+                '<span class="gem-pace-item">'
+                '<span class="gem-pace-name">' + t(label_key) + "</span>"
+                '<span class="gem-pace-value">+' + f"{value:,.1f}" + "</span>"
+                "</span>"
+            )
+        return html + "</div></td></tr>"
 
     def _build_gem_alltime_row_html(self, totals: dict) -> str:
         """「历史累计」行：全部月份汇总，钻石数用钻石色点出来。"""

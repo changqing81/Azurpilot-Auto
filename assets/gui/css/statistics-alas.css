@@ -1806,6 +1806,61 @@
     color: #ff4757;
 }
 
+/* 「平均」行：日均 / 周均 / 月均，后四列合并成一排胶囊。
+   窄屏（手机）下允许换行，宁可两行也不缩字号 */
+#pywebio-scope-statistics-content .commission-gem-table tbody tr.gem-row-pace td {
+    border-top: 1px solid rgba(128, 128, 128, .18);
+    background: rgba(255, 71, 87, .03);
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-pace-label {
+    padding: 9px 8px;
+    line-height: 1.25;
+    font-weight: 600;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-pace-sub {
+    display: block;
+    margin-top: 1px;
+    font-size: .7rem;
+    font-weight: 400;
+    opacity: .55;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table td.gem-pace-cell {
+    padding: 8px;
+    text-align: right;
+}
+
+/* 胶囊容器：flex-wrap 让窄屏（手机）自动换行，绝不撑宽表格 */
+#pywebio-scope-statistics-content .commission-gem-table .gem-pace-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 2px 14px;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-pace-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+}
+
+#pywebio-scope-statistics-content .commission-gem-table .gem-pace-name {
+    font-size: .7rem;
+    opacity: .55;
+}
+
+/* 平均收益用钻石红点出来：跟累计行的钻石数是同一个语义 */
+#pywebio-scope-statistics-content .commission-gem-table .gem-pace-value {
+    font-family: 'JetBrains Mono NL', monospace;
+    font-size: .82rem;
+    font-weight: 600;
+    color: #ff4757;
+    white-space: nowrap;
+}
+
 
 /* --------------------------------------------------------------------------
    8. 「正在进行中」区块（app_stat_running.py）

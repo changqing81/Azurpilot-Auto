@@ -1907,6 +1907,88 @@ class Cl1Database:
             )
         return totals
 
+    def get_gem_commission_pace(self, instance: str) -> Optional[Dict[str, Any]]:
+        """按日均 / 周均 / 月均口径统计钻石委托的收益节奏。
+
+        三档口径各自按自己的自然周期平均，不用「日均 × 7 / × 30」外推：
+        - 日均 = 累计钻石 ÷ 覆盖天数（首条到最后一条的日历天数）；
+        - 周均 = 每个自然周（ISO 周，周一起）钻石合计的平均值；
+        - 月均 = 每个自然月钻石合计的平均值。
+
+        注意首末周 / 月不完整，所以周均、月均会比按天外推偏低一点 ——
+        这是自然周期的真实结果，不是算错。返回里带上 weeks / months 分母，
+        界面可以直接标出「11 周 / 3 个月」，避免用户对着数字猜口径。
+
+        与 get_gem_commission_totals 共用同一套脏数据过滤条件，所以「累计钻石」
+        永远对得上。
+
+        Args:
+            instance: 实例名称
+
+        Returns:
+            dict: {'days', 'weeks', 'months', 'count', 'total', 'avg_day',
+                'avg_week', 'avg_month', 'first_date', 'last_date'}；
+                没有可用记录或查询失败时返回 None。
+        """
+        sql = """
+            SELECT json_extract(e.value, '$.ts') AS ts,
+                   CAST(json_extract(e.value, '$.reward') AS INTEGER) AS reward
+            FROM (
+                SELECT data_json FROM cl1_data
+                WHERE instance = ? AND json_valid(data_json)
+            ) AS c, json_each(c.data_json, '$.gem_commission_entries') AS e
+            WHERE json_extract(e.value, '$.ts') LIKE '____-__-__T__:__:%'
+              AND CAST(json_extract(e.value, '$.duration') AS INTEGER) IN (2, 4, 8)
+        """
+        try:
+            with closing(sqlite3.connect(self.db_path)) as conn:
+                rows = conn.execute(sql, (instance,)).fetchall()
+        except Exception as e:
+            logger.warning(f"[Statistics] 读取钻石委托收益节奏失败 {instance}: {e}")
+            return None
+
+        total = 0
+        first = None
+        last = None
+        months = defaultdict(int)
+        weeks = defaultdict(int)
+        for ts, reward in rows or []:
+            try:
+                moment = datetime.fromisoformat(str(ts))
+            except (TypeError, ValueError):
+                continue
+            value = int(reward or 0)
+            total += value
+            moment_date = moment.date()
+            if first is None or moment_date < first:
+                first = moment_date
+            if last is None or moment_date > last:
+                last = moment_date
+            months[(moment_date.year, moment_date.month)] += value
+            # ISO 周：周一起算，跨年时用 (年, 周) 组合，避免第 1 周与上年末周混在一起
+            iso_year, iso_week, _ = moment_date.isocalendar()
+            weeks[(iso_year, iso_week)] += value
+
+        if first is None or last is None or not months:
+            return None
+        days = (last - first).days + 1
+        if days <= 0:
+            return None
+        week_count = len(weeks)
+        month_count = len(months)
+        return {
+            "days": days,
+            "weeks": week_count,
+            "months": month_count,
+            "count": len(rows or []),
+            "total": total,
+            "avg_day": round(total / days, 1),
+            "avg_week": round(sum(weeks.values()) / week_count, 1) if week_count else 0.0,
+            "avg_month": round(sum(months.values()) / month_count, 1) if month_count else 0.0,
+            "first_date": first.isoformat(),
+            "last_date": last.isoformat(),
+        }
+
     # ========== 钻石委托运行列表持久化 ==========
 
     def save_running_gem_commissions(
