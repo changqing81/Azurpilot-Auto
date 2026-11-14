@@ -1441,6 +1441,31 @@ body.alas-login-page::after,
     }
 }
 
+/* 骨架撑满内容区可视高度：窗口自适应、真实内容落地前后不跳动。
+   纯 CSS 方案（不加节点、不改注入 JS）：flex 纵向 + 最后一条线拉伸填充；
+   父链高度不确定时 height:100% 退化为 auto，与旧固定高度行为一致。
+   固定行不收缩，超小窗口下由 overflow 兜底。 */
+#alas-page-skeleton {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#alas-page-skeleton .alas-skeleton {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+}
+
+#alas-page-skeleton .alas-skeleton-line {
+    flex-shrink: 0;
+}
+
+#alas-page-skeleton .alas-skeleton-line:last-child {
+    flex: 1 1 auto;
+    min-height: 60px;
+}
+
 /* --- 维护等待横幅（概览页顶部） ---
    由 alas_update_overview_task 用 run_js 增量控制显隐与文案。
    注意：坐标与配色不依赖 --alas-content-text —— 该变量在深色主题下没有

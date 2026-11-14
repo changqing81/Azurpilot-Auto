@@ -305,23 +305,62 @@ class Frame(Base):
             #  3) 观察目标必须每次重新绑定：内容区元素可能被重建。
             # 现在只 append 一个 #alas-page-skeleton 占位节点（不动别人的 DOM），
             # 用 MutationObserver 盯内容区子节点：出现非骨架节点即撤掉骨架。
+            #
+            # 2026-11-13 补：旧实现骨架只在服务端 init_menu 返回后注入，且
+            # content 被 clear("content") 清空时连同骨架一起清掉，本地实测
+            # 骨架存活仅 13.7ms、统计页同帧出现又消失，肉眼完全不可见。
+            # 现补三个口子（全部幂等：有骨架不重建、有内容不补回，杜绝
+            # Observer 自触发死循环）：
+            #  a) 客户端点击 btn-menu 时立即注入，不等服务端 WS 往返；
+            #  b) content 被清空后由 Observer 补回（清空只补一次）；
+            #  c) 真实内容出现后移除骨架，不再补回。
+            # 统计页自带分区骨架 st-skeleton，主页/初始加载不注入页骨架。
             js_parts.append(
                 "(function () {\n"
                 "  var content = document.getElementById('pywebio-scope-content');\n"
                 "  if (!content) return;\n"
+                "  var enabled = " + ("true" if name and name not in ("HomePage", "Stat") else "false") + ";\n"
+                "  window.__alasSkelEnabled = enabled;\n"
+                # 幂等构建：已有骨架不重复建
+                "  var build = function () {\n"
+                "    var c = document.getElementById('pywebio-scope-content');\n"
+                "    if (!c) return;\n"
+                "    if (document.getElementById('alas-page-skeleton')) return;\n"
+                "    var sk = document.createElement('div');\n"
+                "    sk.id = 'alas-page-skeleton';\n"
+                "    var lines = '';\n"
+                "    for (var i = 0; i < 6; i++) {\n"
+                "      lines += '<div class=\"alas-skeleton-line\" style=\"width:' +\n"
+                "        (88 - i * 11) + '%\"></div>';\n"
+                "    }\n"
+                "    sk.innerHTML = '<div class=\"alas-skeleton\">'\n"
+                "      + '<div class=\"alas-skeleton-title\"></div>' + lines + '</div>';\n"
+                "    c.appendChild(sk);\n"
+                "  };\n"
+                "  window.__alasSkelBuild = build;\n"
                 "  var stale = document.getElementById('alas-page-skeleton');\n"
                 "  if (stale) stale.remove();\n"
-                "  if (!" + ("true" if name and name != "HomePage" else "false") + ") return;\n"
-                "  var sk = document.createElement('div');\n"
-                "  sk.id = 'alas-page-skeleton';\n"
-                "  var lines = '';\n"
-                "  for (var i = 0; i < 6; i++) {\n"
-                "    lines += '<div class=\"alas-skeleton-line\" style=\"width:' +\n"
-                "      (88 - i * 11) + '%\"></div>';\n"
+                # 点击菜单按钮的瞬间就画骨架（早于服务端往返 + 渲染）；
+                # 只认 .btn-menu（页面/任务按钮），实例按钮 .btn-aside 不算；
+                # 主页按钮不画（HomePage 无页骨架）。
+                "  if (!window.__alasSkelClickBound) {\n"
+                "    window.__alasSkelClickBound = true;\n"
+                "    document.addEventListener('click', function (e) {\n"
+                "      var t = e.target;\n"
+                "      while (t && t !== document) {\n"
+                "        if (t.tagName === 'BUTTON' && t.classList.contains('btn-menu')) {\n"
+                "          var w = t.parentNode;\n"
+                "          var st = (w && w.getAttribute && w.getAttribute('style')) || '';\n"
+                "          if (st.indexOf('--menu-HomePage--') < 0) {\n"
+                "            window.__alasSkelEnabled = true;\n"
+                "            window.__alasSkelBuild && window.__alasSkelBuild();\n"
+                "          }\n"
+                "          return;\n"
+                "        }\n"
+                "        t = t.parentNode;\n"
+                "      }\n"
+                "    }, true);\n"
                 "  }\n"
-                "  sk.innerHTML = '<div class=\"alas-skeleton\">'\n"
-                "    + '<div class=\"alas-skeleton-title\"></div>' + lines + '</div>';\n"
-                "  content.appendChild(sk);\n"
                 "  if (!window.__alasSkeletonObserver) {\n"
                 "    window.__alasSkeletonObserver = new MutationObserver(function () {\n"
                 "      var c = document.getElementById('pywebio-scope-content');\n"
@@ -331,7 +370,13 @@ class Frame(Base):
                 "      for (var i = 0; i < c.children.length; i++) {\n"
                 "        if (c.children[i] !== s) { real = true; break; }\n"
                 "      }\n"
-                "      if (real && s) s.remove();\n"
+                "      if (real) {\n"
+                "        if (s) s.remove();\n"
+                "        return;\n"
+                "      }\n"
+                "      if (!s && window.__alasSkelEnabled && window.__alasSkelBuild) {\n"
+                "        window.__alasSkelBuild();\n"
+                "      }\n"
                 "    });\n"
                 "  }\n"
                 "  if (window.__alasSkeletonTarget !== content) {\n"
@@ -339,6 +384,7 @@ class Frame(Base):
                 "    window.__alasSkeletonObserver.observe(content, {childList: true});\n"
                 "    window.__alasSkeletonTarget = content;\n"
                 "  }\n"
+                "  if (enabled) build();\n"
                 "})();\n"
             )
 
