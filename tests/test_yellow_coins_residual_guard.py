@@ -6,6 +6,7 @@
 
 import threading
 import unittest
+from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -261,6 +262,126 @@ class TestRecheckFlow(GuardTestBase):
                 handler._yellow_coins_reading_is_confirmed(520),
                 '两帧一致且复读一致应确认',
             )
+
+    def test_ledger_conflict_blocks_still_residual(self):
+        """账本近期记录与低位读数量级矛盾：拒绝采信（2026-11-15 事故）。
+
+        事故链：06:57:30 账本刚记 61010 → 06:58:00 结算弹窗残缺读 47 →
+        画面静止误判为真值 → 采信 47 → 污染补黄币起始值。
+        修复：低位读数确认前先查账本，量级矛盾即拒绝。
+        """
+        from module.os_handler import os_status as os_status_module
+
+        handler = self.make_handler(last_yellow_coins=0)
+        handler._last_yellow_coins = 267669
+
+        # 账本 30 秒前刚记过 61010
+        fake_ledger = SimpleNamespace(yellow_coins=61010, recorded_at=1)
+        handler._get_ap_ledger = lambda: fake_ledger
+        # 让「账本时间」检查通过：recorded_at 与 now() 差 30 秒
+        now = {"t": 1000.0}
+        fake_ledger.recorded_at = None  # 先占位
+
+        # 直接操纵 _yellow_coins_ledger_conflicts 依赖的时间源：
+        # 用 recorded_at 构造 30 秒前
+        from module.config.time_source import now as current_time
+        fake_ledger.recorded_at = current_time() - timedelta(seconds=30)
+
+        self.assertTrue(
+            handler._yellow_coins_ledger_conflicts(47),
+            '账本 61010 vs 低位 47 相差千倍，必须判矛盾',
+        )
+        # 低位读数即使画面静止也被账本拦下
+        value, _ = self._run(handler, [47, 47, 47], screen_stable=True)
+        self.assertEqual(
+            value, 267669,
+            '账本矛盾时不得采信 47，应沿用基线（修复 2026-11-15 事故）',
+        )
+
+    def test_ledger_agreement_allows_confirmation(self):
+        """账本读数与低位读数同量级：无矛盾，画面静止可采信。
+
+        对应场景：用户真清港口，账本跟着跌，低位读数与账本一致。
+        """
+        from module.config.time_source import now as current_time
+
+        handler = self.make_handler(last_yellow_coins=0)
+        handler._last_yellow_coins = 267669
+
+        fake_ledger = SimpleNamespace(
+            yellow_coins=520, recorded_at=current_time() - timedelta(seconds=60)
+        )
+        handler._get_ap_ledger = lambda: fake_ledger
+
+        self.assertFalse(
+            handler._yellow_coins_ledger_conflicts(520),
+            '账本 520 vs 读数 520 同量级，无矛盾',
+        )
+        value, _ = self._run(handler, [520, 520, 520], screen_stable=True)
+        self.assertEqual(value, 520, '账本佐证低位时应该采信')
+
+    def test_stale_ledger_is_ignored(self):
+        """账本记录太旧（>10 分钟）不参与交叉验证。
+
+        场景：账本 20 分钟前记过 60000，期间用户真清了港口，低位读数
+        不应被过期账本挡住。
+        """
+        from module.config.time_source import now as current_time
+
+        handler = self.make_handler()
+        fake_ledger = SimpleNamespace(
+            yellow_coins=60000, recorded_at=current_time() - timedelta(minutes=15)
+        )
+        handler._get_ap_ledger = lambda: fake_ledger
+        self.assertFalse(
+            handler._yellow_coins_ledger_conflicts(500),
+            '账本过期后不应参与判定',
+        )
+
+    def test_no_ledger_no_conflict(self):
+        """账本关闭/无记录时不产生矛盾，交由画面判定。"""
+        handler = self.make_handler()
+        handler._get_ap_ledger = lambda: None
+        self.assertFalse(handler._yellow_coins_ledger_conflicts(47))
+
+    def test_fallback_gate_blocks_huge_drop_without_confirmation(self):
+        """连续兜底不放行巨幅下跌：黄币无人工干预不可能瞬降 4 个数量级。
+
+        用户指出的漏洞：连续 3 次判残缺后会兜底采信，若每次调用间隔
+        30 分钟且画面一直不稳，残缺值就被放行了。修复后：基线是大额
+        存量（≥4 位）时拒绝放行，无限沿用基线。
+        """
+        handler = self.make_handler(last_yellow_coins=0)
+        handler._last_yellow_coins = 267669
+
+        # 连续 3 次（达到 YELLOW_COINS_RESIDUAL_TOLERANCE）画面不稳 + 读 47
+        for i in range(1, handler.YELLOW_COINS_RESIDUAL_TOLERANCE):
+            value, _ = self._run(handler, [47, 47, 47], screen_stable=False)
+            self.assertEqual(value, 267669, f'第 {i} 次沿用基线')
+
+        # 第 3 次（达到阈值）：旧逻辑会放行 47，新逻辑必须拒绝
+        value, _ = self._run(handler, [47, 47, 47], screen_stable=False)
+        self.assertEqual(
+            value, 267669,
+            '基线是大额存量时兜底不得放行 47，无人工干预黄币不可能瞬降',
+        )
+
+    def test_fallback_gate_allows_when_baseline_already_low(self):
+        """基线本身已低位：兜底可以放行，避免死锁。
+
+        场景：基线 800（真暴跌后已确认），之后画面不稳读到 500，
+        两者同量级，放行不至于制造假暴跌。
+        """
+        handler = self.make_handler(last_yellow_coins=0)
+        handler._last_yellow_coins = 800
+
+        for _ in range(handler.YELLOW_COINS_RESIDUAL_TOLERANCE - 1):
+            self._run(handler, [500, 500, 500], screen_stable=False)
+        value, _ = self._run(handler, [500, 500, 500], screen_stable=False)
+        self.assertEqual(
+            value, 500,
+            '基线已低位时兜底应放行，否则永远锁死在旧值',
+        )
 
     def test_stability_check_rejects_narrow_text_before_screenshot(self):
         """文本宽度与位数不匹配时直接否掉，不用拍帧。"""
