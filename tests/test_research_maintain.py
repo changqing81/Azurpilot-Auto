@@ -122,7 +122,11 @@ class TestRunBranches(unittest.TestCase):
                 self.patch_game(times=(timedelta(minutes=10), None, None, None, None)):
             runner.run()
         expected = (current_time() + timedelta(minutes=13)).replace(microsecond=0)
-        self.assertEqual(runner.config.Scheduler_NextRun, expected)
+        # run() 内部与这里各取一次 current_time()，跨秒边界时会差 1 秒
+        # （2026-11-15 CI 偶发：6:21:33 vs 6:21:34）。用容差比较，避免时钟抖动翻车。
+        self.assertAlmostEqual(
+            runner.config.Scheduler_NextRun, expected, delta=timedelta(seconds=2)
+        )
 
     def test_window_retry_when_not_full(self):
         """强制运行阶段队列未做满：15 分钟后再运行一次。"""
