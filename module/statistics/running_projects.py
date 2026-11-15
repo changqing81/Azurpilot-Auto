@@ -496,6 +496,57 @@ def clear_research_snapshot(instance, now=None):
         logger.warning(f'[运行中] 清空科研快照失败: {e}')
 
 
+def _recompute_research_chain(records):
+    """按队列顺序重排科研时间线（展示层兜底）。
+
+    旧快照可能残留错位的时间：队列页 OCR 的时长数组与槽位并非一一对应，
+    历史数据里会出现「2 小时项目 1 小时跑完」这类自相矛盾的区间。
+    这里用字典总时长从队首完成时间顺着排，保证每张卡片
+    「完成 - 开始 == 显示时长」永远自洽。
+
+    规则：
+    - 队首（queue_index 最小者）：完成时间来自剩余倒计时 OCR，可信；
+      开始时间按「完成 - 总时长」反推；
+    - 其余排队项：从上一项的完成时间顺排；
+    - 已完成槽位（slot='finished'）与队列外第 6 位：保持原值不动。
+
+    Args:
+        records (list[dict]): 就地修改的记录列表（含 datetime 字段）。
+    """
+    if not records:
+        return
+    try:
+        ordered = sorted(records, key=lambda r: int(r.get('queue_index') or 0))
+    except (TypeError, ValueError):
+        return
+
+    cursor = None
+    for index, record in enumerate(ordered):
+        if not record.get('in_queue', True):
+            continue
+        slot = str(record.get('slot') or '')
+        if slot == 'finished':
+            # 已完成的卡片自带「刚刚跑完」的时间，不要被链条改写
+            cursor = cursor or record.get('finish_dt')
+            continue
+        try:
+            duration = float(record.get('duration_h') or 0)
+        except (TypeError, ValueError):
+            duration = 0.0
+        finish = record.get('finish_dt')
+        if index == 0 or cursor is None:
+            # 队首：完成时间优先（OCR 剩余倒计时 + 快照时刻），据此反推开始
+            if isinstance(finish, datetime) and duration > 0:
+                record['start_dt'] = finish - timedelta(hours=duration)
+            cursor = finish if isinstance(finish, datetime) else cursor
+            continue
+        if duration <= 0:
+            continue
+        record['start_dt'] = cursor
+        record['finish_dt'] = cursor + timedelta(hours=duration)
+        cursor = record['finish_dt']
+
+
 def load_snapshot(instance):
     """读取某个实例的运行中快照，并做展示前的规整。
 
@@ -545,6 +596,7 @@ def load_snapshot(instance):
         item['start_dt'] = _parse_iso(item.get('start_time'))
         item['finish_dt'] = _parse_iso(item.get('finish_time'))
         research.append(item)
+    _recompute_research_chain(research)
 
     return {
         'commissions': commissions,

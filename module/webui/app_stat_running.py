@@ -334,10 +334,16 @@ class RunningProjectsMixin(WebUIMixinBase):
             cards = [self._build_running_research_card(r, now) for r in records]
             running = 0
             queued = 0
+            settled = 0
             outside = 0
             for record in records:
                 state, waiting = self._research_slot_state(record, now)
-                if not record.get('in_queue', True):
+                if state == 'settle':
+                    # 完成时间已过 = 待结算，和委托卡同一口径。
+                    # 不能算进「进行中」，否则顶部标签会和卡片徽标自相矛盾
+                    # （卡片写着待结算、统计写着进行中）。
+                    settled += 1
+                elif not record.get('in_queue', True):
                     outside += 1
                 elif waiting:
                     queued += 1
@@ -348,6 +354,8 @@ class RunningProjectsMixin(WebUIMixinBase):
                 tags.append((f'进行中 {running}', 'ok'))
             if queued:
                 tags.append((f'队列中 {queued}', 'accent'))
+            if settled:
+                tags.append((f'待结算 {settled}', 'warn'))
             if outside:
                 tags.append((f'队列外 {outside}', 'warn'))
             # 科研与委托的本质差异：委托是**并行**槽位（4~5 个同时跑），

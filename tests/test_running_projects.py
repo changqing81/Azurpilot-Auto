@@ -234,6 +234,39 @@ class RunningProjectsMetaTest(unittest.TestCase):
         self.assertIn("st-running-state--running", html2)
         self.assertNotIn("st-running-state--settle", html2)
 
+    def test_research_tags_count_settled_separately(self):
+        """顶部标签要把「待结算」单独计数，不能算进「进行中」。
+
+        否则会出现卡片写着待结算、顶部标签写进行中的自相矛盾
+        （2026-11-15 用户实拍：已完成项目仍被统计成进行中）。
+        """
+        from module.webui.app_stat_running import RunningProjectsMixin
+
+        now = datetime(2026, 11, 15, 13, 0)
+        snap = {"research": [
+            # 进行中（完成时间在未来）
+            {"name": "G-412-MI", "series": 9, "duration_h": 1.5, "slot": "running",
+             "in_queue": True, "queue_index": 0,
+             "start_time": "2026-11-15T12:00:00", "finish_time": "2026-11-15T14:00:00",
+             "start_dt": datetime(2026, 11, 15, 12, 0), "finish_dt": datetime(2026, 11, 15, 14, 0)},
+            # 排队中
+            {"name": "Q-389-MI", "series": 9, "duration_h": 1.0, "slot": "waiting",
+             "in_queue": True, "queue_index": 1,
+             "start_time": "2026-11-15T14:00:00", "finish_time": "2026-11-15T15:00:00",
+             "start_dt": datetime(2026, 11, 15, 14, 0), "finish_dt": datetime(2026, 11, 15, 15, 0)},
+            # 已完成待领取
+            {"name": "Q-202-MI", "series": 9, "duration_h": 2.0, "slot": "running",
+             "in_queue": True, "queue_index": 2,
+             "start_time": "2026-11-15T10:00:00", "finish_time": "2026-11-15T12:00:00",
+             "start_dt": datetime(2026, 11, 15, 10, 0), "finish_dt": datetime(2026, 11, 15, 12, 0)},
+        ]}
+        harness = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        html = harness._build_running_research_html(snap, now=now)
+        self.assertIn("进行中 1", html)
+        self.assertIn("队列中 1", html)
+        self.assertIn("待结算 1", html)
+        self.assertNotIn("进行中 2", html)
+
     def test_non_first_running_slot_treated_as_waiting_chain(self):
         """槽位误判兜底：只有 index==0 的 running 信任剩余倒计时。"""
         now = datetime(2026, 11, 15, 3, 0)
