@@ -80,6 +80,7 @@ export function SettingsPage() {
       <div className="cfg-header">
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
         <h2>设置</h2>
+        <button className="log-btn" onClick={() => navigate('/update')}>更新器</button>
         <span className="cfg-dirty-hint">{msg}</span>
       </div>
 

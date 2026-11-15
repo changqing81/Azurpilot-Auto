@@ -496,3 +496,43 @@ def get_mind_calculator(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 心智计算器失败({name}): {e}")
         return {"ships": [], "error": str(e), "total": 0}
+
+def get_update_info() -> dict:
+    """更新器数据（app_developer_update.py:update_table 同口径：本地 commit + 上游 20 条历史）。"""
+    import subprocess
+
+    repo = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+    def _git(args: list, timeout: int = 15):
+        try:
+            return subprocess.run(
+                ["git", *args], cwd=repo, capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=timeout,
+            ).stdout.strip()
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[webapi] git 调用失败 {args[:2]}: {e}")
+            return ""
+
+    local = _git(["log", "-1", "--format=%h|%an|%ci|%s"])
+    # 上游分支：deploy.yaml Branch（默认 dev）
+    branch = "dev"
+    try:
+        import yaml as _yaml
+
+        deploy = _yaml.safe_load(open(os.path.join(repo, "config", "deploy.yaml"), encoding="utf-8"))
+        branch = str(deploy.get("Deploy", {}).get("Git", {}).get("Branch") or "dev")
+    except Exception:  # noqa: BLE001
+        pass
+    _git(["fetch", "origin", branch, "--quiet"], timeout=60)
+    upstream_raw = _git(["log", f"origin/{branch}", "-20", "--format=%h|%an|%ci|%s"])
+    history = []
+    for line in (upstream_raw or "").split("\n"):
+        parts = line.split("|", 3)
+        if len(parts) == 4:
+            history.append({"sha": parts[0], "author": parts[1], "time": parts[2], "message": parts[3]})
+    local_parts = (local or "").split("|", 3)
+    return {
+        "branch": branch,
+        "local": {"sha": local_parts[0] if len(local_parts) == 4 else "", "author": local_parts[1] if len(local_parts) == 4 else "", "time": local_parts[2] if len(local_parts) == 4 else "", "message": local_parts[3] if len(local_parts) == 4 else ""},
+        "upstream": history,
+    }
