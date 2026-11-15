@@ -153,10 +153,24 @@ async def log_tail(request: Request) -> JSONResponse:
     return JSONResponse(data.get_log_tail(name, since=since_val))
 
 
+
+class SpaStaticFiles(StaticFiles):
+    """SPA 静态服务：index.html no-cache（保证发版即生效），hash 资源 immutable 长缓存。"""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        path = str(getattr(response, "path", ""))
+        if path.endswith("index.html"):
+            response.headers["Cache-Control"] = "no-cache"
+        elif "/assets/" in path.replace("\\", "/"):
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
+
+
 def _frontend_files() -> StaticFiles | None:
     """frontend/dist 存在才挂；未构建时 /new/ 返回 404，不影响老 UI。"""
     if os.path.isdir(_FRONTEND_DIST):
-        return StaticFiles(directory=_FRONTEND_DIST, html=True, check_dir=True)
+        return SpaStaticFiles(directory=_FRONTEND_DIST, html=True, check_dir=True)
     logger.warning("[webapi] frontend/dist 不存在，/new/ 未挂载（先 pnpm build）")
     return None
 
