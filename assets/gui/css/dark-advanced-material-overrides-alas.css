@@ -307,13 +307,24 @@ select option {
 	box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2) !important;
 }
 
-/* 高级材质暗色：统计表格颜色修复，只处理单元格 */
-
-#pywebio-scope-opsi_stats,
-#pywebio-scope-ship_exp_table,
-#pywebio-scope-research_stats,
-#pywebio-scope-commission_income {
-	background: transparent !important;
+/* 高级材质暗色：统计 scope 背景修复。
+   亮色 advanced-material-alas.css 给这 4 个 scope 垫了白玻璃卡
+  （background-color: var(--alas-apple-card-bg) !important，亮色值=白）。
+   暗色下 --alas-apple-card-bg 虽已换成深色，但远控/热切换路径下
+   主题 style 的注入顺序可能让这条白玻璃压过本文件的深色值 ——
+   用户真机（暗色高级材质）实测 commission_income 整块白底（2026-11-15）。
+   这里用 body 前缀抬高一级特异度，直接给深玻璃底，双保险。 */
+body #pywebio-scope-opsi_stats,
+body #pywebio-scope-ship_exp_table,
+body #pywebio-scope-research_stats,
+body #pywebio-scope-commission_income {
+	/* 写死深色值而不是引用 --alas-apple-card-bg：注入顺序异常时
+	   html:root 的变量可能仍取亮色值（白玻璃），写死才能兜住 */
+	background-color: rgba(15, 23, 42, 0.78) !important;
+	backdrop-filter: blur(6px) saturate(150%);
+	-webkit-backdrop-filter: blur(6px) saturate(150%);
+	border-radius: var(--radius-lg) !important;
+	border: 1px solid rgba(148, 163, 184, 0.24) !important;
 }
 
 
@@ -509,4 +520,64 @@ body #pywebio-scope-statistics-content .rd-stats-item {
 
 #pywebio-scope-statistics-content .rd-table tbody tr {
 	border-top: 1px solid var(--rd-table-border) !important;
+}
+
+
+/* ==========================================
+   统计页「进行中」区块（.st-running-*）：注入顺序异常时的兜底
+   ==========================================
+   该区块的颜色全部消费 --st-* → --alas-entry-* 变量链。正常顺序下
+   html:root 的暗色变量生效，无需任何覆盖；但真机（暗色高级材质）出现过
+   主题 style 注入顺序异常，html:root 变量回落到亮色值，scope 卡片整块
+   变白（2026-11-15 用户实机截图）。上面已把 4 个统计 scope 的底色写死，
+   这里把该区块用到的关键面也写死，保证最坏情况下依然可读。 */
+body #pywebio-scope-statistics-content .st-running-card {
+	background-color: rgba(15, 23, 42, 0.9) !important;
+	border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-hours,
+body #pywebio-scope-statistics-content .st-running-item {
+	background-color: rgba(30, 41, 59, 0.9) !important;
+	border-color: rgba(148, 163, 184, 0.18) !important;
+	color: #d2dceb !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-name,
+body #pywebio-scope-statistics-content .st-running-times b,
+body #pywebio-scope-statistics-content .st-running-empty b {
+	color: #f4f8ff !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-td,
+body #pywebio-scope-statistics-content .st-running-sub,
+body #pywebio-scope-statistics-content .st-running-sub2,
+body #pywebio-scope-statistics-content .st-running-times,
+body #pywebio-scope-statistics-content .st-running-serial,
+body #pywebio-scope-statistics-content .st-running-empty {
+	color: #d2dceb !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-item {
+	color: #d2dceb !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-serial {
+	background-color: rgba(15, 23, 42, 0.9) !important;
+	border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-empty {
+	background-color: rgba(15, 23, 42, 0.9) !important;
+	border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-state--running {
+	background: #3b82f6 !important;
+}
+
+body #pywebio-scope-statistics-content .st-running-state--queueoff,
+body #pywebio-scope-statistics-content .st-running-state--settle {
+	background: #f0a020 !important;
+	color: #fff !important;
 }

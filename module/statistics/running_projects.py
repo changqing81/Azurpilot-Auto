@@ -391,12 +391,23 @@ def build_research_records(projects, durations=None, now=None):
             in_queue = bool(project.get('in_queue', True))
             shown = durations[index] if index < len(durations) else None
 
+            # 时长可信度（2026-11-15 用户实机错位事故）：
+            # 队列页 5 张卡的 OCR 时长与槽位**并不严格一一对应**——实测
+            # durations[1:] 读到的是「该槽之前各项目的总时长」错位序列，
+            # 且新填槽位的状态可能被误判为 running。因此：
+            # - 只有**队首 running**（index 0 且状态 running）信任 OCR 剩余倒计时；
+            # - waiting / 队列外一律用字典总时长（name+series 已知），
+            #   从上一个完成时间顺着排 —— 排队的时间线本来就是推算，
+            #   用字典值比错位的 OCR 更接近真实。
+            trust_shown = index == 0 and slot == _SLOT_RUNNING
+
             if not in_queue:
-                # 队列外第 6 位：独立计时，显示时长即剩余时间
+                # 队列外第 6 位：独立计时。卡片上的时长读不到，用字典总时长
+                # 当作「刚启动」的近似（第 6 位启动时间无从得知，误差可接受）
                 start_time = now
-                finish_time = now + (shown if shown is not None else duration)
-            elif slot == _SLOT_RUNNING:
-                # 队首运行中：显示的是剩余倒计时
+                finish_time = now + duration if not trust_shown else now + (shown or duration)
+            elif slot == _SLOT_RUNNING and trust_shown:
+                # 队首运行中：显示的是剩余倒计时（唯一可信的 OCR 值）
                 start_time = now
                 finish_time = now + (shown if shown is not None else duration)
                 cursor = finish_time
@@ -406,9 +417,11 @@ def build_research_records(projects, durations=None, now=None):
                 finish_time = now
                 cursor = cursor or now
             else:
-                # 排队中：显示的是项目总时长，从上一个完成时间接着排
+                # 排队中（以及被误判成 running 的非队首槽）：显示的是项目总时长，
+                # 从上一个完成时间接着排。刻意不用 shown —— 错位序列会把
+                # 前面项目的时长安到它头上，出现「2 小时项目 1 小时跑完」。
                 start_time = cursor or now
-                finish_time = start_time + (shown if shown is not None else duration)
+                finish_time = start_time + duration
                 cursor = finish_time
 
             records.append(

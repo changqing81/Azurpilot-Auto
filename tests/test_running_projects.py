@@ -161,8 +161,61 @@ class RunningProjectsMetaTest(unittest.TestCase):
             now=now,
         )
         self.assertFalse(records[1]["in_queue"])
-        # 队列外从 now 起算，不受队首完成时间影响
-        self.assertEqual(records[1]["finish_time"], "2026-11-13T12:00:00")
+        # 队列外从 now 起算，不受队首完成时间影响；时长用字典总时长（2.5h），
+        # 不信任错位的 OCR shown 值（2h）
+        self.assertEqual(records[1]["finish_time"], "2026-11-13T12:30:00")
+
+    def test_waiting_uses_dictionary_duration_not_misaligned_ocr(self):
+        """真实事故回归（2026-11-15）：OCR 时长与槽位错位一格。
+
+        当天日志：队列 [G-412(1.5h), Q-389(1h), Q-202(2h), Q-310(1h), G-412(1.5h)]，
+        OCR shown=[56m, 1.5h, 1h, 2h, 1h] —— waiting 槽的 shown 是**前面项目**
+        的总时长错位序列。旧实现把 shown 安到本槽头上，出现「Q-202 2 小时
+        项目只排 1 小时」「Q-310 1 小时项目排 2 小时」的怪时间线。
+        新实现 waiting 一律用字典总时长顺着排。
+        """
+        now = datetime(2026, 11, 15, 3, 11, 6)
+        records = rp.build_research_records(
+            [
+                {"name": "G-412-MI", "series": 9, "duration_h": 1.5, "slot": "running", "in_queue": True},
+                {"name": "Q-389-MI", "series": 9, "duration_h": 1.0, "slot": "waiting", "in_queue": True},
+                {"name": "Q-202-MI", "series": 9, "duration_h": 2.0, "slot": "waiting", "in_queue": True},
+                {"name": "Q-310-MI", "series": 9, "duration_h": 1.0, "slot": "running", "in_queue": True},
+                {"name": "G-412-MI", "series": 9, "duration_h": 1.5, "slot": "running", "in_queue": True},
+            ],
+            durations=[
+                timedelta(seconds=3363), timedelta(hours=1.5), timedelta(hours=1),
+                timedelta(hours=2), timedelta(hours=1),
+            ],
+            now=now,
+        )
+        # 队首：剩余 56 分钟（唯一可信的 OCR 值）
+        self.assertEqual(records[0]["finish_time"], "2026-11-15T04:07:09")
+        # Q-389 从 04:07 排 1 小时（字典），而不是错位的 1.5h
+        self.assertEqual(records[1]["start_time"], "2026-11-15T04:07:09")
+        self.assertEqual(records[1]["finish_time"], "2026-11-15T05:07:09")
+        # Q-202 排 2 小时（字典），而不是错位的 1h
+        self.assertEqual(records[2]["start_time"], "2026-11-15T05:07:09")
+        self.assertEqual(records[2]["finish_time"], "2026-11-15T07:07:09")
+        # 第 4/5 槽被误判成 running：非队首一律按 waiting 链条排字典时长
+        self.assertEqual(records[3]["start_time"], "2026-11-15T07:07:09")
+        self.assertEqual(records[3]["finish_time"], "2026-11-15T08:07:09")
+        self.assertEqual(records[4]["finish_time"], "2026-11-15T09:37:09")
+
+    def test_non_first_running_slot_treated_as_waiting_chain(self):
+        """槽位误判兜底：只有 index==0 的 running 信任剩余倒计时。"""
+        now = datetime(2026, 11, 15, 3, 0)
+        records = rp.build_research_records(
+            [
+                {"name": "G-531-MI", "series": 1, "duration_h": 4, "slot": "running", "in_queue": True},
+                {"name": "C-185-MI", "series": 1, "duration_h": 8, "slot": "running", "in_queue": True},
+            ],
+            durations=[timedelta(hours=1), timedelta(hours=2)],
+            now=now,
+        )
+        # 第 2 槽即使被判 running 也按链条排字典 8 小时，不吃错位的 2h
+        self.assertEqual(records[1]["start_time"], "2026-11-13T11:00:00" if False else "2026-11-15T04:00:00")
+        self.assertEqual(records[1]["finish_time"], "2026-11-15T12:00:00")
 
     def test_build_records_skips_unknown_duration(self):
         """查不到时长的项目直接跳过，不猜。"""

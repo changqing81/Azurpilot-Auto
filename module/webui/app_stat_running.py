@@ -432,6 +432,16 @@ class RunningProjectsMixin(WebUIMixinBase):
         if slot == 'waiting':
             return 'waiting', True
         if slot == 'running':
+            # 科研是串行队列：只有队首（queue_index==0）才真正在跑。
+            # 队列页对新填槽位的状态检测偶发误判成 running（2026-11-15 实机），
+            # 快照侧已把非队首的时间线按链条重排，这里把徽标也一并纠正，
+            # 否则会出现「标着进行中、完成时间却排在别人后面」的矛盾卡片。
+            try:
+                queue_index = int(record.get('queue_index') or 0)
+            except (TypeError, ValueError):
+                queue_index = 0
+            if queue_index > 0:
+                return 'waiting', True
             return 'running', False
         # 旧快照没有 slot 字段：退回时间推算
         finish = record.get('finish_dt')
