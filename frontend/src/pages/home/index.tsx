@@ -118,7 +118,14 @@ export function Overview() {
     apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
     apiGet<DashResp>('/newapi/dashboard/' + active).then(r => setDash(r.items)).catch(() => {})
     const timer = setInterval(() => {
-      apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
+      apiGet<OverviewResp>('/newapi/overview/' + active).then(next => {
+        // 快照 diff（老 UI _overview_snapshot 语义）：没变化就不触发重渲染
+        setOv(prev => {
+          const sig = JSON.stringify([next.alive, next.running, next.pending, next.waiting])
+          const prevSig = prev ? JSON.stringify([prev.alive, prev.running, prev.pending, prev.waiting]) : ''
+          return sig === prevSig ? prev : next
+        })
+      }).catch(() => {})
     }, 15000)  // 老 UI 15s 周期同款
     // 日志流：增量拉取（游标 since），append 到容器尾部并裁剪旧节点（老 UI put_log 语义）
     let cursor = -1
