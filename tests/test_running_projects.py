@@ -202,6 +202,38 @@ class RunningProjectsMetaTest(unittest.TestCase):
         self.assertEqual(records[3]["finish_time"], "2026-11-15T08:07:09")
         self.assertEqual(records[4]["finish_time"], "2026-11-15T09:37:09")
 
+    def test_running_slot_with_past_finish_shows_settle(self):
+        """与委托同口径：running 槽的完成时间已过 → 待结算，不再挂「进行中」。
+
+        真机反馈（2026-11-15）：已完成待领取的科研项目被误判成 running，
+        卡片一直显示「进行中」。委托卡的口径是 finish<=now 即待结算，
+        科研对齐。queue_index=0（队首）与非队首都适用。
+        """
+        past = {"name": "G-412-MI", "series": 9, "duration_h": 1.5,
+                "slot": "running", "in_queue": True, "queue_index": 0}
+        from module.webui.app_stat_running import RunningProjectsMixin
+
+        harness = RunningProjectsMixin.__new__(RunningProjectsMixin)
+        # 记录需经 load_snapshot 规整（字符串 ts -> datetime）；这里直接补齐
+        # datetime 字段，等价于规整结果
+        snap = {"research": [dict(past,
+                                  start_time="2026-11-15T11:30:00",
+                                  finish_time="2026-11-15T12:30:00",
+                                  start_dt=datetime(2026, 11, 15, 11, 30),
+                                  finish_dt=datetime(2026, 11, 15, 12, 30))]}
+        html = harness._build_running_research_html(snap, now=datetime(2026, 11, 15, 13, 0))
+        self.assertIn("st-running-state--settle", html)
+        self.assertIn("待结算", html)
+        # 对照：完成时间在未来 → 进行中
+        snap2 = {"research": [dict(past,
+                                   start_time="2026-11-15T11:30:00",
+                                   finish_time="2026-11-15T14:00:00",
+                                   start_dt=datetime(2026, 11, 15, 11, 30),
+                                   finish_dt=datetime(2026, 11, 15, 14, 0))]}
+        html2 = harness._build_running_research_html(snap2, now=datetime(2026, 11, 15, 13, 0))
+        self.assertIn("st-running-state--running", html2)
+        self.assertNotIn("st-running-state--settle", html2)
+
     def test_non_first_running_slot_treated_as_waiting_chain(self):
         """槽位误判兜底：只有 index==0 的 running 信任剩余倒计时。"""
         now = datetime(2026, 11, 15, 3, 0)

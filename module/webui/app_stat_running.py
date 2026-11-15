@@ -432,10 +432,15 @@ class RunningProjectsMixin(WebUIMixinBase):
         if slot == 'waiting':
             return 'waiting', True
         if slot == 'running':
+            # 与委托同一条口径：**完成时间过了就是待结算**，不依赖游戏槽位
+            # 检测（_queue_status_detect 对 finished 槽偶发误判成 running，
+            # 2026-11-15 实机：已完成的项目一直挂着「进行中」）。
+            finish = record.get('finish_dt')
+            if isinstance(finish, datetime) and finish <= now:
+                return 'settle', False
             # 科研是串行队列：只有队首（queue_index==0）才真正在跑。
-            # 队列页对新填槽位的状态检测偶发误判成 running（2026-11-15 实机），
-            # 快照侧已把非队首的时间线按链条重排，这里把徽标也一并纠正，
-            # 否则会出现「标着进行中、完成时间却排在别人后面」的矛盾卡片。
+            # 非队首即使被误判成 running，也按排队显示（快照侧已把时间线
+            # 按链条重排，徽标若仍标「进行中」会与完成时间自相矛盾）。
             try:
                 queue_index = int(record.get('queue_index') or 0)
             except (TypeError, ValueError):
