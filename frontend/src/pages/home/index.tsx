@@ -197,7 +197,7 @@ export function Overview() {
               </div>
               <div id="pywebio-scope-stat-bar" className="ov-card ov-card-bar">
                 <span className="ov-card-title">统计</span>
-                <button className="ov-btn-primary">打开</button>
+                <button className="ov-btn-primary" onClick={() => navigate('/stat/' + active)}>打开</button>
               </div>
               <hr className="hr-group" />
               <div id="pywebio-scope-running" className="ov-card">

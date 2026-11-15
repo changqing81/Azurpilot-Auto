@@ -75,3 +75,11 @@ html, body { overflow-x: hidden; }
 .cfg-input:focus { outline: none; border-color: #4e4c97; }
 select.cfg-input { padding: 6px 8px; }
 @media (max-width: 700px) { .cfg-row { grid-template-columns: 1fr; } .cfg-control { justify-content: flex-start; } }
+
+/* 统计页 */
+.stat-page { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.st-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+.st-tab { background: #fff; border: 1px solid #d9d9e3; color: #4e4c97; border-radius: 100px; padding: 7px 16px; cursor: pointer; font-size: 13px; }
+.st-panels { display: flex; flex-direction: column; gap: 14px; }
+.st-panel { min-height: 200px; }
+.st-placeholder { padding: 60px 0; text-align: center; opacity: .4; font-size: 13px; }
