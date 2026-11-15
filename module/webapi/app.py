@@ -147,10 +147,13 @@ async def header(request: Request) -> JSONResponse:
 
 
 async def log_tail(request: Request) -> JSONResponse:
+    """日志增量：since=游标，width=浏览器量出的渲染宽度（老 UI RichLog.get_width 同口径）。"""
     name = request.path_params.get("name", "")
     since = request.query_params.get("since")
-    since_val = int(since) if since is not None and since.isdigit() else -1
-    return JSONResponse(data.get_log_tail(name, since=since_val))
+    since_val = int(since) if since is not None and since.lstrip("-").isdigit() else -1
+    width_raw = request.query_params.get("width")
+    width_val = int(width_raw) if width_raw is not None and width_raw.isdigit() else 80
+    return JSONResponse(data.get_log_tail(name, since=since_val, width=width_val))
 
 
 
