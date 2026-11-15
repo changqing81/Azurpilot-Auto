@@ -1,7 +1,7 @@
 // 统计页：与老 UI 同构（app_statistics_page.py:527-578 的 st-head + st-tabs 结构）。
 // 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研(规划中) / resource 资源 / fleet 科技列表 / mind 心智计算器。
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApChart } from '../../charts/ApChart'
 import { DeltaSummary } from './DeltaPanel'
 import { OpsiPanel } from './OpsiPanel'
@@ -32,7 +32,8 @@ function SourceChip({ state }: { state: 'ok' | 'stale' | 'missing' }) {
 export function StatPage() {
   const { name = 'alas' } = useParams()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('opsi')
+  const [searchParams] = useSearchParams()
+  const [tab, setTab] = useState(searchParams.get('tab') || 'opsi')
   const [meta, setMeta] = useState('')
 
   // 数据截至时间（取实例配置 mtime 或 dashboard.json 更新时间；先本地时间占位，端点在 P4 补）
