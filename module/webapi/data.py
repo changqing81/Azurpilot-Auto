@@ -318,3 +318,55 @@ def get_task_config(name: str, task: str) -> dict:
                 "args": rows,
             })
     return {"task": task, "groups": groups}
+
+def save_task_config(name: str, task: str, modified: dict) -> dict:
+    """保存配置修改（等价 _save_config 的核心链路：类型解析+校验+联动回调+写盘）。
+
+    modified: {"Group.Arg": value, ...}（路径不含 task 前缀，与老 UI pin 命名一致）
+    返回 {valid: [...], invalid: [...]}。
+    """
+    import re as _re
+
+    from module.config.config_updater import ConfigUpdater
+    from module.config.utils import parse_value
+    from module.config.deep import deep_get, deep_set
+
+    if os.environ.get("DEMO") == "1":
+        return {"valid": [], "invalid": list(modified.keys()), "error": "demo mode"}
+
+    try:
+        updater = ConfigUpdater()
+        config = updater.read_file(name)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 配置读取失败({name}): {e}")
+        return {"valid": [], "invalid": list(modified.keys()), "error": str(e)}
+
+    valid, invalid = [], []
+    for k, v in modified.items():
+        arg_def = deep_get(updater.args, k, {}) or {}
+        valuetype = arg_def.get("valuetype") if isinstance(arg_def, dict) else None
+        widget_type = arg_def.get("type") if isinstance(arg_def, dict) else None
+        options = arg_def.get("option") if isinstance(arg_def, dict) else None
+        v = parse_value(v, {"valuetype": valuetype, "type": widget_type, "option": options})
+        validate = deep_get(updater.args, k + ".validate")
+        if not len(str(v)):
+            default = deep_get(updater.args, k + ".value")
+            modified[k] = default
+            deep_set(config, k, default)
+            valid.append(k)
+        elif not validate or _re.fullmatch(validate, v):
+            deep_set(config, k, v)
+            modified[k] = v
+            valid.append(k)
+            for set_key, set_value in updater.save_callback(k, v):
+                deep_set(config, set_key, set_value)
+                valid.append(set_key)
+        else:
+            invalid.append(k)
+    try:
+        updater.write_file(name, config)
+        logger.info(f"[webapi] 配置已保存({name}/{task}): {len(valid)} 项")
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 配置写盘失败({name}): {e}")
+        return {"valid": valid, "invalid": invalid, "error": str(e)}
+    return {"valid": valid, "invalid": invalid}

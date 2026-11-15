@@ -52,6 +52,16 @@ async def overview(request: Request) -> JSONResponse:
     return JSONResponse(data.get_overview(name))
 
 
+async def task_config_save(request: Request) -> JSONResponse:
+    import json as _json
+
+    name = request.path_params.get("name", "")
+    task = request.path_params.get("task", "")
+    body = _json.loads(await request.body() or b"{}")
+    modified = body.get("modified", {})
+    return JSONResponse(data.save_task_config(name, task, modified))
+
+
 async def task_config(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     task = request.path_params.get("task", "")
@@ -99,6 +109,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/header", header),
         Route("/newapi/menu", menu),
         Route("/newapi/config/{name}/task/{task}", task_config),
+        Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]
     files = _frontend_files()
     if files is not None:
