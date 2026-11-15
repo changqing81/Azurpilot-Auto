@@ -52,3 +52,7 @@ html, body { overflow-x: hidden; }
 .research-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .research-table th, .research-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #eceefc; }
 .research-table th { font-weight: 600; color: #4e4c97; }
+
+/* 页签下划线指示条（滑动动画） */
+#statistics-tab-indicator { position: absolute; bottom: -2px; height: 2px; background: #4e4c97; transition: left .25s ease, width .25s ease; }
+.st-tabs { position: relative; }

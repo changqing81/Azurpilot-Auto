@@ -1,6 +1,6 @@
 // 统计页：与老 UI 同构（app_statistics_page.py:527-578 的 st-head + st-tabs 结构）。
 // 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研(规划中) / resource 资源 / fleet 科技列表 / mind 心智计算器。
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApChart } from '../../charts/ApChart'
 import { DeltaSummary } from './DeltaPanel'
@@ -37,9 +37,20 @@ export function StatPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(searchParams.get('tab') || 'opsi')
+  const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const indicatorRef = useRef<HTMLSpanElement | null>(null)
   const [meta, setMeta] = useState('')
 
   // 数据截至时间（取实例配置 mtime 或 dashboard.json 更新时间；先本地时间占位，端点在 P4 补）
+  // 指示条跟随激活页签滑动（老 UI statistics-tab-indicator 同款）
+  useEffect(() => {
+    const el = tabRefs.current[tab]
+    const ind = indicatorRef.current
+    if (el && ind) {
+      ind.style.left = el.offsetLeft + 'px'
+      ind.style.width = el.offsetWidth + 'px'
+    }
+  }, [tab])
   useEffect(() => {
     const now = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -63,6 +74,7 @@ export function StatPage() {
           {TABS.map(t => (
             <button
               key={t.id}
+              ref={el => { tabRefs.current[t.id] = el }}
               className={'st-tab' + (tab === t.id ? ' st-tab-active' : '')}
               role="tab"
               id={'statistics-tab-' + t.id}
