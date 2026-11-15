@@ -37,6 +37,8 @@ export function ConfigPage() {
   const [groups, setGroups] = useState<Group[]>([])
   const [error, setError] = useState('')
   const [dirty, setDirty] = useState<Record<string, any>>({})
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
 
   useEffect(() => {
     apiGet<ConfigResp>(`/newapi/config/${name}/task/${task}`).then(r => {
@@ -57,8 +59,27 @@ export function ConfigPage() {
     <div id="pywebio-scope-content" className="config-page">
       <div className="cfg-header">
         <h2>{task}</h2>
-        <span className="cfg-dirty-hint">{Object.keys(dirty).length ? `未保存修改 ${Object.keys(dirty).length} 项` : ''}</span>
-        <button className="ov-btn-primary" disabled={!Object.keys(dirty).length}>保存</button>
+        <span className="cfg-dirty-hint">{saveMsg || (Object.keys(dirty).length ? `未保存修改 ${Object.keys(dirty).length} 项` : '')}</span>
+        <button
+          className="ov-btn-primary"
+          disabled={!Object.keys(dirty).length || saving}
+          onClick={async () => {
+            setSaving(true)
+            try {
+              const res = await fetch(`/newapi/config/${name}/task/${task}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modified: dirty }),
+              })
+              const j = await res.json()
+              if (j.invalid?.length) setSaveMsg(`${j.valid?.length ?? 0} 项已保存，${j.invalid.length} 项校验失败`)
+              else { setSaveMsg(`已保存 ${j.valid?.length ?? 0} 项`); setDirty({}) }
+            } catch (e) { setSaveMsg('保存失败: ' + String(e)) }
+            finally { setSaving(false); setTimeout(() => setSaveMsg(''), 4000) }
+          }}
+        >
+          {saving ? '保存中…' : '保存'}
+        </button>
       </div>
       {error && <div className="cfg-error">{error}</div>}
       {groups.map(g => (
