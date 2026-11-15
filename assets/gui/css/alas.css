@@ -1473,6 +1473,8 @@ body.alas-login-page::after,
 .alas-maint-banner {
     display: flex;
     align-items: center;
+    /* 窄屏放不下时让 meta 整块换行，而不是把正文挤压成一字一列的竖排 */
+    flex-wrap: wrap;
     gap: 12px;
     margin: 0 0 12px;
     padding: 10px 14px;
@@ -1495,8 +1497,9 @@ body.alas-login-page::after,
 .alas-maint-banner__body {
     display: flex;
     align-items: baseline;
+    flex: 1 1 auto;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 4px 10px;
     min-width: 0;
 }
 
@@ -1504,6 +1507,8 @@ body.alas-login-page::after,
     color: #b45309;
     font-size: .95rem;
     font-weight: 700;
+    /* 中文没有断行点，被 flex 压缩时会变成一字一列的竖条，钉住横排 */
+    white-space: nowrap;
 }
 
 .alas-maint-banner__server {
@@ -1515,15 +1520,25 @@ body.alas-login-page::after,
 .alas-maint-banner__desc {
     opacity: .85;
     font-size: .86rem;
+    /* cn_android-12 这类长 token 在窄屏能折行，不把整行撑爆 */
+    overflow-wrap: anywhere;
 }
 
 .alas-maint-banner__meta {
     flex: 0 0 auto;
     display: flex;
-    gap: 18px;
+    flex-wrap: wrap;
+    gap: 4px 18px;
     margin-left: auto;
     opacity: .9;
     font-size: .82rem;
+}
+
+/* 窄屏：meta 推右边的 margin-left:auto 会占掉整行宽度，取消后随正文自然流 */
+@media (max-width: 720px) {
+    .alas-maint-banner__meta {
+        margin-left: 0;
+    }
 }
 
 .alas-maint-banner__meta b {
