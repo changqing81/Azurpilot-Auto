@@ -37,7 +37,8 @@ test/*
 debug_ocr/
 PaddleOCR
 .trae
-docs/
+docs/*
+!docs/new-ui/
 .claude
 .workbuddy
 # Created by .ignore support plugin (hsz.mobi)
@@ -368,3 +369,6 @@ nul
 .cursor/rules/*
 !.cursor/rules/config-system.mdc
 !.cursor/rules/develop-rules.mdc
+
+# 新 UI 构建产物（CI 构建或本地 pnpm build 生成）
+frontend/dist/

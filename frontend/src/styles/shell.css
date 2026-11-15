@@ -1,0 +1,13 @@
+/* 新 UI 布局壳最小样式。
+   主题样式（assets/gui/css）直接复用老 UI 原文件；这里只做布局兜底，
+   避免在主题 CSS 未加载时页面散架。 */
+#pywebio-scope-root { min-height: 100vh; display: flex; flex-direction: column; }
+#pywebio-scope-header { display: flex; align-items: center; padding: 8px 16px; }
+#pywebio-scope-contents { display: flex; flex: 1; }
+#pywebio-scope-aside { width: 180px; display: flex; flex-direction: column; gap: 4px; padding: 8px; }
+#pywebio-scope-aside button { width: 100%; text-align: left; padding: 8px 12px; border: none; background: transparent; cursor: pointer; border-radius: 6px; }
+#pywebio-scope-content { flex: 1; padding: 16px; }
+#pywebio-scope-dashboard { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.dashboard-item { display: flex; flex-direction: column; padding: 12px; border-radius: 8px; background: rgba(128,128,128,.12); }
+.dashboard-name { font-size: 12px; opacity: .7; }
+.dashboard-value { font-size: 20px; font-weight: 600; }
