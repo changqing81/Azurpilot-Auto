@@ -175,7 +175,7 @@ def _frontend_files() -> StaticFiles | None:
     return None
 
 
-def mount_webapi(app: Starlette) -> None:
+def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
     """把 webapi 路由挂进现有 Starlette 应用。
 
     顺序敏感：必须在老 UI 主路由之后追加（老 UI 的 / 优先），
@@ -209,7 +209,8 @@ def mount_webapi(app: Starlette) -> None:
     ]
     files = _frontend_files()
     if files is not None:
-        routes.append(Mount("/new", app=files))
+        # mount_root=True：新 UI 直接占据 /（老 UI 已由调用方关闭），否则沿用 /new 并存
+        routes.append(Mount("/" if mount_root else "/new", app=files))
     for route in routes:
         try:
             app.routes.append(route)

@@ -1,13 +1,22 @@
 
-// 主题 CSS 动态注入（webapi theme-css 按 deploy.yaml 主题返回老 UI 全套样式清单）
-fetch('/newapi/theme-css').then(r => r.json()).then(d => {
-  (d.links ?? []).forEach((href: string) => {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = href + '?v=newui'
-    document.head.appendChild(link)
+// 主题层动态注入（基础层已在 index.html 静态引入；这里只补充当前主题的额外样式）
+// 端点不可用（老版本后端）时静默跳过，页面仍有基础层样式，不会裸奔。
+fetch('/newapi/theme-css')
+  .then(r => (r.ok ? r.json() : null))
+  .then(d => {
+    const base = ['alas.css', 'alas-pc.css', 'light-alas.css']
+    ;(d?.links ?? []).forEach((href: string) => {
+      if (base.some(b => href.endsWith(b))) return
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = href + '?v=newui'
+      document.head.appendChild(link)
+    })
   })
-}).catch(() => {})
+  .catch(() => {})
+
+// 与老 UI 同构：body 需要 PyWebIO 的主题类名，否则主题 CSS 的 body.* 规则不生效
+document.body.className = 'webio-theme-' + (document.body.className || 'default').trim() || 'webio-theme-default'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

@@ -4,11 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AzurPilot</title>
-    <!-- 主题 CSS 走老 UI 原文件（/static/assets 由 gui.py 同应用托管），保证逐位一致。
-         基础层 alas.css + 布局层 alas-pc.css 先行；主题层由运行时按 deploy.yaml 主题注入。 -->
+    <!-- PyWebIO 基础层（Bootstrap 4 主题 + app.css）：老 UI 的全部控件样式都建立在这一层上，
+         缺了它 alas.css 的按钮/表单/卡片规则无从谈起。 -->
+    <link rel="stylesheet" href="/pywebio_static/css/bs-theme/default.min.css" />
+    <link rel="stylesheet" href="/pywebio_static/css/app.css" />
+    <link rel="stylesheet" href="/pywebio_static/css/markdown.min.css" />
+    <!-- 老 UI 原版样式表全套（对应 utils.py:webui_style_names 的非主题层） -->
     <link rel="stylesheet" href="/static/assets/gui/css/alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/alas-pc.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/entry-alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/statistics-alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/stat-delta-alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/meowfficer-score-alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/meow-loot-alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/fleet-tech-alas.css?v=newui" />
+    <link rel="stylesheet" href="/static/assets/gui/css/fleet-management-alas.css?v=newui" />
+    <!-- 默认主题层（运行时按 deploy.yaml Theme 追加对应的 dark/advanced-material/transparent） -->
+    <link rel="stylesheet" href="/static/assets/gui/css/light-alas.css?v=newui" />
   </head>
-  <body>
+  <body class="webio-theme-default no-animation">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

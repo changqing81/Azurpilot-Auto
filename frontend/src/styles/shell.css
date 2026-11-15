@@ -2,11 +2,11 @@
    这里只兜"主题 CSS 未加载时页面不散架"，与老 UI 的 DOM 约定不冲突。 */
 * { box-sizing: border-box; margin: 0; }
 body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; }
-#pywebio-scope-ROOT { min-height: 100vh; display: flex; flex-direction: column; }
-#pywebio-scope-contents { display: flex; flex: 1; min-height: 0; }
-#pywebio-scope-aside { display: flex; flex-direction: column; align-items: center; }
-#pywebio-scope-content { flex: 1; min-width: 0; }
-#pywebio-scope-overview { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: 8px; }
+/* 壳容器布局完全交给老 UI CSS（alas.css:539-673）：
+   ROOT = grid(auto 1fr)；contents = flex；aside/menu/content 由老 CSS 定义，勿覆盖。 */
+/* overview 布局交给老 UI CSS（alas.css:750 display:grid + 子元素自身规则） */
+#pywebio-scope-overview { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; }
+
 #pywebio-scope-schedulers, #pywebio-scope-logs { display: flex; flex-direction: column; min-width: 0; }
 #pywebio-scope-log-container { flex: 1; min-height: 280px; overflow: hidden; }
 #pywebio-scope-log { display: block; white-space: pre-wrap; word-break: break-all; overflow: auto; max-height: 520px; }

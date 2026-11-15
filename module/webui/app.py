@@ -674,13 +674,36 @@ def app():
         on_shutdown=[clearup],
     )
     application.mount("/mcp", _LazyMCPApp())
+    # UI 选择：deploy.yaml 的 Webui.UI = 'new' 时，新 UI 直接占据 /，老 UI 的 PyWebIO
+    # 页面路由全部不注册（老 UI 关闭），仅保留 /api 等数据接口供新 UI 使用。
+    _ui_mode = "legacy"
+    try:
+        _ui_mode = str(getattr(State.deploy_config, "UI", None) or "legacy").strip().lower()
+    except Exception:  # noqa: BLE001
+        pass
     # 新 UI（new-ui 分支）：/newapi/* REST 端点与 /new/ 静态产物挂进同一应用。
     # 同进程运行是日志流（ProcessManager.renderables）与状态数据的前提。
     # frontend/dist 未构建时 /new/ 不挂载，老 UI 完全无感。
     try:
-        from module.webapi.app import mount_webapi
+        from module.webapi.app import _FRONTEND_DIST, mount_webapi
+        import os as _os
 
-        mount_webapi(application)
+        _mount_root = _ui_mode == "new" and _os.path.isdir(_FRONTEND_DIST)
+        if _mount_root:
+            # 移除老 UI 的页面路由（index/manage 等无前缀 Route），老 UI 关闭；
+            # 保留 /api、/pywebio_static、/static、/mcp 等非页面路由。
+            _kept = []
+            for _r in application.routes:
+                _p = getattr(_r, "path", None)
+                if _p is not None and _p in ("/", "/manage"):
+                    continue
+                _kept.append(_r)
+            application.routes[:] = _kept
+            from module.logger import logger as _uilogger
+
+            _uilogger.info("[WebUI] UI=new：新 UI 占据 /，老 UI 页面已关闭")
+
+        mount_webapi(application, mount_root=_mount_root)
     except Exception as e:  # noqa: BLE001 —— 新 UI 缺依赖或代码异常时不影响老 UI 启动
         from module.logger import logger as _logger
 

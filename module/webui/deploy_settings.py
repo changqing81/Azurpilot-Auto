@@ -94,6 +94,7 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
         "RemoteAccess",
         (
             DeployField("EnableRemoteAccess", "bool"),
+            DeployField("UI", "select", (("legacy", "老 UI"), ("new", "新 UI"))),
             DeployField("RemoteAccessMode", "select", tuple(REMOTE_ACCESS_MODE_OPTIONS)),
             DeployField("SSHUser", "nullable_string"),
             DeployField("SSHServer", "nullable_string"),
