@@ -73,6 +73,17 @@ async def resource_delta(request: Request) -> JSONResponse:
     return JSONResponse(data.get_resource_delta(name))
 
 
+async def remote_status(request: Request) -> JSONResponse:
+    return JSONResponse(data.get_remote_status())
+
+
+async def remote_toggle(request: Request) -> JSONResponse:
+    import json as _json
+
+    body = _json.loads(await request.body() or b"{}")
+    return JSONResponse(data.set_remote_enabled(bool(body.get("enabled"))))
+
+
 async def update_info(request: Request) -> JSONResponse:
     return JSONResponse(data.get_update_info())
 
@@ -149,6 +160,8 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/stat/{name}/fleet_tech", fleet_tech),
         Route("/newapi/stat/{name}/mind", mind_calculator),
         Route("/newapi/update/info", update_info),
+        Route("/newapi/remote/status", remote_status),
+        Route("/newapi/remote/toggle", remote_toggle, methods=["POST"]),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]

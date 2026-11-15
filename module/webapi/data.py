@@ -536,3 +536,52 @@ def get_update_info() -> dict:
         "local": {"sha": local_parts[0] if len(local_parts) == 4 else "", "author": local_parts[1] if len(local_parts) == 4 else "", "time": local_parts[2] if len(local_parts) == 4 else "", "message": local_parts[3] if len(local_parts) == 4 else ""},
         "upstream": history,
     }
+
+def get_remote_status() -> dict:
+    """远程控制页状态（app_developer_tools.py:dev_remote 的数据面）。"""
+    from module.webui.app_dependencies import RemoteAccess, State
+
+    enabled = bool(State.deploy_config.EnableRemoteAccess)
+    state = RemoteAccess.get_state()
+    status_map = {
+        "direct_p2p": "P2P 直连",
+        "turn_relay": "TURN 中继",
+        "ssh_forward": "SSH 隧道",
+        "waiting_peer": "等待对端",
+        "signaling": "信令中",
+        "starting": "启动中",
+        "dependency_missing": "SSH 隧道",
+        "failed": "启动失败",
+    }
+    entry = RemoteAccess.get_entry_point()
+    error = RemoteAccess.get_error()
+    return {
+        "enabled": enabled,
+        "state": int(state) if isinstance(state, int) else state,
+        "running": state in (1, 2),
+        "connection_state": RemoteAccess.get_connection_state(),
+        "connection_text": status_map.get(RemoteAccess.get_connection_state(), RemoteAccess.get_connection_state()),
+        "entry_point": entry or "",
+        "error": error or "",
+        "is_alive": bool(RemoteAccess.is_alive()),
+    }
+
+def set_remote_enabled(enabled: bool) -> dict:
+    """远控开关（写 deploy.yaml EnableRemoteAccess；服务启停沿用老 UI Switch 链路）。"""
+    from module.webui.app_dependencies import RemoteAccess, State
+    from module.config.deep import deep_set
+
+    try:
+        State.deploy_config.EnableRemoteAccess = enabled
+        deep_set(State.deploy_config.data, "EnableRemoteAccess", enabled)
+        State.deploy_config.update()
+        if enabled:
+            from module.webui.remote_access import start_remote_access_service
+
+            start_remote_access_service()
+        else:
+            RemoteAccess.kill_ssh_process()
+        return {"success": True, "enabled": enabled}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 远控开关失败: {e}")
+        return {"success": False, "error": str(e)}
