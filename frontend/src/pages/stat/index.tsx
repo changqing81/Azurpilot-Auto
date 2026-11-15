@@ -1,155 +1,110 @@
-// 统计页：页签结构 + 图表面板。
-// 老结构对照：_mount_statistics_page（app_statistics_page.py:240-280）——
-// statistics-tabs / statistics-panels + ap_chart/opsi_stats/commission_income/research_stats/resource_delta/ship_exp_table 六面板 scope。
+// 统计页：与老 UI 同构（app_statistics_page.py:527-578 的 st-head + st-tabs 结构）。
+// 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研(规划中) / resource 资源 / fleet 科技列表 / mind 心智计算器。
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ApChart } from '../../charts/ApChart'
+import { DeltaSummary } from './DeltaPanel'
+import { CommissionIncome } from './CommissionPanel'
 import { apiGet } from '../../api/client'
 
-type DeltaItem = { name: string; value: number; time?: string }
-type DeltaResp = { timeline: any[]; summary: DeltaItem[]; ranking: DeltaItem[] }
-
-const TABS = [
-  { key: 'ap_chart', name: '行动力图表' },
-  { key: 'opsi_stats', name: '大世界统计' },
-  { key: 'commission_income', name: '委托收益' },
-  { key: 'research_stats', name: '科研统计' },
-  { key: 'resource_delta', name: '资源变动' },
-  { key: 'ship_exp_table', name: '舰船经验' },
+// 页签定义（与 _STAT_TABS 顺序一致；文案=Gui.Stat.Tab* 与 Gui.FleetTechnology.Tab*）
+const TABS: { id: string; name: string; badge?: string }[] = [
+  { id: 'opsi', name: '大世界' },
+  { id: 'commission', name: '委托' },
+  { id: 'research', name: '科研', badge: '规划中' },
+  { id: 'resource', name: '资源' },
+  { id: 'fleet', name: '科技列表' },
+  { id: 'mind', name: '心智计算器' },
 ]
 
-// 资源变动面板（summary 是 list、ranking 是 list）
-function DeltaSummary({ name }: { name: string }) {
-  const [data, setData] = useState<DeltaResp | null>(null)
-  useEffect(() => {
-    apiGet<DeltaResp>(`/newapi/stat/${name}/resource_delta`).then(setData).catch(() => {})
-  }, [name])
-  const summary = Array.isArray(data?.summary) ? data!.summary : []
-  const ranking = Array.isArray(data?.ranking) ? data!.ranking : []
+// 数据源状态（_get_statistics_data_state 的三态）
+function SourceChip({ state }: { state: 'ok' | 'stale' | 'missing' }) {
+  const text = state === 'ok' ? '数据源正常' : state === 'stale' ? '数据源长期未更新' : '暂无数据源'
   return (
-    <div>
-      <div className="delta-summary">
-        {summary.map((s, i) => (
-          <div key={i} className="dashboard-entry">
-            <div id={'pywebio-scope-' + s.name + '_group'}>
-              <div className="dashboard-value-row">
-                <span className="dashboard-value">{s.value}</span>
-              </div>
-              <div className="dashboard-help">{s.name}</div>
-            </div>
-          </div>
-        ))}
-        {!summary.length && <div className="st-placeholder">暂无变动数据（实例运行后出现）</div>}
-      </div>
-      {ranking.length > 0 && (
-        <div className="delta-ranking">
-          <div className="ov-card-title" style={{ fontSize: 14 }}>消耗排行</div>
-          {ranking.slice(0, 8).map((r, i) => (
-            <div key={i} className="delta-rank-row">
-              <span>{r.name}</span>
-              <span className="dashboard-value">{r.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-
-// 委托收益面板（本月汇总：total_commissions + items 明细）
-function CommissionIncome({ name }: { name: string }) {
-  const [data, setData] = useState<{ period: string; summary: any } | null>(null)
-  useEffect(() => {
-    apiGet<{ period: string; summary: any }>(`/newapi/stat/${name}/commission_income`).then(setData).catch(() => {})
-  }, [name])
-  const s = data?.summary
-  const items: { key: string; label: string }[] = [
-    { key: 'Gem', label: '钻石' }, { key: 'Cube', label: '魔方' }, { key: 'Chip', label: '芯片' },
-    { key: 'Oil', label: '石油' }, { key: 'Coin', label: '物资' },
-  ]
-  if (!s || !s.total_commissions) return <div className="st-placeholder">本月暂无委托记录</div>
-  return (
-    <div>
-      <div style={{ padding: '6px 0 12px', fontSize: 14 }}>
-        本月委托 <b>{s.total_commissions}</b> 次
-      </div>
-      <div className="delta-summary">
-        {items.map(it => {
-          const item = s.items?.[it.key]
-          if (!item) return null
-          return (
-            <div key={it.key} className="dashboard-entry">
-              <div>
-                <div className="dashboard-value-row">
-                  <span className="dashboard-value">{item.total}</span>
-                </div>
-                <div className="dashboard-help">{it.label} · {item.count} 次 · 均 {item.avg}</div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+    <span className={'st-source is-' + state}>
+      <i className="st-source-dot" />
+      {text}
+    </span>
   )
 }
 
 export function StatPage() {
   const { name = 'alas' } = useParams()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('ap_chart')
+  const [tab, setTab] = useState('opsi')
+  const [meta, setMeta] = useState('')
+
+  // 数据截至时间（取实例配置 mtime 或 dashboard.json 更新时间；先本地时间占位，端点在 P4 补）
+  useEffect(() => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    setMeta(`数据截至 ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())} · 实例 ${name}`)
+  }, [name])
+
   return (
     <div id="pywebio-scope-statistics-content" className="stat-page">
-      <div className="cfg-header">
-        <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
-        <h2>统计</h2>
-      </div>
-      <div className="st-tabs">
-        {TABS.map(t => (
-          <button
-            key={t.key}
-            className={'st-tab' + (tab === t.key ? ' st-tab-active' : '')}
-            onClick={() => setTab(t.key)}
-          >
-            {t.name}
-          </button>
-        ))}
-      </div>
-      <div id="statistics-panels" className="st-panels">
-        {tab === 'ap_chart' && (
-          <div id="pywebio-scope-ap_chart" className="ov-card st-panel">
-            <div className="ov-card-title">行动力图表</div>
-            <ApChart name={name} />
+      <div className="st-page">
+        <div className="st-head">
+          <div>
+            <h1>统计</h1>
+            <div className="st-head-meta">{meta}</div>
+          </div>
+          <div className="st-head-actions">
+            <SourceChip state="ok" />
+            <button className="st-refresh" onClick={() => setMeta(m => m)}>刷新</button>
+          </div>
+        </div>
+        <div className="st-tabs" id="statistics-tabs" role="tablist">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              className={'st-tab' + (tab === t.id ? ' st-tab-active' : '')}
+              role="tab"
+              id={'statistics-tab-' + t.id}
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+            >
+              {t.name}
+              {t.badge && <span className="st-tab-badge">{t.badge}</span>}
+            </button>
+          ))}
+          <span className="st-tab-indicator" id="statistics-tab-indicator" />
+        </div>
+
+        {tab === 'opsi' && (
+          <div id="st-panel-opsi" className="ov-card st-panel">
+            <div className="ov-card-title">大世界</div>
+            <div className="st-placeholder">大世界收获统计接入中</div>
           </div>
         )}
-        {tab === 'opsi_stats' && (
-          <div id="pywebio-scope-opsi_stats" className="ov-card st-panel">
-            <div className="ov-card-title">大世界统计</div>
-            <div className="st-placeholder">面板接入中</div>
-          </div>
-        )}
-        {tab === 'commission_income' && (
-          <div id="pywebio-scope-commission_income" className="ov-card st-panel">
-            <div className="ov-card-title">委托收益</div>
+        {tab === 'commission' && (
+          <div id="st-panel-commission" className="ov-card st-panel">
+            <div className="ov-card-title">委托</div>
             <CommissionIncome name={name} />
           </div>
         )}
-        {tab === 'research_stats' && (
-          <div id="pywebio-scope-research_stats" className="ov-card st-panel">
-            <div className="ov-card-title">科研统计</div>
-            <div className="st-placeholder">面板接入中</div>
+        {tab === 'research' && (
+          <div id="st-panel-research" className="ov-card st-panel">
+            <div className="ov-card-title">科研</div>
+            <div className="st-placeholder">科研统计接入中</div>
           </div>
         )}
-        {tab === 'resource_delta' && (
-          <div id="pywebio-scope-resource_delta" className="ov-card st-panel">
-            <div className="ov-card-title">资源变动</div>
+        {tab === 'resource' && (
+          <div id="st-panel-resource" className="ov-card st-panel">
+            <div className="ov-card-title">资源</div>
             <DeltaSummary name={name} />
           </div>
         )}
-        {tab === 'ship_exp_table' && (
-          <div id="pywebio-scope-ship_exp_table" className="ov-card st-panel">
-            <div className="ov-card-title">舰船经验</div>
-            <div className="st-placeholder">面板接入中</div>
+        {tab === 'fleet' && (
+          <div id="st-panel-fleet" className="ov-card st-panel">
+            <div className="ov-card-title">科技列表</div>
+            <div className="st-placeholder">科技列表接入中</div>
+          </div>
+        )}
+        {tab === 'mind' && (
+          <div id="st-panel-mind" className="ov-card st-panel">
+            <div className="ov-card-title">心智计算器</div>
+            <div className="st-placeholder">心智计算器接入中</div>
           </div>
         )}
       </div>

@@ -48,12 +48,12 @@ function menuMark(name: string): React.CSSProperties {
 // 任务卡（scope=overview-task_{command}，结构 put_column: 名称+时间+设置按钮）
 function TaskCard({ task }: { task: TaskRow }) {
   return (
-    <div id={'pywebio-scope-overview-task_' + task.command} className="task-card">
-      <div className="task-info">
-        <div className="arg-title">{task.name}</div>
-        <div className="arg-help">{task.next_run}</div>
+    <div id={'pywebio-scope-overview-task_' + task.command}>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <span style={{ ['--arg-title']: '1' } as React.CSSProperties}>{task.name}</span>
+        <span style={{ ['--arg-help']: '1' } as React.CSSProperties}>{task.next_run}</span>
       </div>
-      <button className="task-setting">设置</button>
+      <button className="pywebio-btn">设置</button>
     </div>
   )
 }
@@ -189,35 +189,37 @@ export function Overview() {
         <main id="pywebio-scope-content">
           <div id="pywebio-scope-overview">
             <section id="pywebio-scope-schedulers">
-              <div id="pywebio-scope-scheduler-bar" className="ov-card ov-card-bar">
-                <span className="ov-card-title">调度器</span>
-                <button className={'ov-btn-primary' + (alive ? '' : ' is-off')}>
-                  {alive ? '停止' : '启动'}
-                </button>
+              <div id="pywebio-scope-scheduler-bar">
+                <p>调度器</p>
+                <div id="pywebio-scope-scheduler_btn">
+                  <button className="pywebio-btn">{alive ? '停止' : '启动'}</button>
+                </div>
               </div>
-              <div id="pywebio-scope-stat-bar" className="ov-card ov-card-bar">
-                <span className="ov-card-title">统计</span>
-                <button className="ov-btn-primary" onClick={() => navigate('/stat/' + active)}>打开</button>
-              </div>
-              <hr className="hr-group" />
-              <div id="pywebio-scope-running" className="ov-card">
-                <div className="ov-card-title">运行中</div>
-                <div id="pywebio-scope-running_tasks">
-                  {ov && ov.running.length
-                    ? ov.running.map(t => <TaskCard key={t.command} task={t} />)
-                    : <div className="overview-notask">无任务</div>}
+              <div id="pywebio-scope-stat-bar">
+                <p>统计</p>
+                <div id="pywebio-scope-stat_btn">
+                  <button className="pywebio-btn" onClick={() => navigate('/stat/' + active)}>打开</button>
                 </div>
               </div>
               <hr className="hr-group" />
-              <div id="pywebio-scope-pending" className="ov-card">
-                <div className="ov-card-title">队列中 <sup className="ov-count">{ov?.pending.length ?? 0}</sup></div>
+              <div id="pywebio-scope-running">
+                <p>运行中</p>
+                <div id="pywebio-scope-running_tasks">
+                  {ov && ov.running.length
+                    ? ov.running.map(t => <TaskCard key={t.command} task={t} />)
+                    : <span style={{ ['--overview-notask-text']: '1' } as React.CSSProperties}>无任务</span>}
+                </div>
+              </div>
+              <hr className="hr-group" />
+              <div id="pywebio-scope-pending">
+                <p>队列中<span className="overview-task-count">{ov?.pending.length ?? 0}</span></p>
                 <div id="pywebio-scope-pending_tasks">
                   {ov?.pending.map(t => <TaskCard key={t.command} task={t} />)}
                 </div>
               </div>
               <hr className="hr-group" />
-              <div id="pywebio-scope-waiting" className="ov-card">
-                <div className="ov-card-title">等待中 <sup className="ov-count">{ov?.waiting.length ?? 0}</sup></div>
+              <div id="pywebio-scope-waiting">
+                <p>等待中<span className="overview-task-count">{ov?.waiting.length ?? 0}</span></p>
                 <div id="pywebio-scope-waiting_tasks">
                   {ov?.waiting.map(t => <TaskCard key={t.command} task={t} />)}
                 </div>
@@ -225,7 +227,7 @@ export function Overview() {
             </section>
 
             <section id="pywebio-scope-logs">
-              <div id="pywebio-scope-log-bar" className="ov-card">
+              <div id="pywebio-scope-log-bar">
                 <span className="ov-card-title">日志</span>
                 <div id="pywebio-scope-log-bar-btns" className="log-bar-btns">
                   <button className="log-btn-primary" onClick={() => setAutoScroll(v => !v)}>
