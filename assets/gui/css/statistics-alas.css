@@ -2109,6 +2109,18 @@
     object-fit: contain;
 }
 
+/* PyWebIO 自带的 markdown.min.css 里有一条
+   `.markdown-body img { background-color: #fff }`（GitHub 风格，给正文插图
+   垫白底）。统计页内容整体在 .markdown-body 内，于是所有内联透明图标
+   （资源胶囊、进行中卡片的物品图标）在深色主题下都显出白色小方块
+   （2026-11-15 用户实机截图）。
+   收益卡片当年用内联 <style> 单独压过这一条（#commission_income_container img），
+   这里统一兜住：统计页内所有图标一律透明底。 */
+#pywebio-scope-statistics-content img {
+    background: transparent !important;
+    border: 0 !important;
+}
+
 #pywebio-scope-statistics-content .st-running-empty {
     padding: 18px 16px;
     border: 1px dashed var(--st-border);
