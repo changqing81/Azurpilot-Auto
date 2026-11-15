@@ -79,6 +79,13 @@ const THEMES = [
 
 export function HomePageMain() {
   const navigate = useNavigate()
+
+  const downloadWallpaper = () => {
+    const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
+    if (!winner?.url) return
+    window.open(winner.url, '_blank')
+  }
+
   useEffect(() => {
     apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
       .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
@@ -99,7 +106,7 @@ export function HomePageMain() {
           {THEMES.map(t => <button key={t.value} className="log-btn">{t.name}</button>)}
         </div>
         <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <button className="log-btn">下载当前背景图</button>
+          <button className="log-btn" onClick={downloadWallpaper}>下载当前背景图</button>
         </div>
       </div>
       <div className="home-section">
