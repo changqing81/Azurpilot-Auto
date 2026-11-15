@@ -1,6 +1,6 @@
 // 总览页 1:1 复刻（对照 oldui-ref/oldui_overview_alas.png + scope-map-overview.txt）
 // DOM 契约：scope id / class 与老 UI 相同，主题 CSS（assets/gui/css）直接生效。
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
 
@@ -100,8 +100,9 @@ export function Overview() {
   const [active, setActive] = useState('alas')
   const [ov, setOv] = useState<OverviewResp | null>(null)
   const [dash, setDash] = useState<DashItem[]>([])
-  const [logHtml, setLogHtml] = useState('')
-  const [autoScroll, setAutoScroll] = useState(true)
+  const autoScrollRef = useRef(true)
+  const [autoScroll, setAutoScrollState] = useState(true)
+  const setAutoScroll = (v: boolean) => { setAutoScrollState(v); autoScrollRef.current = v }
   const [header, setHeader] = useState<HeaderResp>({ icon: '', prefix: 'AzurPilot', title: 'AzurPilot' })
   const [menu, setMenu] = useState<MenuGroup[]>([])
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -119,11 +120,34 @@ export function Overview() {
     const timer = setInterval(() => {
       apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
     }, 15000)  // 老 UI 15s 周期同款
-    // 日志流：2s 轮询 HTML 片段（老 UI put_log 0.5s 增量；REST 轮询先对齐 2s，WS 推送在 P3）
+    // 日志流：增量拉取（游标 since），append 到容器尾部并裁剪旧节点（老 UI put_log 语义）
+    let cursor = -1
+    // 页面不可见时暂停轮询（老 UI visibility 任务同语义，省 CPU/带宽）
+    let visible = !document.hidden
+    const onVis = () => { visible = !document.hidden }
+    document.addEventListener('visibilitychange', onVis)
     const logTimer = setInterval(() => {
-      fetch('/newapi/log/' + active + '/tail').then(r => r.ok ? r.text() : '').then(setLogHtml).catch(() => {})
+      if (!visible) return
+      const el = document.getElementById('pywebio-scope-log')
+      if (!el) return
+      fetch('/newapi/log/' + active + '/tail?since=' + cursor)
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if (!j) return
+          cursor = j.cursor
+          if (j.full) { el.innerHTML = j.html || '' }
+          else if (j.html) {
+            const frag = document.createDocumentFragment()
+            const span = document.createElement('div')
+            span.innerHTML = j.html
+            while (span.firstChild) frag.appendChild(span.firstChild)
+            el.appendChild(frag)  // 一次性插入，单次回流
+            while (el.childNodes.length > 600) el.removeChild(el.firstChild)
+            if (autoScrollRef.current) el.scrollTop = el.scrollHeight
+          }
+        }).catch(() => {})
     }, 2000)
-    return () => { clearInterval(timer); clearInterval(logTimer) }
+    return () => { clearInterval(timer); clearInterval(logTimer); document.removeEventListener('visibilitychange', onVis) }
   }, [active])
 
   const alive = ov?.alive ?? false
@@ -256,9 +280,7 @@ export function Overview() {
                 <code
                 id="pywebio-scope-log"
                 className="log-body"
-                ref={el => {
-                  if (el && autoScroll) el.scrollTop = el.scrollHeight
-                }}
+                ref={el => el}
                 dangerouslySetInnerHTML={{ __html: logHtml }}
               />
               </div>

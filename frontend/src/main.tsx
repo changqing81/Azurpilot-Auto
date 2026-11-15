@@ -1,3 +1,14 @@
+
+// 主题 CSS 动态注入（webapi theme-css 按 deploy.yaml 主题返回老 UI 全套样式清单）
+fetch('/newapi/theme-css').then(r => r.json()).then(d => {
+  (d.links ?? []).forEach((href: string) => {
+    const link = document.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = href + '?v=newui'
+    document.head.appendChild(link)
+  })
+}).catch(() => {})
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
