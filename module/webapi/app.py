@@ -77,6 +77,19 @@ async def oobe_state(request: Request) -> JSONResponse:
     return JSONResponse(data.get_oobe_state())
 
 
+async def scheduler_start(request: Request) -> JSONResponse:
+    import json as _json
+
+    name = request.path_params.get("name", "")
+    body = _json.loads(await request.body() or b"{}")
+    return JSONResponse(data.start_scheduler(name, body.get("func")))
+
+
+async def scheduler_stop(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    return JSONResponse(data.stop_scheduler(name))
+
+
 async def wallpaper_candidates(request: Request) -> JSONResponse:
     return JSONResponse(data.get_wallpaper_candidates())
 
@@ -171,6 +184,8 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/remote/status", remote_status),
         Route("/newapi/remote/toggle", remote_toggle, methods=["POST"]),
         Route("/newapi/wallpaper/candidates", wallpaper_candidates),
+        Route("/newapi/scheduler/{name}/start", scheduler_start, methods=["POST"]),
+        Route("/newapi/scheduler/{name}/stop", scheduler_stop, methods=["POST"]),
         Route("/newapi/oobe", oobe_state),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),

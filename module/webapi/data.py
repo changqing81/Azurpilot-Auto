@@ -629,3 +629,36 @@ def get_oobe_state() -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] OOBE 状态检查失败: {e}")
         return {"oobe_needed": False}
+
+def start_scheduler(name: str, func: str | None = None) -> dict:
+    """调度器启动（总览页"启动"按钮）。func=None 用配置默认入口。"""
+    from module.webui.process_manager import ProcessManager
+    from module.webui.app_dependencies import State
+
+    try:
+        pm = ProcessManager._processes.get(name)
+        if pm is None:
+            pm = ProcessManager(config_name=name)
+            ProcessManager._processes[name] = pm
+        if pm.alive:
+            return {"success": False, "error": "调度器已在运行"}
+        pm.start(func)
+        return {"success": True, "alive": bool(pm.alive)}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 调度器启动失败({name}): {e}")
+        return {"success": False, "error": str(e)}
+
+
+def stop_scheduler(name: str) -> dict:
+    """调度器停止（总览页"停止"按钮）。"""
+    from module.webui.process_manager import ProcessManager
+
+    try:
+        pm = ProcessManager._processes.get(name)
+        if pm is None:
+            return {"success": True, "alive": False}
+        stopped = pm.stop()
+        return {"success": bool(stopped), "alive": bool(pm.alive)}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 调度器停止失败({name}): {e}")
+        return {"success": False, "error": str(e)}

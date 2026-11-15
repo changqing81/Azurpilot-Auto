@@ -192,7 +192,18 @@ export function Overview() {
               <div id="pywebio-scope-scheduler-bar">
                 <p>调度器</p>
                 <div id="pywebio-scope-scheduler_btn">
-                  <button className="pywebio-btn">{alive ? '停止' : '启动'}</button>
+                  <button
+                    className="pywebio-btn"
+                    onClick={async () => {
+                      const action = alive ? 'stop' : 'start'
+                      try {
+                        await fetch(`/newapi/scheduler/${active}/${action}`, { method: 'POST' })
+                        apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
+                      } catch {}
+                    }}
+                  >
+                    {alive ? '停止' : '启动'}
+                  </button>
                 </div>
               </div>
               <div id="pywebio-scope-stat-bar">
