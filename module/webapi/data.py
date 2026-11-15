@@ -218,3 +218,36 @@ def get_header() -> dict:
         "prefix": prefix,
         "title": "AzurPilot",
     }
+
+def get_menu() -> dict:
+    """导航菜单树（menu.json 全量 + i18n 名称，等价老 UI task_config_menu_items 数据面）。
+
+    返回 {groups:[{key,name,page,tasks:[{key,name}]}]}。组名 i18n 在 Menu.<key>.name。
+    """
+    try:
+        menu_path = os.path.join(os.path.dirname(__file__), "..", "config", "argument", "menu.json")
+        i18n_path = os.path.join(os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json")
+        menu = read_file(menu_path)
+        i18n = read_file(i18n_path)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 菜单读取失败: {e}")
+        return {"groups": []}
+
+    def _name(key: str) -> str:
+        return str(i18n.get("Menu", {}).get(key, {}).get("name") or key)
+
+    groups = []
+    for key, body in menu.items():
+        tasks = []
+        for task in body.get("tasks", []):
+            tasks.append({
+                "key": task,
+                "name": str(i18n.get("Task", {}).get(task, {}).get("name") or task),
+            })
+        groups.append({
+            "key": key,
+            "name": _name(key),
+            "page": body.get("page", ""),
+            "tasks": tasks,
+        })
+    return {"groups": groups}

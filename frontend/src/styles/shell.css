@@ -13,6 +13,8 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #e8e8f8
 .config-search input { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #d9d9e3; background: #f6f6f9; margin-bottom: 8px; }
 #pywebio-scope-menu button { width: 100%; text-align: left; padding: 8px 10px; border: none; background: transparent; cursor: pointer; border-radius: 6px; font-size: 13px; }
 #pywebio-scope-menu button.btn-menu-active { background: #e8e8f8; color: #4e4c97; font-weight: 600; }
+.menu-arrow { float: right; font-size: 10px; opacity: .55; }
+.btn-task { font-size: 12px !important; padding: 6px 10px !important; opacity: .85; }
 #pywebio-scope-content { flex: 1; padding: 14px; overflow: auto; }
 #pywebio-scope-overview { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; gap: 14px; }
 #pywebio-scope-schedulers, #pywebio-scope-logs { display: flex; flex-direction: column; gap: 12px; min-width: 0; }

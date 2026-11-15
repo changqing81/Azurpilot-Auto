@@ -11,6 +11,8 @@ type OverviewResp = { running: TaskRow[]; pending: TaskRow[]; waiting: TaskRow[]
 type DashItem = { name: string; value: string; limit: string; total: string; color: string; record: string }
 type DashResp = { items: DashItem[] }
 type HeaderResp = { icon: string; prefix: string; title: string }
+type MenuGroup = { key: string; name: string; page: string; tasks: { key: string; name: string }[] }
+type MenuResp = { groups: MenuGroup[] }
 
 // 老 UI 资源名 i18n（Gui.Dashboard.*，与 zh-CN.json 同步）
 const DASH_LABEL: Record<string, string> = {
@@ -99,10 +101,13 @@ export function Overview() {
   const [logHtml, setLogHtml] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
   const [header, setHeader] = useState<HeaderResp>({ icon: '', prefix: 'AzurPilot', title: 'AzurPilot' })
+  const [menu, setMenu] = useState<MenuGroup[]>([])
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     apiGet<VersionResp>('/newapi/version').then(r => setVersion(r.version)).catch(() => {})
     apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
+    apiGet<MenuResp>('/newapi/menu').then(r => setMenu(r.groups)).catch(() => {})
     apiGet<InstancesResp>('/newapi/instances').then(r => setInstances(r.instances)).catch(() => {})
   }, [])
   useEffect(() => {
@@ -153,36 +158,26 @@ export function Overview() {
             <input placeholder="搜索配置" />
           </div>
           <div id="pywebio-scope-task_config_menu_items">
-            <div style={menuMark('Overview')}>
-              <button className="btn-menu btn-menu-active">总览</button>
-            </div>
-            <div style={menuMark('Campaign')}>
-              <button className="btn-menu">▶ 智慧港区</button>
-            </div>
-            <div style={menuMark('Main')}>
-              <button className="btn-menu">▶ 出击</button>
-            </div>
-            <div style={menuMark('Event')}>
-              <button className="btn-menu">▶ 活动</button>
-            </div>
-            <div style={menuMark('Reward')}>
-              <button className="btn-menu">▶ 自动收获</button>
-            </div>
-            <div style={menuMark('DailyMission')}>
-              <button className="btn-menu">▶ 每日任务</button>
-            </div>
-            <div style={menuMark('Opsi')}>
-              <button className="btn-menu">▶ 大世界</button>
-            </div>
-            <div style={menuMark('Island')}>
-              <button className="btn-menu">▶ 岛屿计划</button>
-            </div>
-            <div style={menuMark('Fleet')}>
-              <button className="btn-menu">▶ 舰队管理</button>
-            </div>
-            <div style={menuMark('Tool')}>
-              <button className="btn-menu">▶ 工具</button>
-            </div>
+            {menu.map(g => (
+              <div key={g.key}>
+                <div style={menuMark(g.key)}>
+                  <button
+                    className={'btn-menu' + (active === g.key ? ' btn-menu-active' : '')}
+                    onClick={() => setCollapsed(s => ({ ...s, [g.key]: !s[g.key] }))}
+                  >
+                    {g.name}
+                    <span className="menu-arrow">{collapsed[g.key] ? '▶' : '▼'}</span>
+                  </button>
+                </div>
+                {!collapsed[g.key] && g.tasks.map(t => (
+                  <div key={t.key} style={{ paddingLeft: 18, ...menuMark(g.key + '.' + t.key) } as React.CSSProperties}>
+                    <button className={'btn-menu btn-task' + (active === g.key + '.' + t.key ? ' btn-menu-active' : '')}>
+                      {t.name}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
         </nav>
 

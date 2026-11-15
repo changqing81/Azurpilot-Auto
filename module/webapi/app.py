@@ -52,6 +52,10 @@ async def overview(request: Request) -> JSONResponse:
     return JSONResponse(data.get_overview(name))
 
 
+async def menu(request: Request) -> JSONResponse:
+    return JSONResponse(data.get_menu())
+
+
 async def header(request: Request) -> JSONResponse:
     return JSONResponse(data.get_header())
 
@@ -87,6 +91,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/overview/{name}", overview),
         Route("/newapi/log/{name}/tail", log_tail),
         Route("/newapi/header", header),
+        Route("/newapi/menu", menu),
     ]
     files = _frontend_files()
     if files is not None:
