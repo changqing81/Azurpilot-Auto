@@ -9,7 +9,7 @@
 import threading
 import time
 import typing as t
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import numpy as np
 
@@ -225,6 +225,38 @@ class OSStatus(UI):
         except Exception:
             return False
 
+    def _yellow_coins_has_intervention_window(self, baseline):
+        """判断基线之后是否存在「人工干预窗口」（脚本停止/空闲超过 10 分钟）。
+
+        用仪表盘持久化的落库时间戳（Dashboard.YellowCoin.Record）判定：
+        它只在黄币值变化时更新，脚本运行期间每次读取都会刷新。因此：
+        - Record 距今 ≤10 分钟：脚本一直在跑，刚见过大额黄币，中途没有
+          人工干预窗口——无干预下黄币不可能一步跌两个数量级；
+        - Record 距今 >10 分钟：中间必然存在脚本停止/空闲窗口（任务间隔
+          实测 p50=107s，10 分钟内必有读取），用户可能在窗口内手动操作。
+
+        Args:
+            baseline (int | None): 当前基线。
+
+        Returns:
+            bool: 存在人工干预窗口返回 True。
+        """
+        if not baseline:
+            return False
+        try:
+            group = LogRes(self.config).group('YellowCoin')
+            record = group.get('Record') if isinstance(group, dict) else None
+            if not record:
+                return False
+            from module.log_res.log_res import _RECORD_INIT
+            if str(record) == _RECORD_INIT:
+                return False
+            recorded = datetime.fromisoformat(str(record))
+            age = datetime.now() - recorded
+            return age.total_seconds() > 600
+        except Exception:
+            return False
+
     def _yellow_coins_ledger_conflicts(self, value):
         """用 AP 账本的近期黄币记录交叉验证低位读数。
 
@@ -263,6 +295,36 @@ class OSStatus(UI):
         larger = max(coins, value)
         smaller = min(coins, value)
         return larger >= smaller * 100
+
+    def _yellow_coins_ledger_corroborates(self, value):
+        """账本近 10 分钟内有与低位读数同量级的记录 → 佐证跌后值为真。
+
+        与 _yellow_coins_ledger_conflicts 共享数据源，语义相反：
+        真暴跌时账本随商店同步一起跌，低位读数会被账本印证。
+
+        Returns:
+            bool: 账本有同量级近期记录返回 True。
+        """
+        try:
+            ledger = self._get_ap_ledger()
+        except Exception:
+            return False
+        if ledger is None:
+            return False
+        coins = getattr(ledger, 'yellow_coins', None)
+        recorded_at = getattr(ledger, 'recorded_at', None)
+        if not coins or coins <= 0 or recorded_at is None:
+            return False
+        try:
+            from module.config.time_source import now as _now
+            age_seconds = (_now() - recorded_at).total_seconds()
+        except Exception:
+            return False
+        if age_seconds > 600 or age_seconds < 0:
+            return False
+        larger = max(coins, value)
+        smaller = min(coins, value)
+        return larger < smaller * 100
 
     def _yellow_coins_reading_is_confirmed(self, value, text_width=None):
         """判断小数字读数是不是「画面稳定时读到的」。
@@ -445,33 +507,67 @@ class OSStatus(UI):
 
         # 复查多帧仍全部疑似残缺：要判断这是「画面没画完」还是「黄币真变少了」。
         #
-        # 2026-11-15 事故：剧情结算画面是「静止的残缺画面」，两帧像素一致 +
-        # 复读一致，单靠画面稳定性把 47 确认成了真值（基线 267669）。
-        # 因此确认放行前必须过账本交叉验证：AP 账本随行动力一起静默记录黄币
-        # （跑图 20s 一轮、商店同步），若账本近期读数与低位读数量级矛盾，
-        # 说明低位读数是遮挡/残缺，不是真暴跌——沿用基线。
-        # 画面静止判定保留为辅助：静止 + 账本无矛盾 + 复读一致才放行。
+        # 判定模型（2026-11-15 用户裁定，替代此前所有复杂判据）：
+        # 脚本自己清商店/买行动力时，商店新鲜读数会一路刷新基线，防护根本
+        # 不会拦——这条路径无需防护。唯一的变量是「用户手动干预」：
+        # 暂停/停止/关脚本期间用户花光黄币，脚本没有目睹下跌过程。
+        #
+        # 「是否有人工干预窗口」用基线的落库时间戳判定：
+        #   - 基线时间戳 ≤10 分钟：脚本一直在跑、刚见过大额黄币，中途没有
+        #     人工干预窗口 → 黄币不可能一步跌两个数量级 → 判残缺，沿用基线
+        #   - 基线时间戳 >10 分钟：中间存在脚本停止/空闲窗口，用户可能手动
+        #     操作过 → 低位读数直接放行（真值）
+        # 账本交叉验证保留为辅助证人（开启时矛盾同样拒绝），但不再是必需品。
         if yellow_coins == 0 and suspicious_values:
             fallback = max(suspicious_values)
+            intervention_window = self._yellow_coins_has_intervention_window(baseline)
             ledger_conflict = self._yellow_coins_ledger_conflicts(fallback)
-            if ledger_conflict:
-                # 账本近期记录与低位读数量级矛盾：结算/遮挡造成的静止残缺
+            huge_drop = (
+                baseline is not None
+                and self._yellow_coins_digits(baseline) >= 4
+                and fallback < baseline / 100
+            )
+            ledger_corroborates = (
+                not ledger_conflict
+                and self._yellow_coins_ledger_corroborates(fallback)
+            )
+            if intervention_window:
+                # 存在人工干预窗口（脚本停止/空闲超过10分钟）：低位读数是
+                # 用户手动操作的结果，直接采信
+                yellow_coins = fallback
+                self._yellow_coins_residual_count = 0
+                logger.warning(
+                    f'[大世界处理-状态] 黄币低位读数 {fallback}：上次读数距今晚于'
+                    f'10 分钟（存在人工干预窗口），采信该读数（基线原为 {baseline}）'
+                )
+            elif ledger_corroborates and self._yellow_coins_reading_is_confirmed(fallback):
+                # 账本独立记录与低位读数同量级（跌后值有独立证人）+ 画面静止：
+                # 采信。账本关闭时无此证人，走巨跌轮次观察。
+                yellow_coins = fallback
+                self._yellow_coins_residual_count = 0
+                logger.warning(
+                    f'[大世界处理-状态] 黄币低位读数 {fallback} 有账本同量级记录佐证'
+                    f'（画面静止、复读一致），采信该读数'
+                )
+            elif ledger_conflict or huge_drop:
+                # 脚本一直在跑（基线新鲜）+ 巨跌/账本矛盾：
+                # 无人工干预下黄币不可能一步跌两个数量级 → 判遮挡残缺
                 self._yellow_coins_residual_count += 1
                 yellow_coins = baseline if baseline else fallback
+                reason = '存在账本矛盾' if ledger_conflict else '相对基线巨幅下跌'
                 logger.warning(
-                    f'[大世界处理-状态] 黄币低位读数 {fallback} 与账本近期读数矛盾，'
-                    f'判为遮挡残缺，沿用 {yellow_coins}'
+                    f'[大世界处理-状态] 黄币低位读数 {fallback} {reason}，'
+                    f'且基线新鲜（无人工干预窗口），判为遮挡残缺，沿用 {yellow_coins}'
                     f'（连续第 {self._yellow_coins_residual_count} 次）'
                 )
             elif self._yellow_coins_reading_is_confirmed(fallback):
-                # 画面静止 + 账本无矛盾 + 复读一致：黄币真的变少了
-                # （用户清港口 / 脚本清仓 / 重置）。此时必须采信，
-                # 否则脚本会永远以为还有钱。
+                # 无人工干预窗口、无巨跌矛盾、画面静止 + 复读一致：
+                # 黄币小幅下跌，正常采信
                 yellow_coins = fallback
                 self._yellow_coins_residual_count = 0
                 logger.warning(
                     f'[大世界处理-状态] 黄币低位读数 {fallback} 已确认为真值'
-                    f'（画面静止、账本无矛盾、复读一致，基线原为 {baseline}），采信该读数'
+                    f'（画面静止、复读一致，基线原为 {baseline}），采信该读数'
                 )
             elif baseline and self._yellow_coins_residual_count < self.YELLOW_COINS_RESIDUAL_TOLERANCE:
                 # 画面在动：先当残缺，沿用基线（2026-11-11 事故场景）
@@ -483,30 +579,13 @@ class OSStatus(UI):
                     f'（连续第 {self._yellow_coins_residual_count} 次）'
                 )
             elif baseline:
-                # 兜底放行的最后闸门：基线如果来自仪表盘持久化（重启后依然在），
-                # 且基线量大（≥ 兜底下限的 10 倍），说明历史上确实有过大额黄币。
-                # 黄币在无人工干预下不可能从 25 万量级瞬间跌到个位/十位——
-                # 唯一合法路径（清港口/清仓/买行动力）都会先经过商店读数
-                # （os_shop_get_coins 走 use_cache=False 的新鲜读数并刷新基线），
-                # 不可能一步从 26 万跳到 47。因此这里拒绝放行，无限沿用基线，
-                # 等下一次读取（残缺通常几秒内恢复）；真暴跌场景则会在后续
-                # 某次正常读数中刷新基线，自然解锁。
-                # 唯一放行条件：基线本身就已经是低位（说明早已跌过）。
-                if self._yellow_coins_digits(baseline) >= 4:
-                    yellow_coins = baseline
-                    self._yellow_coins_residual_count += 1
-                    logger.warning(
-                        f'[大世界处理-状态] 黄币连续 {self._yellow_coins_residual_count} 次'
-                        f'读数偏低且无法确认画面稳定，但基线 {baseline} 为大额存量，'
-                        f'拒绝放行低位读数 {fallback}（黄币无人工干预不可能瞬降 4 个数量级）'
-                    )
-                else:
-                    yellow_coins = fallback
-                    self._yellow_coins_residual_count = 0
-                    logger.warning(
-                        f'[大世界处理-状态] 黄币连续 {self.YELLOW_COINS_RESIDUAL_TOLERANCE} 次读数偏低'
-                        f'且基线本身已低位（{baseline}），按当前读数 {fallback} 采信'
-                    )
+                # 画面一直不稳且连续多次如此：按兜底采信读数，避免永远以为有钱
+                yellow_coins = fallback
+                self._yellow_coins_residual_count = 0
+                logger.warning(
+                    f'[大世界处理-状态] 黄币连续 {self.YELLOW_COINS_RESIDUAL_TOLERANCE} 次读数偏低'
+                    f'且无法确认画面稳定，按当前读数 {fallback} 采信（基线 {baseline}）'
+                )
             else:
                 # 连基线都没有（全新实例）：没有依据判断真假，采信读数
                 yellow_coins = fallback

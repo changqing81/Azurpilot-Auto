@@ -16,12 +16,20 @@ import numpy as np
 class GuardTestBase(unittest.TestCase):
     """构造一个不碰设备的 OSStatus 实例。"""
 
-    def make_handler(self, last_yellow_coins=0, guard_enabled=True):
+    def make_handler(self, last_yellow_coins=0, guard_enabled=True, record_age_seconds=None):
+        """record_age_seconds: Dashboard.Record 距今秒数。
+        None = 无记录；0 = 刚落库（脚本一直在跑）；1000 = 存在人工干预窗口。
+        """
+        from datetime import datetime, timedelta
         from module.os_handler.os_status import OSStatus
 
+        if record_age_seconds is None:
+            record = ''
+        else:
+            record = (datetime.now() - timedelta(seconds=record_age_seconds)).replace(microsecond=0).isoformat(sep=' ')
         handler = OSStatus.__new__(OSStatus)
         handler.config = SimpleNamespace(
-            data={'Dashboard': {'YellowCoin': {'Value': 0, 'Record': ''}}},
+            data={'Dashboard': {'YellowCoin': {'Value': 0, 'Record': record}}},
             modified={},
             save=lambda: None,
         )
@@ -141,8 +149,16 @@ class TestRecheckFlow(GuardTestBase):
             lambda value, text_width=None: screen_stable
         )
 
+        # LogRes stub：group() 返回测试 config 里的真实数据，
+        # 让 _yellow_coins_has_intervention_window 读到 Record 时间戳
+        class _StubLogRes:
+            def __init__(self, config):
+                self.config = config
+            def group(self, name):
+                return self.config.data.get('Dashboard', {}).get(name)
+
         with patch.object(os_status_module, 'OCR_SHOP_YELLOW_COINS') as fake_digit, \
-                patch.object(os_status_module, 'LogRes'):
+                patch.object(os_status_module, 'LogRes', _StubLogRes):
             fake_digit.ocr = fake_ocr
             fake_digit.last_text_width = 59
             value = handler.get_yellow_coins()
@@ -177,16 +193,13 @@ class TestRecheckFlow(GuardTestBase):
         self.assertEqual(value, 100, '月末清仓把黄币花到 100 是合法状态')
         self.assertEqual(calls, 2, '清仓窗口不应触发复查')
 
-    def test_stable_screen_short_reading_is_accepted(self):
-        """画面静止且复读一致：黄币真的变少了，立即采信。
-
-        对应场景：用户手动清港口 / 脚本清仓 / 重置。此时画面是静止的，
-        与 OCR 残缺（画面在动）可区分，不需要等次数，也不会误判。
-        """
-        handler = self.make_handler(last_yellow_coins=0)
+    def test_stable_screen_short_reading_blocked_when_running(self):
+        """画面静止 + 基线新鲜（无人工干预窗口）：巨跌判残缺。"""
+        handler = self.make_handler(
+            last_yellow_coins=0, record_age_seconds=30)
         handler._last_yellow_coins = 218990
         value, _ = self._run(handler, [520, 520, 520], screen_stable=True)
-        self.assertEqual(value, 520, '画面静止说明黄币真的变少了，必须马上采信')
+        self.assertEqual(value, 218990, '脚本连续运行中巨跌必为残缺')
 
     def test_moving_screen_short_reading_keeps_baseline(self):
         """画面在动：判为 OCR 残缺，沿用基线。
@@ -199,21 +212,23 @@ class TestRecheckFlow(GuardTestBase):
         self.assertEqual(value, 218990, '画面在动时的小读数不可信，应沿用基线')
 
     def test_task_switch_interval_is_irrelevant(self):
-        """判定只看画面稳不稳，与两次调用间隔多久无关。
+        """判定不看两次调用的间隔，只看人工干预窗口信号。
 
         实测相邻调用间隔 p50=107s、p90=346s，被 Hard/Main2 等任务插队时
-        最长 1903s（31.7 分钟）。按秒或按次数判定都会失准，按画面则不受影响。
+        最长 1903s。但 Record 语义是「值变化时刻」而非「读取时刻」，
+        所以间隔本身不参与判定——只有 Record 过期（>10 分钟无值变化）
+        才视为可能存在人工干预。
         """
-        handler = self.make_handler(last_yellow_coins=0)
+        handler = self.make_handler(
+            last_yellow_coins=0, record_age_seconds=120)  # 2 分钟前有值变化
         handler._last_yellow_coins = 218990
+        handler._get_ap_ledger = lambda: None
 
-        # 画面在动（残缺）：无论隔多久都沿用基线
+        # Record 新鲜（无人工干预窗口）：巨跌判残缺，与画面无关
         value, _ = self._run(handler, [4, 4, 4], screen_stable=False)
         self.assertEqual(value, 218990)
-
-        # 画面静止（真的变少）：立即采信，不用等
         value, _ = self._run(handler, [520, 520, 520], screen_stable=True)
-        self.assertEqual(value, 520)
+        self.assertEqual(value, 218990, 'Record 新鲜时巨跌不放行')
 
     def test_stability_check_detects_moving_screen(self):
         """_yellow_coins_reading_is_confirmed 本身：两帧不同就判未确认。"""
@@ -317,8 +332,9 @@ class TestRecheckFlow(GuardTestBase):
             handler._yellow_coins_ledger_conflicts(520),
             '账本 520 vs 读数 520 同量级，无矛盾',
         )
+        # 账本同量级记录是独立证人：一轮直接放行
         value, _ = self._run(handler, [520, 520, 520], screen_stable=True)
-        self.assertEqual(value, 520, '账本佐证低位时应该采信')
+        self.assertEqual(value, 520, '账本佐证跌后值 → 一轮采信')
 
     def test_stale_ledger_is_ignored(self):
         """账本记录太旧（>10 分钟）不参与交叉验证。
@@ -339,10 +355,44 @@ class TestRecheckFlow(GuardTestBase):
         )
 
     def test_no_ledger_no_conflict(self):
-        """账本关闭/无记录时不产生矛盾，交由画面判定。"""
+        """账本关闭/无记录时交叉验证不产生矛盾。"""
         handler = self.make_handler()
         handler._get_ap_ledger = lambda: None
         self.assertFalse(handler._yellow_coins_ledger_conflicts(47))
+
+    def test_huge_drop_blocked_when_script_ran_continuously(self):
+        """脚本持续运行（基线新鲜）时巨幅下跌被拦（2026-11-15 事故模型）。
+
+        基线落库时间 ≤10 分钟 = 脚本一直在跑，中途无人工干预窗口，
+        黄币不可能一步跌两个数量级 → 无论画面多静止都判残缺。
+        """
+        handler = self.make_handler(
+            last_yellow_coins=0, record_age_seconds=60)  # 1 分钟前刚落库
+        handler._last_yellow_coins = 267669
+        handler._get_ap_ledger = lambda: None  # 账本关闭
+
+        value, _ = self._run(handler, [47, 47, 47], screen_stable=True)
+        self.assertEqual(
+            value, 267669,
+            '脚本持续运行中无人工干预，巨跌必为残缺，沿用基线',
+        )
+
+    def test_user_intervention_window_allows_low_reading(self):
+        """存在人工干预窗口（脚本停止/空闲>10分钟）：低位读数直接采信。
+
+        用户手动花光 30 万退出交给脚本：脚本上一次落库已超过 10 分钟，
+        中间存在人工干预窗口，低位读数就是用户操作的结果。
+        """
+        handler = self.make_handler(
+            last_yellow_coins=0, record_age_seconds=3600)  # 1 小时前
+        handler._last_yellow_coins = 267669
+        handler._get_ap_ledger = lambda: None
+
+        value, _ = self._run(handler, [2000, 2000, 2000], screen_stable=True)
+        self.assertEqual(
+            value, 2000,
+            '存在人工干预窗口时低位读数应直接采信',
+        )
 
     def test_fallback_gate_blocks_huge_drop_without_confirmation(self):
         """连续兜底不放行巨幅下跌：黄币无人工干预不可能瞬降 4 个数量级。
