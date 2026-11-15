@@ -368,6 +368,53 @@ body #pywebio-scope-commission_income {
 }
 
 
+/* 钻石委托成功率表（commission-gem-table）：照抄上面委托收益表的同款
+   暗色处理。该表与收益表同 scope、同 class 家族（commission-income-table
+   commission-gem-table），亮色骨架给的 --st-surface 底在暗色高级材质下
+   会取到亮色值，这里直接按槽位写死深色。 */
+#pywebio-scope-commission_income .commission-gem-table th {
+	background: rgba(15,23,42,0.96) !important;
+	color: var(--alas-apple-text) !important;
+}
+
+#pywebio-scope-commission_income .commission-gem-table td {
+	background: rgba(15,23,42,0.92) !important;
+	color: var(--alas-apple-text-secondary) !important;
+}
+
+#pywebio-scope-commission_income .commission-gem-table td.gem-rate-cell,
+#pywebio-scope-commission_income .commission-gem-table td.gem-num-cell {
+	color: var(--alas-apple-text) !important;
+}
+
+/* 合计行 / 历史累计行 / 平均行：保持骨架的强调底色语义，但换成暗色档 */
+#pywebio-scope-commission_income .commission-gem-table tbody tr.gem-row-total td {
+	background: rgba(30, 41, 59, 0.92) !important;
+}
+
+#pywebio-scope-commission_income .commission-gem-table tbody tr.gem-row-alltime td {
+	background: rgba(88, 28, 35, 0.55) !important;
+}
+
+#pywebio-scope-commission_income .commission-gem-table tbody tr.gem-row-pace td {
+	background: rgba(30, 41, 59, 0.72) !important;
+}
+
+#pywebio-scope-commission_income .commission-gem-table .gem-rate-dim,
+#pywebio-scope-commission_income .commission-gem-table .gem-duration-expect,
+#pywebio-scope-commission_income .commission-gem-table .gem-alltime-sub,
+#pywebio-scope-commission_income .commission-gem-table .gem-pace-sub,
+#pywebio-scope-commission_income .commission-gem-table .gem-pace-name {
+	color: rgba(210, 220, 235, 0.6) !important;
+}
+
+#pywebio-scope-commission_income .commission-gem-table .gem-title,
+#pywebio-scope-commission_income .commission-gem-table .gem-hint,
+#pywebio-scope-commission_income .commission-gem-table .gem-nodata {
+	color: var(--alas-apple-text-secondary) !important;
+}
+
+
 /* 高级材质暗色：统一普通统计表格 hover
    （.ft-table 自带状态叠层与悬停层，豁免此处以免 !important 覆盖行状态色） */
 #pywebio-scope-content table:not(.commission-income-table):not(.ft-table) tr:hover,
