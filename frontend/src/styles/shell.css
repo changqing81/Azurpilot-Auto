@@ -1,17 +1,19 @@
-/* 新 UI 布局兜底：视觉 100% 交给老 UI 主题 CSS（alas.css + light-alas.css）。
-   这里只兜"主题 CSS 未加载时页面不散架"，与老 UI 的 DOM 约定不冲突。 */
-* { box-sizing: border-box; margin: 0; }
-body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; }
-/* 壳容器布局完全交给老 UI CSS（alas.css:539-673）：
-   ROOT = grid(auto 1fr)；contents = flex；aside/menu/content 由老 CSS 定义，勿覆盖。 */
-/* overview 布局交给老 UI CSS（alas.css:750 display:grid + 子元素自身规则） */
-#pywebio-scope-overview { display: grid; grid-template-columns: minmax(280px, 420px) 1fr; }
+/* 新 UI 样式补充。
+ *
+ * 原则：**壳层 + 总览页的外观 100% 由老 UI 原版 CSS 提供**
+ * （/pywebio_static/css/* + /static/assets/gui/css/*，见 index.html）。
+ * 这里只放两类东西：
+ *   1. 老 UI 没有的「新 UI 独有页面」样式（配置页 / 统计页骨架，最终也会对齐老 UI）
+ *   2. 与老 CSS 完全不冲突的浏览器层细节（滚动条细化）
+ *
+ * ⚠️ 红线：绝对不要在这里写 #pywebio-scope-overview / -schedulers / -logs /
+ * -log-container / -log / -dashboard / .btn-* 的任何布局或尺寸规则。
+ * 那些 id 的样式定义在 alas.css(750-882) 与 alas-pc.css(70-120) 里，
+ * 这里的同名规则会覆盖它们，导致与老 UI 布局不一致（已踩过：overview 两列
+ * 宽度写死成 280-420px，老 UI 实际是 minmax(16rem,20rem)=320px）。
+ */
 
-#pywebio-scope-schedulers, #pywebio-scope-logs { display: flex; flex-direction: column; min-width: 0; }
-#pywebio-scope-log-container { flex: 1; min-height: 280px; overflow: hidden; }
-#pywebio-scope-log { display: block; white-space: pre-wrap; word-break: break-all; overflow: auto; max-height: 520px; }
-#pywebio-scope-dashboard .status-point { margin: auto; }
-/* 新页（统计/配置）兜底 */
+/* ───────────────────────── 新 UI 独有页面（配置 / 统计）───────────────────────── */
 .st-page, .config-page { padding: 14px; }
 .st-tabs { display: flex; gap: 4px; border-bottom: 2px solid #eceefc; }
 .st-tab { background: transparent; border: none; padding: 10px 18px; cursor: pointer; }
@@ -36,18 +38,6 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; }
 .cfg-row { display: grid; grid-template-columns: 1fr minmax(180px, 300px); gap: 14px; align-items: center; padding: 9px 0; }
 .cfg-control { display: flex; justify-content: flex-end; }
 .cfg-input { width: 100%; padding: 7px 11px; border: 1px solid #d9d9e3; border-radius: 6px; background: #fff; font-size: 13px; }
-/* 滚动条细化（长卿反馈） */
-* { scrollbar-width: thin; scrollbar-color: #c9c9d9 transparent; }
-*::-webkit-scrollbar { width: 6px; height: 6px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: #c9c9d9; border-radius: 3px; }
-html, body { overflow-x: hidden; }
-/* 版本号左下角（长卿反馈） */
-.header-version { position: fixed; left: 10px; bottom: 6px; font-size: 12px; opacity: .5; z-index: 50; }
-@media (max-width: 900px) {
-  #pywebio-scope-menu { display: none; }
-  #pywebio-scope-overview { grid-template-columns: 1fr; }
-}
 
 .research-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .research-table th, .research-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #eceefc; }
@@ -56,3 +46,10 @@ html, body { overflow-x: hidden; }
 /* 页签下划线指示条（滑动动画） */
 #statistics-tab-indicator { position: absolute; bottom: -2px; height: 2px; background: #4e4c97; transition: left .25s ease, width .25s ease; }
 .st-tabs { position: relative; }
+
+/* ───────────────────────── 浏览器层细节（与老 CSS 不冲突）───────────────────────── */
+/* 滚动条细化（长卿反馈老 UI 长条太丑） */
+* { scrollbar-width: thin; scrollbar-color: #c9c9d9 transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #c9c9d9; border-radius: 3px; }

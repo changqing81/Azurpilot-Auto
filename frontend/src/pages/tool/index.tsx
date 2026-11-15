@@ -27,7 +27,7 @@ export function ToolPage() {
 
   const alive = ov?.alive ?? false
   return (
-    <Shell active={task}>
+    <Shell active={task} title="工具">
       <main id="pywebio-scope-content">
         <div id="pywebio-scope-daemon-overview">
           <div id="pywebio-scope-_daemon">

@@ -1,15 +1,14 @@
 // 统计页：与老 UI 同构（app_statistics_page.py:527-578 的 st-head + st-tabs 结构）。
 // 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研(规划中) / resource 资源 / fleet 科技列表 / mind 心智计算器。
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ApChart } from '../../charts/ApChart'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { DeltaSummary } from './DeltaPanel'
 import { OpsiPanel } from './OpsiPanel'
 import { ResearchPanel } from './ResearchPanel'
 import { FleetTechPanel } from './FleetTechPanel'
 import { MindPanel } from './MindPanel'
 import { CommissionIncome } from './CommissionPanel'
-import { apiGet } from '../../api/client'
+import { Shell } from '../../components/Shell'
 
 // 页签定义（与 _STAT_TABS 顺序一致；文案=Gui.Stat.Tab* 与 Gui.FleetTechnology.Tab*）
 const TABS: { id: string; name: string; badge?: string }[] = [
@@ -34,7 +33,6 @@ function SourceChip({ state }: { state: 'ok' | 'stale' | 'missing' }) {
 
 export function StatPage() {
   const { name = 'alas' } = useParams()
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [tab, setTab] = useState(searchParams.get('tab') || 'opsi')
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
@@ -58,6 +56,7 @@ export function StatPage() {
   }, [name])
 
   return (
+    <Shell active={name} title="统计">
     <div id="pywebio-scope-statistics-content" className="stat-page">
       <div className="st-page">
         <div className="st-head">
@@ -126,5 +125,6 @@ export function StatPage() {
         )}
       </div>
     </div>
+    </Shell>
   )
 }

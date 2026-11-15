@@ -1,33 +1,54 @@
-// 总览页 1:1 复刻（对照 oldui-ref/oldui_overview_alas.png + scope-map-overview.txt）
-// DOM 契约：scope id / class 与老 UI 相同，主题 CSS（assets/gui/css）直接生效。
+// 总览页：与老 UI（app_overview.py:218-460 + app_dashboard.py）1:1 同构。
+//
+// DOM 契约（实测老 UI 真实节点，见 .workbuddy/perf/out/oldui-ref/）：
+//   #pywebio-scope-content
+//     > #pywebio-scope-overview               ← alas-pc.css: grid 2 列 16-20rem / 1fr
+//       > #pywebio-scope-schedulers          ← grid 5 行（bar/bar/运行中/队列中/等待中）
+//         > #pywebio-scope-scheduler-bar     ← 白卡 + 「调度器」+ 启停按钮
+//         > #pywebio-scope-stat-bar          ← 白卡 + 「统计」+ 打开按钮
+//         > #pywebio-scope-running           ← 标题 + hr + running_tasks
+//         > #pywebio-scope-pending           ← 标题(带计数徽标) + hr + pending_tasks
+//         > #pywebio-scope-waiting           ← 标题(带计数徽标) + hr + waiting_tasks
+//       > #pywebio-scope-logs
+//         > #pywebio-scope-log-bar           ← 白卡 + 「日志」+ 4 个按钮 + hr + dashboard
+//         > #pywebio-scope-log-container     ← style 带 --version 变量 + ::before 水印
+//           > #pywebio-scope-log             ← 日志正文（Rich HTML）
+//
+// 关键点：CSS 全部靠内联 style 的子串匹配选中，因此这里不用 React style 对象，
+// 一律通过 lib/pywebio.ts 输出与 PyWebIO 逐字节一致的 HTML 字符串。
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
+import { Shell } from '../../components/Shell'
+import { esc, putText } from '../../lib/pywebio'
 
-type VersionResp = { version: string }
-type Instance = { name: string; state: number }
-type InstancesResp = { instances: Instance[] }
 type TaskRow = { command: string; name: string; next_run: string }
 type OverviewResp = { running: TaskRow[]; pending: TaskRow[]; waiting: TaskRow[]; alive: boolean }
 type DashItem = { name: string; value: string; limit: string; total: string; color: string; record: string }
 type DashResp = { items: DashItem[] }
-type HeaderResp = { icon: string; prefix: string; title: string }
-type MenuGroup = { key: string; name: string; page: string; tasks: { key: string; name: string }[] }
-type MenuResp = { groups: MenuGroup[] }
 
-// 老 UI 资源名 i18n（Gui.Dashboard.*，与 zh-CN.json 同步）
+// 老 UI 资源名（config/argument/dashboard.yaml + i18n Gui.Dashboard.*）
 const DASH_LABEL: Record<string, string> = {
-  Oil: '石油', Coin: '物资', Gem: '钻石', Pt: '活动PT', Cube: '魔方',
-  ActionPoint: '行动点', YellowCoin: '大世界黄币', PurpleCoin: '大世界紫币',
-  Core: '核心数据', Medal: '勋章', Merit: '功勋', GuildCoin: '舰队币',
+  Oil: '石油',
+  Coin: '物资',
+  Gem: '钻石',
+  Pt: '活动PT',
+  Cube: '魔方',
+  ActionPoint: '行动力',
+  YellowCoin: '大世界黄币',
+  PurpleCoin: '大世界紫币',
+  Core: '核心数据',
+  Medal: '勋章',
+  Merit: '功勋',
+  GuildCoin: '舰队币',
 }
 
-// 相对时间（Gui.Overview.* 口径：X分钟前/小时前…）
+// 相对时间（app_dashboard.py 口径：秒前/分钟前/小时前/天前/月前/年前）
 function relTime(record: string): string {
   if (!record || record.startsWith('2023-01-01')) return '无数据'
   const then = new Date(record.replace(' ', 'T'))
   const s = Math.floor((Date.now() - then.getTime()) / 1000)
-  if (isNaN(s) || s < 0) return '无数据'
+  if (isNaN(s) || s < 0) return '无记录'
   if (s < 60) return s + '秒前'
   if (s < 3600) return Math.floor(s / 60) + '分钟前'
   if (s < 86400) return Math.floor(s / 3600) + '小时前'
@@ -37,261 +58,271 @@ function relTime(record: string): string {
   return Math.floor(d / 365) + '年前'
 }
 
-function asideMark(name: string): React.CSSProperties {
-  return { ['--aside-' + name]: '1' } as React.CSSProperties
-}
-
-function menuMark(name: string): React.CSSProperties {
-  return { ['--menu-' + name]: '1' } as React.CSSProperties
-}
-
-// 任务卡（scope=overview-task_{command}，结构 put_column: 名称+时间+设置按钮）
-function TaskCard({ task }: { task: TaskRow }) {
+/** 任务卡（app_dashboard.py:222-250 _overview_task 同构）。
+ *  id=pywebio-scope-overview-task_{command}；内层 put_column(auto auto) 放
+ *  标题(--arg-title--) 与时间(--arg-help--)，右侧「设置」按钮。 */
+function taskCard(task: TaskRow): string {
   return (
-    <div id={'pywebio-scope-overview-task_' + task.command}>
-      <div style={{ display: 'flex', flexDirection: 'column' }}>
-        <span style={{ ['--arg-title']: '1' } as React.CSSProperties}>{task.name}</span>
-        <span style={{ ['--arg-help']: '1' } as React.CSSProperties}>{task.next_run}</span>
-      </div>
-      <button className="pywebio-btn">设置</button>
-    </div>
+    `<div id="pywebio-scope-overview-task_${esc(task.command)}">` +
+    `<div style="display: grid; grid-auto-flow: row; grid-template-rows: auto auto;">` +
+    putText(task.name, ';;--arg-title--') +
+    putText(task.next_run, ';;--arg-help--') +
+    `</div>` +
+    `<div><button class="btn btn-off">设置</button></div>` +
+    `</div>`
   )
 }
 
-// 仪表盘条目：DOM 与老 UI put_row/put_column 同构（alas.css:399-427、1102-1135 的 style 标记选择器依赖这些属性）
-function DashEntry({ item }: { item: DashItem }) {
+/** 仪表盘条目（app_dashboard.py:479-547 同构）。
+ *  外层 put_row("20px 1fr") 放 status-point 圆点 + 资源组；
+ *  资源组内 put_row("min-content auto") 放值/上限，再接记录时间。 */
+function dashEntry(item: DashItem): string {
+  const value = item.value === 'None' || !item.value ? '无' : item.value
   const second = item.limit ? ' / ' + item.limit : item.total ? ' (' + item.total + ')' : ''
+  const secondMark = item.limit ? '--dashboard-limit--' : '--dashboard-total--'
   return (
-    <div id={'pywebio-scope-dashboard_' + item.name}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '20px 1fr',
-          alignItems: 'center',
-          height: '100%',
-        }}
-      >
-        <div className="status-point" style={{ backgroundColor: item.color }} />
-        <div id={'pywebio-scope-' + item.name + '_group'}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'min-content auto',
-              alignItems: 'baseline',
-            }}
-          >
-            <span style={{ ['--dashboard-value']: '1' } as React.CSSProperties}>{item.value === 'None' ? '无' : item.value}</span>
-            {second && item.value !== 'None' && (
-              <span style={{ ['--dashboard-limit']: '1' } as React.CSSProperties}>{second}</span>
-            )}
-          </div>
-          <div style={{ ['--dashboard-help']: '1' } as React.CSSProperties}>
-            {DASH_LABEL[item.name]} - {relTime(item.record)}
-          </div>
-        </div>
-      </div>
-    </div>
+    `<div id="pywebio-scope-dashboard_${esc(item.name)}">` +
+    `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 20px 1fr;;;height: 1fr">` +
+    `<div class="status-point" style="background-color:${esc(item.color)}"></div>` +
+    `<div id="pywebio-scope-${esc(item.name)}_group">` +
+    `<div style="display: grid; grid-auto-flow: row; grid-template-rows: auto auto;">` +
+    `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr;;;grid-template-columns:min-content auto;align-items: baseline;">` +
+    putText(value, ';;--dashboard-value--') +
+    putText(second, `;;${secondMark}`) +
+    `</div>` +
+    putText(`${DASH_LABEL[item.name] ?? item.name} - ${relTime(item.record)}`, ';;---dashboard-help--') +
+    `</div></div></div></div>`
   )
 }
-export function Overview() {
+
+export function Overview({ instance }: { instance: string }) {
   const navigate = useNavigate()
-  const [version, setVersion] = useState('')
-  const [instances, setInstances] = useState<Instance[]>([])
-  const [active, setActive] = useState('alas')
   const [ov, setOv] = useState<OverviewResp | null>(null)
   const [dash, setDash] = useState<DashItem[]>([])
+  const [version, setVersion] = useState('')
+  const [autoScroll, setAutoScroll] = useState(true)
+  const [dashboardShown, setDashboardShown] = useState(true)
   const autoScrollRef = useRef(true)
-  const [autoScroll, setAutoScrollState] = useState(true)
-  const setAutoScroll = (v: boolean) => { setAutoScrollState(v); autoScrollRef.current = v }
-  const [header, setHeader] = useState<HeaderResp>({ icon: '', prefix: 'AzurPilot', title: 'AzurPilot' })
-  const [menu, setMenu] = useState<MenuGroup[]>([])
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  autoScrollRef.current = autoScroll
+  const aliveRef = useRef(false)
 
   useEffect(() => {
-    apiGet<VersionResp>('/newapi/version').then(r => setVersion(r.version)).catch(() => {})
-    apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
-    apiGet<MenuResp>('/newapi/menu').then(r => setMenu(r.groups)).catch(() => {})
-    apiGet<InstancesResp>('/newapi/instances').then(r => setInstances(r.instances)).catch(() => {})
+    apiGet<{ version: string }>('/newapi/version').then(r => setVersion(r.version)).catch(() => {})
   }, [])
+
   useEffect(() => {
-    if (!active) return
-    apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
-    apiGet<DashResp>('/newapi/dashboard/' + active).then(r => setDash(r.items)).catch(() => {})
-    const timer = setInterval(() => {
-      apiGet<OverviewResp>('/newapi/overview/' + active).then(next => {
-        // 快照 diff（老 UI _overview_snapshot 语义）：没变化就不触发重渲染
-        setOv(prev => {
-          const sig = JSON.stringify([next.alive, next.running, next.pending, next.waiting])
-          const prevSig = prev ? JSON.stringify([prev.alive, prev.running, prev.pending, prev.waiting]) : ''
-          return sig === prevSig ? prev : next
+    let mounted = true
+    const load = () => {
+      apiGet<OverviewResp>('/newapi/overview/' + instance)
+        .then(next => {
+          if (!mounted) return
+          aliveRef.current = next.alive
+          // 快照 diff（老 UI _overview_snapshot 语义）：无变化不触发重渲染
+          setOv(prev => {
+            const sig = JSON.stringify([next.alive, next.running, next.pending, next.waiting])
+            const prevSig = prev ? JSON.stringify([prev.alive, prev.running, prev.pending, prev.waiting]) : ''
+            return sig === prevSig ? prev : next
+          })
         })
-      }).catch(() => {})
-    }, 15000)  // 老 UI 15s 周期同款
-    // 日志流：增量拉取（游标 since），append 到容器尾部并裁剪旧节点（老 UI put_log 语义）
+        .catch(() => {})
+      apiGet<DashResp>('/newapi/dashboard/' + instance)
+        .then(r => { if (mounted) setDash(r.items) })
+        .catch(() => {})
+    }
+    load()
+    const timer = setInterval(load, 15000) // 老 UI task_handler 15s 周期
+    return () => { mounted = false; clearInterval(timer) }
+  }, [instance])
+
+  // 日志流：增量游标 + DocumentFragment 单次插入 + 分块裁剪（老 UI RichLog.extend 同款）。
+  // 分块而非逐节点裁剪：rich 输出的 span 之间夹着裸文本节点，逐节点删会残留、内存无限涨。
+  //
+  // width 必须与老 UI RichLog.get_width() 同口径，否则 rich 的换行位置不同，
+  // 日志看起来"提前折行"。算法见 module/webui/widgets.py:get_width：
+  //   (容器宽-16) / 容器 font-size * 16 / '0' 字宽，钳在 80..128
+  const measureLogWidth = (scope: HTMLElement): number => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return 80
+    ctx.font = '16px Menlo, consolas, DejaVu Sans Mono, Courier New, monospace'
+    const charWidth = ctx.measureText('0').width || 8.8
+    const fontSize = parseFloat(getComputedStyle(scope).fontSize) || 13.6
+    const raw = ((scope.clientWidth - 16) / fontSize) * (16 / charWidth)
+    if (!isFinite(raw) || raw <= 0) return 80
+    return raw > 128 ? 128 : raw < 80 ? 80 : Math.floor(raw)
+  }
+
+  useEffect(() => {
     let cursor = -1
-    // 页面不可见时暂停轮询（老 UI visibility 任务同语义，省 CPU/带宽）
+    let width = 80
+    let widthMeasured = false
+    let stopped = false
     let visible = !document.hidden
     const onVis = () => { visible = !document.hidden }
     document.addEventListener('visibilitychange', onVis)
-    const logTimer = setInterval(() => {
-      if (!visible) return
-      const el = document.getElementById('pywebio-scope-log')
-      if (!el) return
-      fetch('/newapi/log/' + active + '/tail?since=' + cursor)
-        .then(r => r.ok ? r.json() : null)
-        .then(j => {
-          if (!j) return
+    const tick = () => {
+      if (stopped || !visible) return
+      const scope = document.getElementById('pywebio-scope-log') as HTMLElement | null
+      if (!scope) return
+      if (!widthMeasured) {
+        width = measureLogWidth(scope)
+        widthMeasured = true
+      }
+      fetch(
+        `/newapi/log/${encodeURIComponent(instance)}/tail?since=${cursor}&width=${width}`,
+      )
+        .then(r => (r.ok ? r.json() : null))
+        .then((j: { html: string; cursor: number; full: boolean } | null) => {
+          if (!j || stopped || !j.html) { if (j) cursor = j.cursor; return }
           cursor = j.cursor
-          if (j.full) { el.innerHTML = j.html || '' }
-          else if (j.html) {
-            const frag = document.createDocumentFragment()
-            const span = document.createElement('div')
-            span.innerHTML = j.html
-            while (span.firstChild) frag.appendChild(span.firstChild)
-            el.appendChild(frag)  // 一次性插入，单次回流
-            while (el.childNodes.length > 600) el.removeChild(el.firstChild)
-            if (autoScrollRef.current) el.scrollTop = el.scrollHeight
+          let box = scope.querySelector(':scope>div') as HTMLElement | null
+          if (!box) {
+            // 首帧：容纳块还不存在（React 还没画完），先补容器再按增量写
+            box = document.createElement('div')
+            scope.innerHTML = ''
+            scope.appendChild(box)
           }
-        }).catch(() => {})
-    }, 2000)
-    return () => { clearInterval(timer); clearInterval(logTimer); document.removeEventListener('visibilitychange', onVis) }
-  }, [active])
+          if (j.full) {
+            // 全量重建（游标失效/环形回绕）：只保留一个块，避免旧内容残留
+            const chunk = document.createElement('div')
+            chunk.className = 'alas-log-chunk'
+            chunk.style.display = 'contents'
+            chunk.innerHTML = j.html
+            box.innerHTML = ''
+            box.appendChild(chunk)
+          } else {
+            const chunk = document.createElement('div')
+            chunk.className = 'alas-log-chunk'
+            chunk.style.display = 'contents'
+            chunk.innerHTML = j.html
+            box.appendChild(chunk)
+            // 200 块上限（老 UI RichLog.dom_max_chunks）
+            while (box.children.length > 200) box.removeChild(box.firstElementChild as Node)
+          }
+          if (autoScrollRef.current) {
+            requestAnimationFrame(() => { scope.scrollTop = scope.scrollHeight })
+          }
+        })
+        .catch(() => {})
+    }
+    const timer = setInterval(tick, 2000)
+    const first = setTimeout(tick, 400)
+    return () => {
+      stopped = true
+      clearInterval(timer)
+      clearTimeout(first)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [instance])
 
+  // 事件委托：「调度器启停 / 统计打开 / 自动滚动 / 折叠 / 任务设置」都渲染成 HTML 字符串，
+  // 无法挂 React 事件，统一在容器上按文本分派（与老 UI onclick 语义一致）。
+  const onSchedulersClick = async (ev: React.MouseEvent<HTMLDivElement>) => {
+    const target = (ev.target as HTMLElement).closest('button')
+    if (!target) return
+    const label = (target.textContent ?? '').trim()
+    if (label === '启动' || label === '停止') {
+      const action = label === '停止' ? 'stop' : 'start'
+      try {
+        await fetch(`/newapi/scheduler/${encodeURIComponent(instance)}/${action}`, { method: 'POST' })
+      } catch { /* 网络异常：等 15s 轮询收敛 */ }
+      const next = await apiGet<OverviewResp>('/newapi/overview/' + instance).catch(() => null)
+      if (next) setOv(next)
+      return
+    }
+    if (label === '打开') { navigate('/stat/' + encodeURIComponent(instance)); return }
+    if (label === '设置') {
+      // 找到按钮所属任务卡，取 command 后进配置页
+      const card = target.closest('[id^="pywebio-scope-overview-task_"]') as HTMLElement | null
+      const command = card?.id.replace('pywebio-scope-overview-task_', '') ?? ''
+      if (command) navigate(`/config/${encodeURIComponent(instance)}/${encodeURIComponent(command)}`)
+    }
+  }
+
+  const onLogBarClick = (ev: React.MouseEvent<HTMLDivElement>) => {
+    const target = (ev.target as HTMLElement).closest('button')
+    if (!target) return
+    const label = (target.textContent ?? '').trim()
+    if (label.startsWith('自动滚动')) { setAutoScroll(v => !v); return }
+    if (label === '折叠' || label === '展开') { setDashboardShown(v => !v); return }
+    if (label === '截图预览') { (window as any).alasToggleLivePreview?.(instance); return }
+    if (label === '导出今日日志') { window.open(`/api/log/${encodeURIComponent(instance)}/export`, '_blank') }
+  }
+
+  // ── 总览左右两列（全部为 HTML 字符串，保证 style 标记逐字节同构）───────────
   const alive = ov?.alive ?? false
+  const schedulersHtml =
+    `<div id="pywebio-scope-scheduler-bar">` +
+    putText('调度器', ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    `<div id="pywebio-scope-scheduler_btn"><div><button class="btn ${
+      alive ? 'btn-off' : 'btn-on'
+    }">${alive ? '停止' : '启动'}</button></div></div>` +
+    `</div>` +
+    `<div id="pywebio-scope-stat-bar">` +
+    putText('统计', ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    `<div><button class="btn btn-on">打开</button></div>` +
+    `</div>` +
+    `<div id="pywebio-scope-running">` +
+    putText('运行中') +
+    '<hr class="hr-group">' +
+    `<div id="pywebio-scope-running_tasks">${(ov?.running ?? []).map(taskCard).join('')}</div>` +
+    `</div>` +
+    `<div id="pywebio-scope-pending">` +
+    `<p class="overview-group-title">队列中<span class="overview-task-count" id="overview-count-pending">${
+      ov?.pending.length ?? 0
+    }</span></p>` +
+    '<hr class="hr-group">' +
+    `<div id="pywebio-scope-pending_tasks">${(ov?.pending ?? []).map(taskCard).join('')}</div>` +
+    `</div>` +
+    `<div id="pywebio-scope-waiting">` +
+    `<p class="overview-group-title">等待中<span class="overview-task-count" id="overview-count-waiting">${
+      ov?.waiting.length ?? 0
+    }</span></p>` +
+    '<hr class="hr-group">' +
+    `<div id="pywebio-scope-waiting_tasks">${(ov?.waiting ?? []).map(taskCard).join('')}</div>` +
+    `</div>`
+
+  const logBarHtml =
+    `<div id="pywebio-scope-log-bar">` +
+    putText('日志', ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    `<div id="pywebio-scope-log-bar-btns">` +
+    `<div id="pywebio-scope-log_scroll_btn"><div><button class="btn ${
+      autoScroll ? 'btn-on' : 'btn-off'
+    }">自动滚动 ${autoScroll ? '开' : '关'}</button></div></div>` +
+    `<div><button class="btn btn-off">截图预览</button></div>` +
+    `<div id="pywebio-scope-log_export_btn"><div><button class="btn btn-off">导出今日日志</button></div></div>` +
+    `<div id="pywebio-scope-dashboard_btn"><div><button class="btn btn-off">${
+      dashboardShown ? '折叠' : '展开'
+    }</button></div></div>` +
+    `</div>` +
+    '<hr class="hr-group">' +
+    (dashboardShown ? `<div id="pywebio-scope-dashboard">${dash.map(dashEntry).join('')}</div>` : '<div id="pywebio-scope-dashboard"></div>') +
+    `</div>`
+
   return (
-    <div id="pywebio-scope-ROOT">
-      <header id="pywebio-scope-header">
-        <img className="alas-icon" src={header.icon} alt="AzurPilot" width={42} height={42} style={{ position: 'absolute', left: 12, borderRadius: '50%' }} />
-        <span style={{ position: 'absolute', left: 62, fontSize: 14, fontWeight: 600 }}>{header.prefix}</span>
-        <div id="pywebio-scope-header_title">{active ? '总览' : '主页'}</div>
-        <div className="header-version">Ver.{version}</div>
-      </header>
-      <div id="pywebio-scope-contents">
-        <aside id="pywebio-scope-aside">
-          <div id="pywebio-scope-aside_home" style={asideMark('home')}>
-            <button className="btn-aside" onClick={() => navigate('/')}>主页</button>
-          </div>
-          {instances.map(inst => (
-            <div key={inst.name} id={'pywebio-scope-alas-instance-' + inst.name} style={asideMark(inst.name)}>
-              <button
-                className={'btn-aside' + (active === inst.name ? ' btn-aside-active' : '')}
-                onClick={() => setActive(inst.name)}
-              >
-                {inst.name}
-              </button>
+    <Shell active={instance} title="总览">
+      <div id="pywebio-scope-content">
+        <div id="pywebio-scope-overview">
+          <div
+            id="pywebio-scope-schedulers"
+            onClick={onSchedulersClick}
+            dangerouslySetInnerHTML={{ __html: schedulersHtml }}
+          />
+          <div id="pywebio-scope-logs">
+            <div onClick={onLogBarClick} dangerouslySetInnerHTML={{ __html: logBarHtml }} />
+            {/* log-container 的 style 必须带 --version 变量：alas.css:1182 用
+                ::before content: var(--version) 画右下角版本水印 */}
+            <div
+              id="pywebio-scope-log-container"
+              style={{ ['--version' as string]: `'Ver.${version}'` } as React.CSSProperties}
+            >
+              <div id="pywebio-scope-log">
+                <div />
+              </div>
             </div>
-          ))}
-          <div id="pywebio-scope-aside_manage" style={asideMark('manage')}>
-            <button className="btn-aside">管理</button>
           </div>
-        </aside>
-
-        <nav id="pywebio-scope-menu">
-          <div id="pywebio-scope-task_config_search" className="config-search">
-            <input placeholder="搜索配置" />
-          </div>
-          <div id="pywebio-scope-task_config_menu_items">
-            {menu.map(g => (
-              <div key={g.key}>
-                <div style={menuMark(g.key)}>
-                  <button
-                    className={'btn-menu' + (active === g.key ? ' btn-menu-active' : '')}
-                    onClick={() => setCollapsed(s => ({ ...s, [g.key]: !s[g.key] }))}
-                  >
-                    {g.name}
-                    <span className="menu-arrow">{collapsed[g.key] ? '▶' : '▼'}</span>
-                  </button>
-                </div>
-                {!collapsed[g.key] && g.tasks.map(t => (
-                  <div key={t.key} style={{ paddingLeft: 18, ...menuMark(g.key + '.' + t.key) } as React.CSSProperties}>
-                    <button
-                      className={'btn-menu btn-task' + (active === g.key + '.' + t.key ? ' btn-menu-active' : '')}
-                      onClick={() => navigate(`/config/${active}/${t.key}`)}
-                    >
-                      {t.name}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </nav>
-
-        <main id="pywebio-scope-content">
-          <div id="pywebio-scope-overview">
-            <section id="pywebio-scope-schedulers">
-              <div id="pywebio-scope-scheduler-bar">
-                <p>调度器</p>
-                <div id="pywebio-scope-scheduler_btn">
-                  <button
-                    className="pywebio-btn"
-                    onClick={async () => {
-                      const action = alive ? 'stop' : 'start'
-                      try {
-                        await fetch(`/newapi/scheduler/${active}/${action}`, { method: 'POST' })
-                        apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
-                      } catch {}
-                    }}
-                  >
-                    {alive ? '停止' : '启动'}
-                  </button>
-                </div>
-              </div>
-              <div id="pywebio-scope-stat-bar">
-                <p>统计</p>
-                <div id="pywebio-scope-stat_btn">
-                  <button className="pywebio-btn" onClick={() => navigate('/stat/' + active)}>打开</button>
-                </div>
-              </div>
-              <hr className="hr-group" />
-              <div id="pywebio-scope-running">
-                <p>运行中</p>
-                <div id="pywebio-scope-running_tasks">
-                  {ov && ov.running.length
-                    ? ov.running.map(t => <TaskCard key={t.command} task={t} />)
-                    : <span style={{ ['--overview-notask-text']: '1' } as React.CSSProperties}>无任务</span>}
-                </div>
-              </div>
-              <hr className="hr-group" />
-              <div id="pywebio-scope-pending">
-                <p>队列中<span className="overview-task-count">{ov?.pending.length ?? 0}</span></p>
-                <div id="pywebio-scope-pending_tasks">
-                  {ov?.pending.map(t => <TaskCard key={t.command} task={t} />)}
-                </div>
-              </div>
-              <hr className="hr-group" />
-              <div id="pywebio-scope-waiting">
-                <p>等待中<span className="overview-task-count">{ov?.waiting.length ?? 0}</span></p>
-                <div id="pywebio-scope-waiting_tasks">
-                  {ov?.waiting.map(t => <TaskCard key={t.command} task={t} />)}
-                </div>
-              </div>
-            </section>
-
-            <section id="pywebio-scope-logs">
-              <div id="pywebio-scope-log-bar">
-                <span className="ov-card-title">日志</span>
-                <div id="pywebio-scope-log-bar-btns" className="log-bar-btns">
-                  <button className="log-btn-primary" onClick={() => setAutoScroll(v => !v)}>
-                    {autoScroll ? '自动滚动 开' : '自动滚动 关'}
-                  </button>
-                  <button className="log-btn">截图预览</button>
-                  <button className="log-btn">导出今日日志</button>
-                  <button className="log-btn">折叠</button>
-                </div>
-              </div>
-              <div id="pywebio-scope-dashboard">
-                {dash.map(item => <DashEntry key={item.name} item={item} />)}
-              </div>
-              <div id="pywebio-scope-log-container" className="log-container">
-                <code id="pywebio-scope-log" className="log-body" />
-              </div>
-            </section>
-          </div>
-        </main>
-
-        <div id="pywebio-scope-statistics-content" style={{ display: 'none' }} />
+        </div>
       </div>
-    </div>
+    </Shell>
   )
 }

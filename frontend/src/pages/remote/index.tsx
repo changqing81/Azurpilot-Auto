@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
+import { Shell } from '../../components/Shell'
 
 type RemoteStatus = {
   enabled: boolean; state: number; running: boolean;
@@ -27,6 +28,7 @@ export function RemotePage() {
     } finally { setBusy(false) }
   }
   return (
+    <Shell active="Remote" title="远程控制">
     <div id="pywebio-scope-content" className="config-page">
       <div className="cfg-header">
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
@@ -58,5 +60,6 @@ export function RemotePage() {
         </div>
       </section>
     </div>
+    </Shell>
   )
 }

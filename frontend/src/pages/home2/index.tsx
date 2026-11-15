@@ -1,13 +1,18 @@
-// 主页 HomePage（对照 app_home.py show_home:395-494）。
-// 语言选择 4 按钮 + 主题选择 5 按钮 + 下载当前背景图 + 背景管理 4 按钮 + 免责声明。
-// 壁纸背景（--alas-apple-bg-image CSS 变量）与图源竞赛（alasWallpaperRace）沿用 assets/gui/js/alas-utils.js 现成实现。
-import { useNavigate } from 'react-router-dom'
+// 主页 HomePage：与老 UI（app_home.py:show_home:395-494）1:1 同构。
+//
+// 实测老 UI DOM（.workbuddy/perf/out/oldui-ref/oldui_home_content.html）：
+//   #pywebio-scope-content > p(text-align:center;font-weight:600) + div(text-align:center)>button.btn.btn-primary …
+// 语言按钮 = btn-primary；主题按钮按主题色：Light→btn-light / Dark→btn-dark /
+// 高级材质→btn-primary / 高级材质（暗色）→btn-dark / 透明→btn-light；
+// 背景管理 4 按钮 = btn-light / btn-dark / btn-light / btn-light。
 import { useEffect } from 'react'
 import { Shell } from '../../components/Shell'
 import { apiGet } from '../../api/client'
+import { btn, btnGroup, putText } from '../../lib/pywebio'
 
-// 壁纸竞赛（移植 app_home.py:_WALLPAPER_RACE_JS → TS）：候选并发下载，最快者胜。
 type RaceCandidate = { url: string; video?: boolean }
+
+// 壁纸竞赛（app_home.py:_WALLPAPER_RACE_JS 的 TS 移植）：候选并发下载，最快者胜。
 let raceDone = false
 let raceTimer: ReturnType<typeof setTimeout> | null = null
 let raceImages: (HTMLImageElement | HTMLVideoElement)[] = []
@@ -17,7 +22,7 @@ function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVi
   raceDone = true
   if (raceTimer) clearTimeout(raceTimer)
   ;(window as any).__alasWallpaperWinner = winner ?? null
-  raceImages.forEach(item => { if (item !== el) { try { (item as any).src = '' } catch {} } })
+  raceImages.forEach(item => { if (item !== el) { try { (item as any).src = '' } catch { /* 忽略 */ } } })
   const existing = document.getElementById('alas-custom-bg-style')
   if (winner?.video && el) {
     document.getElementById('alas-bg-video')?.remove()
@@ -31,7 +36,7 @@ function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVi
     el.setAttribute('playsinline', '')
     document.body.appendChild(el)
     const p = (el as HTMLVideoElement).play()
-    if (p && p.catch) p.catch(() => {})
+    if (p && p.catch) p.catch(() => { /* 自动播放被拦，保留静帧 */ })
   } else if (winner?.url) {
     existing?.remove()
     document.documentElement.style.setProperty('--alas-apple-bg-image', `url("${winner.url}")`)
@@ -42,16 +47,17 @@ function startOne(c: RaceCandidate) {
   let el: HTMLImageElement | HTMLVideoElement
   if (c.video) {
     const v = document.createElement('video')
-    v.muted = true; v.preload = 'auto'
+    v.muted = true
+    v.preload = 'auto'
     v.setAttribute('playsinline', '')
     v.oncanplay = () => finishRace(c, v)
-    v.onerror = () => {}
+    v.onerror = () => { /* 该候选失败，等其它候选 */ }
     v.src = c.url
     el = v
   } else {
     const img = new Image()
     img.onload = () => finishRace(c, img)
-    img.onerror = () => {}
+    img.onerror = () => { /* 该候选失败，等其它候选 */ }
     img.src = c.url
     el = img
   }
@@ -67,99 +73,81 @@ function wallpaperRace(candidates: RaceCandidate[]) {
   candidates.forEach(startOne)
 }
 
-
 const LANGS = [
   { label: '简体中文', value: 'zh-CN' },
   { label: '繁體中文', value: 'zh-TW' },
   { label: 'English', value: 'en-US' },
   { label: '日本語', value: 'ja-JP' },
 ]
+// 「主题按钮颜色」与 app_home.py:420-441 的 put_buttons color 一一对应
 const THEMES = [
-  { name: 'Light', value: 'light' },
-  { name: 'Dark', value: 'dark' },
-  { name: '高级材质', value: 'advanced_material' },
-  { name: '高级材质（暗色）', value: 'dark_advanced_material' },
-  { name: '透明', value: 'transparent' },
+  { name: 'Light', value: 'light', color: 'light' },
+  { name: 'Dark', value: 'dark', color: 'dark' },
+  { name: '高级材质', value: 'advanced_material', color: 'primary' },
+  { name: '高级材质（暗色）', value: 'dark_advanced_material', color: 'dark' },
+  { name: '透明', value: 'transparent', color: 'light' },
 ]
 
+async function writeDeploySetting(patch: Record<string, string>) {
+  const r = await fetch('/api/deploy/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (!r.ok) throw new Error('HTTP ' + r.status)
+}
+
 export function HomePageMain() {
-  const navigate = useNavigate()
-
-  const downloadWallpaper = () => {
-    const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
-    if (!winner?.url) return
-    window.open(winner.url, '_blank')
-  }
-
   useEffect(() => {
     apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
       .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
-      .catch(() => {})
+      .catch(() => { /* 图源不可用：保持纯色背景 */ })
   }, [])
+
+  const onClick = (patch: Record<string, string>) => async () => {
+    try { await writeDeploySetting(patch); location.reload() } catch { /* 写盘失败：不刷新，避免误导 */ }
+  }
+
+  const downloadWallpaper = () => {
+    const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
+    if (winner?.url) window.open(winner.url, '_blank')
+  }
+
+  const html =
+    putText('Select your language / 选择语言', ';;text-align: center; font-weight: 600') +
+    btnGroup(LANGS.map(l => btn(l.label, 'primary')).join('')) +
+    putText('Change theme / 更改主题', ';;text-align: center') +
+    btnGroup(THEMES.map(t => btn(t.name, t.color)).join('')) +
+    btnGroup(btn('下载当前背景图', 'light')) +
+    putText('Background / 背景', ';;text-align: center; font-weight: 600') +
+    btnGroup(
+      btn('上传自定义背景', 'light') + btn('随机背景', 'dark') + btn('管理图源', 'light') + btn('媒体类型', 'light'),
+    ) +
+    '<div class="alas-home-marker" aria-hidden="true"></div>' +
+    putText(
+      'AzurPilot 是基于上游项目 Alas (AzurLaneAutoScript) 的修改版本，采用 GPL-3.0 许可证，免费开源。'
+        + '如果你在任何渠道付费购买，那你一定是个大傻逼，请申请退款。',
+      ';;text-align: center',
+    )
+
+  // 按钮点击用事件委托（HTML 是字符串注入的，没法挂 React onClick）
+  const ref = (el: HTMLDivElement | null) => {
+    if (!el) return
+    el.onclick = (ev) => {
+      const target = (ev.target as HTMLElement).closest('button')
+      if (!target) return
+      const label = target.textContent ?? ''
+      const lang = LANGS.find(l => l.label === label)
+      if (lang) { void onClick({ Language: lang.value })(); return }
+      const theme = THEMES.find(t => t.name === label)
+      if (theme) { void onClick({ Theme: theme.value })(); return }
+      if (label === '下载当前背景图') downloadWallpaper()
+    }
+  }
+
   return (
-    <Shell active="home">
-      <div id="pywebio-scope-content" className="home-page">
-      <div className="home-section">
-        <div className="home-title">Select your language / 选择语言</div>
-        <div className="home-btns">
-          {LANGS.map(l => (
-            <button
-              key={l.value}
-              className="log-btn-primary"
-              onClick={async () => {
-                await fetch('/api/deploy/settings', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ Language: l.value }),
-                })
-                location.reload()
-              }}
-            >
-              {l.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="home-section">
-        <div className="home-title">Change theme / 更改主题</div>
-        <div className="home-btns">
-          {THEMES.map(t => (
-            <button
-              key={t.value}
-              className="log-btn"
-              onClick={async () => {
-                await fetch('/api/deploy/settings', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ Theme: t.value }),
-                })
-                location.reload()
-              }}
-            >
-              {t.name}
-            </button>
-          ))}
-        </div>
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
-          <button className="log-btn" onClick={downloadWallpaper}>下载当前背景图</button>
-        </div>
-      </div>
-      <div className="home-section">
-        <div className="home-title">Background / 背景</div>
-        <div className="home-btns">
-          <button className="log-btn">上传自定义背景</button>
-          <button className="log-btn-primary">随机背景</button>
-          <button className="log-btn">管理图源</button>
-          <button className="log-btn">媒体类型</button>
-        </div>
-      </div>
-      <hr className="hr-group" />
-      <p style={{ textAlign: 'center', fontSize: 14, padding: '16px 12%' }}>
-        AzurPilot 是基于上游项目 Alas (AzurLaneAutoScript) 的修改版本，采用 GPL-3.0
-        许可证，免费开源。如果你在任何渠道付费购买，那你一定是个大傻逼，请申请退款。
-      </p>
-      <div className="alas-home-marker" aria-hidden="true" />
-    </div>
+    <Shell active="Home" title="主页">
+      <div id="pywebio-scope-content" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />
     </Shell>
   )
 }

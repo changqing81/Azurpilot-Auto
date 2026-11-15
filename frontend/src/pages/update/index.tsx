@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
+import { Shell } from '../../components/Shell'
 
 type Commit = { sha: string; author: string; time: string; message: string }
 type UpdateResp = { branch: string; local: Commit; upstream: Commit[] }
@@ -15,6 +16,7 @@ export function UpdatePage() {
     fetch('/changelog.json').then(r => r.json()).then(setChangelog).catch(() => {})
   }, [])
   return (
+    <Shell active="Update" title="更新器">
     <div id="pywebio-scope-content" className="config-page">
       <div className="cfg-header">
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
@@ -59,5 +61,6 @@ export function UpdatePage() {
         </section>
       )}
     </div>
+    </Shell>
   )
 }

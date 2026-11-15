@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiGet } from '../../api/client'
+import { Shell } from '../../components/Shell'
 
 type ArgOption = { label: string; value: string }
 type Arg = {
@@ -56,6 +57,7 @@ export function ConfigPage() {
   }
 
   return (
+    <Shell active={task} title="配置">
     <div id="pywebio-scope-content" className="config-page">
       <div className="cfg-header">
         <h2>{task}</h2>
@@ -99,5 +101,6 @@ export function ConfigPage() {
         </section>
       ))}
     </div>
+    </Shell>
   )
 }

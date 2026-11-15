@@ -15,13 +15,17 @@ fetch('/newapi/theme-css')
   })
   .catch(() => {})
 
-// 与老 UI 同构：body 需要 PyWebIO 的主题类名，否则主题 CSS 的 body.* 规则不生效
-document.body.className = 'webio-theme-' + (document.body.className || 'default').trim() || 'webio-theme-default'
+// 与老 UI 同构：body 需要 PyWebIO 的主题类名（webio-theme-default），
+// 否则主题 CSS 里 body.webio-theme-* 的规则不生效。index.html 已带该类时不再重复加前缀。
+if (!/\bwebio-theme-/.test(document.body.className)) {
+  document.body.className = ('webio-theme-default ' + document.body.className).trim()
+}
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Overview } from './pages/home'
+import { useParams as useParamsForOverview } from 'react-router-dom'
 import { HomePageMain } from './pages/home2'
 import { ConfigPage } from './pages/config'
 import { StatPage } from './pages/stat'
@@ -32,13 +36,19 @@ import { OobePage } from './pages/oobe'
 import { ToolPage } from './pages/tool'
 import './styles/shell.css'
 
+// 总览页需要实例名（=ProcessManager 的 config_name），从路由参数取后透传。
+function OverviewRoute() {
+  const { name = 'alas' } = useParamsForOverview()
+  return <Overview instance={name} />
+}
+
 // 新 UI 入口。路由用 hash 模式：避免与老 UI 的服务端路由 / scope 约定冲突。
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
       <Routes>
         <Route path="/" element={<HomePageMain />} />
-        <Route path="/overview/:name" element={<Overview />} />
+        <Route path="/overview/:name" element={<OverviewRoute />} />
         <Route path="/config/:name/:task" element={<ConfigPage />} />
         <Route path="/stat/:name" element={<StatPage />} />
         <Route path="/settings/:name" element={<SettingsPage />} />

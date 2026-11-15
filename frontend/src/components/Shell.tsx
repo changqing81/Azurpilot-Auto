@@ -1,6 +1,24 @@
-// 页面壳：Bootstrap 容器链 + 侧栏 + 菜单树 + 内容区。
-// 容器链必须与老 UI 同构（PyWebIO 的 .pywebio > #output-container.container > #markdown-body > ROOT），
-// 否则主题 CSS 的大量后代选择器不生效，页面会呈现"裸"布局。
+// 页面壳：与老 UI（PyWebIO）1:1 同构的 DOM 输出。
+//
+// 结构来源（已实测老 UI 真实 DOM，见 .workbuddy/perf/out/oldui-ref/oldui_overview_root.html）：
+//   BODY.webio-theme-default.no-animation
+//     > DIV.pywebio
+//       > DIV#output-container.container.no-fix-height
+//         > DIV#markdown-body.markdown-body
+//           > DIV#pywebio-scope-ROOT
+//             > DIV#pywebio-scope-header
+//             > DIV#pywebio-scope-contents
+//               > DIV#pywebio-scope-aside
+//               > DIV#pywebio-scope-menu
+//               > DIV#pywebio-scope-content
+//               > DIV#pywebio-scope-statistics-content（常驻隐藏）
+//
+// 必须同构的原因：alas.css / light-alas.css / advanced-material-alas.css 里
+// 大量规则是「后代选择器 + 内联 style 子串匹配」，例如
+//   #pywebio-scope-ROOT { height:100vh; display:grid; grid-template-rows: auto 1fr }
+//   *[style*="--header-text--"] { font-size:1rem; font-weight:bold }
+//   div[style*="--menu-X--"]>button { ... }
+// 所以 aside/menu/header 也必须是同一套 id 与标记。
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../api/client'
@@ -9,102 +27,179 @@ type Instance = { name: string; state: number }
 type InstancesResp = { instances: Instance[] }
 type MenuGroup = { key: string; name: string; page: string; tasks: { key: string; name: string }[] }
 type MenuResp = { groups: MenuGroup[] }
+type HeaderResp = { icon: string; prefix: string; title: string }
 
-export function asideMark(name: string): React.CSSProperties {
-  return { ['--aside-' + name]: '1' } as React.CSSProperties
-}
-export function menuMark(name: string): React.CSSProperties {
-  return { ['--menu-' + name]: '1' } as React.CSSProperties
+// 侧栏图标 SVG（与 assets/gui/icon/*.svg 一致；老 UI 用 filepath_icon 读盘后内联）
+const ICON = {
+  develop: `<svg class="aside-icon icon-develop" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <rect x="140" y="180" width="744" height="520" rx="100" fill="none" stroke="currentColor" stroke-width="80"></rect>
+    <path d="M360 380l-80 60 80 60M664 380l80 60-80 60M540 320l-60 240M340 820h344" fill="none" stroke="currentColor" stroke-width="80" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>`,
+  run: `<svg class="aside-icon icon-run" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <path d="M320 200c-40-22-90 6-90 52v520c0 46 50 74 90 52l440-260c40-22 40-78 0-100L320 200z" fill="none" stroke="currentColor" stroke-width="80" stroke-linejoin="round" stroke-linecap="round"></path>
+</svg>`,
+  running: `<svg class="aside-icon icon-running-state" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="512" cy="512" r="420" fill="none" stroke="#2ECC71" stroke-width="120" stroke-linecap="round" stroke-dasharray="800 2640">
+        <animateTransform attributeName="transform" type="rotate" from="0 512 512" to="360 512 512" dur="1.2s" repeatCount="indefinite"></animateTransform>
+    </circle>
+    <rect x="312" y="312" width="400" height="400" rx="80" fill="currentColor"></rect>
+</svg>`,
+  setting: `<svg class="aside-icon icon-setting" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs><mask id="gear-hole"><rect width="1024" height="1024" fill="white"></rect><circle cx="512" cy="512" r="175" fill="black"></circle></mask></defs>
+    <g mask="url(#gear-hole)" fill="currentColor">
+        <circle cx="512" cy="512" r="320"></circle>
+        <rect x="432" y="72" width="160" height="880" rx="60" transform="rotate(0, 512, 512)"></rect>
+        <rect x="432" y="72" width="160" height="880" rx="60" transform="rotate(45, 512, 512)"></rect>
+        <rect x="432" y="72" width="160" height="880" rx="60" transform="rotate(90, 512, 512)"></rect>
+        <rect x="432" y="72" width="160" height="880" rx="60" transform="rotate(135, 512, 512)"></rect>
+    </g>
+</svg>`,
 }
 
-export function Shell({ active, children, headerTitle }: { active: string; children: React.ReactNode; headerTitle?: string }) {
+/** put_icon_buttons 同构（module/webui/widgets.py:447-481）。
+ * 外层 put_column（grid-template-rows: 0）→ 图标行（相对定位 + z-index 3/4）→
+ * 按钮行（style 带 --aside-{value}--）。aside 高亮 CSS 靠的就是这个 style 标记。 */
+function iconButton(icon: string, label: string, value: string, active: boolean): string {
+  const stateIcon = ''
+  return (
+    `<div style="display: grid; grid-auto-flow: row; grid-template-rows: 0;">` +
+    `<div style="position: relative; width: 4rem; display: flex; justify-content: center; pointer-events: none;">` +
+    `<div style="z-index: 3;">${icon}</div>` +
+    `<div style="z-index: 4; position: absolute; margin-left: 24px;">${stateIcon}</div>` +
+    `</div>` +
+    `<div style=";;z-index: 2; --aside-${value}--;">` +
+    `<button class="btn btn-aside${active ? ' btn-aside-active' : ''}">${label}</button>` +
+    `</div></div>`
+  )
+}
+
+export function Shell({
+  active,
+  title,
+  children,
+}: {
+  active: string
+  title: string
+  children: React.ReactNode
+}) {
   const navigate = useNavigate()
   const [instances, setInstances] = useState<Instance[]>([])
   const [menu, setMenu] = useState<MenuGroup[]>([])
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [instNames, setInstNames] = useState<string[]>([])
+  const [header, setHeader] = useState<HeaderResp>({
+    icon: '/static/assets/spa/spa-icon-192x192.png',
+    prefix: '待到山花烂漫时，她在丛中笑',
+    title: 'AzurPilot',
+  })
 
   useEffect(() => {
-    apiGet<InstancesResp>('/newapi/instances').then(r => setInstances(r.instances)).catch(() => {})
+    apiGet<InstancesResp>('/newapi/instances').then(r => { setInstances(r.instances); setInstNames(r.instances.map(i => i.name)) }).catch(() => {})
     apiGet<MenuResp>('/newapi/menu').then(r => setMenu(r.groups)).catch(() => {})
+    apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
   }, [])
 
-  const instance = active === 'home' ? (instances[0]?.name ?? 'alas') : active
+  // 当前实例名（菜单跳转用）：优先当前页 active，回退第一个实例
+  const instanceName = instNames.includes(active) ? active : instNames[0] ?? 'alas'
+
+  // 侧栏/菜单由 HTML 字符串注入，导航靠事件委托（与老 UI onclick 语义一致）。
+  const asideRef = (el: HTMLDivElement | null) => {
+    if (!el) return
+    el.onclick = (ev) => {
+      const btnEl = (ev.target as HTMLElement).closest('button')
+      if (!btnEl) return
+      const label = (btnEl.textContent ?? '').trim()
+      if (label === '主页') { navigate('/'); return }
+      if (label === '管理') { navigate('/manage'); return }
+      // 实例按钮：进对应实例的总览页
+      const holder = btnEl.closest('[style*="--aside-"]') as HTMLElement | null
+      const mark = holder?.getAttribute('style') ?? ''
+      const m = mark.match(/--aside-(.+?)--/)
+      if (m && m[1] !== 'Home' && m[1] !== 'Manage') navigate('/overview/' + encodeURIComponent(m[1]))
+    }
+  }
+  const menuRef = (el: HTMLDivElement | null) => {
+    if (!el) return
+    el.onclick = (ev) => {
+      const btnEl = (ev.target as HTMLElement).closest('button')
+      if (!btnEl) return
+      const holder = btnEl.closest('[style*="--menu-"]') as HTMLElement | null
+      const mark = holder?.getAttribute('style') ?? ''
+      const m = mark.match(/--menu-(.+?)--/)
+      if (!m) return
+      const key = m[1]
+      if (key === 'Overview') { navigate('/overview/' + encodeURIComponent(instanceName)); return }
+      if (key === 'HomePage') { navigate('/'); return }
+      if (key === 'Update') { navigate('/update'); return }
+      if (key === 'Remote') { navigate('/remote'); return }
+      if (key === 'Setting') { navigate('/settings/' + encodeURIComponent(instanceName)); return }
+      navigate(`/config/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
+    }
+  }
+
+  // 侧栏实例图标随运行状态切换（ProcessManager.state: 1 运行中 / 3 异常 / 4 更新中 / 其他 空闲）
+  const instanceIcon = (state: number) => (state === 1 ? ICON.running : ICON.run)
+
+  const asideHtml =
+    `<div id="pywebio-scope-aside_home">` +
+    iconButton(ICON.develop, '主页', 'Home', active === 'Home') +
+    `</div>` +
+    `<div id="pywebio-scope-aside_instance">` +
+    instances
+      .map((inst, i) =>
+        `<div id="pywebio-scope-alas-instance-${i}">` +
+        iconButton(instanceIcon(inst.state), inst.name, inst.name, active === inst.name) +
+        `</div>`,
+      )
+      .join('') +
+    `</div>` +
+    `<div id="pywebio-scope-aside_manage">` +
+    iconButton(ICON.setting, '管理', 'Manage', active === 'Manage') +
+    `</div>`
+
+  // 菜单树：老 UI 是 task_config_search + task_config_menu_items，分组用 <details><summary>
+  const menuHtml =
+    `<div id="pywebio-scope-task_config_search">` +
+    `<div class="form-group" style=";;--task-config-search-input--">` +
+    `<input type="text" class="form-control" name="config_search_keyword" value="" placeholder="搜索配置">` +
+    `<div class="invalid-feedback"></div><div class="valid-feedback"></div>` +
+    `<small class="form-text text-muted"></small></div></div>` +
+    `<div id="pywebio-scope-task_config_search_results"></div>` +
+    `<div id="pywebio-scope-task_config_menu_items">` +
+    menu
+      .map(g => {
+        const btn = `<div style=";;--menu-${g.key}--;"><button class="btn btn-menu${
+          active === g.key ? ' btn-menu-active' : ''
+        }">${g.name}</button></div>`
+        if (!g.tasks.length) return btn
+        const children = g.tasks
+          .map(
+            t =>
+              `<div style=";;--menu-${t.key}--;"><button class="btn btn-menu${
+                active === t.key ? ' btn-menu-active' : ''
+              }">${t.name}</button></div>`,
+          )
+          .join('')
+        return `<details><summary>${g.name}</summary>${children}</details>`
+      })
+      .join('') +
+    `</div>`
 
   return (
     <div className="pywebio">
       <div id="output-container" className="container no-fix-height">
         <div id="markdown-body" className="markdown-body">
           <div id="pywebio-scope-ROOT">
-            <header id="pywebio-scope-header">
-              <img
-                className="alas-icon"
-                src="/static/assets/spa/spa-icon-192x192.png"
-                alt="AzurPilot"
-                width={42}
-                height={42}
-                style={{ position: 'absolute', left: 12, borderRadius: '50%' }}
-              />
-              <span style={{ position: 'absolute', left: 62, fontSize: 14, fontWeight: 600 }}>
-                待到山花烂漫时，她在丛中笑
-              </span>
-              <div id="pywebio-scope-header_status" />
-              <div id="pywebio-scope-header_title">{headerTitle ?? 'AzurPilot'}</div>
-            </header>
+            <div id="pywebio-scope-header">
+              <img className="alas-icon" src={header.icon} alt="AzurPilot" width={42} height={42} style={{ ['--header-icon--' as string]: '1' } as React.CSSProperties} />
+              <p style={{ whiteSpace: 'pre-wrap', ['--header-text--' as string]: '1' } as React.CSSProperties}>{header.prefix}</p>
+              <div id="pywebio-scope-header_status"></div>
+              <div id="pywebio-scope-header_title"><p style={{ whiteSpace: 'pre-wrap' }}>{title}</p></div>
+            </div>
             <div id="pywebio-scope-contents">
-              <aside id="pywebio-scope-aside">
-                <div id="pywebio-scope-aside_home" style={asideMark('home')}>
-                  <button className={'btn-aside' + (active === 'home' ? ' btn-aside-active' : '')} onClick={() => navigate('/')}>
-                    主页
-                  </button>
-                </div>
-                {instances.map(inst => (
-                  <div key={inst.name} id={'pywebio-scope-alas-instance-' + inst.name} style={asideMark(inst.name)}>
-                    <button
-                      className={'btn-aside' + (active === inst.name ? ' btn-aside-active' : '')}
-                      onClick={() => navigate('/overview/' + inst.name)}
-                    >
-                      {inst.name}
-                    </button>
-                  </div>
-                ))}
-                <div id="pywebio-scope-aside_manage" style={asideMark('manage')}>
-                  <button className="btn-aside" onClick={() => navigate('/settings/' + instance)}>
-                    管理
-                  </button>
-                </div>
-              </aside>
-              <nav id="pywebio-scope-menu">
-                <div id="pywebio-scope-task_config_search" className="config-search">
-                  <input placeholder="搜索配置" />
-                </div>
-                <div id="pywebio-scope-task_config_menu_items">
-                  {menu.map(g => (
-                    <div key={g.key}>
-                      <div style={menuMark(g.key)}>
-                        <button
-                          className={'btn-menu' + (active === g.key ? ' btn-menu-active' : '')}
-                          onClick={() => setCollapsed(s => ({ ...s, [g.key]: !s[g.key] }))}
-                        >
-                          {g.name}
-                          <span className="menu-arrow">{collapsed[g.key] ? '▶' : '▼'}</span>
-                        </button>
-                      </div>
-                      {!collapsed[g.key] && g.tasks.map(t => (
-                        <div key={t.key} style={{ paddingLeft: 18, ...menuMark(g.key + '.' + t.key) } as React.CSSProperties}>
-                          <button
-                            className={'btn-menu btn-task' + (active === g.key + '.' + t.key ? ' btn-menu-active' : '')}
-                            onClick={() => navigate(`/config/${instance}/${t.key}`)}
-                          >
-                            {t.name}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </nav>
+              <div id="pywebio-scope-aside" ref={asideRef} dangerouslySetInnerHTML={{ __html: asideHtml }} />
+              <div id="pywebio-scope-menu" ref={menuRef} dangerouslySetInnerHTML={{ __html: menuHtml }} />
               {children}
-              <div id="pywebio-scope-statistics-content" style={{ display: 'none' }} />
+              <div id="pywebio-scope-statistics-content" style={{ display: 'none' }}></div>
             </div>
           </div>
         </div>
