@@ -251,3 +251,64 @@ def get_menu() -> dict:
             "tasks": tasks,
         })
     return {"groups": groups}
+
+def get_task_config(name: str, task: str) -> dict:
+    """配置页 schema+值（等价 alas_set_group 的数据面）。
+
+    合并三源：args.json（type/value/option/display）+ config/{name}.json（用户当前值）
+    + zh-CN.json（Group.Arg.name/help/option 标签翻译）。display=hide 的项不输出。
+    """
+    import os as _os
+
+    from module.config.config import AzurLaneConfig
+
+    arg_dir = _os.path.join(_os.path.dirname(__file__), "..", "config", "argument")
+    try:
+        args = read_file(_os.path.join(arg_dir, "args.json"))
+        i18n = read_file(_os.path.join(_os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json"))
+        task_def = args.get(task)
+        if task_def is None:
+            return {"task": task, "groups": [], "error": f"未知任务 {task}"}
+        config = AzurLaneConfig(name, task=None)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 任务配置读取失败({name}/{task}): {e}")
+        return {"task": task, "groups": [], "error": str(e)}
+
+    groups = []
+    for group_name, group_body in task_def.items():
+        if group_name.startswith("_") or group_name in ("Scheduler",):
+            continue
+        group_i18n = i18n.get(group_name, {})
+        rows = []
+        for arg_name, arg in group_body.items():
+            if arg_name.startswith("_"):
+                continue
+            display = arg.get("display", "show")
+            if display == "hide":
+                continue
+            arg_i18n = group_i18n.get(arg_name, {})
+            # 当前值优先用户配置，缺省用 args.json 默认
+            from module.config.deep import deep_get
+
+            current = deep_get(config.data, f"{task}.{group_name}.{arg_name}")
+            if current is None:
+                current = arg.get("value")
+            item: dict[str, Any] = {
+                "name": arg_name,
+                "title": str(arg_i18n.get("name") or arg_name),
+                "help": str(arg_i18n.get("help") or ""),
+                "type": arg.get("type", "input"),
+                "value": current,
+                "option": [
+                    {"label": str(arg_i18n.get(opt) or opt), "value": opt}
+                    for opt in (arg.get("option") or [])
+                ],
+            }
+            rows.append(item)
+        if rows:
+            groups.append({
+                "group": group_name,
+                "title": str(group_i18n.get("_info", {}).get("name") or group_name),
+                "args": rows,
+            })
+    return {"task": task, "groups": groups}
