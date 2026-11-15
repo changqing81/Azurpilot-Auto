@@ -390,3 +390,17 @@ def get_resource_delta(name: str, days: int = 7) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 资源变动数据失败({name}): {e}")
         return {"timeline": [], "summary": {}, "ranking": []}
+
+def get_commission_income(name: str) -> dict:
+    """委托收益面板（app_stat_commission.py:_load_commission_income_data 简化口径：本月）。"""
+    from datetime import datetime
+
+    try:
+        from module.statistics.commission_income_stats import get_commission_income_summary
+
+        now = datetime.now()
+        summary = get_commission_income_summary(name, period="month", year=now.year, month=now.month)
+        return {"period": f"{now.year}-{now.month:02d}", "summary": summary}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 委托收益数据失败({name}): {e}")
+        return {"period": "", "summary": {}}
