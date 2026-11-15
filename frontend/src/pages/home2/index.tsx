@@ -68,7 +68,12 @@ function wallpaperRace(candidates: RaceCandidate[]) {
 }
 
 
-const LANGS = ['简体中文', '繁體中文', 'English', '日本語']
+const LANGS = [
+  { label: '简体中文', value: 'zh-CN' },
+  { label: '繁體中文', value: 'zh-TW' },
+  { label: 'English', value: 'en-US' },
+  { label: '日本語', value: 'ja-JP' },
+]
 const THEMES = [
   { name: 'Light', value: 'light' },
   { name: 'Dark', value: 'dark' },
@@ -97,13 +102,43 @@ export function HomePageMain() {
       <div className="home-section">
         <div className="home-title">Select your language / 选择语言</div>
         <div className="home-btns">
-          {LANGS.map(l => <button key={l} className="log-btn-primary">{l}</button>)}
+          {LANGS.map(l => (
+            <button
+              key={l.value}
+              className="log-btn-primary"
+              onClick={async () => {
+                await fetch('/api/deploy/settings', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ Language: l.value }),
+                })
+                location.reload()
+              }}
+            >
+              {l.label}
+            </button>
+          ))}
         </div>
       </div>
       <div className="home-section">
         <div className="home-title">Change theme / 更改主题</div>
         <div className="home-btns">
-          {THEMES.map(t => <button key={t.value} className="log-btn">{t.name}</button>)}
+          {THEMES.map(t => (
+            <button
+              key={t.value}
+              className="log-btn"
+              onClick={async () => {
+                await fetch('/api/deploy/settings', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ Theme: t.value }),
+                })
+                location.reload()
+              }}
+            >
+              {t.name}
+            </button>
+          ))}
         </div>
         <div style={{ textAlign: 'center', marginTop: 12 }}>
           <button className="log-btn" onClick={downloadWallpaper}>下载当前背景图</button>
