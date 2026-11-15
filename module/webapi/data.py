@@ -463,3 +463,36 @@ def get_fleet_tech(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 科技列表失败({name}): {e}")
         return {"rows": [], "error": str(e), "total": 0}
+
+def get_mind_calculator(name: str) -> dict:
+    """心智计算器面板（app_mind_calculator_tab.py:_mc_load 同链路：清单+实时计算）。"""
+    from module.config.config import AzurLaneConfig
+    from module.config.deep import deep_get
+    from module.runtime import mind_calculator as mind_calc
+
+    try:
+        config = AzurLaneConfig(name, task=None)
+        data = config.read_file(name)
+        stored = deep_get(data, mind_calc.RESULT_PATH, {})
+        stored = stored if isinstance(stored, dict) else {}
+        ships = stored.get("ships", [])
+        if not isinstance(ships, list):
+            ships = []
+        result = mind_calc.calculate(ships)
+        def _safe(v):
+            if isinstance(v, (str, int, float, bool)) or v is None:
+                return v
+            if isinstance(v, (list, tuple)):
+                return [_safe(x) for x in v]
+            if isinstance(v, dict):
+                return {str(k): _safe(x) for k, x in v.items()}
+            return str(v)
+        return {
+            "ships": [_safe(s) for s in ships],
+            "result": _safe(result),
+            "updated_at": str(stored.get("updated_at", "")),
+            "total": len(ships),
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 心智计算器失败({name}): {e}")
+        return {"ships": [], "error": str(e), "total": 0}

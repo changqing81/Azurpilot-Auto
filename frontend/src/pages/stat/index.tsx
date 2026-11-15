@@ -7,6 +7,7 @@ import { DeltaSummary } from './DeltaPanel'
 import { OpsiPanel } from './OpsiPanel'
 import { ResearchPanel } from './ResearchPanel'
 import { FleetTechPanel } from './FleetTechPanel'
+import { MindPanel } from './MindPanel'
 import { CommissionIncome } from './CommissionPanel'
 import { apiGet } from '../../api/client'
 
@@ -108,7 +109,7 @@ export function StatPage() {
         {tab === 'mind' && (
           <div id="st-panel-mind" className="ov-card st-panel">
             <div className="ov-card-title">心智计算器</div>
-            <div className="st-placeholder">心智计算器接入中</div>
+            <MindPanel name={name} />
           </div>
         )}
       </div>
