@@ -166,3 +166,41 @@ def get_overview(name: str) -> dict:
         "waiting": _rows(config.waiting_task),
         "alive": alive,
     }
+
+def get_log_tail(name: str, limit: int = 200) -> dict:
+    """日志尾部 HTML（复用老 UI RichLog 渲染链：ProcessManager.renderables → HTMLConsole）。
+
+    与老 UI 同进程运行时（mount_webapi 挂进现有 asgi_app）renderables 直接可读；
+    独立运行（无 WebUI 会话）时返回空。渲染缓存复用 RichLog._html_cache。
+    """
+    from module.webui.process_manager import ProcessManager
+
+    pm = ProcessManager._processes.get(name)
+    if pm is None:
+        return {"chunks": [], "html": ""}
+    renderables = list(pm.renderables)[-limit:]
+    if not renderables:
+        return {"chunks": [], "html": ""}
+    try:
+        from module.logger import HTMLConsole, Highlighter, WEB_THEME
+        from module.webui.utils import (
+            DARK_TERMINAL_THEME, LIGHT_TERMINAL_THEME, LOG_CODE_FORMAT, State,
+        )
+
+        theme_name = getattr(State, "theme", "light") or "light"
+        terminal_theme = DARK_TERMINAL_THEME if theme_name in ("dark", "dark_advanced_material") else LIGHT_TERMINAL_THEME
+        console = HTMLConsole(
+            force_terminal=False, force_interactive=False, width=80,
+            color_system="truecolor", markup=False, record=True, safe_box=False,
+            highlighter=Highlighter(), theme=WEB_THEME,
+        )
+        with console.capture():
+            for r in renderables:
+                console.print(r)
+        html = console.export_html(
+            theme=terminal_theme, clear=True, code_format=LOG_CODE_FORMAT, inline_styles=True,
+        )
+        return {"chunks": [], "html": html}
+    except Exception as e:  # noqa: BLE001 —— 渲染降级：退回纯文本
+        logger.warning(f"[webapi] 日志渲染失败({name}): {e}")
+        return {"chunks": [], "html": ""}

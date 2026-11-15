@@ -52,6 +52,15 @@ async def overview(request: Request) -> JSONResponse:
     return JSONResponse(data.get_overview(name))
 
 
+async def log_tail(request: Request) -> JSONResponse:
+    from starlette.responses import PlainTextResponse
+
+    name = request.path_params.get("name", "")
+    result = data.get_log_tail(name)
+    # html 片段直接回（含 rich 内联样式 span），前端 innerHTML 拼进 <code>
+    return PlainTextResponse(result.get("html") or "", media_type="text/html; charset=utf-8")
+
+
 def _frontend_files() -> StaticFiles | None:
     """frontend/dist 存在才挂；未构建时 /new/ 返回 404，不影响老 UI。"""
     if os.path.isdir(_FRONTEND_DIST):
@@ -72,6 +81,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/instances", instances),
         Route("/newapi/dashboard/{name}", dashboard),
         Route("/newapi/overview/{name}", overview),
+        Route("/newapi/log/{name}/tail", log_tail),
     ]
     files = _frontend_files()
     if files is not None:
