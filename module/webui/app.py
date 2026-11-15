@@ -674,6 +674,17 @@ def app():
         on_shutdown=[clearup],
     )
     application.mount("/mcp", _LazyMCPApp())
+    # 新 UI（new-ui 分支）：/newapi/* REST 端点与 /new/ 静态产物挂进同一应用。
+    # 同进程运行是日志流（ProcessManager.renderables）与状态数据的前提。
+    # frontend/dist 未构建时 /new/ 不挂载，老 UI 完全无感。
+    try:
+        from module.webapi.app import mount_webapi
+
+        mount_webapi(application)
+    except Exception as e:  # noqa: BLE001 —— 新 UI 缺依赖或代码异常时不影响老 UI 启动
+        from module.logger import logger as _logger
+
+        _logger.warning(f"[WebUI] 新 UI 挂载失败（老 UI 不受影响）: {e}")
     return application
 
 
