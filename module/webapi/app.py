@@ -73,6 +73,11 @@ async def resource_delta(request: Request) -> JSONResponse:
     return JSONResponse(data.get_resource_delta(name))
 
 
+async def opsi_summary(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    return JSONResponse(data.get_opsi_summary(name))
+
+
 async def commission_income(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     return JSONResponse(data.get_commission_income(name))
@@ -120,6 +125,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/menu", menu),
         Route("/newapi/stat/{name}/resource_delta", resource_delta),
         Route("/newapi/stat/{name}/commission_income", commission_income),
+        Route("/newapi/stat/{name}/opsi_summary", opsi_summary),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]

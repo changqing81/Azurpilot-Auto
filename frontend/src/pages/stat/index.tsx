@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ApChart } from '../../charts/ApChart'
 import { DeltaSummary } from './DeltaPanel'
+import { OpsiPanel } from './OpsiPanel'
 import { CommissionIncome } from './CommissionPanel'
 import { apiGet } from '../../api/client'
 
@@ -74,7 +75,7 @@ export function StatPage() {
         {tab === 'opsi' && (
           <div id="st-panel-opsi" className="ov-card st-panel">
             <div className="ov-card-title">大世界</div>
-            <div className="st-placeholder">大世界收获统计接入中</div>
+            <OpsiPanel name={name} />
           </div>
         )}
         {tab === 'commission' && (

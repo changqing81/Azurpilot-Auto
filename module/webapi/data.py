@@ -404,3 +404,29 @@ def get_commission_income(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 委托收益数据失败({name}): {e}")
         return {"period": "", "summary": {}}
+
+def get_research_stats(name: str, scope: str = "series", series: int = 0) -> dict:
+    """科研统计面板（app_stat_research.py:_load_research_stats_data 同口径，默认最新期）。"""
+    try:
+        from module.statistics import research_stats
+
+        start, end = research_stats._research_period_window("days90") if hasattr(research_stats, "_research_period_window") else (None, None)
+        data = research_stats.collect(name, series=series, scope=scope, start=start, end=end)
+        return data
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 科研统计数据失败({name}): {e}")
+        return {"error": str(e)}
+
+def get_opsi_summary(name: str) -> dict:
+    """大世界统计面板（app_stat_opsi.py:_build_opsi_month_cards 数据面：当月 summary）。"""
+    from datetime import datetime
+
+    try:
+        from module.statistics.opsi_month import get_opsi_stats
+
+        now = datetime.now()
+        summary = get_opsi_stats(instance_name=name).summary(year=now.year, month=now.month)
+        return {"month": summary.get("month"), "summary": summary}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 大世界统计失败({name}): {e}")
+        return {"month": "", "summary": {}}
