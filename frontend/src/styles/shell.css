@@ -1,10 +1,10 @@
 /* 总览页布局样式：色值/圆角/字体对齐老 UI light 主题真实值（assets/gui/css/light-alas.css + alas.css）。
    主题 CSS 挂载后由原文件接管视觉细节。 */
 * { box-sizing: border-box; margin: 0; }
-body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #e8e8f8; }
+body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #f5f6fa; }
 #pywebio-scope-ROOT { min-height: 100vh; display: flex; flex-direction: column; }
 #pywebio-scope-header { display: flex; align-items: center; justify-content: center; position: relative; padding: 10px 16px; background: #ffffff; border-bottom: 1px solid #d9d9e3; }
-.header-version { position: absolute; right: 16px; font-size: 12px; opacity: .55; }
+.header-version { position: fixed; left: 10px; bottom: 6px; font-size: 12px; opacity: .5; z-index: 50; }
 #pywebio-scope-contents { display: flex; flex: 1; }
 #pywebio-scope-aside { width: 64px; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; background: #ffffff; border-right: 1px solid #d9d9e3; }
 #pywebio-scope-aside button { width: 52px; padding: 8px 0; border: none; background: transparent; cursor: pointer; border-radius: 6px; font-size: 12px; }
@@ -12,7 +12,7 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #e8e8f8
 #pywebio-scope-menu { width: 150px; padding: 10px 8px; background: #ffffff; border-right: 1px solid #d9d9e3; display: flex; flex-direction: column; gap: 2px; }
 .config-search input { width: 100%; padding: 7px 10px; border-radius: 6px; border: 1px solid #d9d9e3; background: #f6f6f9; margin-bottom: 8px; }
 #pywebio-scope-menu button { width: 100%; text-align: left; padding: 8px 10px; border: none; background: transparent; cursor: pointer; border-radius: 6px; font-size: 13px; }
-#pywebio-scope-menu button.btn-menu-active { background: #e8e8f8; color: #4e4c97; font-weight: 600; }
+#pywebio-scope-menu button.btn-menu-active { background: #eceefc; color: #4e4c97; font-weight: 600; }
 .menu-arrow { float: right; font-size: 10px; opacity: .55; }
 .btn-task { font-size: 12px !important; padding: 6px 10px !important; opacity: .85; }
 #pywebio-scope-content { flex: 1; padding: 14px; overflow: auto; }
@@ -49,3 +49,12 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #e8e8f8
 *[style*="--dashboard-value--"], *[style*="--dashboard-value"] { font-size: 1.05rem; font-weight: 600; }
 *[style*="--dashboard-total--"], *[style*="--dashboard-limit"] { font-size: 0.75rem; opacity: .6; }
 *[style*="--dashboard-help--"], *[style*="--dashboard-help"] { font-size: 0.7rem; opacity: .55; }
+
+/* 滚动条细化（去横向长条感） */
+* { scrollbar-width: thin; scrollbar-color: #c9c9d9 transparent; }
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #c9c9d9; border-radius: 3px; }
+*::-webkit-scrollbar-thumb:hover { background: #a9a9c0; }
+#pywebio-scope-contents { overflow-x: hidden; }
+html, body { overflow-x: hidden; }
