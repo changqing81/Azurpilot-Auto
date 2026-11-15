@@ -10,6 +10,7 @@ type TaskRow = { command: string; name: string; next_run: string }
 type OverviewResp = { running: TaskRow[]; pending: TaskRow[]; waiting: TaskRow[]; alive: boolean }
 type DashItem = { name: string; value: string; limit: string; total: string; color: string; record: string }
 type DashResp = { items: DashItem[] }
+type HeaderResp = { icon: string; prefix: string; title: string }
 
 // 老 UI 资源名 i18n（Gui.Dashboard.*，与 zh-CN.json 同步）
 const DASH_LABEL: Record<string, string> = {
@@ -97,9 +98,11 @@ export function Overview() {
   const [dash, setDash] = useState<DashItem[]>([])
   const [logHtml, setLogHtml] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
+  const [header, setHeader] = useState<HeaderResp>({ icon: '', prefix: 'AzurPilot', title: 'AzurPilot' })
 
   useEffect(() => {
     apiGet<VersionResp>('/newapi/version').then(r => setVersion(r.version)).catch(() => {})
+    apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
     apiGet<InstancesResp>('/newapi/instances').then(r => setInstances(r.instances)).catch(() => {})
   }, [])
   useEffect(() => {
@@ -120,8 +123,9 @@ export function Overview() {
   return (
     <div id="pywebio-scope-ROOT">
       <header id="pywebio-scope-header">
-        <div id="pywebio-scope-header_status" className="header-status" />
-        <div id="pywebio-scope-header_title">总览</div>
+        <img className="alas-icon" src={header.icon} alt="AzurPilot" width={42} height={42} style={{ position: 'absolute', left: 12, borderRadius: '50%' }} />
+        <span style={{ position: 'absolute', left: 62, fontSize: 14, fontWeight: 600 }}>{header.prefix}</span>
+        <div id="pywebio-scope-header_title">{active ? '总览' : '主页'}</div>
         <div className="header-version">Ver.{version}</div>
       </header>
       <div id="pywebio-scope-contents">

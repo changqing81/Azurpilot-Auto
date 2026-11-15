@@ -204,3 +204,17 @@ def get_log_tail(name: str, limit: int = 200) -> dict:
     except Exception as e:  # noqa: BLE001 —— 渲染降级：退回纯文本
         logger.warning(f"[webapi] 日志渲染失败({name}): {e}")
         return {"chunks": [], "html": ""}
+
+def get_header() -> dict:
+    """页眉数据：logo 图标 URL + 排头文案（Gui.Status.Prefix，i18n zh-CN 同源）。"""
+    try:
+        path = os.path.join(os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json")
+        data = read_file(path)
+        prefix = str(data.get("Gui", {}).get("Status", {}).get("Prefix") or "AzurPilot")
+    except Exception:  # noqa: BLE001
+        prefix = "AzurPilot"
+    return {
+        "icon": "/static/assets/spa/spa-icon-192x192.png",
+        "prefix": prefix,
+        "title": "AzurPilot",
+    }

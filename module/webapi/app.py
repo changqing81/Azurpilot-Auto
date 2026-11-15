@@ -52,6 +52,10 @@ async def overview(request: Request) -> JSONResponse:
     return JSONResponse(data.get_overview(name))
 
 
+async def header(request: Request) -> JSONResponse:
+    return JSONResponse(data.get_header())
+
+
 async def log_tail(request: Request) -> JSONResponse:
     from starlette.responses import PlainTextResponse
 
@@ -82,6 +86,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/dashboard/{name}", dashboard),
         Route("/newapi/overview/{name}", overview),
         Route("/newapi/log/{name}/tail", log_tail),
+        Route("/newapi/header", header),
     ]
     files = _frontend_files()
     if files is not None:
