@@ -138,7 +138,7 @@ export function Overview() {
       <div id="pywebio-scope-contents">
         <aside id="pywebio-scope-aside">
           <div id="pywebio-scope-aside_home" style={asideMark('home')}>
-            <button className="btn-aside">主页</button>
+            <button className="btn-aside" onClick={() => navigate('/')}>主页</button>
           </div>
           {instances.map(inst => (
             <div key={inst.name} id={'pywebio-scope-alas-instance-' + inst.name} style={asideMark(inst.name)}>

@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Overview } from './pages/home'
+import { HomePageMain } from './pages/home2'
 import { ConfigPage } from './pages/config'
 import { StatPage } from './pages/stat'
 import { SettingsPage } from './pages/settings'
@@ -12,7 +13,8 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
       <Routes>
-        <Route path="/" element={<Overview />} />
+        <Route path="/" element={<HomePageMain />} />
+        <Route path="/overview/:name" element={<Overview />} />
         <Route path="/config/:name/:task" element={<ConfigPage />} />
         <Route path="/stat/:name" element={<StatPage />} />
         <Route path="/settings/:name" element={<SettingsPage />} />
