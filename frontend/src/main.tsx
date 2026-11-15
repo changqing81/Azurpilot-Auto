@@ -19,6 +19,7 @@ import { StatPage } from './pages/stat'
 import { SettingsPage } from './pages/settings'
 import { UpdatePage } from './pages/update'
 import { RemotePage } from './pages/remote'
+import { OobePage } from './pages/oobe'
 import { ToolPage } from './pages/tool'
 import './styles/shell.css'
 
@@ -34,6 +35,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/settings/:name" element={<SettingsPage />} />
         <Route path="/update" element={<UpdatePage />} />
         <Route path="/remote" element={<RemotePage />} />
+        <Route path="/oobe" element={<OobePage />} />
         <Route path="/tool/:name/:task" element={<ToolPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
