@@ -6,9 +6,14 @@ name: Sync to GitCode
 # https://gitcode.com/gcw_BYvq9jGu/AzurPilot 拉取 master 分支。
 # 需要密钥 GITCODE_TOKEN（兼容小写 gitcode）；未配置时打印提示并跳过。
 
+# 同步策略（2026-11-15）：不再每次 push 都推。
+# 每次快照同步都会给 gitcode 新增一个完整源码树（~数百 MB），服务端 gc
+# 回收滞后，推得越勤体积涨得越快。gitcode 代码仓的消费方（网页/zip 下载）
+# 对实时性要求不高，启动器实际走 Cloudflare CDN + GitHub。
+# 改为每周日同步一次 + 手动触发，需立即同步时在 Actions 页手动运行。
 on:
-  push:
-    branches: [master, dev]
+  schedule:
+    - cron: '0 21 * * 0'   # 每周日 21:00 UTC = 周一 05:00 北京时间
   workflow_dispatch:
 
 jobs:
