@@ -585,3 +585,37 @@ def set_remote_enabled(enabled: bool) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 远控开关失败: {e}")
         return {"success": False, "error": str(e)}
+
+def get_wallpaper_candidates() -> dict:
+    """壁纸候选直链（app_home.py:init_wallpaper 数据面：并发拉启用图源取直链）。"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    from module.webui.app_home import HomeMixin
+
+    mixin = HomeMixin.__new__(HomeMixin)  # 不走 __init__（会话态），只用静态方法
+    candidates = []
+    try:
+        fetchers = [
+            ("lolicon", mixin._fetch_lolicon_wallpaper),
+            ("imgapi", mixin._fetch_imgapi_wallpaper),
+        ]
+        # 自定义直链源（yeelight/mukyu 等内置 custom）
+        try:
+            for source in mixin._load_sources():
+                if source.get("type") == "custom" or source.get("direct"):
+                    fetchers.append((source.get("key", "custom"), lambda s=source: mixin._fetch_custom_source(s)))
+        except Exception:  # noqa: BLE001
+            pass
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = {executor.submit(func): key for key, func in fetchers}
+            for fut in as_completed(futures):
+                try:
+                    url = fut.result()
+                    if url:
+                        is_video = bool(__import__("re").search(r"\.(mp4|webm|mov)(\?|$)", url, __import__("re").IGNORECASE))
+                        candidates.append({ "source": futures[fut], "url": url, "video": is_video })
+                except Exception:  # noqa: BLE001
+                    continue
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 壁纸候选拉取失败: {e}")
+    return {"candidates": candidates}
