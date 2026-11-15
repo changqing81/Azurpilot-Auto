@@ -58,3 +58,20 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #f5f6fa
 *::-webkit-scrollbar-thumb:hover { background: #a9a9c0; }
 #pywebio-scope-contents { overflow-x: hidden; }
 html, body { overflow-x: hidden; }
+
+/* 配置页 */
+.config-page { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.cfg-header { display: flex; align-items: center; gap: 14px; }
+.cfg-header h2 { font-size: 18px; margin: 0; }
+.cfg-dirty-hint { color: #d9744e; font-size: 12px; flex: 1; }
+.cfg-error { background: #fde8e8; color: #c0392b; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+.cfg-group { display: flex; flex-direction: column; gap: 4px; }
+.cfg-group-title { font-size: 15px; font-weight: 600; color: #4e4c97; padding: 8px 0 6px; border-bottom: 1px solid #eceefc; }
+.cfg-row { display: grid; grid-template-columns: 1fr minmax(180px, 300px); gap: 14px; align-items: center; padding: 9px 0; border-bottom: 1px dashed #eceefc; }
+.cfg-row:last-child { border-bottom: none; }
+.cfg-title-wrap .arg-help { font-size: 12px; opacity: .55; margin-top: 3px; white-space: pre-line; }
+.cfg-control { display: flex; justify-content: flex-end; }
+.cfg-input { width: 100%; padding: 7px 11px; border: 1px solid #d9d9e3; border-radius: 6px; background: #fff; font-size: 13px; font-family: inherit; }
+.cfg-input:focus { outline: none; border-color: #4e4c97; }
+select.cfg-input { padding: 6px 8px; }
+@media (max-width: 700px) { .cfg-row { grid-template-columns: 1fr; } .cfg-control { justify-content: flex-start; } }

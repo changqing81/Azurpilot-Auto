@@ -293,6 +293,12 @@ def get_task_config(name: str, task: str) -> dict:
             current = deep_get(config.data, f"{task}.{group_name}.{arg_name}")
             if current is None:
                 current = arg.get("value")
+            if isinstance(current, (list, tuple)):
+                current = [str(v) for v in current]
+            elif current is not None and not isinstance(current, (str, int, float, bool)):
+                from datetime import datetime as _dt
+
+                current = str(current)  # datetime 等类型转字符串，与老 UI 显示一致
             item: dict[str, Any] = {
                 "name": arg_name,
                 "title": str(arg_i18n.get("name") or arg_name),
