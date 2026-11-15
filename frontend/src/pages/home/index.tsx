@@ -284,12 +284,7 @@ export function Overview() {
                 {dash.map(item => <DashEntry key={item.name} item={item} />)}
               </div>
               <div id="pywebio-scope-log-container" className="log-container">
-                <code
-                id="pywebio-scope-log"
-                className="log-body"
-                ref={el => el}
-                dangerouslySetInnerHTML={{ __html: logHtml }}
-              />
+                <code id="pywebio-scope-log" className="log-body" />
               </div>
             </section>
           </div>
