@@ -2,6 +2,7 @@
 // 老结构对照：_mount_statistics_page（app_statistics_page.py:240-280）——
 // statistics-head / statistics-tabs / statistics-panels + ap_chart/opsi_stats/commission_income/research_stats/resource_delta/ship_exp_table 六个面板 scope。
 import { useParams, useNavigate } from 'react-router-dom'
+import { ApChart } from '../../charts/ApChart'
 
 const TABS = [
   { key: 'ap_chart', name: '行动力图表' },
@@ -31,7 +32,7 @@ export function StatPage() {
       <div id="statistics-panels" className="st-panels">
         <div id="pywebio-scope-ap_chart" className="ov-card st-panel">
           <div className="ov-card-title">行动力图表</div>
-          <div className="st-placeholder">图表数据接入中（P3-下阶段：复用 /api/ap_timeline 与 ECharts）</div>
+          <ApChart name={name} />
         </div>
         <div id="pywebio-scope-opsi_stats" className="ov-card st-panel">
           <div className="ov-card-title">大世界统计</div>
