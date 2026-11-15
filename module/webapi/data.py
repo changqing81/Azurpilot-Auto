@@ -619,3 +619,13 @@ def get_wallpaper_candidates() -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 壁纸候选拉取失败: {e}")
     return {"candidates": candidates}
+
+def get_oobe_state() -> dict:
+    """OOBE 引导状态（module/config/utils.py:is_oobe_needed 同口径）。"""
+    from module.config.utils import is_oobe_needed
+
+    try:
+        return {"oobe_needed": bool(is_oobe_needed())}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] OOBE 状态检查失败: {e}")
+        return {"oobe_needed": False}

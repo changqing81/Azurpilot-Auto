@@ -73,6 +73,10 @@ async def resource_delta(request: Request) -> JSONResponse:
     return JSONResponse(data.get_resource_delta(name))
 
 
+async def oobe_state(request: Request) -> JSONResponse:
+    return JSONResponse(data.get_oobe_state())
+
+
 async def wallpaper_candidates(request: Request) -> JSONResponse:
     return JSONResponse(data.get_wallpaper_candidates())
 
@@ -167,6 +171,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/remote/status", remote_status),
         Route("/newapi/remote/toggle", remote_toggle, methods=["POST"]),
         Route("/newapi/wallpaper/candidates", wallpaper_candidates),
+        Route("/newapi/oobe", oobe_state),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]
