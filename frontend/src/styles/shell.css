@@ -83,3 +83,10 @@ select.cfg-input { padding: 6px 8px; }
 .st-panels { display: flex; flex-direction: column; gap: 14px; }
 .st-panel { min-height: 200px; }
 .st-placeholder { padding: 60px 0; text-align: center; opacity: .4; font-size: 13px; }
+
+/* 资源变动面板 */
+.delta-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 12px; padding: 6px 0 12px; }
+.delta-ranking { border-top: 1px dashed #eceefc; padding-top: 10px; }
+.delta-rank-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+
+.st-tab-active { background: #4e4c97 !important; color: #fff !important; border-color: #4e4c97 !important; }

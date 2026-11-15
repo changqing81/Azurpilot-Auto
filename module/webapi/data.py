@@ -370,3 +370,23 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
         logger.error(f"[webapi] 配置写盘失败({name}): {e}")
         return {"valid": valid, "invalid": invalid, "error": str(e)}
     return {"valid": valid, "invalid": invalid}
+
+def get_resource_delta(name: str, days: int = 7) -> dict:
+    """资源变动面板数据（app_stat_delta.py:_load_delta_data 同口径）。"""
+    from datetime import datetime, timedelta
+
+    try:
+        from module.statistics.resource_delta_stats import (
+            get_consumption_ranking,
+            get_delta_summary,
+            get_task_delta_timeline,
+        )
+
+        start = (datetime.now() - timedelta(days=days)).isoformat()
+        timeline = get_task_delta_timeline(name, start_ts=start)
+        summary = get_delta_summary(name, start_ts=start)
+        ranking = get_consumption_ranking(name, start_ts=start)
+        return {"timeline": timeline, "summary": summary, "ranking": ranking}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 资源变动数据失败({name}): {e}")
+        return {"timeline": [], "summary": {}, "ranking": []}

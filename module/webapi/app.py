@@ -68,6 +68,11 @@ async def task_config(request: Request) -> JSONResponse:
     return JSONResponse(data.get_task_config(name, task))
 
 
+async def resource_delta(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    return JSONResponse(data.get_resource_delta(name))
+
+
 async def menu(request: Request) -> JSONResponse:
     return JSONResponse(data.get_menu())
 
@@ -108,6 +113,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/log/{name}/tail", log_tail),
         Route("/newapi/header", header),
         Route("/newapi/menu", menu),
+        Route("/newapi/stat/{name}/resource_delta", resource_delta),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]
