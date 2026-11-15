@@ -37,7 +37,7 @@
 .dashboard-limit { font-size: 12px; opacity: .55; }
 .dashboard-help { font-size: 11px; opacity: .55; margin-top: 2px; }
 .log-container { background: #fff; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.07); flex: 1; min-height: 320px; overflow: hidden; }
-.log-body { padding: 10px 12px; font-family: Consolas, monospace; font-size: 12px; overflow: auto; max-height: 480px; }
+.log-body { padding: 10px 12px; font-family: Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.55; overflow: auto; max-height: 480px; white-space: pre-wrap; word-break: break-all; display: block; }
 .log-placeholder { opacity: .4; }
 @media (max-width: 900px) {
   #pywebio-scope-menu { display: none; }

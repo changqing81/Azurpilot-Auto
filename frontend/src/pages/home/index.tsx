@@ -79,6 +79,8 @@ export function Overview() {
   const [active, setActive] = useState('alas')
   const [ov, setOv] = useState<OverviewResp | null>(null)
   const [dash, setDash] = useState<DashItem[]>([])
+  const [logHtml, setLogHtml] = useState('')
+  const [autoScroll, setAutoScroll] = useState(true)
 
   useEffect(() => {
     apiGet<VersionResp>('/newapi/version').then(r => setVersion(r.version)).catch(() => {})
@@ -91,7 +93,11 @@ export function Overview() {
     const timer = setInterval(() => {
       apiGet<OverviewResp>('/newapi/overview/' + active).then(setOv).catch(() => {})
     }, 15000)  // 老 UI 15s 周期同款
-    return () => clearInterval(timer)
+    // 日志流：2s 轮询 HTML 片段（老 UI put_log 0.5s 增量；REST 轮询先对齐 2s，WS 推送在 P3）
+    const logTimer = setInterval(() => {
+      fetch('/newapi/log/' + active + '/tail').then(r => r.ok ? r.text() : '').then(setLogHtml).catch(() => {})
+    }, 2000)
+    return () => { clearInterval(timer); clearInterval(logTimer) }
   }, [active])
 
   const alive = ov?.alive ?? false
@@ -202,7 +208,9 @@ export function Overview() {
               <div id="pywebio-scope-log-bar" className="ov-card">
                 <span className="ov-card-title">日志</span>
                 <div id="pywebio-scope-log-bar-btns" className="log-bar-btns">
-                  <button className="log-btn-primary">自动滚动 开</button>
+                  <button className="log-btn-primary" onClick={() => setAutoScroll(v => !v)}>
+                    {autoScroll ? '自动滚动 开' : '自动滚动 关'}
+                  </button>
                   <button className="log-btn">截图预览</button>
                   <button className="log-btn">导出今日日志</button>
                   <button className="log-btn">折叠</button>
@@ -212,9 +220,14 @@ export function Overview() {
                 {dash.map(item => <DashEntry key={item.name} item={item} />)}
               </div>
               <div id="pywebio-scope-log-container" className="log-container">
-                <div id="pywebio-scope-log" className="log-body">
-                  <span className="log-placeholder">日志流接入中（P2-WS）</span>
-                </div>
+                <code
+                id="pywebio-scope-log"
+                className="log-body"
+                ref={el => {
+                  if (el && autoScroll) el.scrollTop = el.scrollHeight
+                }}
+                dangerouslySetInnerHTML={{ __html: logHtml }}
+              />
               </div>
             </section>
           </div>
