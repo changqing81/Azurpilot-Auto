@@ -1,6 +1,7 @@
 // 总览页 1:1 复刻（对照 oldui-ref/oldui_overview_alas.png + scope-map-overview.txt）
 // DOM 契约：scope id / class 与老 UI 相同，主题 CSS（assets/gui/css）直接生效。
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
 
 type VersionResp = { version: string }
@@ -93,6 +94,7 @@ function DashEntry({ item }: { item: DashItem }) {
   )
 }
 export function Overview() {
+  const navigate = useNavigate()
   const [version, setVersion] = useState('')
   const [instances, setInstances] = useState<Instance[]>([])
   const [active, setActive] = useState('alas')
@@ -171,7 +173,10 @@ export function Overview() {
                 </div>
                 {!collapsed[g.key] && g.tasks.map(t => (
                   <div key={t.key} style={{ paddingLeft: 18, ...menuMark(g.key + '.' + t.key) } as React.CSSProperties}>
-                    <button className={'btn-menu btn-task' + (active === g.key + '.' + t.key ? ' btn-menu-active' : '')}>
+                    <button
+                      className={'btn-menu btn-task' + (active === g.key + '.' + t.key ? ' btn-menu-active' : '')}
+                      onClick={() => navigate(`/config/${active}/${t.key}`)}
+                    >
                       {t.name}
                     </button>
                   </div>
