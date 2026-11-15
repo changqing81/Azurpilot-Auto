@@ -14,7 +14,8 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: p => p.replace('/new-assets', '/assets')
       },
-      '/assets/gui': { target: 'http://127.0.0.1:22267', changeOrigin: true }
+      '/assets/gui': { target: 'http://127.0.0.1:22267', changeOrigin: true },
+      '/static/assets': { target: 'http://127.0.0.1:22267', changeOrigin: true }
     }
   },
   build: {

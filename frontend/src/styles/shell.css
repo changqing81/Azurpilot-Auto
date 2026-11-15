@@ -31,13 +31,6 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #e8e8f8
 .log-bar-btns { display: flex; gap: 8px; }
 .log-btn-primary { background: #4e4c97; color: #fff; border: none; border-radius: 100px; padding: 8px 14px; cursor: pointer; font-size: 12px; }
 .log-btn { background: #fff; border: 1px solid #d9d9e3; color: #4e4c97; border-radius: 100px; padding: 8px 14px; cursor: pointer; font-size: 12px; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 18px; background: #ffffff; border-radius: 12px; padding: 14px 18px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
-.dashboard-entry { display: flex; gap: 9px; align-items: flex-start; }
-.status-point { width: 11px; height: 11px; border-radius: 50%; margin-top: 5px; flex: none; }
-.dashboard-value-row { display: flex; align-items: baseline; gap: 3px; }
-.dashboard-value { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.dashboard-limit { font-size: 12px; opacity: .55; }
-.dashboard-help { font-size: 11px; opacity: .55; margin-top: 2px; }
 .log-container { background: #ffffff; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.06); flex: 1; min-height: 320px; overflow: hidden; }
 .log-body { padding: 10px 12px; font-family: 'JetBrains Mono NL', Consolas, 'Courier New', monospace; font-size: 12px; line-height: 1.55; overflow: auto; max-height: 480px; white-space: pre-wrap; word-break: break-all; display: block; }
 .log-placeholder { opacity: .4; }
@@ -46,3 +39,11 @@ body { font-family: 'MiSans', 'Microsoft YaHei', sans-serif; background: #e8e8f8
   #pywebio-scope-overview { grid-template-columns: 1fr; }
   .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* status-point 居中修正：老 CSS 的 margin 37% 50% 基于 put_row 单元格；本布局 grid 20px 列内用 auto 居中 */
+#pywebio-scope-dashboard { gap: 1.2rem 2rem; padding: 4px 8px; }
+#pywebio-scope-dashboard .status-point { margin: auto; }
+/* 仪表盘 style 标记规则（抄自 alas.css:1102-1135 的老 UI 真实值） */
+*[style*="--dashboard-value--"], *[style*="--dashboard-value"] { font-size: 1.05rem; font-weight: 600; }
+*[style*="--dashboard-total--"], *[style*="--dashboard-limit"] { font-size: 0.75rem; opacity: .6; }
+*[style*="--dashboard-help--"], *[style*="--dashboard-help"] { font-size: 0.7rem; opacity: .55; }

@@ -54,25 +54,41 @@ function TaskCard({ task }: { task: TaskRow }) {
   )
 }
 
-// 仪表盘条目（scope=dashboard_{Item} > {Item}_group；status-point 彩点 + value + help）
+// 仪表盘条目：DOM 与老 UI put_row/put_column 同构（alas.css:399-427、1102-1135 的 style 标记选择器依赖这些属性）
 function DashEntry({ item }: { item: DashItem }) {
   const second = item.limit ? ' / ' + item.limit : item.total ? ' (' + item.total + ')' : ''
   return (
-    <div id={'pywebio-scope-dashboard_' + item.name} className="dashboard-entry">
-      <div className="status-point" style={{ backgroundColor: item.color }} />
-      <div id={'pywebio-scope-' + item.name + '_group'} className="dashboard-group">
-        <div className="dashboard-value-row">
-          <span className="dashboard-value">{item.value === 'None' ? '无' : item.value}</span>
-          {second && item.value !== 'None' && <span className="dashboard-limit">{second}</span>}
-        </div>
-        <div className="dashboard-help">
-          {DASH_LABEL[item.name] ?? item.name} - {relTime(item.record)}
+    <div id={'pywebio-scope-dashboard_' + item.name}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '20px 1fr',
+          alignItems: 'center',
+          height: '100%',
+        }}
+      >
+        <div className="status-point" style={{ backgroundColor: item.color }} />
+        <div id={'pywebio-scope-' + item.name + '_group'}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'min-content auto',
+              alignItems: 'baseline',
+            }}
+          >
+            <span style={{ ['--dashboard-value']: '1' } as React.CSSProperties}>{item.value === 'None' ? '无' : item.value}</span>
+            {second && item.value !== 'None' && (
+              <span style={{ ['--dashboard-limit']: '1' } as React.CSSProperties}>{second}</span>
+            )}
+          </div>
+          <div style={{ ['--dashboard-help']: '1' } as React.CSSProperties}>
+            {DASH_LABEL[item.name]} - {relTime(item.record)}
+          </div>
         </div>
       </div>
     </div>
   )
 }
-
 export function Overview() {
   const [version, setVersion] = useState('')
   const [instances, setInstances] = useState<Instance[]>([])
@@ -216,7 +232,7 @@ export function Overview() {
                   <button className="log-btn">折叠</button>
                 </div>
               </div>
-              <div id="pywebio-scope-dashboard" className="dashboard-grid">
+              <div id="pywebio-scope-dashboard">
                 {dash.map(item => <DashEntry key={item.name} item={item} />)}
               </div>
               <div id="pywebio-scope-log-container" className="log-container">

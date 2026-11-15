@@ -4,8 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AzurPilot</title>
-    <!-- 主题 CSS 走老后端原文件，保证与老 UI 逐位一致；生产环境由 webapi 同路径托管 -->
-    <link rel="stylesheet" href="/assets/gui/css/common/base/alas.css" />
+    <!-- 主题 CSS 走老 UI 原文件（/static/assets 由 gui.py 同应用托管），保证逐位一致。
+         基础层 alas.css + 布局层 alas-pc.css 先行；主题层由运行时按 deploy.yaml 主题注入。 -->
+    <link rel="stylesheet" href="/static/assets/gui/css/alas.css?v=newui" />
   </head>
   <body>
     <div id="root"></div>
