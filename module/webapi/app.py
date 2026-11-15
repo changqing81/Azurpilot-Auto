@@ -47,6 +47,11 @@ async def dashboard(request: Request) -> JSONResponse:
     return JSONResponse(data.get_dashboard(name))
 
 
+async def overview(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    return JSONResponse(data.get_overview(name))
+
+
 def _frontend_files() -> StaticFiles | None:
     """frontend/dist 存在才挂；未构建时 /new/ 返回 404，不影响老 UI。"""
     if os.path.isdir(_FRONTEND_DIST):
@@ -66,6 +71,7 @@ def mount_webapi(app: Starlette) -> None:
         Route("/newapi/version", version),
         Route("/newapi/instances", instances),
         Route("/newapi/dashboard/{name}", dashboard),
+        Route("/newapi/overview/{name}", overview),
     ]
     files = _frontend_files()
     if files is not None:

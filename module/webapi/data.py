@@ -71,28 +71,98 @@ def get_instances() -> dict:
 
 
 def get_dashboard(name: str) -> dict:
-    """仪表盘数据（等价 alas_update_dashboard 的读取面）。
+    """仪表盘数据（与 app_dashboard.py:479-547 渲染口径逐字段对齐）。
 
-    数据真实来源（log_res.py:47-58 同源）：实例配置 JSON 的 Dashboard.<Item>.Value/Record。
-    资源清单与老 UI dashboard.yaml 同源（Dashboard: [Oil, Coin, ...]）。
-    默认只显示 Oil/Coin/Gem/Pt 四项（app_dashboard.py:608 的默认行为），全部清单
-    交给前端按用户的开关决定。
+    数据来源 LogRes.group()：Value/Limit/Total/Color(^十六进制)/Record。
+    输出 {items:[{name,value,limit,total,color,record}]}，前端算相对时间。
     """
     from module.config.config import AzurLaneConfig
-    from module.config.deep import deep_get
+    from module.log_res.log_res import LogRes
 
     manifest = _load_yaml(_DASHBOARD_MANIFEST_PATH).get("Dashboard") or []
     try:
         config = AzurLaneConfig(name, task=None)
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 实例配置加载失败({name}): {e}")
-        config = None
+        return {"items": []}
+    log_res = LogRes(config)
     items: list[dict[str, Any]] = []
-    if config is not None:
-        for item in manifest:
-            value = deep_get(config.data, keys=f"Dashboard.{item}.Value")
-            record = deep_get(config.data, keys=f"Dashboard.{item}.Record")
-            if value is None:
-                continue
-            items.append({"name": item, "value": value, "record": str(record or "")})
+    for item in manifest:
+        group = log_res.group(item)
+        if not group:
+            continue
+        limit = str(group.get("Limit", ""))
+        total = str(group.get("Total", ""))
+        if not limit and not total and item == "Pt":
+            # Pt 上限取活动 PT 配置（app_dashboard.py:490-499 同口径）
+            from module.config.deep import deep_get
+
+            pt_limit = deep_get(config.data, "EventGeneral.EventGeneral.PtLimit")
+            limit = str(pt_limit) if pt_limit else ""
+            if limit == "0":
+                limit = ""
+        items.append({
+            "name": item,
+            "value": str(group.get("Value")),
+            "limit": limit,
+            "total": total,
+            "color": str(group.get("Color", "")).replace("^", "#"),
+            "record": str(group.get("Record") or ""),
+        })
     return {"items": items}
+
+
+def get_overview(name: str) -> dict:
+    """总览页任务队列（等价 alas_update_overview_task 的数据面，app_dashboard.py:196-213 同口径）。
+
+    返回 running/pending/waiting 三组 [{command, name, next_run}] + alive（调度器是否在跑）。
+    任务名翻译直接在服务端取好（i18n zh-CN Task.<command>.name），前端零翻译逻辑。
+    """
+    from module.config.config import AzurLaneConfig
+
+    try:
+        config = AzurLaneConfig(name, task=None)
+        config.get_next_task()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 任务队列读取失败({name}): {e}")
+        return {"running": [], "pending": [], "waiting": [], "alive": False}
+
+    # i18n: 优先 zh-CN；键缺失时退回 command
+    def _task_name(command: str) -> str:
+        try:
+            path = os.path.join(
+                os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json"
+            )
+            data = read_file(path)  # read_file 内部已 JSON 解析，返回 dict
+            return str(data.get("Task", {}).get(command, {}).get("name") or command)
+        except Exception:  # noqa: BLE001
+            return command
+
+    alive = False
+    try:
+        from module.webui.process_manager import ProcessManager
+
+        pm = ProcessManager._processes.get(name)
+        alive = bool(pm.alive) if pm is not None else False
+    except Exception:  # noqa: BLE001 —— 进程管理器未初始化（无 WebUI 会话）时视为空闲
+        pass
+
+    def _rows(funcs) -> list:
+        out = []
+        for func in funcs:
+            out.append({
+                "command": func.command,
+                "name": _task_name(func.command),
+                "next_run": str(func.next_run),
+            })
+        return out
+
+    pending = list(config.pending_task)
+    running = pending[:1] if alive else []
+    rest = pending[1:] if alive else pending
+    return {
+        "running": _rows(running),
+        "pending": _rows(rest),
+        "waiting": _rows(config.waiting_task),
+        "alive": alive,
+    }
