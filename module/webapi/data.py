@@ -405,14 +405,12 @@ def get_commission_income(name: str) -> dict:
         logger.warning(f"[webapi] 委托收益数据失败({name}): {e}")
         return {"period": "", "summary": {}}
 
-def get_research_stats(name: str, scope: str = "series", series: int = 0) -> dict:
-    """科研统计面板（app_stat_research.py:_load_research_stats_data 同口径，默认最新期）。"""
+def get_research_stats(name: str, scope: str = "series", series: int = 0, days: int = 90) -> dict:
+    """科研统计面板（research_stats.collect 直接口径：默认 90 天/最新期）。"""
     try:
         from module.statistics import research_stats
 
-        start, end = research_stats._research_period_window("days90") if hasattr(research_stats, "_research_period_window") else (None, None)
-        data = research_stats.collect(name, series=series, scope=scope, start=start, end=end)
-        return data
+        return research_stats.collect(name, days=days, series=series, scope=scope)
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 科研统计数据失败({name}): {e}")
         return {"error": str(e)}

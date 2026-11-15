@@ -48,3 +48,7 @@ html, body { overflow-x: hidden; }
   #pywebio-scope-menu { display: none; }
   #pywebio-scope-overview { grid-template-columns: 1fr; }
 }
+
+.research-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.research-table th, .research-table td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #eceefc; }
+.research-table th { font-weight: 600; color: #4e4c97; }

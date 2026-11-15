@@ -5,6 +5,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ApChart } from '../../charts/ApChart'
 import { DeltaSummary } from './DeltaPanel'
 import { OpsiPanel } from './OpsiPanel'
+import { ResearchPanel } from './ResearchPanel'
 import { CommissionIncome } from './CommissionPanel'
 import { apiGet } from '../../api/client'
 
@@ -88,7 +89,7 @@ export function StatPage() {
         {tab === 'research' && (
           <div id="st-panel-research" className="ov-card st-panel">
             <div className="ov-card-title">科研</div>
-            <div className="st-placeholder">科研统计接入中</div>
+            <ResearchPanel name={name} />
           </div>
         )}
         {tab === 'resource' && (
