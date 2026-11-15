@@ -27,11 +27,29 @@ export function MindPanel({ name }: { name: string }) {
   return (
     <div>
       <div style={{ padding: '6px 0 10px', fontSize: 14, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        {summary && Object.entries(summary).map(([k, v]) => (
-          <span key={k}>{k}: <b>{String(v)}</b></span>
-        ))}
-        <span>清单: <b>{data.total}</b> 艘 · 更新于 {data.updated_at || '-'}</span>
+        <span>心智: <b>{(data.result?.mind ?? 0).toLocaleString()}</b></span>
+        <span>金图: <b>{(data.result?.gold ?? 0).toLocaleString()}</b></span>
+        <span>纳入: <b>{data.result?.included ?? 0}</b> / {data.total} 艘</span>
+        <span>清单更新于 {data.updated_at || '-'}</span>
       </div>
+      {Array.isArray(summary) && summary.length > 0 && (
+        <table className="research-table" style={{ marginBottom: 12 }}>
+          <thead>
+            <tr><th>稀有度</th><th>数量</th><th>心智</th><th>金图</th><th>阶段分布</th></tr>
+          </thead>
+          <tbody>
+            {summary.map((row: any) => (
+              <tr key={row.rarity}>
+                <td>{row.rarity}</td>
+                <td>{row.count}</td>
+                <td>{(row.mind ?? 0).toLocaleString()}</td>
+                <td>{(row.gold ?? 0).toLocaleString()}</td>
+                <td>{JSON.stringify(row.stages)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       <div style={{ padding: '0 0 10px', display: 'flex', gap: 10, alignItems: 'center' }}>
         <input
           className="cfg-input"
