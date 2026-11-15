@@ -59,3 +59,14 @@ base.py:_show:506-529，固定树：ROOT > #pywebio-scope-header（Icon.ALAS htm
 
 ## 6. 复刻注意（给新前端的红线）
 ① style 标记选择器是主题 CSS 的高亮依赖，React 组件必须输出同构 style 属性+按钮类名；② statistics-content 是常驻隐藏 scope（统计页复用它切换显示，base.py:473-503），新前端要么保留同 id 要么改造统计页；③ 透明主题依赖 html 背景兜底+body 透明(app_home.py:284-293)，视频背景 z-index:-1；④ 公告/更新通知强依赖 alas-utils.js 的 window.alas* 全局函数，新前端可继续引用该文件或等价实现 5 个入口(alasShowAnnouncement/alasHasBeenShown/alasToggleLivePreview/alasToggleWallpaper/alasWallpaperRace)；⑤ 竞赛壁纸逻辑整体在前端 JS(_WALLPAPER_RACE_JS)，可直接移植为 TS 模块。
+
+
+## 7. 仪表盘视觉基准（长卿 2026-11-15 指定"就按这个样式"）
+
+长卿提供老 UI 总览页截图（.workbuddy/perf/out/ 下未存，以本节文字描述为准）：
+- **仪表盘是总览页右列顶部的一部分，不是独立网格**：彩色圆点 + 数值 + 资源名 + 记录时间（"1分钟前/7小时前"）紧凑排布，5 列 × 3 行左右，嵌在日志面板上方
+- 有上限的资源显示"17567 / 20300"双数字（石油、物资 412825/114900、活动PT 129040/168550）
+- 行动点显示"15 (3965)"（当前值+括号备注）
+- 彩点颜色按资源固定（石油黑/物资橙/钻石红/活动PT青/魔方紫/黄币黄/紫币紫…）
+- 数字大、资源名小灰、时间更小更灰
+- 新前端复刻：Dashboard.<Item>.Value 上限来自 args.json 的 Dashboard.<Item>.Capacity（动手时核对）
