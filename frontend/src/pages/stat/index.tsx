@@ -6,6 +6,7 @@ import { ApChart } from '../../charts/ApChart'
 import { DeltaSummary } from './DeltaPanel'
 import { OpsiPanel } from './OpsiPanel'
 import { ResearchPanel } from './ResearchPanel'
+import { FleetTechPanel } from './FleetTechPanel'
 import { CommissionIncome } from './CommissionPanel'
 import { apiGet } from '../../api/client'
 
@@ -101,7 +102,7 @@ export function StatPage() {
         {tab === 'fleet' && (
           <div id="st-panel-fleet" className="ov-card st-panel">
             <div className="ov-card-title">科技列表</div>
-            <div className="st-placeholder">科技列表接入中</div>
+            <FleetTechPanel name={name} />
           </div>
         )}
         {tab === 'mind' && (

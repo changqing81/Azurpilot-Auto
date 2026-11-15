@@ -428,3 +428,38 @@ def get_opsi_summary(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 大世界统计失败({name}): {e}")
         return {"month": "", "summary": {}}
+
+def get_fleet_tech(name: str) -> dict:
+    """科技列表面板（app_fleet_technology.py:_ft_load 同链路：catalog+report+combine_rows）。"""
+    from module.config.config import AzurLaneConfig
+    from module.config.deep import deep_get
+    from module.runtime import fleet_tech as tech
+    from module.webui import fleet_tech_view as view
+
+    min_level_path = "FleetTechnology.FleetTechnology.MinLevel"
+    max_level_path = "FleetTechnology.FleetTechnology.MaxLevel"
+    try:
+        config = AzurLaneConfig(name, task=None)
+        data = config.read_file(name)
+        record = tech.read_record(data)
+        report = dict(
+            instance=name,
+            min_level=deep_get(data, min_level_path, 95) or 95,
+            max_level=deep_get(data, max_level_path, 125) or 125,
+            **tech.report(record),
+        )
+        catalog = tech.public_catalog()
+        rows = view.combine_rows(catalog, report)
+        # JSON 序列化兜底：未知类型转字符串
+        def _safe(v):
+            if isinstance(v, (str, int, float, bool)) or v is None:
+                return v
+            if isinstance(v, (list, tuple)):
+                return [_safe(x) for x in v]
+            if isinstance(v, dict):
+                return {str(k): _safe(x) for k, x in v.items()}
+            return str(v)
+        return {"rows": [_safe(r) for r in rows], "revision": str(report.get("revision", "")), "total": len(rows)}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 科技列表失败({name}): {e}")
+        return {"rows": [], "error": str(e), "total": 0}
