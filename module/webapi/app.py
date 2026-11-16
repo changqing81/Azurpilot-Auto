@@ -185,6 +185,21 @@ async def instance_import(request: Request) -> JSONResponse:
     )
 
 
+async def stat_panels_html(request: Request) -> JSONResponse:
+    """GET /newapi/stat/{name}/panels_html?panel=opsi
+
+    返回老 UI 同一套渲染器产出的 HTML（结构/样式/数字逐字节一致），
+    前端直接 innerHTML 挂载，避免在 React 里重写几百行指标逻辑。
+    """
+    name = request.path_params.get("name", "")
+    panel = request.query_params.get("panel", "opsi")
+    if panel != "opsi":
+        return JSONResponse({"success": False, "error": f"不支持的 panel: {panel}"})
+    return JSONResponse(
+        await run_in_threadpool(data.get_opsi_panels_html, name)
+    )
+
+
 async def background_setting(request: Request) -> JSONResponse:
     """GET /newapi/background — 当前背景设置（mode/media/是否有自定义图）。"""
     return JSONResponse(await run_in_threadpool(data.get_background_setting))
@@ -498,6 +513,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instance/import", instance_import, methods=["POST"]),
         Route("/newapi/instance/create", instance_create, methods=["POST"]),
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
+        Route("/newapi/stat/{name}/panels_html", stat_panels_html),
         Route("/newapi/background", background_setting),
         Route("/newapi/background/mode", background_mode, methods=["POST"]),
         Route("/newapi/background/media", background_media, methods=["POST"]),

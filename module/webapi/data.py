@@ -1498,3 +1498,132 @@ def reset_wallpaper_sources() -> dict:
         return {"success": True}
     except Exception as e:  # noqa: BLE001
         return {"success": False, "error": str(e)}
+
+
+# ─────────────────── 统计页 HTML 复用（老 UI 模板直接渲染）───────────────────
+# 为什么复用老 UI 的渲染器而不是在 React 里重写：
+#   老 UI 的统计页由 11 个 HTML 模板（webapp/*.html）拼装，指标口径、
+#   千分位格式、卡片语义色、折叠块结构全部固化在 Python 侧
+#   （app_stat_opsi.py:_build_opsi_summary_html 等几百行）。
+#   在 React 里重写等价于把那几百行翻译一遍，且必然出现「数字对不上」。
+#   正确做法：后端调老 UI 的同一套构建函数产出 HTML 字符串，
+#   前端 dangerouslySetInnerHTML 挂上 —— 结构/样式/数字逐字节一致。
+#
+# 这里用一个轻量的「假 self」适配器：老 UI 的构建函数都是 Mixin 方法，
+# 只依赖 self 的少数属性（alas_name）与几个内部工具函数。
+
+
+class _StatRenderCtx:
+    """供老 UI 统计渲染函数使用的最小上下文。
+
+    app_stat_opsi.py 的方法用到 self.alas_name、self._stat_month_pair()、
+    若干自身方法，以及**类级常量**（MEOW_BADGE_COLORS 等）。
+    直接实例化 mixin 会拉起整个 AlasGUI（需要 PyWebIO 会话），
+    所以用适配器把方法和常量逐个转过去。
+    """
+
+    # 类级常量（从 OpsiStatisticsMixin 镜像过来，见 _mirror_class_attrs）
+    MEOW_BADGE_COLORS = {3: "#378ADD", 5: "#E24B4A"}
+    MEOW_COLLAPSE_TPL = "fold_block.html"
+
+    def __init__(self, instance_name: str):
+        self.alas_name = instance_name
+        self._stat_year, self._stat_month = _current_stat_month()
+        self._mirror_class_attrs()
+
+    def _mirror_class_attrs(self) -> None:
+        """把 mixin 上的大写类常量（MEOW_* 等）镜像到本实例。"""
+        from module.webui.app_stat_opsi import OpsiStatisticsMixin
+
+        for _name in dir(OpsiStatisticsMixin):
+            if not _name.isupper():
+                continue
+            if hasattr(type(self), _name):
+                continue
+            try:
+                setattr(self, _name, getattr(OpsiStatisticsMixin, _name))
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _stat_month_pair(self):
+        return self._stat_year, self._stat_month
+
+    def _stat_month_is_current(self) -> bool:
+        """当前查看的月份是否是本月（老 UI app_statistics_page.py:1131 同款）。"""
+        from module.config.time_source import now as _now
+
+        t = _now()
+        return (self._stat_year, self._stat_month) == (t.year, t.month)
+
+
+def _current_stat_month():
+    """当前统计月份（与老 UI app_statistics_page 的默认月份一致：当月）。"""
+    from module.config.time_source import now as _now
+
+    t = _now()
+    return t.year, t.month
+
+
+def _stat_render_method(name: str):
+    """取老 UI 的统计渲染方法（未绑定），供适配器调用。"""
+    from module.webui.app_stat_opsi import OpsiStatisticsMixin
+
+    return getattr(OpsiStatisticsMixin, name)
+
+
+def get_opsi_panels_html(instance_name: str) -> dict:
+    """返回「大世界」页的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
+
+    直接调老 UI 的 _render_opsi_stats 系列构建函数，把它们的输出
+    收集成字符串返回。这样新 UI 显示的内容与老 UI 完全一致。
+
+    Returns: {success, html, error}
+    """
+    import io
+    from contextlib import redirect_stdout
+
+    try:
+        ctx = _StatRenderCtx(instance_name)
+        # 绑定老 UI 的方法到适配器。
+        # 注意 staticmethod 不能再 __get__ 绑定，否则会多传一个 self
+        # （实测报 "got multiple values for argument 'tone'"）。
+        for _m in (
+            "_build_opsi_month_cards",
+            "_build_cl1_summary",
+            "_opsi_fmt_num",
+            "_opsi_card",
+            "_meow_loot_labels",
+            "_build_meow_rows",
+            "_build_opsi_summary_html",
+            "_split_unit_text",
+            "_build_meow_cards_html",
+            "_load_opsi_stats_dependencies",
+        ):
+            if hasattr(ctx, _m):
+                continue
+            _raw = _stat_render_method(_m)
+            # 从类 __dict__ 取原始描述符，判断是否 staticmethod
+            from module.webui.app_stat_opsi import OpsiStatisticsMixin
+
+            _desc = OpsiStatisticsMixin.__dict__.get(_m)
+            if isinstance(_desc, staticmethod):
+                setattr(ctx, _m, _desc.__func__)
+            else:
+                setattr(ctx, _m, _raw.__get__(ctx, type(ctx)))
+
+        payload = ctx._build_opsi_month_cards()
+        if payload is None:
+            return {"success": False, "html": "", "error": "数据源不可用"}
+        net, cards, inst, cl1_db = payload
+        summary_html = ctx._build_opsi_summary_html(net, cards)
+        meow_rows = ctx._build_meow_rows(cl1_db, inst)
+        meow_html = ctx._build_meow_cards_html(meow_rows)
+        return {
+            "success": True,
+            "html": summary_html,
+            "meow_html": meow_html,
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染大世界统计失败: {e}")
+        return {"success": False, "html": "", "meow_html": "", "error": f"{type(e).__name__}: {e}"}

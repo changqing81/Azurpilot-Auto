@@ -58,6 +58,17 @@ function ApLineChart({ entries }: { entries: ApEntry[] }) {
 export function OpsiPanel({ name }: { name: string }) {
   const [s, setS] = useState<OpsiSummary | null>(null)
   const [timeline, setTimeline] = useState<ApEntry[]>([])
+  // 老 UI 渲染器产出的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
+  // 复用后端同一套 Python 构建函数，结构/样式/数字与老 UI 逐字节一致 ——
+  // 比在 React 里重写几百行指标口径可靠得多。
+  const [panels, setPanels] = useState<{ html: string; meow: string } | null>(null)
+  useEffect(() => {
+    apiGet<{ success: boolean; html: string; meow_html: string; error: string }>(
+      `/newapi/stat/${name}/panels_html?panel=opsi`, 20000,
+    )
+      .then(r => { if (r.success) setPanels({ html: r.html, meow: r.meow_html }) })
+      .catch(() => { /* 拿不到就只显示折线图 */ })
+  }, [name])
   useEffect(() => {
     Promise.all([
       apiGet<{ summary: OpsiSummary }>(`/newapi/stat/${name}/opsi_summary`),
@@ -78,7 +89,21 @@ export function OpsiPanel({ name }: { name: string }) {
   const avg = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+      {/* 老 UI 同源渲染：净赚卡 + 12 指标卡 + 大世界收获。
+          用 dangerouslySetInnerHTML 是因为内容来自后端 Python 模板，
+          与老 UI 完全一致；CSS 由 statistics-alas.css 提供（已在 <head> 里）。 */}
+      {panels?.html && (
+        <div dangerouslySetInnerHTML={{ __html: panels.html }} />
+      )}
+      {panels?.meow && (
+        <details style={{ marginTop: 12 }}>
+          <summary style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>
+            大世界收获
+          </summary>
+          <div dangerouslySetInnerHTML={{ __html: panels.meow }} />
+        </details>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 16 }}>
         <div className="ov-card-title">体力变化 - 分钟曲线（详细波动）</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {['2026-11', '折线', '按日', '按月'].map(x => (
