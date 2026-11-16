@@ -243,7 +243,18 @@ export function Overview({ instance }: { instance: string }) {
     const target = (ev.target as HTMLElement).closest('button')
     if (!target) return
     const label = (target.textContent ?? '').trim()
-    if (label.startsWith('自动滚动')) { setAutoScroll(v => !v); return }
+    if (label.startsWith('自动滚动')) {
+      const next = !autoScrollRef.current
+      setAutoScroll(next)
+      // 开启时立即滚到底：否则「日志静止」（调度器未跑）时点了开关毫无反应，
+      // 看起来像坏了。老 UI 因为有 0.5s 的 put_log 循环，天然会在下一拍滚到底，
+      // 新 UI 的轮询在没有新内容时不会触发滚动，所以这里补一次。
+      if (next) {
+        const el = document.getElementById('pywebio-scope-log')
+        if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight })
+      }
+      return
+    }
     if (label === '折叠' || label === '展开') { setDashboardShown(v => !v); return }
     // 截图预览：直接调老 UI 的 alas-utils.js（已作为 public/alas-utils.js 引入，
     // 它内部走 /ws/live_screenshot 的 scrcpy H.264 链路，样式与交互与老 UI 完全一致）
