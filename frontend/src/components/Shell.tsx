@@ -85,6 +85,23 @@ export function Shell({
   const navigate = useNavigate()
   const [instances, setInstances] = useState<Instance[]>([])
   const [menu, setMenu] = useState<MenuGroup[]>([])
+  // content 容器由各页面自己渲染（<div id="pywebio-scope-content">），
+  // 这里用 effect 给它挂/摘 container-content-collapsed，
+  // 语义与老 UI base.py:537-551 的 expand_menu/init_menu 完全一致。
+  useEffect(() => {
+    if (!isMobile) return
+    const el = document.getElementById('pywebio-scope-content')
+    if (!el) return
+    el.classList.toggle('container-content-collapsed', menuCollapsed)
+  })
+  
+  // 移动端判定与后端 /newapi/bundle.css 的 UA 判定保持一致（同一组 token）
+  const [isMobile] = useState(() => {
+    const ua = (navigator.userAgent || '').toLowerCase()
+    return ['mobile', 'android', 'iphone', 'ipod', 'ipad', 'windows phone', 'blackberry'].some(t =>
+      ua.includes(t),
+    )
+  })
   const [instNames, setInstNames] = useState<string[]>([])
   const [header, setHeader] = useState<HeaderResp>({
     icon: '/static/assets/spa/spa-icon-192x192.png',
@@ -108,6 +125,13 @@ export function Shell({
       const btnEl = (ev.target as HTMLElement).closest('button')
       if (!btnEl) return
       const label = (btnEl.textContent ?? '').trim()
+      // 移动端：侧栏顶部的「主页」图标在 alas-mobile.css 下退化为「菜单开关」
+      // （老 UI app_developer_menu.py:78-84 的 ui_develop 二次点击语义：
+      //  点一次展开菜单/内容，再点一次收起）。
+      if (isMobile && label === '主页') {
+        setMenuCollapsed(v => !v)
+        return
+      }
       if (label === '主页') { navigate('/'); return }
       if (label === '管理') { navigate('/manage'); return }
       // 实例按钮：进对应实例的总览页
@@ -143,9 +167,12 @@ export function Shell({
 
   // 主页与老 UI 一致：菜单收起（base.py:540 对 HomePage 加 container-menu-collapsed）。
   // 注意老 UI 只是加类，菜单 DOM 仍在（移动端 CSS 把它 display:none）。
-  // 老 UI 两处都加 container-menu-collapsed（实测主页与总览页都是该 class），
-  // 它只在 alas-mobile.css 里 display:none，桌面端无影响。
-  const menuClass = 'container-menu-collapsed'
+  // 桌面端：老 UI 实测主页与总览页都带 container-menu-collapsed，
+  // 但 alas-mobile.css 才把它 display:none，桌面端无影响。
+  // 移动端：这个 class 就是「菜单是否收起」的真开关（见 alas-mobile.css:1-7），
+  // 由侧栏顶部的按钮切换（老 UI base.py:540-551 的 init_menu/expand_menu 同款语义）。
+  const [menuCollapsed, setMenuCollapsed] = useState(false)
+  const menuClass = isMobile && !menuCollapsed ? '' : 'container-menu-collapsed'
 
   const asideHtml =
     `<div id="pywebio-scope-aside_home">` +
