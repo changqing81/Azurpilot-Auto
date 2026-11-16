@@ -169,13 +169,9 @@ class DeveloperSettingsMixin(WebUIMixinBase):
                 if (field.type === 'bool') {{
                   input = `<label class="launcher-switch"><input data-deploy-key="${{escapeHtml(field.key)}}" type="checkbox" ${{value === true ? 'checked' : ''}}></label>`;
                 }} else if (field.type === 'select') {{
-                  // options 支持两种形态（见 deploy_settings.py:_parse_value 的注释）：
-                  //   1) 纯值：        "dark"
-                  //   2) 值+显示名：   ["new", "新 UI"]
-                  // 早先这里直接把 opt 当字符串塞进模板，二元组会被 JS 的
-                  // `${opt}` 隐式转成 "new,新 UI" —— 于是下拉框显示成
-                  // 「new,新 UI」，选中后提交的 value 也是 "new,新 UI"，
-                  // 后端校验失败 → 用户看到「切换了没用」。
+                  // options 支持两种形态（纯值 / 值+显示名二元组），
+                  // 二元组若不归一化会被 JS 模板字符串隐式转成 "new,新 UI"，
+                  // 导致下拉框显示错乱、提交值校验失败。
                   const pick = (opt) => Array.isArray(opt) ? {{ value: String(opt[0]), label: String(opt[1]) }} : {{ value: String(opt), label: String(opt) }};
                   const options = (field.options || []).map(opt => {{
                     const o = pick(opt);
