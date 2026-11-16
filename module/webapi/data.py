@@ -668,7 +668,18 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
         return {"valid": [], "invalid": list(modified.keys()), "error": str(e)}
 
     valid, invalid = [], []
-    for k, v in modified.items():
+    # 老 UI app_task_config.py:805 同款：modified.copy() —— 键补全/回写会
+    # 往 modified 塞新键（两段→三段、save_callback 联动值），直接迭代原字典
+    # 会 RuntimeError: dictionary changed size during iteration。
+    for k, v in modified.copy().items():
+        # 键契约：老 UI _save_config 用三段全路径 Task.Group.Arg
+        # （app_task_config.py:806 deep_get(self.ALAS_ARGS, k)，args.json 是三层）。
+        # 新 UI 前端早期发两段 Group.Arg —— 在 group 与 task 不同名的任务上
+        # （如 General.Log.LogKeepCount）deep_set(config, 'Log.LogKeepCount', v)
+        # 会创建错误的顶层键，config_update 重建时丢弃未知顶层键，
+        # 保存"成功"但值永远不变（2026-11-17 实测）。两段键自动补全成三段。
+        if k.count(".") == 1:
+            k = task + "." + k
         arg_def = deep_get(updater.args, k, {}) or {}
         valuetype = arg_def.get("valuetype") if isinstance(arg_def, dict) else None
         widget_type = arg_def.get("type") if isinstance(arg_def, dict) else None

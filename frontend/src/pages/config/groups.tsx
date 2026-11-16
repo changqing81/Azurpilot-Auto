@@ -153,7 +153,9 @@ export function ConfigGroups({
       ...g,
       args: g.args.map(a => a.name !== argName ? a : { ...a, value }),
     }))
-    pendingRef.current = { ...pendingRef.current, [`${group}.${argName}`]: value }
+    // 键契约 = 老 UI _save_config 的三段全路径 Task.Group.Arg（args.json 三层）。
+        // 两段键在 group 与 task 不同名时（如 General.Log.*）会写错层级。
+        pendingRef.current = { ...pendingRef.current, [`${task}.${group}.${argName}`]: value }
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => { void flush() }, 600)
   }
