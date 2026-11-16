@@ -177,3 +177,206 @@
   background: var(--alas-entry-border, #c9c9d9);
   border-radius: 3px;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════
+   补齐「有 class 但无样式」的类（长卿反馈「其他界面干秃秃」的真正原因）
+   ───────────────────────────────────────────────────────────────────────
+   老 UI 的排版全靠 *[style*="--arg-title--"] 这类**内联标记钩子**选中，
+   而 React 的 style prop 没法产出这种钩子，我改用了 className。
+   但只改了 tsx、忘了写对应 CSS —— 于是 .ov-card / .arg-title /
+   .arg-help / .dashboard-value 等 12 个类**完全没有样式**：
+   卡片没有背景、边框和圆角，标题没有字号字重，帮助文字没有灰度，
+   所有文字平铺在白底上 → 看起来「没东西 / 干秃秃」。
+
+   下面把每个类映射到老 UI 对应钩子的**同一套数值**（照抄 alas.css:1060
+   与 entry-alas.css:527），保证视觉一致。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 卡片容器：等价于老 UI *[style*="--manage-config-card--"] ── */
+.ov-card {
+    background: var(--alas-entry-surface);
+    border: 1px solid var(--alas-entry-border);
+    border-radius: 20px;
+    box-shadow: var(--alas-entry-panel-shadow);
+    padding: 20px;
+    transition: border-color .18s ease, box-shadow .18s ease;
+    overflow: hidden;
+}
+
+.ov-card:hover {
+    border-color: rgba(37, 99, 235, .45);
+    box-shadow: 0 10px 28px rgba(37, 99, 235, .12);
+}
+
+.ov-card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 .75rem;
+    color: var(--alas-entry-text);
+}
+
+/* ── 主按钮：老 UI 的 put_button(color="on") 蓝色实心 ── */
+.ov-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 38px;
+    padding: .375rem 1rem;
+    font-size: .9rem;
+    line-height: 1.5;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: var(--alas-entry-action, #2563eb);
+    color: var(--alas-entry-on-action, #fff);
+    cursor: pointer;
+    transition: background-color .15s ease, box-shadow .15s ease;
+}
+
+.ov-btn-primary:hover:not(:disabled) {
+    background: var(--alas-entry-action-hover, #1d4ed8);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, .28);
+}
+
+.ov-btn-primary:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+/* ── 配置项标题/帮助：等价于 *[style*="--arg-title--"] 与 --arg-help-- ── */
+.arg-title {
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0 .25rem;
+    overflow-wrap: break-word;
+    color: var(--alas-entry-text);
+}
+
+.arg-help {
+    font-size: .8rem;
+    margin: .2rem .25rem .1rem;
+    overflow-wrap: break-word;
+    color: var(--alas-entry-muted);
+    line-height: 1.6;
+}
+
+/* ── 仪表盘数值：等价于 --dashboard-value-- / --dashboard-help-- ── */
+.dashboard-value {
+    font-size: 1.2rem;
+    font-weight: 400;
+    margin: 0 0 0 .6rem;
+    font-family: 'MiSans', 'Arial', serif;
+    color: var(--alas-entry-text);
+}
+
+.dashboard-help {
+    font-size: .8rem;
+    margin: 0 0 0 .6rem;
+    font-family: 'MiSans', 'Arial', serif;
+    color: var(--alas-entry-muted);
+}
+
+.dashboard-value-row {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.dashboard-entry {
+    min-width: 0;
+}
+
+/* ── 配置页分组/标题 ── */
+.cfg-group-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--alas-entry-text);
+    margin: 0 0 .5rem;
+}
+
+.cfg-title-wrap {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.cfg-dirty-hint {
+    font-size: .78rem;
+    color: var(--alas-entry-badge-updating, #8a6100);
+}
+
+.cfg-error {
+    font-size: .8rem;
+    color: var(--alas-entry-badge-error, #c0392b);
+}
+
+/* ── 公告页 ── */
+.announcement-content {
+    font-size: .92rem;
+    line-height: 1.75;
+    color: var(--alas-entry-text);
+    overflow-wrap: break-word;
+}
+
+.announcement-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+}
+
+/* ── 统计页 ── */
+.stat-page {
+    padding: 10px .625rem;
+}
+
+.delta-ranking {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ── 主页/日志按钮组 ── */
+.home-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.log-btn {
+    min-width: 0;
+}
+
+/* ── 统计页页签指示器（无 JS 时也要有基线） ── */
+.st-tab-indicator {
+    display: none;
+}
+
+
+/* ── 远程控制页状态圈（对照老 UI put_loading grow/border） ── */
+.remote-dot {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.remote-dot.is-running {
+    border: 3px solid var(--alas-entry-success, #198754);
+    border-right-color: transparent;
+    animation: remote-spin 0.8s linear infinite;
+}
+
+.remote-dot.is-connecting {
+    border: 3px solid var(--alas-entry-muted, #6f737a);
+    border-right-color: transparent;
+    animation: remote-spin 0.8s linear infinite;
+}
+
+.remote-dot.is-off {
+    border: 3px solid var(--alas-entry-muted, #6f737a);
+}
+
+@keyframes remote-spin {
+    to { transform: rotate(360deg); }
+}

@@ -34,7 +34,24 @@ function SourceChip({ state }: { state: 'ok' | 'stale' | 'missing' }) {
 export function StatPage() {
   const { name = 'alas' } = useParams()
   const [searchParams] = useSearchParams()
-  const [tab, setTab] = useState(searchParams.get('tab') || 'opsi')
+  // 页签记忆：长卿反馈「记不住上次选项」。
+  // 优先级：URL ?tab= > localStorage（上次看的页签）> 默认大世界。
+  // 老 UI 的每个页签是独立的 PyWebIO 页面回调，切走再回来必然重置；
+  // 新 UI 用 localStorage 记住，切页/刷新/从老 UI 切过来都保持上次的页签。
+  const STAT_TAB_KEY = 'alas_newui_stat_tab'
+  const [tab, setTabRaw] = useState(() => {
+    const fromUrl = searchParams.get('tab')
+    if (fromUrl && TABS.some(t => t.id === fromUrl)) return fromUrl
+    try {
+      const saved = localStorage.getItem(STAT_TAB_KEY)
+      if (saved && TABS.some(t => t.id === saved)) return saved
+    } catch { /* 隐私模式 */ }
+    return 'opsi'
+  })
+  const setTab = (id: string) => {
+    setTabRaw(id)
+    try { localStorage.setItem(STAT_TAB_KEY, id) } catch { /* 隐私模式 */ }
+  }
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const indicatorRef = useRef<HTMLSpanElement | null>(null)
   const [meta, setMeta] = useState('')

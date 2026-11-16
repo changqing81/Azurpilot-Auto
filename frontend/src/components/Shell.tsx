@@ -163,7 +163,12 @@ export function Shell({
       const sub = submenu?.find(it => it.key === key)
       if (sub?.onClick) { sub.onClick(); return }
       if (key === 'Overview') { navigate('/overview/' + encodeURIComponent(instanceName)); return }
-      if (key === 'HomePage') { navigate('/'); return }
+      if (key === 'HomePage') {
+        // 清掉「上次页面」记录：否则下次从 /new/ 进来又被带回子页面，像回不到主页
+        try { localStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
+        navigate('/')
+        return
+      }
       if (key === 'Update') { navigate('/update'); return }
       if (key === 'Remote') { navigate('/remote'); return }
       if (key === 'Setting') { navigate('/settings/' + encodeURIComponent(instanceName)); return }

@@ -139,7 +139,13 @@ function RestoreLastRoute() {
   useEffect(() => {
     if (restored.current) return
     restored.current = true
-    if (location.hash) return
+    // 只在「真正的根路径」上恢复。
+    // 坑：HashRouter 下 location.pathname 是 # 之后的部分，
+    // location.hash 是路由内部的二级 hash（如 #/a#b 的 "#b"）。
+    // 所以访问 #/remote 时 pathname='/remote' 而 hash='' ——
+    // 早先写成 if (location.hash) return 会导致**任何页面都被重定向**
+    // 到上次访问的页（实测：请求 #/remote 却显示 #/manage）。
+    if (location.pathname && location.pathname !== '/') return
     let saved = ''
     try { saved = localStorage.getItem(LAST_ROUTE_KEY) || '' } catch { /* 隐私模式 */ }
     // 只恢复白名单，避免历史脏数据把用户带到 404
@@ -147,6 +153,9 @@ function RestoreLastRoute() {
       || /^\/(update|remote|announcement|manage)$/.test(saved)
     if (ok) navigate(saved, { replace: true })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 注：用户主动点「主页」时由 Shell 清除 LAST_ROUTE_KEY（见 components/Shell.tsx），
+  // 否则下次从 /new/ 进来还会被带到上次的子页面，看起来像「回不到主页」。
 
   useEffect(() => {
     const cur = location.pathname
