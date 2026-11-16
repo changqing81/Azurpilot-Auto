@@ -7983,6 +7983,8 @@
       "PasswordHelp": "WebUI へアクセスするためのパスワードです。空欄なら未設定です。",
       "CDN": "PyWebIO CDN",
       "CDNHelp": "true、false、またはカスタム CDN URL を指定できます。",
+      "UI": "UI バージョン",
+      "UIHelp": "旧 UI = PyWebIO の元の画面；新 UI = React 画面（高速・低メモリ）。切り替え後は AzurPilot の再起動が必要です。",
       "WebuiSSLKey": "SSL キーファイル",
       "WebuiSSLKeyHelp": "WebUI HTTPS 用の SSL キーです。証明書とセットで設定してください。",
       "WebuiSSLCert": "SSL 証明書ファイル",

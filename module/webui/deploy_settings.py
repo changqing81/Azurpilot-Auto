@@ -94,7 +94,6 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
         "RemoteAccess",
         (
             DeployField("EnableRemoteAccess", "bool"),
-            DeployField("UI", "select", (("legacy", "老 UI"), ("new", "新 UI"))),
             DeployField("RemoteAccessMode", "select", tuple(REMOTE_ACCESS_MODE_OPTIONS)),
             DeployField("SSHUser", "nullable_string"),
             DeployField("SSHServer", "nullable_string"),
@@ -117,6 +116,9 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
             DeployField("DpiScaling", "bool"),
             DeployField("Password", "nullable_string"),
             DeployField("CDN", "cdn"),
+            # 界面版本：legacy = 老 UI（PyWebIO）；new = 新 UI（React 占据 /，老 UI 页面关闭）。
+            # 改这个必须重启 GUI 才生效（路由在应用创建时固定），表单底部有统一提示。
+            DeployField("UI", "select", (("legacy", "老 UI"), ("new", "新 UI"))),
             DeployField("WebuiSSLKey", "nullable_string"),
             DeployField("WebuiSSLCert", "nullable_string"),
         ),

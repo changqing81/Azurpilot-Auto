@@ -7983,6 +7983,8 @@
       "PasswordHelp": "Password used to access WebUI. Leave empty for no password.",
       "CDN": "PyWebIO CDN",
       "CDNHelp": "Use true, false, or a custom CDN URL.",
+      "UI": "UI Version",
+      "UIHelp": "Legacy = original PyWebIO UI; New = React UI (faster, lower memory). Restart AzurPilot to apply.",
       "WebuiSSLKey": "SSL Key File",
       "WebuiSSLKeyHelp": "SSL key path for WebUI HTTPS. Must be set together with the certificate.",
       "WebuiSSLCert": "SSL Certificate File",
