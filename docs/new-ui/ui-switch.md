@@ -94,6 +94,26 @@ mount_webapi(application, mount_root=_mount_root)
 截图：`.workbuddy/perf/out/newui/settings_ui_v2.png`（设置页界面版本下拉）、
 `switch_test.png`（保存后重启引导卡）
 
+## 4b. 已决定延后到最后收尾的需求
+
+长卿 2026-11-16 明确：
+
+> 「加个不用重启的热切换，并让 / 和 /new/ 同时可用，随便切来切去」
+> 「这个到最后收尾做」
+
+即：
+- **热切换（不重启就换 UI）** → 放到收尾阶段，等新 UI 功能补齐、验收通过后再做
+- **`/` 与 `/new/` 同时可用、随便切** → 同上
+
+技术预研结论（提前记下，收尾时直接用）：
+- 热切换的障碍是「路由表在 `create_app()` 时固定」。可行的最小改动是
+  **不动路由，只改 `/` 的响应体**：把老 UI 的 `/` 保留，在 dispatch 层按
+  `State.deploy_config.UI` 决定返回 PyWebIO 页面还是 SPA index.html。
+  由于两者共用同一个 Starlette 应用、同一个 `/static`、`/api`、`/newapi`，
+  切换只需要改一个变量 + 前端提示「刷新页面」。
+- 同时可用更简单：保持 `legacy` 模式即可（`/` 老 UI、`/new/` 新 UI 都注册），
+  再加一个「切到新 UI / 切回老 UI」的浮层按钮。
+
 ## 5. 已知限制
 
 1. **必须重启才生效**——路由表在应用创建时固定。做热切换需要在运行中替换 ASGI app，
