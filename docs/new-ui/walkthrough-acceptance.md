@@ -39,7 +39,40 @@
   与本地代码无关；自检脚本 .workbuddy/perf/out/remote_probe.cjs
 - 主页无状态圈：老 UI 行为（set_status(0)）
 
-## 四、遗留（低优先级）
+## 四、2026-11-17 深夜专项自查（长卿清单：主题/背景/远控/配置）
+
+### 主题矩阵（6 主题 × 主页/总览，真实用户路径点击切换）
+| 主题 | pywebio class | 主题层 CSS | 视觉 |
+|---|---|---|---|
+| default | webio-theme-default | light-alas.css | 浅色 OK |
+| dark | webio-theme-dark | dark-alas.css | body 13,17,23 / content 54,57,63 OK |
+| advanced_material | webio-theme-default | advanced-material-alas.css | 壁纸+半透明材质 OK |
+| transparent | webio-theme-default | advanced-material + transparent 两层 | 全透明壁纸透出 OK |
+| dark_advanced_material | webio-theme-dark | advanced-material + overrides 两层 | 结构对齐 webui_style_names |
+| light | webio-theme-default | light-alas.css | OK |
+
+教训：测试脚本用 hash navigate 不会重载文档，主题自然不变 —— 必须走
+真实用户路径（点击 → location.replace 文档重载）才算数。
+
+### 自定义背景
+- custom_bg.png（1.3MB）服务 200 image/png
+- 高级材质下随机壁纸加载、卡片材质、文字可读
+- /newapi/background 返回 mode/media/has_custom
+
+### 配置保持/更新/写入 —— 发现并修复重大缺陷
+Log.LogKeepCount（group 与 task 不同名案例）实测暴露：两段键保存静默丢值
+（alas.json 顶层坏键 + 真实值不变）。修复见 51a340960：后端两段键补全 +
+modified.copy() 迭代 + 前端改发三段键；alas.json 坏键已清理，
+保存-落盘-读回-恢复四步闭环实测通过。
+
+### 远控
+- 代理协议覆盖 http.request / ws.open / sse.open（remote_access.py:626-645），
+  新 UI 的 REST 全走同源相对路径，理论兼容
+- log tail 无 query 时优雅降级（200 cursor=0，远控丢 query 不致 500）
+- 端到端受阻：官方中转服务器故障（信令 443 拒绝 + SSH 连上即踢，见 remote_probe.cjs），
+  服务器恢复后需真机补测：页面加载 / 配置保存 / 日志流
+
+## 五、遗留（低优先级）
 
 - 科技列表批量编辑**弹窗**（三下拉+快捷预设+保存）未迁移：工具栏入口已补
   （479805759），但 data-ft-batch 点击桥接与 _ft_batch_save 的 REST 化未做
