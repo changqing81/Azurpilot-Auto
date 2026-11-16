@@ -1500,6 +1500,66 @@ def reset_wallpaper_sources() -> dict:
         return {"success": False, "error": str(e)}
 
 
+# ─────────────────── 统计页面板缓存 ───────────────────
+# 为什么需要缓存（实测数据）：
+#   opsi 面板单次渲染 1202ms、research 518ms、commission 461ms、delta 200ms，
+#   且**连续 5 次耗时完全一样**（无任何缓存效果）。
+#   分段计时定位：_build_meow_rows 669ms（对侵蚀等级 1~6 各查一次 SQLite），
+#   _build_opsi_month_cards 182ms。
+#
+# 老 UI 的做法：app_statistics_page.py 用 _statistics_cache_key 判断数据是否
+# 变化，没变化就不重建。这里用同样的思路，但缓存键取**数据源 mtime + 月份**：
+#   - config/cl1_data.db 的 mtime（战斗/掉落数据都写在这里）
+#   - 当前年月（切月份要重算）
+#   - 实例名
+# 数据没变就直接返回上次的 HTML；变了才重算。
+# 这样「进页面看统计」这种高频操作只有首次慢，之后都是内存命中。
+
+_STAT_HTML_CACHE: dict = {}
+_STAT_HTML_CACHE_LOCK = None
+
+
+def _stat_cache_key(instance_name: str, panel: str) -> tuple:
+    """统计面板的缓存键：数据源 mtime + 年月 + 实例 + 面板名。"""
+    import os as _os
+
+    from module.config.time_source import now as _now
+
+    t = _now()
+    db_path = _wallpapers_dir().parent / "config" / "cl1_data.db"
+    try:
+        db_mtime = _os.stat(db_path).st_mtime_ns
+    except OSError:
+        db_mtime = 0
+    # 自定义图源/背景设置也会影响部分面板，一并纳入
+    return (instance_name, panel, db_mtime, t.year, t.month)
+
+
+def _cached_stat_html(instance_name: str, panel: str, builder):
+    """带缓存的统计面板渲染。builder() 返回 dict，缓存其成功结果。"""
+    global _STAT_HTML_CACHE_LOCK
+    if _STAT_HTML_CACHE_LOCK is None:
+        import threading
+
+        _STAT_HTML_CACHE_LOCK = threading.Lock()
+
+    key = _stat_cache_key(instance_name, panel)
+    with _STAT_HTML_CACHE_LOCK:
+        hit = _STAT_HTML_CACHE.get(key)
+    if hit is not None:
+        return hit
+
+    result = builder()
+    if isinstance(result, dict) and result.get("success"):
+        # 只缓存成功结果；失败下次重试（数据可能刚写入）
+        with _STAT_HTML_CACHE_LOCK:
+            # 只保留最近的 12 个键（3 面板 × 4 个月份量级），避免无限增长
+            if len(_STAT_HTML_CACHE) > 12:
+                _STAT_HTML_CACHE.clear()
+            _STAT_HTML_CACHE[key] = result
+    return result
+
+
 # ─────────────────── 统计页 HTML 复用（老 UI 模板直接渲染）───────────────────
 # 为什么复用老 UI 的渲染器而不是在 React 里重写：
 #   老 UI 的统计页由 11 个 HTML 模板（webapp/*.html）拼装，指标口径、
@@ -1572,6 +1632,11 @@ def _stat_render_method(name: str):
 
 
 def get_opsi_panels_html(instance_name: str) -> dict:
+    """带缓存入口（缓存键见 _stat_cache_key）。"""
+    return _cached_stat_html(instance_name, "opsi", lambda: _get_opsi_panels_html_impl(instance_name))
+
+
+def _get_opsi_panels_html_impl(instance_name: str) -> dict:
     """返回「大世界」页的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
 
     直接调老 UI 的 _render_opsi_stats 系列构建函数，把它们的输出
@@ -1696,6 +1761,11 @@ def _make_stat_ctx(instance_name: str, mixin_module: str, mixin_class: str):
 
 
 def get_commission_panel_html(instance_name: str) -> dict:
+    """带缓存入口（缓存键见 _stat_cache_key）。"""
+    return _cached_stat_html(instance_name, "commission", lambda: _get_commission_panel_html_impl(instance_name))
+
+
+def _get_commission_panel_html_impl(instance_name: str) -> dict:
     """委托面板（app_stat_commission.py）。返回 summary/table/recent 三段 HTML。"""
     try:
         ctx = _make_stat_ctx(
@@ -1720,6 +1790,11 @@ def get_commission_panel_html(instance_name: str) -> dict:
 
 
 def get_research_panel_html(instance_name: str) -> dict:
+    """带缓存入口（缓存键见 _stat_cache_key）。"""
+    return _cached_stat_html(instance_name, "research", lambda: _get_research_panel_html_impl(instance_name))
+
+
+def _get_research_panel_html_impl(instance_name: str) -> dict:
     """科研面板（app_stat_research.py）。"""
     try:
         ctx = _make_stat_ctx(
@@ -1736,6 +1811,11 @@ def get_research_panel_html(instance_name: str) -> dict:
 
 
 def get_delta_panel_html(instance_name: str) -> dict:
+    """带缓存入口（缓存键见 _stat_cache_key）。"""
+    return _cached_stat_html(instance_name, "delta", lambda: _get_delta_panel_html_impl(instance_name))
+
+
+def _get_delta_panel_html_impl(instance_name: str) -> dict:
     """资源面板（app_stat_delta.py）。返回汇总/排行/图例三段 HTML。"""
     try:
         ctx = _make_stat_ctx(

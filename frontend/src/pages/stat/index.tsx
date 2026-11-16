@@ -90,6 +90,15 @@ export function StatPage() {
     raf = requestAnimationFrame(retry)
     return () => cancelAnimationFrame(raf)
   }, [tab, groupsKey])
+  // 进统计页立刻后台预热 4 个面板的缓存。
+  // 首次渲染 opsi 要 1.3s（_build_meow_rows 对侵蚀等级 1~6 各查一次 SQLite），
+  // 用户点页签时才开始算就会有明显卡顿。预热后点页签只需 8~40ms。
+  useEffect(() => {
+    fetch(`/newapi/stat/${name}/panels_warm`, { cache: 'no-store' }).catch(() => {
+      /* 预热失败不影响正常请求，用户点页签时再算 */
+    })
+  }, [name])
+
   useEffect(() => {
     const now = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')

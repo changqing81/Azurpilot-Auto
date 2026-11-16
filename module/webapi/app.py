@@ -213,6 +213,35 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(fn, name))
 
 
+async def stat_panels_warm(request: Request) -> JSONResponse:
+    """GET /newapi/stat/{name}/panels_warm — 后台预热统计面板缓存。
+
+    首次渲染 opsi 面板要 1.3s（_build_meow_rows 对侵蚀等级 1~6 各查一次
+    SQLite）。用户点进统计页时才开始算，就会看到明显卡顿。
+    这个端点让前端**进页面时立刻并发预热**，用户点页签时缓存已就绪。
+    返回已预热的 panel 列表（不返回 HTML，省带宽）。
+    """
+    name = request.path_params.get("name", "")
+
+    def _warm() -> dict:
+        done = []
+        for panel, fn in (
+            ("opsi", data.get_opsi_panels_html),
+            ("commission", data.get_commission_panel_html),
+            ("research", data.get_research_panel_html),
+            ("delta", data.get_delta_panel_html),
+        ):
+            try:
+                r = fn(name)
+                if isinstance(r, dict) and r.get("success"):
+                    done.append(panel)
+            except Exception:  # noqa: BLE001 —— 预热失败不影响正常请求
+                pass
+        return {"success": True, "warmed": done}
+
+    return JSONResponse(await run_in_threadpool(_warm))
+
+
 async def background_setting(request: Request) -> JSONResponse:
     """GET /newapi/background — 当前背景设置（mode/media/是否有自定义图）。"""
     return JSONResponse(await run_in_threadpool(data.get_background_setting))
@@ -527,6 +556,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instance/create", instance_create, methods=["POST"]),
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
         Route("/newapi/stat/{name}/panels_html", stat_panels_html),
+        Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
         Route("/newapi/background", background_setting),
         Route("/newapi/background/mode", background_mode, methods=["POST"]),
         Route("/newapi/background/media", background_media, methods=["POST"]),
