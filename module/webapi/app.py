@@ -77,6 +77,11 @@ async def theme_css(request: Request) -> JSONResponse:
     return JSONResponse(data.get_theme_styles())
 
 
+async def restart_webui(request: Request) -> JSONResponse:
+    """重启 WebUI（让 deploy.yaml 改动生效）。链路与老 UI 重启按钮完全一致。"""
+    return JSONResponse(data.restart_webui())
+
+
 async def oobe_state(request: Request) -> JSONResponse:
     return JSONResponse(data.get_oobe_state())
 
@@ -207,6 +212,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/scheduler/{name}/stop", scheduler_stop, methods=["POST"]),
         Route("/newapi/oobe", oobe_state),
         Route("/newapi/theme-css", theme_css),
+        Route("/newapi/restart", restart_webui, methods=["POST"]),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]

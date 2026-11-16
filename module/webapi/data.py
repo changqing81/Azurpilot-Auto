@@ -720,3 +720,24 @@ def get_theme_styles() -> dict:
         names = ["alas", "alas-pc", "light-alas"]
     links = [f"/static/assets/gui/css/{name}.css" for name in names]
     return {"theme": theme, "links": links}
+
+
+def restart_webui() -> dict:
+    """请求重启 WebUI 进程（让 deploy.yaml 的改动生效）。
+
+    复用老 UI 的 request_webui_restart()（module/webui/app_developer_tools.py:60）：
+    它会先把当前运行的实例名写进 config/reloadalas，再置 restart_event 通知父进程
+    重启并恢复实例——与老 UI「重启」按钮完全相同的一条链路。
+
+    返回 {success, message}。前端拿到 success 后应提示用户"正在重启，稍后刷新"。
+    """
+    try:
+        from module.webui.app_developer_tools import request_webui_restart
+
+        ok = bool(request_webui_restart())
+        if ok:
+            return {"success": True, "message": "正在重启 WebUI"}
+        return {"success": False, "message": "重启请求被拒绝（可能有更新事务在进行）"}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] WebUI 重启请求失败: {e}")
+        return {"success": False, "message": str(e)}
