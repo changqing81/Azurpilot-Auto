@@ -2008,6 +2008,31 @@ def _get_research_panel_html_impl(
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[webapi] 渲染进行中科研失败: {e}")
         data = ctx._load_research_stats_data()
+        # 指标卡（总掉落/今日/本月/记录次数）—— 老 UI app_stat_research.py:178-193
+        # 用 build_metric_grid 生成 .metric-grid/.metric，**在控件之前**。
+        # 之前只返 table_html，整块指标卡丢了，科研页只剩按钮 + 表格。
+        metric = ""
+        if data is not None:
+            try:
+                from module.webui.app_helpers import build_metric_grid
+                from module.webui.lang import t as _t
+
+                metric = build_metric_grid(
+                    [
+                        _t("Gui.Stat.ResearchMetricTotal"),
+                        _t("Gui.Stat.ResearchMetricToday"),
+                        _t("Gui.Stat.ResearchMetricMonth"),
+                        _t("Gui.Stat.ResearchMetricRecords"),
+                    ],
+                    [
+                        f"{int(data.get('total', 0)):,}",
+                        f"{int(data.get('today', 0)):,}",
+                        f"{int(data.get('month', 0)):,}",
+                        f"{int(data.get('records', 0)):,}",
+                    ],
+                )
+            except Exception as e:  # noqa: BLE001 —— 指标卡失败不能拖垮整页
+                logger.warning(f"[webapi] 渲染科研指标卡失败: {e}")
         table = ctx._build_research_table_html(data)
         # 可选期数（老 UI _series_options(data)，仅在「期数」口径下出现）
         series_opts = []
@@ -2020,6 +2045,7 @@ def _get_research_panel_html_impl(
         return {
             "success": True,
             "running_html": running,
+            "metric_html": metric,
             "table_html": table,
             "scope": data.get("scope", "series") if isinstance(data, dict) else "series",
             "series": data.get("series") if isinstance(data, dict) else None,
