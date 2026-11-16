@@ -235,6 +235,20 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(fn, name))
 
 
+async def stat_ap_chart(request: Request) -> JSONResponse:
+    """GET /newapi/stat/{name}/ap_chart?view=&month=
+
+    体力变化图：返回老 UI 的 ap_chart_panel.html + ap_chart.js 完整产物。
+    前端挂载后浏览器执图表脚本 —— 就是老 UI 那张图，不是重画的。
+    """
+    name = request.path_params.get("name", "")
+    view = (request.query_params.get("view") or "").strip()
+    month = (request.query_params.get("month") or "").strip()
+    return JSONResponse(
+        await run_in_threadpool(data.get_ap_chart_html, name, view, month)
+    )
+
+
 async def stat_months(request: Request) -> JSONResponse:
     """GET /newapi/stat/{name}/months — 统计页可选月份（新→旧）。"""
     name = request.path_params.get("name", "")
@@ -603,6 +617,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/stat/{name}/panels_html", stat_panels_html),
         Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
         Route("/newapi/stat/{name}/months", stat_months),
+        Route("/newapi/stat/{name}/ap_chart", stat_ap_chart),
         Route("/newapi/background", background_setting),
         Route("/newapi/background/mode", background_mode, methods=["POST"]),
         Route("/newapi/background/media", background_media, methods=["POST"]),

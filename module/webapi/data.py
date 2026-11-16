@@ -1743,31 +1743,74 @@ def _make_stat_ctx(instance_name: str, mixin_module: str, mixin_class: str):
             t = _now()
             return (self._stat_year, self._stat_month) == (t.year, t.month)
 
+        def _stat_month_key(self) -> str:
+            """当前查看月份键 "YYYY-MM"（老 UI app_statistics_page.py:1126）。"""
+            return f"{self._stat_year:04d}-{self._stat_month:02d}"
+
+        def _open_stat_month_picker(self) -> None:
+            """月份选择器：REST 场景下由前端下拉框承担，这里给空实现。
+
+            老 UI 这个方法是弹窗（PyWebIO popup），REST 化后由前端 UI 处理。
+            留着空实现是为了让复用过来的渲染函数不因缺属性报错。
+            """
+
+        def _stat_selected_month(self):
+            """显式选中的月份；None 表示本月（老 UI 同款）。"""
+            return (self._stat_year, self._stat_month)
+
         # 面板通用工具（各 Mixin 都有同名实现，绑定时覆盖不到时兜底）
         def _opsi_fmt_num(self, value, decimals=0):
             from module.webui.app_stat_opsi import OpsiStatisticsMixin
 
             return OpsiStatisticsMixin._opsi_fmt_num(value, decimals)  # type: ignore[attr-defined]
     ctx = _Ctx()
-    # 镜像所有方法（含 private）与类常量
+    # 镜像**所有**大写类常量到实例（AP_CHART_VIEWS / AP_LINE_VIEWS /
+    # AP_SERIES_COLORS 等是类属性，复用过来的方法通过 self.XXX 访问，
+    # 不镜像就会 AttributeError）。
+    for _name in dir(mixin):
+        if not _name.isupper():
+            continue
+        try:
+            setattr(ctx, _name, getattr(mixin, _name))
+        except Exception:  # noqa: BLE001
+            pass
+    # 镜像所有方法（含 private）。
+    # ⚠️ 必须沿 MRO 找**原始描述符**：staticmethod 若只做 getattr(mixin, name)
+    # 拿到的是已解包的函数，再用 __get__ 绑定会多传一个 self
+    # （实测报 "got multiple values for argument"）。
+    def _find_descriptor(cls, name):
+        for _base in cls.__mro__:
+            if name in _base.__dict__:
+                return _base.__dict__[name]
+        return None
+
     for _name in dir(mixin):
         if _name.startswith("__"):
             continue
         if _name in ("_stat_month_pair", "_stat_month_is_current"):
             continue
-        _desc = mixin.__dict__.get(_name)
+        _desc = _find_descriptor(mixin, _name)
         if _desc is None:
-            # 继承来的方法
-            try:
-                _val = getattr(mixin, _name)
-            except Exception:  # noqa: BLE001
-                continue
-            if callable(_val):
-                setattr(ctx, _name, _val.__get__(ctx, type(ctx)))
             continue
         if isinstance(_desc, staticmethod):
+            # staticmethod 同时挂到实例和类上：
+            # 有些复用方法内部写的是 type(self)._format_ap_metric(...)，
+            # 只挂实例会 AttributeError（实测报 type object '_Ctx' has no attribute）。
             setattr(ctx, _name, _desc.__func__)
+            try:
+                setattr(type(ctx), _name, _desc.__func__)
+            except Exception:  # noqa: BLE001
+                pass
         elif isinstance(_desc, classmethod):
+            # classmethod 也要绑定：__get__(ctx, type(ctx)) 后调用时会传 cls=_Ctx，
+            # 方法内部若用 cls.XXX 访问类常量也能正常工作。
+            # 之前直接 continue 跳过了，导致 _build_ap_resource_row /
+            # _build_ap_legend_item 缺失 → AttributeError。
+            try:
+                setattr(ctx, _name, _desc.__get__(ctx, type(ctx)))
+            except Exception:  # noqa: BLE001
+                pass
+        elif isinstance(_desc, property):
             continue
         else:
             try:
@@ -1800,8 +1843,19 @@ def _get_commission_panel_html_impl(instance_name: str, period: str = "") -> dic
         if data is None:
             return {"success": False, "error": "暂无委托数据"}
         summary, table, recent = ctx._build_commission_income_html(data)
+        # 进行中的委托（含收益预估）—— 老 UI 在 summary 之上渲染，
+        # 由 app_stat_running.py:_build_running_commission_html 产出。
+        # 我第一版完全漏了这个模块（长卿：「我委托和科研的正在进行中的呢」）。
+        running = ""
+        try:
+            from module.webui.app_stat_running import RunningStatisticsMixin
+
+            running = RunningStatisticsMixin._build_running_commission_html(ctx)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[webapi] 渲染进行中委托失败: {e}")
         return {
             "success": True,
+            "running_html": running,
             "summary_html": summary,
             "table_html": table,
             "recent_html": recent,
@@ -1841,6 +1895,15 @@ def _get_research_panel_html_impl(
             ctx._research_stats_scope = scope
         if series:
             ctx._research_stats_series = int(series)
+        # 进行中的科研队列 —— 老 UI 贴在标题下方（_render_research_stats 里
+        # put_html(running_html, scope="research_stats")），比历史掉落更即时。
+        running = ""
+        try:
+            from module.webui.app_stat_running import RunningStatisticsMixin
+
+            running = RunningStatisticsMixin._build_running_research_html(ctx)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[webapi] 渲染进行中科研失败: {e}")
         data = ctx._load_research_stats_data()
         table = ctx._build_research_table_html(data)
         # 可选期数（老 UI _series_options(data)，仅在「期数」口径下出现）
@@ -1853,6 +1916,7 @@ def _get_research_panel_html_impl(
             pass
         return {
             "success": True,
+            "running_html": running,
             "table_html": table,
             "scope": data.get("scope", "series") if isinstance(data, dict) else "series",
             "series": data.get("series") if isinstance(data, dict) else None,
@@ -2188,3 +2252,179 @@ def get_stat_available_months(instance_name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[webapi] 读取可用月份失败: {e}")
         return {"success": False, "error": f"{type(e).__name__}: {e}", "months": []}
+
+
+def get_ap_chart_html(instance_name: str, view: str = "", month: str = "") -> dict:
+    """体力变化图 —— 完全复用老 UI 的 ap_chart.js（41KB Canvas 2D 手绘图表）。
+
+    为什么不在 React 里重画（长卿 2026-11-16）：
+        「你那个 K 线图是屎啊，老 UI 做的那么漂亮，你新 UI 做的跟屎一样，
+          只有数字没有什么渲染」
+
+    老 UI 的图表不是 echarts，而是 webapp/ap_chart.js —— 936 行 Canvas 2D
+    手绘实现，支持：K 线/折线双模式、体力/紫币/黄币/资产/海里数五条序列、
+    可点击图例、自定义 tooltip、hover 十字线、detail 缩放。
+
+    我第一版用 echarts 拼了个 30 行的折线，粗糙到没法看。正确做法是
+    **直接复用这两个模板**（ap_chart_panel.html + ap_chart.js）：
+    后端调老 UI 的 _render_ap_chart_content 同一套数据装配逻辑，
+    产出 HTML + <script>，前端 innerHTML 挂载后浏览器自动执行图表脚本。
+
+    Returns: {success, html, error}
+    """
+    return _cached_stat_html(
+        instance_name, f"ap_chart:{view}:{month}",
+        lambda: _get_ap_chart_html_impl(instance_name, view, month),
+        f"{view}:{month}",
+    )
+
+
+def _get_ap_chart_html_impl(instance_name: str, view: str = "", month: str = "") -> dict:
+    """体力变化图：完整复用老 UI 的 ap_chart_panel.html + ap_chart.js。
+
+    模板占位符与替换逻辑**逐项照抄** app_stat_action_point.py:_render_ap_chart_content
+    （那里是 PyWebIO 的 put_html/run_js 输出，这边只是把它们拼成一个字符串）。
+    """
+    try:
+        import json as _json
+
+        from module.webui.app_stat_action_point import ActionPointStatisticsMixin
+        from module.webui.app_helpers import read_webapp_template
+        from module.webui.lang import t as _t
+
+        ctx = _make_stat_ctx(
+            instance_name,
+            "module.webui.app_stat_action_point",
+            "ActionPointStatisticsMixin",
+        )
+        if month:
+            try:
+                _y, _m = month.split("-")
+                ctx._stat_year, ctx._stat_month = int(_y), int(_m)
+            except (ValueError, AttributeError):
+                pass
+        if view:
+            ctx._ap_chart_view = view
+        elif not hasattr(ctx, "_ap_chart_view"):
+            ctx._ap_chart_view = "line"
+
+        raw_points, timeline, coins_timeline, asset_timeline = (
+            ctx._load_ap_chart_dataset(reuse=False)
+        )
+        if not raw_points or not timeline:
+            return {"success": True, "html": "", "error": "暂无体力数据"}
+
+        chart_data = ctx._build_ap_chart_series(raw_points)
+        if chart_data is None:
+            return {"success": True, "html": "", "error": "数据不足以聚合 K 线"}
+
+        auxiliary = ctx._build_ap_chart_auxiliary_data(
+            timeline=timeline,
+            coins_timeline=coins_timeline,
+            asset_timeline=asset_timeline,
+            chart_points=chart_data["chart_points"],
+            current_view=chart_data["current_view"],
+        )
+
+        chart_id = "ap_cv_nc_" + str(instance_name).replace(".", "_")
+        current_view = chart_data["current_view"]
+        line_views = getattr(ActionPointStatisticsMixin, "AP_LINE_VIEWS", ())
+        detail_controls_display = (
+            "display:flex;" if current_view in line_views else "display:none;"
+        )
+
+        # 资源明细折叠块（黄币/紫币/资产图例）—— 仅在分时视图出现
+        aux_fold = ""
+        if current_view in line_views:
+            _legend_parts = [
+                ctx._build_ap_legend_item(
+                    0,
+                    ActionPointStatisticsMixin.AP_SERIES_COLORS["ap"],
+                    _t("Gui.Stat.SeriesActionPoint"),
+                ),
+                auxiliary.get("coins_legend_html", ""),
+            ]
+            aux_fold = (
+                '<details class="ap-aux-fold">'
+                "<summary>"
+                '<span class="ap-aux-title">' + str(_t("Gui.Stat.AuxFoldTitle")) + "</span>"
+                '<span class="ap-aux-digest">' + str(auxiliary.get("aux_digest", "")) + "</span>"
+                "</summary>"
+                '<div class="ap-aux-body">'
+                + str(auxiliary.get("coins_stats_html", ""))
+                + '<div id="' + chart_id + '_legend" style="display:flex; flex-wrap:wrap;'
+                ' gap:12px; margin-top:10px; font-size:12px; color:#888;">'
+                + "".join(_legend_parts)
+                + "</div></div></details>"
+            )
+
+        html_tpl = read_webapp_template("ap_chart_panel.html")
+        html = html_tpl.format(
+            chart_id=chart_id,
+            ap_cur=chart_data["ap_cur"],
+            change_color=chart_data["change_color"],
+            change_sign=chart_data["change_sign"],
+            ap_change=chart_data["ap_change"],
+            ap_max=chart_data["ap_max"],
+            ap_min=chart_data["ap_min"],
+            ap_avg=chart_data["ap_avg"],
+            data_points_text=chart_data["data_points_text"],
+            detail_controls_display=detail_controls_display,
+            aux_fold_html=aux_fold,
+            kpi_current_ap=_t("Gui.Stat.KpiCurrentAp"),
+            kpi_change=_t("Gui.Stat.KpiChange"),
+            kpi_range_max=_t("Gui.Stat.KpiRangeMax"),
+            kpi_range_min=_t("Gui.Stat.KpiRangeMin"),
+            kpi_average=_t("Gui.Stat.KpiAverage"),
+        )
+
+        js = read_webapp_template("ap_chart.js")
+        replacements = {
+            "__CHART_TYPE__": "line" if chart_data["is_detail_mode"] else current_view,
+            "__LABELS__": _json.dumps(chart_data["labels"], ensure_ascii=False),
+            "__OPENS__": _json.dumps(chart_data["opens"]),
+            "__HIGHS__": _json.dumps(chart_data["highs"]),
+            "__LOWS__": _json.dumps(chart_data["lows"]),
+            "__CLOSES__": _json.dumps(chart_data["closes"]),
+            "__COUNTS__": _json.dumps(chart_data["counts"]),
+            "__AP__": _json.dumps(chart_data["ap_list"]),
+            "__AP_TS__": _json.dumps(chart_data["ap_ts"]),
+            "__AVG__": str(chart_data["ap_avg"]),
+            "__CHART_ID__": chart_id,
+            "__IS_DETAIL_MODE__": "true" if chart_data["is_detail_mode"] else "false",
+            "__SOURCES__": _json.dumps(
+                chart_data["detail_sources"] if chart_data["is_detail_mode"] else []
+            ),
+            "__YELLOW_COINS__": _json.dumps(auxiliary["yellow_coins_list"]),
+            "__PURPLE_COINS__": _json.dumps(auxiliary["purple_coins_list"]),
+            "__COINS_SOURCES__": _json.dumps(auxiliary["coins_sources_list"]),
+            "__ASSET__": _json.dumps(auxiliary["asset_list"]),
+            "__ASSET_TS__": _json.dumps(auxiliary["asset_ts_list"]),
+            "__DISTANCE__": _json.dumps(auxiliary["distance_list"]),
+            "__SHOW_COINS__": "true" if auxiliary["show_coins"] else "false",
+        }
+        for _k, _v in replacements.items():
+            js = js.replace(_k, _v)
+
+        return {
+            "success": True,
+            "html": html,
+            "js": js,
+            "chart_id": chart_id,
+            "view": current_view,
+            "view_title": chart_data.get("view_title", ""),
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染体力图失败: {e}")
+        return {"success": False, "html": "", "js": "", "error": f"{type(e).__name__}: {e}"}
+
+
+def _t_gui(key: str, fallback: str) -> str:
+    """取 i18n 文案（失败返回兜底）。"""
+    try:
+        from module.webui.lang import t
+
+        return t(key)
+    except Exception:  # noqa: BLE001
+        return fallback
