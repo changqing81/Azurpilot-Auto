@@ -1627,3 +1627,135 @@ def get_opsi_panels_html(instance_name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[webapi] 渲染大世界统计失败: {e}")
         return {"success": False, "html": "", "meow_html": "", "error": f"{type(e).__name__}: {e}"}
+
+
+def _make_stat_ctx(instance_name: str, mixin_module: str, mixin_class: str):
+    """构造统计渲染适配器，自动镜像 mixin 的方法与类常量。
+
+    与 _StatRenderCtx 同思路：老 UI 的统计渲染函数都是 Mixin 方法，
+    只依赖 self.alas_name、_stat_month_pair 等少数属性，
+    用适配器即可在没有 PyWebIO 会话的情况下直接调用。
+    """
+    import importlib
+
+    module = importlib.import_module(mixin_module)
+    mixin = getattr(module, mixin_class)
+
+    class _Ctx:
+        MEOW_BADGE_COLORS = {3: "#378ADD", 5: "#E24B4A"}
+        MEOW_COLLAPSE_TPL = "fold_block.html"
+
+        def __init__(self):
+            self.alas_name = instance_name
+            self._stat_year, self._stat_month = _current_stat_month()
+            # 老 UI 在 app_statistics_page.py:192-193 懒初始化的实例属性，
+            # 各统计面板会读它（委托面板的周期：month / week）。
+            self._commission_income_period = "month"
+
+        def _stat_month_pair(self):
+            return self._stat_year, self._stat_month
+
+        def _stat_month_is_current(self) -> bool:
+            from module.config.time_source import now as _now
+
+            t = _now()
+            return (self._stat_year, self._stat_month) == (t.year, t.month)
+
+        # 面板通用工具（各 Mixin 都有同名实现，绑定时覆盖不到时兜底）
+        def _opsi_fmt_num(self, value, decimals=0):
+            from module.webui.app_stat_opsi import OpsiStatisticsMixin
+
+            return OpsiStatisticsMixin._opsi_fmt_num(value, decimals)  # type: ignore[attr-defined]
+    ctx = _Ctx()
+    # 镜像所有方法（含 private）与类常量
+    for _name in dir(mixin):
+        if _name.startswith("__"):
+            continue
+        if _name in ("_stat_month_pair", "_stat_month_is_current"):
+            continue
+        _desc = mixin.__dict__.get(_name)
+        if _desc is None:
+            # 继承来的方法
+            try:
+                _val = getattr(mixin, _name)
+            except Exception:  # noqa: BLE001
+                continue
+            if callable(_val):
+                setattr(ctx, _name, _val.__get__(ctx, type(ctx)))
+            continue
+        if isinstance(_desc, staticmethod):
+            setattr(ctx, _name, _desc.__func__)
+        elif isinstance(_desc, classmethod):
+            continue
+        else:
+            try:
+                setattr(ctx, _name, _desc.__get__(ctx, type(ctx)))
+            except Exception:  # noqa: BLE001
+                pass
+    return ctx
+
+
+def get_commission_panel_html(instance_name: str) -> dict:
+    """委托面板（app_stat_commission.py）。返回 summary/table/recent 三段 HTML。"""
+    try:
+        ctx = _make_stat_ctx(
+            instance_name,
+            "module.webui.app_stat_commission",
+            "CommissionIncomeStatisticsMixin",
+        )
+        data = ctx._load_commission_income_data()
+        if data is None:
+            return {"success": False, "error": "暂无委托数据"}
+        summary, table, recent = ctx._build_commission_income_html(data)
+        return {
+            "success": True,
+            "summary_html": summary,
+            "table_html": table,
+            "recent_html": recent,
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染委托统计失败: {e}")
+        return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def get_research_panel_html(instance_name: str) -> dict:
+    """科研面板（app_stat_research.py）。"""
+    try:
+        ctx = _make_stat_ctx(
+            instance_name,
+            "module.webui.app_stat_research",
+            "ResearchStatisticsMixin",
+        )
+        data = ctx._load_research_stats_data()
+        table = ctx._build_research_table_html(data)
+        return {"success": True, "table_html": table, "error": ""}
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染科研统计失败: {e}")
+        return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def get_delta_panel_html(instance_name: str) -> dict:
+    """资源面板（app_stat_delta.py）。返回汇总/排行/图例三段 HTML。"""
+    try:
+        ctx = _make_stat_ctx(
+            instance_name,
+            "module.webui.app_stat_delta",
+            "ResourceDeltaStatisticsMixin",
+        )
+        timeline, summary, ranking = ctx._load_delta_data()
+        if not timeline and not summary and not ranking:
+            return {"success": False, "error": "暂无资源变动数据"}
+        stats_html = ctx._build_delta_stats_html(summary) if summary else ""
+        legend_html = ctx._build_delta_legend_html() if hasattr(ctx, "_build_delta_legend_html") else ""
+        summary_html = ctx._build_summary_html(summary) if summary else ""
+        return {
+            "success": True,
+            "stats_html": stats_html,
+            "legend_html": legend_html,
+            "summary_html": summary_html,
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染资源统计失败: {e}")
+        return {"success": False, "error": f"{type(e).__name__}: {e}"}

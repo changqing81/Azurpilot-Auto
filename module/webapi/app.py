@@ -186,18 +186,31 @@ async def instance_import(request: Request) -> JSONResponse:
 
 
 async def stat_panels_html(request: Request) -> JSONResponse:
-    """GET /newapi/stat/{name}/panels_html?panel=opsi
+    """GET /newapi/stat/{name}/panels_html?panel=<name>
 
     返回老 UI 同一套渲染器产出的 HTML（结构/样式/数字逐字节一致），
     前端直接 innerHTML 挂载，避免在 React 里重写几百行指标逻辑。
+
+    支持的 panel：
+      opsi       → 净赚卡 + 12 指标卡 + 大世界收获
+      commission → 委托收入（汇总/明细表/最近记录）
+      research   → 科研掉落表
+      delta      → 资源变动（汇总/排行/图例）
     """
     name = request.path_params.get("name", "")
-    panel = request.query_params.get("panel", "opsi")
-    if panel != "opsi":
-        return JSONResponse({"success": False, "error": f"不支持的 panel: {panel}"})
-    return JSONResponse(
-        await run_in_threadpool(data.get_opsi_panels_html, name)
-    )
+    panel = (request.query_params.get("panel") or "opsi").strip().lower()
+    handlers = {
+        "opsi": data.get_opsi_panels_html,
+        "commission": data.get_commission_panel_html,
+        "research": data.get_research_panel_html,
+        "delta": data.get_delta_panel_html,
+    }
+    fn = handlers.get(panel)
+    if fn is None:
+        return JSONResponse(
+            {"success": False, "error": f"不支持的 panel: {panel}（支持 {', '.join(handlers)}）"}
+        )
+    return JSONResponse(await run_in_threadpool(fn, name))
 
 
 async def background_setting(request: Request) -> JSONResponse:

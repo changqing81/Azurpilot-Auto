@@ -1,39 +1,18 @@
-// 委托收益面板（app_stat_commission.py 本月口径）
-import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+// 委托面板：直接挂载老 UI 渲染器产出的 HTML（app_stat_commission.py）。
+//
+// 长卿反馈「委托统计也是半成品」—— 我原来只算了一个月总次数和 5 个数字。
+// 老 UI 实际有：汇总条（钻石/魔方/芯片/石油/物资 各自的次数与均值）、
+// 完整明细表、最近记录分页。这些口径都在 Python 侧，重写必然对不上，
+// 所以直接复用渲染器。
+import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 
 export function CommissionIncome({ name }: { name: string }) {
-  const [data, setData] = useState<{ period: string; summary: any } | null>(null)
-  useEffect(() => {
-    apiGet<{ period: string; summary: any }>(`/newapi/stat/${name}/commission_income`).then(setData).catch(() => {})
-  }, [name])
-  const s = data?.summary
-  const items: { key: string; label: string }[] = [
-    { key: 'Gem', label: '钻石' }, { key: 'Cube', label: '魔方' }, { key: 'Chip', label: '芯片' },
-    { key: 'Oil', label: '石油' }, { key: 'Coin', label: '物资' },
-  ]
-  if (!s || !s.total_commissions) return <div className="st-placeholder">本月暂无委托记录</div>
   return (
-    <div>
-      <div style={{ padding: '6px 0 12px', fontSize: 14 }}>
-        本月委托 <b>{s.total_commissions}</b> 次
-      </div>
-      <div className="delta-summary">
-        {items.map(it => {
-          const item = s.items?.[it.key]
-          if (!item) return null
-          return (
-            <div key={it.key} className="dashboard-entry">
-              <div>
-                <div className="dashboard-value-row">
-                  <span className="dashboard-value">{item.total}</span>
-                </div>
-                <div className="dashboard-help">{it.label} · {item.count} 次 · 均 {item.avg}</div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+    <LegacyHtmlPanel
+      name={name}
+      panel="commission"
+      fields={['summary_html', 'table_html', 'recent_html']}
+      errorText="暂无委托收入数据（实例运行后出现）"
+    />
   )
 }
