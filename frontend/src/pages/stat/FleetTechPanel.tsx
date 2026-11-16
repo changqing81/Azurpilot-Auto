@@ -10,11 +10,15 @@ import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 
 export function FleetTechPanel({ name }: { name: string }) {
   return (
-    <LegacyHtmlPanel
-      name={name}
-      panel="fleet"
-      fields={['summary_html', 'bonus_html', 'table_html']}
-      errorText="暂无舰队科技数据（先在配置里跑一次科技扫描）"
-    />
+    // 同 MindPanel：#pywebio-scope-ft_tech 是 fleet-tech-alas.css 里
+    // [id^="pywebio-scope-ft_"] 后代选择器的宿主容器，不能省。
+    <div id="pywebio-scope-ft_tech">
+      <LegacyHtmlPanel
+        name={name}
+        panel="fleet"
+        fields={['summary_html', 'bonus_html', 'table_html']}
+        errorText="暂无舰队科技数据（先在配置里跑一次科技扫描）"
+      />
+    </div>
   )
 }

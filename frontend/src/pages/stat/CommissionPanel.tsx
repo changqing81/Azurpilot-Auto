@@ -11,6 +11,8 @@ import { apiGet } from '../../api/client'
 
 type Resp = {
   success: boolean
+  /** 正在进行中的委托（老 UI app_stat_running.py:_build_running_commission_html） */
+  running_html?: string
   summary_html?: string
   table_html?: string
   recent_html?: string
@@ -59,6 +61,10 @@ export function CommissionIncome({ name }: { name: string }) {
       )}
       {data?.success && (
         <>
+          {/* 正在进行中的委托 —— 老 UI 把它放在汇总之上（更即时）。
+              我第一版完全漏了 app_stat_running.py 这个模块，
+              长卿：「我委托和科研的正在进行中的呢」。 */}
+          {data.running_html && <div dangerouslySetInnerHTML={{ __html: data.running_html }} />}
           {data.summary_html && <div dangerouslySetInnerHTML={{ __html: data.summary_html }} />}
           {data.table_html && <div dangerouslySetInnerHTML={{ __html: data.table_html }} />}
           {data.recent_html && <div dangerouslySetInnerHTML={{ __html: data.recent_html }} />}

@@ -13,6 +13,8 @@ import { apiGet } from '../../api/client'
 
 type Resp = {
   success: boolean
+  /** 进行中的科研队列（老 UI _build_running_research_html，贴在标题下方） */
+  running_html?: string
   table_html: string
   scope?: string
   series?: number | null
@@ -115,6 +117,13 @@ export function ResearchPanel({ name }: { name: string }) {
         {loading && !data && <div className="st-placeholder">加载中…</div>}
         {data && !data.success && (
           <div className="st-placeholder">{data.error || '暂无科研掉落数据'}</div>
+        )}
+        {/* 进行中的科研队列 —— 老 UI 贴在标题下方，比历史掉落更即时 */}
+        {data?.running_html && (
+          <div
+            style={{ marginBottom: '.75rem' }}
+            dangerouslySetInnerHTML={{ __html: data.running_html }}
+          />
         )}
         {data?.success && data.table_html && (
           <div dangerouslySetInnerHTML={{ __html: data.table_html }} />

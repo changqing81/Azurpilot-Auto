@@ -1848,9 +1848,15 @@ def _get_commission_panel_html_impl(instance_name: str, period: str = "") -> dic
         # 我第一版完全漏了这个模块（长卿：「我委托和科研的正在进行中的呢」）。
         running = ""
         try:
-            from module.webui.app_stat_running import RunningStatisticsMixin
-
-            running = RunningStatisticsMixin._build_running_commission_html(ctx)
+            # ⚠️ 必须用 RunningProjectsMixin 自己的适配器：
+            # _build_running_commission_html 依赖 _load_running_snapshot，
+            # 那个方法在 RunningProjectsMixin 上，不在委托 Mixin 上。
+            # 直接传 ctx（委托的）会报 '_Ctx' object has no attribute
+            # '_load_running_snapshot' —— 实测 running_html 恒为 0 字节。
+            run_ctx = _make_stat_ctx(
+                instance_name, "module.webui.app_stat_running", "RunningProjectsMixin"
+            )
+            running = run_ctx._build_running_commission_html()
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[webapi] 渲染进行中委托失败: {e}")
         return {
@@ -1899,9 +1905,10 @@ def _get_research_panel_html_impl(
         # put_html(running_html, scope="research_stats")），比历史掉落更即时。
         running = ""
         try:
-            from module.webui.app_stat_running import RunningStatisticsMixin
-
-            running = RunningStatisticsMixin._build_running_research_html(ctx)
+            run_ctx = _make_stat_ctx(
+                instance_name, "module.webui.app_stat_running", "RunningProjectsMixin"
+            )
+            running = run_ctx._build_running_research_html()
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[webapi] 渲染进行中科研失败: {e}")
         data = ctx._load_research_stats_data()

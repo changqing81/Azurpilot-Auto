@@ -12,11 +12,19 @@ import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 
 export function MindPanel({ name }: { name: string }) {
   return (
-    <LegacyHtmlPanel
-      name={name}
-      panel="mind"
-      fields={['intro_html', 'stats_html', 'summary_html', 'list_html']}
-      errorText="暂无心智清单数据（先在配置里跑一次心智扫描）"
-    />
+    // ⚠️ 外层 id 必须是 #pywebio-scope-ft_mind：
+    // fleet-tech-alas.css 里所有 .ft-table / .ft-name / .ft-num / .ft-panel
+    // 规则都写成 [id^="pywebio-scope-ft_"] .ft-xxx 这种**后代选择器**。
+    // 少了这层容器，表格就退回浏览器默认样式 —— 截图里「浅色文字压在
+    // 壁纸上、看不清」就是这个原因（长卿：「还是这个样」）。
+    // 老 UI 的容器结构见 app_mind_calculator_tab.py:_ft_render_mind_tab。
+    <div id="pywebio-scope-ft_mind">
+      <LegacyHtmlPanel
+        name={name}
+        panel="mind"
+        fields={['intro_html', 'stats_html', 'summary_html', 'list_html']}
+        errorText="暂无心智清单数据（先在配置里跑一次心智扫描）"
+      />
+    </div>
   )
 }

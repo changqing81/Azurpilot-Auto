@@ -44,6 +44,58 @@ const ICON = {
     </circle>
     <rect x="312" y="312" width="400" height="400" rx="80" fill="currentColor"></rect>
 </svg>`,
+  // 以下两个状态图标原样内联 assets/gui/icon/status_*.svg（老 UI utils.py:804
+  // Icon.ERROR / Icon.UPDATE 同一份）。第一版只做了 running，错误/更新中
+  // 状态全落到空闲图标 —— 长卿：「我总览的小圈呢」。
+  error: `<svg class="aside-icon icon-run-error" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <mask id="play-error-mask-fixed">
+            <rect width="1024" height="1024" fill="white" />
+            <circle cx="740" cy="740" r="320" fill="black" />
+        </mask>
+    </defs>
+
+    <path mask="url(#play-error-mask-fixed)" d="M320 200c-40-22-90 6-90 52v520c0 46 50 74 90 52l440-260c40-22 40-78 0-100L320 200z" fill="none" stroke="currentColor" stroke-width="80" stroke-linejoin="round" stroke-linecap="round"></path>
+
+    <g class="error-badge">
+        <circle cx="740" cy="740" r="260" fill="#FF4D4F" />
+        <g stroke="white" stroke-width="80" stroke-linecap="round">
+            <line x1="630" y1="630" x2="850" y2="850" />
+            <line x1="850" y1="630" x2="630" y2="850" />
+        </g>
+    </g>
+</svg>`,
+  update: `<svg class="aside-icon icon-run-update-fly" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <mask id="play-mask-hole">
+            <rect width="1024" height="1024" fill="white" />
+            <circle cx="740" cy="740" r="320" fill="black" />
+        </mask>
+        
+        <clipPath id="badge-circle-clip">
+            <circle cx="740" cy="740" r="260" />
+        </clipPath>
+    </defs>
+
+    <path mask="url(#play-mask-hole)" d="M320 200c-40-22-90 6-90 52v520c0 46 50 74 90 52l440-260c40-22 40-78 0-100L320 200z" fill="none" stroke="currentColor" stroke-width="80" stroke-linejoin="round" stroke-linecap="round"></path>
+
+    <circle cx="740" cy="740" r="260" fill="#4A90E2" />
+
+    <g clip-path="url(#badge-circle-clip)">
+        <g fill="none" stroke="white" stroke-width="60" stroke-linecap="round" stroke-linejoin="round">
+            <animateTransform 
+                attributeName="transform" 
+                type="translate" 
+                from="0 400" 
+                to="0 -400" 
+                dur="1.2s" 
+                repeatCount="indefinite" />
+            
+            <path d="M 740 854 L 740 615" /> 
+            <path d="M 636 719 L 740 615 L 844 719" /> 
+        </g>
+    </g>
+</svg>`,
   setting: `<svg class="aside-icon icon-setting" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
     <defs><mask id="gear-hole"><rect width="1024" height="1024" fill="white"></rect><circle cx="512" cy="512" r="175" fill="black"></circle></mask></defs>
     <g mask="url(#gear-hole)" fill="currentColor">
@@ -189,8 +241,11 @@ export function Shell({
     }
   }
 
-  // 侧栏实例图标随运行状态切换（ProcessManager.state: 1 运行中 / 3 异常 / 4 更新中 / 其他 空闲）
-  const instanceIcon = (state: number) => (state === 1 ? ICON.running : ICON.run)
+  // 侧栏实例图标随运行状态切换 —— 与老 UI utils.py:804 Icon 类同四种状态：
+  //   state 1 = 运行中（绿圈旋转）/ 3 = 异常（播放键+红角标）/ 4 = 更新中（蓝角标）/
+  //   其他 = 空闲（纯播放键）。第一版只判断 state===1，错误与更新中全落到空闲。
+  const instanceIcon = (state: number) =>
+    state === 1 ? ICON.running : state === 3 ? ICON.error : state === 4 ? ICON.update : ICON.run
 
   // 主页与老 UI 一致：菜单收起（base.py:540 对 HomePage 加 container-menu-collapsed）。
   // 注意老 UI 只是加类，菜单 DOM 仍在（移动端 CSS 把它 display:none）。
