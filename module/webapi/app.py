@@ -361,6 +361,15 @@ async def stat_panels_html(request: Request) -> JSONResponse:
                 request.query_params.get("extra") in ("1", "true"),
             )
         )
+    if panel == "mind":
+        # 心智计算器：清单表分页 + 批量编辑开关（老 UI 是实例属性 _mc_page/_mc_batch）
+        return JSONResponse(
+            await run_in_threadpool(
+                fn, name,
+                int(request.query_params.get("page") or 0),
+                request.query_params.get("edit") in ("1", "true"),
+            )
+        )
     if panel == "delta":
         # 资源面板有多档粒度（日/周/月/总），老 UI 用 _delta_period 驱动
         return JSONResponse(await run_in_threadpool(fn, name, period))
@@ -678,6 +687,22 @@ async def mind_calculator(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_mind_calculator, name))
 
 
+async def mind_ships_save(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "请求体不是有效 JSON"}, status_code=400)
+    ships = body.get("ships", [])
+    rev = str(body.get("expect_revision", "") or "")
+    return JSONResponse(await run_in_threadpool(data.save_mind_ships, name, ships, rev))
+
+
+async def mind_ships_export(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    return JSONResponse(await run_in_threadpool(data.export_mind_ships, name))
+
+
 async def fleet_tech(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     return JSONResponse(await run_in_threadpool(data.get_fleet_tech, name))
@@ -763,6 +788,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/stat/{name}/research_stats", research_stats),
         Route("/newapi/stat/{name}/fleet_tech", fleet_tech),
         Route("/newapi/stat/{name}/mind", mind_calculator),
+    Route("/newapi/mind/{name}/ships", mind_ships_save, methods=["POST"]),
+    Route("/newapi/mind/{name}/export", mind_ships_export),
         Route("/newapi/update/info", update_info),
         Route("/newapi/remote/status", remote_status),
         Route("/newapi/remote/toggle", remote_toggle, methods=["POST"]),

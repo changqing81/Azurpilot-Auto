@@ -462,6 +462,20 @@ _STAT_I18N_KEYS = {
     "FtAttribution": "Gui.FleetTechnology.Attribution",
     "ResearchSeriesOption": "Gui.Stat.ResearchSeriesOption",
     "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
+    # 心智计算器（Gui.MindCalculator 组，老 UI 按钮原文）
+    "McBatchEdit": "Gui.MindCalculator.BatchEdit",
+    "McBatchExit": "Gui.MindCalculator.BatchExit",
+    "McPrevious": "Gui.MindCalculator.Previous",
+    "McNext": "Gui.MindCalculator.Next",
+    "McExportJson": "Gui.MindCalculator.ExportJson",
+    "McExportCsv": "Gui.MindCalculator.ExportCsv",
+    "McEdit": "Gui.MindCalculator.Edit",
+    "McDelete": "Gui.MindCalculator.Delete",
+    "McAdd": "Gui.MindCalculator.Add",
+    "McImport": "Gui.MindCalculator.Import",
+    "McSaved": "Gui.MindCalculator.Saved",
+    "McSaveConflict": "Gui.MindCalculator.SaveConflict",
+    "McRowCount": "Gui.MindCalculator.RowCount",
     # 心智计算器（与科技列表同组）
     "FtTabMind": "Gui.FleetTechnology.TabMind",
 }
@@ -840,6 +854,97 @@ def get_mind_calculator(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 心智计算器失败({name}): {e}")
         return {"ships": [], "error": str(e), "total": 0}
+
+def save_mind_ships(name: str, ships: list, expect_revision: str = "") -> dict:
+    """心智清单写接口（老 UI _mc_save 同链路：事务 + revision 乐观锁 + 实时计算）。
+
+    ships 每项 {name, level, status}（status: counted / pending / excluded）。
+    expect_revision 为空时跳过乐观锁（首次保存）。
+    返回 {ships, result, updated_at, total} 或 {error}。
+    """
+    from datetime import datetime as _dt
+
+    from module.config.config import AzurLaneConfig
+    from module.config.deep import deep_get, deep_set
+    from module.config.utils import get_config_mod
+    from module.runtime import mind_calculator as mind_calc
+    from module.webui.app_dependencies import State
+
+    try:
+        config = AzurLaneConfig(name, task=None)
+        data = config.read_file(name)
+        stored = deep_get(data, mind_calc.RESULT_PATH, {})
+        stored = stored if isinstance(stored, dict) else {}
+        current = stored.get("ships", []) if isinstance(stored, dict) else []
+        if expect_revision and mind_calc.revision(current) != expect_revision:
+            return {"error": "清单已被其他操作修改，请刷新后重试"}
+        # 行数据保留原字段（name/level/rarity/base_rarity/excluded/review/source
+        # 是存储契约，calculate 从 excluded/review 派生四态；归一化成
+        # {name, level, status} 会把清单写坏 —— 实测第一版就犯了）。只做最小
+        # 清洗：必须有 name；level 转 int；excluded/review 转 bool。
+        clean = []
+        for s in ships or []:
+            if not isinstance(s, dict) or not s.get("name"):
+                continue
+            item = dict(s)
+            item["name"] = str(item["name"])
+            try:
+                item["level"] = int(item.get("level") or 0)
+            except (TypeError, ValueError):
+                item["level"] = 0
+            item["excluded"] = bool(item.get("excluded", False))
+            item["review"] = bool(item.get("review", False))
+            item.setdefault("source", "")
+            item.setdefault("rarity", "")
+            item.setdefault("base_rarity", "")
+            clean.append(item)
+        updated_at = _dt.now().isoformat(timespec="seconds")
+        deep_set(data, mind_calc.RESULT_PATH, dict(ships=clean, updated_at=updated_at))
+        State.config_updater.write_file(name, data, get_config_mod(name))
+        return {
+            "ships": clean,
+            "result": mind_calc.calculate(clean),
+            "updated_at": updated_at,
+            "total": len(clean),
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 心智清单保存失败({name}): {e}")
+        return {"error": str(e)}
+
+
+def export_mind_ships(name: str) -> dict:
+    """导出心智清单（老 UI _mc_export 同口径：含计算列的 JSON）。"""
+    from module.config.config import AzurLaneConfig
+    from module.config.deep import deep_get
+    from module.runtime import mind_calculator as mind_calc
+
+    try:
+        config = AzurLaneConfig(name, task=None)
+        data = config.read_file(name)
+        stored = deep_get(data, mind_calc.RESULT_PATH, {})
+        stored = stored if isinstance(stored, dict) else {}
+        ships = stored.get("ships", []) if isinstance(stored, dict) else []
+        result = mind_calc.calculate(ships)
+        by_name = {s["name"]: s for s in result.get("ships", [])}
+        rows = []
+        for s in ships:
+            r = by_name.get(s.get("name"), {})
+            rows.append({
+                "name": s.get("name"),
+                "level": s.get("level"),
+                "status": r.get("status"),
+                "mind": r.get("mind"),
+                "gold": r.get("gold"),
+            })
+        return {
+            "updated_at": str(stored.get("updated_at", "")),
+            "rows": rows,
+            "total": len(rows),
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 心智清单导出失败({name}): {e}")
+        return {"error": str(e)}
+
 
 def get_update_info() -> dict:
     """更新器数据（app_developer_update.py:update_table 同口径：本地 commit + 上游 20 条历史）。"""
@@ -2823,21 +2928,23 @@ _FILTER_TITLE_KEYS = {
 }
 
 
-def get_mind_panel_html(instance_name: str) -> dict:
+def get_mind_panel_html(instance_name: str, page: int = 0, edit: bool = False) -> dict:
     """心智计算器面板 —— 对应 app_mind_calculator_tab.py:_ft_render_mind_tab。
 
     内容：说明条 + 四张统计卡 + 稀有度汇总表 + 船舶清单表（分页）。
     数据来自 MindCalculatorScan.MindCalculator.Result（配置 stored），
     计算用 module.runtime.mind_calculator.calculate 实时进行。
+    page/edit 驱动清单表分页与批量编辑模式；编辑保存后前端整块刷新。
 
     Returns: {success, intro_html, stats_html, summary_html, list_html, total, error}
     """
     return _cached_stat_html(
-        instance_name, "mind", lambda: _get_mind_panel_html_impl(instance_name)
+        instance_name, "mind:" + str(page) + ":" + str(edit),
+        lambda: _get_mind_panel_html_impl(instance_name, page, edit)
     )
 
 
-def _get_mind_panel_html_impl(instance_name: str) -> dict:
+def _get_mind_panel_html_impl(instance_name: str, page: int = 0, edit: bool = False) -> dict:
     try:
         from module.runtime import mind_calculator as mind_calc
         from module.webui import mind_calculator_view as mind_view
@@ -2865,17 +2972,17 @@ def _get_mind_panel_html_impl(instance_name: str) -> dict:
         result, rows = mind_view.calculate_rows(ships)
         if result is None:
             result = {}
-        shown, page, pages = mind_view.page_slice(rows, 0)
+        shown, cur_page, pages = mind_view.page_slice(rows, page)
 
         return {
             "success": True,
             "intro_html": mind_view.intro_html(result, updated_at),
             "stats_html": mind_view.stats_html(result),
             "summary_html": mind_view.summary_table_html(result),
-            "list_html": mind_view.ships_table_html(shown, result, False),
+            "list_html": mind_view.ships_table_html(shown, result, edit),
             "total": len(rows),
             "pages": pages,
-            "page": page,
+            "page": cur_page,
             "error": "",
         }
     except Exception as e:  # noqa: BLE001
