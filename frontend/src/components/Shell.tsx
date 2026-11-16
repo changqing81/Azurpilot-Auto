@@ -133,7 +133,7 @@ export function Shell({
       if (key === 'Remote') { navigate('/remote'); return }
       if (key === 'Setting') { navigate('/settings/' + encodeURIComponent(instanceName)); return }
       if (key === 'Announcement') { navigate('/announcement'); return }
-      if (key === 'Utils') { navigate('/tool/' + encodeURIComponent(instanceName) + '/Daemon'); return }
+      if (key === 'Utils') { navigate('/tool/' + encodeURIComponent(instanceName)); return }
       navigate(`/config/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
     }
   }
