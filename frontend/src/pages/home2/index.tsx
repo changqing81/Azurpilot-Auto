@@ -113,15 +113,19 @@ export function HomePageMain() {
     if (winner?.url) window.open(winner.url, '_blank')
   }
 
+  // 容器 style 必须是 ";;text-align: center"（与老 UI put_buttons 的 .style 原样一致），
+  // 否则按钮组靠左，与老 UI 的居中排布不一致。
+  const center = 'text-align: center'
   const html =
     putText('Select your language / 选择语言', ';;text-align: center; font-weight: 600') +
-    btnGroup(LANGS.map(l => btn(l.label, 'primary')).join('')) +
+    btnGroup(LANGS.map(l => btn(l.label, 'primary')).join(''), center) +
     putText('Change theme / 更改主题', ';;text-align: center') +
-    btnGroup(THEMES.map(t => btn(t.name, t.color)).join('')) +
-    btnGroup(btn('下载当前背景图', 'light')) +
+    btnGroup(THEMES.map(t => btn(t.name, t.color)).join(''), center) +
+    btnGroup(btn('下载当前背景图', 'light'), center) +
     putText('Background / 背景', ';;text-align: center; font-weight: 600') +
     btnGroup(
       btn('上传自定义背景', 'light') + btn('随机背景', 'dark') + btn('管理图源', 'light') + btn('媒体类型', 'light'),
+      center,
     ) +
     '<div class="alas-home-marker" aria-hidden="true"></div>' +
     putText(

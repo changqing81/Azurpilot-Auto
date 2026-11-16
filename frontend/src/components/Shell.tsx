@@ -132,12 +132,20 @@ export function Shell({
       if (key === 'Update') { navigate('/update'); return }
       if (key === 'Remote') { navigate('/remote'); return }
       if (key === 'Setting') { navigate('/settings/' + encodeURIComponent(instanceName)); return }
+      if (key === 'Announcement') { navigate('/announcement'); return }
+      if (key === 'Utils') { navigate('/tool/' + encodeURIComponent(instanceName) + '/Daemon'); return }
       navigate(`/config/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
     }
   }
 
   // 侧栏实例图标随运行状态切换（ProcessManager.state: 1 运行中 / 3 异常 / 4 更新中 / 其他 空闲）
   const instanceIcon = (state: number) => (state === 1 ? ICON.running : ICON.run)
+
+  // 主页与老 UI 一致：菜单收起（base.py:540 对 HomePage 加 container-menu-collapsed）。
+  // 注意老 UI 只是加类，菜单 DOM 仍在（移动端 CSS 把它 display:none）。
+  // 老 UI 两处都加 container-menu-collapsed（实测主页与总览页都是该 class），
+  // 它只在 alas-mobile.css 里 display:none，桌面端无影响。
+  const menuClass = 'container-menu-collapsed'
 
   const asideHtml =
     `<div id="pywebio-scope-aside_home">` +
@@ -156,33 +164,44 @@ export function Shell({
     iconButton(ICON.setting, '管理', 'Manage', active === 'Manage') +
     `</div>`
 
-  // 菜单树：老 UI 是 task_config_search + task_config_menu_items，分组用 <details><summary>
+  // 菜单树：老 UI 有两套，必须区分（实测 22267 真实 DOM）。
+  //   ① 主页（HomePagePage）：6 个固定入口，无搜索框，--menu-HomePage/Update/Remote/Setting/Announcement/Utils
+  //   ② 实例页：配置搜索框 + 完整配置树，分组用 <details><summary>，首项 --menu-Overview
+  const HOME_MENU: { key: string; name: string }[] = [
+    { key: 'HomePage', name: '主页' },
+    { key: 'Update', name: '更新器' },
+    { key: 'Remote', name: '远程控制' },
+    { key: 'Setting', name: '设置' },
+    { key: 'Announcement', name: '公告' },
+    { key: 'Utils', name: '开发者工具' },
+  ]
+
+  const menuItem = (key: string, name: string) =>
+    `<div style=";;--menu-${key}--;"><button class="btn btn-menu${
+      (active === key || (active === 'Home' && key === 'HomePage')) ? ' btn-menu-active' : ''
+    }">${name}</button></div>`
+
   const menuHtml =
-    `<div id="pywebio-scope-task_config_search">` +
-    `<div class="form-group" style=";;--task-config-search-input--">` +
-    `<input type="text" class="form-control" name="config_search_keyword" value="" placeholder="搜索配置">` +
-    `<div class="invalid-feedback"></div><div class="valid-feedback"></div>` +
-    `<small class="form-text text-muted"></small></div></div>` +
-    `<div id="pywebio-scope-task_config_search_results"></div>` +
-    `<div id="pywebio-scope-task_config_menu_items">` +
-    menu
-      .map(g => {
-        const btn = `<div style=";;--menu-${g.key}--;"><button class="btn btn-menu${
-          active === g.key ? ' btn-menu-active' : ''
-        }">${g.name}</button></div>`
-        if (!g.tasks.length) return btn
-        const children = g.tasks
-          .map(
-            t =>
-              `<div style=";;--menu-${t.key}--;"><button class="btn btn-menu${
-                active === t.key ? ' btn-menu-active' : ''
-              }">${t.name}</button></div>`,
-          )
-          .join('')
-        return `<details><summary>${g.name}</summary>${children}</details>`
-      })
-      .join('') +
-    `</div>`
+    active === 'Home'
+      ? HOME_MENU.map(it => menuItem(it.key, it.name)).join('')
+      : // 实例页：搜索框 + 配置树
+        `<div id="pywebio-scope-task_config_search">` +
+        `<div class="form-group" style=";;--task-config-search-input--">` +
+        `<input type="text" class="form-control" name="config_search_keyword" value="" placeholder="搜索配置">` +
+        `<div class="invalid-feedback"></div><div class="valid-feedback"></div>` +
+        `<small class="form-text text-muted"></small></div></div>` +
+        `<div id="pywebio-scope-task_config_search_results"></div>` +
+        `<div id="pywebio-scope-task_config_menu_items">` +
+        menuItem('Overview', '总览') +
+        menu
+          .map(g => {
+            const btn = menuItem(g.key, g.name)
+            if (!g.tasks.length) return btn
+            const children = g.tasks.map(t => menuItem(t.key, t.name)).join('')
+            return `<details><summary>${g.name}</summary>${children}</details>`
+          })
+          .join('') +
+        `</div>`
 
   return (
     <div className="pywebio">
@@ -197,7 +216,7 @@ export function Shell({
             </div>
             <div id="pywebio-scope-contents">
               <div id="pywebio-scope-aside" ref={asideRef} dangerouslySetInnerHTML={{ __html: asideHtml }} />
-              <div id="pywebio-scope-menu" ref={menuRef} dangerouslySetInnerHTML={{ __html: menuHtml }} />
+              <div id="pywebio-scope-menu" ref={menuRef} className={menuClass} dangerouslySetInnerHTML={{ __html: menuHtml }} />
               {children}
               <div id="pywebio-scope-statistics-content" style={{ display: 'none' }}></div>
             </div>
