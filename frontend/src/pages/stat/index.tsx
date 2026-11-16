@@ -125,7 +125,11 @@ export function StatPage() {
               {t.badge && <span className="st-tab-badge">{t.badge}</span>}
             </button>
           ))}
-          <span className="st-tab-indicator" id="statistics-tab-indicator" />
+          {/* ⚠️ ref 必须挂上：我原来漏了这一行，导致 indicatorRef.current 恒为 null，
+              effect 里 if (!el || !ind) return false 直接退出，
+              指示条的 style.left/width 从来没被赋值 → 实测 realW=0，
+              视觉上就是「页签下面没有下划线，像挤在一起」。 */}
+          <span className="st-tab-indicator" id="statistics-tab-indicator" ref={indicatorRef} />
         </div>
 
         {/* 面板容器：老 UI 是 <div class="st-panels" id="statistics-panels">，
