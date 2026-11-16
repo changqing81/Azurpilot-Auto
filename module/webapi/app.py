@@ -83,6 +83,11 @@ def _sync_runtime_language(language: str) -> None:
 sync_runtime_language = _sync_runtime_language
 
 
+async def fixed_menu(request: Request) -> JSONResponse:
+    """固定菜单文案（主页 6 个入口 + 侧栏「主页/管理」），按当前语言翻译。"""
+    return JSONResponse(await run_in_threadpool(data.get_fixed_menu))
+
+
 async def ui_language(request: Request) -> JSONResponse:
     """当前界面语言（新 UI 用来决定按钮高亮）。"""
     return JSONResponse({"language": data._current_language()})
@@ -520,6 +525,10 @@ async def dev_action(request: Request) -> JSONResponse:
         "cross_month": lambda: data.dev_cross_month_rehearsal(instance, mode),
         "cancel_cross_month": lambda: data.dev_cancel_cross_month_rehearsal(instance),
         "restart_alas": lambda: data.dev_restart_alas(instance),
+        # 推送测试（老 UI app_developer_tools.py:427-451 的三个按钮）
+        "notify_test": lambda: data.dev_notify_test(
+            instance, str(body.get("kind", ""))
+        ),
     }
     fn = handlers.get(action)
     if fn is None:
@@ -740,6 +749,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/overview/{name}", overview),
         Route("/newapi/log/{name}/tail", log_tail),
         Route("/newapi/header", header),
+        Route("/newapi/menu/fixed", fixed_menu),
         Route("/newapi/menu", menu),
         Route("/newapi/stat/{name}/resource_delta", resource_delta),
         Route("/newapi/stat/{name}/commission_income", commission_income),

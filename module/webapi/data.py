@@ -373,6 +373,47 @@ def get_log_tail(name: str, since: int = -1, limit: int = 200, width: int = 80) 
         return {"html": "", "cursor": cursor, "full": full}
 
 
+# 固定菜单项的 i18n 键（老 UI app_developer_menu.py + base.py 里的 t() 调用）
+# 注意：这些是**硬编码在前端的 HOME_MENU 里**的文案，切换语言时必须由后端
+# 按当前语言返回，否则侧栏/主页菜单永远是中文（实测过：配置页已经变成
+# "For example, 7-2..." 英文了，侧栏还是「主页/更新器/远程控制」）。
+_FIXED_MENU_KEYS = (
+    ("HomePage", "Gui.MenuDevelop.HomePage"),
+    ("Update", "Gui.MenuDevelop.Update"),
+    ("Remote", "Gui.MenuDevelop.Remote"),
+    ("Setting", "Gui.MenuDevelop.Setting"),
+    ("Announcement", "Gui.MenuDevelop.Announcement"),
+    ("Utils", "Gui.MenuDevelop.Utils"),
+)
+
+
+def get_fixed_menu() -> dict:
+    """固定菜单项（主页的 6 个入口）+ 侧栏文字，按当前界面语言翻译。
+
+    对应老 UI 的：
+        app_developer_menu.py:22-62  put_button(label=t("Gui.MenuDevelop.X"))
+        base.py:init_aside          「主页」「管理」与实例名
+    """
+    from module.webui.lang import t as _t
+
+    items = [{"key": key, "name": _t(i18n_key)} for key, i18n_key in _FIXED_MENU_KEYS]
+    # 「管理」在 gui.yaml 里没有独立键（老 UI 的侧栏管理按钮用的是
+    # Gui.MenuDevelop.Manage，部分语言回退成原键名），取不到就用中文兜底。
+    manage = _t("Gui.MenuDevelop.Manage")
+    if manage == "Gui.MenuDevelop.Manage":
+        manage = "管理"
+    search = _t("Gui.MenuAlas.Search")
+    if search == "Gui.MenuAlas.Search":
+        search = "搜索配置"
+    return {
+        "items": items,
+        # 侧栏两个固定按钮
+        "aside_home": _t("Gui.MenuDevelop.HomePage"),
+        "aside_manage": manage,
+        "search_placeholder": search,
+    }
+
+
 def get_header() -> dict:
     """页眉数据：logo 图标 URL + 排头文案（Gui.Status.Prefix，i18n zh-CN 同源）。"""
     try:
@@ -1372,7 +1413,13 @@ def dev_cancel_cross_month_rehearsal(instance: str) -> dict:
 
 
 def dev_restart_alas(instance: str) -> dict:
-    """重启 Alas 实例（老 UI 的「重启Alas」按钮）。"""
+    """重启 Alas 实例（老 UI 的「重启Alas」按钮）。
+
+    老 UI（app_developer_tools.py:193-201 _restart_alas）的链路是
+    mgr.stop() + mgr.start(None)。**start() 必须传 func=None**——
+    之前漏了这个参数，实测报
+    ProcessManager.start() missing 1 required positional argument: 'func'。
+    """
     from module.webui.process_manager import ProcessManager
 
     try:
@@ -1380,12 +1427,90 @@ def dev_restart_alas(instance: str) -> dict:
             return {"success": False, "error": "没有可用实例"}
         mgr = ProcessManager.get_manager(instance)
         mgr.stop()
-        mgr.start()
+        mgr.start(None)
         logger.info(f"[webapi] 已重启实例 {instance}")
         return {"success": True, "instance": instance}
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 重启实例失败: {e}")
         return {"success": False, "error": str(e)}
+
+
+def dev_notify_test(instance: str, kind: str) -> dict:
+    """推送测试（老 UI app_developer_tools.py:385-425 的三个按钮）。
+
+    kind:
+        update       → notify_webui(update=True)   测试更新推送
+        announcement → notify_webui(updata=False)  测试公告推送
+        error        → handle_notify(Error_OnePushConfig) 测试错误推送
+
+    注意老 UI 的拼写就是 `updata`（公告那条的参数名），notify_webui
+    的签名如此，不是错别字。
+    """
+    try:
+        if not instance:
+            from module.config.utils import alas_instance
+
+            all_instances = alas_instance()
+            instance = all_instances[0] if all_instances else None
+        if not instance:
+            return {"success": False, "error": "没有可用实例"}
+
+        if kind == "update":
+            from module.notify.notify import notify_webui
+
+            notify_webui(
+                instance=instance,
+                title="发现更新喵！",
+                content="测试更新推送逻辑，启动器应显示专用标题。",
+                update=True,
+            )
+            return {"success": True, "instance": instance, "kind": kind,
+                    "note": "更新推送已发送（启动器应显示专用标题）"}
+        if kind == "announcement":
+            from module.notify.notify import notify_webui
+
+            notify_webui(
+                instance=instance,
+                title="新公告喵！",
+                content="测试公告推送逻辑，启动器应显示专用标题。",
+                updata=False,
+            )
+            return {"success": True, "instance": instance, "kind": kind,
+                    "note": "公告推送已发送（启动器应显示专用标题）"}
+        if kind == "error":
+            from module.config.config import AzurLaneConfig
+            from module.notify import handle_notify
+
+            config = AzurLaneConfig(instance)
+            success = handle_notify(
+                config.Error_OnePushConfig,
+                title=f"AzurPilot <{instance}> 崩溃",
+                content=f"<{instance}> 开发者错误推送测试",
+            )
+            if not success:
+                return {"success": False, "error": "onepush 发送失败（未配置推送渠道时属正常）",
+                        "instance": instance, "kind": kind}
+            return {"success": True, "instance": instance, "kind": kind,
+                    "note": "错误推送已发送"}
+        return {"success": False, "error": f"未知推送测试类型: {kind}"}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 推送测试失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def dev_preview_update_notice_v2() -> dict:
+    """预览更新提示的**数据部分**（老 UI app_developer_menu.py:69 的弹窗内容）。
+
+    老 UI 在浏览器里注入 #alas-update-notice DOM。新 UI 没有这条通道，
+    但前端有自己的公告/提示渲染（alasShowAnnouncement），所以这里只返回
+    弹窗内容，由前端调用本地渲染函数显示。
+    """
+    return {
+        "success": True,
+        "title": "有可用更新！",
+        "eyebrow": "发现新版本",
+        "content": "建议及时更新，以获得更稳定的脚本运行体验。",
+    }
 
 
 # ─────────────────── 背景/壁纸管理（补老 UI 主页 4 个按钮的 REST 缺口）───────────────────

@@ -58,25 +58,56 @@ export function ToolPage() {
     }
   }
 
-  // 「模拟错误弹窗」：直接调 alas-utils.js 的 window.alasShowAnnouncement 同族函数。
-  // 若全局函数不存在则退回后端（后端只写记录，不弹窗），并如实说明。
-  const simulateErrorPopup = async () => {
-    const w = window as any
-    if (typeof w.alasShowTaskFailureNotice === 'function') {
-      try {
-        w.alasShowTaskFailureNotice({
-          task: 'Commission',
-          reason: 'GameStuckError',
-          count: 3,
-        })
-        flash('模拟错误弹窗：已显示')
-        return
-      } catch (e) {
-        flash('模拟错误弹窗：' + String(e))
-        return
-      }
-    }
-    flash('模拟错误弹窗：前端渲染函数不可用（需 alas-utils.js）')
+  /**
+   * 预览更新提示 / 模拟错误弹窗：**前端本地 DOM 弹窗**。
+   *
+   * 老 UI（app_developer_menu.py:69 _preview_update_notice）就是往 ROOT 里
+   * 注入 #alas-update-notice DOM —— 它从头到尾都是**浏览器端渲染**，
+   * 后端只负责"该不该弹"的数据。所以这里同样在前端注入同款 DOM
+   * （类名逐字照抄 entry-alas.css 的 .alas-update-notice 规则），8 秒自动消失。
+   */
+  const showUpdateNotice = () => {
+    document.getElementById('alas-update-notice')?.remove()
+    const el = document.createElement('div')
+    el.id = 'alas-update-notice'
+    el.className = 'alas-update-notice'
+    el.setAttribute('role', 'status')
+    el.innerHTML =
+      '<div class="alas-update-notice__halo"></div>' +
+      '<div class="alas-update-notice__icon" aria-hidden="true">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>' +
+      '<path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path></svg></div>' +
+      '<div class="alas-update-notice__body">' +
+      '<div class="alas-update-notice__eyebrow">发现新版本</div>' +
+      '<div class="alas-update-notice__title">有可用更新！</div>' +
+      '<div class="alas-update-notice__text">预览：这是开发者工具的测试弹窗，不会真的更新。</div>' +
+      '</div>'
+    document.body.appendChild(el)
+    setTimeout(() => el.remove(), 8000)
+    flash('预览更新提示：已显示（8 秒后消失）')
+  }
+
+  /** 模拟错误弹窗：同款机制，用更新通知的容器承载错误文案。 */
+  const simulateErrorPopup = () => {
+    document.getElementById('alas-update-notice')?.remove()
+    const el = document.createElement('div')
+    el.id = 'alas-update-notice'
+    el.className = 'alas-update-notice'
+    el.setAttribute('role', 'alert')
+    el.innerHTML =
+      '<div class="alas-update-notice__halo"></div>' +
+      '<div class="alas-update-notice__icon" aria-hidden="true" style="color:#c0392b">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">' +
+      '<circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></div>' +
+      '<div class="alas-update-notice__body">' +
+      '<div class="alas-update-notice__eyebrow">任务异常</div>' +
+      '<div class="alas-update-notice__title">Commission · GameStuckError</div>' +
+      '<div class="alas-update-notice__text">预览：这是开发者工具的模拟错误弹窗。</div>' +
+      '</div>'
+    document.body.appendChild(el)
+    setTimeout(() => el.remove(), 8000)
+    flash('模拟错误弹窗：已显示（8 秒后消失）')
   }
 
   const btn = (label: string, color: string, onClick: () => void) => (
@@ -96,7 +127,7 @@ export function ToolPage() {
         <div style={{ padding: '.625rem' }}>
           <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>GUI测试</h2>
           {btn('抛出异常事件', 'danger', () => call('raise_exception', {}, '抛出异常事件'))}
-          {btn('预览更新提示', 'primary', () => call('preview_update', {}, '预览更新提示'))}
+          {btn('预览更新提示', 'primary', showUpdateNotice)}
 
           <hr className="hr-group" />
           <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>图标状态模拟</h2>
@@ -130,9 +161,9 @@ export function ToolPage() {
 
           <hr className="hr-group" />
           <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>推送测试</h2>
-          {btn('测试更新推送 (updata=True)', 'danger', () => flash('推送测试需要 onepush 配置，暂未迁移'))}
-          {btn('测试公告推送 (updata=False)', 'info', () => flash('推送测试需要 onepush 配置，暂未迁移'))}
-          {btn('测试错误推送', 'danger', () => flash('推送测试需要 onepush 配置，暂未迁移'))}
+          {btn('测试更新推送 (updata=True)', 'danger', () => call('notify_test', { kind: 'update' }, '测试更新推送'))}
+          {btn('测试公告推送 (updata=False)', 'info', () => call('notify_test', { kind: 'announcement' }, '测试公告推送'))}
+          {btn('测试错误推送', 'danger', () => call('notify_test', { kind: 'error' }, '测试错误推送'))}
 
           {msg && (
             <p style={{ marginTop: '.75rem', fontSize: '.9rem', opacity: .85 }}>{msg}</p>
