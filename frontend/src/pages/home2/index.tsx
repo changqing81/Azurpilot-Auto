@@ -7,6 +7,7 @@
 // 背景管理 4 按钮 = btn-light / btn-dark / btn-light / btn-light。
 import { useEffect, useState } from 'react'
 import { Shell } from '../../components/Shell'
+import { WallpaperSourcesModal } from './WallpaperSourcesModal'
 import { apiGet } from '../../api/client'
 import { btn, btnGroup, putText } from '../../lib/pywebio'
 
@@ -127,6 +128,15 @@ async function writeDeploySetting(patch: Record<string, string>) {
 }
 
 export function HomePageMain() {
+  // 页面标题（老 UI set_title(t("Gui.MenuDevelop.HomePage"))）
+  const [pageTitle, setPageTitle] = useState('主页')
+  const [showSources, setShowSources] = useState(false)
+  useEffect(() => {
+    apiGet<{ aside_home: string }>('/newapi/menu/fixed', 8000)
+      .then(r => { if (r?.aside_home) setPageTitle(r.aside_home) })
+      .catch(() => { /* 老后端没有该端点：保持中文兜底 */ })
+  }, [])
+
   useEffect(() => {
     apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
       .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
@@ -243,40 +253,8 @@ export function HomePageMain() {
     } catch (e) { window.alert('设置失败：' + String(e)) }
   }
 
-  /** 图源管理：展示当前图源列表，可增删/恢复默认。 */
-  const manageSources = async () => {
-    let list: any[] = []
-    try {
-      const r = await apiGet<{ sources: any[] }>('/newapi/background/sources', 8000)
-      list = r.sources ?? []
-    } catch { /* 读失败按空处理 */ }
-    const text = list.length
-      ? list.map((s, i) => `${i + 1}. ${typeof s === 'string' ? s : JSON.stringify(s)}`).join('\n')
-      : '（当前没有自定义图源，使用内置默认）'
-    const ans = window.prompt(
-      `图源管理\n\n${text}\n\n操作：\n- 直接输入新图源 URL 追加\n- 输入 reset 恢复默认\n- 留空取消`,
-      '',
-    )
-    if (!ans) return
-    const v = ans.trim()
-    try {
-      if (v.toLowerCase() === 'reset') {
-        const r = await fetch('/newapi/background/sources/reset', { method: 'POST' })
-        const j = await r.json()
-        window.alert(j.success ? '已恢复默认图源' : '恢复失败：' + (j.error || ''))
-        if (j.success) location.reload()
-      } else if (v) {
-        const next = [...list, v]
-        const r = await fetch('/newapi/background/sources/save', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sources: next }),
-        })
-        const j = await r.json()
-        window.alert(j.success ? `已添加图源（共 ${j.count} 个）` : '保存失败：' + (j.error || ''))
-        if (j.success) location.reload()
-      }
-    } catch (e) { window.alert('操作失败：' + String(e)) }
-  }
+  /** 图源管理：打开正式弹窗（对齐老 UI 四操作：添加/启停/删除/恢复默认）。 */
+  const manageSources = () => { setShowSources(true) }
 
   const downloadWallpaper = () => {
     const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
@@ -304,28 +282,46 @@ export function HomePageMain() {
       ';;text-align: center',
     )
 
-  // 按钮点击用事件委托（HTML 是字符串注入的，没法挂 React onClick）
-  const ref = (el: HTMLDivElement | null) => {
-    if (!el) return
-    el.onclick = (ev) => {
-      const target = (ev.target as HTMLElement).closest('button')
-      if (!target) return
-      const label = target.textContent ?? ''
-      const lang = LANGS.find(l => l.label === label)
-      if (lang) { void onClickLanguage(lang.value)(); return }
-      const theme = THEMES.find(t => t.name === label)
-      if (theme) { void onClick({ Theme: theme.value })(); return }
-      if (label === '下载当前背景图') { downloadWallpaper(); return }
-      if (label === '上传自定义背景') { uploadBackground(); return }
-      if (label === '随机背景') { void randomBackground(); return }
-      if (label === '管理图源') { void manageSources(); return }
-      if (label === '媒体类型') { void mediaPreference(); return }
-    }
+  // 按钮点击用**React 的 onClick 事件委托**（HTML 是字符串注入的，没法给每个按钮挂 onClick）。
+  //
+  // 坑：原来写的是 `ref={el => { el.onclick = ... }}`。ref 回调只在挂载/卸载时跑，
+  // 而 dangerouslySetInnerHTML 在每次重渲染都会**替换整个 innerHTML** ——
+  // 新生成的按钮上没有 onclick，点击变成彻底的空操作。
+  // 实测：点「English」后 Network 面板零请求、/newapi/language 零调用、
+  // deploy.yaml 与界面语言纹丝不动（长卿问「语言修改好没有？」就是这么来的）。
+  //
+  // 用 React 的 onClick 挂在容器上就不会有这个问题：React 的事件系统是
+  // 根节点委托，DOM 被替换后依然生效。
+  const onHomeClick = (ev: React.MouseEvent<HTMLDivElement>) => {
+    const target = (ev.target as HTMLElement).closest('button')
+    if (!target) return
+    const label = (target.textContent ?? '').trim()
+    const lang = LANGS.find(l => l.label === label)
+    if (lang) { void onClickLanguage(lang.value)(); return }
+    const theme = THEMES.find(t => t.name === label)
+    if (theme) { void onClick({ Theme: theme.value })(); return }
+    if (label === '下载当前背景图') { downloadWallpaper(); return }
+    if (label === '上传自定义背景') { uploadBackground(); return }
+    if (label === '随机背景') { void randomBackground(); return }
+    if (label === '管理图源') { void manageSources(); return }
+    if (label === '媒体类型') { void mediaPreference(); return }
   }
 
   return (
-    <Shell active="Home" title="主页">
-      <div id="pywebio-scope-content" ref={ref} dangerouslySetInnerHTML={{ __html: html }} />
+    // 标题与侧栏「主页」同一份文案（后端按当前语言翻译），
+    // 否则切英文后侧栏是 Home、页面标题还是「主页」。
+    <Shell active="Home" title={pageTitle}>
+        {showSources && (
+          <WallpaperSourcesModal
+            onClose={() => setShowSources(false)}
+            onChanged={() => { /* 背景由 wallpaperRace 轮询，无需即时刷新 */ }}
+          />
+        )}
+      <div
+        id="pywebio-scope-content"
+        onClick={onHomeClick}
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     </Shell>
   )
 }

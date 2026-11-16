@@ -1899,7 +1899,8 @@ def get_custom_background_info() -> dict:
 
 
 def get_wallpaper_sources() -> dict:
-    """图源列表（wallpapers/wallpaper_sources.json）。"""
+    """图源列表（wallpapers/wallpaper_sources.json；文件不存在时回落内置默认源，
+    与老 UI _wallpaper_source_list 的「内置默认 + 用户自定义」语义一致）。"""
     import json as _json
 
     path = _wallpapers_dir() / _SOURCES_FILE_NAME
@@ -1907,7 +1908,8 @@ def get_wallpaper_sources() -> dict:
         data = _json.loads(path.read_text(encoding="utf-8"))
         return {"success": True, "sources": data if isinstance(data, list) else []}
     except FileNotFoundError:
-        return {"success": True, "sources": []}
+        from module.webui.app_home import _BUILTIN_SOURCES
+        return {"success": True, "sources": _BUILTIN_SOURCES, "builtin_only": True}
     except Exception as e:  # noqa: BLE001
         return {"success": False, "error": str(e), "sources": []}
 
