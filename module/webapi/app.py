@@ -199,6 +199,7 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     """
     name = request.path_params.get("name", "")
     panel = (request.query_params.get("panel") or "opsi").strip().lower()
+    month = (request.query_params.get("month") or "").strip()
     handlers = {
         "opsi": data.get_opsi_panels_html,
         "commission": data.get_commission_panel_html,
@@ -213,7 +214,16 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         return JSONResponse(
             {"success": False, "error": f"不支持的 panel: {panel}（支持 {', '.join(handlers)}）"}
         )
+    # 目前只有 opsi 支持月份切换（净赚卡/12 指标卡/大世界收获都按月）
+    if panel == "opsi":
+        return JSONResponse(await run_in_threadpool(fn, name, month))
     return JSONResponse(await run_in_threadpool(fn, name))
+
+
+async def stat_months(request: Request) -> JSONResponse:
+    """GET /newapi/stat/{name}/months — 统计页可选月份（新→旧）。"""
+    name = request.path_params.get("name", "")
+    return JSONResponse(await run_in_threadpool(data.get_stat_available_months, name))
 
 
 async def stat_panels_warm(request: Request) -> JSONResponse:
@@ -563,6 +573,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
         Route("/newapi/stat/{name}/panels_html", stat_panels_html),
         Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
+        Route("/newapi/stat/{name}/months", stat_months),
         Route("/newapi/background", background_setting),
         Route("/newapi/background/mode", background_mode, methods=["POST"]),
         Route("/newapi/background/media", background_media, methods=["POST"]),

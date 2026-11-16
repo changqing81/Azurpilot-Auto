@@ -1519,8 +1519,12 @@ _STAT_HTML_CACHE: dict = {}
 _STAT_HTML_CACHE_LOCK = None
 
 
-def _stat_cache_key(instance_name: str, panel: str) -> tuple:
-    """统计面板的缓存键：数据源 mtime + 年月 + 实例 + 面板名。"""
+def _stat_cache_key(instance_name: str, panel: str, month: str = "") -> tuple:
+    """统计面板的缓存键：数据源 mtime + 年月 + 实例 + 面板名 + 查看月份。
+
+    month 是 "YYYY-MM" 形式的查看月份（空 = 本月），用于统计页的月份切换：
+    切换后必须重算，所以必须进缓存键。
+    """
     import os as _os
 
     from module.config.time_source import now as _now
@@ -1531,19 +1535,21 @@ def _stat_cache_key(instance_name: str, panel: str) -> tuple:
         db_mtime = _os.stat(db_path).st_mtime_ns
     except OSError:
         db_mtime = 0
-    # 自定义图源/背景设置也会影响部分面板，一并纳入
-    return (instance_name, panel, db_mtime, t.year, t.month)
+    return (instance_name, panel, db_mtime, t.year, t.month, month)
 
 
-def _cached_stat_html(instance_name: str, panel: str, builder):
-    """带缓存的统计面板渲染。builder() 返回 dict，缓存其成功结果。"""
+def _cached_stat_html(instance_name: str, panel: str, builder, month: str = ""):
+    """带缓存的统计面板渲染。builder() 返回 dict，缓存其成功结果。
+
+    month: "YYYY-MM" 查看月份（空 = 本月），参与缓存键。
+    """
     global _STAT_HTML_CACHE_LOCK
     if _STAT_HTML_CACHE_LOCK is None:
         import threading
 
         _STAT_HTML_CACHE_LOCK = threading.Lock()
 
-    key = _stat_cache_key(instance_name, panel)
+    key = _stat_cache_key(instance_name, panel, month)
     with _STAT_HTML_CACHE_LOCK:
         hit = _STAT_HTML_CACHE.get(key)
     if hit is not None:
@@ -1631,12 +1637,16 @@ def _stat_render_method(name: str):
     return getattr(OpsiStatisticsMixin, name)
 
 
-def get_opsi_panels_html(instance_name: str) -> dict:
-    """带缓存入口（缓存键见 _stat_cache_key）。"""
-    return _cached_stat_html(instance_name, "opsi", lambda: _get_opsi_panels_html_impl(instance_name))
+def get_opsi_panels_html(instance_name: str, month: str = "") -> dict:
+    """大世界面板。month = "YYYY-MM"（空 = 本月）。"""
+    return _cached_stat_html(
+        instance_name, "opsi",
+        lambda: _get_opsi_panels_html_impl(instance_name, month),
+        month,
+    )
 
 
-def _get_opsi_panels_html_impl(instance_name: str) -> dict:
+def _get_opsi_panels_html_impl(instance_name: str, month: str = "") -> dict:
     """返回「大世界」页的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
 
     直接调老 UI 的 _render_opsi_stats 系列构建函数，把它们的输出
@@ -1649,6 +1659,13 @@ def _get_opsi_panels_html_impl(instance_name: str) -> dict:
 
     try:
         ctx = _StatRenderCtx(instance_name)
+        # 月份切换：把 "YYYY-MM" 覆盖到适配器
+        if month:
+            try:
+                _y, _m = month.split("-")
+                ctx._stat_year, ctx._stat_month = int(_y), int(_m)
+            except (ValueError, AttributeError):
+                pass
         # 绑定老 UI 的方法到适配器。
         # 注意 staticmethod 不能再 __get__ 绑定，否则会多传一个 self
         # （实测报 "got multiple values for argument 'tone'"）。
@@ -2101,3 +2118,36 @@ def _get_mind_panel_html_impl(instance_name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[webapi] 渲染心智计算器失败: {e}")
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def get_stat_available_months(instance_name: str) -> dict:
+    """统计页可选月份（新→旧）。
+
+    与老 UI app_statistics_page.py:_stat_available_months 同口径：
+    cl1_data.db ∪ azurstats_local.db ∪ 当前月，任一库有记录即可选。
+    """
+    try:
+        from module.config.time_source import now as _now
+        from module.statistics.azurstats import AzurStats
+        from module.statistics.opsi_month import get_available_months
+
+        months = set()
+        for label, loader in (
+            ("cl1_data.db", lambda: get_available_months(instance_name)),
+            ("azurstats_local.db", AzurStats.get_opsi_drop_available_months),
+        ):
+            try:
+                months |= {(int(y), int(m)) for y, m in loader()}
+            except Exception as e:  # noqa: BLE001
+                logger.warning(f"[webapi] 读取 {label} 可用月份失败: {e}")
+        now = _now()
+        months.add((now.year, now.month))
+        ordered = sorted(months, reverse=True)
+        return {
+            "success": True,
+            "current": f"{now.year:04d}-{now.month:02d}",
+            "months": [f"{y:04d}-{m:02d}" for y, m in ordered],
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 读取可用月份失败: {e}")
+        return {"success": False, "error": f"{type(e).__name__}: {e}", "months": []}

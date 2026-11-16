@@ -56,6 +56,10 @@ function ApLineChart({ entries }: { entries: ApEntry[] }) {
 }
 
 export function OpsiPanel({ name }: { name: string }) {
+  // 月份切换：老 UI 用弹窗选月（_open_stat_month_picker），这里用下拉框。
+  // 可选月份来自 /newapi/stat/{name}/months（cl1_data.db ∪ azurstats_local.db ∪ 本月）。
+  const [months, setMonths] = useState<string[]>([])
+  const [month, setMonth] = useState<string>('')  // '' = 本月
   const [s, setS] = useState<OpsiSummary | null>(null)
   const [timeline, setTimeline] = useState<ApEntry[]>([])
   // 老 UI 渲染器产出的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
@@ -63,12 +67,21 @@ export function OpsiPanel({ name }: { name: string }) {
   // 比在 React 里重写几百行指标口径可靠得多。
   const [panels, setPanels] = useState<{ html: string; meow: string } | null>(null)
   useEffect(() => {
-    apiGet<{ success: boolean; html: string; meow_html: string; error: string }>(
-      `/newapi/stat/${name}/panels_html?panel=opsi`, 20000,
-    )
-      .then(r => { if (r.success) setPanels({ html: r.html, meow: r.meow_html }) })
-      .catch(() => { /* 拿不到就只显示折线图 */ })
+    apiGet<{ months: string[]; current: string }>(`/newapi/stat/${name}/months`, 10000)
+      .then(r => { if (r.months?.length) setMonths(r.months) })
+      .catch(() => { /* 读不到月份就只显示本月 */ })
   }, [name])
+
+  useEffect(() => {
+    let alive = true
+    setPanels(null)
+    apiGet<{ success: boolean; html: string; meow_html: string; error: string }>(
+      `/newapi/stat/${name}/panels_html?panel=opsi` + (month ? `&month=${month}` : ''), 20000,
+    )
+      .then(r => { if (alive && r.success) setPanels({ html: r.html, meow: r.meow_html }) })
+      .catch(() => { /* 拿不到就只显示折线图 */ })
+    return () => { alive = false }
+  }, [name, month])
   useEffect(() => {
     Promise.all([
       apiGet<{ summary: OpsiSummary }>(`/newapi/stat/${name}/opsi_summary`),
@@ -105,9 +118,21 @@ export function OpsiPanel({ name }: { name: string }) {
       )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 16 }}>
         <div className="ov-card-title">体力变化 - 分钟曲线（详细波动）</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {['2026-11', '折线', '按日', '按月'].map(x => (
-            <button key={x} className="log-btn">{x}</button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* 月份切换：选「本月」时后端按当前月取数；选历史月则按该月重算 */}
+          <select
+            className="form-control"
+            style={{ width: 'auto', minWidth: '7rem' }}
+            value={month}
+            onChange={e => setMonth(e.target.value)}
+          >
+            <option value="">本月</option>
+            {months.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          {['折线', '按日', '按月'].map(x => (
+            <button key={x} className="log-btn" disabled title="视图切换暂未迁移">{x}</button>
           ))}
         </div>
       </div>
