@@ -60,9 +60,25 @@ export function btn(label: string, color: string, active = false, style = ''): s
   return `<button class="${cls.join(' ')}"${styleAttr}>${esc(label)}</button>`
 }
 
-/** put_buttons 容器：`<div style=";;{style}">…</div>`。 */
+/**
+ * put_buttons 容器：`<div style=";;{style}">…</div>`。
+ *
+ * **空白节点是必需的，不是排版美观问题。** PyWebIO 的 put_buttons 会在每个
+ * `<button>` 之间插入真实的空白文本节点（实测老 UI 的 innerHTML 是
+ * `</button> \n <button>`）。`.btn` 是 inline-block，相邻 inline-block 之间
+ * 只要有一个空白字符就会渲染成约 5px 的间隙 —— 老 UI 按钮组的间距**完全来自
+ * 这个空白**，不是 margin（.btn 的 margin 是 `4px 0`，左右为 0）。
+ *
+ * 这里原先用 `buttons` 原样拼接，调用方普遍写 `.map(...).join('')`，
+ * 于是按钮之间**一个字符都没有**，实测间隙 = 0px，按钮完全贴在一起
+ * ——「这几个东西挤到一起」就是这么来的。
+ *
+ * 所以容器的职责是：无论调用方怎么拼，都在 button 之间补回一个空格
+ * （等价 PyWebIO 的空白节点）。已经带空白的不会重复补。
+ */
 export function btnGroup(buttons: string, style = ''): string {
-  return `<div style=";;${style}">${buttons}</div>`
+  const spaced = buttons.replace(/<\/button>(?=<button)/g, '</button> ')
+  return `<div style=";;${style}">${spaced}</div>`
 }
 
 /** put_row 同构。 */
