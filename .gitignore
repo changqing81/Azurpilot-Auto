@@ -134,8 +134,10 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+# Python 虚拟环境的 lib/（原规则 "lib/" 是全局匹配，会连 frontend/src/lib/ 一起忽略，
+# 导致新 UI 的 pywebio.ts 等前端源码从未进版本库）
+/lib/
+/lib64/
 parts/
 sdist/
 var/
