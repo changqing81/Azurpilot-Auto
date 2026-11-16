@@ -1109,3 +1109,55 @@ def delete_instance(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 删除实例失败({name}): {e}")
         return {"success": False, "error": str(e)}
+
+
+def import_instance_config(filename: str, content: bytes) -> dict:
+    """导入配置文件（对应 app_manage.py:429-484 的 _import）。
+
+    文件名决定实例名与模块名，规则与老 UI 完全一致：
+    - `alas.json`              → 实例 alas，模块 alas
+    - `alas2.alas.json`        → 实例 alas2，模块 alas（三段式）
+    - 其余 `xxx.json`          → 实例 xxx，模块 alas
+    内容必须是 JSON 对象；写入走 State.config_updater.write_file（会做配置迁移）。
+
+    Returns: {success, error, name, mod}
+    """
+    import json as _json
+
+    from module.webui.app_dependencies import State
+
+    try:
+        # 1) 解析文件名 → (实例名, 模块名)，与老 UI 同一套规则
+        stem = filename.rsplit(".", 1)[0] if "." in filename else filename
+        parts = stem.split(".")
+        if len(parts) == 1:
+            config_name, mod_name = parts[0], "alas"
+        else:
+            config_name, mod_name = parts[0], parts[1]
+
+        if not config_name:
+            return {"success": False, "error": "文件名无法解析出实例名", "name": "", "mod": ""}
+
+        # 2) 实例名白名单校验（挡住路径穿越与非法字符）
+        from module.config.utils import alas_instance
+
+        if set(config_name) & set('.\\/:*?"\'<>|'):
+            return {"success": False, "error": "实例名含非法字符", "name": "", "mod": ""}
+        if config_name.lower().startswith("template"):
+            return {"success": False, "error": "实例名不能以 template 开头", "name": "", "mod": ""}
+
+        # 3) 内容必须是 JSON 对象
+        try:
+            config = _json.loads(content.decode("utf-8"))
+        except (UnicodeDecodeError, _json.JSONDecodeError) as e:
+            return {"success": False, "error": f"文件不是合法 JSON：{e}", "name": "", "mod": ""}
+        if not isinstance(config, dict):
+            return {"success": False, "error": "配置文件根节点必须是对象", "name": "", "mod": ""}
+
+        # 4) 写盘（覆盖同名实例，与老 UI 的 OverrideWarning 提示一致）
+        State.config_updater.write_file(config_name, config, mod_name)
+        logger.info(f"[webapi] 已导入配置 {config_name}（模块 {mod_name}）")
+        return {"success": True, "error": "", "name": config_name, "mod": mod_name}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 导入配置失败({filename}): {e}")
+        return {"success": False, "error": str(e), "name": "", "mod": ""}

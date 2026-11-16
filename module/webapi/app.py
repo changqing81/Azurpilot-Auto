@@ -117,11 +117,30 @@ async def instances_detail(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.list_instances_detail))
 
 
-async def instance_create(request: Request) -> JSONResponse:
-    """创建实例（POST {name, copy_from}）。"""
+def _parse_json_body(raw: bytes) -> tuple:
+    """解析 POST body，返回 (dict, error)。非法 JSON 返回 400 而不是 500。
+
+    之前直接 json.loads 会让畸形请求抛异常打穿到 500，
+    排查时只看到 "Internal Server Error"，分不清是代码 bug 还是请求格式错。
+    """
     import json as _json
 
-    body = _json.loads(await request.body() or b"{}")
+    if not raw:
+        return {}, ""
+    try:
+        parsed = _json.loads(raw)
+    except Exception as e:  # noqa: BLE001
+        return {}, f"请求体不是合法 JSON：{e}"
+    if not isinstance(parsed, dict):
+        return {}, "请求体必须是 JSON 对象"
+    return parsed, ""
+
+
+async def instance_create(request: Request) -> JSONResponse:
+    """创建实例（POST {name, copy_from}）。"""
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
     return JSONResponse(
         await run_in_threadpool(
             data.create_instance, body.get("name", ""), body.get("copy_from", "")
@@ -131,11 +150,38 @@ async def instance_create(request: Request) -> JSONResponse:
 
 async def instance_delete(request: Request) -> JSONResponse:
     """删除实例（POST {name}）。"""
-    import json as _json
-
-    body = _json.loads(await request.body() or b"{}")
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
     return JSONResponse(
         await run_in_threadpool(data.delete_instance, body.get("name", ""))
+    )
+
+
+async def instance_import(request: Request) -> JSONResponse:
+    """导入配置文件（multipart/form-data，字段名 file）。
+
+    与老 UI app_manage.py:_import 同规则：文件名决定实例名与模块名，
+    内容必须是 JSON 对象，写入走 config_updater（含配置迁移）。
+    """
+    try:
+        form = await request.form()
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"success": False, "error": f"表单解析失败：{e}"})
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        return JSONResponse({"success": False, "error": "缺少文件字段 file"})
+    try:
+        content = await upload.read()
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"success": False, "error": f"读取文件失败：{e}"})
+    # 1MB 上限（老 UI file_upload 也是 max_size="1M"）
+    if len(content) > 1024 * 1024:
+        return JSONResponse({"success": False, "error": "文件超过 1MB 限制"})
+    return JSONResponse(
+        await run_in_threadpool(
+            data.import_instance_config, getattr(upload, "filename", ""), content
+        )
     )
 
 
@@ -288,6 +334,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/restart", restart_webui, methods=["POST"]),
         Route("/newapi/bundle.css", bundled_css),
         Route("/newapi/instances/detail", instances_detail),
+        Route("/newapi/instance/import", instance_import, methods=["POST"]),
         Route("/newapi/instance/create", instance_create, methods=["POST"]),
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
         Route("/newapi/announcement", announcement),
