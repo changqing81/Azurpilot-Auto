@@ -36,6 +36,7 @@ export function MindPanel({ name }: { name: string }) {
   const [err, setErr] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [scanning, setScanning] = useState(false)
   const [notice, setNotice] = useState('')
   const pageRef = useRef(0)
   const shipsRef = useRef<Record<string, any>[]>([])
@@ -61,6 +62,66 @@ export function MindPanel({ name }: { name: string }) {
 
   useEffect(() => { load(0, false) }, [load])
 
+  const importFileRef = useRef<HTMLInputElement>(null)
+
+  const handleImportFile = async (ev: React.ChangeEvent<HTMLInputElement>) => {
+    const file = ev.target.files?.[0]
+    if (!file) return
+    const raw = await file.text()
+    let rows: Record<string, any>[] = []
+    try {
+      if (file.name.toLowerCase().endsWith(".csv")) {
+        const table = raw.split(/\r?\n/).filter(l => l.trim())
+        const header = table[0].split(",").map(h => h.trim().toLowerCase())
+        rows = table.slice(1).map(line => {
+          const cells = line.split(",")
+          const obj: Record<string, any> = {}
+          header.forEach((h, i) => { obj[h] = cells[i] })
+          return obj
+        })
+      } else {
+        const parsed = JSON.parse(raw)
+        rows = Array.isArray(parsed) ? parsed : parsed.rows || []
+      }
+    } catch (e) {
+      setNotice("导入失败: 文件解析错误 " + String(e))
+      return
+    }
+    try {
+      const res = await fetch("/newapi/mind/" + name + "/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows }),
+      })
+      const j = await res.json().catch(() => null)
+      if (!j || j.error) { setNotice("导入失败: " + ((j && j.error) || ("HTTP " + res.status))); return }
+      setNotice("导入完成：新增 " + (j.added ?? 0) + "、更新 " + (j.updated ?? 0) + "，清单共 " + (j.total ?? 0) + " 艘")
+      load(pageRef.current, editMode)
+    } catch (e) {
+      setNotice("导入失败: " + String(e))
+    } finally {
+      ev.target.value = ""
+    }
+  }
+  const startScan = async () => {
+    const low = Number((document.getElementById("mc-min-level") as HTMLInputElement).value)
+    const high = Number((document.getElementById("mc-max-level") as HTMLInputElement).value)
+    setScanning(true)
+    try {
+      const res = await fetch("/newapi/dev/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mind_scan", instance: name, min_level: low, max_level: high }),
+      })
+      const j = await res.json().catch(() => null)
+      if (j && j.success) setNotice(text("McScanStarted") || "船坞扫描已启动，完成后会自动保存并载入计算结果。")
+      else setNotice("启动失败: " + ((j && j.error) || ("HTTP " + res.status)))
+    } catch (e) {
+      setNotice("启动失败: " + String(e))
+    } finally {
+      setTimeout(() => setScanning(false), 4000)
+    }
+  }
   // 保存（全量回传；服务端做 revision 校验）
   const saveShips = useCallback(async (ships: Record<string, any>[]) => {
     setSaving(true)
@@ -142,6 +203,24 @@ export function MindPanel({ name }: { name: string }) {
 
   return (
     <div id="pywebio-scope-ft_mind" ref={hostRef}>
+      {/* 扫描工具栏（老 UI ft_mind_toolbar：扫描范围 + 扫描按钮 + 提示） */}
+      <div
+        id="pywebio-scope-ft_mind_toolbar"
+        style={{ display: "flex", gap: ".5rem", alignItems: "center", flexWrap: "wrap", margin: "0 0 .5rem" }}
+      >
+        <span className="ft-toolbar-label">{text("McMinLevel") || "最低扫描等级"}</span>
+        <input className="form-control" type="number" min={1} max={125} defaultValue={95} id="mc-min-level" style={{ width: "5rem" }} />
+        <span className="ft-toolbar-label">{text("McMaxLevel") || "最高扫描等级"}</span>
+        <input className="form-control" type="number" min={1} max={125} defaultValue={125} id="mc-max-level" style={{ width: "5rem" }} />
+        <button
+          className="btn btn-primary"
+          disabled={scanning}
+          onClick={startScan}
+        >
+          {scanning ? text("McScanning") || "正在扫描船坞" : text("McScan") || "自动扫描船坞"}
+        </button>
+        <span className="ft-hint">{text("McScanHint") || "自动扫描支持国服模拟器，按等级降序读取船坞三行的舰名与等级，完成后保存清单并计算。"}</span>
+      </div>
       {/* 编辑开关 + 提示行（老 UI 的批量编辑开关在筛选行） */}
       <div className="ft-toolbar" style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 .5rem' }}>
         <button
@@ -160,6 +239,16 @@ export function MindPanel({ name }: { name: string }) {
         >
           {text('McExportJson') || '导出 JSON'}
         </a>
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json,.csv"
+            style={{ display: "none" }}
+            onChange={e => void handleImportFile(e)}
+          />
+          <button className="btn btn-secondary" onClick={() => importFileRef.current?.click()}>
+            {text("McImport") || "导入舰船清单"}
+          </button>
       </div>
       {data && (
         <>

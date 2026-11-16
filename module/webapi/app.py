@@ -543,6 +543,12 @@ async def dev_action(request: Request) -> JSONResponse:
         "notify_test": lambda: data.dev_notify_test(
             instance, str(body.get("kind", ""))
         ),
+        # 心智计算器：触发船坞扫描（老 UI _mc_scan_start）
+        "mind_scan": lambda: data.dev_mind_scan(
+            instance,
+            int(body.get("min_level", 95)),
+            int(body.get("max_level", 125)),
+        ),
     }
     fn = handlers.get(action)
     if fn is None:
@@ -703,6 +709,14 @@ async def mind_ships_export(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.export_mind_ships, name))
 
 
+async def mind_ships_import(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(await run_in_threadpool(data.import_mind_rows, name, body.get("rows", [])))
+
+
 async def fleet_tech_batch(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     body, err = _parse_json_body(await request.body())
@@ -805,6 +819,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/stat/{name}/mind", mind_calculator),
     Route("/newapi/mind/{name}/ships", mind_ships_save, methods=["POST"]),
     Route("/newapi/mind/{name}/export", mind_ships_export),
+    Route("/newapi/mind/{name}/import", mind_ships_import, methods=["POST"]),
     Route("/newapi/fleet/{name}/batch", fleet_tech_batch, methods=["POST"]),
         Route("/newapi/update/info", update_info),
         Route("/newapi/remote/status", remote_status),

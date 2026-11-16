@@ -476,6 +476,12 @@ _STAT_I18N_KEYS = {
     "McSaved": "Gui.MindCalculator.Saved",
     "McSaveConflict": "Gui.MindCalculator.SaveConflict",
     "McRowCount": "Gui.MindCalculator.RowCount",
+    "McMinLevel": "Gui.MindCalculator.MinLevel",
+    "McMaxLevel": "Gui.MindCalculator.MaxLevel",
+    "McScan": "Gui.MindCalculator.Scan",
+    "McScanning": "Gui.MindCalculator.Scanning",
+    "McScanStarted": "Gui.MindCalculator.ScanStarted",
+    "McScanHint": "Gui.MindCalculator.ScanHint",
     "FtBatchTitle": "Gui.FleetTechnology.BatchTitle",
     "FtBatchAll": "Gui.FleetTechnology.BatchAll",
     "FtBatchHint": "Gui.FleetTechnology.BatchHint",
@@ -1022,6 +1028,106 @@ def batch_fleet_tech(name: str, gids: list, changes: dict, expected_revision: st
         return {"error": str(exc)}
     except (ValueError, TimeoutError, OSError) as exc:
         return {"error": str(exc)}
+
+
+def dev_mind_scan(instance: str, min_level: int, max_level: int) -> dict:
+    """触发心智单元船坞扫描（老 UI app_mind_calculator_tab.py:_mc_scan_start）。
+
+    校验等级范围 → 写 FleetTechScan/MindCalculatorScan 扫描范围配置 →
+    worker 存活时先停（后台收尾）再以 MindCalculatorScan 任务启动。
+    """
+    import time as _time
+
+    from module.config.deep import deep_set
+    from module.config.utils import get_config_mod
+    from module.webui.app_dependencies import State
+
+    if not (1 <= min_level <= max_level <= 125):
+        return {"success": False, "error": "等级范围必须满足 1 ≤ 最低等级 ≤ 最高等级 ≤ 125"}
+    try:
+        updater = State.config_updater
+        cfg = updater.read_file(instance)
+        deep_set(cfg, "FleetTechScan.FleetTech.MinLevel", int(min_level))
+        deep_set(cfg, "FleetTechScan.FleetTech.MaxLevel", int(max_level))
+        updater.write_file(instance, cfg, get_config_mod(instance))
+    except Exception as exc:  # noqa: BLE001
+        return {"success": False, "error": str(exc)}
+
+    # ProcessManager.start 在 worker 存活时是 no-op（既不切换任务也不报错），
+    # 扫描必须走「先停（后台等收尾）再以扫描任务启动」两段 —— 老 UI 同款。
+    from module.webui.process_manager import ProcessManager
+
+    mgr = ProcessManager.get_manager(instance)
+    if mgr.alive:
+        def action():
+            mgr.stop_by_user()
+            deadline = _time.monotonic() + 240
+            while mgr.alive and _time.monotonic() < deadline:
+                _time.sleep(2)
+            mgr.start("MindCalculatorScan")
+        try:
+            from module.webui.instance_action import spawn_instance_action
+            spawn_instance_action(mgr, action, "start")
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": str(exc)}
+    else:
+        mgr.start("MindCalculatorScan")
+    return {"success": True, "task": "MindCalculatorScan"}
+
+
+def import_mind_rows(name: str, rows: list) -> dict:
+    """导入舰船清单（老 UI _mc_import_merge 同语义：同名合并、取最高等级）。
+
+    rows: [{name, level}...]（前端已解析 JSON/CSV）。
+    合并进现有清单后保存，返回新的清单与计算结果。
+    """
+    from module.runtime import mind_calculator as mind_calc
+
+    try:
+        cur = get_mind_calculator(name)
+        ships = [] if cur.get("error") else cur.get("ships", [])
+        incoming = []
+        for r in rows or []:
+            if not isinstance(r, dict) or not r.get("name"):
+                continue
+            try:
+                level = int(r.get("level") or 0)
+            except (TypeError, ValueError):
+                level = 0
+            incoming.append({"name": str(r["name"]).strip(), "level": level})
+        if not incoming:
+            return {"error": "没有可导入的数据行"}
+        by_key = {}
+        for s in ships:
+            by_key[mind_calc.normalize_name(s.get("name", ""))] = s
+        added, updated = 0, 0
+        for r in incoming:
+            key = mind_calc.normalize_name(r["name"])
+            if key in by_key:
+                existing = by_key[key]
+                if (r["level"] or 0) > (existing.get("level") or 0):
+                    existing["level"] = r["level"]
+                    updated += 1
+            else:
+                new_item = dict(r)
+                info = mind_calc.find_ship(r["name"])
+                if info:
+                    new_item["rarity"] = info["rarity"]
+                    new_item["base_rarity"] = info["base_rarity"]
+                new_item.setdefault("excluded", False)
+                new_item.setdefault("review", True)
+                new_item.setdefault("source", "手动导入")
+                ships.append(new_item)
+                by_key[key] = new_item
+                added += 1
+        saved = save_mind_ships(name, ships)
+        if saved.get("error"):
+            return saved
+        return {"success": True, "added": added, "updated": updated, "total": len(ships),
+                "ships": saved.get("ships", []), "result": saved.get("result", {})}
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 心智清单导入失败({name}): {e}")
+        return {"error": str(e)}
 
 
 def get_update_info() -> dict:
