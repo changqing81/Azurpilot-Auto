@@ -95,7 +95,7 @@ fetch('/newapi/theme-css')
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useEffect, useRef, useState } from 'react'
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Overview } from './pages/home'
 import { useParams as useParamsForOverview } from 'react-router-dom'
 import { HomePageMain } from './pages/home2'
@@ -116,6 +116,46 @@ function OverviewRoute() {
   return <Overview instance={name} />
 }
 
+
+
+// ───────────────────── 记住上次页面 ─────────────────────
+// 长卿反馈：「记不住上次选项」。
+// 老 UI 的做法（module/webui/base.py:LAST_PAGE_KEY）：
+//   init_menu 里 localStorage.setItem('alas_last_page', <页签名>)
+//   下次进页面时若 hash 为空，恢复到上次那页。
+//
+// 新 UI 是 hash 路由，天然有 URL 记忆（刷新后 hash 还在），
+// 但两个场景会丢：
+//   1. 直接访问根路径 /（没有 hash）→ 落到主页
+//   2. 从老 UI 切到新 UI（UI=new）→ URL 从 / 重新开始，没有 hash
+// 补一层 localStorage 记忆：路由变化时写入，hash 为空时恢复。
+const LAST_ROUTE_KEY = 'alas_newui_last_route'
+
+function RestoreLastRoute() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const restored = useRef(false)
+
+  useEffect(() => {
+    if (restored.current) return
+    restored.current = true
+    if (location.hash) return
+    let saved = ''
+    try { saved = localStorage.getItem(LAST_ROUTE_KEY) || '' } catch { /* 隐私模式 */ }
+    // 只恢复白名单，避免历史脏数据把用户带到 404
+    const ok = /^\/(overview|stat|config|settings|tool)\/[^/]+(\/[^/]+)?$/.test(saved)
+      || /^\/(update|remote|announcement|manage)$/.test(saved)
+    if (ok) navigate(saved, { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const cur = location.pathname
+    if (!cur || cur === '/') return  // 主页是默认落点，不记
+    try { localStorage.setItem(LAST_ROUTE_KEY, cur) } catch { /* 隐私模式 */ }
+  }, [location.pathname])
+
+  return null
+}
 
 // ───────────────────────── 切页骨架屏 ─────────────────────────
 // 老 UI 的做法（module/webui/base.py:318-389）：点菜单的瞬间往
@@ -206,6 +246,7 @@ function SkeletonOnRouteChange() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
+      <RestoreLastRoute />
       <SkeletonOnRouteChange />
       <Routes>
         <Route path="/" element={<HomePageMain />} />

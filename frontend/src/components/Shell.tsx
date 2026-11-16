@@ -73,14 +73,21 @@ function iconButton(icon: string, label: string, value: string, active: boolean)
   )
 }
 
+/** 二级菜单项（老 UI 的「管理」「开发者工具」等页面会在菜单区放自己的入口列表，
+ *  而不是显示实例的配置树）。key 用于 --menu-{key}-- 高亮标记。 */
+export type SubMenuItem = { key: string; name: string; onClick?: () => void }
+
 export function Shell({
   active,
   title,
   children,
+  submenu,
 }: {
   active: string
   title: string
   children: React.ReactNode
+  /** 传了就用它替换配置树菜单（老 UI 的 init_menu(name="ManageXxx") 同语义） */
+  submenu?: SubMenuItem[]
 }) {
   const navigate = useNavigate()
   const [instances, setInstances] = useState<Instance[]>([])
@@ -152,6 +159,9 @@ export function Shell({
       const m = mark.match(/--menu-(.+?)--/)
       if (!m) return
       const key = m[1]
+      // 二级菜单项：先看 submenu 里有没有注册回调
+      const sub = submenu?.find(it => it.key === key)
+      if (sub?.onClick) { sub.onClick(); return }
       if (key === 'Overview') { navigate('/overview/' + encodeURIComponent(instanceName)); return }
       if (key === 'HomePage') { navigate('/'); return }
       if (key === 'Update') { navigate('/update'); return }
@@ -218,7 +228,11 @@ export function Shell({
     }">${name}</button></div>`
 
   const menuHtml =
-    active === 'Home'
+    submenu && submenu.length
+      ? // 二级菜单（管理/开发者工具等）：老 UI 用 dev_set_menu 往菜单区放按钮，
+        // 不显示配置树。高亮仍走 div[style*="--menu-{key}--"] > button 约定。
+        submenu.map(it => menuItem(it.key, it.name)).join('')
+    : active === 'Home'
       ? HOME_MENU.map(it => menuItem(it.key, it.name)).join('')
       : // 实例页：搜索框 + 配置树
         `<div id="pywebio-scope-task_config_search">` +
