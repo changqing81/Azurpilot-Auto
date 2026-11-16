@@ -19,6 +19,7 @@
 // （54 条），因此容器 id 必须逐个照抄，否则样式一条都不命中。
 import { useEffect, useState } from 'react'
 import { apiGet } from '../../api/client'
+import { useStatText } from './i18n'
 
 type FilterButton = { value: string; label: string; active: boolean }
 type FilterGroup = { key: string; title: string; buttons: FilterButton[] }
@@ -47,13 +48,15 @@ type Resp = {
   error?: string
 }
 
+// 科技条目范围下拉：文案 = FtAll / FtTech / FtNone（老 UI _ft_render_search）
 const SCOPES = [
-  { value: 'all', label: '全部' },
-  { value: 'tech', label: '有科技' },
-  { value: 'none', label: '无科技' },
+  { value: 'all', key: 'FtAll' },
+  { value: 'tech', key: 'FtTech' },
+  { value: 'none', key: 'FtNone' },
 ]
 
 export function FleetTechPanel({ name }: { name: string }) {
+  const text = useStatText()
   const [filters, setFilters] = useState<string[]>([])
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState('all')
@@ -178,7 +181,7 @@ export function FleetTechPanel({ name }: { name: string }) {
                   gridTemplateColumns: '112px 1fr',
                 }}
               >
-                <div className="ft-filter-label">科技功能</div>
+                <div className="ft-filter-label">{text('FtFunctions')}</div>
                 <div>
                   {(data.function_buttons ?? []).map((b, i) => (
                     <button
@@ -206,8 +209,8 @@ export function FleetTechPanel({ name }: { name: string }) {
                 onChange={e => { setPage(0); setStage(e.target.value) }}
                 style={{ width: 'auto' }}
               >
-                <option value="all">全部</option>
-                <option value="get">解锁</option>
+                <option value="all">{text('FtAll')}</option>
+                <option value="get">{text('FtUnlock')}</option>
                 <option value="level">Lv.120</option>
               </select>
             </div>
@@ -215,7 +218,7 @@ export function FleetTechPanel({ name }: { name: string }) {
 
           {/* ④ 扫描范围 + 扫描/同步（老 UI ft_toolbar） */}
           <div id="pywebio-scope-ft_toolbar">
-            <span className="ft-toolbar-label">扫描范围</span>
+            <span className="ft-toolbar-label">{text('FtScanRange')}</span>
             <input
               className="form-control"
               type="number"
@@ -235,7 +238,7 @@ export function FleetTechPanel({ name }: { name: string }) {
           <div id="pywebio-scope-ft_search">
             <input
               className="form-control"
-              placeholder="搜索舰名或编号"
+              placeholder={text('FtSearch')}
               value={queryInput}
               onChange={e => { setPage(0); setQueryInput(e.target.value) }}
             />
@@ -246,11 +249,11 @@ export function FleetTechPanel({ name }: { name: string }) {
               style={{ width: 'auto' }}
             >
               {SCOPES.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>{text(o.key)}</option>
               ))}
             </select>
             <div id="pywebio-scope-ft_count">
-              {data.count} / {data.total}
+              {(text('FtRowCount') || '共 {count} 条').replace('{count}', String(data.count ?? 0))}
             </div>
           </div>
 
@@ -274,7 +277,7 @@ export function FleetTechPanel({ name }: { name: string }) {
                 disabled={(data.page ?? 0) <= 0}
                 onClick={() => setPage(p => Math.max(0, p - 1))}
               >
-                上一页
+                {text('FtPrevPage') || '上一页'}
               </button>
               <span style={{ margin: '0 .5rem' }}>
                 第 {(data.page ?? 0) + 1} / {data.pages} 页
@@ -284,8 +287,16 @@ export function FleetTechPanel({ name }: { name: string }) {
                 disabled={(data.page ?? 0) >= (data.pages ?? 1) - 1}
                 onClick={() => setPage(p => p + 1)}
               >
-                下一页
+                {text('FtNextPage') || '下一页'}
               </button>
+              <a
+                href="https://wiki.biligame.com/blhx/舰队科技"
+                target="_blank"
+                rel="noreferrer"
+                style={{ marginLeft: '.75rem', fontSize: '.8rem' }}
+              >
+                {text('FtAttribution')}
+              </a>
             </div>
           )}
         </>

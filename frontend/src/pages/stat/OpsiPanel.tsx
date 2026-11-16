@@ -16,8 +16,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 import { apMonthCapsuleHtml, apToolbarHtml, type ApView } from './ApToolbar'
+import { useStatText } from './i18n'
 
 export function OpsiPanel({ name }: { name: string }) {
+  const text = useStatText()
   const [months, setMonths] = useState<string[]>([])
   const [month, setMonth] = useState('')
   const [view, setView] = useState('line')
@@ -104,7 +106,7 @@ export function OpsiPanel({ name }: { name: string }) {
   useEffect(() => {
     const host = toolbarRef.current
     if (!host) return
-    host.innerHTML = apToolbarHtml(view as ApView)
+    host.innerHTML = apToolbarHtml(view as ApView, text)
     // 视图分段：点按钮切 view（与老 UI _switch_ap_chart_view 同语义）
     const viewGroup = host.querySelector('[data-ap-view-group]') as HTMLElement | null
     if (viewGroup) {
@@ -145,7 +147,7 @@ export function OpsiPanel({ name }: { name: string }) {
             value={month}
             onChange={e => setMonth(e.target.value)}
           >
-            <option value="">本月</option>
+            <option value="">{text('ResearchPeriodMonth')}</option>
             {months.map(m => (<option key={m} value={m}>{m}</option>))}
           </select>
         </div>
@@ -156,7 +158,7 @@ export function OpsiPanel({ name }: { name: string }) {
 
       {/* 净赚卡 + 12 指标卡 */}
       <div style={{ marginTop: 18 }}>
-        <div className="st-title-sub">大世界</div>
+        <div className="st-title-sub">{text('TabOpsi')}</div>
         {panels?.html && <div dangerouslySetInnerHTML={{ __html: panels.html }} />}
       </div>
 

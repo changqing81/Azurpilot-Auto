@@ -9,12 +9,14 @@ import { FleetTechPanel } from './FleetTechPanel'
 import { MindPanel } from './MindPanel'
 import { CommissionIncome } from './CommissionPanel'
 import { Shell } from '../../components/Shell'
+import { STAT_I18N_FALLBACK as STAT_FALLBACK, StatI18nContext, useStatText } from './i18n'
 
 // 页签定义（与 _STAT_TABS 顺序一致；文案=Gui.Stat.Tab* 与 Gui.FleetTechnology.Tab*）
 //
 // 注意：**没有 badge**。曾经给「科研」挂过「规划中」角标，是早期功能没做完时的
 // 临时标记，现在科研面板已经完整（进行中队列 + 指标卡 + 三行控件 + 掉落表），
 // 角标反而误导用户以为这页不能用。长卿：「科研的规划删掉」。
+// 页签文案走 i18n（name 字段只是兜底，实际渲染时用 useStatText 取）
 const TABS: { id: string; name: string }[] = [
   { id: 'opsi', name: '大世界' },
   { id: 'commission', name: '委托' },
@@ -24,13 +26,17 @@ const TABS: { id: string; name: string }[] = [
   { id: 'mind', name: '心智计算器' },
 ]
 
-// 数据源状态（_get_statistics_data_state 的三态）
+// 数据源状态（_get_statistics_data_state 的三态）；文案 = Gui.Stat.Source*
 function SourceChip({ state }: { state: 'ok' | 'stale' | 'missing' }) {
-  const text = state === 'ok' ? '数据源正常' : state === 'stale' ? '数据源长期未更新' : '暂无数据源'
+  const text = useStatText()
+  const label =
+    state === 'ok' ? text('SourceOk')
+    : state === 'stale' ? text('SourceStale')
+    : text('SourceMissing')
   return (
     <span className={'st-source is-' + state}>
       <i className="st-source-dot" />
-      {text}
+      {label}
     </span>
   )
 }
@@ -61,6 +67,15 @@ export function StatPage() {
   const [meta, setMeta] = useState('')
   // 页签布局依赖容器宽度/字体，数据加载后才稳定；作为指示条重算的额外触发
   const groupsKey = TABS.map(t => t.id).join(',')
+
+  // 文案：后端按当前语言返回老 UI i18n 原文（长卿：「文案一定要是老UI的文案」）
+  const [i18n, setI18n] = useState<Record<string, string>>({})
+  useEffect(() => {
+    fetch('/newapi/stat/i18n')
+      .then(r => r.json())
+      .then(setI18n)
+      .catch(() => { /* 老后端：用兜底表 */ })
+  }, [])
 
   // 数据截至时间（取实例配置 mtime 或 dashboard.json 更新时间；先本地时间占位，端点在 P4 补）
   // 指示条跟随激活页签滑动（老 UI statistics-tab-indicator 同款）
@@ -109,18 +124,27 @@ export function StatPage() {
     setMeta(`数据截至 ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())} · 实例 ${name}`)
   }, [name])
 
+  // 注意：StatPage 是 Provider 的宿主组件，**useContext 在这里读到的是上层值**
+  // （React 的经典陷阱），所以 StatPage 自己的文案必须直接用 i18n state 取，
+  // 不能经过 useStatText。子组件（面板）用 useStatText 没问题。
+  const t18n = (key: string) => i18n[key] || STAT_FALLBACK[key] || key
+  const text = t18n
+  const tabName = (id: string) =>
+    t18n(id === 'fleet' ? 'TabFleet' : id === 'mind' ? 'TabMind' : 'Tab' + id[0].toUpperCase() + id.slice(1))
+
   return (
-    <Shell active={name} title="统计">
+    <StatI18nContext.Provider value={i18n}>
+    <Shell active={name} title={text('PageTitle') || '统计'}>
     <div id="pywebio-scope-statistics-content">
       <div className="st-page">
         <div className="st-head">
           <div>
-            <h1>统计</h1>
+            <h1>{text('PageTitle') || '统计'}</h1>
             <div className="st-head-meta">{meta}</div>
           </div>
           <div className="st-head-actions">
             <SourceChip state="ok" />
-            <button className="btn btn-on" onClick={() => setMeta(m => m)}>刷新</button>
+            <button className="btn btn-on" onClick={() => setMeta(m => m)}>{text('Refresh') || '刷新'}</button>
           </div>
         </div>
         <div className="st-tabs" id="statistics-tabs" role="tablist">
@@ -134,7 +158,7 @@ export function StatPage() {
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
             >
-              {t.name}
+              {tabName(t.id)}
             </button>
           ))}
           {/* ⚠️ ref 必须挂上：我原来漏了这一行，导致 indicatorRef.current 恒为 null，
@@ -150,37 +174,37 @@ export function StatPage() {
         <div className="st-panels" id="statistics-panels">
         {tab === 'opsi' && (
           <div id="st-panel-opsi" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>大世界</p>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('opsi')}</p>
             <OpsiPanel name={name} />
           </div>
         )}
         {tab === 'commission' && (
           <div id="st-panel-commission" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>委托</p>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('commission')}</p>
             <CommissionIncome name={name} />
           </div>
         )}
         {tab === 'research' && (
           <div id="st-panel-research" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>科研</p>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('research')}</p>
             <ResearchPanel name={name} />
           </div>
         )}
         {tab === 'resource' && (
           <div id="st-panel-resource" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>资源</p>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('resource')}</p>
             <DeltaSummary name={name} />
           </div>
         )}
         {tab === 'fleet' && (
           <div id="st-panel-fleet" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>科技列表</p>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('fleet')}</p>
             <FleetTechPanel name={name} />
           </div>
         )}
         {tab === 'mind' && (
           <div id="st-panel-mind" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>心智计算器</p>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('mind')}</p>
             <MindPanel name={name} />
           </div>
         )}
@@ -188,5 +212,6 @@ export function StatPage() {
       </div>
     </div>
     </Shell>
+    </StatI18nContext.Provider>
   )
 }

@@ -373,6 +373,124 @@ def get_log_tail(name: str, since: int = -1, limit: int = 200, width: int = 80) 
         return {"html": "", "cursor": cursor, "full": full}
 
 
+# 统计页的全部用户可见文案（老 UI 源码里逐个 t() 键的字面值）。
+# 前端不再硬编码任何中文 —— 长 卿：「文案一定要是老UI的文案，不要乱改」。
+# 键名 = 老 UI i18n 键去掉 Gui.Stat./Gui.FleetTechnology. 前缀，便于对照。
+_STAT_I18N_KEYS = {
+    # 页头
+    "PageTitle": "Gui.Stat.PageTitle",
+    "Refresh": "Gui.Stat.Refresh",
+    "PageMeta": "Gui.Stat.PageMeta",
+    "SourceOk": "Gui.Stat.SourceOk",
+    "SourceStale": "Gui.Stat.SourceStale",
+    "SourceMissing": "Gui.Stat.SourceMissing",
+    # 页签（fleet/mind 两个键在 FleetTechnology 组）
+    "TabOpsi": "Gui.Stat.TabOpsi",
+    "TabCommission": "Gui.Stat.TabCommission",
+    "TabResearch": "Gui.Stat.TabResearch",
+    "TabResource": "Gui.Stat.TabResource",
+    "TabFleet": "Gui.FleetTechnology.TabTech",
+    "TabMind": "Gui.FleetTechnology.TabMind",
+    # 体力图工具栏
+    "ApChartTitle": "Gui.Stat.ApChartTitle",
+    "ViewLineButton": "Gui.Stat.ViewLineButton",
+    "ViewDayButton": "Gui.Stat.ViewDayButton",
+    "ViewMonthButton": "Gui.Stat.ViewMonthButton",
+    # 科研
+    "ResearchTitle": "Gui.Stat.ResearchTitle",
+    "ResearchMetricTotal": "Gui.Stat.ResearchMetricTotal",
+    "ResearchMetricToday": "Gui.Stat.ResearchMetricToday",
+    "ResearchMetricMonth": "Gui.Stat.ResearchMetricMonth",
+    "ResearchMetricRecords": "Gui.Stat.ResearchMetricRecords",
+    "ResearchScopeSeries": "Gui.Stat.ResearchScopeSeries",
+    "ResearchScopeConsumable": "Gui.Stat.ResearchScopeConsumable",
+    "ResearchPeriodMonth": "Gui.Stat.ResearchPeriodMonth",
+    "ResearchPeriodDays30": "Gui.Stat.ResearchPeriodDays30",
+    "ResearchPeriodDays90": "Gui.Stat.ResearchPeriodDays90",
+    "ResearchPeriodAll": "Gui.Stat.ResearchPeriodAll",
+    "ResearchEmptyTitle": "Gui.Stat.ResearchEmptyTitle",
+    # 委托
+    "CommissionIncomeTitle": "Gui.Stat.CommissionIncomeTitle",
+    "CommissionIncomeDay": "Gui.Stat.CommissionIncomeDay",
+    "CommissionIncomeWeek": "Gui.Stat.CommissionIncomeWeek",
+    "CommissionIncomeMonth": "Gui.Stat.CommissionIncomeMonth",
+    "CommissionIncomeMonthPicker": "Gui.Stat.CommissionIncomeMonthPicker",
+    "CommissionIncomeNoData": "Gui.Stat.CommissionIncomeNoData",
+    # 资源
+    "DeltaPeriodDay": "Gui.Stat.DeltaPeriodDay",
+    "DeltaPeriodWeek": "Gui.Stat.DeltaPeriodWeek",
+    "DeltaPeriodMonth": "Gui.Stat.DeltaPeriodMonth",
+    "DeltaPeriodTotal": "Gui.Stat.DeltaPeriodTotal",
+    "DeltaChartTitle": "Gui.Stat.DeltaChartTitle",
+    "DeltaSummaryTitle": "Gui.Stat.DeltaSummaryTitle",
+    "DeltaIncrease": "Gui.Stat.DeltaIncrease",
+    "DeltaDecrease": "Gui.Stat.DeltaDecrease",
+    "DeltaNet": "Gui.Stat.DeltaNet",
+    "DeltaResource": "Gui.Stat.DeltaResource",
+    "DeltaTimelineHint": "Gui.Stat.DeltaTimelineHint",
+    "ConsumptionRankingTitle": "Gui.Stat.ConsumptionRankingTitle",
+    "NoDeltaData": "Gui.Stat.NoDeltaData",
+    # 大世界
+    "OpsiDropTitle": "Gui.Stat.OpsiDropTitle",
+    "OpsiDataCollectionTitle": "Gui.Stat.OpsiDataCollectionTitle",
+    "NoApData": "Gui.Stat.NoApData",
+    # 科技列表
+    "FtCategory": "Gui.FleetTechnology.Category",
+    "FtRarity": "Gui.FleetTechnology.Rarity",
+    "FtNation": "Gui.FleetTechnology.Nation",
+    "FtBonusType": "Gui.FleetTechnology.BonusType",
+    "FtAttr": "Gui.FleetTechnology.Attr",
+    "FtStatus": "Gui.FleetTechnology.Status",
+    "FtFunctions": "Gui.FleetTechnology.Functions",
+    "FtEdit": "Gui.FleetTechnology.Edit",
+    "FtBonuses": "Gui.FleetTechnology.Bonuses",
+    "FtExtra": "Gui.FleetTechnology.Extra",
+    "FtPendingOnly": "Gui.FleetTechnology.PendingOnly",
+    "FtScanRange": "Gui.FleetTechnology.ScanRange",
+    "FtSearch": "Gui.FleetTechnology.Search",
+    "FtScope": "Gui.FleetTechnology.Scope",
+    "FtStage": "Gui.FleetTechnology.Stage",
+    "FtAll": "Gui.FleetTechnology.All",
+    "FtUnlock": "Gui.FleetTechnology.Unlock",
+    "FtTech": "Gui.FleetTechnology.Tech",
+    "FtNone": "Gui.FleetTechnology.None",
+    "FtEmpty": "Gui.FleetTechnology.Empty",
+    # 分页（老 UI app_fleet_technology.py:508-509 用 Prev/Next 键）
+    "FtPrevPage": "Gui.FleetTechnology.Prev",
+    "FtNextPage": "Gui.FleetTechnology.Next",
+    "FtRowCount": "Gui.FleetTechnology.RowCount",
+    "FtAttribution": "Gui.FleetTechnology.Attribution",
+    "ResearchSeriesOption": "Gui.Stat.ResearchSeriesOption",
+    "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
+    # 心智计算器（与科技列表同组）
+    "FtTabMind": "Gui.FleetTechnology.TabMind",
+}
+
+
+def get_stat_i18n() -> dict:
+    """统计页全部文案，按当前界面语言返回（键 = 上表的短名）。
+
+    语言必须先 load_language：_t 只查已加载的 dic_lang，
+    没加载的语言查出来是键名本身（实测踩过）。en-US 是回退底座，
+    老 UI 的 load_language 也会顺带加载它。
+    """
+    from module.webui import lang as _lang_mod
+
+    lang = _current_language()
+    try:
+        _lang_mod.load_language(lang)
+    except Exception:  # noqa: BLE001
+        pass
+    out = {}
+    for short, full in _STAT_I18N_KEYS.items():
+        value = _lang_mod._t(full, lang)
+        # 拿不到键时回退 zh-CN（_t 未命中会返回键名本身）
+        if value == full:
+            value = _lang_mod._t(full, "zh-CN")
+        out[short] = value
+    return out
+
+
 # 固定菜单项的 i18n 键（老 UI app_developer_menu.py + base.py 里的 t() 调用）
 # 注意：这些是**硬编码在前端的 HOME_MENU 里**的文案，切换语言时必须由后端
 # 按当前语言返回，否则侧栏/主页菜单永远是中文（实测过：配置页已经变成

@@ -40,15 +40,16 @@ export const AP_VIEW_ORDER: ApView[] = ['line', 'day', 'month']
  * 必须让 button 是它的**直接子元素**且中间不能夹 React 包裹节点；
  * 字符串能保证与老 UI 逐字节同构。
  */
-export function apToolbarHtml(view: ApView): string {
+export function apToolbarHtml(view: ApView, text: (key: string) => string = k => AP_VIEW_LABELS[k as ApView] ?? k): string {
+  const label = (k: string) => text(k) || AP_VIEW_LABELS[k as ApView] || k
   const segs = AP_VIEW_ORDER.map(v => {
     // 选中 = btn-primary，未选中 = btn-off（老 UI color 映射原样）
     const cls = v === view ? 'btn btn-primary' : 'btn btn-off'
-    return `<button class="${cls}" data-ap-view="${v}">${esc(AP_VIEW_LABELS[v])}</button>`
+    return `<button class="${cls}" data-ap-view="${v}">${esc(label('View' + v[0].toUpperCase() + v.slice(1) + 'Button'))}</button>`
   }).join('')
   return (
     `<div style="display: grid; grid-auto-flow: column; grid-template-columns: auto 1fr auto auto;;;align-items: center; margin-top: 16px; margin-bottom: 8px;">` +
-    `<div style="font-weight: 600; font-size: 14px;">体力变化 - ${esc(AP_VIEW_LABELS[view])}</div>` +
+    `<div style="font-weight: 600; font-size: 14px;">${esc(label('ApChartTitle'))} - ${esc(AP_VIEW_LABELS[view])}</div>` +
     `<div></div>` +
     // 月份胶囊：老 UI 是单个 btn 包在 .btn-group 里，点开共用月份选择弹窗。
     // 这里同构，但值来自 /newapi/stat/{name}/months（已含「本月」语义）。

@@ -20,6 +20,7 @@
 // 空格与写法和老 UI 完全一致。
 import { useEffect, useState } from 'react'
 import { apiGet } from '../../api/client'
+import { useStatText } from './i18n'
 
 type Resp = {
   success: boolean
@@ -36,15 +37,16 @@ type Resp = {
 
 // 文案逐字取自 i18n（Gui.Stat.ResearchScope* / ResearchPeriod*），
 // 空格与写法必须与老 UI 一致：「心智 / 物资」「近 30 天」「近 90 天」。
-const SCOPE_OPTS = [
-  { value: 'series', label: '期数视图' },
-  { value: 'consumable', label: '心智 / 物资' },
+// 文案由组件内用 useStatText 动态取（跟界面语言走），这里只留 value
+const SCOPE_VALUES = [
+  { value: 'series', key: 'ResearchScopeSeries' },
+  { value: 'consumable', key: 'ResearchScopeConsumable' },
 ]
-const PERIOD_OPTS = [
-  { value: 'month', label: '本月' },
-  { value: 'days30', label: '近 30 天' },
-  { value: 'days90', label: '近 90 天' },
-  { value: 'all', label: '全部' },
+const PERIOD_VALUES = [
+  { value: 'month', key: 'ResearchPeriodMonth' },
+  { value: 'days30', key: 'ResearchPeriodDays30' },
+  { value: 'days90', key: 'ResearchPeriodDays90' },
+  { value: 'all', key: 'ResearchPeriodAll' },
 ]
 
 /**
@@ -87,6 +89,7 @@ function BtnRow({
 }
 
 export function ResearchPanel({ name }: { name: string }) {
+  const text = useStatText()
   const [scope, setScope] = useState('series')
   const [period, setPeriod] = useState('days90')
   const [series, setSeries] = useState(0)
@@ -114,21 +117,22 @@ export function ResearchPanel({ name }: { name: string }) {
   }, [name, period, scope, series])
 
   // 「第9期」——无空格，与 i18n ResearchSeriesOption "第{series}期" 一致
+  // 期数文案 = ResearchSeriesOption "第{series}期"（无空格，老 UI 原文）
   const seriesOpts = (data?.series_options ?? []).map(s => ({
     value: s,
-    label: '第' + s + '期',
+    label: (text('ResearchSeriesOption') || '第{n}期').replace('{n}', String(s)),
   }))
 
   // 三行选项控件（老 UI app_stat_research.py:_output_research_controls）
   const controls = (
     <>
       <BtnRow
-        options={SCOPE_OPTS}
+        options={SCOPE_VALUES.map(x => ({ value: x.value, label: text(x.key) }))}
         value={scope}
         onChange={v => { setScope(v); setSeries(0) }}
       />
       <BtnRow
-        options={PERIOD_OPTS}
+        options={PERIOD_VALUES.map(x => ({ value: x.value, label: text(x.key) }))}
         value={period}
         onChange={setPeriod}
       />

@@ -11,6 +11,7 @@
 //   「每日不翼而飞 而且还反了 顺序是每日 每周 每月」。
 import { useEffect, useState } from 'react'
 import { apiGet } from '../../api/client'
+import { useStatText } from './i18n'
 
 type Resp = {
   success: boolean
@@ -26,13 +27,16 @@ type Resp = {
 }
 
 /** 周期按钮 —— 顺序与文案严格照老 UI：每日 / 每周 / 每月。 */
-const PERIOD_OPTS = [
-  { value: 'day', label: '每日' },
-  { value: 'week', label: '每周' },
-  { value: 'month', label: '每月' },
+// 老 UI i18n：CommissionIncomeDay/Week/Month —— 注意老 UI 显示的是
+// 「今日/本周/本月」（app_stat_commission.py:475-490 用这三个键）
+const PERIOD_VALUES = [
+  { value: 'day', key: 'CommissionIncomeDay' },
+  { value: 'week', key: 'CommissionIncomeWeek' },
+  { value: 'month', key: 'CommissionIncomeMonth' },
 ]
 
 export function CommissionIncome({ name }: { name: string }) {
+  const text = useStatText()
   const [period, setPeriod] = useState('month')
   // 查看年月：默认当月（0 = 让后端取当月）
   const [ym, setYm] = useState<{ y: number; m: number } | null>(null)
@@ -80,7 +84,8 @@ export function CommissionIncome({ name }: { name: string }) {
     <>
       {/* 周期按钮：每日 / 每周 / 每月（顺序照老 UI）；历史月份下前两档禁用 */}
       <div style={{ display: 'flex', gap: '.375rem', marginBottom: '.5rem' }}>
-        {PERIOD_OPTS.map(o => {
+        {PERIOD_VALUES.map(x => {
+          const o = { value: x.value, label: text(x.key) }
           const disabled = o.value !== 'month' && !isCurrentMonth
           return (
             <button
@@ -110,7 +115,7 @@ export function CommissionIncome({ name }: { name: string }) {
               setPeriod('month')
             }}
           >
-            回到本月
+            {text('MeowLootBackToCurrent') || '回到本月'}
           </button>
         )}
       </div>

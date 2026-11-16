@@ -14,6 +14,7 @@
 // 前端挂 DOM 后执行脚本 —— 就是老 UI 那张图，不是重画的。
 import { useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
+import { useStatText } from './i18n'
 
 type PeriodOpt = { value: string; label: string }
 
@@ -30,6 +31,7 @@ type Resp = {
 }
 
 export function DeltaSummary({ name }: { name: string }) {
+  const text = useStatText()
   const [period, setPeriod] = useState('day')
   const [data, setData] = useState<Resp | null>(null)
   const [loading, setLoading] = useState(true)
@@ -87,10 +89,10 @@ export function DeltaSummary({ name }: { name: string }) {
           primary 表示选中、off 表示未选中；class 逐字照抄，不自造） */}
       <div style={{ marginBottom: '8px' }}>
         {(data?.period_options ?? [
-          { value: 'day', label: '日' },
-          { value: 'week', label: '周' },
-          { value: 'month', label: '月' },
-          { value: 'total', label: '总' },
+          { value: 'day', label: text('DeltaPeriodDay') },
+          { value: 'week', label: text('DeltaPeriodWeek') },
+          { value: 'month', label: text('DeltaPeriodMonth') },
+          { value: 'total', label: text('DeltaPeriodTotal') },
         ]).map((o, i) => (
           <button
             key={o.value}
@@ -105,7 +107,7 @@ export function DeltaSummary({ name }: { name: string }) {
 
       {loading && !data && <div className="st-placeholder">加载中…</div>}
       {data && !data.success && (
-        <div className="st-placeholder">{data.error || '暂无资源变动数据（实例运行后出现）'}</div>
+        <div className="st-placeholder">{data.error || text('NoDeltaData')}</div>
       )}
 
       {data?.success && (

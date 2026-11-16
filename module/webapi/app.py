@@ -83,6 +83,11 @@ def _sync_runtime_language(language: str) -> None:
 sync_runtime_language = _sync_runtime_language
 
 
+async def stat_i18n(request: Request) -> JSONResponse:
+    """统计页全部文案（老 UI i18n 原文，按当前语言）。前端零硬编码。"""
+    return JSONResponse(await run_in_threadpool(data.get_stat_i18n))
+
+
 async def fixed_menu(request: Request) -> JSONResponse:
     """固定菜单文案（主页 6 个入口 + 侧栏「主页/管理」），按当前语言翻译。"""
     return JSONResponse(await run_in_threadpool(data.get_fixed_menu))
@@ -750,6 +755,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/log/{name}/tail", log_tail),
         Route("/newapi/header", header),
         Route("/newapi/menu/fixed", fixed_menu),
+        Route("/newapi/stat/i18n", stat_i18n),
         Route("/newapi/menu", menu),
         Route("/newapi/stat/{name}/resource_delta", resource_delta),
         Route("/newapi/stat/{name}/commission_income", commission_income),
