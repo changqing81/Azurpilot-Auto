@@ -169,18 +169,31 @@ def get_version() -> dict:
 def get_instances() -> dict:
     """实例名列表 + 每个实例的运行状态（等价老 UI set_aside_status 的数据面）。
 
-    状态码沿用老 UI 约定：1=running / 2=inactive / 3=warning / 4=updating。
+    状态码沿用老 UI 约定（app_shell.py:273-293 refresh_aside_instances）：
+        1 = running（绿色旋转圈）
+        2 = inactive（纯播放键）
+        3 = warning（播放键 + 红角标，异常停止）
+        4 = updating（播放键 + 蓝角标，更新中）
+
+    **必须真读 ProcessManager.get_manager(name).state**。
+    这里原来把 state 硬编码成 2（注释写「先 inactive 兜底」，后来忘了接），
+    导致侧栏实例图标永远是空闲态的播放键 —— 长卿：
+    「这里运行的小圆圈记得需要加回去 以及其他各个状态」。
+    前端 Shell.tsx:instanceIcon 早已按 1/3/4/其他 分四种图标渲染，
+    缺的从来只是后端这个值。
     """
     from module.config.utils import alas_instance
+    from module.webui.process_manager import ProcessManager
 
     items = []
     try:
         for inst in alas_instance():
-            items.append({
-                "name": inst,
-                # 运行状态由 /newapi/instance/{name}/status 提供（P2 接 ProcessManager）；先 inactive 兜底
-                "state": 2,
-            })
+            state = 2
+            try:
+                state = int(ProcessManager.get_manager(inst).state)
+            except Exception as e:  # noqa: BLE001 —— 单个实例读不到不影响整列表
+                logger.debug(f"[webapi] 读取实例状态失败({inst}): {e}")
+            items.append({"name": inst, "state": state})
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 实例列表获取失败: {e}")
     return {"instances": items}
@@ -2057,27 +2070,116 @@ def _get_research_panel_html_impl(
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
 
 
-def get_delta_panel_html(instance_name: str) -> dict:
-    """带缓存入口（缓存键见 _stat_cache_key）。"""
-    return _cached_stat_html(instance_name, "delta", lambda: _get_delta_panel_html_impl(instance_name))
+def get_delta_panel_html(instance_name: str, period: str = "") -> dict:
+    """带缓存入口（缓存键见 _stat_cache_key）。period: day/week/month/total。"""
+    return _cached_stat_html(
+        instance_name,
+        f"delta:{period}",
+        lambda: _get_delta_panel_html_impl(instance_name, period),
+        period,
+    )
 
 
-def _get_delta_panel_html_impl(instance_name: str) -> dict:
-    """资源面板（app_stat_delta.py）。返回汇总/排行/图例三段 HTML。"""
+def _get_delta_panel_html_impl(instance_name: str, period: str = "") -> dict:
+    """资源面板（app_stat_delta.py:_render_resource_delta 的等价物）。
+
+    老 UI 这一页有**四块**，我原来只做了第三块（汇总表）和汇总条，
+    时间轴图和消耗排行榜根本不存在 —— 长卿：「资源这块完全是半成品做都没做」。
+
+        ① _render_delta_toolbar   粒度切换 日/周/月/总   ← 原来没有
+        ② _render_delta_timeline  任务时间轴（echarts）  ← 原来没有（含 stats/legend）
+        ③ _build_summary_html     增减汇总表
+        ④ _build_ranking_html     消耗排行榜            ← 原来没有
+
+    时间轴图不是普通 HTML，是「HTML 模板 + 一段填好数据的 JS」
+    （webapp/resource_delta_timeline.{html,js}，与大世界体力图同一套路），
+    所以这里返回 timeline_html / timeline_js 两个字段，由前端挂载后执行脚本。
+    """
     try:
+        from module.webui.app_stat_delta import (
+            PERIOD_DAYS,
+            PERIOD_KEYS,
+            _TIMELINE_TOP_N,
+        )
+        from module.webui.app_helpers import read_webapp_template
+        from module.webui.lang import t as _t
+
         ctx = _make_stat_ctx(
             instance_name,
             "module.webui.app_stat_delta",
             "ResourceDeltaStatisticsMixin",
         )
+        # 粒度覆盖：老 UI 用 _delta_period 实例属性驱动 _load_delta_data
+        if period in PERIOD_KEYS:
+            ctx._delta_period = period
+        current_period = str(getattr(ctx, "_delta_period", "day"))
         timeline, summary, ranking = ctx._load_delta_data()
         if not timeline and not summary and not ranking:
             return {"success": False, "error": "暂无资源变动数据"}
+
+        # ① 粒度切换（老 UI _render_delta_toolbar：日/周/月/总，primary vs off）
+        period_labels = {
+            "day": _t("Gui.Stat.DeltaPeriodDay"),
+            "week": _t("Gui.Stat.DeltaPeriodWeek"),
+            "month": _t("Gui.Stat.DeltaPeriodMonth"),
+            "total": _t("Gui.Stat.DeltaPeriodTotal"),
+        }
+
+        # ② 时间轴：HTML 模板 + JS（数据全部内联进 JS）
+        timeline_html = ""
+        timeline_js = ""
+        if timeline:
+            try:
+                chart_id = "rdt_webapi"
+                timeline_html = read_webapp_template(
+                    "resource_delta_timeline.html"
+                ).format(
+                    chart_id=chart_id,
+                    title=_t("Gui.Stat.DeltaChartTitle"),
+                    stats_html=ctx._build_delta_stats_html(summary) if summary else "",
+                    legend_html=ctx._build_delta_legend_html(),
+                )
+                tasks = [ctx._build_timeline_task(item) for item in timeline]
+                # t() 会无条件 .format()，含 {n} 的翻译必须把 n 传回字面 "{n}"
+                timeline_js = (
+                    read_webapp_template("resource_delta_timeline.js")
+                    .replace("__TASKS__", json.dumps(tasks, ensure_ascii=False))
+                    .replace("__CHART_ID__", chart_id)
+                    .replace("__TXT_GAIN__", _t("Gui.Stat.DeltaIncrease"))
+                    .replace("__TXT_LOSS__", _t("Gui.Stat.DeltaDecrease"))
+                    .replace("__TXT_TIMES__", _t("Gui.Stat.DeltaTaskTimes", n="{n}"))
+                    .replace("__TXT_MORE__", _t("Gui.Stat.DeltaMore", n="{n}"))
+                )
+            except Exception as e:  # noqa: BLE001 —— 图失败不能拖垮整页
+                logger.warning(f"[webapi] 渲染资源时间轴失败: {e}")
+
         stats_html = ctx._build_delta_stats_html(summary) if summary else ""
-        legend_html = ctx._build_delta_legend_html() if hasattr(ctx, "_build_delta_legend_html") else ""
-        summary_html = ctx._build_summary_html(summary) if summary else ""
+        legend_html = (
+            ctx._build_delta_legend_html()
+            if hasattr(ctx, "_build_delta_legend_html")
+            else ""
+        )
+        # ③ 汇总表 + ④ 排行榜：老 UI 用 resource_delta_rank.html 一次包住两块
+        summary_html = ""
+        try:
+            summary_html = read_webapp_template("resource_delta_rank.html").format(
+                summary_title=_t("Gui.Stat.DeltaSummaryTitle"),
+                summary_html=ctx._build_summary_html(summary) if summary else "",
+                ranking_title=_t("Gui.Stat.ConsumptionRankingTitle"),
+                ranking_html=ctx._build_ranking_html(ranking),
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[webapi] 渲染资源汇总/排行失败: {e}")
+            summary_html = ctx._build_summary_html(summary) if summary else ""
+
         return {
             "success": True,
+            "period": current_period,
+            "period_options": [
+                {"value": k, "label": period_labels[k]} for k in PERIOD_KEYS
+            ],
+            "timeline_html": timeline_html,
+            "timeline_js": timeline_js,
             "stats_html": stats_html,
             "legend_html": legend_html,
             "summary_html": summary_html,

@@ -290,7 +290,7 @@ async def stat_panels_html(request: Request) -> JSONResponse:
       opsi       → 净赚卡 + 12 指标卡 + 大世界收获
       commission → 委托收入（汇总/明细表/最近记录）
       research   → 科研掉落表
-      delta      → 资源变动（汇总/排行/图例）
+      delta      → 资源变动（粒度切换 + 时间轴图 + 汇总表 + 消耗排行榜）
     """
     name = request.path_params.get("name", "")
     panel = (request.query_params.get("panel") or "opsi").strip().lower()
@@ -333,6 +333,9 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         return JSONResponse(
             await run_in_threadpool(fn, name, period, scope, series)
         )
+    if panel == "delta":
+        # 资源面板有多档粒度（日/周/月/总），老 UI 用 _delta_period 驱动
+        return JSONResponse(await run_in_threadpool(fn, name, period))
     if panel == "commission":
         # 委托面板有 4 个可变参数：周期 + 查看年月（老 UI 的 ◀ ▶ 翻页）。
         # 只传 period 会让年月永远是当月 —— 实测翻页无效（year/month 回传仍是当月）。
