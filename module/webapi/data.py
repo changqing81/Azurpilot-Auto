@@ -2725,6 +2725,26 @@ def _get_fleet_tech_panel_html_impl(
         )
         shown, cur_page, pages = view.page_slice(arranged, page)
         table = view.table_html(shown, sort_key, direction, edit)
+        # 编辑模式：批量工具栏（老 UI app_fleet_tech_batch.py:86-96
+        # _ft_batch_toolbar —— 表格上方显示"本页已选 0 / 批量修改已选舰船 /
+        # 修改全部筛选结果"）。之前 edit=1 只回表格，工具栏没输出，
+        # 勾选框孤零零的没有批量入口。
+        if edit:
+            from html import escape as _hesc
+            from module.webui.lang import t as _t
+
+            batch = (
+                '<div class="ft-batch-toolbar">'
+                f'<span>{_hesc(_t("Gui.FleetTechnology.Selected"))} '
+                f'<b data-ft-selected-count>0</b></span>'
+                f'<button type="button" class="ft-edit-btn" data-ft-batch="selected" disabled>'
+                f'{_hesc(_t("Gui.FleetTechnology.BatchEdit"))}</button>'
+                f'<button type="button" class="ft-edit-btn" data-ft-batch="all" '
+                f'{"disabled" if not arranged else ""}>'
+                f'{_hesc(_t("Gui.FleetTechnology.BatchAll", count=len(arranged)))}</button>'
+                f'<small>{_hesc(_t("Gui.FleetTechnology.SelectionHint"))}</small></div>'
+            )
+            table = batch + table
 
         # ④ 加成阶段（仅「显示额外筛选」开启时）
         stage_html = ""
