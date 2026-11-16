@@ -11,7 +11,7 @@ import os
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.concurrency import run_in_threadpool
 from starlette.staticfiles import StaticFiles
@@ -76,6 +76,23 @@ async def resource_delta(request: Request) -> JSONResponse:
 
 async def theme_css(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_theme_styles))
+
+
+async def bundled_css(request: Request) -> Response:
+    """把老 UI 的多个 CSS 合并成一个响应，减少首屏 14 个渲染阻塞请求。
+
+    只合并「基础层 + 9 个 alas 层」，**不含主题层**（主题层由 /newapi/theme-css
+    另行动态注入，因为要跟随 deploy.yaml 的 Theme 变化）。
+    合并顺序必须与 index.html 原来的 <link> 顺序一致，否则层叠优先级会变。
+    """
+    from module.webapi.data import get_bundled_css
+
+    body = await run_in_threadpool(get_bundled_css)
+    return Response(
+        body,
+        media_type="text/css",
+        headers={"Cache-Control": "public, max-age=300"},
+    )
 
 
 async def restart_webui(request: Request) -> JSONResponse:
@@ -214,6 +231,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/oobe", oobe_state),
         Route("/newapi/theme-css", theme_css),
         Route("/newapi/restart", restart_webui, methods=["POST"]),
+        Route("/newapi/bundle.css", bundled_css),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]

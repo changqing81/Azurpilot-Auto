@@ -794,3 +794,70 @@ def restart_webui() -> dict:
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] WebUI 重启请求失败: {e}")
         return {"success": False, "message": str(e)}
+
+
+# 首屏 CSS 打包：老 UI 需要 12 个 CSS 文件（3 个 PyWebIO 基础层 + 9 个 alas 层）。
+# 12 个 <link> 全是渲染阻塞资源，浏览器要全部下完才画第一帧——这是新 UI 首屏
+# 比老 UI 慢的主要剩余项（每个 ~20-150ms 往返，串行叠加）。
+# 合并成一个响应后只剩 1 个往返。
+_BUNDLE_CSS_FILES = (
+    # (URL 前缀, 文件路径) —— 顺序必须与 frontend/index.html 的 <link> 顺序一致，
+    # 否则层叠优先级变化会导致外观偏差。
+    ("/pywebio_static/css/bs-theme/default.min.css", None),
+    ("/pywebio_static/css/app.css", None),
+    ("/pywebio_static/css/markdown.min.css", None),
+    ("/static/assets/gui/css/alas.css", "alas"),
+    ("/static/assets/gui/css/alas-pc.css", "alas-pc"),
+    ("/static/assets/gui/css/entry-alas.css", "entry-alas"),
+    ("/static/assets/gui/css/statistics-alas.css", "statistics-alas"),
+    ("/static/assets/gui/css/stat-delta-alas.css", "stat-delta-alas"),
+    ("/static/assets/gui/css/meowfficer-score-alas.css", "meowfficer-score-alas"),
+    ("/static/assets/gui/css/meow-loot-alas.css", "meow-loot-alas"),
+    ("/static/assets/gui/css/fleet-tech-alas.css", "fleet-tech-alas"),
+    ("/static/assets/gui/css/fleet-management-alas.css", "fleet-management-alas"),
+)
+
+_BUNDLE_CSS_CACHE: dict = {}
+
+
+def _read_css_file(url_path: str, alas_name: str | None) -> str:
+    """读单个 CSS 文件（带 mtime 缓存）。缺失返回空串，不中断整包。"""
+    import pathlib
+
+    if alas_name is not None:
+        path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "assets", "gui", "css", f"{alas_name}.css")
+        )
+    else:
+        # PyWebIO 静态目录：找 pywebio 包内路径
+        try:
+            import pywebio
+
+            # PyWebIO 的静态资源挂载点是 /pywebio_static -> pywebio/html/
+            rel = url_path.replace("/pywebio_static/", "")
+            path = os.path.abspath(os.path.join(os.path.dirname(pywebio.__file__), "html", rel))
+        except Exception:  # noqa: BLE001
+            return ""
+    try:
+        st = os.stat(path)
+        key = (path, st.st_mtime_ns, st.st_size)
+        cached = _BUNDLE_CSS_CACHE.get(path)
+        if cached and cached[0] == key:
+            return cached[1]
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        _BUNDLE_CSS_CACHE[path] = (key, content)
+        return content
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] CSS 读取失败 {path}: {e}")
+        return ""
+
+
+def get_bundled_css() -> str:
+    """合并首屏所需的 12 个 CSS。保持原顺序，缺失文件跳过。"""
+    parts = []
+    for url_path, alas_name in _BUNDLE_CSS_FILES:
+        content = _read_css_file(url_path, alas_name)
+        if content:
+            parts.append(f"/* ==== {url_path} ==== */\n{content}")
+    return "\n".join(parts)
