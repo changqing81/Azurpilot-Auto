@@ -703,6 +703,21 @@ async def mind_ships_export(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.export_mind_ships, name))
 
 
+async def fleet_tech_batch(request: Request) -> JSONResponse:
+    name = request.path_params.get("name", "")
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(await run_in_threadpool(
+        data.batch_fleet_tech,
+        name,
+        body.get("gids", []),
+        body.get("changes", {}),
+        str(body.get("expected_revision", "") or ""),
+        str(body.get("action", "save") or "save"),
+    ))
+
+
 async def fleet_tech(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     return JSONResponse(await run_in_threadpool(data.get_fleet_tech, name))
@@ -790,6 +805,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/stat/{name}/mind", mind_calculator),
     Route("/newapi/mind/{name}/ships", mind_ships_save, methods=["POST"]),
     Route("/newapi/mind/{name}/export", mind_ships_export),
+    Route("/newapi/fleet/{name}/batch", fleet_tech_batch, methods=["POST"]),
         Route("/newapi/update/info", update_info),
         Route("/newapi/remote/status", remote_status),
         Route("/newapi/remote/toggle", remote_toggle, methods=["POST"]),

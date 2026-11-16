@@ -45,6 +45,7 @@ type Resp = {
   edit?: boolean
   bonuses?: boolean
   extra?: boolean
+  revision?: string
   error?: string
 }
 
@@ -68,6 +69,7 @@ export function FleetTechPanel({ name }: { name: string }) {
   const [extra, setExtra] = useState(false)
   const [data, setData] = useState<Resp | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refresh, setRefresh] = useState(0)
 
   // 搜索防抖：老 UI 是 pin_on_change，输入即刷新；这里 300ms 合并输入
   const [queryInput, setQueryInput] = useState('')
@@ -98,7 +100,7 @@ export function FleetTechPanel({ name }: { name: string }) {
       .catch(e => { if (alive) setData({ success: false, error: String(e) }) })
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
-  }, [name, filters, query, scope, stage, page, pending, edit, bonuses, extra])
+  }, [name, filters, query, scope, stage, page, pending, edit, bonuses, extra, refresh])
 
   /**
    * 筛选点击。token 形如 "type|3"（组|值），空值表示该组的「全部」。
@@ -117,6 +119,127 @@ export function FleetTechPanel({ name }: { name: string }) {
       return already ? others : [...others, token]
     })
   }
+
+  // ── 批量编辑（老 UI _ft_batch_open 的 DOM 契约：data-ft-batch 工具栏按钮 +
+  //    [data-ft-select] 勾选框；REST 化后 gids 在前端收集，乐观锁用 panel.revision）
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchAll, setBatchAll] = useState(false)
+  const [batchSel, setBatchSel] = useState<number[]>([])
+  const [batchSaving, setBatchSaving] = useState(false)
+  const [batchNotice, setBatchNotice] = useState("")
+  const [batchForm, setBatchForm] = useState<{
+    owned: string
+    full_star: string
+    lv120: string
+    level_mode: string
+    level: string
+  }>({ owned: "keep", full_star: "keep", lv120: "keep", level_mode: "keep", level: "" })
+
+  const openBatch = (all: boolean) => {
+    if (!all) {
+      const host = document.getElementById("pywebio-scope-ft_table")
+      const checked = Array.from(host?.querySelectorAll("[data-ft-select]:checked") ?? [])
+        .map(el => Number(el.getAttribute("data-ft-select")))
+        .filter(n => !Number.isNaN(n))
+      if (!checked.length) {
+        setBatchNotice("请先勾选要修改的舰船（勾选只对本页有效）；跨页请用「修改全部筛选结果」")
+        return
+      }
+      setBatchSel(checked)
+    } else {
+      setBatchSel([])
+    }
+    setBatchNotice("")
+    setBatchForm({ owned: "keep", full_star: "keep", lv120: "keep", level_mode: "keep", level: "" })
+    setBatchAll(all)
+    setBatchOpen(true)
+  }
+
+  const presetBatch = (preset: "owned" | "full_star" | "lv120") => {
+    setBatchForm(f => ({
+      ...f,
+      owned: preset === "owned" ? "true" : "keep",
+      full_star: preset === "full_star" ? "true" : "keep",
+      lv120: preset === "lv120" ? "true" : "keep",
+      level_mode: "keep",
+      level: "",
+    }))
+  }
+
+  // 只收显式字段（老 UI collect_batch_fields 语义）：keep 与空 level 不发，
+  // 后端对非法组合直接报错
+  const collectChanges = () => {
+    const changes: Record<string, any> = {}
+    for (const f of ["owned", "full_star", "lv120"] as const) {
+      if (batchForm[f] !== "keep") {
+        changes[f] = batchForm[f] === "unknown" ? null : batchForm[f] === "true"
+      }
+    }
+    if (batchForm.level_mode === "set") changes.level = Number(batchForm.level)
+    else if (batchForm.level_mode === "unknown") changes.level = null
+    return changes
+  }
+
+  const submitBatch = async (action: "save" | "restore") => {
+    setBatchSaving(true)
+    setBatchNotice("")
+    try {
+      const url = "/newapi/fleet/" + name + "/batch"
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gids: batchAll ? "all" : batchSel,
+          changes: collectChanges(),
+          expected_revision: data?.revision ?? "",
+          action,
+        }),
+      })
+      if (!res.ok) { setBatchNotice("保存失败: HTTP " + res.status); return }
+      const j = await res.json().catch(() => null)
+      if (!j) { setBatchNotice("保存失败: 无法解析响应"); return }
+      if (j.error) { setBatchNotice("保存失败: " + j.error); return }
+      setBatchOpen(false)
+      setRefresh(v => v + 1)
+    } catch (e) {
+      setBatchNotice("保存失败: " + String(e))
+    } finally {
+      setBatchSaving(false)
+    }
+  }
+
+  // 工具栏按钮（data-ft-batch）是表格 HTML 里的原生按钮 —— 事件委托接管
+  useEffect(() => {
+    const host = document.getElementById("pywebio-scope-ft_table")
+    if (!host) return
+    const onClick = (ev: Event) => {
+      const btn = (ev.target as HTMLElement).closest("[data-ft-batch]") as HTMLElement | null
+      if (!btn || btn.hasAttribute("disabled")) return
+      ev.preventDefault()
+      openBatch(btn.getAttribute("data-ft-batch") === "all")
+    }
+    // 勾选联动：解除/设置「批量修改已选舰船」的 disabled + 更新计数。
+    // 表格是 innerHTML 注入的原生 DOM（React 不管），只能在这里委托 change。
+    const onChange = (ev: Event) => {
+      const target = ev.target as HTMLElement
+      if (!target.hasAttribute || !target.hasAttribute("data-ft-select")) return
+      const boxes = Array.from(host.querySelectorAll("[data-ft-select]:checked"))
+      const count = boxes.length
+      const counter = host.querySelector("[data-ft-selected-count]")
+      if (counter) counter.textContent = String(count)
+      const selBtn = host.querySelector("[data-ft-batch=selected]") as HTMLButtonElement | null
+      if (selBtn) {
+        if (count > 0) selBtn.removeAttribute("disabled")
+        else selBtn.setAttribute("disabled", "")
+      }
+    }
+    host.addEventListener("click", onClick)
+    host.addEventListener("change", onChange)
+    return () => {
+      host.removeEventListener("click", onClick)
+      host.removeEventListener("change", onChange)
+    }
+  })
 
   const toggleFunction = (key: string) => {
     setPage(0)
@@ -270,6 +393,80 @@ export function FleetTechPanel({ name }: { name: string }) {
             id="pywebio-scope-ft_table"
             dangerouslySetInnerHTML={{ __html: data.table_html || '' }}
           />
+          {/* ⑧ 批量编辑弹窗（老 UI popup 的 REST 等价物） */}
+          {batchOpen && (
+            <div
+              style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.45)", display: "grid", placeItems: "center" }}
+              onClick={e => { if (e.target === e.currentTarget && !batchSaving) setBatchOpen(false) }}
+            >
+              <div className="card" style={{ width: "min(520px, 92vw)", maxHeight: "86vh", overflow: "auto", padding: "1rem 1.25rem", borderRadius: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: ".5rem" }}>
+                  <h5 style={{ margin: 0 }}>
+                    {batchAll ? (text("FtBatchAll") || "").replace("{count}", String(data.total ?? 0)) : (text("FtBatchTitle") || "").replace("{count}", String(batchSel.length))}
+                    {batchAll ? "（" + (data.total ?? 0) + " 艘）" : "（" + batchSel.length + " 艘）"}
+                  </h5>
+                  <button className="btn btn-light btn-sm" disabled={batchSaving} onClick={() => setBatchOpen(false)}>关闭</button>
+                </div>
+                {batchNotice && <div style={{ color: "#dc3545", margin: ".4rem 0" }}>{batchNotice}</div>}
+                <div style={{ display: "grid", gap: ".5rem" }}>
+                  {([["owned", text("FtOwned") || "已有舰船"], ["full_star", text("FtStar") || "满星"], ["lv120", text("FtLevel") || "Lv.120"]] as const).map(([key, label]) => (
+                    <div key={key} style={{ display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "center" }}>
+                      <span>{label}</span>
+                      <select
+                        className="form-control form-control-sm"
+                        value={batchForm[key]}
+                        onChange={e => setBatchForm(f => ({ ...f, [key]: e.target.value }))}
+                        style={{ width: "auto" }}
+                      >
+                        <option value="keep">{text("FtKeep") || "保持原值"}</option>
+                        <option value="true">{text("FtYes") || "是"}</option>
+                        <option value="false">{text("FtNo") || "否"}</option>
+                        <option value="unknown">{text("FtUnknown") || "未知"}</option>
+                      </select>
+                    </div>
+                  ))}
+                  <div style={{ display: "grid", gridTemplateColumns: "120px 1fr", alignItems: "center" }}>
+                    <span>{text("FtLevel") || "最高等级"}</span>
+                    <div style={{ display: "flex", gap: ".4rem", alignItems: "center" }}>
+                      <select
+                        className="form-control form-control-sm"
+                        value={batchForm.level_mode}
+                        onChange={e => setBatchForm(f => ({ ...f, level_mode: e.target.value }))}
+                        style={{ width: "auto" }}
+                      >
+                        <option value="keep">{text("FtKeep") || "保持原值"}</option>
+                        <option value="set">{text("FtSetLevel") || "设为指定等级"}</option>
+                        <option value="unknown">{text("FtUnknown") || "未知"}</option>
+                      </select>
+                      {batchForm.level_mode === "set" && (
+                        <input
+                          className="form-control form-control-sm"
+                          type="number"
+                          min={1}
+                          max={125}
+                          placeholder="1–125"
+                          value={batchForm.level}
+                          onChange={e => setBatchForm(f => ({ ...f, level: e.target.value }))}
+                          style={{ width: "5rem" }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: ".5rem", flexWrap: "wrap" }}>
+                    <button className="btn btn-sm btn-secondary" onClick={() => presetBatch("owned")}>{text("FtPresetOwned") || "快捷：设为已有"}</button>
+                    <button className="btn btn-sm btn-secondary" onClick={() => presetBatch("full_star")}>{text("FtPresetStar") || "快捷：满星"}</button>
+                    <button className="btn btn-sm btn-secondary" onClick={() => presetBatch("lv120")}>{text("FtPreset120") || "快捷：设为120级"}</button>
+                  </div>
+                  <div style={{ display: "flex", gap: ".5rem", marginTop: ".25rem" }}>
+                    <button className="btn btn-sm btn-secondary" disabled={batchSaving} onClick={() => void submitBatch("restore")}>{text("FtRestore") || "恢复自动记录"}</button>
+                    <button className="btn btn-sm btn-light" disabled={batchSaving} onClick={() => setBatchOpen(false)}>{text("FtCancel") || "取消"}</button>
+                    <button className="btn btn-sm btn-primary" disabled={batchSaving} onClick={() => void submitBatch("save")}>{text("FtSave") || "保存"}</button>
+                  </div>
+                  <small className="text-muted">{text("FtBatchHint") || "只修改选中的字段；快捷设置只是填表，点保存才生效。"}</small>
+                </div>
+              </div>
+            </div>
+          )}
           {(data.pages ?? 1) > 1 && (
             <div style={{ marginTop: '.5rem' }}>
               <button

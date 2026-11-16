@@ -476,6 +476,26 @@ _STAT_I18N_KEYS = {
     "McSaved": "Gui.MindCalculator.Saved",
     "McSaveConflict": "Gui.MindCalculator.SaveConflict",
     "McRowCount": "Gui.MindCalculator.RowCount",
+    "FtBatchTitle": "Gui.FleetTechnology.BatchTitle",
+    "FtBatchAll": "Gui.FleetTechnology.BatchAll",
+    "FtBatchHint": "Gui.FleetTechnology.BatchHint",
+    "FtOwned": "Gui.FleetTechnology.Owned",
+    "FtStar": "Gui.FleetTechnology.Star",
+    "FtLevel": "Gui.FleetTechnology.Level",
+    "FtKeep": "Gui.FleetTechnology.Keep",
+    "FtYes": "Gui.FleetTechnology.Yes",
+    "FtNo": "Gui.FleetTechnology.No",
+    "FtUnknown": "Gui.FleetTechnology.Unknown",
+    "FtSetLevel": "Gui.FleetTechnology.SetLevel",
+    "FtPresetOwned": "Gui.FleetTechnology.PresetOwned",
+    "FtPresetStar": "Gui.FleetTechnology.PresetStar",
+    "FtPreset120": "Gui.FleetTechnology.Preset120",
+    "FtRestore": "Gui.FleetTechnology.Restore",
+    "FtCancel": "Gui.FleetTechnology.Cancel",
+    "FtSave": "Gui.FleetTechnology.Save",
+    "FtSelected": "Gui.FleetTechnology.Selected",
+    "FtBatchEdit": "Gui.FleetTechnology.BatchEdit",
+    "FtSelectionHint": "Gui.FleetTechnology.SelectionHint",
     # 心智计算器（与科技列表同组）
     "FtTabMind": "Gui.FleetTechnology.TabMind",
 }
@@ -944,6 +964,64 @@ def export_mind_ships(name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 心智清单导出失败({name}): {e}")
         return {"error": str(e)}
+
+
+def batch_fleet_tech(name: str, gids: list, changes: dict, expected_revision: str, action: str = "save") -> dict:
+    """科技列表批量编辑（老 UI app_fleet_tech_batch.py:_ft_batch_save 同链路）。
+
+    gids: 目标舰船 group_type 列表（'selected' 已由前端解析成具体列表）。
+    changes: collect_batch_fields 产出的显式字段（owned/full_star/lv120/level），
+            'restore' 语义 = {"restore": True}。
+    expected_revision: 乐观锁，与打开弹窗时的 revision 对比。
+    """
+    from module.config.deep import deep_set
+    from module.config.transaction import config_transaction
+    from module.config.utils import filepath_config, get_config_mod
+    from module.webui.app_dependencies import State, load_config
+    from module.runtime import fleet_tech as tech
+
+    if action not in ("save", "restore"):
+        return {"error": "未知批量操作: " + str(action)}
+    if not gids:
+        return {"error": "没有目标舰船"}
+    try:
+        # 表单校验（collect_batch_fields 同款规则，REST 直接收已解析字段）
+        fields = {}
+        if action == "restore":
+            fields = {"restore": True}
+        else:
+            for f in ("owned", "full_star", "lv120"):
+                if f in changes:
+                    v = changes[f]
+                    if v not in (True, False, None):
+                        return {"error": f"{f} 取值非法（true/false/unknown）"}
+                    fields[f] = v
+            if "level" in changes:
+                lv = changes["level"]
+                if lv is not None:
+                    try:
+                        lv = int(lv)
+                    except (TypeError, ValueError):
+                        return {"error": "等级必须是 1-125 的整数"}
+                    if not 1 <= lv <= 125:
+                        return {"error": "等级必须是 1-125 的整数"}
+                fields["level"] = lv
+        if not fields:
+            return {"error": "没有要修改的字段"}
+        with config_transaction(filepath_config(name)):
+            cfg = load_config(name).read_file(name)
+            record = tech.read_record(cfg)
+            if tech.revision(record) != expected_revision:
+                return {"error": "清单已被其他操作更新，请刷新后重试"}
+            change_list = [dict(group_type=gid, **fields) for gid in gids]
+            updated = tech.apply_changes(record, change_list)
+            deep_set(cfg, tech.RECORD_PATH, updated)
+            State.config_updater.write_file(name, cfg, get_config_mod(name))
+        return {"success": True, "count": len(change_list)}
+    except tech.FleetTechChangeError as exc:
+        return {"error": str(exc)}
+    except (ValueError, TimeoutError, OSError) as exc:
+        return {"error": str(exc)}
 
 
 def get_update_info() -> dict:
@@ -2912,6 +2990,7 @@ def _get_fleet_tech_panel_html_impl(
             "edit": edit,
             "bonuses": bonuses,
             "extra": extra,
+            "revision": tech.revision(record),
             "error": "",
         }
     except Exception as e:  # noqa: BLE001
