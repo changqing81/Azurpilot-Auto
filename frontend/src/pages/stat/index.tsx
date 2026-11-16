@@ -68,10 +68,16 @@ export function StatPage() {
       const el = tabRefs.current[tab]
       const ind = indicatorRef.current
       if (!el || !ind) return false
-      // 元素还没参与布局（宽度为 0）时返回 false，交由下一帧重试
-      if (!el.offsetWidth) return false
-      ind.style.left = el.offsetLeft + 'px'
-      ind.style.width = el.offsetWidth + 'px'
+      const r = el.getBoundingClientRect()
+      if (!r.width) return false
+      // 用相对定位容器（.st-tabs，position:relative）的偏移，
+      // 不能用 offsetLeft —— 在 flex 容器里它返回的是相对 offsetParent 的值，
+      // 实测拿到的位置会把指示条压在第一个页签上（宽度 0 也源于此）。
+      const box = el.parentElement
+      const boxRect = box ? box.getBoundingClientRect() : null
+      const left = boxRect ? r.left - boxRect.left + (box as HTMLElement).scrollLeft : 0
+      ind.style.left = left + 'px'
+      ind.style.width = r.width + 'px'
       return true
     }
     if (sync()) return
@@ -92,7 +98,7 @@ export function StatPage() {
 
   return (
     <Shell active={name} title="统计">
-    <div id="pywebio-scope-statistics-content" className="stat-page">
+    <div id="pywebio-scope-statistics-content">
       <div className="st-page">
         <div className="st-head">
           <div>
@@ -101,7 +107,7 @@ export function StatPage() {
           </div>
           <div className="st-head-actions">
             <SourceChip state="ok" />
-            <button className="st-refresh" onClick={() => setMeta(m => m)}>刷新</button>
+            <button className="btn btn-on" onClick={() => setMeta(m => m)}>刷新</button>
           </div>
         </div>
         <div className="st-tabs" id="statistics-tabs" role="tablist">
@@ -109,7 +115,7 @@ export function StatPage() {
             <button
               key={t.id}
               ref={el => { tabRefs.current[t.id] = el }}
-              className={'st-tab' + (tab === t.id ? ' st-tab-active' : '')}
+              className="st-tab"
               role="tab"
               id={'statistics-tab-' + t.id}
               aria-selected={tab === t.id}
@@ -128,37 +134,37 @@ export function StatPage() {
         <div className="st-panels" id="statistics-panels">
         {tab === 'opsi' && (
           <div id="st-panel-opsi" className="st-panel is-active">
-            <div className="ov-card-title">大世界</div>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>大世界</p>
             <OpsiPanel name={name} />
           </div>
         )}
         {tab === 'commission' && (
           <div id="st-panel-commission" className="st-panel is-active">
-            <div className="ov-card-title">委托</div>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>委托</p>
             <CommissionIncome name={name} />
           </div>
         )}
         {tab === 'research' && (
           <div id="st-panel-research" className="st-panel is-active">
-            <div className="ov-card-title">科研</div>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>科研</p>
             <ResearchPanel name={name} />
           </div>
         )}
         {tab === 'resource' && (
           <div id="st-panel-resource" className="st-panel is-active">
-            <div className="ov-card-title">资源</div>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>资源</p>
             <DeltaSummary name={name} />
           </div>
         )}
         {tab === 'fleet' && (
           <div id="st-panel-fleet" className="st-panel is-active">
-            <div className="ov-card-title">科技列表</div>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>科技列表</p>
             <FleetTechPanel name={name} />
           </div>
         )}
         {tab === 'mind' && (
           <div id="st-panel-mind" className="st-panel is-active">
-            <div className="ov-card-title">心智计算器</div>
+            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>心智计算器</p>
             <MindPanel name={name} />
           </div>
         )}

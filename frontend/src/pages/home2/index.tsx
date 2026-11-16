@@ -128,7 +128,7 @@ export function HomePageMain() {
   const onClick = (patch: Record<string, string>) => async () => {
     try {
       await writeDeploySetting(patch)
-      try { localStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
+      try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
       location.hash = ''
       location.replace(location.pathname)
     } catch { /* 写盘失败：不刷新，避免误导 */ }

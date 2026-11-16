@@ -18,13 +18,13 @@ export function UpdatePage() {
   return (
     <Shell active="Update" title="更新器">
     <div id="pywebio-scope-content" className="config-page">
-      <div className="cfg-header">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
         <h2>更新器</h2>
       </div>
 
-      <section className="ov-card apple-card cfg-group">
-        <div className="cfg-group-title">版本对照（分支 {data?.branch ?? '-'}）</div>
+      <div id="pywebio-scope-group_ui1" className="cfg-group">
+        <div style={{ fontSize: '1.05rem', fontWeight: 600 }}>版本对照（分支 {data?.branch ?? '-'}）</div>
         <table className="research-table">
           <thead><tr><th></th><th>SHA1</th><th>作者</th><th>时间</th><th>说明</th></tr></thead>
           <tbody>
@@ -38,10 +38,10 @@ export function UpdatePage() {
             </tr>
           </tbody>
         </table>
-      </section>
+      </div>
 
-      <section className="ov-card apple-card cfg-group">
-        <div className="cfg-group-title">详细提交历史</div>
+      <div id="pywebio-scope-group_ui2" className="cfg-group">
+        <div style={{ fontSize: '1.05rem', fontWeight: 600 }}>详细提交历史</div>
         <table className="research-table">
           <thead><tr><th>SHA1</th><th>作者</th><th>时间</th><th>说明</th></tr></thead>
           <tbody>
@@ -50,15 +50,15 @@ export function UpdatePage() {
             ))}
           </tbody>
         </table>
-      </section>
+      </div>
 
       {changelog && (
-        <section className="ov-card apple-card cfg-group">
-          <div className="cfg-group-title">更新日志</div>
+        <div id="pywebio-scope-group_ui3" className="cfg-group">
+          <div style={{ fontSize: '1.05rem', fontWeight: 600 }}>更新日志</div>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, padding: '8px 4px' }}>
             {typeof changelog === 'string' ? changelog : JSON.stringify(changelog, null, 2).slice(0, 2000)}
           </pre>
-        </section>
+        </div>
       )}
     </div>
     </Shell>

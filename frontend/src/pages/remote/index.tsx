@@ -78,24 +78,24 @@ export function RemotePage() {
   return (
     <Shell active="Remote" title="远程控制">
     <div id="pywebio-scope-content" className="config-page">
-      <div className="cfg-header">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
         <h2>远程控制</h2>
-        <span className="cfg-dirty-hint" />
+        <span style={{ fontSize: '.8rem', opacity: .7 }} />
       </div>
-      <section className="ov-card apple-card cfg-group">
+      <div id="pywebio-scope-group_ui1" className="cfg-group">
         {/* 状态行：圆点 + 主状态文案 + 开关（与老 UI put_row[loading|state] 同构） */}
-        <div className="cfg-row">
-          <div className="cfg-title-wrap" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
+          <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <StateDot running={running} connecting={connecting} />
             <div>
-              <div className="arg-title">
+              <div style={{ ['--arg-title--' as string]: '1' } as React.CSSProperties}>
                 {running
                   ? `运行中 · ${connText}`
                   : enabled ? '未运行，与服务器的连接断开或服务器离线' : '未启用，在 deploy.yaml 中设置 webui 密码并启用远程控制'}
               </div>
               {running && (
-                <div className="arg-help">远程访问 url 地址:</div>
+                <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>远程访问 url 地址:</div>
               )}
               {running && (
                 <div>
@@ -105,28 +105,28 @@ export function RemotePage() {
                       {st.entry_point}
                     </a>
                   ) : (
-                    <span className="arg-help">Loading...</span>
+                    <span style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>Loading...</span>
                   )}
                 </div>
               )}
               {st?.error && (
-                <div className="arg-help" style={{ color: 'var(--alas-entry-badge-error, #c0392b)' }}>
+                <div style={{ color: 'var(--alas-entry-badge-error, #c0392b)' }}>
                   {st.error}
                 </div>
               )}
             </div>
           </div>
-          <div className="cfg-control">
-            <button className="ov-btn-primary" disabled={busy} onClick={toggle}>
+          <div style={{ minWidth: 0 }}>
+            <button className="btn btn-on" disabled={busy} onClick={toggle}>
               {busy ? '处理中…' : enabled ? '关闭' : '开启'}
             </button>
           </div>
         </div>
         {/* 配置教程（= Gui.Remote.ConfigureHint + app.azurlane.cloud 链接） */}
         {!running && (
-          <div className="cfg-row">
-            <div className="cfg-title-wrap">
-              <div className="arg-help">配置教程：</div>
+          <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>配置教程：</div>
               <a
                 href="http://app.azurlane.cloud"
                 target="_blank"
@@ -138,12 +138,12 @@ export function RemotePage() {
             </div>
           </div>
         )}
-        <div className="cfg-row">
-          <div className="cfg-title-wrap">
-            <div className="arg-help">连接状态: {st?.connection_state ?? '-'} · 服务存活: {st?.is_alive ? '是' : '否'}</div>
+        <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>连接状态: {st?.connection_state ?? '-'} · 服务存活: {st?.is_alive ? '是' : '否'}</div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
     </Shell>
   )

@@ -176,7 +176,7 @@ export function Shell({
       if (key === 'Overview') { navigate('/overview/' + encodeURIComponent(instanceName)); return }
       if (key === 'HomePage') {
         // 清掉「上次页面」记录：否则下次从 /new/ 进来又被带回子页面，像回不到主页
-        try { localStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
+        try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
         navigate('/')
         return
       }

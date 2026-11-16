@@ -55,7 +55,7 @@ export function AnnouncementPage() {
             <button className="btn btn-secondary" onClick={() => navigate('/')}>← 返回主页</button>
           </div>
 
-          <div className="ov-card apple-card" style={{ padding: '14px 18px', marginBottom: 14 }}>
+          <div id="pywebio-scope-group_ui101" style={{ marginBottom: 14 }}>
             {loading && <div className="st-placeholder">正在拉取公告…</div>}
             {!loading && ann?.error && (
               <div className="st-placeholder">
@@ -85,7 +85,7 @@ export function AnnouncementPage() {
             )}
           </div>
 
-          <div className="ov-card apple-card" style={{ padding: '14px 18px' }}>
+          <div id="pywebio-scope-group_ui102">
             <h2 className="alas-develop-section-title" style={{ fontSize: 16, margin: '0 0 10px' }}>
               更新日志
             </h2>

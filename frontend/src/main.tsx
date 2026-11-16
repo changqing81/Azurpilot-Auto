@@ -129,7 +129,22 @@ function OverviewRoute() {
 //   1. 直接访问根路径 /（没有 hash）→ 落到主页
 //   2. 从老 UI 切到新 UI（UI=new）→ URL 从 / 重新开始，没有 hash
 // 补一层 localStorage 记忆：路由变化时写入，hash 为空时恢复。
+// 用 sessionStorage 而不是 localStorage：
+//   - localStorage 会跨会话保留，导致「第二天打开 /new/ 被带到昨天的某个子页」，
+//     看起来像「主页进不去」。长卿实测反馈过。
+//   - sessionStorage 只在当前标签页有效，刷新能保持，关掉就清空 —— 更符合直觉。
 const LAST_ROUTE_KEY = 'alas_newui_last_route'
+const routeStore = {
+  get(): string {
+    try { return sessionStorage.getItem(LAST_ROUTE_KEY) || '' } catch { return '' }
+  },
+  set(v: string) {
+    try { sessionStorage.setItem(LAST_ROUTE_KEY, v) } catch { /* 隐私模式 */ }
+  },
+  clear() {
+    try { sessionStorage.removeItem(LAST_ROUTE_KEY) } catch { /* 隐私模式 */ }
+  },
+}
 
 function RestoreLastRoute() {
   const location = useLocation()
@@ -146,8 +161,7 @@ function RestoreLastRoute() {
     // 早先写成 if (location.hash) return 会导致**任何页面都被重定向**
     // 到上次访问的页（实测：请求 #/remote 却显示 #/manage）。
     if (location.pathname && location.pathname !== '/') return
-    let saved = ''
-    try { saved = localStorage.getItem(LAST_ROUTE_KEY) || '' } catch { /* 隐私模式 */ }
+    const saved = routeStore.get()
     // 只恢复白名单，避免历史脏数据把用户带到 404
     const ok = /^\/(overview|stat|config|settings|tool)\/[^/]+(\/[^/]+)?$/.test(saved)
       || /^\/(update|remote|announcement|manage)$/.test(saved)
@@ -160,7 +174,7 @@ function RestoreLastRoute() {
   useEffect(() => {
     const cur = location.pathname
     if (!cur || cur === '/') return  // 主页是默认落点，不记
-    try { localStorage.setItem(LAST_ROUTE_KEY, cur) } catch { /* 隐私模式 */ }
+    routeStore.set(cur)
   }, [location.pathname])
 
   return null

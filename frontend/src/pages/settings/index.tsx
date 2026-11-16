@@ -118,26 +118,26 @@ export function SettingsPage() {
   return (
     <Shell active={name} title="设置">
     <div id="pywebio-scope-content" className="config-page">
-      <div className="cfg-header">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
         <h2>设置</h2>
         <button className="log-btn" onClick={() => navigate('/update')}>更新器</button>
         <button className="log-btn" onClick={() => navigate('/remote')}>远程控制</button>
-        <span className="cfg-dirty-hint">{msg}</span>
+        <span style={{ fontSize: '.8rem', opacity: .7 }}>{msg}</span>
       </div>
 
       {/* 热切换：不需要重启，写配置后刷新页面即生效。
           实现见 module/webui/hot_switch.py（容器 ASGI app 按 deploy.yaml 分流 /）。 */}
-      <section className="ov-card apple-card cfg-group">
-        <div className="cfg-row">
-          <div className="cfg-title-wrap">
-            <div className="arg-title">界面版本</div>
-            <div className="arg-help">
+      <div id="pywebio-scope-group_ui1" className="cfg-group">
+        <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ['--arg-title--' as string]: '1' } as React.CSSProperties}>界面版本</div>
+            <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>
               当前使用新 UI。切到老 UI 会立即生效（无需重启），刷新页面即可。
               老 UI 仍可通过 <code>/manage</code> 访问管理页；新 UI 在 <code>/new/</code> 始终可用。
             </div>
           </div>
-          <div className="cfg-control" style={{ display: 'flex', gap: 8 }}>
+          <div style={{ minWidth: 0, display: 'flex', gap: 8 }}>
             <button className="btn btn-secondary" disabled={restarting} onClick={() => switchUi('legacy')}>
               切到老 UI
             </button>
@@ -146,17 +146,17 @@ export function SettingsPage() {
             </button>
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="ov-card apple-card cfg-group">
-        <div className="cfg-group-title">启动器</div>
-        <div className="cfg-row">
-          <div className="cfg-title-wrap">
-            <div className="arg-title">开机自启动</div>
-            <div className="arg-help">随系统启动时自动运行 AzurPilot 启动器</div>
-            <div className="arg-help">{launcherText}</div>
+      <div id="pywebio-scope-group_ui2" className="cfg-group">
+        <div style={{ fontSize: '1.05rem', fontWeight: 600 }}>启动器</div>
+        <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ ['--arg-title--' as string]: '1' } as React.CSSProperties}>开机自启动</div>
+            <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>随系统启动时自动运行 AzurPilot 启动器</div>
+            <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>{launcherText}</div>
           </div>
-          <div className="cfg-control">
+          <div style={{ minWidth: 0 }}>
             <input
               type="checkbox"
               disabled={!launcher?.request_local || !launcher?.autostart_supported || !launcher?.launcher_connected}
@@ -165,36 +165,36 @@ export function SettingsPage() {
             />
           </div>
         </div>
-      </section>
+      </div>
 
-      <section className="ov-card apple-card cfg-group">
+      <div id="pywebio-scope-group_ui3" className="cfg-group">
         <div className="deploy-setting-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div className="cfg-group-title" style={{ borderBottom: 'none' }}>部署设置（deploy.yaml）</div>
+          <div style={{ fontSize: '1.05rem', fontWeight: 600, borderBottom: 'none' }}>部署设置（deploy.yaml）</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="log-btn" onClick={() => location.reload()}>刷新</button>
-            <button className="ov-btn-primary" disabled={!Object.keys(dirty).length || saving} onClick={save}>
+            <button className="btn btn-on" disabled={!Object.keys(dirty).length || saving} onClick={save}>
               {saving ? '保存中…' : '保存'}
             </button>
           </div>
         </div>
         {(schema?.groups ?? []).map(g => (
           <div key={g.key}>
-            <div className="cfg-group-title" style={{ marginTop: 10 }}>{g.label}</div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 600, marginTop: 10 }}>{g.label}</div>
             {g.fields.map(f => (
-              <div key={f.key} className="cfg-row">
-                <div className="cfg-title-wrap">
-                  <div className="arg-title">{f.label}</div>
-                  {f.help && <div className="arg-help">{f.help}</div>}
+              <div key={f.key} style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ ['--arg-title--' as string]: '1' } as React.CSSProperties}>{f.label}</div>
+                  {f.help && <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>{f.help}</div>}
                 </div>
-                <div className="cfg-control">
+                <div style={{ minWidth: 0 }}>
                   {f.type === 'select' && f.options?.length ? (
-                    <select className="cfg-input" value={values[f.key] ?? ''} onChange={e => setValue(f.key, e.target.value)}>
+                    <select className="form-control" value={values[f.key] ?? ''} onChange={e => setValue(f.key, e.target.value)}>
                       {f.options.map(optionOf).map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   ) : f.type === 'checkbox' || typeof (values[f.key] ?? f.value) === 'boolean' ? (
                     <input type="checkbox" checked={!!(values[f.key] ?? f.value)} onChange={e => setValue(f.key, e.target.checked)} />
                   ) : (
-                    <input className="cfg-input" value={values[f.key] ?? f.value ?? ''} onChange={e => setValue(f.key, e.target.value)} />
+                    <input className="form-control" value={values[f.key] ?? f.value ?? ''} onChange={e => setValue(f.key, e.target.value)} />
                   )}
                 </div>
               </div>
@@ -202,7 +202,7 @@ export function SettingsPage() {
           </div>
         ))}
         {!schema?.groups?.length && <div className="st-placeholder">部署设置加载中…（仅本机可用）</div>}
-      </section>
+      </div>
     </div>
     </Shell>
   )
