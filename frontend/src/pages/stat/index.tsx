@@ -1,5 +1,5 @@
 // 统计页：与老 UI 同构（app_statistics_page.py:527-578 的 st-head + st-tabs 结构）。
-// 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研(规划中) / resource 资源 / fleet 科技列表 / mind 心智计算器。
+// 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研 / resource 资源 / fleet 科技列表 / mind 心智计算器。
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { DeltaSummary } from './DeltaPanel'
@@ -11,10 +11,14 @@ import { CommissionIncome } from './CommissionPanel'
 import { Shell } from '../../components/Shell'
 
 // 页签定义（与 _STAT_TABS 顺序一致；文案=Gui.Stat.Tab* 与 Gui.FleetTechnology.Tab*）
-const TABS: { id: string; name: string; badge?: string }[] = [
+//
+// 注意：**没有 badge**。曾经给「科研」挂过「规划中」角标，是早期功能没做完时的
+// 临时标记，现在科研面板已经完整（进行中队列 + 指标卡 + 三行控件 + 掉落表），
+// 角标反而误导用户以为这页不能用。长卿：「科研的规划删掉」。
+const TABS: { id: string; name: string }[] = [
   { id: 'opsi', name: '大世界' },
   { id: 'commission', name: '委托' },
-  { id: 'research', name: '科研', badge: '规划中' },
+  { id: 'research', name: '科研' },
   { id: 'resource', name: '资源' },
   { id: 'fleet', name: '科技列表' },
   { id: 'mind', name: '心智计算器' },
@@ -131,7 +135,6 @@ export function StatPage() {
               onClick={() => setTab(t.id)}
             >
               {t.name}
-              {t.badge && <span className="st-tab-badge">{t.badge}</span>}
             </button>
           ))}
           {/* ⚠️ ref 必须挂上：我原来漏了这一行，导致 indicatorRef.current 恒为 null，
