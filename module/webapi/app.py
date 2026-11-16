@@ -95,6 +95,17 @@ async def bundled_css(request: Request) -> Response:
     )
 
 
+async def announcement(request: Request) -> JSONResponse:
+    """公告内容（/newapi/announcement?force=1 强制刷新）。"""
+    force = request.query_params.get("force") in ("1", "true", "yes")
+    return JSONResponse(await run_in_threadpool(data.get_announcement, force))
+
+
+async def update_log(request: Request) -> JSONResponse:
+    """更新日志（changelog.json，与更新器页同源）。"""
+    return JSONResponse(await run_in_threadpool(data.get_update_log))
+
+
 async def restart_webui(request: Request) -> JSONResponse:
     """重启 WebUI（让 deploy.yaml 改动生效）。链路与老 UI 重启按钮完全一致。"""
     return JSONResponse(await run_in_threadpool(data.restart_webui))
@@ -232,6 +243,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/theme-css", theme_css),
         Route("/newapi/restart", restart_webui, methods=["POST"]),
         Route("/newapi/bundle.css", bundled_css),
+        Route("/newapi/announcement", announcement),
+        Route("/newapi/update-log", update_log),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]

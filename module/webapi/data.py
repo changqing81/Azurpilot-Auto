@@ -861,3 +861,84 @@ def get_bundled_css() -> str:
         if content:
             parts.append(f"/* ==== {url_path} ==== */\n{content}")
     return "\n".join(parts)
+
+
+# 公告缓存：公告源在外网（jsdelivr/gitcode/raw.githubusercontent），
+# 三个源都失败时很慢（本机实测单个超时 1s、三源串行）。缓存 5 分钟，
+# 避免每次打开公告页都重新拉一遍。
+_ANNOUNCEMENT_CACHE: dict = {}
+_ANNOUNCEMENT_TTL = 300.0
+
+
+def get_announcement(force: bool = False) -> dict:
+    """公告内容（与 app_home.py:1750-1841 的 announcement_checker 同源）。
+
+    数据来自 ApiClient.get_announcement()（module/base/api_client.py:58，
+    jsdelivr → GitHub 三源回退）。配图经 localize_images 落本地后返回本地 URL，
+    避免浏览器直连 jsdelivr（手机/远控基本不通）。
+
+    返回 {title, content, id, url, error}。拉不到时 error 非空、其余为空。
+    """
+    import time as _time
+
+    now = _time.time()
+    cached = _ANNOUNCEMENT_CACHE.get("data")
+    if not force and cached and now - cached[0] < _ANNOUNCEMENT_TTL:
+        return cached[1]
+
+    result: dict = {"title": "", "content": "", "id": None, "url": "", "error": ""}
+    try:
+        from module.base.api_client import ApiClient
+
+        data = ApiClient.get_announcement(timeout=10)
+        if not data:
+            result["error"] = "公告拉取失败（三个源都不可达）"
+        else:
+            content = data.get("content") or ""
+            # 配图本地化：失败不影响文字公告
+            if content:
+                try:
+                    from module.webui.announcement_images import localize_images
+
+                    content = localize_images(content)
+                except Exception as e:  # noqa: BLE001
+                    logger.warning(f"[webapi] 公告配图本地化失败: {e}")
+            result = {
+                "title": data.get("title", "") or "",
+                "content": content,
+                "id": data.get("announcementId"),
+                "url": data.get("url", "") or "",
+                "error": "",
+            }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 公告获取失败: {e}")
+        result["error"] = str(e)
+
+    if not result["error"]:
+        _ANNOUNCEMENT_CACHE["data"] = (now, result)
+    return result
+
+
+def get_update_log() -> dict:
+    """更新日志（与 app_developer_update.py:230-270 同源）。
+
+    数据在独立仓库 changqing81/announcement-changelog 的 changelog.json，
+    走 ApiClient.get_changelog()（与公告同一套分发），在**更新前**就能读到这一版改了什么。
+    返回 {entries: [{id,date,title,content,sha}], html, error}。
+    html 直接复用 module/webui/update_log.py:render_entries_html 的服务端渲染，
+    保证与新老 UI 显示完全一致（含图片安全性过滤）。
+    """
+    try:
+        from module.base.api_client import ApiClient
+        from module.webui.update_log import normalize_entries, render_entries_html
+
+        data = ApiClient.get_changelog(timeout=5)
+        entries = normalize_entries(data)
+        return {
+            "entries": entries,
+            "html": render_entries_html(entries, ""),
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001 —— 更新日志是辅助信息，失败不阻塞页面
+        logger.warning(f"[webapi] 更新日志读取失败: {e}")
+        return {"entries": [], "html": "", "error": str(e)}
