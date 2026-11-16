@@ -100,12 +100,23 @@ export function SettingsPage() {
   const [uiNow, setUiNow] = useState<'legacy' | 'new'>('new')
   const [pendingUi, setPendingUi] = useState<'legacy' | 'new' | ''>('')
 
+  // 后端版本兼容：老后端的 /newapi/ui 只返回 {ui}，且那个 ui 读的是
+  // deploy.yaml（配置值，不是运行时值）。这种情况**不能**照抄当成"当前界面"
+  // 显示——刚切换完还没重启时会显示错误的界面。标记 uiKnown=false，
+  // 界面改说「重启后可见」，让用户重启一次把后端也换成新版。
+  const [uiKnown, setUiKnown] = useState(true)
+
   const readUi = async () => {
     try {
       const j = await fetch('/newapi/ui', { cache: 'no-store' }).then(r => r.json())
+      const hasRuntimeFields =
+        typeof j.configured === 'string' && typeof j.restart_required === 'boolean'
+      setUiKnown(hasRuntimeFields)
       setUiNow(j.ui === 'legacy' ? 'legacy' : 'new')
       setPendingUi(
-        j.restart_required && (j.configured === 'legacy' || j.configured === 'new')
+        hasRuntimeFields &&
+          j.restart_required &&
+          (j.configured === 'legacy' || j.configured === 'new')
           ? j.configured
           : '',
       )
@@ -218,8 +229,12 @@ export function SettingsPage() {
                 <code>/new/</code> 试用；新 UI 模式下老 UI 的页面路由会被移除，不再在后台占用资源。
               </div>
               <div className="launcher-setting-status">
-                {uiNow === 'new' ? '新 UI（React）' : '老 UI（PyWebIO）'}
-                {pendingUi && pendingUi !== uiNow
+                {uiKnown
+                  ? uiNow === 'new'
+                    ? '新 UI（React）'
+                    : '老 UI（PyWebIO）'
+                  : '重启后可见（当前后端版本较旧）'}
+                {uiKnown && pendingUi && pendingUi !== uiNow
                   ? ` → 待重启切换为${pendingUi === 'new' ? '新 UI' : '老 UI'}`
                   : ''}
               </div>
