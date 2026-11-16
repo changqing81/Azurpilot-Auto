@@ -1843,7 +1843,22 @@ def _get_research_panel_html_impl(
             ctx._research_stats_series = int(series)
         data = ctx._load_research_stats_data()
         table = ctx._build_research_table_html(data)
-        return {"success": True, "table_html": table, "error": ""}
+        # 可选期数（老 UI _series_options(data)，仅在「期数」口径下出现）
+        series_opts = []
+        try:
+            from module.webui.app_stat_research import _series_options
+
+            series_opts = [str(x) for x in (_series_options(data) or [])]
+        except Exception:  # noqa: BLE001
+            pass
+        return {
+            "success": True,
+            "table_html": table,
+            "scope": data.get("scope", "series") if isinstance(data, dict) else "series",
+            "series": data.get("series") if isinstance(data, dict) else None,
+            "series_options": series_opts,
+            "error": "",
+        }
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[webapi] 渲染科研统计失败: {e}")
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
