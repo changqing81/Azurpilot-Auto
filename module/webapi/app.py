@@ -573,9 +573,10 @@ async def update_log(request: Request) -> JSONResponse:
 
 
 async def switch_ui(request: Request) -> JSONResponse:
-    """热切换界面版本（legacy ↔ new），**不需要重启**。
+    """切换界面版本（legacy ↔ new）：只写 deploy.yaml，**重启 GUI 后生效**。
 
-    写入 deploy.yaml 后需要**重启 GUI** 才生效（启动时按配置决定挂哪一套 UI，
+    这里**不做任何热切换**——启动时按配置决定挂哪一套 UI，所以写盘即返回，
+    前端负责提示重启并轮询 /newapi/ui 的 restart_required 变化。
     见 module/webui/app.py 的「新 UI 挂载」段）。这是长卿 2026-11-16 的要求：
     正式版老 UI 不需要在后台常驻，切换 + 重启比热切换更简单可靠。
     """
@@ -599,10 +600,10 @@ async def switch_ui(request: Request) -> JSONResponse:
             deploy.read()
             deploy.UI = target
             deploy.write()
-            _lg.info(f"[WebUI] 界面版本已热切换为 {target}（刷新页面生效）")
+            _lg.info(f"[WebUI] 界面版本已切换为 {target}（重启 WebUI 后生效）")
             return {"success": True, "ui": target}
         except Exception as e:  # noqa: BLE001
-            _lg.error(f"[WebUI] 热切换失败: {e}")
+            _lg.error(f"[WebUI] 界面版本切换失败: {e}")
             return {"success": False, "error": str(e)}
 
     return JSONResponse(await run_in_threadpool(_write))
