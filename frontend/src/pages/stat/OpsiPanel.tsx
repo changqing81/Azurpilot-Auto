@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type * as EChartsType from 'echarts'
 import { apiGet } from '../../api/client'
+import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 
 type ApEntry = { ts: string; ap: number; ap_total: number; yellow_coin: number; asset: number; source: string }
 type OpsiSummary = {
@@ -21,27 +22,62 @@ function ApLineChart({ entries }: { entries: ApEntry[] }) {
   useEffect(() => {
     let chart: EChartsType.ECharts | null = null
     let cancelled = false
+
+    // ⚠️ 颜色必须从主题变量读，不能写死。
+    // 长卿多次反馈「高级材质暗色模式下图表和文字完全看不清」「黑色变白色」——
+    // 根因：我之前用 echarts.init(el, 'dark') + 硬编码 #1e2233 / #9aa4c0，
+    // 完全不跟随主题。在 advanced_material / dark 主题下就是深底深字。
+    // 老 UI 早就把主题色映射成 --st-* 变量（statistics-alas.css 第 0 节），
+    // 这里读同一套变量即可。
+    const cssVar = (name: string, fallback: string) => {
+      const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+      return v || fallback
+    }
+    const colorText = cssVar('--st-text', '#202124')
+    const colorMuted = cssVar('--st-muted', '#6f737a')
+    const colorBorder = cssVar('--st-divider', '#e7e9ed')
+    const colorSurface = cssVar('--st-surface', '#ffffff')
+    const colorGain = cssVar('--st-gain', '#2eaa7b')
+    const colorLoss = cssVar('--st-loss', '#e15b64')
+
     Promise.all([import('echarts')]).then(([echarts]) => {
       if (cancelled || !ref.current) return
-      chart = echarts.init(ref.current, 'dark')
+      // 不用 'dark' 预设：那个预设自带一套固定的深色配色，会盖掉我们读的主题色
+      chart = echarts.init(ref.current)
       const points = entries.map(e => [e.ts, e.ap_total] as [string, number])
       chart.setOption({
-        backgroundColor: '#1e2233',
+        backgroundColor: colorSurface,
         grid: { left: 60, right: 20, top: 20, bottom: 40 },
-        tooltip: { trigger: 'axis' },
-        xAxis: { type: 'time', axisLabel: { color: '#9aa4c0', formatter: '{MM}-{dd} {HH}:{mm}' } },
-        yAxis: { type: 'value', axisLabel: { color: '#9aa4c0' }, splitLine: { lineStyle: { color: '#2a2f45' } } },
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: colorSurface,
+          borderColor: colorBorder,
+          textStyle: { color: colorText },
+        },
+        xAxis: {
+          type: 'time',
+          axisLabel: { color: colorMuted, formatter: '{MM}-{dd} {HH}:{mm}' },
+          axisLine: { lineStyle: { color: colorBorder } },
+        },
+        yAxis: {
+          type: 'value',
+          axisLabel: { color: colorMuted },
+          splitLine: { lineStyle: { color: colorBorder } },
+          axisLine: { lineStyle: { color: colorBorder } },
+        },
         series: [
           {
             type: 'line',
             data: points,
             smooth: false,
             showSymbol: false,
-            lineStyle: { color: '#e15b64', width: 1.5 },
-            // 增量为正绿、负红（对照老 UI 双色线）
+            lineStyle: { color: colorLoss, width: 1.5 },
             visualMap: {
               show: false,
-              pieces: [{ gt: 0, lt: 1e9, color: '#3aa274' }, { lte: 0, color: '#e15b64' }],
+              pieces: [
+                { gt: 0, lt: 1e9, color: colorGain },
+                { lte: 0, color: colorLoss },
+              ],
               dimension: 1,
             },
           },
@@ -49,6 +85,12 @@ function ApLineChart({ entries }: { entries: ApEntry[] }) {
       })
       const resize = () => chart?.resize()
       window.addEventListener('resize', resize)
+      // 主题切换时重画（老 UI 换主题也是整页重载，这里做增量更友好）
+      const onTheme = () => {
+        chart?.dispose()
+        chart = null
+      }
+      window.addEventListener('alas-theme-change', onTheme)
     }).catch(() => {})
     return () => { cancelled = true; chart?.dispose() }
   }, [entries])
@@ -102,24 +144,20 @@ export function OpsiPanel({ name }: { name: string }) {
   const avg = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0
   return (
     <div>
-      {/* 老 UI 同源渲染：净赚卡 + 12 指标卡 + 大世界收获。
-          用 dangerouslySetInnerHTML 是因为内容来自后端 Python 模板，
-          与老 UI 完全一致；CSS 由 statistics-alas.css 提供（已在 <head> 里）。 */}
-      {panels?.html && (
-        <div dangerouslySetInnerHTML={{ __html: panels.html }} />
-      )}
-      {panels?.meow && (
-        <details style={{ marginTop: 12 }}>
-          <summary style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>
-            大世界收获
-          </summary>
-          <div dangerouslySetInnerHTML={{ __html: panels.meow }} />
-        </details>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 16 }}>
-        <div className="ov-card-title">体力变化 - 分钟曲线（详细波动）</div>
+      {/* ⚠️ 顺序必须与老 UI _STAT_PANEL_RENDERERS["opsi"] 一致：
+            "_render_ap_chart"    ← 体力图在**最上面**
+            "_render_opsi_stats"  ← 净赚卡 + 12 指标卡
+            "_render_ship_exp"    ← 舰船经验
+          我原来把体力图放在最下面（净赚卡→卡片→折线图），与老 UI 完全相反，
+          长卿截图里说「你把 k 线图移到最底下去了」就是这个。
+
+          另外「大世界收获」在 _render_opsi_stats 内部、12 张卡之后，
+          所以它要排在卡片后面、舰船经验前面。 */}
+
+      {/* ① 体力变化图（顶部） */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div className="st-title-sub">体力变化 - 分钟曲线（详细波动）</div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {/* 月份切换：选「本月」时后端按当前月取数；选历史月则按该月重算 */}
           <select
             className="form-control"
             style={{ width: 'auto', minWidth: '7rem' }}
@@ -127,12 +165,10 @@ export function OpsiPanel({ name }: { name: string }) {
             onChange={e => setMonth(e.target.value)}
           >
             <option value="">本月</option>
-            {months.map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
+            {months.map(m => (<option key={m} value={m}>{m}</option>))}
           </select>
           {['折线', '按日', '按月'].map(x => (
-            <button key={x} className="log-btn" disabled title="视图切换暂未迁移">{x}</button>
+            <button key={x} className="btn btn-off" disabled title="视图切换暂未迁移">{x}</button>
           ))}
         </div>
       </div>
@@ -155,6 +191,32 @@ export function OpsiPanel({ name }: { name: string }) {
         ))}
       </div>
       <ApLineChart entries={entries} />
+
+      {/* ② 净赚卡 + 12 指标卡（老 UI 同源渲染） */}
+      <div style={{ marginTop: 18 }}>
+        <div className="st-title-sub">大世界</div>
+        {panels?.html && <div dangerouslySetInnerHTML={{ __html: panels.html }} />}
+      </div>
+
+      {/* ③ 大世界收获（折叠加） */}
+      {panels?.meow && (
+        <details style={{ marginTop: 12 }}>
+          <summary style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>
+            大世界收获
+          </summary>
+          <div dangerouslySetInnerHTML={{ __html: panels.meow }} />
+        </details>
+      )}
+
+      {/* ④ 舰船经验进度（老 UI 第三个 renderer） */}
+      <div style={{ marginTop: 12 }}>
+        <LegacyHtmlPanel
+          name={name}
+          panel="ship_exp"
+          fields={['html']}
+          errorText="暂无舰船经验数据"
+        />
+      </div>
     </div>
   )
 }

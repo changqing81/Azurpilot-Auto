@@ -1777,12 +1777,16 @@ def _make_stat_ctx(instance_name: str, mixin_module: str, mixin_class: str):
     return ctx
 
 
-def get_commission_panel_html(instance_name: str) -> dict:
-    """带缓存入口（缓存键见 _stat_cache_key）。"""
-    return _cached_stat_html(instance_name, "commission", lambda: _get_commission_panel_html_impl(instance_name))
+def get_commission_panel_html(instance_name: str, period: str = "") -> dict:
+    """委托面板。period: month / week（对应 _commission_income_period）。"""
+    return _cached_stat_html(
+        instance_name, f"commission:{period}",
+        lambda: _get_commission_panel_html_impl(instance_name, period),
+        period,
+    )
 
 
-def _get_commission_panel_html_impl(instance_name: str) -> dict:
+def _get_commission_panel_html_impl(instance_name: str, period: str = "") -> dict:
     """委托面板（app_stat_commission.py）。返回 summary/table/recent 三段 HTML。"""
     try:
         ctx = _make_stat_ctx(
@@ -1790,6 +1794,8 @@ def _get_commission_panel_html_impl(instance_name: str) -> dict:
             "module.webui.app_stat_commission",
             "CommissionIncomeStatisticsMixin",
         )
+        if period in ("month", "week"):
+            ctx._commission_income_period = period
         data = ctx._load_commission_income_data()
         if data is None:
             return {"success": False, "error": "暂无委托数据"}
@@ -1806,12 +1812,20 @@ def _get_commission_panel_html_impl(instance_name: str) -> dict:
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
 
 
-def get_research_panel_html(instance_name: str) -> dict:
-    """带缓存入口（缓存键见 _stat_cache_key）。"""
-    return _cached_stat_html(instance_name, "research", lambda: _get_research_panel_html_impl(instance_name))
+def get_research_panel_html(
+    instance_name: str, period: str = "", scope: str = "", series: int = 0
+) -> dict:
+    """科研面板。period: month/days30/days90/all；scope: series/consumable。"""
+    return _cached_stat_html(
+        instance_name, f"research:{period}:{scope}:{series}",
+        lambda: _get_research_panel_html_impl(instance_name, period, scope, series),
+        period or scope,
+    )
 
 
-def _get_research_panel_html_impl(instance_name: str) -> dict:
+def _get_research_panel_html_impl(
+    instance_name: str, period: str = "", scope: str = "", series: int = 0
+) -> dict:
     """科研面板（app_stat_research.py）。"""
     try:
         ctx = _make_stat_ctx(
@@ -1819,6 +1833,14 @@ def _get_research_panel_html_impl(instance_name: str) -> dict:
             "module.webui.app_stat_research",
             "ResearchStatisticsMixin",
         )
+        # 周期/口径覆盖：老 UI 用 _research_stats_period 等实例属性驱动渲染，
+        # 这里在调用构建函数前覆盖到适配器上（非法值不覆盖，由 mixin 兜底）。
+        if period in ("month", "days30", "days90", "all"):
+            ctx._research_stats_period = period
+        if scope in ("series", "consumable"):
+            ctx._research_stats_scope = scope
+        if series:
+            ctx._research_stats_series = int(series)
         data = ctx._load_research_stats_data()
         table = ctx._build_research_table_html(data)
         return {"success": True, "table_html": table, "error": ""}

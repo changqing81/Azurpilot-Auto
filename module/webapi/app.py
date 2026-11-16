@@ -200,6 +200,12 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     panel = (request.query_params.get("panel") or "opsi").strip().lower()
     month = (request.query_params.get("month") or "").strip()
+    period = (request.query_params.get("period") or "").strip()
+    scope = (request.query_params.get("scope") or "").strip()
+    try:
+        series = int(request.query_params.get("series") or 0)
+    except (TypeError, ValueError):
+        series = 0
     handlers = {
         "opsi": data.get_opsi_panels_html,
         "commission": data.get_commission_panel_html,
@@ -214,9 +220,18 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         return JSONResponse(
             {"success": False, "error": f"不支持的 panel: {panel}（支持 {', '.join(handlers)}）"}
         )
-    # 目前只有 opsi 支持月份切换（净赚卡/12 指标卡/大世界收获都按月）
+    # 各面板的可变参数不同（都是老 UI 的实例属性，见各自 Mixin）：
+    #   opsi       → month（查看月份）
+    #   research   → period（month/days30/days90/all）+ scope（series/consumable）
+    #   commission → period（month/week）
     if panel == "opsi":
         return JSONResponse(await run_in_threadpool(fn, name, month))
+    if panel == "research":
+        return JSONResponse(
+            await run_in_threadpool(fn, name, period, scope, series)
+        )
+    if panel == "commission":
+        return JSONResponse(await run_in_threadpool(fn, name, period))
     return JSONResponse(await run_in_threadpool(fn, name))
 
 
@@ -389,8 +404,9 @@ async def update_log(request: Request) -> JSONResponse:
 async def switch_ui(request: Request) -> JSONResponse:
     """热切换界面版本（legacy ↔ new），**不需要重启**。
 
-    写入 deploy.yaml 后，由 `module/webui/hot_switch.py` 在**下一次请求**时
-    按 mtime 感知并生效 —— 用户刷新页面即可看到新界面。
+    写入 deploy.yaml 后需要**重启 GUI** 才生效（启动时按配置决定挂哪一套 UI，
+    见 module/webui/app.py 的「新 UI 挂载」段）。这是长卿 2026-11-16 的要求：
+    正式版老 UI 不需要在后台常驻，切换 + 重启比热切换更简单可靠。
     """
     import json as _json
 
@@ -422,10 +438,23 @@ async def switch_ui(request: Request) -> JSONResponse:
 
 
 async def current_ui(request: Request) -> JSONResponse:
-    """当前界面版本（供前端显示切换按钮状态）。"""
-    from module.webui.hot_switch import current_ui_mode
+    """当前界面版本（供前端显示切换按钮状态）。
 
-    return JSONResponse({"ui": await run_in_threadpool(current_ui_mode)})
+    直接读 deploy.yaml，不依赖已废弃的 hot_switch.py（热切换方案已放弃，
+    改为启动时按配置挂载 —— 见 module/webui/app.py 的「新 UI 挂载」段）。
+    """
+
+    def _read() -> dict:
+        from module.webui.setting import State
+
+        try:
+            State.deploy_config.read()
+            ui = str(getattr(State.deploy_config, "UI", None) or "legacy").strip().lower()
+            return {"ui": ui if ui in ("legacy", "new") else "legacy"}
+        except Exception:  # noqa: BLE001
+            return {"ui": "legacy"}
+
+    return JSONResponse(await run_in_threadpool(_read))
 
 
 async def restart_webui(request: Request) -> JSONResponse:
