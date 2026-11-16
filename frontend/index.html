@@ -50,6 +50,14 @@
     </style>
   </head>
   <body class="webio-theme-default no-animation">
+    <!-- 老 UI 的前端工具库：直接引用**同一份** assets/gui/js/alas-utils.js
+         （由 /static/assets 挂载，新老 UI 共用，不做副本）。
+         导出 window.alasToggleLivePreview / alasShowAnnouncement / alasHasBeenShown。
+         它是 4 个自包含 IIFE + 内联样式，不依赖老 UI 的任何 DOM，
+         所以新 UI 直接复用整套「截图预览（scrcpy+H.264）/ 公告弹窗」，
+         不必重写 1600 行解码与控制逻辑。用经典 <script>（非 module）加载，
+         保证在 React 之前同步可用。 -->
+    <script src="/static/assets/gui/js/alas-utils.js"></script>
     <div id="root"></div>
     <div id="alas-boot-skeleton" aria-hidden="true">
       <div class="sk-rail"></div>

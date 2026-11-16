@@ -102,6 +102,20 @@ export function HomePageMain() {
     apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
       .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
       .catch(() => { /* 图源不可用：保持纯色背景 */ })
+
+    // 公告自动弹窗：与老 UI app_home.py:1811-1840 完全同一条链路——
+    // 拉 /newapi/announcement → 用 alas-utils.js 的 window.alasShowAnnouncement 渲染，
+    // alasHasBeenShown 做 localStorage 去重（看过就不再弹）。
+    apiGet<{ title: string; content: string; id: number | null; url: string; error: string }>(
+      '/newapi/announcement',
+      20000,
+    )
+      .then(ann => {
+        if (!ann || ann.error || !ann.content) return
+        if (ann.id != null && window.alasHasBeenShown?.(ann.id)) return
+        window.alasShowAnnouncement?.(ann.title, ann.content, ann.id, ann.url, false)
+      })
+      .catch(() => { /* 公告源不可达：静默，不打扰用户 */ })
   }, [])
 
   const onClick = (patch: Record<string, string>) => async () => {

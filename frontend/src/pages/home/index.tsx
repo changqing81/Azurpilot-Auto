@@ -245,8 +245,19 @@ export function Overview({ instance }: { instance: string }) {
     const label = (target.textContent ?? '').trim()
     if (label.startsWith('自动滚动')) { setAutoScroll(v => !v); return }
     if (label === '折叠' || label === '展开') { setDashboardShown(v => !v); return }
-    if (label === '截图预览') { (window as any).alasToggleLivePreview?.(instance); return }
-    if (label === '导出今日日志') { window.open(`/api/log/${encodeURIComponent(instance)}/export`, '_blank') }
+    // 截图预览：直接调老 UI 的 alas-utils.js（已作为 public/alas-utils.js 引入，
+    // 它内部走 /ws/live_screenshot 的 scrcpy H.264 链路，样式与交互与老 UI 完全一致）
+    if (label === '截图预览') { window.alasToggleLivePreview?.(instance); return }
+    // 导出今日日志：走老 UI 现成的 /api/log/runtime（today 范围）
+    if (label === '导出今日日志') {
+      const today = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const scope = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+      window.open(
+        `/api/log/runtime?instance=${encodeURIComponent(instance)}&scope=${scope}`,
+        '_blank',
+      )
+    }
   }
 
   // ── 总览左右两列（全部为 HTML 字符串，保证 style 标记逐字节同构）───────────
