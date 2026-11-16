@@ -7984,7 +7984,7 @@
       "CDN": "PyWebIO CDN",
       "CDNHelp": "可填写 true、false 或自定义 CDN 地址。",
       "UI": "界面版本",
-      "UIHelp": "老 UI = PyWebIO 原界面；新 UI = React 界面（更快、占用更低）。切换后需重启 AzurPilot 生效。",
+      "UIHelp": "老 UI = PyWebIO 原界面；新 UI = React 界面（更快、占用更低）。切换后刷新页面即可生效，无需重启。",
       "WebuiSSLKey": "SSL 密钥文件",
       "WebuiSSLKeyHelp": "WebUI HTTPS 使用的 SSL 密钥路径，需和证书同时设置。",
       "WebuiSSLCert": "SSL 证书文件",

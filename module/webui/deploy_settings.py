@@ -117,7 +117,8 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
             DeployField("Password", "nullable_string"),
             DeployField("CDN", "cdn"),
             # 界面版本：legacy = 老 UI（PyWebIO）；new = 新 UI（React 占据 /，老 UI 页面关闭）。
-            # 改这个必须重启 GUI 才生效（路由在应用创建时固定），表单底部有统一提示。
+            # 支持**热切换**：module/webui/hot_switch.py 在每次请求 /
+            # 时按 deploy.yaml 的 mtime 分流，改完刷新页面即生效，不需要重启。
             DeployField("UI", "select", (("legacy", "老 UI"), ("new", "新 UI"))),
             DeployField("WebuiSSLKey", "nullable_string"),
             DeployField("WebuiSSLCert", "nullable_string"),
