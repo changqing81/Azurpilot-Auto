@@ -122,7 +122,22 @@ export function ConfigGroups({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modified: batch }),
       })
-      const j = await res.json()
+      // ⚠️ 先判断 HTTP 状态再 parse：500 时后端返回 "Internal Server Error"
+      // 纯文本，直接 res.json() 会抛 SyntaxError，把真实原因（HTTP 500）盖掉
+      // —— 长卿截图里「Unexpected token 'I'」就是这么来的。
+      if (!res.ok) {
+        onError?.(`保存失败: HTTP ${res.status}`)
+        return
+      }
+      const j = await res.json().catch(() => null)
+      if (!j) {
+        onError?.('保存失败: 后端返回了无法解析的内容')
+        return
+      }
+      if (j.error) {
+        onError?.('保存失败: ' + j.error)
+        return
+      }
       if (j.invalid?.length) {
         onError?.(`${j.valid?.length ?? 0} 项已保存，${j.invalid.length} 项校验失败`)
       } else {

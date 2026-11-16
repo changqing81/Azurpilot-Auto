@@ -63,7 +63,8 @@ export function ConfigPage() {
     saveTimer.current = setTimeout(() => { void save() }, 600)
   }
 
-  // 自动保存：与老 UI 的 pin_on_change 同语义（改完即落盘，无保存按钮）
+  // 自动保存：与老 UI 的 pin_on_change 同语义（改完即落盘，无保存按钮）。
+  // 非 200 时先报 HTTP 状态，不要让 JSON.parse 的 SyntaxError 盖掉真实原因。
   const save = async () => {
     const batch = pendingRef.current
     if (!Object.keys(batch).length) return
@@ -74,7 +75,10 @@ export function ConfigPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modified: batch }),
       })
-      const j = await res.json()
+      if (!res.ok) { setError(`保存失败: HTTP ${res.status}`); return }
+      const j = await res.json().catch(() => null)
+      if (!j) { setError('保存失败: 后端返回了无法解析的内容'); return }
+      if (j.error) { setError('保存失败: ' + j.error); return }
       if (j.invalid?.length) setError(`${j.valid?.length ?? 0} 项已保存，${j.invalid.length} 项校验失败`)
       else setError('')
     } catch (e) { setError('保存失败: ' + String(e)) }
