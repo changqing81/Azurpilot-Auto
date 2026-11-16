@@ -185,6 +185,87 @@ async def instance_import(request: Request) -> JSONResponse:
     )
 
 
+async def background_setting(request: Request) -> JSONResponse:
+    """GET /newapi/background — 当前背景设置（mode/media/是否有自定义图）。"""
+    return JSONResponse(await run_in_threadpool(data.get_background_setting))
+
+
+async def background_mode(request: Request) -> JSONResponse:
+    """POST /newapi/background/mode {mode: random|custom}。"""
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(
+        await run_in_threadpool(data.set_background_mode, str(body.get("mode", "")))
+    )
+
+
+async def background_media(request: Request) -> JSONResponse:
+    """POST /newapi/background/media {media: image|video|auto}。"""
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(
+        await run_in_threadpool(data.set_media_preference, str(body.get("media", "")))
+    )
+
+
+async def background_upload(request: Request) -> JSONResponse:
+    """POST /newapi/background/upload（multipart，字段 file）。"""
+    try:
+        form = await request.form()
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"success": False, "error": f"表单解析失败：{e}"})
+    upload = form.get("file")
+    if upload is None or not hasattr(upload, "read"):
+        return JSONResponse({"success": False, "error": "缺少文件字段 file"})
+    try:
+        content = await upload.read()
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"success": False, "error": f"读取文件失败：{e}"})
+    return JSONResponse(
+        await run_in_threadpool(
+            data.upload_custom_background, getattr(upload, "filename", ""), content
+        )
+    )
+
+
+async def background_custom_info(request: Request) -> JSONResponse:
+    """GET /newapi/background/custom — 自定义背景的访问信息。"""
+    return JSONResponse(await run_in_threadpool(data.get_custom_background_info))
+
+
+async def background_custom_file(request: Request) -> Response:
+    """GET /api/wallpapers/custom — 直接返回自定义背景文件（支持 Range，视频可拖动）。"""
+    from starlette.responses import FileResponse
+
+    info = await run_in_threadpool(data.get_custom_background_info)
+    if not info.get("exists"):
+        return JSONResponse({"success": False, "error": "没有自定义背景"}, status_code=404)
+    path = data._wallpapers_dir() / "custom" / info["filename"]
+    return FileResponse(path, headers={"Cache-Control": "no-store"})
+
+
+async def wallpaper_sources(request: Request) -> JSONResponse:
+    """GET /newapi/background/sources — 图源列表。"""
+    return JSONResponse(await run_in_threadpool(data.get_wallpaper_sources))
+
+
+async def wallpaper_sources_save(request: Request) -> JSONResponse:
+    """POST /newapi/background/sources {sources: [...]}。"""
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(
+        await run_in_threadpool(data.set_wallpaper_sources, body.get("sources", []))
+    )
+
+
+async def wallpaper_sources_reset(request: Request) -> JSONResponse:
+    """POST /newapi/background/sources/reset — 恢复默认图源。"""
+    return JSONResponse(await run_in_threadpool(data.reset_wallpaper_sources))
+
+
 async def dev_action(request: Request) -> JSONResponse:
     """开发者工具的调试动作（对应老 UI app_developer_tools.py:dev_utils）。
 
@@ -417,6 +498,15 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instance/import", instance_import, methods=["POST"]),
         Route("/newapi/instance/create", instance_create, methods=["POST"]),
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
+        Route("/newapi/background", background_setting),
+        Route("/newapi/background/mode", background_mode, methods=["POST"]),
+        Route("/newapi/background/media", background_media, methods=["POST"]),
+        Route("/newapi/background/upload", background_upload, methods=["POST"]),
+        Route("/newapi/background/custom", background_custom_info),
+        Route("/api/wallpapers/custom", background_custom_file),
+        Route("/newapi/background/sources", wallpaper_sources),
+        Route("/newapi/background/sources/save", wallpaper_sources_save, methods=["POST"]),
+        Route("/newapi/background/sources/reset", wallpaper_sources_reset, methods=["POST"]),
         Route("/newapi/dev/action", dev_action, methods=["POST"]),
         Route("/newapi/announcement", announcement),
         Route("/newapi/update-log", update_log),

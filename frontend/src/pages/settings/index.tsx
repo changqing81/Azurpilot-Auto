@@ -82,8 +82,15 @@ export function SettingsPage() {
     } catch (e) { setMsg('自启动设置失败: ' + String(e)) }
   }
 
-  // 热切换界面版本：/newapi/ui/switch 写 deploy.yaml，
-  // module/webui/hot_switch.py 在下一次请求按 mtime 感知 → 刷新即生效，无需重启。
+  // 切换界面版本：写 deploy.yaml，然后**提示重启**。
+  //
+  // 为什么不再做热切换：长卿 2026-11-16 拍板——
+  //   「正式版老 UI 完全不需要，不要在后台运行。做不到热加载无所谓，
+  //     给个切换按钮 + 重启 GUI 就行。」
+  // 现在的实现是启动时按 Webui.UI 决定挂哪一套（UI=new 时把老 UI 页面路由
+  // 整条摘掉），所以必须重启才生效 —— 这是有意为之，换来的是老 UI 不再
+  // 在后台占资源、也不再有「两套 UI 并存」的复杂度。
+  const [switchedTo, setSwitchedTo] = useState<string>('')
   const switchUi = async (target: 'legacy' | 'new') => {
     setRestarting(true)
     setMsg('正在切换界面版本…')
@@ -95,14 +102,27 @@ export function SettingsPage() {
       })
       const j = await r.json()
       if (j.success) {
-        setMsg(`已切换到${target === 'new' ? '新 UI' : '老 UI'}，2 秒后刷新…`)
-        setTimeout(() => location.reload(), 2000)
+        setSwitchedTo(target)
+        setMsg(`已切换为${target === 'new' ? '新 UI' : '老 UI'}，请重启 AzurPilot 生效`)
       } else {
         setMsg('切换失败: ' + (j.error || '未知原因'))
-        setRestarting(false)
       }
     } catch (e) {
       setMsg('切换失败: ' + String(e))
+    } finally {
+      setRestarting(false)
+    }
+  }
+
+  // 重启 GUI：老 UI 的 /newapi/restart 会保存实例状态并重启进程
+  const restartGui = async () => {
+    setRestarting(true)
+    setMsg('正在重启 AzurPilot…（实例会自动保存并恢复）')
+    try {
+      await fetch('/newapi/restart', { method: 'POST' })
+      setMsg('重启指令已下发，页面稍后会自动恢复')
+    } catch (e) {
+      setMsg('重启失败: ' + String(e))
       setRestarting(false)
     }
   }
@@ -133,17 +153,22 @@ export function SettingsPage() {
           <div style={{ minWidth: 0 }}>
             <div style={{ ['--arg-title--' as string]: '1' } as React.CSSProperties}>界面版本</div>
             <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>
-              当前使用新 UI。切到老 UI 会立即生效（无需重启），刷新页面即可。
-              老 UI 仍可通过 <code>/manage</code> 访问管理页；新 UI 在 <code>/new/</code> 始终可用。
+              切换后需重启 AzurPilot 生效。老 UI 模式下新 UI 仍可通过 <code>/new/</code> 试用；
+              新 UI 模式下老 UI 的页面路由会被移除，不再在后台占用资源。
             </div>
           </div>
-          <div style={{ minWidth: 0, display: 'flex', gap: 8 }}>
+          <div style={{ minWidth: 0, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" disabled={restarting} onClick={() => switchUi('legacy')}>
               切到老 UI
             </button>
             <button className="btn btn-primary" disabled={restarting} onClick={() => switchUi('new')}>
               保持新 UI
             </button>
+            {switchedTo && (
+              <button className="btn btn-danger" disabled={restarting} onClick={restartGui}>
+                立即重启生效
+              </button>
+            )}
           </div>
         </div>
       </div>

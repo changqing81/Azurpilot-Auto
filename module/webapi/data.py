@@ -1314,3 +1314,187 @@ def dev_restart_alas(instance: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 重启实例失败: {e}")
         return {"success": False, "error": str(e)}
+
+
+# ─────────────────── 背景/壁纸管理（补老 UI 主页 4 个按钮的 REST 缺口）───────────────────
+# 老 UI 这 4 个动作都在 app_home.py 的 PyWebIO 回调里（input_group 弹窗），
+# 新 UI 没有 WS 通道。这里把存储逻辑原样搬过来（路径/字段名/默认值全部一致），
+# 只换调用方式 —— 与老 UI 共享同一份 wallpapers/background_setting.json，
+# 所以两边切换后设置不会丢。
+
+_WALLPAPER_DIR_NAME = "wallpapers"
+_BG_SETTING_FILE = "background_setting.json"
+_SOURCES_FILE_NAME = "wallpaper_sources.json"
+
+
+def _wallpapers_dir():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[2] / _WALLPAPER_DIR_NAME
+
+
+def _read_bg_setting() -> dict:
+    """读 wallpapers/background_setting.json（与老 UI 同一份）。"""
+    import json as _json
+
+    path = _wallpapers_dir() / _BG_SETTING_FILE
+    try:
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _write_bg_setting(update: dict) -> None:
+    """合并写入背景设置，保留其它字段（同 app_home.py:_write_background_setting）。"""
+    import json as _json
+
+    path = _wallpapers_dir() / _BG_SETTING_FILE
+    data = _read_bg_setting()
+    data.update(update)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_json.dumps(data), encoding="utf-8")
+
+
+def get_background_setting() -> dict:
+    """当前背景设置（mode / media）+ 自定义背景是否存在。"""
+    setting = _read_bg_setting()
+    custom_dir = _wallpapers_dir() / "custom"
+    has_custom = False
+    if custom_dir.is_dir():
+        has_custom = any(custom_dir.iterdir())
+    return {
+        "mode": setting.get("mode", "random"),
+        "media": setting.get("media", "auto"),
+        "has_custom": has_custom,
+    }
+
+
+def set_background_mode(mode: str) -> dict:
+    """切换随机/自定义背景模式（对应 _switch_to_random_background）。"""
+    if mode not in ("random", "custom"):
+        return {"success": False, "error": "mode 必须是 random 或 custom"}
+    try:
+        _write_bg_setting({"mode": mode})
+        return {"success": True, "mode": mode}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 切换背景模式失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def set_media_preference(media: str) -> dict:
+    """设置随机背景的媒体类型偏好（对应 _set_media_preference）。
+
+    media: image / video / auto
+    """
+    if media not in ("image", "video", "auto"):
+        return {"success": False, "error": "media 必须是 image/video/auto"}
+    try:
+        _write_bg_setting({"media": media})
+        return {"success": True, "media": media}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e)}
+
+
+def upload_custom_background(filename: str, content: bytes) -> dict:
+    """上传自定义背景（对应 _upload_custom_background 的落盘部分）。
+
+    只做「保存文件 + 标记为自定义模式」，不做老 UI 的内存压缩
+    （那是为了塞进 data URI，新 UI 走 HTTP 路由 /api/wallpapers/custom 取文件，
+    不需要 data URI，所以跳过压缩反而保真）。
+    """
+    import os as _os
+
+    try:
+        if not content:
+            return {"success": False, "error": "文件为空"}
+        # 20MB 上限（老 UI 没限制但内联 data URI 实际上限更低；
+        # 走 HTTP 路由后可以放宽）
+        if len(content) > 20 * 1024 * 1024:
+            return {"success": False, "error": "文件超过 20MB 限制"}
+        ext = _os.path.splitext(filename or "")[1].lower()
+        allowed = {
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp",
+            ".mp4", ".m4v", ".webm", ".mov",
+        }
+        if ext not in allowed:
+            return {"success": False, "error": f"不支持的文件类型: {ext or '(无扩展名)'}"}
+
+        custom_dir = _wallpapers_dir() / "custom"
+        custom_dir.mkdir(parents=True, exist_ok=True)
+        # 清掉旧的自定义背景（老 UI 同一时刻只保留一个）
+        for old in custom_dir.iterdir():
+            try:
+                old.unlink()
+            except OSError:
+                pass
+        target = custom_dir / ("custom_bg" + ext)
+        target.write_bytes(content)
+        _write_bg_setting({"mode": "custom"})
+        logger.info(f"[webapi] 已保存自定义背景 {target.name}（{len(content)} 字节）")
+        return {"success": True, "filename": target.name, "mode": "custom"}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 上传自定义背景失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def get_custom_background_info() -> dict:
+    """自定义背景的访问信息（新 UI 用 <img>/<video> 直接取 /api/wallpapers/custom）。"""
+    import os as _os
+
+    custom_dir = _wallpapers_dir() / "custom"
+    if not custom_dir.is_dir():
+        return {"exists": False}
+    files = [f for f in custom_dir.iterdir() if f.is_file()]
+    if not files:
+        return {"exists": False}
+    f = files[0]
+    ext = _os.path.splitext(f.name)[1].lower()
+    is_video = ext in (".mp4", ".m4v", ".webm", ".mov")
+    return {
+        "exists": True,
+        "url": "/api/wallpapers/custom",
+        "is_video": is_video,
+        "filename": f.name,
+        "bytes": f.stat().st_size,
+    }
+
+
+def get_wallpaper_sources() -> dict:
+    """图源列表（wallpapers/wallpaper_sources.json）。"""
+    import json as _json
+
+    path = _wallpapers_dir() / _SOURCES_FILE_NAME
+    try:
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        return {"success": True, "sources": data if isinstance(data, list) else []}
+    except FileNotFoundError:
+        return {"success": True, "sources": []}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e), "sources": []}
+
+
+def set_wallpaper_sources(sources) -> dict:
+    """保存图源列表（对应 _manage_wallpaper_sources 的落盘部分）。"""
+    import json as _json
+
+    try:
+        if not isinstance(sources, list):
+            return {"success": False, "error": "sources 必须是数组"}
+        path = _wallpapers_dir() / _SOURCES_FILE_NAME
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_json.dumps(sources, ensure_ascii=False), encoding="utf-8")
+        return {"success": True, "count": len(sources)}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e)}
+
+
+def reset_wallpaper_sources() -> dict:
+    """恢复默认图源（删除自定义文件，回落到内置默认）。"""
+    try:
+        path = _wallpapers_dir() / _SOURCES_FILE_NAME
+        if path.exists():
+            path.unlink()
+        return {"success": True}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e)}

@@ -674,38 +674,65 @@ def app():
         on_shutdown=[clearup],
     )
     application.mount("/mcp", _LazyMCPApp())
-    # ───────────────────── 新 UI 挂载与热切换 ─────────────────────
-    # 三条约束决定了这里的设计：
-    # 1. **热切换**（长卿要的「不用重启随便切」）：`/` 的响应体必须在**每次请求时**
-    #    按 State.deploy_config.UI 决定，不能像上一版那样在启动时把路由摘掉。
-    # 2. **两者同时可用**：`/new/` 永远指向新 UI（方便对照与回退），
-    #    `/` 则跟随配置。
-    # 3. **老 UI 的 PyWebIO 会话**：`/` 交给 PyWebIO 时会走完整的 Starlette
-    #    application（含 WebSocket 升级），所以不能简单返回 HTML 字符串 ——
-    #    必须把请求**转交**给原来的 PyWebIO 入口。
+    # ───────────────────── 新 UI 挂载 ─────────────────────
+    # 长卿 2026-11-16 拍板：
+    #   「正式版老 UI 完全不需要 —— 不要在后台运行。做不到热加载无所谓，
+    #     给个切换按钮 + 重启 GUI 就行。」
     #
-    # 实现：用一个容器 ASGI app 包住原 PyWebIO application，
-    # `/` 时按配置在「PyWebIO」与「新 UI 静态 index.html」之间分流；
-    # 其余路径原样透传给 PyWebIO（/api、/pywebio_static、/mcp 等全都不动）。
+    # 因此不再用 HotSwitchApp 让两套 UI 在同一进程里并存，而是
+    # **启动时**按 Webui.UI 决定挂哪一套：
+    #
+    #   UI=legacy → 老 UI 占据 /，/new/ 仍挂载（方便对照试用，不占运行开销）
+    #   UI=new    → **把老 UI 的页面路由摘掉**，新 UI 占据 /，
+    #               老 UI 的 PyWebIO 会话不再创建、不再后台占用
+    #
+    # 切换方式：设置页点「切换到新/老 UI」→ 提示重启 → 重启后生效。
+    # （比热切换简单可靠，也符合长卿「技术达不到无所谓」的表态）
     try:
         from module.webapi.app import _FRONTEND_DIST, mount_webapi
         import os as _os
 
-        mount_webapi(application, mount_root=False)
+        _ui_mode = "legacy"
+        try:
+            _ui_mode = str(
+                getattr(State.deploy_config, "UI", None) or "legacy"
+            ).strip().lower()
+        except Exception:  # noqa: BLE001
+            pass
 
-        if _os.path.isdir(_FRONTEND_DIST):
-            from module.webui.hot_switch import HotSwitchApp
+        _has_dist = _os.path.isdir(_FRONTEND_DIST)
+        _mount_root = _ui_mode == "new" and _has_dist
 
-            application = HotSwitchApp(application, _FRONTEND_DIST)
+        if _mount_root:
+            # 摘掉老 UI 的页面路由（/ 与 ?app= 入口），老 UI 彻底不参与运行。
+            # 保留 /api、/pywebio_static、/static、/mcp 等数据与静态路由 ——
+            # 新 UI 的日志导出、公告配图等仍在用它们。
+            _kept = []
+            _removed = []
+            for _r in application.routes:
+                _p = getattr(_r, "path", None)
+                if _p == "/":
+                    _removed.append(type(_r).__name__)
+                    continue
+                _kept.append(_r)
+            application.routes[:] = _kept
             from module.logger import logger as _uilogger
 
             _uilogger.info(
-                "[WebUI] 新 UI 已挂载到 /new/；/ 跟随 Webui.UI 配置（支持热切换，无需重启）"
+                f"[WebUI] UI=new：新 UI 占据 /，老 UI 页面路由已移除（{len(_removed)} 条）"
             )
-        else:
-            from module.logger import logger as _uilogger
 
-            _uilogger.warning("[WebUI] frontend/dist 不存在，/ 固定走老 UI（先 pnpm build）")
+        mount_webapi(application, mount_root=_mount_root)
+        from module.logger import logger as _uilogger
+
+        if _mount_root:
+            _uilogger.info("[WebUI] 新 UI 已挂载到 /")
+        elif _has_dist:
+            _uilogger.info("[WebUI] 老 UI 占据 /；新 UI 在 /new/ 可直接试用")
+        else:
+            _uilogger.warning(
+                "[WebUI] frontend/dist 不存在，只能用老 UI（先 pnpm build）"
+            )
     except Exception as e:  # noqa: BLE001 —— 新 UI 缺依赖或代码异常时不影响老 UI 启动
         from module.logger import logger as _logger
 

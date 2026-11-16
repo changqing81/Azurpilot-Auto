@@ -5,7 +5,7 @@
 // 语言按钮 = btn-primary；主题按钮按主题色：Light→btn-light / Dark→btn-dark /
 // 高级材质→btn-primary / 高级材质（暗色）→btn-dark / 透明→btn-light；
 // 背景管理 4 按钮 = btn-light / btn-dark / btn-light / btn-light。
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Shell } from '../../components/Shell'
 import { apiGet } from '../../api/client'
 import { btn, btnGroup, putText } from '../../lib/pywebio'
@@ -134,6 +134,109 @@ export function HomePageMain() {
     } catch { /* 写盘失败：不刷新，避免误导 */ }
   }
 
+  // ── 背景 4 个按钮（长卿反馈「点了没有任何反应」）─────────────────
+  // 老 UI 用 PyWebIO 的 input_group 弹窗；新 UI 用 REST + 原生控件实现同样功能。
+  const [bg, setBg] = useState<{ mode: string; media: string; has_custom: boolean } | null>(null)
+  useEffect(() => {
+    apiGet<{ mode: string; media: string; has_custom: boolean }>('/newapi/background', 8000)
+      .then(setBg).catch(() => { /* 读不到就用默认值 */ })
+  }, [])
+
+  /** 上传自定义背景：文件选择框直接上传，成功后重载（壁纸竞速会重跑）。 */
+  const uploadBackground = () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*,video/mp4,video/webm,video/quicktime'
+    input.onchange = async () => {
+      const file = input.files?.[0]
+      if (!file) return
+      if (file.size > 20 * 1024 * 1024) { window.alert('文件超过 20MB 限制'); return }
+      const fd = new FormData()
+      fd.append('file', file)
+      try {
+        const r = await fetch('/newapi/background/upload', { method: 'POST', body: fd })
+        const j = await r.json()
+        if (j.success) location.reload()
+        else window.alert('上传失败：' + (j.error || '未知错误'))
+      } catch (e) { window.alert('上传失败：' + String(e)) }
+    }
+    input.click()
+  }
+
+  /** 随机背景：切回 random 模式并重载（壁纸竞速重跑）。 */
+  const randomBackground = async () => {
+    try {
+      const r = await fetch('/newapi/background/mode', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'random' }),
+      })
+      const j = await r.json()
+      if (j.success) {
+        // 清掉上次壁纸变量并重载，避免浏览器缓存同一张图
+        try { (window as any).__alasWallpaperWinner = null } catch { /* 忽略 */ }
+        location.reload()
+      } else window.alert('切换失败：' + (j.error || '未知错误'))
+    } catch (e) { window.alert('切换失败：' + String(e)) }
+  }
+
+  /** 媒体类型：三轮切换 image → video → auto（老 UI 是弹窗单选，这里用 prompt 简化）。 */
+  const mediaPreference = async () => {
+    const cur = bg?.media ?? 'auto'
+    const label = (m: string) => m === 'image' ? '仅图片' : m === 'video' ? '仅视频' : '混合'
+    const ans = window.prompt(
+      `背景媒体类型（当前：${label(cur)}）\n\n输入序号切换：\n1 = 仅图片\n2 = 仅视频\n3 = 混合（图片和视频一起竞赛）`,
+      cur === 'image' ? '1' : cur === 'video' ? '2' : '3',
+    )
+    if (!ans) return
+    const map: Record<string, string> = { '1': 'image', '2': 'video', '3': 'auto' }
+    const media = map[ans.trim()]
+    if (!media) { window.alert('请输入 1 / 2 / 3'); return }
+    try {
+      const r = await fetch('/newapi/background/media', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media }),
+      })
+      const j = await r.json()
+      if (j.success) { setBg(v => v ? { ...v, media } : v); location.reload() }
+      else window.alert('设置失败：' + (j.error || '未知错误'))
+    } catch (e) { window.alert('设置失败：' + String(e)) }
+  }
+
+  /** 图源管理：展示当前图源列表，可增删/恢复默认。 */
+  const manageSources = async () => {
+    let list: any[] = []
+    try {
+      const r = await apiGet<{ sources: any[] }>('/newapi/background/sources', 8000)
+      list = r.sources ?? []
+    } catch { /* 读失败按空处理 */ }
+    const text = list.length
+      ? list.map((s, i) => `${i + 1}. ${typeof s === 'string' ? s : JSON.stringify(s)}`).join('\n')
+      : '（当前没有自定义图源，使用内置默认）'
+    const ans = window.prompt(
+      `图源管理\n\n${text}\n\n操作：\n- 直接输入新图源 URL 追加\n- 输入 reset 恢复默认\n- 留空取消`,
+      '',
+    )
+    if (!ans) return
+    const v = ans.trim()
+    try {
+      if (v.toLowerCase() === 'reset') {
+        const r = await fetch('/newapi/background/sources/reset', { method: 'POST' })
+        const j = await r.json()
+        window.alert(j.success ? '已恢复默认图源' : '恢复失败：' + (j.error || ''))
+        if (j.success) location.reload()
+      } else if (v) {
+        const next = [...list, v]
+        const r = await fetch('/newapi/background/sources/save', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sources: next }),
+        })
+        const j = await r.json()
+        window.alert(j.success ? `已添加图源（共 ${j.count} 个）` : '保存失败：' + (j.error || ''))
+        if (j.success) location.reload()
+      }
+    } catch (e) { window.alert('操作失败：' + String(e)) }
+  }
+
   const downloadWallpaper = () => {
     const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
     if (winner?.url) window.open(winner.url, '_blank')
@@ -171,7 +274,11 @@ export function HomePageMain() {
       if (lang) { void onClick({ Language: lang.value })(); return }
       const theme = THEMES.find(t => t.name === label)
       if (theme) { void onClick({ Theme: theme.value })(); return }
-      if (label === '下载当前背景图') downloadWallpaper()
+      if (label === '下载当前背景图') { downloadWallpaper(); return }
+      if (label === '上传自定义背景') { uploadBackground(); return }
+      if (label === '随机背景') { void randomBackground(); return }
+      if (label === '管理图源') { void manageSources(); return }
+      if (label === '媒体类型') { void mediaPreference(); return }
     }
   }
 
