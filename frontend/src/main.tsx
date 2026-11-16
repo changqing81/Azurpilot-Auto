@@ -86,6 +86,7 @@ import { RemotePage } from './pages/remote'
 import { OobePage } from './pages/oobe'
 import { ToolPage } from './pages/tool'
 import { AnnouncementPage } from './pages/announcement'
+import { ManagePage } from './pages/manage'
 import './styles/shell.css'
 
 // 总览页需要实例名（=ProcessManager 的 config_name），从路由参数取后透传。
@@ -195,6 +196,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/remote" element={<RemotePage />} />
         <Route path="/oobe" element={<OobePage />} />
         <Route path="/announcement" element={<AnnouncementPage />} />
+        <Route path="/manage" element={<ManagePage />} />
         <Route path="/tool/:name" element={<ToolPage />} />
         <Route path="/tool/:name/:task" element={<ToolPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
