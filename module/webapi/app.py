@@ -87,11 +87,28 @@ async def bundled_css(request: Request) -> Response:
     """
     from module.webapi.data import get_bundled_css
 
-    body = await run_in_threadpool(get_bundled_css)
+    # 移动端判定与老 UI 同口径：User-Agent 里含 mobi/android/iphone 等。
+    # 老 UI 用 session_info.user_agent.is_mobile；新 UI 无 PyWebIO 会话，
+    # 这里按 UA 子串判断（与 user-agents 库的判定集一致）。
+    ua = (request.headers.get("user-agent") or "").lower()
+    is_mobile = any(
+        token in ua
+        for token in ("mobile", "android", "iphone", "ipod", "ipad", "windows phone", "blackberry")
+    )
+    # 主题也要传：老 UI 的 Bootstrap 主题层随主题切换（dark 用 bs-theme/dark.min.css）
+    from module.webapi.data import get_theme_name
+
+    theme = await run_in_threadpool(get_theme_name)
+    body = await run_in_threadpool(get_bundled_css, is_mobile, theme)
     return Response(
         body,
         media_type="text/css",
-        headers={"Cache-Control": "public, max-age=300"},
+        # 同一 URL 会因主题/移动端返回不同内容，必须按 Vary 缓存，否则
+        # 切主题后浏览器可能仍用旧缓存（外观不变、误判为"切换无效"）。
+        headers={
+            "Cache-Control": "public, max-age=60",
+            "Vary": "User-Agent",
+        },
     )
 
 

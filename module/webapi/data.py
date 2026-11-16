@@ -800,12 +800,23 @@ def restart_webui() -> dict:
 # 12 个 <link> 全是渲染阻塞资源，浏览器要全部下完才画第一帧——这是新 UI 首屏
 # 比老 UI 慢的主要剩余项（每个 ~20-150ms 往返，串行叠加）。
 # 合并成一个响应后只剩 1 个往返。
-_BUNDLE_CSS_FILES = (
-    # (URL 前缀, 文件路径) —— 顺序必须与 frontend/index.html 的 <link> 顺序一致，
-    # 否则层叠优先级变化会导致外观偏差。
-    ("/pywebio_static/css/bs-theme/default.min.css", None),
-    ("/pywebio_static/css/app.css", None),
+_BUNDLE_CSS_FILES_PC = (
+    # 顺序**必须与老 UI 实际加载顺序逐项一致**（实测 22267 的 document.styleSheets）。
+    # 顺序错了会出真问题：bs-theme 必须排在 markdown.min.css **之后**，
+    # 因为深色 Bootstrap 里 body{color:#d3d3d3!important} 要覆盖
+    # markdown.min.css 的 .markdown-body{color:#24292e}；反过来的话
+    # 深色主题下 .markdown-body 仍把文字定成深色 →「深底深字」看不清。
+    #
+    # 老 UI 实测顺序：
+    #   markdown.min.css → codemirror → toastify → bs-theme → bootstrap-select
+    #   → app.css → alas/entry-alas/…（9 层，WS 注入）→ 主题层
     ("/pywebio_static/css/markdown.min.css", None),
+    ("/pywebio_static/css/codemirror.min.css", None),
+    ("/pywebio_static/css/toastify.min.css", None),
+    # bs-theme 由 get_bundled_css(theme=) 动态替换成 default/dark
+    ("/pywebio_static/css/bs-theme/default.min.css", None),
+    ("/pywebio_static/css/bootstrap-select.min.css", None),
+    ("/pywebio_static/css/app.css", None),
     ("/static/assets/gui/css/alas.css", "alas"),
     ("/static/assets/gui/css/alas-pc.css", "alas-pc"),
     ("/static/assets/gui/css/entry-alas.css", "entry-alas"),
@@ -816,6 +827,15 @@ _BUNDLE_CSS_FILES = (
     ("/static/assets/gui/css/fleet-tech-alas.css", "fleet-tech-alas"),
     ("/static/assets/gui/css/fleet-management-alas.css", "fleet-management-alas"),
 )
+
+# 移动端：与老 UI 的 utils.py:webui_style_names 完全一致——把 alas-pc 换成 alas-mobile。
+# alas-mobile.css 里是「菜单折叠开关 / 日志小字号 / 总览改上下两行 / 仪表盘 6rem 网格 /
+# 触控目标 44px」等整组窄屏规则，缺了它手机上排版会挤成一团。
+_BUNDLE_CSS_FILES_MOBILE = tuple(
+    (url, "alas-mobile" if name == "alas-pc" else name)
+    for url, name in _BUNDLE_CSS_FILES_PC
+)
+_BUNDLE_CSS_FILES = _BUNDLE_CSS_FILES_PC
 
 _BUNDLE_CSS_CACHE: dict = {}
 
@@ -853,13 +873,52 @@ def _read_css_file(url_path: str, alas_name: str | None) -> str:
         return ""
 
 
-def get_bundled_css() -> str:
-    """合并首屏所需的 12 个 CSS。保持原顺序，缺失文件跳过。"""
+def get_theme_name() -> str:
+    """当前主题名（与 get_theme_styles 同源：State.theme → deploy Theme → default）。"""
+    try:
+        from module.webui.app_dependencies import State
+
+        return str(getattr(State, "theme", None) or State.deploy_config.Theme or "default")
+    except Exception:  # noqa: BLE001
+        return "default"
+
+
+def _pywebio_bs_theme(theme: str) -> str:
+    """与老 UI 的 app_shell.py:pywebio_theme_for 完全一致：只有 dark 用深色 Bootstrap。"""
+    return "dark" if (theme or "").strip().lower() == "dark" else "default"
+
+
+def get_bundled_css(is_mobile: bool = False, theme: str = "default") -> str:
+    """合并首屏所需的全部 CSS。保持原顺序，缺失文件跳过。
+
+    两处必须与老 UI 逐项对齐，否则会出现「深底深字」这类错配色：
+
+    1. Bootstrap 主题层：老 UI 按主题加载 bs-theme/dark.min.css 或
+       bs-theme/default.min.css（app_shell.py:pywebio_theme_for）。
+       这一层提供 .markdown-body { color:#c9d1d9; background:#0d1117 } 等
+       基础文字色 —— 固定用 default 会导致深色主题下文字是深黑、看不清。
+    2. 侧栏分支：is_mobile 时 alas-pc → alas-mobile（utils.py:webui_style_names）。
+
+    Args:
+        is_mobile: True 时把 alas-pc.css 换成 alas-mobile.css。
+        theme: 当前主题名，决定用哪套 Bootstrap 主题层。
+    """
+    files = list(_BUNDLE_CSS_FILES_MOBILE if is_mobile else _BUNDLE_CSS_FILES_PC)
+    bs = _pywebio_bs_theme(theme)
+    files = [
+        (f"/pywebio_static/css/bs-theme/{bs}.min.css", None)
+        if url.startswith("/pywebio_static/css/bs-theme/")
+        else (url, name)
+        for url, name in files
+    ]
     parts = []
-    for url_path, alas_name in _BUNDLE_CSS_FILES:
+    for url_path, alas_name in files:
         content = _read_css_file(url_path, alas_name)
         if content:
-            parts.append(f"/* ==== {url_path} ==== */\n{content}")
+            # 注释里用真实读到的文件名（移动端 alas-pc → alas-mobile，
+            # 若照抄 url_path 会写成 alas-pc.css，排查时极容易误判）
+            label = f"{alas_name}.css" if alas_name else url_path
+            parts.append(f"/* ==== {label} ==== */\n{content}")
     return "\n".join(parts)
 
 
