@@ -13,6 +13,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
+from starlette.concurrency import run_in_threadpool
 from starlette.staticfiles import StaticFiles
 
 from module.logger import logger
@@ -35,21 +36,21 @@ async def healthz(request: Request) -> JSONResponse:
 
 
 async def version(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_version())
+    return JSONResponse(await run_in_threadpool(data.get_version))
 
 
 async def instances(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_instances())
+    return JSONResponse(await run_in_threadpool(data.get_instances))
 
 
 async def dashboard(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_dashboard(name))
+    return JSONResponse(await run_in_threadpool(data.get_dashboard, name))
 
 
 async def overview(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_overview(name))
+    return JSONResponse(await run_in_threadpool(data.get_overview, name))
 
 
 async def task_config_save(request: Request) -> JSONResponse:
@@ -59,31 +60,31 @@ async def task_config_save(request: Request) -> JSONResponse:
     task = request.path_params.get("task", "")
     body = _json.loads(await request.body() or b"{}")
     modified = body.get("modified", {})
-    return JSONResponse(data.save_task_config(name, task, modified))
+    return JSONResponse(await run_in_threadpool(data.save_task_config, name, task, modified))
 
 
 async def task_config(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     task = request.path_params.get("task", "")
-    return JSONResponse(data.get_task_config(name, task))
+    return JSONResponse(await run_in_threadpool(data.get_task_config, name, task))
 
 
 async def resource_delta(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_resource_delta(name))
+    return JSONResponse(await run_in_threadpool(data.get_resource_delta, name))
 
 
 async def theme_css(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_theme_styles())
+    return JSONResponse(await run_in_threadpool(data.get_theme_styles))
 
 
 async def restart_webui(request: Request) -> JSONResponse:
     """重启 WebUI（让 deploy.yaml 改动生效）。链路与老 UI 重启按钮完全一致。"""
-    return JSONResponse(data.restart_webui())
+    return JSONResponse(await run_in_threadpool(data.restart_webui))
 
 
 async def oobe_state(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_oobe_state())
+    return JSONResponse(await run_in_threadpool(data.get_oobe_state))
 
 
 async def scheduler_start(request: Request) -> JSONResponse:
@@ -91,64 +92,64 @@ async def scheduler_start(request: Request) -> JSONResponse:
 
     name = request.path_params.get("name", "")
     body = _json.loads(await request.body() or b"{}")
-    return JSONResponse(data.start_scheduler(name, body.get("func")))
+    return JSONResponse(await run_in_threadpool(data.start_scheduler, name, body.get("func")))
 
 
 async def scheduler_stop(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.stop_scheduler(name))
+    return JSONResponse(await run_in_threadpool(data.stop_scheduler, name))
 
 
 async def wallpaper_candidates(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_wallpaper_candidates())
+    return JSONResponse(await run_in_threadpool(data.get_wallpaper_candidates))
 
 
 async def remote_status(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_remote_status())
+    return JSONResponse(await run_in_threadpool(data.get_remote_status))
 
 
 async def remote_toggle(request: Request) -> JSONResponse:
     import json as _json
 
     body = _json.loads(await request.body() or b"{}")
-    return JSONResponse(data.set_remote_enabled(bool(body.get("enabled"))))
+    return JSONResponse(await run_in_threadpool(data.set_remote_enabled, bool(body.get("enabled"))))
 
 
 async def update_info(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_update_info())
+    return JSONResponse(await run_in_threadpool(data.get_update_info))
 
 
 async def mind_calculator(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_mind_calculator(name))
+    return JSONResponse(await run_in_threadpool(data.get_mind_calculator, name))
 
 
 async def fleet_tech(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_fleet_tech(name))
+    return JSONResponse(await run_in_threadpool(data.get_fleet_tech, name))
 
 
 async def research_stats(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_research_stats(name))
+    return JSONResponse(await run_in_threadpool(data.get_research_stats, name))
 
 
 async def opsi_summary(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_opsi_summary(name))
+    return JSONResponse(await run_in_threadpool(data.get_opsi_summary, name))
 
 
 async def commission_income(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
-    return JSONResponse(data.get_commission_income(name))
+    return JSONResponse(await run_in_threadpool(data.get_commission_income, name))
 
 
 async def menu(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_menu())
+    return JSONResponse(await run_in_threadpool(data.get_menu))
 
 
 async def header(request: Request) -> JSONResponse:
-    return JSONResponse(data.get_header())
+    return JSONResponse(await run_in_threadpool(data.get_header))
 
 
 async def log_tail(request: Request) -> JSONResponse:
@@ -158,7 +159,7 @@ async def log_tail(request: Request) -> JSONResponse:
     since_val = int(since) if since is not None and since.lstrip("-").isdigit() else -1
     width_raw = request.query_params.get("width")
     width_val = int(width_raw) if width_raw is not None and width_raw.isdigit() else 80
-    return JSONResponse(data.get_log_tail(name, since=since_val, width=width_val))
+    return JSONResponse(await run_in_threadpool(data.get_log_tail, name, since_val, 200, width_val))
 
 
 
