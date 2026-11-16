@@ -82,18 +82,56 @@
 
 **0 个 JS 异常、0 个 console.error。**
 
+## 四b. 复用 alas-utils.js（本轮重大简化）
+
+老 UI 的 `assets/gui/js/alas-utils.js`（65KB / 1615 行）是 **4 个自包含 IIFE**：
+- 样式全部 `style.textContent` 内联注入
+- 只往 `window` 上挂 7 个函数
+- 不依赖老 UI 的任何 DOM 结构
+
+导出：`alasToggleLivePreview` / `alasStartLivePreview` / `alasStopLivePreview` /
+`alasShowAnnouncement` / `alasHasBeenShown` / `alasMarkAnnouncementShown` / `alasGetShownAnnouncements`
+
+**处理方式**：新 UI `index.html` 用经典 `<script>` 直接引用**同一份**文件
+（`/static/assets/gui/js/alas-utils.js`，由现有 `/static` 挂载，不做副本），
+于是下面这些 heavyweight 功能**零成本复用**：
+
+| 功能 | 复用的东西 | 实测 |
+|---|---|---|
+| 截图预览 | scrcpy H.264 解码 + 全屏 + 键盘注入 + 控制栏（约 800 行） | ✅ 面板弹出、「连接中」、控制栏完整 |
+| 公告弹窗 | 正文/配图渲染 + localStorage 去重 | ✅ 首页自动弹（源可达时） |
+| 导出今日日志 | 改走 `/api/log/runtime?scope=今天` | ✅ 浏览器直接下载 zip |
+
+**这一步省掉了重写约 1000 行解码与控制逻辑**，且行为与老 UI 逐字节一致
+（就是同一份代码）。
+
 ## 五、仍未实现（明确记录，不含糊）
 
 | 项 | 原因 | 影响 |
 |---|---|---|
-| 开发者工具页的 20 个调试按钮 | 全是 PyWebIO 会话内回调，无 REST | 需要调试时切回老 UI |
-| 公告弹窗（首页自动弹出） | 新 UI 是路由页，弹窗会打断导航 | 改为菜单入口进公告页 |
-| 截图预览（`window.alasToggleLivePreview`） | 依赖 `alas-utils.js` 全局函数与 `/ws/live_screenshot` | 按钮在，点击无响应（待补） |
-| 导出今日日志（总览页按钮） | 同上，未接 `/api/log/runtime` | 可在开发者工具页导出 |
+| 开发者工具页的 20 个调试按钮 | 全是 PyWebIO `put_button(onclick=...)` 会话内回调，无 REST 等价物 | 需要调试时切回老 UI（点击已明确提示） |
 | 维护横幅 | 依赖老 UI 的 run_js 增量更新 | 未移植 |
 | 页面骨架屏（切页时） | 老 UI 的 `#alas-page-skeleton` | 新 UI 只有首屏骨架，切页无骨架 |
 | 移动端布局 | `alas-mobile.css` 未纳入 bundle | 窄屏未适配 |
 | 主题热切换 | 老 UI `swap_theme_css` 只换主题层 | 新 UI 改了要刷新 |
+
+## 五b. 本轮修掉的一个「静默致命」问题
+
+`.gitignore` 根目录规则里有一行 `lib/`（本意是忽略 `.venv/lib`），
+它是**全局匹配**——把 `frontend/src/lib/` 也一起忽略了。
+
+后果：`frontend/src/lib/pywebio.ts`（PyWebIO 同构 DOM 输出器，是 Shell 与各页面
+的核心依赖）与 `alas-utils.d.ts` **从未进入版本库**。任何人拉取 new-ui 分支
+都编译不过，而本机因为文件一直在磁盘上，构建始终正常——完全察觉不到。
+
+**发现方式**：commit 时 git 提示 "The following paths are ignored"，顺手查了
+`git check-ignore -v`。
+
+**修复**：改为 `/lib/` 与 `/lib64/`（锚定仓库根），补入两个漏掉的源文件。
+
+**验证**：建了一个干净的 `git worktree`（`git worktree add --detach`）→
+`pnpm install` → `pnpm build` → **编译成功，产物哈希与主工作区完全一致**
+（`index-D94t7MpU.js`）。这才叫「验证过了」。
 
 ## 六、下一步
 
