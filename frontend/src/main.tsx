@@ -106,6 +106,7 @@ import { UpdatePage } from './pages/update'
 import { RemotePage } from './pages/remote'
 import { OobePage } from './pages/oobe'
 import { ToolPage } from './pages/tool'
+import { TaskToolPage } from './pages/tool/task'
 import { AnnouncementPage } from './pages/announcement'
 import { ManagePage } from './pages/manage'
 import './styles/shell.css'
@@ -207,8 +208,12 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/oobe" element={<OobePage />} />
         <Route path="/announcement" element={<AnnouncementPage />} />
         <Route path="/manage" element={<ManagePage />} />
+        {/* 开发者工具（老 UI dev_utils：抛异常/预览提示/图标模拟/跨月预演…） */}
         <Route path="/tool/:name" element={<ToolPage />} />
-        <Route path="/tool/:name/:task" element={<ToolPage />} />
+        {/* 工具类任务（老 UI page=tool，走的其实是 alas_daemon_overview：
+            配置表单 + 调度器启停 + 日志）。之前这里也指向 ToolPage，
+            于是「半自动点击/性能测试」点进去全是调试按钮、没法启动调度器。 */}
+        <Route path="/tool/:name/:task" element={<TaskToolPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>

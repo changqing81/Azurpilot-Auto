@@ -246,6 +246,14 @@ export function Shell({
       if (key === 'Setting') { navigate('/settings/' + encodeURIComponent(instanceName)); return }
       if (key === 'Announcement') { navigate('/announcement'); return }
       if (key === 'Utils') { navigate('/tool/' + encodeURIComponent(instanceName)); return }
+      // page=tool 的任务（半自动点击/性能测试/活动剧情…）在老 UI 里走
+      // alas_daemon_overview——配置表单 + 调度器启停 + 日志，不是开发者工具页。
+      // 它们必须带上任务名进 /tool/:name/:task，否则只能看到调试按钮。
+      const toolGroup = menu.find(g => g.page === 'tool' && g.tasks.some(t => t.key === key))
+      if (toolGroup) {
+        navigate(`/tool/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
+        return
+      }
       navigate(`/config/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
     }
   }
