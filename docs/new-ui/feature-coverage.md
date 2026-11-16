@@ -13,7 +13,7 @@
 | 设置 Setting | `#/settings/:name` | ✅ | 启动器自启动 + deploy.yaml 全量可视化（含界面版本切换） |
 | 公告 Announcement | `#/announcement` | ✅ | 本轮新增。正文 + 配图 + 更新日志 |
 | 开发者工具 Utils | `#/tool/:name` | ✅ | 调试按钮 + **可用的日志导出** |
-| 管理 Manage（侧栏） | `#/manage` | ✅ | 实例列表 / 新建 / 删除（校验与两道保护照抄老 UI） |
+| 管理 Manage（侧栏） | `#/manage` | ✅ | 实例列表 / 新建 / 删除 / **导入配置** / **导出数据**（全部+单实例） |
 
 ## 二、实例内页覆盖
 
@@ -127,7 +127,8 @@
 | 项 | 原因 | 影响 |
 |---|---|---|
 | 开发者工具页的 20 个调试按钮 | 全是 PyWebIO `put_button(onclick=...)` 会话内回调，无 REST 等价物 | 需要调试时切回老 UI（点击已明确提示） |
-| 管理页的配置导入/导出、任务摘要展开、legacy 导入 | app_manage.py 里这部分逻辑最重（约 700 行，含跨模块配置读写） | 只迁了「列表/新建/删除」三件核心操作 |
+| 管理页的任务摘要展开（点实例看已启用任务清单） | app_manage.py:_toggle_summary，纯展示增强 | 可在总览页看任务队列替代 |
+| legacy 数据导入（旧版本备份还原） | 走 `/api/import_legacy_upload`，UI 较复杂 | 端点保留，暂未做前端 |
 | 维护横幅 | 依赖老 UI 的 run_js 增量更新 | 未移植 |
 | 页面骨架屏（切页时） | 老 UI 的 `#alas-page-skeleton` | 新 UI 只有首屏骨架，切页无骨架 |
 | 移动端布局 | `alas-mobile.css` 未纳入 bundle | 窄屏未适配 |
