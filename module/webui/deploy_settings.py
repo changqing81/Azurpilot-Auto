@@ -292,7 +292,15 @@ def _parse_value(field: DeployField, value: Any) -> Any:
 
     if field.kind == "select":
         value = str(value or "").strip()
-        if value not in field.options:
+        # options 支持两种写法：
+        #   1) 纯值元组 ("default", "dark", ...)                 —— 老字段
+        #   2) (值, 显示名) 二元组 (("legacy","老 UI"), ...)      —— 需要中文显示名的字段（如 UI）
+        # 校验时统一取「值」那一维比较，否则带标签的选项永远匹配不上。
+        allowed = [
+            opt[0] if isinstance(opt, (tuple, list)) and opt else opt
+            for opt in field.options
+        ]
+        if value not in allowed:
             raise ValueError(f"{field.key} 的值无效")
         return value
 
