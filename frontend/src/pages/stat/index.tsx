@@ -62,6 +62,13 @@ export function StatPage() {
     setTabRaw(id)
     try { localStorage.setItem(STAT_TAB_KEY, id) } catch { /* 隐私模式 */ }
   }
+  // URL ?tab= 变化时跟随（useState 初始化只跑一次，之后 URL 再变就不生效了
+  // —— 实测从 #/stat/alas?tab=opsi 改到 ?tab=fleet，激活页签纹丝不动）。
+  // 优先级保持 URL > localStorage：显式带 tab 的链接必须落到那个页签。
+  useEffect(() => {
+    const fromUrl = searchParams.get('tab')
+    if (fromUrl && TABS.some(t => t.id === fromUrl)) setTabRaw(fromUrl)
+  }, [searchParams])
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const indicatorRef = useRef<HTMLSpanElement | null>(null)
   const [meta, setMeta] = useState('')

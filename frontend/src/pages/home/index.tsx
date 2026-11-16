@@ -157,11 +157,12 @@ export function Overview({ instance }: { instance: string }) {
     let width = 80
     let widthMeasured = false
     let stopped = false
-    let visible = !document.hidden
-    const onVis = () => { visible = !document.hidden }
-    document.addEventListener('visibilitychange', onVis)
+    // ⚠️ 不要按 document.hidden 暂停：无头浏览器/后台标签页 hidden 恒为 true，
+    // 初始化的 visible=false 会让 tick 永远 return —— 实测总览页日志区整块空白
+    // （/tail 一次请求都没发出，CDP 网络面板零记录）。
+    // 2 秒一次的本地请求开销可忽略；老 UI 的 put_log 循环同样无条件跑。
     const tick = () => {
-      if (stopped || !visible) return
+      if (stopped) return
       const scope = document.getElementById('pywebio-scope-log') as HTMLElement | null
       if (!scope) return
       if (!widthMeasured) {
@@ -211,7 +212,6 @@ export function Overview({ instance }: { instance: string }) {
       stopped = true
       clearInterval(timer)
       clearTimeout(first)
-      document.removeEventListener('visibilitychange', onVis)
     }
   }, [instance])
 
