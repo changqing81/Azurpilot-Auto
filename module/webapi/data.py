@@ -1172,3 +1172,145 @@ def import_instance_config(filename: str, content: bytes) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 导入配置失败({filename}): {e}")
         return {"success": False, "error": str(e), "name": "", "mod": ""}
+
+
+# ─────────────────── 开发者工具（补老 UI dev_utils 的 REST 缺口）───────────────────
+# 老 UI 的这些调试动作全在 PyWebIO 回调里（app_developer_tools.py:dev_utils），
+# 新 UI 没有 WS 通道。这里把它们逐个搬成 REST —— 逻辑一行不改，只换调用方式。
+# 这些是开发调试用，非终端用户高频路径，但仍要能跑，不能只显示"请切回老 UI"。
+
+
+def dev_raise_exception() -> dict:
+    """抛出异常事件（老 UI 的 raise_exception）。
+
+    直接在服务端抛，让 PyWebIO/Starlette 的错误处理走一遍，
+    用于验证异常捕获与错误页渲染。
+    """
+    raise RuntimeError("开发者工具：故意抛出的测试异常（新 UI 触发）")
+
+
+def dev_preview_update_notice() -> dict:
+    """预览更新提示（_preview_update_notice）。"""
+    from module.webui.app_dependencies import State
+
+    # 老 UI 的做法：走 updater 的预览通道。这里复用同一入口。
+    try:
+        updater = State.deploy_config  # 仅用于确认 State 已初始化
+        del updater
+        from module.webui import update_notice
+
+        fn = getattr(update_notice, "preview", None)
+        if callable(fn):
+            fn()
+            return {"success": True, "note": "已触发更新提示预览"}
+        return {"success": False, "error": "当前版本没有 update_notice.preview 入口"}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 预览更新提示失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def dev_mock_icon_state(instance: str, state: int, seconds: int = 10) -> dict:
+    """模拟侧栏实例图标状态（_mock_icon_state）。
+
+    state: 1=运行中 / 3=异常 / 4=更新中
+    """
+    from module.webui.process_manager import ProcessManager
+
+    try:
+        if not instance:
+            return {"success": False, "error": "没有可用实例"}
+        ProcessManager.get_manager(instance).set_state_override(state, duration=seconds)
+        logger.info(f"[webapi] 已模拟 {instance} 图标状态 {state}（{seconds}s）")
+        return {"success": True, "instance": instance, "state": state}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 模拟图标状态失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def dev_clear_icon_state(instance: str) -> dict:
+    """清除图标模拟状态（_clear_mock_icon_state）。"""
+    from module.webui.process_manager import ProcessManager
+
+    try:
+        if not instance:
+            return {"success": False, "error": "没有可用实例"}
+        ProcessManager.get_manager(instance).clear_state_override()
+        return {"success": True, "instance": instance}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e)}
+
+
+def dev_cross_month_rehearsal(instance: str, mode: str) -> dict:
+    """跨月预演（_cross_month_rehearsal）。
+
+    mode: "cleanup" 仅清理 / "full" 全流程
+    向目标实例写入 RehearsalDebug 并立即触发调度。
+    """
+    from module.config.deep import deep_set
+    from module.config.time_source import now as current_time
+    from module.webui.app_dependencies import State
+
+    try:
+        if not instance:
+            return {"success": False, "error": "没有可用实例"}
+        if mode not in ("cleanup", "full"):
+            return {"success": False, "error": "mode 必须是 cleanup 或 full"}
+        data = State.config_updater.read_file(instance)
+        deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", mode)
+        deep_set(data, "OpsiCrossMonth.Scheduler.Enable", True)
+        deep_set(
+            data,
+            "OpsiCrossMonth.Scheduler.NextRun",
+            current_time().strftime("%Y-%m-%d %H:%M:%S"),
+        )
+        State.config_updater.write_file(instance, data)
+        logger.info(f"[webapi] 已向 {instance} 下发跨月预演（{mode}）")
+        return {"success": True, "instance": instance, "mode": mode}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 跨月预演失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def dev_cancel_cross_month_rehearsal(instance: str) -> dict:
+    """取消待执行的跨月预演（_cross_month_rehearsal_cancel）。"""
+    from datetime import timedelta
+
+    from module.config.deep import deep_get, deep_set
+    from module.config.utils import get_os_next_reset
+    from module.webui.app_dependencies import State
+
+    try:
+        if not instance:
+            return {"success": False, "error": "没有可用实例"}
+        data = State.config_updater.read_file(instance)
+        mode = deep_get(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
+        if mode not in ("cleanup", "full"):
+            return {"success": False, "error": "当前没有待执行的跨月预演请求"}
+        deep_set(data, "OpsiCrossMonth.OpsiCrossMonth.RehearsalDebug", "off")
+        next_run = get_os_next_reset() - timedelta(minutes=10)
+        deep_set(
+            data,
+            "OpsiCrossMonth.Scheduler.NextRun",
+            next_run.strftime("%Y-%m-%d %H:%M:%S"),
+        )
+        State.config_updater.write_file(instance, data)
+        return {"success": True, "instance": instance}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e)}
+
+
+def dev_restart_alas(instance: str) -> dict:
+    """重启 Alas 实例（老 UI 的「重启Alas」按钮）。"""
+    from module.webui.process_manager import ProcessManager
+
+    try:
+        if not instance:
+            return {"success": False, "error": "没有可用实例"}
+        mgr = ProcessManager.get_manager(instance)
+        mgr.stop()
+        mgr.start()
+        logger.info(f"[webapi] 已重启实例 {instance}")
+        return {"success": True, "instance": instance}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 重启实例失败: {e}")
+        return {"success": False, "error": str(e)}

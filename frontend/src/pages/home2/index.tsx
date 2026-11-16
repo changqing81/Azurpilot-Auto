@@ -81,7 +81,10 @@ const LANGS = [
 ]
 // 「主题按钮颜色」与 app_home.py:420-441 的 put_buttons color 一一对应
 const THEMES = [
-  { name: 'Light', value: 'light', color: 'light' },
+  // 老 UI app_home.py:422 的值是 "default"，不是 "light" ——
+  // 写成 light 虽然 THEME_OPTIONS 也接受，但 normalize 后落到别的层，
+  // 与老 UI 点 Light 的效果不一致。
+  { name: 'Light', value: 'default', color: 'light' },
   { name: 'Dark', value: 'dark', color: 'dark' },
   { name: '高级材质', value: 'advanced_material', color: 'primary' },
   { name: '高级材质（暗色）', value: 'dark_advanced_material', color: 'dark' },
@@ -118,8 +121,17 @@ export function HomePageMain() {
       .catch(() => { /* 公告源不可达：静默，不打扰用户 */ })
   }, [])
 
+  // 切换语言/主题后：**先回主页再重载**。
+  // 坑：直接 location.reload() 会保留当前 hash —— 用户如果在 #/stat/alas
+  // 点了语言，刷新后仍停在统计页，看起来像「点语言跳到了统计页」。
+  // 老 UI 是整页重定向到 /，这里保持一致。
   const onClick = (patch: Record<string, string>) => async () => {
-    try { await writeDeploySetting(patch); location.reload() } catch { /* 写盘失败：不刷新，避免误导 */ }
+    try {
+      await writeDeploySetting(patch)
+      try { localStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
+      location.hash = ''
+      location.replace(location.pathname)
+    } catch { /* 写盘失败：不刷新，避免误导 */ }
   }
 
   const downloadWallpaper = () => {

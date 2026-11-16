@@ -152,6 +152,17 @@ export function Shell({
   const menuRef = (el: HTMLDivElement | null) => {
     if (!el) return
     el.onclick = (ev) => {
+      // 分组标题（summary）：只切换展开态，不跳转、不收起其它分组
+      const summary = (ev.target as HTMLElement).closest('summary')
+      if (summary) {
+        const details = summary.parentElement as HTMLDetailsElement | null
+        const groupKey = details?.dataset.group
+        if (groupKey) {
+          // 用 React 状态驱动，避免直接改 DOM 被下次渲染覆盖
+          setOpenGroups(v => ({ ...v, [groupKey]: !v[groupKey] }))
+        }
+        return
+      }
       const btnEl = (ev.target as HTMLElement).closest('button')
       if (!btnEl) return
       const holder = btnEl.closest('[style*="--menu-"]') as HTMLElement | null
@@ -194,6 +205,11 @@ export function Shell({
   // 桌面端：两者同时存在（aside/menu/content 三栏），menuClass 永远是 collapsed
   //        这个类只在 alas-mobile.css 里是 display:none，桌面无影响。
   const [menuOpen, setMenuOpen] = useState(false)  // 移动端专用：菜单是否展开
+  // 菜单折叠状态：**必须由 React 管理**。
+  // 坑：原来直接输出 `<details>` 字符串，React 每次重渲染都会重建这些 DOM，
+  // 浏览器的 open 属性随之丢失 —— 表现就是「点了一个二级菜单项，
+  // 其他展开的分组全被收起了」（长卿反馈）。改成受控状态后，重渲染不影响展开态。
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
   const menuClass = isMobile
     ? (menuOpen ? '' : 'container-menu-collapsed')
     : 'container-menu-collapsed'
@@ -253,7 +269,9 @@ export function Shell({
             const btn = menuItem(g.key, g.name)
             if (!g.tasks.length) return btn
             const children = g.tasks.map(t => menuItem(t.key, t.name)).join('')
-            return `<details><summary>${g.name}</summary>${children}</details>`
+            const open = openGroups[g.key] ? ' open' : ''
+            // data-group 供事件委托识别展开/收起
+            return `<details data-group="${g.key}"${open}><summary>${g.name}</summary>${children}</details>`
           })
           .join('') +
         `</div>`

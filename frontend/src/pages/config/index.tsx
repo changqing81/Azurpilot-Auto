@@ -96,17 +96,26 @@ function ArgBlock({ arg, onChange }: { arg: Arg; onChange: (v: any) => void }) {
     : 'input'
   return (
     <div id={`pywebio-scope-arg_container-${kind}-${arg.name}`}>
-      {/* 标题/帮助必须用内联 style 钩子：alas.css:1060 起是
-          *[style*="--arg-title--"] 这类子串选择器，React 的 style 对象
-          产出不了（它只能写合法 CSS 声明，写不出 --arg-title-- 这种标记）。 */}
-      <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>
-        {arg.title}
-      </p>
-      {arg.help && (
-        <p style={{ whiteSpace: 'pre-wrap', ['--arg-help--' as string]: '1' } as React.CSSProperties}>
-          {arg.help}
+      {/* ⚠️ 结构必须与 widgets.py:get_title_help 一致：
+          标题与帮助包在一个容器里，整体算 **一个** grid 项。
+          alas-pc.css 的 [id^="pywebio-scope-arg_container-"] 是
+            grid-auto-flow: column; grid-template-columns: 1fr 13rem
+          —— 恰好两列（左：标题+帮助，右：控件）。
+          我原来把标题、帮助、控件作为 3 个直接子元素，被塞进 2 列 grid，
+          于是标题占第 1 列、帮助占第 2 列（13rem 窄栏里换行成竖排）、
+          控件被挤到下一行 —— 长卿截图里「歪七扭八」就是这个原因。
+          标题/帮助用内联 style 钩子（alas.css:1060 是 *[style*="--arg-title--"]
+          子串匹配，React 的 style 对象写不出这种标记，只能自己拼 style 属性）。 */}
+      <div style={{ display: 'grid', gridAutoFlow: 'row', gridTemplateRows: 'auto 1fr' }}>
+        <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>
+          {arg.title}
         </p>
-      )}
+        {arg.help && (
+          <p style={{ whiteSpace: 'pre-wrap', ['--arg-help--' as string]: '1' } as React.CSSProperties}>
+            {arg.help}
+          </p>
+        )}
+      </div>
       <div style={{ ['--input--' as string]: '1' } as React.CSSProperties}>
         <ArgControl arg={arg} onChange={onChange} />
       </div>

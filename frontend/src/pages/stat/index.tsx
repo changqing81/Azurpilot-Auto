@@ -55,17 +55,35 @@ export function StatPage() {
   const tabRefs = useRef<Record<string, HTMLButtonElement | null>>({})
   const indicatorRef = useRef<HTMLSpanElement | null>(null)
   const [meta, setMeta] = useState('')
+  // 页签布局依赖容器宽度/字体，数据加载后才稳定；作为指示条重算的额外触发
+  const groupsKey = TABS.map(t => t.id).join(',')
 
   // 数据截至时间（取实例配置 mtime 或 dashboard.json 更新时间；先本地时间占位，端点在 P4 补）
   // 指示条跟随激活页签滑动（老 UI statistics-tab-indicator 同款）
+  // 指示条跟随激活页签（老 UI 用 JS 同步 left/width，见 _layout_statistics_panels）。
+  // 必须在**布局完成后**测量：直接在 useEffect 里读 offsetLeft 有时拿到 0，
+  // 导致指示条宽度撑满、视觉上像多个页签叠在一起。
   useEffect(() => {
-    const el = tabRefs.current[tab]
-    const ind = indicatorRef.current
-    if (el && ind) {
+    const sync = () => {
+      const el = tabRefs.current[tab]
+      const ind = indicatorRef.current
+      if (!el || !ind) return false
+      // 元素还没参与布局（宽度为 0）时返回 false，交由下一帧重试
+      if (!el.offsetWidth) return false
       ind.style.left = el.offsetLeft + 'px'
       ind.style.width = el.offsetWidth + 'px'
+      return true
     }
-  }, [tab])
+    if (sync()) return
+    let raf = 0
+    let tries = 0
+    const retry = () => {
+      if (sync() || ++tries > 30) return
+      raf = requestAnimationFrame(retry)
+    }
+    raf = requestAnimationFrame(retry)
+    return () => cancelAnimationFrame(raf)
+  }, [tab, groupsKey])
   useEffect(() => {
     const now = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -104,42 +122,47 @@ export function StatPage() {
           <span className="st-tab-indicator" id="statistics-tab-indicator" />
         </div>
 
+        {/* 面板容器：老 UI 是 <div class="st-panels" id="statistics-panels">，
+            CSS 靠 .st-panels 给 padding-top:18px，并靠 .st-panel.is-active 控制显隐。
+            我原来直接散放 6 个带条件渲染的 div，缺了这层容器。 */}
+        <div className="st-panels" id="statistics-panels">
         {tab === 'opsi' && (
-          <div id="st-panel-opsi" className="ov-card apple-card st-panel is-active">
+          <div id="st-panel-opsi" className="st-panel is-active">
             <div className="ov-card-title">大世界</div>
             <OpsiPanel name={name} />
           </div>
         )}
         {tab === 'commission' && (
-          <div id="st-panel-commission" className="ov-card apple-card st-panel is-active">
+          <div id="st-panel-commission" className="st-panel is-active">
             <div className="ov-card-title">委托</div>
             <CommissionIncome name={name} />
           </div>
         )}
         {tab === 'research' && (
-          <div id="st-panel-research" className="ov-card apple-card st-panel is-active">
+          <div id="st-panel-research" className="st-panel is-active">
             <div className="ov-card-title">科研</div>
             <ResearchPanel name={name} />
           </div>
         )}
         {tab === 'resource' && (
-          <div id="st-panel-resource" className="ov-card apple-card st-panel is-active">
+          <div id="st-panel-resource" className="st-panel is-active">
             <div className="ov-card-title">资源</div>
             <DeltaSummary name={name} />
           </div>
         )}
         {tab === 'fleet' && (
-          <div id="st-panel-fleet" className="ov-card apple-card st-panel is-active">
+          <div id="st-panel-fleet" className="st-panel is-active">
             <div className="ov-card-title">科技列表</div>
             <FleetTechPanel name={name} />
           </div>
         )}
         {tab === 'mind' && (
-          <div id="st-panel-mind" className="ov-card apple-card st-panel is-active">
+          <div id="st-panel-mind" className="st-panel is-active">
             <div className="ov-card-title">心智计算器</div>
             <MindPanel name={name} />
           </div>
         )}
+        </div>
       </div>
     </div>
     </Shell>

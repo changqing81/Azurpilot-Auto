@@ -185,6 +185,42 @@ async def instance_import(request: Request) -> JSONResponse:
     )
 
 
+async def dev_action(request: Request) -> JSONResponse:
+    """开发者工具的调试动作（对应老 UI app_developer_tools.py:dev_utils）。
+
+    老 UI 这些按钮全是 PyWebIO 会话内回调，新 UI 没 WS 通道。
+    这里统一成一个 POST 端点，用 action 字段分派 ——
+    相比给每个动作单独开路由，这样前端只需一张动作表。
+    """
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    action = str(body.get("action", "")).strip()
+    instance = str(body.get("instance", "")).strip()
+    mode = str(body.get("mode", "")).strip()
+
+    handlers = {
+        "raise_exception": lambda: data.dev_raise_exception(),
+        "preview_update": lambda: data.dev_preview_update_notice(),
+        "mock_icon": lambda: data.dev_mock_icon_state(
+            instance, int(body.get("state", 1)), int(body.get("seconds", 10))
+        ),
+        "clear_icon": lambda: data.dev_clear_icon_state(instance),
+        "cross_month": lambda: data.dev_cross_month_rehearsal(instance, mode),
+        "cancel_cross_month": lambda: data.dev_cancel_cross_month_rehearsal(instance),
+        "restart_alas": lambda: data.dev_restart_alas(instance),
+    }
+    fn = handlers.get(action)
+    if fn is None:
+        return JSONResponse(
+            {"success": False, "error": f"未知动作: {action}"}, status_code=400
+        )
+    try:
+        return JSONResponse(await run_in_threadpool(fn))
+    except Exception as e:  # noqa: BLE001 —— raise_exception 就是故意抛的
+        return JSONResponse({"success": False, "error": f"{type(e).__name__}: {e}"})
+
+
 async def announcement(request: Request) -> JSONResponse:
     """公告内容（/newapi/announcement?force=1 强制刷新）。"""
     force = request.query_params.get("force") in ("1", "true", "yes")
@@ -381,6 +417,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instance/import", instance_import, methods=["POST"]),
         Route("/newapi/instance/create", instance_create, methods=["POST"]),
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
+        Route("/newapi/dev/action", dev_action, methods=["POST"]),
         Route("/newapi/announcement", announcement),
         Route("/newapi/update-log", update_log),
         Route("/newapi/config/{name}/task/{task}", task_config),
