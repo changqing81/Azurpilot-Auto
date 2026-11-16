@@ -22,12 +22,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../api/client'
+import { putLoading } from '../lib/pywebio'
 
 type Instance = { name: string; state: number }
 type InstancesResp = { instances: Instance[] }
 type MenuGroup = { key: string; name: string; page: string; tasks: { key: string; name: string }[] }
 type MenuResp = { groups: MenuGroup[] }
 type HeaderResp = { icon: string; prefix: string; title: string }
+type FixedMenuResp = {
+  items: { key: string; name: string }[]
+  aside_home: string
+  aside_manage: string
+  search_placeholder: string
+}
 
 // 侧栏图标 SVG（与 assets/gui/icon/*.svg 一致；老 UI 用 filepath_icon 读盘后内联）
 const ICON = {
@@ -163,6 +170,15 @@ export function Shell({
     )
   })
   const [instNames, setInstNames] = useState<string[]>([])
+  // 固定菜单文案（主页 6 个入口 + 侧栏「主页/管理」）由后端按当前语言返回。
+  // 以前这些是**前端硬编码中文**，导致切英文后配置页已经是 "For example,
+  // 7-2..." 了，侧栏还写着「主页/更新器/远程控制」。
+  const [fixedMenu, setFixedMenu] = useState<FixedMenuResp>({
+    items: [],
+    aside_home: '主页',
+    aside_manage: '管理',
+    search_placeholder: '搜索配置',
+  })
   const [header, setHeader] = useState<HeaderResp>({
     icon: '/static/assets/spa/spa-icon-192x192.png',
     prefix: '待到山花烂漫时，她在丛中笑',
@@ -178,14 +194,77 @@ export function Shell({
     return () => window.removeEventListener('alas-language-change', onLang)
   }, [])
 
+  // 实例状态（侧栏图标：运行圈 / 空闲 / 异常角标 / 更新角标）需要**轮询**。
+  //
+  // 老 UI 用 task_handler 每 2 秒跑一次 set_aside_status
+  // （app_home.py:2073），只在该实例状态变化时重绘那一个 scope。
+  // 新 UI 原来只在挂载时拉一次 /newapi/instances，于是调度器启动后侧栏
+  // 图标永远停在空闲态 —— 长卿：「这里运行的小圆圈记得需要加回去」。
+  //
+  // 轮询间隔取 3s（老 UI 是 2s；这里省一次请求，状态切换的延迟感知相同）。
+  //
+  // **不要按 document.hidden 跳过请求**：无头浏览器/后台标签页里 hidden 恒为
+  // true，首帧那次 loadInstances 会直接 return，实例列表永远是空的 ——
+  // 实测侧栏只剩「主页 / 管理」，alas 和小号整个消失（CDP 截图确认）。
+  // 3 秒一次的本地请求开销可以忽略，老 UI 也是无条件轮询。
   useEffect(() => {
-    apiGet<InstancesResp>('/newapi/instances').then(r => { setInstances(r.instances); setInstNames(r.instances.map(i => i.name)) }).catch(() => {})
+    let alive = true
+    const loadInstances = () => {
+      apiGet<InstancesResp>('/newapi/instances', 8000)
+        .then(r => {
+          if (!alive) return
+          // 状态没变就不 setState，避免每 3 秒重建 aside 的 HTML 字符串
+          setInstances(prev => {
+            const sig = (list: Instance[]) => list.map(i => i.name + ':' + i.state).join('|')
+            return sig(prev) === sig(r.instances) ? prev : r.instances
+          })
+          setInstNames(prev => {
+            const next = r.instances.map(i => i.name)
+            return prev.join('|') === next.join('|') ? prev : next
+          })
+        })
+        .catch(() => {})
+    }
+    loadInstances()
+    const timer = setInterval(loadInstances, 3000)
+    const onVis = () => { loadInstances() }
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      alive = false
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [langTick])
+
+  useEffect(() => {
     apiGet<MenuResp>('/newapi/menu').then(r => setMenu(r.groups)).catch(() => {})
     apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
+    apiGet<FixedMenuResp>('/newapi/menu/fixed').then(setFixedMenu).catch(() => {})
   }, [langTick])
 
   // 当前实例名（菜单跳转用）：优先当前页 active，回退第一个实例
   const instanceName = instNames.includes(active) ? active : instNames[0] ?? 'alas'
+
+  // 页眉状态圈（老 UI app_shell.py:318-359 set_status 的同构实现）。
+  // 长卿：「在运行中，她在丛中笑那后面的小⭕呢，怎么不加回来？」
+  // 老 UI 状态 → 样式映射（逐字照抄 340-349 行）：
+  //   1 running  → spinner-border success（绿圈）；zh 系状态文字为空，只留圈
+  //   2 inactive → spinner-border secondary（灰圈）
+  //   3 warning  → spinner-grow warning（黄色呼吸圈）
+  //   4 updating → spinner-grow success（绿色呼吸圈）
+  //   0/其他 → 不渲染（主页 app_home.py:378 就是 set_status(0)）
+  // 数据源：轮询 /newapi/instances 拿到的当前实例 state。
+  const headerState = instances.find(i => i.name === instanceName)?.state ?? 0
+  const headerStatusHtml = (() => {
+    // 老 UI 用 pywebio 的 spinner-border/grow + text-success 等配色类；
+    // 尺寸与钩子由 alas.css:1084-1100 的 --loading-*-- 规则给定，
+    // 所以这里必须复用 putLoading 的逐字节同构 DOM，不能自己拼。
+    if (headerState === 1) return putLoading('border', 'success')
+    if (headerState === 2) return putLoading('border', 'secondary')
+    if (headerState === 3) return putLoading('grow', 'warning')
+    if (headerState === 4) return putLoading('grow', 'success')
+    return ''
+  })()
 
   // 侧栏/菜单由 HTML 字符串注入，导航靠事件委托（与老 UI onclick 语义一致）。
   const asideRef = (el: HTMLDivElement | null) => {
@@ -193,21 +272,22 @@ export function Shell({
     el.onclick = (ev) => {
       const btnEl = (ev.target as HTMLElement).closest('button')
       if (!btnEl) return
-      const label = (btnEl.textContent ?? '').trim()
+      // ⚠️ 必须按 **key** 判断，不能按按钮文案判断。
+      // 文案随界面语言变化（「主页」↔ "Home"），原来写 label === '主页'
+      // 在切英文后所有侧栏导航全部失效 —— 点 Home 什么都不会发生。
+      const holder = btnEl.closest('[style*="--aside-"]') as HTMLElement | null
+      const asideKey = (holder?.getAttribute('style') ?? '').match(/--aside-(.+?)--/)?.[1]
       // 移动端：侧栏顶部的「主页」图标在 alas-mobile.css 下退化为「菜单开关」
       // （老 UI app_developer_menu.py:78-84 的 ui_develop 二次点击语义：
       //  点一次展开菜单/内容，再点一次收起）。
-      if (isMobile && label === '主页') {
+      if (isMobile && asideKey === 'Home') {
         setMenuOpen(v => !v)
         return
       }
-      if (label === '主页') { navigate('/'); return }
-      if (label === '管理') { navigate('/manage'); return }
-      // 实例按钮：进对应实例的总览页
-      const holder = btnEl.closest('[style*="--aside-"]') as HTMLElement | null
-      const mark = holder?.getAttribute('style') ?? ''
-      const m = mark.match(/--aside-(.+?)--/)
-      if (m && m[1] !== 'Home' && m[1] !== 'Manage') navigate('/overview/' + encodeURIComponent(m[1]))
+      if (asideKey === 'Home') { navigate('/'); return }
+      if (asideKey === 'Manage') { navigate('/manage'); return }
+      // 实例按钮：进对应实例的总览页（asideKey 就是实例名）
+      if (asideKey) navigate('/overview/' + encodeURIComponent(asideKey))
     }
   }
   const menuRef = (el: HTMLDivElement | null) => {
@@ -288,7 +368,7 @@ export function Shell({
 
   const asideHtml =
     `<div id="pywebio-scope-aside_home">` +
-    iconButton(ICON.develop, '主页', 'Home', active === 'Home') +
+    iconButton(ICON.develop, fixedMenu.aside_home, 'Home', active === 'Home') +
     `</div>` +
     `<div id="pywebio-scope-aside_instance">` +
     instances
@@ -300,20 +380,25 @@ export function Shell({
       .join('') +
     `</div>` +
     `<div id="pywebio-scope-aside_manage">` +
-    iconButton(ICON.setting, '管理', 'Manage', active === 'Manage') +
+    iconButton(ICON.setting, fixedMenu.aside_manage, 'Manage', active === 'Manage') +
     `</div>`
 
   // 菜单树：老 UI 有两套，必须区分（实测 22267 真实 DOM）。
   //   ① 主页（HomePagePage）：6 个固定入口，无搜索框，--menu-HomePage/Update/Remote/Setting/Announcement/Utils
   //   ② 实例页：配置搜索框 + 完整配置树，分组用 <details><summary>，首项 --menu-Overview
-  const HOME_MENU: { key: string; name: string }[] = [
-    { key: 'HomePage', name: '主页' },
-    { key: 'Update', name: '更新器' },
-    { key: 'Remote', name: '远程控制' },
-    { key: 'Setting', name: '设置' },
-    { key: 'Announcement', name: '公告' },
-    { key: 'Utils', name: '开发者工具' },
-  ]
+  // 文案来自后端 /newapi/menu/fixed（按当前界面语言翻译）。
+  // 兜底数组仅在接口不可用时使用（老后端）。
+  const HOME_MENU: { key: string; name: string }[] =
+    fixedMenu.items.length > 0
+      ? fixedMenu.items
+      : [
+          { key: 'HomePage', name: '主页' },
+          { key: 'Update', name: '更新器' },
+          { key: 'Remote', name: '远程控制' },
+          { key: 'Setting', name: '设置' },
+          { key: 'Announcement', name: '公告' },
+          { key: 'Utils', name: '开发者工具' },
+        ]
 
   const menuItem = (key: string, name: string) =>
     `<div style=";;--menu-${key}--;"><button class="btn btn-menu${
@@ -330,7 +415,7 @@ export function Shell({
       : // 实例页：搜索框 + 配置树
         `<div id="pywebio-scope-task_config_search">` +
         `<div class="form-group" style=";;--task-config-search-input--">` +
-        `<input type="text" class="form-control" name="config_search_keyword" value="" placeholder="搜索配置">` +
+        `<input type="text" class="form-control" name="config_search_keyword" value="" placeholder="${fixedMenu.search_placeholder}">` +
         `<div class="invalid-feedback"></div><div class="valid-feedback"></div>` +
         `<small class="form-text text-muted"></small></div></div>` +
         `<div id="pywebio-scope-task_config_search_results"></div>` +
@@ -356,7 +441,10 @@ export function Shell({
             <div id="pywebio-scope-header">
               <img className="alas-icon" src={header.icon} alt="AzurPilot" width={42} height={42} style={{ ['--header-icon--' as string]: '1' } as React.CSSProperties} />
               <p style={{ whiteSpace: 'pre-wrap', ['--header-text--' as string]: '1' } as React.CSSProperties}>{header.prefix}</p>
-              <div id="pywebio-scope-header_status"></div>
+              <div
+                id="pywebio-scope-header_status"
+                dangerouslySetInnerHTML={{ __html: headerStatusHtml }}
+              />
               <div id="pywebio-scope-header_title"><p style={{ whiteSpace: 'pre-wrap' }}>{title}</p></div>
             </div>
             <div id="pywebio-scope-contents">
