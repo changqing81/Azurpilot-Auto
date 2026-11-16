@@ -112,6 +112,33 @@ async def bundled_css(request: Request) -> Response:
     )
 
 
+async def instances_detail(request: Request) -> JSONResponse:
+    """实例详情列表（管理页用：名称/状态/模块名 + 可用模板）。"""
+    return JSONResponse(await run_in_threadpool(data.list_instances_detail))
+
+
+async def instance_create(request: Request) -> JSONResponse:
+    """创建实例（POST {name, copy_from}）。"""
+    import json as _json
+
+    body = _json.loads(await request.body() or b"{}")
+    return JSONResponse(
+        await run_in_threadpool(
+            data.create_instance, body.get("name", ""), body.get("copy_from", "")
+        )
+    )
+
+
+async def instance_delete(request: Request) -> JSONResponse:
+    """删除实例（POST {name}）。"""
+    import json as _json
+
+    body = _json.loads(await request.body() or b"{}")
+    return JSONResponse(
+        await run_in_threadpool(data.delete_instance, body.get("name", ""))
+    )
+
+
 async def announcement(request: Request) -> JSONResponse:
     """公告内容（/newapi/announcement?force=1 强制刷新）。"""
     force = request.query_params.get("force") in ("1", "true", "yes")
@@ -260,6 +287,9 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/theme-css", theme_css),
         Route("/newapi/restart", restart_webui, methods=["POST"]),
         Route("/newapi/bundle.css", bundled_css),
+        Route("/newapi/instances/detail", instances_detail),
+        Route("/newapi/instance/create", instance_create, methods=["POST"]),
+        Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
         Route("/newapi/announcement", announcement),
         Route("/newapi/update-log", update_log),
         Route("/newapi/config/{name}/task/{task}", task_config),

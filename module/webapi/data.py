@@ -1001,3 +1001,111 @@ def get_update_log() -> dict:
     except Exception as e:  # noqa: BLE001 —— 更新日志是辅助信息，失败不阻塞页面
         logger.warning(f"[webapi] 更新日志读取失败: {e}")
         return {"entries": [], "html": "", "error": str(e)}
+
+
+# ─────────────────────── 实例管理（补老 UI 的 /manage 页缺口） ───────────────────────
+# 老 UI 的管理页（module/webui/app_manage.py）全走 PyWebIO WS 回调，没有 REST 等价物。
+# 关掉老 UI（UI=new）后侧栏「管理」按钮会 404，所以这里补一组最小可用端点：
+# 列表 / 创建 / 删除。导入导出等重逻辑暂不迁移（见 docs/new-ui/feature-coverage.md）。
+
+
+def list_instances_detail() -> dict:
+    """实例列表 + 每个实例的状态与模块名（管理页用）。
+
+    状态码与老 UI 一致：1=running / 2=inactive / 3=warning / 4=updating。
+    """
+    from module.config.utils import alas_instance, get_config_mod
+    from module.webui.process_manager import ProcessManager
+
+    items = []
+    try:
+        names = alas_instance()
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 实例列表失败: {e}")
+        return {"instances": [], "templates": []}
+
+    for name in names:
+        state = 2
+        try:
+            state = ProcessManager.get_manager(name).state
+        except Exception:  # noqa: BLE001 —— 单个实例状态读不到不影响整页
+            pass
+        try:
+            mod_name = get_config_mod(name)
+        except Exception:  # noqa: BLE001
+            mod_name = "alas"
+        items.append({"name": name, "state": state, "mod": mod_name})
+
+    templates = []
+    try:
+        from module.config.utils import alas_template
+
+        templates = list(alas_template())
+    except Exception:  # noqa: BLE001
+        pass
+    return {"instances": items, "templates": templates}
+
+
+def create_instance(name: str, copy_from: str) -> dict:
+    """从模板/现有实例复制出一个新实例（对应 app_manage.py:376-392）。
+
+    Returns: {success, error}
+    """
+    from module.config.utils import alas_instance
+    from module.webui.app_dependencies import State
+
+    name = (name or "").strip()
+    # 校验规则与老 UI validate_name（app_manage.py:136-145）逐条一致
+    if not name:
+        return {"success": False, "error": "名称不能为空"}
+    try:
+        existing = alas_instance()
+    except Exception:  # noqa: BLE001
+        existing = []
+    if name in existing:
+        return {"success": False, "error": "实例名已存在"}
+    if set(name) & set('.\\/:*?"\'<>|'):
+        return {"success": False, "error": "名称含非法字符（禁止 . \\ / : * ? \" \' < > |）"}
+    if name.lower().startswith("template"):
+        return {"success": False, "error": "名称不能以 template 开头"}
+
+    try:
+        updater = State.config_updater
+        # 与老 UI 相同：读源实例配置 → 以新名字写盘
+        config = updater.read_file(copy_from)
+        updater.write_file(name, config)
+        logger.info(f"[webapi] 已创建实例 {name}（复制自 {copy_from}）")
+        return {"success": True, "error": ""}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 创建实例失败({name}): {e}")
+        return {"success": False, "error": str(e)}
+
+
+def delete_instance(name: str) -> dict:
+    """删除实例配置文件（对应 app_manage.py:266-328）。
+
+    两道保护与老 UI 完全一致：不能删最后一个实例、不能删运行中的实例。
+    """
+    from module.config.utils import alas_instance, filepath_config, get_config_mod
+    from module.webui.process_manager import ProcessManager
+
+    try:
+        if len(alas_instance()) <= 1:
+            return {"success": False, "error": "不能删除最后一个实例"}
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if ProcessManager.is_running(name):
+            return {"success": False, "error": f"实例 {name} 正在运行，请先停止"}
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        mod_name = get_config_mod(name)
+        os.remove(filepath_config(name, mod_name))
+        ProcessManager.remove_manager(name)
+        logger.info(f"[webapi] 已删除实例 {name}")
+        return {"success": True, "error": ""}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 删除实例失败({name}): {e}")
+        return {"success": False, "error": str(e)}
