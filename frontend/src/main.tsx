@@ -73,7 +73,8 @@ fetch('/newapi/theme-css')
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Overview } from './pages/home'
 import { useParams as useParamsForOverview } from 'react-router-dom'
 import { HomePageMain } from './pages/home2'
@@ -93,10 +94,97 @@ function OverviewRoute() {
   return <Overview instance={name} />
 }
 
+
+// ───────────────────────── 切页骨架屏 ─────────────────────────
+// 老 UI 的做法（module/webui/base.py:318-389）：点菜单的瞬间往
+// #pywebio-scope-content 里 append 一个 #alas-page-skeleton，
+// 真实内容渲染出来后被 MutationObserver 撤掉。
+//
+// 新 UI 没有「服务端往返」这一步（数据走 REST 并行拉取），但切页时
+// 组件挂载 → 首次 fetch 返回之间仍有 100~800ms 的空白，
+// 所以同样值得铺骨架。样式直接复用 alas.css:1408-1464 的
+// .alas-skeleton*（颜色走 --alas-entry-* 令牌，五个主题自适应），
+// 只需按老 UI 的结构生成 DOM。
+//
+// 与老 UI 的差异（有意为之）：
+//   - 用 React 的 useLocation + effect 控制，不用 MutationObserver
+//     （React 什么时候渲染完是确定的，观察 DOM 反而多一层开销）
+//   - 骨架 800ms 后强制移除：即使某页数据拉取失败也不能留一堆灰条
+function PageSkeleton({ visible }: { visible: boolean }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    // 挂载点用常驻的 #pywebio-scope-contents（壳层容器）而不是 #pywebio-scope-content：
+    // 后者只有总览/配置页渲染，统计页用的是 #pywebio-scope-statistics-content，
+    // 切到统计页时 #pywebio-scope-content 根本不存在 → 骨架永远挂不上。
+    // 挂到 contents 上，然后在视觉上覆盖内容区（position:absolute）。
+    let raf = 0
+    let tries = 0
+    const mount = () => {
+      const host = document.getElementById('pywebio-scope-contents')
+      if (!host && ++tries < 20) { raf = requestAnimationFrame(mount); return }
+      if (!host) return
+      const existing = document.getElementById('alas-page-skeleton')
+      if (visible && !existing) {
+      const sk = document.createElement('div')
+      sk.id = 'alas-page-skeleton'
+      const lines = Array.from({ length: 6 }, (_, i) =>
+        '<div class="alas-skeleton-line" style="width:' + (88 - i * 11) + '%"></div>',
+      ).join('')
+        // 覆盖内容区：起点取「内容区元素」的实际左边界，而不是硬算 aside+menu 宽度
+        // （菜单折叠、实例名长短、移动端分支都会让它变化，硬算必错位）。
+        // 找不到内容区时退回 contents 的 padding-left。
+        const anchor =
+          document.getElementById('pywebio-scope-content') ||
+          document.getElementById('pywebio-scope-statistics-content')
+        const hostRect = host.getBoundingClientRect()
+        const anchorRect = anchor ? anchor.getBoundingClientRect() : null
+        const left = anchorRect ? Math.max(0, Math.round(anchorRect.left - hostRect.left)) : 0
+        const width = anchorRect ? Math.round(anchorRect.width) : hostRect.width - left
+        // 必须给骨架自己一块不透明底：否则右侧露出页面底色，看起来像"内容缺失"
+        const bg = getComputedStyle(document.body).backgroundColor
+        sk.style.cssText =
+          'position:absolute;top:0;height:100%;z-index:1;overflow:hidden;' +
+          'left:' + left + 'px;width:' + width + 'px;' +
+          'background:' + (bg && bg !== 'rgba(0, 0, 0, 0)' ? bg : 'var(--alas-entry-page, #f9f9f9)') + ';'
+        sk.innerHTML = '<div class="alas-skeleton"><div class="alas-skeleton-title"></div>' + lines + '</div>'
+        if (getComputedStyle(host).position === 'static') host.style.position = 'relative'
+        host.appendChild(sk)
+      } else if (!visible && existing) {
+        existing.remove()
+      }
+    }
+    mount()
+    return () => cancelAnimationFrame(raf)
+  }, [visible])
+  return <div ref={ref} style={{ display: 'none' }} aria-hidden="true" />
+}
+
+// 路由变化时铺骨架，内容挂载后 400ms 撤掉（给首次数据拉取留时间），
+// 最长 2500ms 强制撤（数据失败也不能留灰条）。
+function SkeletonOnRouteChange() {
+  const location = useLocation()
+  const [visible, setVisible] = useState(false)
+  // 监听 HashRouter 的 location（含 hash 变化）。用整个 location.key 而不是
+  // pathname：同一个 pathname 换实例名（#/overview/alas → #/overview/小号）也算切页。
+  const routeKey = location.pathname + location.search
+  useEffect(() => {
+    // 主页不铺骨架（老 UI 的 init_menu 同样跳过 HomePage：主页是轻量静态内容）
+    if (location.pathname === '/') { setVisible(false); return }
+    setVisible(true)
+    // 400ms 后撤：给首次数据拉取留出时间，之后即使还没回来也直接显示真实容器
+    const hide = setTimeout(() => setVisible(false), 400)
+    // 2.5s 强制撤：数据失败也不能一直挂灰条
+    const force = setTimeout(() => setVisible(false), 2500)
+    return () => { clearTimeout(hide); clearTimeout(force) }
+  }, [routeKey])
+  return <PageSkeleton visible={visible} />
+}
+
 // 新 UI 入口。路由用 hash 模式：避免与老 UI 的服务端路由 / scope 约定冲突。
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
+      <SkeletonOnRouteChange />
       <Routes>
         <Route path="/" element={<HomePageMain />} />
         <Route path="/overview/:name" element={<OverviewRoute />} />
