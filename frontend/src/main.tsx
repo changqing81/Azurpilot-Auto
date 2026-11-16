@@ -34,6 +34,25 @@ function basenameOf(href: string): string {
   return clean.substring(clean.lastIndexOf('/') + 1)
 }
 
+// 移动端布局层：alas-pc.css ↔ alas-mobile.css（老 UI utils.py:webui_style_names 同口径）。
+// 必须在**样式表插入顺序不变**的前提下换 href：alas-mobile.css 里是
+// 「菜单折叠 / 日志小字号 / 总览改上下两行 / 仪表盘 6rem 栅格 / 触控 44px」整组窄屏规则。
+// 注意：这两份文件的相对位置在 <link> 链里固定（紧随 alas.css），
+// 直接改 href 不改变顺序，层叠优先级不受影响。
+const MOBILE_UA_TOKENS = ['mobile', 'android', 'iphone', 'ipod', 'ipad', 'windows phone', 'blackberry']
+function isMobileUA(): boolean {
+  const ua = (navigator.userAgent || '').toLowerCase()
+  return MOBILE_UA_TOKENS.some(t => ua.includes(t))
+}
+function applyLayoutLayer() {
+  const link = document.getElementById('alas-layout-css') as HTMLLinkElement | null
+  if (!link) return
+  const want = isMobileUA() ? 'alas-mobile' : 'alas-pc'
+  if (!link.href.includes('/' + want + '.css')) {
+    link.href = '/static/assets/gui/css/' + want + '.css'
+  }
+}
+
 function applyTheme(payload: { theme?: string; links?: string[] } | null) {
   if (!payload) return
   const theme = payload.theme || 'default'
@@ -62,6 +81,8 @@ function applyTheme(payload: { theme?: string; links?: string[] } | null) {
   // 4) 通知别的模块（统计页图表等）主题已变
   window.dispatchEvent(new CustomEvent('alas-theme-change', { detail: { theme } }))
 }
+
+applyLayoutLayer()
 
 fetch('/newapi/theme-css')
   .then(r => (r.ok ? r.json() : null))

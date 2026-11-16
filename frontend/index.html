@@ -16,7 +16,9 @@
     <link rel="stylesheet" href="/pywebio_static/css/bootstrap-select.min.css" />
     <link rel="stylesheet" href="/pywebio_static/css/app.css" />
     <link rel="stylesheet" href="/static/assets/gui/css/alas.css" />
-    <link rel="stylesheet" href="/static/assets/gui/css/alas-pc.css" />
+    <!-- 移动端分支：alas-pc.css 由 main.tsx 按 UA 换成 alas-mobile.css（老 UI 的
+         utils.py:webui_style_names 同样按 is_mobile 二选一）。这里用 id 方便脚本定位。 -->
+    <link rel="stylesheet" id="alas-layout-css" href="/static/assets/gui/css/alas-pc.css" />
     <link rel="stylesheet" href="/static/assets/gui/css/entry-alas.css" />
     <link rel="stylesheet" href="/static/assets/gui/css/statistics-alas.css" />
     <link rel="stylesheet" href="/static/assets/gui/css/stat-delta-alas.css" />

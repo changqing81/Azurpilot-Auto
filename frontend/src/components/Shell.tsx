@@ -85,14 +85,15 @@ export function Shell({
   const navigate = useNavigate()
   const [instances, setInstances] = useState<Instance[]>([])
   const [menu, setMenu] = useState<MenuGroup[]>([])
-  // content 容器由各页面自己渲染（<div id="pywebio-scope-content">），
-  // 这里用 effect 给它挂/摘 container-content-collapsed，
-  // 语义与老 UI base.py:537-551 的 expand_menu/init_menu 完全一致。
+  // 移动端内容区与菜单互斥：菜单展开时给内容区挂 container-content-collapsed
+  // （alas-mobile.css 里就是 display:none）。同一时刻只有一个可见。
   useEffect(() => {
     if (!isMobile) return
-    const el = document.getElementById('pywebio-scope-content')
-    if (!el) return
-    el.classList.toggle('container-content-collapsed', menuCollapsed)
+    const ids = ['pywebio-scope-content', 'pywebio-scope-statistics-content']
+    ids.forEach(id => {
+      const el = document.getElementById(id)
+      if (el) el.classList.toggle('container-content-collapsed', menuOpen)
+    })
   })
   
   // 移动端判定与后端 /newapi/bundle.css 的 UA 判定保持一致（同一组 token）
@@ -129,7 +130,7 @@ export function Shell({
       // （老 UI app_developer_menu.py:78-84 的 ui_develop 二次点击语义：
       //  点一次展开菜单/内容，再点一次收起）。
       if (isMobile && label === '主页') {
-        setMenuCollapsed(v => !v)
+        setMenuOpen(v => !v)
         return
       }
       if (label === '主页') { navigate('/'); return }
@@ -171,8 +172,16 @@ export function Shell({
   // 但 alas-mobile.css 才把它 display:none，桌面端无影响。
   // 移动端：这个 class 就是「菜单是否收起」的真开关（见 alas-mobile.css:1-7），
   // 由侧栏顶部的按钮切换（老 UI base.py:540-551 的 init_menu/expand_menu 同款语义）。
-  const [menuCollapsed, setMenuCollapsed] = useState(false)
-  const menuClass = isMobile && !menuCollapsed ? '' : 'container-menu-collapsed'
+  // 移动端：菜单与内容**互斥**显示（老 UI base.py:init_aside 的语义）：
+  //   展开菜单 → $('.container-menu-collapsed').removeClass(...)
+  //             + $('#pywebio-scope-content').addClass('container-content-collapsed')
+  //   收起菜单 → 反过来
+  // 桌面端：两者同时存在（aside/menu/content 三栏），menuClass 永远是 collapsed
+  //        这个类只在 alas-mobile.css 里是 display:none，桌面无影响。
+  const [menuOpen, setMenuOpen] = useState(false)  // 移动端专用：菜单是否展开
+  const menuClass = isMobile
+    ? (menuOpen ? '' : 'container-menu-collapsed')
+    : 'container-menu-collapsed'
 
   const asideHtml =
     `<div id="pywebio-scope-aside_home">` +
