@@ -75,9 +75,10 @@ export function CommissionIncome({ name }: { name: string }) {
     setYm({ y, m })
   }
 
-  return (
-    <div>
-      {/* ① 周期按钮：每日 / 每周 / 每月（顺序照老 UI）；历史月份下前两档禁用 */}
+  // 周期按钮 + 年月翻页（老 UI 里它们夹在 summary 和 table 之间）
+  const controls = (
+    <>
+      {/* 周期按钮：每日 / 每周 / 每月（顺序照老 UI）；历史月份下前两档禁用 */}
       <div style={{ display: 'flex', gap: '.375rem', marginBottom: '.5rem' }}>
         {PERIOD_OPTS.map(o => {
           const disabled = o.value !== 'month' && !isCurrentMonth
@@ -94,8 +95,7 @@ export function CommissionIncome({ name }: { name: string }) {
           )
         })}
       </div>
-
-      {/* ② 年月翻页：◀ 2026-11 ▶（对应老 UI _output_commission_month_switch） */}
+      {/* 年月翻页：◀ 2026-11 ▶（对应老 UI _output_commission_month_switch） */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.6rem' }}>
         <button className="btn btn-off" onClick={() => stepMonth(-1)}>◀</button>
         <span style={{ fontSize: '.95rem', fontWeight: 600, minWidth: '5.5rem', textAlign: 'center' }}>
@@ -114,18 +114,34 @@ export function CommissionIncome({ name }: { name: string }) {
           </button>
         )}
       </div>
+    </>
+  )
+
+  // 渲染顺序**严格照抄老 UI app_stat_commission.py:454-499**：
+  //   ① running_html   进行中委托   ← 最上面（打开就想知道现在跑什么、何时回来）
+  //   ② summary_html   收益汇总
+  //   ③ 周期按钮 + 年月翻页
+  //   ④ table_html     收益表
+  //   ⑤ gem_html       钻石委托
+  //   ⑥ recent_html    最近记录
+  // 之前我把 ③ 提到最前、running 夹在 ②④ 之间，与老 UI 相反 —— 长卿：
+  //   「这个位置反了 进行中的在上面」。
+  return (
+    <div>
+      {data?.success && data.running_html && (
+        <div dangerouslySetInnerHTML={{ __html: data.running_html }} />
+      )}
 
       {loading && !data && <div className="st-placeholder">加载中…</div>}
       {data && !data.success && (
         <div className="st-placeholder">{data.error || '暂无委托收入数据（实例运行后出现）'}</div>
       )}
+
       {data?.success && (
         <>
-          {/* ③ 正在进行中的委托 —— 老 UI 放在汇总之上 */}
-          {data.running_html && <div dangerouslySetInnerHTML={{ __html: data.running_html }} />}
           {data.summary_html && <div dangerouslySetInnerHTML={{ __html: data.summary_html }} />}
+          {controls}
           {data.table_html && <div dangerouslySetInnerHTML={{ __html: data.table_html }} />}
-          {/* ④ 钻石委托区块 */}
           {data.gem_html && <div dangerouslySetInnerHTML={{ __html: data.gem_html }} />}
           {data.recent_html && <div dangerouslySetInnerHTML={{ __html: data.recent_html }} />}
         </>

@@ -92,8 +92,9 @@ export function ResearchPanel({ name }: { name: string }) {
     label: '第 ' + s + ' 期',
   }))
 
-  return (
-    <div>
+  // 三行选项控件（老 UI app_stat_research.py:_output_research_controls）
+  const controls = (
+    <>
       <BtnRow
         options={SCOPE_OPTS}
         value={scope}
@@ -113,22 +114,37 @@ export function ResearchPanel({ name }: { name: string }) {
           style={{ marginTop: '.35rem' }}
         />
       )}
-      <div style={{ marginTop: '.75rem' }}>
-        {loading && !data && <div className="st-placeholder">加载中…</div>}
-        {data && !data.success && (
-          <div className="st-placeholder">{data.error || '暂无科研掉落数据'}</div>
-        )}
-        {/* 进行中的科研队列 —— 老 UI 贴在标题下方，比历史掉落更即时 */}
-        {data?.running_html && (
-          <div
-            style={{ marginBottom: '.75rem' }}
-            dangerouslySetInnerHTML={{ __html: data.running_html }}
-          />
-        )}
-        {data?.success && data.table_html && (
-          <div dangerouslySetInnerHTML={{ __html: data.table_html }} />
-        )}
-      </div>
+    </>
+  )
+
+  // 渲染顺序**严格照抄老 UI app_stat_research.py:165-205**：
+  //   ① 标题「科研」（stat page 已渲染）
+  //   ② running_html   进行中的科研   ← 标题正下方（队列在跑什么比历史掉落更即时）
+  //   ③ 指标卡（总/今日/本月/记录）
+  //   ④ 三行选项控件
+  //   ⑤ 掉落表格
+  // 之前我把 ④ 控件提到了 ② 之上，与老 UI 相反 —— 长卿：
+  //   「科研也是一样 反了的」。
+  return (
+    <div>
+      {data?.running_html && (
+        <div
+          style={{ marginBottom: '.75rem' }}
+          dangerouslySetInnerHTML={{ __html: data.running_html }}
+        />
+      )}
+      {loading && !data && <div className="st-placeholder">加载中…</div>}
+      {data && !data.success && (
+        <div className="st-placeholder">{data.error || '暂无科研掉落数据'}</div>
+      )}
+      {data?.success && (
+        <>
+          {controls}
+          {data.table_html && (
+            <div style={{ marginTop: '.75rem' }} dangerouslySetInnerHTML={{ __html: data.table_html }} />
+          )}
+        </>
+      )}
     </div>
   )
 }

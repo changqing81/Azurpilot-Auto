@@ -12,15 +12,10 @@
 //   { html: ap_chart_panel.html 填好数据, js: ap_chart.js 填好数据 }
 // 前端挂载 HTML 后把 js 当 <script> 执行 —— 就是老 UI 那张图。
 // 其余区块（净赚卡/12指标卡/大世界收获/舰船经验）继续用老 UI 的渲染器。
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet } from '../../api/client'
 import { LegacyHtmlPanel } from './LegacyHtmlPanel'
-
-const VIEW_OPTS = [
-  { value: 'line', label: '折线' },
-  { value: 'day', label: '按日' },
-  { value: 'month', label: '按月' },
-]
+import { apMonthCapsuleHtml, apToolbarHtml, type ApView } from './ApToolbar'
 
 export function OpsiPanel({ name }: { name: string }) {
   const [months, setMonths] = useState<string[]>([])
@@ -95,40 +90,69 @@ export function OpsiPanel({ name }: { name: string }) {
     return () => { alive = false }
   }, [name, month])
 
+  // 月份胶囊文案：老 UI 显示 "YYYY-MM" 键，本月显示当前月键
+  const monthLabel = useMemo(() => {
+    if (month) return month
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+  }, [month])
+
+  // 工具栏与图表必须同处 #pywebio-scope-ap_chart 内 —— statistics-alas.css:809
+  // 的分段控件规则前缀就是 #pywebio-scope-statistics-content #pywebio-scope-ap_chart，
+  // 少了这层包裹，.btn-group 一条样式都不命中（这正是之前「太丑」的原因）。
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const host = toolbarRef.current
+    if (!host) return
+    host.innerHTML = apToolbarHtml(view as ApView)
+    // 视图分段：点按钮切 view（与老 UI _switch_ap_chart_view 同语义）
+    const viewGroup = host.querySelector('[data-ap-view-group]') as HTMLElement | null
+    if (viewGroup) {
+      viewGroup.onclick = (ev) => {
+        const btn = (ev.target as HTMLElement).closest('button') as HTMLButtonElement | null
+        const v = btn?.dataset.apView as ApView | undefined
+        if (v && v !== view) setView(v)
+      }
+    }
+    // 月份胶囊：老 UI 点开共用月份选择器；这里用原生 select 弹层，
+    // 但**外观仍是胶囊**（button.btn.btn-secondary 包在 .btn-group 里）。
+    const monthGroup = host.querySelector('[data-ap-month-group]') as HTMLElement | null
+    if (monthGroup) {
+      monthGroup.innerHTML = apMonthCapsuleHtml(monthLabel)
+      const btn = monthGroup.querySelector('button')
+      if (btn) {
+        btn.onclick = () => {
+          const picker = document.getElementById('alas-ap-month-picker') as HTMLInputElement | null
+          if (picker) picker.style.display = ''
+          const sel = document.getElementById('alas-ap-month-select') as HTMLSelectElement | null
+          sel?.focus()
+          sel?.click()
+        }
+      }
+    }
+  }, [view, monthLabel])
+
   return (
     <div>
-      {/* 标题行 + 月份/视图切换（老 UI 的 _render_ap_chart_view_switcher 等价物） */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.5rem', flexWrap: 'wrap', gap: '.5rem' }}>
-        <div className="st-title-sub">体力变化</div>
-        <div style={{ display: 'flex', gap: '.375rem', alignItems: 'center' }}>
-          {/* ⚠️ 必须 flexShrink:0 + flexGrow:0：
-              alas.css 的 .form-control 是 width:100%，在 flex 容器里会
-              把右侧按钮挤出去、视觉上叠在一起（长卿截图：「这里还挤到一起了」）。
-              宽度用 flexBasis 固定，不让它参与伸缩。 */}
+      {/* 图表标题行 + 月份/视图切换（老 UI _render_ap_chart_view_switcher 同构） */}
+      <div id="pywebio-scope-ap_chart">
+        <div ref={toolbarRef} />
+        {/* 月份选择：隐藏的原生控件，由胶囊按钮触发（老 UI 是弹窗，等价交互） */}
+        <div id="alas-ap-month-picker" style={{ display: 'none' }}>
           <select
+            id="alas-ap-month-select"
             className="form-control"
-            style={{ flex: '0 0 auto', width: '7rem', minWidth: '7rem' }}
             value={month}
             onChange={e => setMonth(e.target.value)}
           >
             <option value="">本月</option>
             {months.map(m => (<option key={m} value={m}>{m}</option>))}
           </select>
-          {VIEW_OPTS.map(o => (
-            <button
-              key={o.value}
-              className={'btn ' + (o.value === view ? 'btn-on' : 'btn-off')}
-              onClick={() => setView(o.value)}
-            >
-              {o.label}
-            </button>
-          ))}
         </div>
+        {chartErr && <div className="st-placeholder">{chartErr}</div>}
+        {/* 老 UI 的图表 DOM 挂载点（与工具栏同在 ap_chart scope 内） */}
+        <div ref={hostRef} />
       </div>
-
-      {chartErr && <div className="st-placeholder">{chartErr}</div>}
-      {/* 老 UI 的图表 DOM 挂载点 */}
-      <div ref={hostRef} />
 
       {/* 净赚卡 + 12 指标卡 */}
       <div style={{ marginTop: 18 }}>
