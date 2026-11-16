@@ -654,8 +654,8 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
     import re as _re
 
     from module.config.config_updater import ConfigUpdater
-    from module.config.utils import parse_value
     from module.config.deep import deep_get, deep_set
+    from module.webui.utils import parse_pin_value
 
     if os.environ.get("DEMO") == "1":
         return {"valid": [], "invalid": list(modified.keys()), "error": "demo mode"}
@@ -673,7 +673,14 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
         valuetype = arg_def.get("valuetype") if isinstance(arg_def, dict) else None
         widget_type = arg_def.get("type") if isinstance(arg_def, dict) else None
         options = arg_def.get("option") if isinstance(arg_def, dict) else None
-        v = parse_value(v, {"valuetype": valuetype, "type": widget_type, "option": options})
+        # ⚠️ 必须用老 UI 同一个 parse_pin_value（utils.py:849），不是
+        # config/utils.py 的 parse_value。后者 282-284 行
+        #   if 'option' in data: value not in data['option']
+        # 在 option 为 None 时（args.json 的 checkbox 参数就是这样生成的）
+        # 直接 TypeError → 整个保存 500 —— 长卿截图「无法保存配置」的根因。
+        # parse_pin_value 与老 UI 保存链路（app_task_config.py:814）逐字对齐，
+        # checkbox []/[True]、multiselect、str 保留语义全部一致。
+        v = parse_pin_value(v, valuetype, widget_type, options)
         validate = deep_get(updater.args, k + ".validate")
         if not len(str(v)):
             default = deep_get(updater.args, k + ".value")
