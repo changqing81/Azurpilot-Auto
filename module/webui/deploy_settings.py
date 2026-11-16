@@ -116,10 +116,13 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
             DeployField("DpiScaling", "bool"),
             DeployField("Password", "nullable_string"),
             DeployField("CDN", "cdn"),
-            # 界面版本：legacy = 老 UI（PyWebIO）；new = 新 UI（React 占据 /，
-            # 老 UI 的页面路由在启动时被摘掉，不再后台常驻）。
-            # **切换后需重启 GUI 生效** —— 启动时按配置决定挂哪一套，不做热切换。
-            DeployField("UI", "select", (("legacy", "老 UI"), ("new", "新 UI"))),
+            # 注意：**界面版本（UI）故意不在这里**。
+            # 它是一个「点一下就切换并自动重启」的操作，不是普通表单字段：
+            # 放下拉框里会出现「改了下拉但没点保存 = 什么都没发生」的死角，
+            # 而且改完还要用户自己再点重启。老 UI / 新 UI 的设置页各有专用面板
+            # （老 UI: app_developer_settings.py 的 #ui-switch-panel；
+            #   新 UI: pages/settings/index.tsx 的 group_ui1），
+            # 两者都走 /newapi/ui + /newapi/ui/switch + /newapi/restart。
             DeployField("WebuiSSLKey", "nullable_string"),
             DeployField("WebuiSSLCert", "nullable_string"),
         ),

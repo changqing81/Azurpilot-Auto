@@ -264,6 +264,12 @@ Deploy:
     # 'https://path.to.your/cdn' 使用自定义 CDN
     # 'https://path.to.your/cdn' to use custom cdn
     CDN: false
+    # UI 选择 / UI selection
+    # 'legacy' 老 UI（PyWebIO），'new' 新 UI（React 直接占据 /，老 UI 页面关闭）
+    # 'legacy' for the legacy PyWebIO UI; 'new' for the React UI occupying / (legacy pages disabled)
+    # 在「设置」页点一下即可切换（会自动重启），一般不需要手改这里
+    # Switch on the Settings page; it restarts automatically. Editing here is rarely needed.
+    UI: legacy
     # --run. 启动时自动运行指定的配置
     # --run. Auto-run specified config when startup
     # 'null' 默认不指定

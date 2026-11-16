@@ -23,6 +23,18 @@ _FRONTEND_DIST = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
 )
 
+# **实际正在运行**的界面版本。由 mount_webapi(mount_root=...) 在启动时写入，
+# 之后不再改变（切换界面版本必须重启，见 module/webui/app.py 的「新 UI 挂载」段）。
+#
+# 为什么不能直接读 deploy.yaml 回答「当前是什么 UI」：
+# deploy.yaml 是**配置**，进程启动后它可能被别处改写（部署设置保存、模板补字段、
+# 用户手改、启动器 reset）。配置和正在跑的进程完全可能是两回事——实测踩过：
+# 进程明明是 UI=new（/ 上跑的是 React），/newapi/ui 却因 deploy.yaml 被改回
+# legacy 而回答 legacy，前端的「切换后轮询直到变成目标值」于是瞬间误判成功、
+# 直接跳转，用户看到的就是「点了没反应」。
+# 所以运行时状态只认这里的值，配置值另开一个字段暴露，二者不一致就是「待重启」。
+_RUNTIME_UI: dict = {"mounted": "legacy", "dist": False}
+
 # Windows 注册表可能把 .js 关联成 text/plain 导致整页白屏（wess09 踩过的坑），
 # StaticFiles 用 mimetypes 覆盖表兜底。
 import mimetypes
@@ -464,21 +476,40 @@ async def switch_ui(request: Request) -> JSONResponse:
 
 
 async def current_ui(request: Request) -> JSONResponse:
-    """当前界面版本（供前端显示切换按钮状态）。
+    """当前界面版本。
 
-    直接读 deploy.yaml，不依赖已废弃的 hot_switch.py（热切换方案已放弃，
-    改为启动时按配置挂载 —— 见 module/webui/app.py 的「新 UI 挂载」段）。
+    返回三个字段，语义刻意分开（前端据此判断"该不该轮询重启"）：
+
+    - ui：**进程实际在跑**的界面（启动时定下，重启才会变）。
+    - configured：deploy.yaml 里写的值（用户意图）。
+    - restart_required：两者不一致，表示"已切换但还没重启"。
+
+    为什么必须分开：切换流程是「写配置 → 重启 → 轮询直到新版本起来」。
+    如果 ui 直接读 deploy.yaml，那么写配置的那一刻它就立刻变成目标值，
+    轮询第一次就能"成功"并跳转，于是页面在服务重启前就刷新了——用户看到
+    的是旧界面（甚至连接被拒），判定为「点了没反应」。踩过这个坑。
     """
 
     def _read() -> dict:
         from module.webui.setting import State
 
+        mounted = _RUNTIME_UI.get("mounted", "legacy")
+        if mounted not in ("legacy", "new"):
+            mounted = "legacy"
+        configured = mounted
         try:
             State.deploy_config.read()
-            ui = str(getattr(State.deploy_config, "UI", None) or "legacy").strip().lower()
-            return {"ui": ui if ui in ("legacy", "new") else "legacy"}
-        except Exception:  # noqa: BLE001
-            return {"ui": "legacy"}
+            raw = str(getattr(State.deploy_config, "UI", None) or "").strip().lower()
+            if raw in ("legacy", "new"):
+                configured = raw
+        except Exception:  # noqa: BLE001 —— 读不到配置时按运行时值回答
+            pass
+        return {
+            "ui": mounted,
+            "configured": configured,
+            "restart_required": configured != mounted,
+            "dist": bool(_RUNTIME_UI.get("dist")),
+        }
 
     return JSONResponse(await run_in_threadpool(_read))
 
@@ -646,6 +677,10 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
     ]
     files = _frontend_files()
+    # 记录**实际挂载**结果，供 /newapi/ui 回答「现在跑的是哪套」
+    # （只认这里的值，不认 deploy.yaml —— 理由见 _RUNTIME_UI 的注释）。
+    _RUNTIME_UI["dist"] = files is not None
+    _RUNTIME_UI["mounted"] = "new" if (mount_root and files is not None) else "legacy"
     if files is not None:
         # mount_root=True：新 UI 直接占据 /（老 UI 已由调用方关闭）。
         # 但 /new/ 也必须保留：vite 的 base 是 /new/，index.html 里引用的

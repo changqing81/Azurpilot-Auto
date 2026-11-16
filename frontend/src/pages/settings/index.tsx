@@ -82,7 +82,7 @@ export function SettingsPage() {
     } catch (e) { setMsg('自启动设置失败: ' + String(e)) }
   }
 
-  // 切换界面版本：写 deploy.yaml，然后**提示重启**。
+  // 切换界面版本：写 deploy.yaml → **自动重启** → 轮询到新版本起来后跳转。
   //
   // 为什么不再做热切换：长卿 2026-11-16 拍板——
   //   「正式版老 UI 完全不需要，不要在后台运行。做不到热加载无所谓，
@@ -90,8 +90,35 @@ export function SettingsPage() {
   // 现在的实现是启动时按 Webui.UI 决定挂哪一套（UI=new 时把老 UI 页面路由
   // 整条摘掉），所以必须重启才生效 —— 这是有意为之，换来的是老 UI 不再
   // 在后台占资源、也不再有「两套 UI 并存」的复杂度。
-  const [switchedTo, setSwitchedTo] = useState<string>('')
+  //
+  // 2026-11-16 追加：长卿要求「点一下就切换」，所以这里不再让用户自己点
+  // 「立即重启」第二次 —— 写配置后直接下发重启，再轮询问 /newapi/ui 直到
+  // 读回目标版本，然后 location.href='/' 落地。老 UI 的设置页同款行为。
+  // uiNow = **进程实际在跑**的界面（不是 deploy.yaml 里写的那个）。
+  // 两者可能不一致：点了切换但重启还没完成/失败，此时 pendingUi 有值，
+  // 界面上给出「待重启」提示 + 手动重启按钮，避免用户以为切换没生效。
+  const [uiNow, setUiNow] = useState<'legacy' | 'new'>('new')
+  const [pendingUi, setPendingUi] = useState<'legacy' | 'new' | ''>('')
+
+  const readUi = async () => {
+    try {
+      const j = await fetch('/newapi/ui', { cache: 'no-store' }).then(r => r.json())
+      setUiNow(j.ui === 'legacy' ? 'legacy' : 'new')
+      setPendingUi(
+        j.restart_required && (j.configured === 'legacy' || j.configured === 'new')
+          ? j.configured
+          : '',
+      )
+      return j
+    } catch {
+      return null
+    }
+  }
+
+  useEffect(() => { void readUi() }, [])
+
   const switchUi = async (target: 'legacy' | 'new') => {
+    if (target === uiNow) return
     setRestarting(true)
     setMsg('正在切换界面版本…')
     try {
@@ -101,17 +128,45 @@ export function SettingsPage() {
         body: JSON.stringify({ ui: target }),
       })
       const j = await r.json()
-      if (j.success) {
-        setSwitchedTo(target)
-        setMsg(`已切换为${target === 'new' ? '新 UI' : '老 UI'}，请重启 AzurPilot 生效`)
-      } else {
+      if (!j.success) {
         setMsg('切换失败: ' + (j.error || '未知原因'))
+        setRestarting(false)
+        return
       }
+      // 只改 pendingUi：uiNow 仍是「正在跑的」，等重启完成、轮询读回
+      // 运行时值变成 target 才算真的切成功。
+      setPendingUi(target)
+      setMsg(`已切换为${target === 'new' ? '新 UI' : '老 UI'}，正在重启 AzurPilot…`)
     } catch (e) {
       setMsg('切换失败: ' + String(e))
-    } finally {
       setRestarting(false)
+      return
     }
+    // 重启：断开/非 2xx 都当作"还没起来"，直到读回目标版本再跳转。
+    try {
+      await fetch('/newapi/restart', { method: 'POST' })
+    } catch {
+      /* 重启指令下发即断连，报错属正常 */
+    }
+    setMsg('重启中，稍后自动刷新…')
+    const deadline = Date.now() + 180000
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 1200))
+      try {
+        const resp = await fetch('/newapi/ui', { cache: 'no-store' })
+        if (!resp.ok) continue
+        const data = await resp.json()
+        // ui 是运行时值，只有它变成 target 才说明新进程真的起来了
+        if ((data.ui === 'legacy' ? 'legacy' : 'new') === target) {
+          location.href = '/'
+          return
+        }
+      } catch {
+        /* 服务重启中 */
+      }
+    }
+    setMsg('重启超时，请手动刷新页面')
+    setRestarting(false)
   }
 
   // 重启 GUI：老 UI 的 /newapi/restart 会保存实例状态并重启进程
@@ -146,29 +201,48 @@ export function SettingsPage() {
         <span style={{ fontSize: '.8rem', opacity: .7 }}>{msg}</span>
       </div>
 
-      {/* 热切换：不需要重启，写配置后刷新页面即生效。
-          实现见 module/webui/hot_switch.py（容器 ASGI app 按 deploy.yaml 分流 /）。 */}
+      {/* 界面版本切换：一次点击 = 写 deploy.yaml + 自动重启 + 轮询落地。
+          运行时值由后端 _RUNTIME_UI 报告（不读 deploy.yaml），切换未重启时
+          pendingUi 有值，这里给出提示与手动重启兜底。
+          DOM 复用老 UI 设置页的 launcher-setting-panel / launcher-setting-row
+          （entry-alas.css 里是 minmax(0,1fr) auto 两列；换成 cfg-group 的
+          1fr 13rem 会把三个按钮挤成三行，实测过）。 */}
       <div id="pywebio-scope-group_ui1" className="cfg-group">
-        <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ ['--arg-title--' as string]: '1' } as React.CSSProperties}>界面版本</div>
-            <div style={{ ['--arg-help--' as string]: '1' } as React.CSSProperties}>
-              切换后需重启 AzurPilot 生效。老 UI 模式下新 UI 仍可通过 <code>/new/</code> 试用；
-              新 UI 模式下老 UI 的页面路由会被移除，不再在后台占用资源。
+        <div className="launcher-setting-panel">
+          <h2 className="alas-develop-section-title">界面版本</h2>
+          <div className="launcher-setting-row">
+            <div>
+              <div className="launcher-setting-title">当前界面版本</div>
+              <div className="launcher-setting-desc">
+                点一下即切换并自动重启 AzurPilot（实例会自动保存并恢复）。老 UI 模式下新 UI 仍可通过{' '}
+                <code>/new/</code> 试用；新 UI 模式下老 UI 的页面路由会被移除，不再在后台占用资源。
+              </div>
+              <div className="launcher-setting-status">
+                {uiNow === 'new' ? '新 UI（React）' : '老 UI（PyWebIO）'}
+                {pendingUi && pendingUi !== uiNow
+                  ? ` → 待重启切换为${pendingUi === 'new' ? '新 UI' : '老 UI'}`
+                  : ''}
+              </div>
             </div>
-          </div>
-          <div style={{ minWidth: 0, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary" disabled={restarting} onClick={() => switchUi('legacy')}>
-              切到老 UI
-            </button>
-            <button className="btn btn-primary" disabled={restarting} onClick={() => switchUi('new')}>
-              保持新 UI
-            </button>
-            {switchedTo && (
-              <button className="btn btn-danger" disabled={restarting} onClick={restartGui}>
-                立即重启生效
+            <div className="deploy-setting-toolbar-actions">
+              <button
+                className="btn btn-secondary"
+                disabled={restarting || (uiNow === 'legacy' && !pendingUi)}
+                onClick={() => switchUi('legacy')}
+              >
+                切换到老 UI
               </button>
-            )}
+              <button
+                className="btn btn-primary"
+                disabled={restarting || (uiNow === 'new' && !pendingUi)}
+                onClick={() => switchUi('new')}
+              >
+                切换到新 UI
+              </button>
+              <button className="btn btn-danger" disabled={restarting} onClick={restartGui}>
+                重启 AzurPilot
+              </button>
+            </div>
           </div>
         </div>
       </div>
