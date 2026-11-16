@@ -43,6 +43,89 @@ for _ext, _mime in ((".js", "text/javascript"), (".mjs", "text/javascript"), (".
     mimetypes.add_type(_mime, _ext)
 
 
+def _sync_runtime_language(language: str) -> None:
+    """把 WebUI 语言同步到 module.webui.lang.LANG（老 UI 的运行时语言源）。
+
+    为什么需要：新 UI 以前切语言只写 deploy.yaml，而实际渲染用的
+    lang.LANG 是**进程启动时设一次**（module/webui/app.py:543），之后再没人改。
+    所以点「English / 日本語」只有配置文件变了，界面文字一字不动 ——
+    这就是「切换语言是没有用的」的根因。
+
+    老 UI 的 set_language 会同时做三件事（改 LANG、写 deploy.yaml、按需加载
+    该语言的 JSON）。新 UI 的保存链路没有这个函数，这里补齐：
+    改 LANG + 预加载该语言词条，保证后续 /newapi/* 立刻返回新语言。
+    """
+    try:
+        from module.webui import lang as _lang
+        from module.config.utils import LANGUAGES
+
+        name = str(language or "").strip()
+        if name not in LANGUAGES:
+            return
+        _lang.LANG = name
+        # 预加载：首次请求该语言时不必再等 3.5MB JSON 解析
+        _lang.load_language(name)
+        if name != "en-US":
+            _lang.load_language("en-US")
+        # 语言变了，webapi 的 i18n 缓存必须整体作废：缓存键里带路径，
+        # 换语言理论上不会误命中，但清掉最省心（切语言是低频操作）。
+        try:
+            from module.webapi import data as _data
+
+            _data._I18N_CACHE.clear()
+        except Exception:  # noqa: BLE001
+            pass
+    except Exception as e:  # noqa: BLE001 —— 同步失败不该让保存请求失败
+        logger.warning(f"[webapi] 同步运行时语言失败 ({language}): {e}")
+
+
+# 对外公开的名字：deploy_settings 保存语言时也会调用（下划线前缀的不宜跨模块引用）
+sync_runtime_language = _sync_runtime_language
+
+
+async def ui_language(request: Request) -> JSONResponse:
+    """当前界面语言（新 UI 用来决定按钮高亮）。"""
+    return JSONResponse({"language": data._current_language()})
+
+
+async def ui_language_set(request: Request) -> JSONResponse:
+    """切换界面语言：写 deploy.yaml + 同步运行时 LANG。
+
+    与老 UI app_home.py:set_language 的行为对齐：改完立刻生效，
+    前端重新拉 /newapi/* 就是新语言（不需要重启进程）。
+    """
+    import json as _json
+
+    from module.config.utils import LANGUAGES
+
+    try:
+        body = _json.loads(await request.body() or b"{}")
+    except Exception:  # noqa: BLE001
+        return JSONResponse(
+            {"success": False, "error": "请求体不是有效 JSON"}, status_code=400
+        )
+    target = str(body.get("language", "")).strip()
+    if target not in LANGUAGES:
+        return JSONResponse(
+            {"success": False, "error": f"不支持的语言: {target}"}, status_code=400
+        )
+
+    def _apply() -> dict:
+        from module.webui.setting import State
+
+        try:
+            deploy = State.deploy_config
+            deploy.read()
+            deploy.Language = target
+            _sync_runtime_language(target)
+            return {"success": True, "language": target}
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"[webapi] 切换语言失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    return JSONResponse(await run_in_threadpool(_apply))
+
+
 async def healthz(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
@@ -628,6 +711,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
     """
     routes = [
         Route("/newapi/healthz", healthz),
+        Route("/newapi/language", ui_language),
+        Route("/newapi/language", ui_language_set, methods=["POST"]),
         Route("/newapi/version", version),
         Route("/newapi/instances", instances),
         Route("/newapi/dashboard/{name}", dashboard),

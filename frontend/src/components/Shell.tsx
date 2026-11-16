@@ -169,11 +169,20 @@ export function Shell({
     title: 'AzurPilot',
   })
 
+  // 语言切换后必须**重拉**菜单/页眉/实例：它们的文案由后端按当前语言翻译，
+  // 不重拉就是「切了英文但侧栏还是中文」。老 UI 是整页重渲染，这里用事件通知。
+  const [langTick, setLangTick] = useState(0)
+  useEffect(() => {
+    const onLang = () => setLangTick(v => v + 1)
+    window.addEventListener('alas-language-change', onLang)
+    return () => window.removeEventListener('alas-language-change', onLang)
+  }, [])
+
   useEffect(() => {
     apiGet<InstancesResp>('/newapi/instances').then(r => { setInstances(r.instances); setInstNames(r.instances.map(i => i.name)) }).catch(() => {})
     apiGet<MenuResp>('/newapi/menu').then(r => setMenu(r.groups)).catch(() => {})
     apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
-  }, [])
+  }, [langTick])
 
   // 当前实例名（菜单跳转用）：优先当前页 active，回退第一个实例
   const instanceName = instNames.includes(active) ? active : instNames[0] ?? 'alas'

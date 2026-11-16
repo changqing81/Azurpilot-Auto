@@ -209,6 +209,29 @@ def save_deploy_settings(data: dict[str, Any]) -> dict[str, Any]:
             pass
         State.deploy_config.Theme = theme
 
+    # 语言与主题同理，**也是三重状态**：deploy.yaml 的 Language /
+    # module.webui.lang.LANG（真正决定 t() 返回什么）/ 各语言的已加载词条。
+    # 原先这里只写了配置文件，导致新 UI 点「English / 日本語」界面文字一字不动
+    # ——「切换语言是没有用的」这个反馈就是这么来的。
+    if "Language" in updates:
+        from module.config.utils import LANGUAGES
+
+        language = str(updates["Language"] or "").strip()
+        if language in LANGUAGES:
+            State.deploy_config.Language = language
+            try:
+                from module.webapi.app import sync_runtime_language
+
+                sync_runtime_language(language)
+            except Exception:  # noqa: BLE001
+                # webapi 未挂载（纯老 UI 场景）时退回老 UI 自己的链路
+                try:
+                    from module.webui import lang as _lang
+
+                    _lang.set_language(language)
+                except Exception:  # noqa: BLE001
+                    pass
+
     return {"updated": sorted(updates)}
 
 

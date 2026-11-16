@@ -79,6 +79,32 @@ const LANGS = [
   { label: 'English', value: 'en-US' },
   { label: '日本語', value: 'ja-JP' },
 ]
+
+/**
+ * 切换界面语言。
+ *
+ * **不能走 /api/deploy/settings**：那条链路只写 deploy.yaml，而真正决定
+ * t() 返回什么的 module.webui.lang.LANG 是进程启动时设一次、之后再没人改，
+ * 所以以前点「English / 日本語」界面文字一字不动 —— 这就是用户说的
+ * 「切换语言是没有用的」。
+ *
+ * /newapi/language 会同时做三件事（与老 UI 的 set_language 对齐）：
+ * 写 deploy.yaml、改 lang.LANG、预加载该语言词条。
+ * 成功后派发 alas-language-change 让 Shell 重拉菜单/页眉（它们是后端翻译的）。
+ */
+async function applyLanguage(language: string) {
+  const r = await fetch('/newapi/language', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ language }),
+  })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok || j.success === false) {
+    throw new Error(j.error || 'HTTP ' + r.status)
+  }
+  window.dispatchEvent(new CustomEvent('alas-language-change', { detail: { language } }))
+  return j
+}
 // 「主题按钮颜色」与 app_home.py:420-441 的 put_buttons color 一一对应
 const THEMES = [
   // 老 UI app_home.py:422 的值是 "default"，不是 "light" ——
@@ -121,9 +147,9 @@ export function HomePageMain() {
       .catch(() => { /* 公告源不可达：静默，不打扰用户 */ })
   }, [])
 
-  // 切换语言/主题后：**先回主页再重载**。
+  // 切换主题后：**先回主页再重载**。
   // 坑：直接 location.reload() 会保留当前 hash —— 用户如果在 #/stat/alas
-  // 点了语言，刷新后仍停在统计页，看起来像「点语言跳到了统计页」。
+  // 点了主题，刷新后仍停在统计页，看起来像「点主题跳到了统计页」。
   // 老 UI 是整页重定向到 /，这里保持一致。
   const onClick = (patch: Record<string, string>) => async () => {
     try {
@@ -132,6 +158,21 @@ export function HomePageMain() {
       location.hash = ''
       location.replace(location.pathname)
     } catch { /* 写盘失败：不刷新，避免误导 */ }
+  }
+
+  // 切换语言：走专用端点（同时改配置 + 运行时 LANG），成功后**整页重载**。
+  // 为什么不就地切：语言影响的不只是这几个按钮，还有配置页的参数名/帮助、
+  // 统计页表头、菜单名——那些是各页面自己 fetch 的，重载一次最稳，
+  // 与老 UI show_home()+refresh_aside_labels() 的最终效果一致。
+  const onClickLanguage = (language: string) => async () => {
+    try {
+      await applyLanguage(language)
+      try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
+      location.hash = ''
+      location.replace(location.pathname)
+    } catch (e) {
+      window.alert('切换语言失败：' + String(e))
+    }
   }
 
   // ── 背景 4 个按钮（长卿反馈「点了没有任何反应」）─────────────────
@@ -271,7 +312,7 @@ export function HomePageMain() {
       if (!target) return
       const label = target.textContent ?? ''
       const lang = LANGS.find(l => l.label === label)
-      if (lang) { void onClick({ Language: lang.value })(); return }
+      if (lang) { void onClickLanguage(lang.value)(); return }
       const theme = THEMES.find(t => t.name === label)
       if (theme) { void onClick({ Theme: theme.value })(); return }
       if (label === '下载当前背景图') { downloadWallpaper(); return }

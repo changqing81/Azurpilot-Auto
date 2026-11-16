@@ -61,19 +61,70 @@ def _get_config(name: str):
     return config
 
 
-# i18n 词条进程级缓存：zh-CN.json 约 3.5MB / 3 万条，
+# i18n 词条进程级缓存：单语言 JSON 约 3.5MB / 3 万条，
 # 每次 get_overview 都读盘 + JSON 解析会吃掉 200ms+（实测轮询下更糟）。
-# 按 (mtime_ns, size) 失效，改文案后自动重载。
+# 按 (path, mtime_ns, size) 失效，改文案后自动重载。
 _I18N_CACHE: dict = {}
 
+# 语言回退链：日语翻译缺键时用英文兜底（与 lang.load_language 的策略一致）。
+_I18N_FALLBACK = {"ja-JP": "en-US"}
 
-def _load_i18n(scope: str) -> dict:
-    """读取 config/i18n/zh-CN.json 并缓存（键 = mtime_ns + size）。"""
-    import pathlib
+# 默认语言：仅在拿不到运行时语言时兜底。
+_DEFAULT_LANG = "zh-CN"
 
-    path = os.path.join(
-        os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json"
+
+def _current_language() -> str:
+    """返回 WebUI 当前生效的界面语言。
+
+    为什么需要这个函数：新 UI 的所有文案都由 /newapi/* 从 i18n JSON 里取出，
+    而这里原先**全部硬编码 zh-CN.json** —— 用户点「English / 日本語」写进了
+    deploy.yaml 却没有任何效果（实测确认过的 bug）。现在统一从这里取语言：
+
+    1. 优先 module.webui.lang.LANG（老 UI 的 set_language 会实时更新它，
+       新 UI 的保存动作也会同步它，见 webapi/app.py:_sync_runtime_language）
+    2. 退回 deploy.yaml 的 Webui.Language（进程刚启动、lang 还没初始化时）
+    3. 再退回 zh-CN
+    """
+    try:
+        from module.webui import lang as _lang
+
+        current = str(getattr(_lang, "LANG", "") or "").strip()
+        if current.endswith(".json"):
+            current = current[:-5]
+        if current:
+            return current
+    except Exception:  # noqa: BLE001 —— 老 UI 模块不在线也必须有结果
+        pass
+    try:
+        from module.webui.setting import State
+
+        value = str(getattr(State.deploy_config, "Language", "") or "").strip()
+        if value:
+            return value
+    except Exception:  # noqa: BLE001
+        pass
+    return _DEFAULT_LANG
+
+
+def _i18n_path(language: str) -> str:
+    """i18n JSON 路径。语言非法时回退默认语言，不让上层拿到不存在的路径。"""
+    from module.config.utils import LANGUAGES
+
+    lang_name = language if language in LANGUAGES else _DEFAULT_LANG
+    return os.path.join(
+        os.path.dirname(__file__), "..", "config", "i18n", f"{lang_name}.json"
     )
+
+
+def _load_i18n(scope: str, language: str | None = None) -> dict:
+    """读取当前界面语言的 i18n JSON 并缓存（键 = path + mtime_ns + size）。
+
+    Args:
+        scope: 缓存命名空间（沿用原调用方传入的字符串，仅用于区分用途）。
+        language: 显式语言；省略时取 :func:`_current_language`。
+    """
+    lang_name = language or _current_language()
+    path = _i18n_path(lang_name)
     try:
         st = os.stat(path)
         key = (path, st.st_mtime_ns, st.st_size)
@@ -81,10 +132,19 @@ def _load_i18n(scope: str) -> dict:
         if cached and cached[0] == key:
             return cached[1]
         data = read_file(path)
+        # 日语缺键回退英文（ja-JP.json 里缺失的键值是键路径本身）
+        fallback = _I18N_FALLBACK.get(lang_name)
+        if fallback:
+            base = read_file(_i18n_path(fallback))
+            from module.config.deep import deep_iter, deep_set, deep_get
+
+            for p, v in deep_iter(base, depth=3):
+                if deep_get(data, keys=p) in (None, ".".join(p)):
+                    deep_set(data, keys=p, value=v)
         _I18N_CACHE[scope] = (key, data)
         return data
     except Exception as e:  # noqa: BLE001
-        logger.warning(f"[webapi] i18n 读取失败: {e}")
+        logger.warning(f"[webapi] i18n 读取失败 ({path}): {e}")
         return {}
 
 
@@ -303,8 +363,7 @@ def get_log_tail(name: str, since: int = -1, limit: int = 200, width: int = 80) 
 def get_header() -> dict:
     """页眉数据：logo 图标 URL + 排头文案（Gui.Status.Prefix，i18n zh-CN 同源）。"""
     try:
-        path = os.path.join(os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json")
-        data = read_file(path)
+        data = _load_i18n("header")
         prefix = str(data.get("Gui", {}).get("Status", {}).get("Prefix") or "AzurPilot")
     except Exception:  # noqa: BLE001
         prefix = "AzurPilot"
@@ -321,9 +380,8 @@ def get_menu() -> dict:
     """
     try:
         menu_path = os.path.join(os.path.dirname(__file__), "..", "config", "argument", "menu.json")
-        i18n_path = os.path.join(os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json")
         menu = read_file(menu_path)
-        i18n = read_file(i18n_path)
+        i18n = _load_i18n("menu")
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 菜单读取失败: {e}")
         return {"groups": []}
@@ -351,7 +409,8 @@ def get_task_config(name: str, task: str) -> dict:
     """配置页 schema+值（等价 alas_set_group 的数据面）。
 
     合并三源：args.json（type/value/option/display）+ config/{name}.json（用户当前值）
-    + zh-CN.json（Group.Arg.name/help/option 标签翻译）。display=hide 的项不输出。
+    + 当前界面语言的 i18n JSON（Group.Arg.name/help/option 标签翻译）。
+    display=hide 的项不输出。
     """
     import os as _os
 
@@ -360,7 +419,7 @@ def get_task_config(name: str, task: str) -> dict:
     arg_dir = _os.path.join(_os.path.dirname(__file__), "..", "config", "argument")
     try:
         args = read_file(_os.path.join(arg_dir, "args.json"))
-        i18n = read_file(_os.path.join(_os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json"))
+        i18n = _load_i18n("task_config")
         task_def = args.get(task)
         if task_def is None:
             return {"task": task, "groups": [], "error": f"未知任务 {task}"}
