@@ -84,6 +84,53 @@ export function ManagePage() {
     }
   }
 
+  // ── 配置导入（对应老 UI app_manage.py:_import）──
+  // 文件名决定实例名/模块名，覆盖同名实例（老 UI 有 OverrideWarning 提示）
+  const importFile = async (file: File) => {
+    if (!window.confirm(
+      `将导入「${file.name}」。\n\n文件名决定实例名，若同名实例已存在会被**覆盖**。\n确定继续吗？`,
+    )) return
+    if (file.size > 1024 * 1024) { flash('文件超过 1MB 限制'); return }
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await fetch('/newapi/instance/import', { method: 'POST', body: fd })
+      const j = await r.json()
+      flash(j.success ? `已导入配置 ${j.name}（模块 ${j.mod}）` : '导入失败：' + (j.error || '未知错误'))
+      if (j.success) await load()
+    } catch (e) {
+      flash('导入失败：' + String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // ── 数据导出（复用老 UI 现成的 /api/data/export）──
+  // 说明见 api.py:2056-2088：全量包保留 config/ log/ 目录结构，可被「导入旧数据」还原
+  const exportData = async (scope: 'all' | string) => {
+    setBusy(true)
+    flash('正在打包数据（约 30MB，请稍候）…')
+    try {
+      const r = await fetch('/api/data/export' + (scope === 'all' ? '' : '/' + encodeURIComponent(scope)))
+      if (!r.ok) throw new Error('HTTP ' + r.status)
+      const blob = await r.blob()
+      const cd = r.headers.get('content-disposition') || ''
+      const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      const filename = m ? decodeURIComponent(m[1]) : 'AzurPilot-data.zip'
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
+      flash(`已导出 ${filename}（${Math.round(blob.size / 1024 / 1024)} MB）`)
+    } catch (e) {
+      flash('导出失败：' + String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const remove = async (name: string) => {
     if (!window.confirm(`确定删除实例 ${name} 吗？配置文件的删除不可撤销。`)) return
     setBusy(true)
@@ -114,6 +161,26 @@ export function ManagePage() {
             </button>
             <button className="btn btn-secondary" onClick={() => load()} disabled={loading}>
               刷新
+            </button>
+            <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
+              导入配置
+              <input
+                type="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) void importFile(f)
+                  e.target.value = ''  // 允许重复选同一文件
+                }}
+              />
+            </label>
+            <button
+              className="btn btn-secondary"
+              disabled={busy}
+              onClick={() => exportData('all')}
+            >
+              导出全部数据
             </button>
             <span style={{ marginLeft: 'auto', fontSize: 12, opacity: .75 }}>{msg}</span>
           </div>
@@ -185,6 +252,13 @@ export function ManagePage() {
                       onClick={() => navigate('/overview/' + encodeURIComponent(inst.name))}
                     >
                       打开总览
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      disabled={busy}
+                      onClick={() => exportData(inst.name)}
+                    >
+                      导出数据
                     </button>
                     <button
                       className="btn btn-danger"
