@@ -204,6 +204,9 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         "commission": data.get_commission_panel_html,
         "research": data.get_research_panel_html,
         "delta": data.get_delta_panel_html,
+        "ship_exp": data.get_ship_exp_panel_html,
+        "fleet": data.get_fleet_tech_panel_html,
+        "mind": data.get_mind_panel_html,
     }
     fn = handlers.get(panel)
     if fn is None:
@@ -230,6 +233,9 @@ async def stat_panels_warm(request: Request) -> JSONResponse:
             ("commission", data.get_commission_panel_html),
             ("research", data.get_research_panel_html),
             ("delta", data.get_delta_panel_html),
+            ("ship_exp", data.get_ship_exp_panel_html),
+            ("fleet", data.get_fleet_tech_panel_html),
+            ("mind", data.get_mind_panel_html),
         ):
             try:
                 r = fn(name)

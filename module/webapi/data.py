@@ -1839,3 +1839,265 @@ def _get_delta_panel_html_impl(instance_name: str) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[webapi] 渲染资源统计失败: {e}")
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def get_ship_exp_panel_html(instance_name: str) -> dict:
+    """科技列表（舰船经验）面板 —— 对应 app_stat_ship.py:_render_ship_exp。
+
+    老 UI 这个函数用 use_scope + put_html 输出，但真正的内容全部由
+    build_fold_block / build_chip_row / build_simple_table 三个**返回字符串**
+    的辅助函数组装。所以这里复刻它的数据准备部分，直接拼出 HTML，
+    不经过 PyWebIO 的输出通道。
+
+    Returns: {success, html, error}
+    """
+    return _cached_stat_html(
+        instance_name, "ship_exp", lambda: _get_ship_exp_panel_html_impl(instance_name)
+    )
+
+
+def _get_ship_exp_panel_html_impl(instance_name: str) -> dict:
+    try:
+        # t() 在 module.webui.lang（老 UI 的翻译入口），不在 module.config.utils
+        from module.webui.lang import t
+        from module.statistics.opsi_month import get_opsi_stats
+        from module.statistics.ship_exp_stats import get_ship_exp_stats
+        from module.webui.app_helpers import (
+            build_chip_row,
+            build_fold_block,
+            build_muted_notice,
+            build_simple_table,
+        )
+
+        name = instance_name or None
+        if not name:
+            from module.config.utils import alas_instance
+
+            all_instances = alas_instance()
+            name = all_instances[0] if all_instances else None
+
+        stats = get_ship_exp_stats(instance_name=name)
+        if not stats.data or not stats.data.get("ships"):
+            return {
+                "success": True,
+                "html": build_muted_notice(t("Gui.Stat.NoShipExpData")),
+                "error": "",
+            }
+
+        ships_data = stats.data.get("ships", [])
+        target_level = stats.data.get("target_level", 125)
+        last_check_time = stats.data.get("last_check_time", "-")
+        current_battles = (
+            get_opsi_stats(instance_name=name).summary().get("total_battles", 0)
+        )
+        progress_list = [
+            stats.calculate_progress(ship, target_level, current_battles)
+            for ship in ships_data
+        ]
+        try:
+            today = stats.get_today_stats() or {}
+        except Exception:  # noqa: BLE001
+            today = {}
+        today_battles = int(today.get("battle_count", 0) or 0)
+        today_exp = int(today.get("total_exp_gained", 0) or 0)
+        today_run = int((today.get("total_run_time", 0) or 0) // 60)
+
+        def fmt(v):
+            if isinstance(v, bool):
+                return str(v)
+            try:
+                return f"{int(v):,}"
+            except (TypeError, ValueError):
+                return str(v)
+
+        second_unit = t("Gui.Stat.SecondUnit")
+        avg_battle = stats.get_average_battle_time()
+        avg_round = stats.get_average_round_time()
+        exp_per_hour = stats.get_exp_per_hour()
+        chips = [
+            (t("Gui.Stat.AvgBattleTimeHeader"),
+             f"{avg_battle:.1f}{second_unit}" if avg_battle > 0 else "-"),
+            (t("Gui.Stat.ShipExpAvgRound"),
+             f"{avg_round:.1f}{second_unit}" if avg_round > 0 else "-"),
+            (t("Gui.Stat.ExpEfficiencyHeader"),
+             f"{fmt(exp_per_hour)}/{t('Gui.Stat.HourUnit')}" if exp_per_hour > 0 else "-"),
+            (t("Gui.Stat.ShipExpToday"),
+             t("Gui.Stat.ShipExpTodayValue", battles=fmt(today_battles),
+               exp=fmt(today_exp), run=fmt(today_run))),
+            (t("Gui.Stat.ShipExpLastCheck"), str(last_check_time)),
+        ]
+        exp_labels = [
+            t("Gui.Stat.ShipSlot"),
+            t("Gui.Stat.Level"),
+            t("Gui.Stat.CurrentExpThisLevel"),
+            t("Gui.Stat.TotalExp"),
+            t("Gui.Stat.TargetExpRequired"),
+            t("Gui.Stat.ExpToTarget"),
+            t("Gui.Stat.SortiesNeeded"),
+            t("Gui.Stat.EstimatedTime"),
+        ]
+
+        def fmt_duration(seconds):
+            if not seconds or seconds <= 0:
+                return "-"
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            try:
+                h_unit = t("Gui.Stat.HourShort")
+                m_unit = t("Gui.Stat.MinuteShort")
+            except Exception:  # noqa: BLE001
+                h_unit, m_unit = "小时", "分钟"
+            return f"{hours}{h_unit}{minutes}{m_unit}"
+
+        exp_rows = []
+        for progress in progress_list:
+            done = progress["exp_needed"] <= 0
+            exp_rows.append([
+                t("Gui.Stat.ShipExpSlotValue", slot=progress["position"]),
+                fmt(progress["level"]),
+                "-" if done else fmt(progress["current_exp"]),
+                fmt(progress["total_exp"]),
+                "-" if done else fmt(progress["target_exp"]),
+                fmt(progress["exp_needed"]),
+                t("Gui.Stat.ShipExpDone") if done else f"≈ {fmt(progress['battles_needed'])}",
+                "-" if done else f"≈ {fmt_duration(progress['time_seconds'])}",
+            ])
+
+        digest = " · ".join([
+            t("Gui.Stat.FoldShipDigest", n=len(exp_rows)),
+            t("Gui.Stat.ShipExpTargetShort", level=target_level),
+            t("Gui.Stat.ShipExpTodayShort", n=fmt(today_battles)),
+        ])
+        html = build_fold_block(
+            t("Gui.Stat.ShipExpProgressTitle"),
+            build_chip_row(chips)
+            + build_simple_table(exp_labels, exp_rows, numeric_from=1),
+            digest=digest,
+        )
+        return {"success": True, "html": html, "error": ""}
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染科技列表失败: {e}")
+        return {"success": False, "html": "", "error": f"{type(e).__name__}: {e}"}
+
+
+def get_fleet_tech_panel_html(instance_name: str) -> dict:
+    """科技列表面板（舰队科技）—— 对应 app_fleet_technology.py:_ft_render_tech_tab。
+
+    注意：这个页签**不是**舰船经验（那个属于「大世界」面板的 ship_exp_table），
+    而是舰队科技模块（module/webui/app_fleet_technology.py + fleet_tech_view.py）。
+    内容：汇总条 + 筛选栏 + 加成格 + 表格，全部由 view.*_html 函数产出字符串。
+
+    Returns: {success, summary_html, table_html, error}
+    """
+    return _cached_stat_html(
+        instance_name, "fleet_tech", lambda: _get_fleet_tech_panel_html_impl(instance_name)
+    )
+
+
+def _get_fleet_tech_panel_html_impl(instance_name: str) -> dict:
+    try:
+        # 与 _ft_load 同一套加载链路（app_fleet_technology.py:320 附近）：
+        #   load_config(name).read_file → tech.read_record → tech.report
+        #   → tech.public_catalog → view.combine_rows
+        # 导入路径照抄 app_fleet_technology.py:12-16 的真实来源：
+        #   load_config ← module.webui.app_dependencies
+        #   tech        ← module.runtime.fleet_tech（不是 module.webui.*）
+        from module.runtime import fleet_tech as tech
+        from module.webui import fleet_tech_view as view
+        from module.webui.app_dependencies import deep_get, load_config
+
+        name = instance_name or None
+        if not name:
+            from module.config.utils import alas_instance
+
+            all_instances = alas_instance()
+            name = all_instances[0] if all_instances else None
+
+        # MIN_LEVEL_PATH / MAX_LEVEL_PATH 是 app_fleet_technology.py:49-50
+        # 的模块级常量（不在 runtime.fleet_tech 里）。
+        _MIN_LEVEL_PATH = "FleetTechScan.FleetTech.MinLevel"
+        _MAX_LEVEL_PATH = "FleetTechScan.FleetTech.MaxLevel"
+        data = load_config(name).read_file(name)
+        record = tech.read_record(data)
+        report = dict(
+            instance=name,
+            min_level=deep_get(data, _MIN_LEVEL_PATH, 95) or 95,
+            max_level=deep_get(data, _MAX_LEVEL_PATH, 125) or 125,
+            **tech.report(record),
+        )
+        catalog = tech.public_catalog()
+        rows = view.combine_rows(catalog, report)
+
+        summary = view.summary_html(catalog, report, rows)
+        table = view.table_html(rows, "total", "desc", False)
+        bonus = view.bonus_grid_html(report) if hasattr(view, "bonus_grid_html") else ""
+        return {
+            "success": True,
+            "summary_html": summary,
+            "table_html": table,
+            "bonus_html": bonus,
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染科技列表失败: {e}")
+        return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
+def get_mind_panel_html(instance_name: str) -> dict:
+    """心智计算器面板 —— 对应 app_mind_calculator_tab.py:_ft_render_mind_tab。
+
+    内容：说明条 + 四张统计卡 + 稀有度汇总表 + 船舶清单表（分页）。
+    数据来自 MindCalculatorScan.MindCalculator.Result（配置 stored），
+    计算用 module.runtime.mind_calculator.calculate 实时进行。
+
+    Returns: {success, intro_html, stats_html, summary_html, list_html, total, error}
+    """
+    return _cached_stat_html(
+        instance_name, "mind", lambda: _get_mind_panel_html_impl(instance_name)
+    )
+
+
+def _get_mind_panel_html_impl(instance_name: str) -> dict:
+    try:
+        from module.runtime import mind_calculator as mind_calc
+        from module.webui import mind_calculator_view as mind_view
+        from module.webui.app_dependencies import deep_get, load_config
+
+        name = instance_name or None
+        if not name:
+            from module.config.utils import alas_instance
+
+            all_instances = alas_instance()
+            name = all_instances[0] if all_instances else None
+
+        # RESULT_PATH 是 app_mind_calculator_tab.py 的模块常量
+        _RESULT_PATH = "MindCalculatorScan.MindCalculator.Result"
+        data = load_config(name).read_file(name)
+        stored = deep_get(data, _RESULT_PATH, {})
+        stored = stored if isinstance(stored, dict) else {}
+        ships = stored.get("ships", [])
+        if not isinstance(ships, list):
+            ships = []
+        updated_at = stored.get("updated_at")
+
+        # calculate_rows(ships) 自己会调 calculate 并返回 (result, rows) ——
+        # 只收一个参数（我一开始按两参调用，报 takes 1 positional argument but 2 were given）。
+        result, rows = mind_view.calculate_rows(ships)
+        if result is None:
+            result = {}
+        shown, page, pages = mind_view.page_slice(rows, 0)
+
+        return {
+            "success": True,
+            "intro_html": mind_view.intro_html(result, updated_at),
+            "stats_html": mind_view.stats_html(result),
+            "summary_html": mind_view.summary_table_html(result),
+            "list_html": mind_view.ships_table_html(shown, result, False),
+            "total": len(rows),
+            "pages": pages,
+            "page": page,
+            "error": "",
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 渲染心智计算器失败: {e}")
+        return {"success": False, "error": f"{type(e).__name__}: {e}"}
