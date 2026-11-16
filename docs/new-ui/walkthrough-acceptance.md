@@ -103,7 +103,31 @@ modified.copy() 迭代 + 前端改发三段键；alas.json 坏键已清理，
 唯一遗留：远控端到端真机补测 —— 等官方中转服务器恢复
 （remote_probe.cjs 可自查：信令 443 恢复 + SSH 不再即踢即可测）。
 
-## 七、遗留（低优先级）
+## 七、2026-11-17 第四轮（半成品清理 + 目标要求逐条验证）
+
+### 清掉的最后半成品
+- 统计页页头「数据截至 … / 数据源正常」曾是硬编码/本地时间占位，
+  新增 GET /newapi/stat/{name}/state（老 UI _get_statistics_data_state 同口径，
+  四候选源含 -wal），实测显示真实时间 2026-11-17 07:52 + is-ok。
+
+### objective 要求逐条验证（本次给出证据）
+| 要求 | 证据 |
+|---|---|
+| 老 UI 改「切换+重启」而非后台常驻 | hot_switch.py 已删；启动日志「UI=new：新 UI 占据 /，老 UI 页面路由已移除（2 条）」；老 UI 会话建立日志 0 条（PyWebIO 会话从未创建） |
+| 切换流程文案准确 | b2c62b751 修正 switch_ui docstring/日志（原写「热切换…不需要重启」「刷新页面生效」，实际必须重启） |
+| DOM 用老 UI 真实 ID/class 契约 | #pywebio-scope-* / --arg-title-- / .form-control / .btn-group 等，统计/配置/总览各页持续沿用 |
+| 零自造样式 | 主题层走老 UI 的 12 张 CSS；6 主题矩阵实测色值与老 UI 基准一致 |
+| 只抄样式不抄懒加载/骨架 | 新 UI 的 index.html 内联骨架仅是首屏 FCP 优化（不在 React 组件里），面板全部即时渲染，无老 UI 的分批 put_scope 懒加载 |
+| 逐页功能可用 | 配置/统计/管理/设置/更新器/远程/公告/开发者工具/总览 全部走查通过（见前六节） |
+
+### 工作区清理
+- 删除 4 个误产物：$null（PowerShell 错误重定向）、2026-11-15_alas.txt（误拷日志 16MB）、
+  advanced_material / transparent（主题测试截图写错文件名）
+- .gitignore 修复：lib/ → /lib/ /lib64/（原规则会忽略 frontend/src/lib/，
+  新 UI 的 pywebio.ts 曾因此进不了版本库）
+- 舰船科技数据同步至 2026-11-15
+
+## 八、遗留（低优先级）
 
 - 科技列表批量编辑**弹窗**（三下拉+快捷预设+保存）未迁移：工具栏入口已补
   （479805759），但 data-ft-batch 点击桥接与 _ft_batch_save 的 REST 化未做
