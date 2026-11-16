@@ -36,8 +36,6 @@ export function SettingsPage() {
   const [dirty, setDirty] = useState<Record<string, any>>({})
   const [msg, setMsg] = useState('')
   const [saving, setSaving] = useState(false)
-  // 界面版本切换要重启 GUI 才生效（路由在应用创建时固定），保存后单独引导
-  const [uiChangedTo, setUiChangedTo] = useState('')
   const [restarting, setRestarting] = useState(false)
 
   useEffect(() => {
@@ -67,8 +65,6 @@ export function SettingsPage() {
       setMsg(j.success ? '已保存' : '保存失败: ' + (j.error || '未知错误'))
       if (j.success) {
         setDirty({})
-        // UI 改动需要重启才生效——记下新值，页面顶部显示重启按钮
-        if ('UI' in dirty) setUiChangedTo(String(dirty.UI))
       }
     } catch (e) { setMsg('保存失败: ' + String(e)) }
     finally { setSaving(false); setTimeout(() => setMsg(''), 4000) }
@@ -86,24 +82,27 @@ export function SettingsPage() {
     } catch (e) { setMsg('自启动设置失败: ' + String(e)) }
   }
 
-  // 重启 WebUI：走 /newapi/restart → 老 UI 的 request_webui_restart()
-  // （会把运行中的实例写入 config/reloadalas 再重启恢复，与老 UI 重启按钮同一条链路）
-  const restartGui = async () => {
+  // 热切换界面版本：/newapi/ui/switch 写 deploy.yaml，
+  // module/webui/hot_switch.py 在下一次请求按 mtime 感知 → 刷新即生效，无需重启。
+  const switchUi = async (target: 'legacy' | 'new') => {
     setRestarting(true)
-    setMsg('正在重启 WebUI…')
+    setMsg('正在切换界面版本…')
     try {
-      const r = await fetch('/newapi/restart', { method: 'POST' })
+      const r = await fetch('/newapi/ui/switch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ui: target }),
+      })
       const j = await r.json()
       if (j.success) {
-        setMsg('重启中，页面将在 8 秒后自动刷新')
-        // 重启会断连，等新进程起来再刷新
-        setTimeout(() => location.reload(), 8000)
+        setMsg(`已切换到${target === 'new' ? '新 UI' : '老 UI'}，2 秒后刷新…`)
+        setTimeout(() => location.reload(), 2000)
       } else {
-        setMsg('重启失败: ' + (j.message || '未知原因'))
+        setMsg('切换失败: ' + (j.error || '未知原因'))
         setRestarting(false)
       }
     } catch (e) {
-      setMsg('重启失败: ' + String(e))
+      setMsg('切换失败: ' + String(e))
       setRestarting(false)
     }
   }
@@ -127,23 +126,27 @@ export function SettingsPage() {
         <span className="cfg-dirty-hint">{msg}</span>
       </div>
 
-      {uiChangedTo && (
-        <section className="ov-card cfg-group" style={{ borderColor: '#4e4c97' }}>
-          <div className="cfg-row">
-            <div className="cfg-title-wrap">
-              <div className="arg-title">界面版本已改为「{uiChangedTo === 'new' ? '新 UI' : '老 UI'}」</div>
-              <div className="arg-help">
-                界面路由在启动时固定，需要重启 WebUI 才生效。重启期间实例会自动保存并恢复。
-              </div>
-            </div>
-            <div className="cfg-control">
-              <button className="ov-btn-primary" disabled={restarting} onClick={restartGui}>
-                {restarting ? '重启中…' : '立即重启生效'}
-              </button>
+      {/* 热切换：不需要重启，写配置后刷新页面即生效。
+          实现见 module/webui/hot_switch.py（容器 ASGI app 按 deploy.yaml 分流 /）。 */}
+      <section className="ov-card cfg-group">
+        <div className="cfg-row">
+          <div className="cfg-title-wrap">
+            <div className="arg-title">界面版本</div>
+            <div className="arg-help">
+              当前使用新 UI。切到老 UI 会立即生效（无需重启），刷新页面即可。
+              老 UI 仍可通过 <code>/manage</code> 访问管理页；新 UI 在 <code>/new/</code> 始终可用。
             </div>
           </div>
-        </section>
-      )}
+          <div className="cfg-control" style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-secondary" disabled={restarting} onClick={() => switchUi('legacy')}>
+              切到老 UI
+            </button>
+            <button className="btn btn-primary" disabled={restarting} onClick={() => switchUi('new')}>
+              保持新 UI
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="ov-card cfg-group">
         <div className="cfg-group-title">启动器</div>

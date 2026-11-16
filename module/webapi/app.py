@@ -196,6 +196,48 @@ async def update_log(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_update_log))
 
 
+async def switch_ui(request: Request) -> JSONResponse:
+    """热切换界面版本（legacy ↔ new），**不需要重启**。
+
+    写入 deploy.yaml 后，由 `module/webui/hot_switch.py` 在**下一次请求**时
+    按 mtime 感知并生效 —— 用户刷新页面即可看到新界面。
+    """
+    import json as _json
+
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    target = str(body.get("ui", "")).strip().lower()
+    if target not in ("legacy", "new"):
+        return JSONResponse(
+            {"success": False, "error": "ui 必须是 legacy 或 new"}, status_code=400
+        )
+
+    def _write() -> dict:
+        from module.webui.setting import State
+        from module.logger import logger as _lg
+
+        try:
+            deploy = State.deploy_config
+            deploy.read()
+            deploy.UI = target
+            deploy.write()
+            _lg.info(f"[WebUI] 界面版本已热切换为 {target}（刷新页面生效）")
+            return {"success": True, "ui": target}
+        except Exception as e:  # noqa: BLE001
+            _lg.error(f"[WebUI] 热切换失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    return JSONResponse(await run_in_threadpool(_write))
+
+
+async def current_ui(request: Request) -> JSONResponse:
+    """当前界面版本（供前端显示切换按钮状态）。"""
+    from module.webui.hot_switch import current_ui_mode
+
+    return JSONResponse({"ui": await run_in_threadpool(current_ui_mode)})
+
+
 async def restart_webui(request: Request) -> JSONResponse:
     """重启 WebUI（让 deploy.yaml 改动生效）。链路与老 UI 重启按钮完全一致。"""
     return JSONResponse(await run_in_threadpool(data.restart_webui))
@@ -332,6 +374,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/oobe", oobe_state),
         Route("/newapi/theme-css", theme_css),
         Route("/newapi/restart", restart_webui, methods=["POST"]),
+        Route("/newapi/ui", current_ui),
+        Route("/newapi/ui/switch", switch_ui, methods=["POST"]),
         Route("/newapi/bundle.css", bundled_css),
         Route("/newapi/instances/detail", instances_detail),
         Route("/newapi/instance/import", instance_import, methods=["POST"]),

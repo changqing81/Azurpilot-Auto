@@ -674,40 +674,43 @@ def app():
         on_shutdown=[clearup],
     )
     application.mount("/mcp", _LazyMCPApp())
-    # UI 选择：deploy.yaml 的 Webui.UI = 'new' 时，新 UI 直接占据 /，老 UI 的 PyWebIO
-    # 页面路由全部不注册（老 UI 关闭），仅保留 /api 等数据接口供新 UI 使用。
-    _ui_mode = "legacy"
-    try:
-        _ui_mode = str(getattr(State.deploy_config, "UI", None) or "legacy").strip().lower()
-    except Exception:  # noqa: BLE001
-        pass
-    # 新 UI（new-ui 分支）：/newapi/* REST 端点与 /new/ 静态产物挂进同一应用。
-    # 同进程运行是日志流（ProcessManager.renderables）与状态数据的前提。
-    # frontend/dist 未构建时 /new/ 不挂载，老 UI 完全无感。
+    # ───────────────────── 新 UI 挂载与热切换 ─────────────────────
+    # 三条约束决定了这里的设计：
+    # 1. **热切换**（长卿要的「不用重启随便切」）：`/` 的响应体必须在**每次请求时**
+    #    按 State.deploy_config.UI 决定，不能像上一版那样在启动时把路由摘掉。
+    # 2. **两者同时可用**：`/new/` 永远指向新 UI（方便对照与回退），
+    #    `/` 则跟随配置。
+    # 3. **老 UI 的 PyWebIO 会话**：`/` 交给 PyWebIO 时会走完整的 Starlette
+    #    application（含 WebSocket 升级），所以不能简单返回 HTML 字符串 ——
+    #    必须把请求**转交**给原来的 PyWebIO 入口。
+    #
+    # 实现：用一个容器 ASGI app 包住原 PyWebIO application，
+    # `/` 时按配置在「PyWebIO」与「新 UI 静态 index.html」之间分流；
+    # 其余路径原样透传给 PyWebIO（/api、/pywebio_static、/mcp 等全都不动）。
     try:
         from module.webapi.app import _FRONTEND_DIST, mount_webapi
         import os as _os
 
-        _mount_root = _ui_mode == "new" and _os.path.isdir(_FRONTEND_DIST)
-        if _mount_root:
-            # 移除老 UI 的页面路由（index/manage 等无前缀 Route），老 UI 关闭；
-            # 保留 /api、/pywebio_static、/static、/mcp 等非页面路由。
-            _kept = []
-            for _r in application.routes:
-                _p = getattr(_r, "path", None)
-                if _p is not None and _p in ("/", "/manage"):
-                    continue
-                _kept.append(_r)
-            application.routes[:] = _kept
+        mount_webapi(application, mount_root=False)
+
+        if _os.path.isdir(_FRONTEND_DIST):
+            from module.webui.hot_switch import HotSwitchApp
+
+            application = HotSwitchApp(application, _FRONTEND_DIST)
             from module.logger import logger as _uilogger
 
-            _uilogger.info("[WebUI] UI=new：新 UI 占据 /，老 UI 页面已关闭")
+            _uilogger.info(
+                "[WebUI] 新 UI 已挂载到 /new/；/ 跟随 Webui.UI 配置（支持热切换，无需重启）"
+            )
+        else:
+            from module.logger import logger as _uilogger
 
-        mount_webapi(application, mount_root=_mount_root)
+            _uilogger.warning("[WebUI] frontend/dist 不存在，/ 固定走老 UI（先 pnpm build）")
     except Exception as e:  # noqa: BLE001 —— 新 UI 缺依赖或代码异常时不影响老 UI 启动
         from module.logger import logger as _logger
 
         _logger.warning(f"[WebUI] 新 UI 挂载失败（老 UI 不受影响）: {e}")
+
     return application
 
 
