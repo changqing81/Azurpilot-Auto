@@ -88,7 +88,22 @@ modified.copy() 迭代 + 前端改发三段键；alas.json 坏键已清理，
 | 舰队科技 | ✅ 完整（筛选/排序/分页/编辑/批量工具栏/Wiki 出处）；批量编辑弹窗待做 |
 | 心智计算器 | ✅ 75b96c010 交互化（行编辑/删除/批量开关/导出/分页 + revision 乐观锁） |
 
-## 六、遗留（低优先级）
+## 六、2026-11-17 凌晨第三轮（老 UI 交互链路补完）
+
+- 科技列表**批量编辑弹窗**：9410f2981 —— 后端 POST /newapi/fleet/{name}/batch
+  （gids + 显式 changes + revision 乐观锁 + 事务写盘）；前端弹窗
+  （三下拉/等级/三快捷预设/恢复自动记录/保存）+ data-ft-batch 委托 +
+  勾选联动（计数/disabled）。Edge 实测：1 艘 level=99 落盘 → restore 还原。
+- 心智计算器**扫描触发**：64d656792 —— dev_action action=mind_scan
+  （等级范围校验 + 写配置 + ProcessManager 两段启动）。实测 state=1 → 停止。
+- 心智计算器**清单导入**：64d656792 —— POST /newapi/mind/{name}/import
+  （同名合并取最高、目录补全、review=true/来源=手动导入）。实测 added=1。
+
+至此老 UI 的统计页交互链路（科技列表 + 心智计算器 + 图源管理）全部迁移完成。
+唯一遗留：远控端到端真机补测 —— 等官方中转服务器恢复
+（remote_probe.cjs 可自查：信令 443 恢复 + SSH 不再即踢即可测）。
+
+## 七、遗留（低优先级）
 
 - 科技列表批量编辑**弹窗**（三下拉+快捷预设+保存）未迁移：工具栏入口已补
   （479805759），但 data-ft-batch 点击桥接与 _ft_batch_save 的 REST 化未做
