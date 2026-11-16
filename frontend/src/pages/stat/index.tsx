@@ -88,37 +88,37 @@ export function StatPage() {
         </div>
 
         {tab === 'opsi' && (
-          <div id="st-panel-opsi" className="ov-card st-panel">
+          <div id="st-panel-opsi" className="ov-card st-panel is-active">
             <div className="ov-card-title">大世界</div>
             <OpsiPanel name={name} />
           </div>
         )}
         {tab === 'commission' && (
-          <div id="st-panel-commission" className="ov-card st-panel">
+          <div id="st-panel-commission" className="ov-card st-panel is-active">
             <div className="ov-card-title">委托</div>
             <CommissionIncome name={name} />
           </div>
         )}
         {tab === 'research' && (
-          <div id="st-panel-research" className="ov-card st-panel">
+          <div id="st-panel-research" className="ov-card st-panel is-active">
             <div className="ov-card-title">科研</div>
             <ResearchPanel name={name} />
           </div>
         )}
         {tab === 'resource' && (
-          <div id="st-panel-resource" className="ov-card st-panel">
+          <div id="st-panel-resource" className="ov-card st-panel is-active">
             <div className="ov-card-title">资源</div>
             <DeltaSummary name={name} />
           </div>
         )}
         {tab === 'fleet' && (
-          <div id="st-panel-fleet" className="ov-card st-panel">
+          <div id="st-panel-fleet" className="ov-card st-panel is-active">
             <div className="ov-card-title">科技列表</div>
             <FleetTechPanel name={name} />
           </div>
         )}
         {tab === 'mind' && (
-          <div id="st-panel-mind" className="ov-card st-panel">
+          <div id="st-panel-mind" className="ov-card st-panel is-active">
             <div className="ov-card-title">心智计算器</div>
             <MindPanel name={name} />
           </div>
