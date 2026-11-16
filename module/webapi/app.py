@@ -212,8 +212,13 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
     ]
     files = _frontend_files()
     if files is not None:
-        # mount_root=True：新 UI 直接占据 /（老 UI 已由调用方关闭），否则沿用 /new 并存
-        routes.append(Mount("/" if mount_root else "/new", app=files))
+        # mount_root=True：新 UI 直接占据 /（老 UI 已由调用方关闭）。
+        # 但 /new/ 也必须保留：vite 的 base 是 /new/，index.html 里引用的
+        # 资源路径（/new/assets/index-xxx.js）与 SPA 的 fetch 前缀都写死了 /new/，
+        # 只挂 / 会让这些资源 404、页面白屏。两个前缀指向同一份 StaticFiles。
+        routes.append(Mount("/new", app=files))
+        if mount_root:
+            routes.append(Mount("/", app=files))
     for route in routes:
         try:
             app.routes.append(route)
