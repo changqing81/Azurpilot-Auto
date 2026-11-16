@@ -83,6 +83,11 @@ def _sync_runtime_language(language: str) -> None:
 sync_runtime_language = _sync_runtime_language
 
 
+async def stat_data_state(request: Request) -> JSONResponse:
+    """统计页本地数据源状态（数据截至时间 + ok/stale/missing）。"""
+    name = request.path_params.get("name", "")
+    return JSONResponse(await run_in_threadpool(data.get_statistics_data_state, name))
+
 async def stat_i18n(request: Request) -> JSONResponse:
     """统计页全部文案（老 UI i18n 原文，按当前语言）。前端零硬编码。"""
     return JSONResponse(await run_in_threadpool(data.get_stat_i18n))
@@ -812,7 +817,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/menu/fixed", fixed_menu),
         Route("/newapi/stat/i18n", stat_i18n),
         Route("/newapi/menu", menu),
-        Route("/newapi/stat/{name}/resource_delta", resource_delta),
+        Route("/newapi/stat/{name}/state", stat_data_state),
+    Route("/newapi/stat/{name}/resource_delta", resource_delta),
         Route("/newapi/stat/{name}/commission_income", commission_income),
         Route("/newapi/stat/{name}/opsi_summary", opsi_summary),
         Route("/newapi/stat/{name}/research_stats", research_stats),

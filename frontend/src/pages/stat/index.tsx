@@ -84,7 +84,28 @@ export function StatPage() {
       .catch(() => { /* 老后端：用兜底表 */ })
   }, [])
 
-  // 数据截至时间（取实例配置 mtime 或 dashboard.json 更新时间；先本地时间占位，端点在 P4 补）
+  useEffect(() => {
+    let alive = true
+    fetch(`/newapi/stat/${name}/state`)
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (!alive || !j) return
+        setSourceState((j.state === "stale" || j.state === "missing") ? j.state : "ok")
+        // PageMeta 模板用的是 {time} / {instance}（老 UI 的 t() 已经做过一次
+        // format，所以这里只替换这两个占位符，不能整串再 format 一次）
+        const tpl = i18n.PageMeta || "数据截至 {time} · 实例 {instance}"
+        setMeta(String(tpl)
+          .replace("{time}", String(j.latest || "--"))
+          .replace("{instance}", String(j.instance || name)))
+      })
+      .catch(() => { /* 端点不可用：保持空 meta */ })
+    return () => { alive = false }
+  }, [name, i18n.PageMeta])
+  // 页头第二行：数据截至时间 + 实例名 + 数据源状态。
+  // 口径与老 UI app_statistics_page.py:_get_statistics_data_state 一致：
+  // 取 cl1_data.db / azurstats_local.db / resource_delta.db / ship_exp_data.json
+  // （含 -wal）的最新 mtime，7 天内有写入 = ok，更早 = stale，一个都没有 = missing。
+  const [sourceState, setSourceState] = useState<"ok" | "stale" | "missing">("ok")
   // 指示条跟随激活页签滑动（老 UI statistics-tab-indicator 同款）
   // 指示条跟随激活页签（老 UI 用 JS 同步 left/width，见 _layout_statistics_panels）。
   // 必须在**布局完成后**测量：直接在 useEffect 里读 offsetLeft 有时拿到 0，
@@ -150,7 +171,7 @@ export function StatPage() {
             <div className="st-head-meta">{meta}</div>
           </div>
           <div className="st-head-actions">
-            <SourceChip state="ok" />
+            <SourceChip state={sourceState} />
             <button className="btn btn-on" onClick={() => setMeta(m => m)}>{text('Refresh') || '刷新'}</button>
           </div>
         </div>

@@ -755,6 +755,51 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
         return {"valid": valid, "invalid": invalid, "error": str(e)}
     return {"valid": valid, "invalid": invalid}
 
+def get_statistics_data_state(name: str = "") -> dict:
+    """本地统计库状态（app_statistics_page.py:_get_statistics_data_state 同口径）。
+
+    Returns: {latest: "%Y-%m-%d %H:%M" 或 "", state: ok/stale/missing, instance}
+    候选数据源：cl1_data.db / azurstats_local.db / resource_delta.db /
+    ship_exp_data.json（含 -wal 文件，WAL 里的写入也算）。
+    """
+    from datetime import datetime, timedelta
+    from pathlib import Path
+
+    from module.config.utils import alas_instance
+
+    if name:
+        instance = name
+    else:
+        all_names = alas_instance()
+        instance = all_names[0] if all_names else "alas"
+    root = Path(__file__).resolve().parents[2]
+    candidates = (
+        root / "config" / "cl1_data.db",
+        root / "config" / "azurstats_local.db",
+        root / "config" / "resource_delta.db",
+        root / "log" / "cl1" / instance / "ship_exp_data.json",
+    )
+    newest = None
+    for base in candidates:
+        for path in (base, Path(str(base) + "-wal")):
+            try:
+                stamp = path.stat().st_mtime
+            except OSError:
+                continue
+            if newest is None or stamp > newest:
+                newest = stamp
+    if newest is None:
+        return {"latest": "", "state": "missing", "instance": instance}
+    latest = datetime.fromtimestamp(newest)
+    stale_days = 7
+    state = "stale" if datetime.now() - latest > timedelta(days=stale_days) else "ok"
+    return {
+        "latest": latest.strftime("%Y-%m-%d %H:%M"),
+        "state": state,
+        "instance": instance,
+    }
+
+
 def get_resource_delta(name: str, days: int = 7) -> dict:
     """资源变动面板数据（app_stat_delta.py:_load_delta_data 同口径）。"""
     from datetime import datetime, timedelta
