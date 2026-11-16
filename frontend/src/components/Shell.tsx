@@ -256,9 +256,12 @@ export function Shell({
   // 数据源：轮询 /newapi/instances 拿到的当前实例 state。
   // 主页不显示状态圈（老 UI app_home.py:378 show_home 里就是 set_status(0)）。
   // 之前只在实例页显示是对的，但第一版实现忘了排除主页/管理，实测主页挂着一个绿圈。
-  const headerState = active === 'Home' || active === 'Manage'
-    ? 0
-    : instances.find(i => i.name === instanceName)?.state ?? 0
+  // 只有**实例页**（active 是真实实例名）才显示状态圈 —— 与老 UI 对齐：
+  // show_home / ui_manage / 公告弹窗等非实例页面均为 set_status(0)（不显示）。
+  const isInstancePage = instances.some(i => i.name === active)
+  const headerState = isInstancePage
+    ? instances.find(i => i.name === active)?.state ?? 0
+    : 0
   const headerStatusHtml = (() => {
     // 老 UI 用 pywebio 的 spinner-border/grow + text-success 等配色类；
     // 尺寸与钩子由 alas.css:1084-1100 的 --loading-*-- 规则给定，
