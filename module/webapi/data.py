@@ -2329,31 +2329,72 @@ def _get_ship_exp_panel_html_impl(instance_name: str) -> dict:
         return {"success": False, "html": "", "error": f"{type(e).__name__}: {e}"}
 
 
-def get_fleet_tech_panel_html(instance_name: str) -> dict:
+def get_fleet_tech_panel_html(
+    instance_name: str,
+    filters: str = "",
+    query: str = "",
+    scope: str = "all",
+    stage: str = "all",
+    sort_key: str = "code",
+    sort_dir: int = 1,
+    page: int = 0,
+    pending: bool = False,
+    edit: bool = False,
+    bonuses: bool = False,
+    extra: bool = False,
+) -> dict:
     """科技列表面板（舰队科技）—— 对应 app_fleet_technology.py:_ft_render_tech_tab。
 
-    注意：这个页签**不是**舰船经验（那个属于「大世界」面板的 ship_exp_table），
-    而是舰队科技模块（module/webui/app_fleet_technology.py + fleet_tech_view.py）。
-    内容：汇总条 + 筛选栏 + 加成格 + 表格，全部由 view.*_html 函数产出字符串。
+    长卿：「说了多少遍了这个得改啊 这TM是什么？老UI抄的是这个你就这么敷衍我？」
 
-    Returns: {success, summary_html, table_html, error}
+    老 UI 的科技列表有**七块**，我原来只挂了 summary/bonus/table 三段静态 HTML，
+    筛选栏 / 扫描行 / 搜索行 / 排序 / 分页 / 编辑模式全都没有 —— 所以新 UI 只剩
+    一堆纯文字，连「哪些按钮、怎么筛」都没有。
+
+    老 UI 真实结构（实测 22480 legacy，见 oldui_fleettech.html，18 个 scope）：
+        ft_summary         汇总（最高科技点/四大阵营/Lv.120 进度/资料版本）
+        ft_filters         六组筛选 button group
+          ft_filter_type / rarity / nation / bonusType / attr / status
+          ft_filter_functions  记录编辑模式 / 总属性加成 / 显示额外筛选 / 只看满星未确认
+        ft_stage           加成阶段下拉（仅「显示额外筛选」开启时出现）
+        ft_toolbar         扫描范围 min–max + 扫描/同步按钮
+        ft_search          搜索框 + 科技条目范围下拉 + 计数
+        ft_bonuses         总属性加成视图（仅开关打开时）
+        ft_table           表格 + 分页 + 页脚
+
+    这些渲染函数全是**返回字符串的纯函数**（fleet_tech_view.py），所以这里
+    直接复用，把每一块拼成 HTML 返回，前端按顺序渲染。
     """
     return _cached_stat_html(
-        instance_name, "fleet_tech", lambda: _get_fleet_tech_panel_html_impl(instance_name)
+        instance_name,
+        f"fleet_tech:{filters}:{query}:{scope}:{stage}:{sort_key}:{sort_dir}:{page}:{int(pending)}:{int(edit)}:{int(bonuses)}:{int(extra)}",
+        lambda: _get_fleet_tech_panel_html_impl(
+            instance_name, filters, query, scope, stage,
+            sort_key, sort_dir, page, pending, edit, bonuses, extra,
+        ),
+        filters or query or scope,
     )
 
 
-def _get_fleet_tech_panel_html_impl(instance_name: str) -> dict:
+def _get_fleet_tech_panel_html_impl(
+    instance_name: str,
+    filters: str = "",
+    query: str = "",
+    scope: str = "all",
+    stage: str = "all",
+    sort_key: str = "code",
+    sort_dir: int = 1,
+    page: int = 0,
+    pending: bool = False,
+    edit: bool = False,
+    bonuses: bool = False,
+    extra: bool = False,
+) -> dict:
     try:
-        # 与 _ft_load 同一套加载链路（app_fleet_technology.py:320 附近）：
-        #   load_config(name).read_file → tech.read_record → tech.report
-        #   → tech.public_catalog → view.combine_rows
-        # 导入路径照抄 app_fleet_technology.py:12-16 的真实来源：
-        #   load_config ← module.webui.app_dependencies
-        #   tech        ← module.runtime.fleet_tech（不是 module.webui.*）
         from module.runtime import fleet_tech as tech
         from module.webui import fleet_tech_view as view
         from module.webui.app_dependencies import deep_get, load_config
+        from module.webui.lang import t as _t
 
         name = instance_name or None
         if not name:
@@ -2362,34 +2403,143 @@ def _get_fleet_tech_panel_html_impl(instance_name: str) -> dict:
             all_instances = alas_instance()
             name = all_instances[0] if all_instances else None
 
-        # MIN_LEVEL_PATH / MAX_LEVEL_PATH 是 app_fleet_technology.py:49-50
-        # 的模块级常量（不在 runtime.fleet_tech 里）。
         _MIN_LEVEL_PATH = "FleetTechScan.FleetTech.MinLevel"
         _MAX_LEVEL_PATH = "FleetTechScan.FleetTech.MaxLevel"
-        data = load_config(name).read_file(name)
-        record = tech.read_record(data)
+        cfg = load_config(name).read_file(name)
+        record = tech.read_record(cfg)
         report = dict(
             instance=name,
-            min_level=deep_get(data, _MIN_LEVEL_PATH, 95) or 95,
-            max_level=deep_get(data, _MAX_LEVEL_PATH, 125) or 125,
+            min_level=deep_get(cfg, _MIN_LEVEL_PATH, 95) or 95,
+            max_level=deep_get(cfg, _MAX_LEVEL_PATH, 125) or 125,
             **tech.report(record),
         )
         catalog = tech.public_catalog()
         rows = view.combine_rows(catalog, report)
 
+        # 筛选状态解析："type|3,type|18" → {'type': ['3','18']}
+        filter_map: dict = {}
+        for token in (filters or "").split(","):
+            token = token.strip()
+            if not token or "|" not in token:
+                continue
+            group, _, value = token.partition("|")
+            filter_map.setdefault(group, []).append(value)
+
+        # ① 汇总
         summary = view.summary_html(catalog, report, rows)
-        table = view.table_html(rows, "total", "desc", False)
-        bonus = view.bonus_grid_html(report) if hasattr(view, "bonus_grid_html") else ""
+
+        # ② 六组筛选 + 功能开关（老 UI _ft_render_filter_group / _ft_render_functions）
+        filter_groups = []
+        for key in view.FILTER_GROUPS:
+            options = view.filter_options(key, rows)
+            selected = set(filter_map.get(key, []))
+            buttons = []
+            for value, label in options:
+                # 第一项是「全部」（value 为空）；未选任何值时它也高亮
+                active = (value in selected) or (not value and not selected)
+                buttons.append({
+                    "value": f"{key}|{value}",
+                    "label": label,
+                    "active": active,
+                })
+            filter_groups.append({
+                "key": key,
+                "title": _t(f"Gui.FleetTechnology.{_FILTER_TITLE_KEYS[key]}"),
+                "buttons": buttons,
+            })
+        # 功能开关（与筛选同级）
+        toggle_defs = [
+            ("edit", "Edit", edit),
+            ("bonuses", "Bonuses", bonuses),
+            ("extra", "Extra", extra),
+            ("pending", "PendingOnly", pending),
+        ]
+        function_buttons = [
+            {"value": key, "label": _t(f"Gui.FleetTechnology.{label_key}"), "active": bool(state)}
+            for key, label_key, state in toggle_defs
+        ]
+
+        # ③ 表格 + 分页（老 UI _ft_render_table）
+        #
+        # 默认排序必须是 ('code', 1)：老 UI app_fleet_technology.py:188-189 就是
+        # 这个值。用 ('total','desc') 会让 _CompareKey 在混类型值上抛
+        # "not supported between str and int"（实测），因为 total 里既有数字
+        # 也有 '—' 这类占位串。
+        direction = 1
+        if isinstance(sort_dir, str):
+            direction = -1 if sort_dir.lower() in ("desc", "-1", "down") else 1
+        else:
+            direction = int(sort_dir)
+        arranged = view.arrange_rows(
+            rows, filter_map, query, scope, stage, sort_key, direction, pending
+        )
+        shown, cur_page, pages = view.page_slice(arranged, page)
+        table = view.table_html(shown, sort_key, direction, edit)
+
+        # ④ 加成阶段（仅「显示额外筛选」开启时）
+        stage_html = ""
+        if extra:
+            opts = [
+                ("all", _t("Gui.FleetTechnology.All")),
+                ("get", _t("Gui.FleetTechnology.Unlock")),
+                ("level", "Lv.120"),
+            ]
+            inner = "".join(
+                f'<option value="{v}"{" selected" if v == stage else ""}>{lbl}</option>'
+                for v, lbl in opts
+            )
+            stage_html = (
+                f'<select name="ft_stage" class="form-control" style="width:auto;">{inner}</select>'
+            )
+
+        # ⑤ 总属性加成视图（仅开关打开时）
+        bonuses_html = ""
+        if bonuses:
+            bonuses_html = (
+                f'<h2>{_t("Gui.FleetTechnology.Bonuses")}</h2>'
+                f'<div class="ft-bonus-grid">{view.bonus_grid_html(report)}</div>'
+            )
+
         return {
             "success": True,
             "summary_html": summary,
+            "filter_groups": filter_groups,
+            "function_buttons": function_buttons,
+            "stage_html": stage_html,
             "table_html": table,
-            "bonus_html": bonus,
+            "bonus_html": bonuses_html,
+            "count": len(arranged),
+            "total": len(rows),
+            "page": cur_page,
+            "pages": pages,
+            # 扫描范围/搜索/范围选择用到的当前值，供前端回填
+            "min_level": report["min_level"],
+            "max_level": report["max_level"],
+            "query": query,
+            "scope": scope,
+            "stage": stage,
+            "sort_key": sort_key,
+            "sort_dir": direction,
+            "pending": pending,
+            "edit": edit,
+            "bonuses": bonuses,
+            "extra": extra,
             "error": "",
         }
     except Exception as e:  # noqa: BLE001
         logger.exception(f"[webapi] 渲染科技列表失败: {e}")
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
+# 筛选组标题的 i18n 键（与老 UI FILTER_TITLES 一致）
+_FILTER_TITLE_KEYS = {
+    "type": "Category",
+    "rarity": "Rarity",
+    "nation": "Nation",
+    "bonusType": "BonusType",
+    "attr": "Attr",
+    "status": "Status",
+}
 
 
 def get_mind_panel_html(instance_name: str) -> dict:

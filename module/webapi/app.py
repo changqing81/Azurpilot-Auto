@@ -333,6 +333,24 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         return JSONResponse(
             await run_in_threadpool(fn, name, period, scope, series)
         )
+    if panel == "fleet":
+        # 科技列表有完整的筛选/搜索/排序/分页状态（老 UI 是实例属性驱动）
+        return JSONResponse(
+            await run_in_threadpool(
+                fn, name,
+                request.query_params.get("filters") or "",
+                request.query_params.get("q") or "",
+                request.query_params.get("scope") or "all",
+                request.query_params.get("stage") or "all",
+                request.query_params.get("sort") or "code",
+                request.query_params.get("dir") or "1",
+                int(request.query_params.get("page") or 0),
+                request.query_params.get("pending") in ("1", "true"),
+                request.query_params.get("edit") in ("1", "true"),
+                request.query_params.get("bonuses") in ("1", "true"),
+                request.query_params.get("extra") in ("1", "true"),
+            )
+        )
     if panel == "delta":
         # 资源面板有多档粒度（日/周/月/总），老 UI 用 _delta_period 驱动
         return JSONResponse(await run_in_threadpool(fn, name, period))
