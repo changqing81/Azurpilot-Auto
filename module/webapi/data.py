@@ -1820,25 +1820,48 @@ def _make_stat_ctx(instance_name: str, mixin_module: str, mixin_class: str):
     return ctx
 
 
-def get_commission_panel_html(instance_name: str, period: str = "") -> dict:
-    """委托面板。period: month / week（对应 _commission_income_period）。"""
+def get_commission_panel_html(
+    instance_name: str, period: str = "", year: int = 0, month_no: int = 0
+) -> dict:
+    """委托面板。
+
+    period: day / week / month（对应老 UI _commission_income_period，
+            老 UI 三个选项「每日 / 每周 / 每月」，历史月份下 day/week 禁用）
+    year/month_no: 查看年月（0 = 当月，对应老 UI 的 ◀ ▶ 翻页）
+    """
     return _cached_stat_html(
-        instance_name, f"commission:{period}",
-        lambda: _get_commission_panel_html_impl(instance_name, period),
-        period,
+        instance_name, f"commission:{period}:{year}:{month_no}",
+        lambda: _get_commission_panel_html_impl(instance_name, period, year, month_no),
+        f"{period}:{year}:{month_no}",
     )
 
 
-def _get_commission_panel_html_impl(instance_name: str, period: str = "") -> dict:
-    """委托面板（app_stat_commission.py）。返回 summary/table/recent 三段 HTML。"""
+def _get_commission_panel_html_impl(
+    instance_name: str, period: str = "", year: int = 0, month_no: int = 0
+) -> dict:
+    """委托面板（app_stat_commission.py）。
+
+    返回 running/summary/table/gem/recent 五段 HTML + 可选年月。
+    """
     try:
         ctx = _make_stat_ctx(
             instance_name,
             "module.webui.app_stat_commission",
             "CommissionIncomeStatisticsMixin",
         )
-        if period in ("month", "week"):
+        # 周期：老 UI 三个值 day / week / month（默认 month）
+        if period in ("day", "week", "month"):
             ctx._commission_income_period = period
+        # 查看年月（老 UI _commission_income_year/_month，默认当月）
+        if year and month_no:
+            ctx._commission_income_year = int(year)
+            ctx._commission_income_month = int(month_no)
+        else:
+            from module.config.time_source import now as _now
+
+            _t = _now()
+            ctx._commission_income_year = _t.year
+            ctx._commission_income_month = _t.month
         data = ctx._load_commission_income_data()
         if data is None:
             return {"success": False, "error": "暂无委托数据"}
@@ -1859,12 +1882,26 @@ def _get_commission_panel_html_impl(instance_name: str, period: str = "") -> dic
             running = run_ctx._build_running_commission_html()
         except Exception as e:  # noqa: BLE001
             logger.warning(f"[webapi] 渲染进行中委托失败: {e}")
+        # 钻石委托区块（老 UI app_stat_commission_gem.py:_build_commission_gem_html）
+        gem = ""
+        try:
+            from module.webui.app_stat_commission_gem import (
+                CommissionGemStatisticsMixin,
+            )
+
+            gem = CommissionGemStatisticsMixin._build_commission_gem_html(ctx, data)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[webapi] 渲染钻石委托失败: {e}")
         return {
             "success": True,
             "running_html": running,
             "summary_html": summary,
             "table_html": table,
+            "gem_html": gem,
             "recent_html": recent,
+            "period": getattr(ctx, "_commission_income_period", "month"),
+            "year": getattr(ctx, "_commission_income_year", 0),
+            "month": getattr(ctx, "_commission_income_month", 0),
             "error": "",
         }
     except Exception as e:  # noqa: BLE001

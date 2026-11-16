@@ -206,6 +206,14 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         series = int(request.query_params.get("series") or 0)
     except (TypeError, ValueError):
         series = 0
+    try:
+        year = int(request.query_params.get("year") or 0)
+    except (TypeError, ValueError):
+        year = 0
+    try:
+        month_no = int(request.query_params.get("month") or 0)
+    except (TypeError, ValueError):
+        month_no = 0
     handlers = {
         "opsi": data.get_opsi_panels_html,
         "commission": data.get_commission_panel_html,
@@ -231,7 +239,11 @@ async def stat_panels_html(request: Request) -> JSONResponse:
             await run_in_threadpool(fn, name, period, scope, series)
         )
     if panel == "commission":
-        return JSONResponse(await run_in_threadpool(fn, name, period))
+        # 委托面板有 4 个可变参数：周期 + 查看年月（老 UI 的 ◀ ▶ 翻页）。
+        # 只传 period 会让年月永远是当月 —— 实测翻页无效（year/month 回传仍是当月）。
+        return JSONResponse(
+            await run_in_threadpool(fn, name, period, year, month_no)
+        )
     return JSONResponse(await run_in_threadpool(fn, name))
 
 

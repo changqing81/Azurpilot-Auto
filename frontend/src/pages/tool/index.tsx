@@ -184,7 +184,7 @@ function LogExport({ name }: { name: string }) {
     <div>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '.5rem', marginBottom: '.5rem' }}>
         <span style={{ fontSize: '.9rem' }}>日期</span>
-        <select className="form-control" style={{ width: 'auto' }} value={scope} onChange={e => setScope(e.target.value)}>
+        <select className="form-control" style={{ flex: '0 0 auto', width: 'auto' }} value={scope} onChange={e => setScope(e.target.value)}>
           <option value="all">全部（含历史，合并）</option>
           {[`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-${String(new Date().getDate()).padStart(2,'0')}`].map(d => (
             <option key={d} value={d}>{d}（今天）</option>

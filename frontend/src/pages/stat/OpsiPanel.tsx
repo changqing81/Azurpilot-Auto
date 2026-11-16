@@ -101,9 +101,13 @@ export function OpsiPanel({ name }: { name: string }) {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '.5rem', flexWrap: 'wrap', gap: '.5rem' }}>
         <div className="st-title-sub">体力变化</div>
         <div style={{ display: 'flex', gap: '.375rem', alignItems: 'center' }}>
+          {/* ⚠️ 必须 flexShrink:0 + flexGrow:0：
+              alas.css 的 .form-control 是 width:100%，在 flex 容器里会
+              把右侧按钮挤出去、视觉上叠在一起（长卿截图：「这里还挤到一起了」）。
+              宽度用 flexBasis 固定，不让它参与伸缩。 */}
           <select
             className="form-control"
-            style={{ width: 'auto', minWidth: '7rem' }}
+            style={{ flex: '0 0 auto', width: '7rem', minWidth: '7rem' }}
             value={month}
             onChange={e => setMonth(e.target.value)}
           >
