@@ -32,6 +32,62 @@ def _load_yaml(path: str) -> dict:
         return {}
 
 
+# AzurLaneConfig 实例缓存：构造一次要读 args.json(1.6MB)+用户配置+绑定任务，
+# 实测 ~150ms。总览页 15s 轮询、仪表盘也各要一次，每次重建纯浪费。
+# 按 (name, 配置文件 mtime) 失效——用户改配置后自动重建。
+_CONFIG_CACHE: dict = {}
+
+
+def _get_config(name: str):
+    """取（缓存的）AzurLaneConfig 实例。失败返回 None。"""
+    from module.config.config import AzurLaneConfig
+    from module.config.utils import filepath_config
+
+    try:
+        path = filepath_config(name)
+        st = os.stat(path)
+        key = (st.st_mtime_ns, st.st_size)
+    except Exception:  # noqa: BLE001
+        key = None
+    cached = _CONFIG_CACHE.get(name)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    try:
+        config = AzurLaneConfig(name, task=None)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 实例配置加载失败({name}): {e}")
+        return None
+    _CONFIG_CACHE[name] = (key, config)
+    return config
+
+
+# i18n 词条进程级缓存：zh-CN.json 约 3.5MB / 3 万条，
+# 每次 get_overview 都读盘 + JSON 解析会吃掉 200ms+（实测轮询下更糟）。
+# 按 (mtime_ns, size) 失效，改文案后自动重载。
+_I18N_CACHE: dict = {}
+
+
+def _load_i18n(scope: str) -> dict:
+    """读取 config/i18n/zh-CN.json 并缓存（键 = mtime_ns + size）。"""
+    import pathlib
+
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json"
+    )
+    try:
+        st = os.stat(path)
+        key = (path, st.st_mtime_ns, st.st_size)
+        cached = _I18N_CACHE.get(scope)
+        if cached and cached[0] == key:
+            return cached[1]
+        data = read_file(path)
+        _I18N_CACHE[scope] = (key, data)
+        return data
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] i18n 读取失败: {e}")
+        return {}
+
+
 def get_version() -> dict:
     """版本信息（页脚 --version CSS 变量的数据源）。
 
@@ -80,10 +136,8 @@ def get_dashboard(name: str) -> dict:
     from module.log_res.log_res import LogRes
 
     manifest = _load_yaml(_DASHBOARD_MANIFEST_PATH).get("Dashboard") or []
-    try:
-        config = AzurLaneConfig(name, task=None)
-    except Exception as e:  # noqa: BLE001
-        logger.warning(f"[webapi] 实例配置加载失败({name}): {e}")
+    config = _get_config(name)
+    if config is None:
         return {"items": []}
     log_res = LogRes(config)
     items: list[dict[str, Any]] = []
@@ -118,23 +172,22 @@ def get_overview(name: str) -> dict:
     返回 running/pending/waiting 三组 [{command, name, next_run}] + alive（调度器是否在跑）。
     任务名翻译直接在服务端取好（i18n zh-CN Task.<command>.name），前端零翻译逻辑。
     """
-    from module.config.config import AzurLaneConfig
-
+    config = _get_config(name)
+    if config is None:
+        return {"running": [], "pending": [], "waiting": [], "alive": False}
     try:
-        config = AzurLaneConfig(name, task=None)
         config.get_next_task()
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 任务队列读取失败({name}): {e}")
         return {"running": [], "pending": [], "waiting": [], "alive": False}
 
-    # i18n: 优先 zh-CN；键缺失时退回 command
+    # i18n: 优先 zh-CN；键缺失时退回 command。
+    # 走进程级缓存——35 个任务逐个读盘解析 3.5MB JSON 是这里最大的单项开销。
+    i18n = _load_i18n("task_name")
+
     def _task_name(command: str) -> str:
         try:
-            path = os.path.join(
-                os.path.dirname(__file__), "..", "config", "i18n", "zh-CN.json"
-            )
-            data = read_file(path)  # read_file 内部已 JSON 解析，返回 dict
-            return str(data.get("Task", {}).get(command, {}).get("name") or command)
+            return str(i18n.get("Task", {}).get(command, {}).get("name") or command)
         except Exception:  # noqa: BLE001
             return command
 
