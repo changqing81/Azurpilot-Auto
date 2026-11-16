@@ -136,10 +136,27 @@ class HotSwitchApp:
         await self.inner(scope, receive, send)
 
     def _serve_spa_index(self) -> Response:
-        """返回新 UI 的 index.html（no-cache，保证切主题/切 UI 立即生效）。"""
+        """返回新 UI 的 index.html（no-cache，保证切主题/切 UI 立即生效）。
+
+        **必须重写资源路径**：vite 配置 base='./'，dist/index.html 里是
+        './assets/index-xxx.js' 这种相对路径 ——
+          - 走 /new/ 时，相对路径基于 /new/ 解析 → /new/assets/... ✓
+          - 走 /（UI=new 时由本类接管）时，基于 / 解析 → /assets/... ✗ 404
+
+        实测症状：UI=new 重启后页面卡在「正在加载 AzurPilot…」，
+        骨架不消失、React 完全不挂载，且控制台无任何 JS 报错
+        （脚本根本没下载到，所以连报错都没有）。这个坑只在
+        「UI=new + 访问 /」时才出现，走 /new/ 一直是好的，很容易漏测。
+
+        修法：把 ./assets/ 前缀改成 /new/assets/。
+        其它绝对路径（/static/...、/pywebio_static/...）原样保留。
+        """
         try:
             with open(self.index_file, "r", encoding="utf-8") as f:
                 html = f.read()
+            html = html.replace('"./assets/', '"/new/assets/').replace(
+                "'./assets/", "'/new/assets/"
+            )
             return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
         except FileNotFoundError:
             logger.error("[HotSwitch] frontend/dist/index.html 不存在，回退老 UI")

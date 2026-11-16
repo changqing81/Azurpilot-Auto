@@ -128,7 +128,7 @@ export function SettingsPage() {
 
       {/* 热切换：不需要重启，写配置后刷新页面即生效。
           实现见 module/webui/hot_switch.py（容器 ASGI app 按 deploy.yaml 分流 /）。 */}
-      <section className="ov-card cfg-group">
+      <section className="ov-card apple-card cfg-group">
         <div className="cfg-row">
           <div className="cfg-title-wrap">
             <div className="arg-title">界面版本</div>
@@ -148,7 +148,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="ov-card cfg-group">
+      <section className="ov-card apple-card cfg-group">
         <div className="cfg-group-title">启动器</div>
         <div className="cfg-row">
           <div className="cfg-title-wrap">
@@ -167,7 +167,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <section className="ov-card cfg-group">
+      <section className="ov-card apple-card cfg-group">
         <div className="deploy-setting-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div className="cfg-group-title" style={{ borderBottom: 'none' }}>部署设置（deploy.yaml）</div>
           <div style={{ display: 'flex', gap: 8 }}>

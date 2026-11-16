@@ -334,11 +334,19 @@ export function Overview({ instance }: { instance: string }) {
             <div onClick={onLogBarClick} dangerouslySetInnerHTML={{ __html: logBarHtml }} />
             {/* log-container 的 style 必须带 --version 变量：alas.css:1182 用
                 ::before content: var(--version) 画右下角版本水印 */}
+            {/* 日志区 DOM 契约（实测老 UI 几何值，见下方数值比对）：
+                  #pywebio-scope-log-container  外层壳：**无 class、无 padding、无底色**
+                                              只有一个 --version 变量供 ::before 画水印
+                  #pywebio-scope-log            <pre class="container-log">：**同一元素**
+                                               既是 scope 又带 class（widgets.py:60）
+                                               底色 0.93 / padding 20px / 圆角 16px 来自这里
+                踩过的坑：把 container-log 加在外层容器上，等于套了两层
+                padding(20+20) 和两层卡片，日志区被挤窄 40px，与老 UI 明显不符。 */}
             <div
               id="pywebio-scope-log-container"
               style={{ ['--version' as string]: `'Ver.${version}'` } as React.CSSProperties}
             >
-              <div id="pywebio-scope-log">
+              <div id="pywebio-scope-log" className="container-log">
                 <div />
               </div>
             </div>

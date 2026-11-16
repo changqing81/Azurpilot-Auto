@@ -215,7 +215,7 @@ export function ManagePage() {
 
           {/* ── 添加配置 ── */}
           {view === 'new' && (
-            <div className="ov-card" style={{ padding: '20px 22px', maxWidth: 560 }}>
+            <div className="ov-card apple-card" style={{ padding: '20px 22px', maxWidth: 560 }}>
               <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>添加配置</div>
               <label style={{ display: 'block', marginBottom: 14 }}>
                 <div style={{ fontSize: 13, marginBottom: 6 }}>配置名称</div>
@@ -249,7 +249,7 @@ export function ManagePage() {
 
           {/* ── 导入配置 ── */}
           {view === 'import' && (
-            <div className="ov-card" style={{ padding: '20px 22px', maxWidth: 560 }}>
+            <div className="ov-card apple-card" style={{ padding: '20px 22px', maxWidth: 560 }}>
               <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}>导入配置</div>
               <div style={{ fontSize: 13, opacity: .75, lineHeight: 1.7, marginBottom: 16 }}>
                 选择 <code>.json</code> 配置文件。文件名决定实例名：<br />
@@ -274,7 +274,7 @@ export function ManagePage() {
 
           {/* ── 导出数据 ── */}
           {view === 'export' && (
-            <div className="ov-card" style={{ padding: '20px 22px', maxWidth: 560 }}>
+            <div className="ov-card apple-card" style={{ padding: '20px 22px', maxWidth: 560 }}>
               <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 10 }}>导出数据</div>
               <div style={{ fontSize: 13, opacity: .75, lineHeight: 1.7, marginBottom: 16 }}>
                 导出统计库与掉落记录（zip）。全量包保留 <code>config/</code>、<code>log/</code> 目录结构，

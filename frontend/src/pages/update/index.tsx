@@ -23,7 +23,7 @@ export function UpdatePage() {
         <h2>更新器</h2>
       </div>
 
-      <section className="ov-card cfg-group">
+      <section className="ov-card apple-card cfg-group">
         <div className="cfg-group-title">版本对照（分支 {data?.branch ?? '-'}）</div>
         <table className="research-table">
           <thead><tr><th></th><th>SHA1</th><th>作者</th><th>时间</th><th>说明</th></tr></thead>
@@ -40,7 +40,7 @@ export function UpdatePage() {
         </table>
       </section>
 
-      <section className="ov-card cfg-group">
+      <section className="ov-card apple-card cfg-group">
         <div className="cfg-group-title">详细提交历史</div>
         <table className="research-table">
           <thead><tr><th>SHA1</th><th>作者</th><th>时间</th><th>说明</th></tr></thead>
@@ -53,7 +53,7 @@ export function UpdatePage() {
       </section>
 
       {changelog && (
-        <section className="ov-card cfg-group">
+        <section className="ov-card apple-card cfg-group">
           <div className="cfg-group-title">更新日志</div>
           <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13, padding: '8px 4px' }}>
             {typeof changelog === 'string' ? changelog : JSON.stringify(changelog, null, 2).slice(0, 2000)}

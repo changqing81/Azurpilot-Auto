@@ -874,11 +874,22 @@ def _read_css_file(url_path: str, alas_name: str | None) -> str:
 
 
 def get_theme_name() -> str:
-    """当前主题名（与 get_theme_styles 同源：State.theme → deploy Theme → default）。"""
+    """当前主题名。
+
+    优先级改成 **deploy.yaml 的 Theme 优先**：
+    原先是 State.theme 优先，而 State.theme 只在启动与老 UI set_theme() 时更新，
+    新 UI 通过 /api/deploy/settings 改主题时它不会变 —— 实测点了没反应，
+    /newapi/theme-css 一直返回旧主题。deploy_config.Theme 是实时读盘的，
+    以它为准才能保证「保存即生效」。State.theme 仅作兜底。
+    """
     try:
         from module.webui.app_dependencies import State
 
-        return str(getattr(State, "theme", None) or State.deploy_config.Theme or "default")
+        State.deploy_config.read()
+        theme = str(getattr(State.deploy_config, "Theme", None) or "").strip()
+        if not theme:
+            theme = str(getattr(State, "theme", None) or "").strip()
+        return theme or "default"
     except Exception:  # noqa: BLE001
         return "default"
 

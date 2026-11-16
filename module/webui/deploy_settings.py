@@ -185,6 +185,26 @@ def save_deploy_settings(data: dict[str, Any]) -> dict[str, Any]:
 
     State.deploy_config.write()
     State.deploy_config.read()
+
+    # 主题是**三重状态**：deploy.yaml 里的 Theme、State.theme、AlasGUI.theme。
+    # 老 UI 切主题走 app_shell.py:set_theme()，三者一起改；
+    # 而这里（新 UI 的部署设置保存）原先只写了配置文件，导致：
+    #   data.get_theme_name() 优先读 State.theme → 拿到启动时的旧值
+    #   → /newapi/theme-css 永远返回旧主题 → 新 UI 点主题「完全没用」。
+    # 现在保存后同步另外两处，与新老 UI 两条链路保持一致。
+    if "Theme" in updates:
+        from module.webui.app_shell import normalize_webui_theme
+
+        theme = normalize_webui_theme(updates["Theme"])
+        State.theme = theme
+        try:
+            from module.webui.app import AlasGUI
+
+            AlasGUI.theme = theme
+        except Exception:  # noqa: BLE001 —— 导入失败不影响配置已落盘
+            pass
+        State.deploy_config.Theme = theme
+
     return {"updated": sorted(updates)}
 
 

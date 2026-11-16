@@ -85,7 +85,7 @@ export function ConfigPage() {
       </div>
       {error && <div className="cfg-error">{error}</div>}
       {groups.map(g => (
-        <section key={g.group} id={'pywebio-scope-config_' + g.group} className="ov-card cfg-group">
+        <section key={g.group} id={'pywebio-scope-config_' + g.group} className="ov-card apple-card cfg-group">
           <div className="cfg-group-title">{g.title || g.group}</div>
           {g.args.map(a => (
             <div key={a.name} className="cfg-row">

@@ -83,7 +83,7 @@ export function RemotePage() {
         <h2>远程控制</h2>
         <span className="cfg-dirty-hint" />
       </div>
-      <section className="ov-card cfg-group">
+      <section className="ov-card apple-card cfg-group">
         {/* 状态行：圆点 + 主状态文案 + 开关（与老 UI put_row[loading|state] 同构） */}
         <div className="cfg-row">
           <div className="cfg-title-wrap" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

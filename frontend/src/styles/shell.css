@@ -193,7 +193,10 @@
    与 entry-alas.css:527），保证视觉一致。
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── 卡片容器：等价于老 UI *[style*="--manage-config-card--"] ── */
+/* ── 卡片容器：等价于老 UI *[style*="--manage-config-card--"] ──
+   注意必须同时带 .apple-card：transparent-alas.css:308 靠这个 class 做透明化
+   （去掉底色/边框/阴影，让壁纸透出来）。只写 .ov-card 的话透明主题下
+   仍是实心白卡，与老 UI 观感完全不同。 */
 .ov-card {
     background: var(--alas-entry-surface);
     border: 1px solid var(--alas-entry-border);
@@ -380,3 +383,4 @@
 @keyframes remote-spin {
     to { transform: rotate(360deg); }
 }
+
