@@ -22,6 +22,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../api/client'
+import { injectWallpaperToggle, hideWallpaperToggle } from '../lib/wallpaperToggle'
 import { putLoading } from '../lib/pywebio'
 
 type Instance = { name: string; state: number }
@@ -153,6 +154,13 @@ export function Shell({
   const [menu, setMenu] = useState<MenuGroup[]>([])
   // 移动端内容区与菜单互斥：菜单展开时给内容区挂 container-content-collapsed
   // （alas-mobile.css 里就是 display:none）。同一时刻只有一个可见。
+  // 纯背景模式圆点：仅主页显示（app_home.py:519 老 UI 在 show_home 注入，
+  // 离开主页由 base.py 导航钩子隐藏；React 里用 active 驱动等价语义）。
+  useEffect(() => {
+    if (active === 'Home') injectWallpaperToggle()
+    else hideWallpaperToggle()
+  }, [active])
+
   useEffect(() => {
     if (!isMobile) return
     const ids = ['pywebio-scope-content', 'pywebio-scope-statistics-content']

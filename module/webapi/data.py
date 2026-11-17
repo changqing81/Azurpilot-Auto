@@ -1491,6 +1491,22 @@ def set_remote_enabled(enabled: bool) -> dict:
 
 def get_wallpaper_candidates() -> dict:
     """壁纸候选直链（app_home.py:init_wallpaper 数据面：并发拉启用图源取直链）。"""
+    # 自定义背景优先：mode=custom 且用户上传过文件时，只返回自定义这一份候选
+    # （老 UI init_wallpaper:537-561 同语义：自定义模式直接应用并跳过随机图源）。
+    # 之前漏了这个分支 → 长卿上传背景后页面仍走随机图源，「自定义背景无法使用」。
+    try:
+        bg = get_background_setting()
+        if bg.get("mode") == "custom":
+            info = get_custom_background_info()
+            if info.get("exists"):
+                return {"candidates": [{
+                    "source": "custom",
+                    "url": info["url"],
+                    "video": bool(info.get("is_video")),
+                }]}
+    except Exception as _e:  # noqa: BLE001
+        logger.warning(f"[webapi] 自定义背景候选失败: {_e}")
+
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     from module.webui.app_home import HomeMixin

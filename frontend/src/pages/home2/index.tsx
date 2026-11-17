@@ -8,7 +8,7 @@
 import { useEffect, useState } from 'react'
 import { Shell } from '../../components/Shell'
 import { WallpaperSourcesModal } from './WallpaperSourcesModal'
-import { apiGet } from '../../api/client'
+import { apiGet, withPrefix } from '../../api/client'
 import { btn, btnGroup, putText } from '../../lib/pywebio'
 
 type RaceCandidate = { url: string; video?: boolean }
@@ -44,6 +44,13 @@ function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVi
   }
 }
 
+/** 壁纸 URL 解析：外链（http/https）原样；站内路径（/api/wallpapers/custom）补中继前缀。
+ *  不能直接用 withPrefix：它会把外链当站内路径拼成 /https://… 彻底打不开
+ *  （2026-11-18 实测：主页背景全黑，竞速外链候选全部 404）。 */
+function bgUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? url : withPrefix(url)
+}
+
 function startOne(c: RaceCandidate) {
   let el: HTMLImageElement | HTMLVideoElement
   if (c.video) {
@@ -53,13 +60,13 @@ function startOne(c: RaceCandidate) {
     v.setAttribute('playsinline', '')
     v.oncanplay = () => finishRace(c, v)
     v.onerror = () => { /* 该候选失败，等其它候选 */ }
-    v.src = c.url
+    v.src = bgUrl(c.url)
     el = v
   } else {
     const img = new Image()
     img.onload = () => finishRace(c, img)
     img.onerror = () => { /* 该候选失败，等其它候选 */ }
-    img.src = c.url
+    img.src = bgUrl(c.url)
     el = img
   }
   raceImages.push(el)
