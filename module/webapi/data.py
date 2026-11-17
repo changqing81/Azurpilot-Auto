@@ -637,6 +637,13 @@ def get_ui_labels() -> dict:
             val = _t(key)
         except Exception:  # noqa: BLE001
             val = key
+        # ⚠️ t() 对查不到的 key 会**原样返回 key 本身**（如中文库缺
+        # Gui.Button.Screenshot 时返回 "Gui.Button.Screenshot"）。
+        # 把这种「回声」丢掉，前端才能落到自己的中文兜底，
+        # 否则按钮上直接显示一个 i18n key（长卿 2026-11-17 截图：
+        # 「截图预览」位置显示了 Gui.Button.Screenshot）。
+        if val == key:
+            continue
         items[key] = val
         labels[key.rsplit(".", 1)[-1]] = val
     return {"success": True, "items": items, "labels": labels}
@@ -1539,6 +1546,27 @@ def start_scheduler(name: str, func: str | None = None) -> dict:
         if pm.alive:
             return {"success": False, "error": "调度器已在运行"}
         pm.start(func)
+        if not pm.alive:
+            # start() 内部守卫（process_manager.py:153）会因
+            # State._restart_requested / State._clearup 拒绝启动。这两个标志只在
+            # WebUI 冷启动的 State.init() 复位；热重载路径置位后若 startup 未再
+            # 执行就会滞留，所有启动请求永远被拒（长卿 2026-11-17 实测：WebUI
+            # 重启后 alas 拉不起来）。确认无活跃重启事务后复位并重试一次。
+            stale = False
+            try:
+                if not State.restart_lock.acquire(blocking=False):
+                    State.restart_lock.release()
+                else:
+                    if State._restart_requested or State._clearup:
+                        State._restart_requested = False
+                        State._clearup = False
+                        stale = True
+                    State.restart_lock.release()
+            except Exception:
+                pass
+            if stale:
+                logger.warning(f"[webapi] 复位滞留的重启标志后重试启动 {name}")
+                pm.start(func)
         return {"success": True, "alive": bool(pm.alive)}
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 调度器启动失败({name}): {e}")

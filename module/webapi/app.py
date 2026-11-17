@@ -1040,27 +1040,36 @@ class SpaStaticFiles(StaticFiles):
             out = out.replace("'" + rel, "'" + prefix + frag)
         return out
 
-    def _serve_index_for_relay(self):
-        """远控中继场景的入口页：原版 index.html + 运行时 <base> 前缀。
+    def _serve_index_for_relay(self, request):
+        """远控中继场景的入口页：302 到带尾斜杠的 /{peer}/，让相对路径天然正确。
 
         为什么不能靠服务端写死前缀：中继转发到后端时既剥掉 /{peer} 前缀、
         也不提供任何能还原它的请求头（诊断端点实测只有 CDN 与 UA 头）。
         后端无从得知 peer_id，唯一知道的是浏览器（location.pathname）。
 
-        做法（关键：**不能自己另拼一份 HTML**，长卿 2026-11-17 实测
-        「样式没有生效、还是电脑布局」就是上一版自拼 HTML 的后果——
+        ## 为什么用重定向而不是 <base>（长卿 2026-11-17 23:17「又改什么了
+        我怎么打不开了」实测复现）
+
+        <base> 方案下，Chrome 的**预加载扫描器**会在文档流里遇到 <base> 之前，
+        就按**站点根**预先解析 ./assets/index-xxx.js、./static/… 并发请求：
+          /assets/index-xxx.js   → 502（中继只认带 /{peer} 前缀的路径）
+          /static/…/*.css        → 404
+        真正的带前缀请求随后才发。实测一次加载里有 11 个这类失败请求；更糟的是
+        预载的 502 响应会**占据同名资源的缓存位**，运气差时主 JS 拿到 502、
+        React 永不挂载 —— 就是「打不开」的白屏。
+
+        改用 302：入口 /{peer}?app=index → /{peer}/?app=index。文档 URL 自带
+        尾斜杠后，./assets/… 天然解析成 /{peer}/assets/…，从第一字节起就
+        没有「按站点根解析」的阶段，一个失败请求都不会产生。
+
+        结构契约：返回**原版** index.html（结构与 id 原样保留），只把
+        /static/…、/pywebio_static/… 的绝对引用改成相对 ./…。
         main.tsx 靠 #alas-layout-css / #alas-bs-theme 切移动端与主题，
-        自拼的页面把这些 id 和 CSS 顺序全丢了）：
-
-          1. 读**原版** index.html，结构与 id 原样保留
-          2. 把绝对同源引用 /static/…、/pywebio_static/… 改成相对 ./static/…
-             （vite 产物的 ./assets/… 本来就是相对，不动）
-          3. 在最前面插一段同步脚本，从 location.pathname 推出 /{peer}
-             并 document.write 一个 <base href="/{peer}/">。
-
-        有了 <base>，所有相对引用都会解析到 /{peer}/…，页面结构与顺序不变，
-        也不会重复加载资源（上一版自拼 HTML 把 CSS 插了两遍，手机端很卡）。
+        自拼 HTML 会把这些 id 和 CSS 顺序丢掉（已踩过：样式全失效）。
         """
+        from starlette.responses import RedirectResponse
+
+        path = request.url.path
         from starlette.responses import HTMLResponse
 
         try:
@@ -1069,28 +1078,30 @@ class SpaStaticFiles(StaticFiles):
             logger.warning(f"[webapi] 读取 index.html 失败: {e}")
             raise HTTPException(status_code=500, detail="index.html unreadable")
 
-        # 把绝对同源引用改成相对，交给 <base> 解析
         for frag in ("/static/", "/pywebio_static/"):
             raw = raw.replace('"' + frag, '".' + frag)
             raw = raw.replace("'" + frag, "'." + frag)
 
+        # 浏览器是唯一知道完整入口 URL 的一方（中继剥掉了 path 前缀，
+        # 后端看到的 path 通常是 "/"，无法服务端 302）。所以在任何资源
+        # 请求发出之前，用同步脚本把地址归一到 /{peer}/：
+        #   - 尾斜杠让 ./assets/… 天然解析到 /{peer}/assets/…
+        #   - 在 <head> 最前面同步执行 → 预加载扫描器拿到的已是归一后的 URL，
+        #     不会出现 <base> 方案那种「按站点根预载 → 502/404 占缓存位」的问题
         boot = (
-            "<script>(function(){"
-            "var segs=location.pathname.split('/').filter(Boolean);"
-            "var RESERVED=['new','assets','newapi','static','pywebio_static','api'];"
-            "if(!segs.length||RESERVED.indexOf(segs[0])>=0)return;"
-            "var prefix='';"
-            "if(segs[0]==='p2p'&&segs[1])prefix='/p2p/'+segs[1];"
-            "else if(/^[0-9a-f]{8,64}$/i.test(segs[0]))prefix='/'+segs[0];"
-            "if(!prefix)return;"
-            "document.write('<base href=\"'+prefix+'/\">');"
-            "})();</script>"
+            "<script>(function(){var p=location.pathname;"
+            + "if(p.charAt(p.length-1)==='/')return;"
+            + "if(p.lastIndexOf('/',0)===0&&p.split('/').filter(Boolean).length===0)return;"
+            + "var segs=p.split('/').filter(Boolean);"
+            + "var RESERVED=['new','assets','newapi','static','pywebio_static','api'];"
+            + "if(!segs.length||RESERVED.indexOf(segs[0])>=0)return;"
+            + "var ok=(segs[0]==='p2p'&&segs[1])||/^[0-9a-f]{8,64}$/i.test(segs[0]);"
+            + "if(!ok)return;"
+            + "location.replace(p+'/'+location.search);"
+            + "})();</script>"
         )
         marker = "<head>"
-        if marker in raw:
-            raw = raw.replace(marker, marker + boot, 1)
-        else:
-            raw = boot + raw
+        raw = raw.replace(marker, marker + boot, 1) if marker in raw else boot + raw
         return HTMLResponse(raw, headers={"Cache-Control": "no-cache"})
 
     async def get_response(self, path: str, scope):
@@ -1105,13 +1116,20 @@ class SpaStaticFiles(StaticFiles):
         prefix = self._relay_prefix(raw_path, referer)
         behind_relay = self._is_behind_relay(scope.get("headers") or [])
 
-        # 中继场景且拿不到明确前缀：返回自举页，由浏览器读 location.pathname
-        # 决定前缀（中继不提供 peer_id，后端无从得知，见 _serve_index_for_relay）。
+        # 中继场景且拿不到明确前缀：302 跳到带尾斜杠的 /{peer}/，让相对路径
+        # 天然解析正确（中继不提供 peer_id，后端无从得知，见 _serve_index_for_relay）。
         # 只对「页面入口」生效，资源请求仍走正常路径（浏览器补完前缀后自然命中）。
         if behind_relay and not prefix and not raw_path.startswith(
             ("/assets/", "/static/", "/pywebio_static/", "/newapi/", "/api/")
         ):
-            return self._serve_index_for_relay()
+            # get_response 的签名只有 (path, scope)，没有 request；
+            # _serve_index_for_relay 需要 url.path / url.query 来做 302，
+            # 从 scope 重建一个最小兼容对象（/ 命中此分支时 scope['path']='/'，
+            # 此前引用未定义的 request 直接 NameError → 500，
+            # 长卿 2026-11-17 23:17「我怎么打不开了」就是这个）。
+            from starlette.requests import Request as _Req
+
+            return self._serve_index_for_relay(_Req(scope))
 
         # ⚠️ 关键：index.html 必须**自己读文件并构造 HTMLResponse**，
         # 不能指望改 FileResponse —— 它没有 .body 属性（流式发送），
