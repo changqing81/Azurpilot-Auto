@@ -44,7 +44,7 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
     // 「a > b > c」形式的优先级过滤器（如自定义旗舰航母过滤器 bogue > ranger >
     // langley > hermes）渲染成可拖拽排序列表 —— 老 UI task_priority 的同款交互，
     // 用户拖/点箭头即可调顺序，不用手写 > 分隔符（长卿 2026-11-17）。
-    // 认不出的值（YAML / 多行 / 非 > 分隔）退回普通 textarea。
+    // 认不出的值（YAML / 多行 / 非 > 分隔 / LLM API Key 那种长串）退回普通 textarea。
     const v = String(arg.value ?? '')
     if (isPriorityList(v)) {
       return <PriorityFilter value={v} onChange={onChange} />
@@ -55,6 +55,21 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
         rows={3}
         value={arg.value ?? ''}
         onChange={e => onChange(e.target.value)}
+      />
+    )
+  }
+  // 老 UI 的 task_priority 控件（widgets.py:639）：任务是固定的枚举，
+  // 用「中文任务名 + 英文代号」双列可拖拽列表 —— 长卿截图里图二就是它
+  // （跨月每日/OpsiCrossMonth、重启设置/Restart…）。
+  // 后端已经把任务名翻译好了放在 option 里，这里直接用 labelOf 查表。
+  if (arg.type === 'task_priority') {
+    const nameMap: Record<string, string> = {}
+    for (const o of arg.option || []) nameMap[String(o.value)] = o.label
+    return (
+      <PriorityFilter
+        value={String(arg.value ?? '')}
+        onChange={onChange}
+        labelOf={(code) => nameMap[code] || code}
       />
     )
   }

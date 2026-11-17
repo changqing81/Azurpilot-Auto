@@ -83,7 +83,10 @@ export function PriorityFilter({
           >
             <span className="task-priority-rank">{i + 1}</span>
             <span className="task-priority-handle" aria-hidden="true">≡</span>
+            {/* 双列：左中文名 / 右英文代号 —— 与老 UI widgets.py:658-663 的
+                task_priority 完全同构（.task-priority-name + .task-priority-code）。 */}
             <span className="task-priority-name">{labelOf ? labelOf(code) : code}</span>
+            <span className="task-priority-code">{labelOf ? code : ""}</span>
             <span className="priority-filter-actions">
               <button type="button" className="btn btn-sm btn-secondary" title="上移"
                 disabled={i === 0} onClick={() => move(i, i - 1)}>↑</button>

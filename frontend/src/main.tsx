@@ -110,6 +110,9 @@ import { TaskToolPage } from './pages/tool/task'
 import { AnnouncementPage } from './pages/announcement'
 import { ManagePage } from './pages/manage'
 import './styles/shell.css'
+// 新 UI 专属的视觉补偿：全部规则带 #root 前缀，老 UI（PyWebIO 直接渲染到
+// body、无 #root）完全不受影响。详见文件头注释。
+import './newui-scoped.css'
 
 // 总览页需要实例名（=ProcessManager 的 config_name），从路由参数取后透传。
 function OverviewRoute() {

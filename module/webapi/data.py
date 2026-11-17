@@ -623,6 +623,38 @@ def get_menu() -> dict:
         })
     return {"groups": groups}
 
+def _task_priority_options() -> list:
+    """任务优先级控件可选的任务名列表（中文名 + 英文代号）。
+
+    老 UI 的 put_arg_task_priority 用 get_scheduler_tasks(ALAS_ARGS) 取全部
+    可调度任务，再按 Task.{code}.name 翻译显示名。这里做同一件事，供前端
+    画「中文任务名 / 英文代号」双列可拖拽列表（长卿截图图二那种）。
+    """
+    try:
+        from module.config.task_priority import get_scheduler_tasks
+        from module.config.utils import read_file, filepath_args
+
+        alas_args = read_file(filepath_args())
+        tasks = get_scheduler_tasks(alas_args)
+        out = []
+        for code in tasks:
+            label = _load_i18n("task_config").get(code, {}).get("_info", {})
+            name = ""
+            try:
+                from module.webui.lang import t as _t
+
+                name = _t(f"Task.{code}.name")
+                if name == f"Task.{code}.name":
+                    name = ""
+            except Exception:  # noqa: BLE001
+                name = ""
+            out.append({"label": name or code, "value": code})
+        return out
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 任务优先级选项构建失败: {e}")
+        return []
+
+
 def get_task_config(name: str, task: str) -> dict:
     """配置页 schema+值（等价 alas_set_group 的数据面）。
 
@@ -677,16 +709,22 @@ def get_task_config(name: str, task: str) -> dict:
                 from datetime import datetime as _dt
 
                 current = str(current)  # datetime 等类型转字符串，与老 UI 显示一致
+            option_list = [
+                {"label": str(arg_i18n.get(opt) or opt), "value": opt}
+                for opt in (arg.get("option") or [])
+            ]
+            # task_priority 类型的参数没有 option 字段（老 UI 从 args.json 的
+            # 调度器任务表动态取），但前端画「中文任务名 + 英文代号」双列列表
+            # 需要映射表 —— 这里补上全部任务名（Task.{code}.name 的译文）。
+            if arg.get("type") == "task_priority" and not option_list:
+                option_list = _task_priority_options()
             item: dict[str, Any] = {
                 "name": arg_name,
                 "title": str(arg_i18n.get("name") or arg_name),
                 "help": str(arg_i18n.get("help") or ""),
                 "type": arg.get("type", "input"),
                 "value": current,
-                "option": [
-                    {"label": str(arg_i18n.get(opt) or opt), "value": opt}
-                    for opt in (arg.get("option") or [])
-                ],
+                "option": option_list,
             }
             rows.append(item)
         if rows:
