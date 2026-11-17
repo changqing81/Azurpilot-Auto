@@ -1,27 +1,12 @@
-/* 新 UI 专用的视觉补偿（**只影响新 UI，绝不动老 UI**）。
+/* 新 UI 专用样式（所有规则必须带 #root 前缀）。
  *
  * 背景：老 UI 和新 UI 共用 assets/gui/css/** 下的 10+ 份样式表。
- * 2026-11-17 我为了修新 UI 的毛玻璃直接改了 advanced-material-alas.css 的
- * 指标卡底色（0.05 → 0.62 白），结果把老 UI 高级材质主题的卡片也变成白块
- * —— 严重错误，已回滚（98117620b）。
+ * 2026-11-17 我为了修新 UI 的毛玻璃直接改了 advanced-material-alas.css，
+ * 把老 UI 高级材质主题的卡片也变成白块 —— 严重错误，已回滚（98117620b）。
+ * 之后长卿明确：「我要半透明那样子，不是半透明的话都是死，不管新老UI都一样」
+ * —— 所以半透明改在共享 CSS 里统一处理，四个主题各自用 --alas-apple-card-bg
+ * 取值，新老 UI 自动一致。
  *
- * 正确做法：新 UI 自己的视觉差异写在这里，整份文件用 #root 前缀限定作用域。
- * 老 UI 是 PyWebIO 直接渲染到 body、没有 #root 节点，所以这些规则对老 UI
- * 完全不生效。
+ * 本文件只放新 UI 独有样式。老 UI 是 PyWebIO 直接渲染到 body、没有 #root 节点，
+ * 所以 #root 下的规则对老 UI 完全不生效。
  */
-
-#root #pywebio-scope-statistics-content .opsi-card,
-#root #pywebio-scope-statistics-content .metric,
-#root #pywebio-scope-statistics-content .kpi,
-#root #pywebio-scope-statistics-content .rd-stats-item {
-    background: rgba(255, 255, 255, 0.62) !important;
-    border-color: rgba(255, 255, 255, 0.75) !important;
-    backdrop-filter: blur(40px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
-}
-
-#root #pywebio-scope-commission_income .commission-income-metric-card {
-    background-color: rgba(255, 255, 255, 0.82) !important;
-    backdrop-filter: blur(18px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
-}

@@ -206,16 +206,24 @@ body *:not(#pywebio-scope-log):not(#pywebio-scope-log *) {
    会被注到骨架 statistics-alas.css 之前，同特异度会输给骨架的
    var(--st-surface-muted) 底色（真机 2026-10-02 实测踩坑）。 */
 
+/* 2026-11-17 长卿：「我要半透明那样子，不是半透明的话都是死，不管新老UI都一样」。
+   指标卡统一用主题自适应的 --alas-apple-card-bg（亮 0.72 / 暗 0.78）+ 模糊。
+   之前的 0.05 太透（字压壁纸看不清）、临时改的 0.62 太白（像实心白块），
+   两档都不对。用变量还能让暗色主题自动继承自己的半透明值。 */
 body #pywebio-scope-statistics-content .opsi-card,
 body #pywebio-scope-statistics-content .metric,
 body #pywebio-scope-statistics-content .kpi,
 body #pywebio-scope-statistics-content .rd-stats-item {
-	background: rgba(255, 255, 255, 0.05);
+	background: var(--alas-apple-card-bg);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
 /* 委托收益的 5 张资源胶囊卡同档对齐（底色写死在行内 style，需 !important） */
 #pywebio-scope-commission_income .commission-income-metric-card {
-	background-color: rgba(255, 255, 255, 0.05) !important;
+	background-color: var(--alas-apple-card-bg) !important;
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
 /* ==========================================

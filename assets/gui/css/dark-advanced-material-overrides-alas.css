@@ -533,13 +533,14 @@ body #pywebio-scope-statistics-content .rd-stats-item {
 	-webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 
-/* 无语义色的白卡：对齐 tone 卡的半透明档（5% 级极淡底），壁纸透出，
-   轮廓交给描边；背景模糊保留 —— 这是暗色侧 tone 卡与白卡共用的观感 */
+/* 2026-11-17 长卿：「我要半透明那样子，不是半透明的话都是死，不管新老UI都一样」。
+   指标卡用主题自适应的 --alas-apple-card-bg（暗色侧 = rgba(15,23,42,0.78)）
+   + 背景模糊。原来是 5% 极淡底，在深色花壁纸上字看不清。 */
 body #pywebio-scope-statistics-content .opsi-card,
 body #pywebio-scope-statistics-content .metric,
 body #pywebio-scope-statistics-content .kpi,
 body #pywebio-scope-statistics-content .rd-stats-item {
-	background: rgba(255, 255, 255, 0.05);
+	background: var(--alas-apple-card-bg);
 	border-color: rgba(148, 163, 184, 0.35);
 }
 
