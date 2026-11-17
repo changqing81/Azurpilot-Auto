@@ -49,7 +49,10 @@ function applyLayoutLayer() {
   if (!link) return
   const want = isMobileUA() ? 'alas-mobile' : 'alas-pc'
   if (!link.href.includes('/' + want + '.css')) {
-    link.href = '/static/assets/gui/css/' + want + '.css'
+    // ⚠️ 必须走 withRelayPrefix：远控中继下 /static/… 不带 /{peer} 前缀会
+    // 404/502，手机端就永远拿不到 alas-mobile.css，一直是电脑布局
+    // （长卿 2026-11-17：「有些东西完全是电脑模式下的东西没有适配移动端」）。
+    link.href = withRelayPrefix('/static/assets/gui/css/' + want + '.css')
   }
 }
 
@@ -64,14 +67,14 @@ function applyTheme(payload: { theme?: string; links?: string[] } | null) {
   links.forEach(href => {
     const link = document.createElement('link')
     link.rel = 'stylesheet'
-    link.href = href + '?v=newui'
+    link.href = withRelayPrefix(href) + '?v=newui'
     link.setAttribute('data-alas-theme-css', '')
     document.head.appendChild(link)
   })
   // 3) Bootstrap 主题层随主题切换（老 UI 的 pywebio_theme_for：只有 dark 用 dark）
   const bs = document.getElementById('alas-bs-theme') as HTMLLinkElement | null
   if (bs) {
-    const want = '/pywebio_static/css/bs-theme/' + (theme === 'dark' ? 'dark' : 'default') + '.min.css'
+    const want = withRelayPrefix('/pywebio_static/css/bs-theme/' + (theme === 'dark' ? 'dark' : 'default') + '.min.css')
     if (!bs.href.includes(want)) bs.href = want
   }
   // 4) body 的 Bootstrap 主题类（老 UI pywebio_theme_for：只有 dark 用 dark，其余 default）

@@ -927,79 +927,57 @@ class SpaStaticFiles(StaticFiles):
         return out
 
     def _serve_index_for_relay(self):
-        """远控中继场景的入口页：**返回一段自举 HTML**，由浏览器端自行补前缀。
+        """远控中继场景的入口页：原版 index.html + 运行时 <base> 前缀。
 
-        为什么不能靠服务端补前缀：中继转发到后端时既剥掉 /{peer} 前缀、
-        也**不提供任何能还原它的请求头**（实测 echo 端点的全部头里只有 CDN 与
-        UA，没有原始路径）。所以后端根本无从得知 peer_id。
+        为什么不能靠服务端写死前缀：中继转发到后端时既剥掉 /{peer} 前缀、
+        也不提供任何能还原它的请求头（诊断端点实测只有 CDN 与 UA 头）。
+        后端无从得知 peer_id，唯一知道的是浏览器（location.pathname）。
 
-        但浏览器知道 —— 它能读 location.pathname。所以这里返回一个最小的
-        自举页面：同步读取首段作为前缀，然后动态插入真正的主 JS / CSS 标签。
-        这样既不依赖任何请求头，也对所有中继形态通用（不是给谁特调）。
+        做法（关键：**不能自己另拼一份 HTML**，长卿 2026-11-17 实测
+        「样式没有生效、还是电脑布局」就是上一版自拼 HTML 的后果——
+        main.tsx 靠 #alas-layout-css / #alas-bs-theme 切移动端与主题，
+        自拼的页面把这些 id 和 CSS 顺序全丢了）：
+
+          1. 读**原版** index.html，结构与 id 原样保留
+          2. 把绝对同源引用 /static/…、/pywebio_static/… 改成相对 ./static/…
+             （vite 产物的 ./assets/… 本来就是相对，不动）
+          3. 在最前面插一段同步脚本，从 location.pathname 推出 /{peer}
+             并 document.write 一个 <base href="/{peer}/">。
+
+        有了 <base>，所有相对引用都会解析到 /{peer}/…，页面结构与顺序不变，
+        也不会重复加载资源（上一版自拼 HTML 把 CSS 插了两遍，手机端很卡）。
         """
         from starlette.responses import HTMLResponse
 
-        # 主 JS / CSS 的真实文件名从 dist/index.html 里解析，避免写死 hash。
         try:
             raw = open(os.path.join(_FRONTEND_DIST, "index.html"), encoding="utf-8").read()
         except OSError as e:
             logger.warning(f"[webapi] 读取 index.html 失败: {e}")
             raise HTTPException(status_code=500, detail="index.html unreadable")
 
-        import re as _re
+        # 把绝对同源引用改成相对，交给 <base> 解析
+        for frag in ("/static/", "/pywebio_static/"):
+            raw = raw.replace('"' + frag, '".' + frag)
+            raw = raw.replace("'" + frag, "'." + frag)
 
-        css_links = _re.findall(r'href="([^"]*?/assets/[^"]+\.css)"', raw)
-        js_srcs = _re.findall(r'src="([^"]*?/assets/[^"]+\.js)"', raw)
-        head_links = _re.findall(r'href="(/[^"]+)"', raw)
-        boot_script = _re.findall(r'src="(/static/[^"]+\.js)"', raw)
-        # 只保留老 UI 那批 head 里的静态 link 与 utils 脚本（不含 ./assets/）
-        head_links = [x for x in head_links if "/assets/" not in x]
-        # 统一成以 / 开头的绝对形式，前端拼 prefix 时才不会出现 "static/..." 缺斜杠
-        css_links = ["/" + c.lstrip("./") for c in css_links]
-        js_srcs = ["/" + j.lstrip("./") for j in js_srcs]
-        boot_script = ["/" + b.lstrip("./") for b in boot_script]
-
-        payload = {
-            "css": css_links,
-            "js": js_srcs,
-            "head": head_links,
-            "boot": boot_script,
-        }
-        import json as _json
-
-        data = _json.dumps(payload, ensure_ascii=False)
-        html = (
-            "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\">"
-            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-            "<title>AzurPilot</title>"
-            "<style>html,body{margin:0;height:100%;background:#f5f6f8}body:has(#root > div) #alas-boot-skeleton{display:none}</style>"
-            "</head><body>"
-            "<div id=\"root\"></div>"
-            "<div id=\"alas-boot-skeleton\" style=\"padding:24px;font:14px/1.6 system-ui;color:#7a7a8c\">"
-            "正在加载 AzurPilot…</div>"
-            "<script>"
-            "(function(){"
-            "var DATA=" + data + ";"
+        boot = (
+            "<script>(function(){"
             "var segs=location.pathname.split('/').filter(Boolean);"
             "var RESERVED=['new','assets','newapi','static','pywebio_static','api'];"
+            "if(!segs.length||RESERVED.indexOf(segs[0])>=0)return;"
             "var prefix='';"
-            "if(segs.length&&RESERVED.indexOf(segs[0])<0){"
-            "  if(segs[0]==='p2p'&&segs[1])prefix='/p2p/'+segs[1];"
-            "  else if(/^[0-9a-f]{8,64}$/i.test(segs[0]))prefix='/'+segs[0];"
-            "}"
-            "function add(tag,attrs){var e=document.createElement(tag);"
-            "  for(var k in attrs)e.setAttribute(k,attrs[k]);"
-            "  document.head.appendChild(e);return e;}"
-            "DATA.head.forEach(function(h){add('link',{rel:'stylesheet',href:prefix+h});});"
-            "DATA.css.forEach(function(c){add('link',{rel:'stylesheet',href:prefix+c});});"
-            "DATA.js.forEach(function(j){add('link',{rel:'modulepreload',href:prefix+j});});"
-            "DATA.boot.forEach(function(b){add('script',{src:prefix+b});});"
-            "var m=document.createElement('script');m.type='module';"
-            "m.src=prefix+(DATA.js[0]||'/assets/index.js');document.body.appendChild(m);"
-            "})();"
-            "</script></body></html>"
+            "if(segs[0]==='p2p'&&segs[1])prefix='/p2p/'+segs[1];"
+            "else if(/^[0-9a-f]{8,64}$/i.test(segs[0]))prefix='/'+segs[0];"
+            "if(!prefix)return;"
+            "document.write('<base href=\"'+prefix+'/\">');"
+            "})();</script>"
         )
-        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+        marker = "<head>"
+        if marker in raw:
+            raw = raw.replace(marker, marker + boot, 1)
+        else:
+            raw = boot + raw
+        return HTMLResponse(raw, headers={"Cache-Control": "no-cache"})
 
     async def get_response(self, path: str, scope):
         # 从 ASGI scope 里拿到**原始请求路径**（含中继前缀）
