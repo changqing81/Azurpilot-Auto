@@ -297,6 +297,19 @@ async def instance_import(request: Request) -> JSONResponse:
     )
 
 
+def _task_of(request) -> str:
+    """取 task 参数（query 优先，其次路径段；"_" 视为空）。
+
+    远控中继转发会剥掉 query string，所以参数还要能从路径段取到。
+    """
+    v = (
+        request.query_params.get("task")
+        or request.path_params.get("task")
+        or ""
+    ).strip()
+    return "" if v == "_" else v
+
+
 async def stat_panels_html(request: Request) -> JSONResponse:
     """GET /newapi/stat/{name}/panels_html?panel=<name>
 
@@ -310,20 +323,45 @@ async def stat_panels_html(request: Request) -> JSONResponse:
       delta      → 资源变动（粒度切换 + 时间轴图 + 汇总表 + 消耗排行榜）
     """
     name = request.path_params.get("name", "")
-    panel = (request.query_params.get("panel") or "opsi").strip().lower()
-    month = (request.query_params.get("month") or "").strip()
-    period = (request.query_params.get("period") or "").strip()
-    scope = (request.query_params.get("scope") or "").strip()
+    # panel 优先取 query；远控中继会剥掉 query，所以再取路径段（/panels_html/{panel}）。
+    # 见 Route 注册处的注释。
+    panel = (
+        request.query_params.get("panel")
+        or request.path_params.get("panel")
+        or "opsi"
+    ).strip().lower()
+    # month/task 也可能被中继剥掉 query，回退读路径段（见 Route 注册处注释）。
+    # 前端在路径里用 "_" 占位空值（空路径段会被折叠掉），这里还原成空串。
+    month = (
+        request.query_params.get("month")
+        or request.path_params.get("month")
+        or ""
+    ).strip()
+    if month == "_":
+        month = ""
+    # 其余参数：query 优先，其次路径段（远控中继剥 query，参数走 /_p/ 段）。
+    # 见 Route 注册处与 docs 注释。
+    _pp = request.path_params
+
+    def _arg(key: str, default: str = "") -> str:
+        v = request.query_params.get(key)
+        if v is None:
+            v = _pp.get(key)
+        v = (v or "").strip()
+        return "" if v == "_" else v
+
+    period = _arg("period")
+    scope = _arg("scope")
     try:
-        series = int(request.query_params.get("series") or 0)
+        series = int(_arg("series") or 0)
     except (TypeError, ValueError):
         series = 0
     try:
-        year = int(request.query_params.get("year") or 0)
+        year = int(_arg("year") or 0)
     except (TypeError, ValueError):
         year = 0
     try:
-        month_no = int(request.query_params.get("month") or 0)
+        month_no = int(_arg("yearmonth") or 0)
     except (TypeError, ValueError):
         month_no = 0
     handlers = {
@@ -347,7 +385,10 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     if panel == "opsi":
         # task = 大世界收获的任务筛选后缀（老 UI _meow_task_filter 的 REST 等价物）
         return JSONResponse(await run_in_threadpool(
-            fn, name, month, request.query_params.get("task") or ""
+            fn,
+            name,
+            month,
+            _task_of(request),
         ))
     if panel == "research":
         return JSONResponse(
@@ -1167,7 +1208,26 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instance/import", instance_import, methods=["POST"]),
         Route("/newapi/instance/create", instance_create, methods=["POST"]),
         Route("/newapi/instance/delete", instance_delete, methods=["POST"]),
+        # ⚠️ 同时注册「query 版」与「path 版」两条路由：
+        # 远控中继（remurl 等）转发时会**剥掉 query string**（实测：经中继请求
+        # ?panel=ship_exp 到达后端时 panel 为空 → 默认走 opsi，于是「舰船经验」位置
+        # 渲染出净赚体力卡、页面上出现两份净赚体力）。
+        # path 版把 panel 放进路径段，中继不剥路径，所以远控下也能正确分发。
         Route("/newapi/stat/{name}/panels_html", stat_panels_html),
+        Route("/newapi/stat/{name}/panels_html/{panel}", stat_panels_html),
+        # path 版：panel / month / task 都放进路径段。远控中继会剥掉 query
+        # string（实测 ?panel=ship_exp 到达后端时为空），但不动路径。
+        Route(
+            "/newapi/stat/{name}/panels_html/{panel}/{month}/{task}",
+            stat_panels_html,
+        ),
+        # 全参数路径版：panel/month/task/period/scope/year/yearmonth 全在路径里。
+        # 远控中继剥 query，多参数面板（科研/委托/科技/资源）靠这条保住状态。
+        Route(
+            "/newapi/stat/{name}/panels_html/{panel}/{month}/{task}/{period}"
+            "/{scope}/{year}/{yearmonth}",
+            stat_panels_html,
+        ),
         Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
         Route("/newapi/stat/{name}/months", stat_months),
         Route("/newapi/stat/{name}/ap_chart", stat_ap_chart),

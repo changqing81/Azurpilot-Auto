@@ -756,6 +756,34 @@
     }
 }
 
+/* 手机竖屏再收一档：两列指标在 87~160px 的容器里会把中文挤成一字一行
+   （长卿 2026-11-17 图三：侵蚀 5 卡片里的「遇见明石 43 次 概率 6.28%」
+   竖排）。这里放宽到单列，指标格横向铺开才可读。 */
+@media (max-width: 760px) {
+    #pywebio-scope-statistics-content .opsi-meow-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 4px;
+    }
+
+    #pywebio-scope-statistics-content .opsi-meow-card {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    /* 指标格文字允许换行但不要一字一行 */
+    #pywebio-scope-statistics-content .opsi-meow-grid .opsi-card-value {
+        font-size: .82rem;
+        word-break: normal;
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 420px) {
+    #pywebio-scope-statistics-content .opsi-meow-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+
 /* --------------------------------------------------------------------------
    指标胶囊行（对应 statistics-v2 的 .chip-row / .chip）
    --------------------------------------------------------------------------

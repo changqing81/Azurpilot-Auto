@@ -7,7 +7,7 @@
 //   /newapi/mind/{name}/ships 全量保存（revision 乐观锁在服务端）。
 // 容器 id 必须是 #pywebio-scope-ft_mind（fleet-tech-alas.css 后代选择器契约）。
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 import { useStatText } from './i18n'
 
 type MindData = {
@@ -45,7 +45,7 @@ export function MindPanel({ name }: { name: string }) {
   const load = useCallback((page: number, edit: boolean) => {
     setData(null)
     setErr('')
-    apiGet<MindData>(`/newapi/stat/${name}/panels_html?panel=mind&page=${page}&edit=${edit ? 1 : 0}`, 25000)
+    apiGet<MindData>(panelPath(name, 'mind', {}) + `?page=${page}&edit=${edit ? 1 : 0}`, 25000)
       .then(r => {
         if (r.success === false) { setErr(r.error || '加载失败'); return }
         setData(r)

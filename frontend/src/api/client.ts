@@ -50,6 +50,30 @@ export async function apiGet<T>(path: string, timeoutMs = 8000): Promise<T> {
   }
 }
 
+
+/** 把面板参数编码进路径段，供远控中继场景使用。
+ *
+ * 为什么需要（长卿 2026-11-17 远控截图：统计页出现两份「净赚体力」、
+ * 没有作战次数、文字竖排）：远控中继转发时会**剥掉 query string**。
+ * 实测：经 remurl 请求 ?panel=ship_exp，到达后端时 panel 为空 → 后端默认
+ * 走 opsi，于是「舰船经验」位置渲染出净赚体力卡，页面上出现两份净赚体力。
+ * 路径段不会被剥，所以把参数塞进路径。
+ *
+ * 编码约定：每个参数取 encodeURIComponent，空值用 "_" 占位
+ * （空路径段会被服务端/浏览器折叠掉）。后端 _arg() 会把 "_" 还原成空串。
+ */
+export function panelPath(
+  name: string,
+  panel: string,
+  args: Record<string, string> = {},
+): string {
+  const seg = (v: string | undefined) =>
+    encodeURIComponent(v === undefined || v === '' ? '_' : v)
+  const order = ['month', 'task', 'period', 'scope', 'year', 'yearmonth']
+  const tail = order.map(k => seg(args[k])).join('/')
+  return `/newapi/stat/${encodeURIComponent(name)}/panels_html/${encodeURIComponent(panel)}/${tail}`
+}
+
 /** POST 封装，同样带中继前缀。 */
 export async function apiPost<T>(path: string, body?: unknown, timeoutMs = 30000): Promise<T> {
   const ctrl = new AbortController()

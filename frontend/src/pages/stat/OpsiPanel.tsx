@@ -13,7 +13,7 @@
 // 前端挂载 HTML 后把 js 当 <script> 执行 —— 就是老 UI 那张图。
 // 其余区块（净赚卡/12指标卡/大世界收获/舰船经验）继续用老 UI 的渲染器。
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 import { apMonthCapsuleHtml, apToolbarHtml, type ApView } from './ApToolbar'
 import { useStatText } from './i18n'
@@ -101,9 +101,8 @@ export function OpsiPanel({ name }: { name: string }) {
       meow_filter_html: string
       meow_drop_html: string
     }>(
-      `/newapi/stat/${name}/panels_html?panel=opsi`
-        + (month ? `&month=${month}` : '')
-        + (meowTask ? `&task=${meowTask}` : ''), 25000,
+      // 参数全部走路径段：远控中继会剥掉 query string（见 panelPath 注释）
+      panelPath(name, 'opsi', { month, task: meowTask }), 25000,
     )
       .then(r => {
         if (!alive || !r.success) return
@@ -232,14 +231,12 @@ export function OpsiPanel({ name }: { name: string }) {
             {/* 两栏布局：老 UI put_row([左栏筛选, 右栏明细], size="168px minmax(0,1fr)")，
                 PyWebIO 产出的是一个 grid div。这里用同款内联 grid 复刻 ——
                 上下堆叠会让筛选器横铺一整行、与老 UI 的观感完全不同。 */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '168px minmax(0, 1fr)',
-                alignItems: 'start',
-                gap: 14,
-              }}
-            >
+            // ⚠️ 用 class 而不是内联 style：老 UI 的移动端媒体查询写的是
+            // div[style*="grid-template-columns: 168px minmax(0, 1fr)"]，
+            // 而 React 会把 0 序列化成 0px（实测 minmax(0px, 1fr)），
+            // 属性选择器匹配不上 → 窄屏两栏不折叠，右栏被挤到 87px，
+            // 侵蚀卡里的指标字变成一字一行（长卿 2026-11-17 图三）。
+            <div className="meow-loot-two-col">
               {/* 左栏任务筛选（老 UI _meow_filter_placeables 的纯 HTML 版） */}
               <div
                 className="meow-loot-filter"

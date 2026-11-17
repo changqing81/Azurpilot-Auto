@@ -19,7 +19,7 @@
 // ResearchSeriesOption），注意「心智 / 物资」「近 30 天」「第9期」的
 // 空格与写法和老 UI 完全一致。
 import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 import { useStatText } from './i18n'
 
 type Resp = {
@@ -99,9 +99,9 @@ export function ResearchPanel({ name }: { name: string }) {
   useEffect(() => {
     let alive = true
     setLoading(true)
-    const qs = new URLSearchParams({ panel: 'research', period, scope })
+    const qs = new URLSearchParams({ period, scope })
     if (series) qs.set('series', String(series))
-    apiGet<Resp>(`/newapi/stat/${name}/panels_html?${qs}`, 25000)
+    apiGet<Resp>(panelPath(name, 'research') + `?${qs}`, 25000)
       .then(r => {
         if (!alive) return
         setData(r)

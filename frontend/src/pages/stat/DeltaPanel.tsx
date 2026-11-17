@@ -13,7 +13,7 @@
 // （老 UI 的 webapp/resource_delta_timeline.{html,js} 模板填好数据），
 // 前端挂 DOM 后执行脚本 —— 就是老 UI 那张图，不是重画的。
 import { useEffect, useRef, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 import { useStatText } from './i18n'
 
 type PeriodOpt = { value: string; label: string }
@@ -37,12 +37,12 @@ export function DeltaSummary({ name }: { name: string }) {
   const [loading, setLoading] = useState(true)
   const hostRef = useRef<HTMLDivElement>(null)
 
-  const qs = `panel=delta&period=${encodeURIComponent(period)}`
+  const qs = `period=${encodeURIComponent(period)}`
 
   useEffect(() => {
     let alive = true
     setLoading(true)
-    apiGet<Resp>(`/newapi/stat/${name}/panels_html?${qs}`, 30000)
+    apiGet<Resp>(panelPath(name, 'delta') + `?${qs}`, 30000)
       .then(r => {
         if (!alive) return
         setData(r)

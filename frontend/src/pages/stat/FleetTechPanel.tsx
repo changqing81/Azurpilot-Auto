@@ -18,7 +18,7 @@
 // DOM 契约：fleet-tech-alas.css 的规则全部以 [id^="pywebio-scope-ft_"] 为前缀
 // （54 条），因此容器 id 必须逐个照抄，否则样式一条都不命中。
 import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 import { useStatText } from './i18n'
 
 type FilterButton = { value: string; label: string; active: boolean }
@@ -82,7 +82,7 @@ export function FleetTechPanel({ name }: { name: string }) {
     let alive = true
     setLoading(true)
     const qs = new URLSearchParams({
-      panel: 'fleet',
+      
       filters: filters.join(','),
       q: query,
       scope,
@@ -95,7 +95,7 @@ export function FleetTechPanel({ name }: { name: string }) {
       bonuses: bonuses ? '1' : '0',
       extra: extra ? '1' : '0',
     })
-    apiGet<Resp>(`/newapi/stat/${name}/panels_html?${qs}`, 30000)
+    apiGet<Resp>(panelPath(name, 'fleet') + `?${qs}`, 30000)
       .then(r => { if (alive) setData(r) })
       .catch(e => { if (alive) setData({ success: false, error: String(e) }) })
       .finally(() => { if (alive) setLoading(false) })

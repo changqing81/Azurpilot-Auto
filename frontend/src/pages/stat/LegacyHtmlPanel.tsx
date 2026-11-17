@@ -9,7 +9,7 @@
 // 用法：
 //   <OpsiLikePanel name={name} panel="commission" fields={['summary_html','table_html','recent_html']} />
 import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 
 export function LegacyHtmlPanel({
   name,
@@ -29,7 +29,11 @@ export function LegacyHtmlPanel({
     setData(null)
     setErr('')
     apiGet<Record<string, any>>(
-      `/newapi/stat/${name}/panels_html?panel=${panel}`, 25000,
+      // panel 放进路径段而不是 query：远控中继转发会剥掉 query string，
+      // 于是 ?panel=ship_exp 到达后端时 panel 为空 → 默认走 opsi，
+      // 「舰船经验」位置渲染出净赚体力卡、页面上出现两份净赚体力
+      // （长卿 2026-11-17 远控截图）。路径段中继不动，所以走 path 版路由。
+      panelPath(name, panel), 25000,
     )
       .then(r => {
         if (!alive) return

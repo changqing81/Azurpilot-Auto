@@ -10,7 +10,7 @@
 // 我上一版只放了「本月/本周」两个按钮，顺序还反了 —— 长卿：
 //   「每日不翼而飞 而且还反了 顺序是每日 每周 每月」。
 import { useEffect, useState } from 'react'
-import { apiGet } from '../../api/client'
+import { apiGet, panelPath } from '../../api/client'
 import { useStatText } from './i18n'
 
 type Resp = {
@@ -46,12 +46,12 @@ export function CommissionIncome({ name }: { name: string }) {
   useEffect(() => {
     let alive = true
     setLoading(true)
-    const qs = new URLSearchParams({ panel: 'commission', period })
+    const qs = new URLSearchParams({})
     if (ym) {
       qs.set('year', String(ym.y))
       qs.set('month', String(ym.m))
     }
-    apiGet<Resp>(`/newapi/stat/${name}/panels_html?${qs}`, 25000)
+    apiGet<Resp>(panelPath(name, 'commission') + `?${qs}`, 25000)
       .then(r => {
         if (!alive) return
         setData(r)
