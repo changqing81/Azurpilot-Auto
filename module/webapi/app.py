@@ -834,7 +834,7 @@ class SpaStaticFiles(StaticFiles):
     _PREFIXABLE = ("/assets/", "/newapi/", "/static/", "/pywebio_static/", "/api/")
 
     @staticmethod
-    def _relay_prefix(path: str) -> str:
+    def _relay_prefix(path: str, referer: str = "") -> str:
         """从请求路径推断中继前缀，没有则返回空串。
 
         只认两种形态，避免把真实业务路径误当前缀：
@@ -842,6 +842,30 @@ class SpaStaticFiles(StaticFiles):
           - /{hex16}   （remurl 一类，16 位十六进制）
           - /p2p/{id}  （内置 WebRTC 隧道）
         """
+        # 优先从 Referer 里取中继前缀。
+        #
+        # ⚠️ 实测（2026-11-17）：中继转发到后端时**会剥掉 /{peer} 前缀**，
+        # 后端收到的 path 是 "/"（echo 端点验证：/{peer}/newapi/relay-echo
+        # 到达后端时变成 /newapi/relay-echo），所以光看 path 永远拿不到 peer_id。
+        # 但 Referer 是透传的，且带着完整原始路径：
+        #   referer = "https://remurl.a1.nanoda.work/89982203008c27b2?app=index"
+        # 从中能还原 /{peer} 前缀。这样对所有中继用户都生效（不是个案特调）。
+        if referer:
+            try:
+                from urllib.parse import urlsplit as _urlsplit
+
+                _segs = [p for p in _urlsplit(referer).path.replace("\\", "/").split("/") if p]
+                if _segs:
+                    if _segs[0] == "p2p" and len(_segs) >= 2:
+                        return "/p2p/" + _segs[1]
+                    if (
+                        len(_segs[0]) >= 8
+                        and all(c in "0123456789abcdefABCDEF" for c in _segs[0])
+                    ):
+                        return "/" + _segs[0]
+            except Exception:  # noqa: BLE001
+                pass
+
         segs = [p for p in path.replace("\\", "/").split("/") if p]
         if not segs:
             return ""
@@ -873,7 +897,13 @@ class SpaStaticFiles(StaticFiles):
     async def get_response(self, path: str, scope):
         # 从 ASGI scope 里拿到**原始请求路径**（含中继前缀）
         raw_path = str(scope.get("path") or "/")
-        prefix = self._relay_prefix(raw_path)
+        # Referer 里带中继前缀（中继转发会剥 path 但透传 Referer），见 _relay_prefix 注释
+        referer = ""
+        for k, v in (scope.get("headers") or []):
+            if k.lower() == b"referer":
+                referer = v.decode("latin-1")
+                break
+        prefix = self._relay_prefix(raw_path, referer)
 
         # ⚠️ 关键：index.html 必须**自己读文件并构造 HTMLResponse**，
         # 不能指望改 FileResponse —— 它没有 .body 属性（流式发送），
