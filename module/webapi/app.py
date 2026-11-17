@@ -834,6 +834,36 @@ class SpaStaticFiles(StaticFiles):
     _PREFIXABLE = ("/assets/", "/newapi/", "/static/", "/pywebio_static/", "/api/")
 
     @staticmethod
+    def _is_behind_relay(header_pairs) -> bool:
+        """请求是否来自远控中继（而非浏览器直连）。
+
+        中继转发时**不提供任何能还原 peer_id 的信息**（实测 echo 端点只有 CDN
+        与 UA 头，路径前缀已被剥掉），所以只能判定「是不是经中继而来」。判定后
+        返回自举页，由浏览器自己从 location.pathname 读出前缀 —— 浏览器是唯一
+        知道前缀的一方。
+
+        特征（实测 remurl.a1.nanoda.work / TencentEdgeOne）：
+          cdn-loop: TencentEdgeOne; loops=N
+          eo-connecting-ip / eo-log-uuid
+          cf-connecting-ip（Cloudflare）
+        """
+        names = set()
+        for item in header_pairs or []:
+            try:
+                names.add(item[0].decode("latin-1").lower())
+            except Exception:  # noqa: BLE001
+                continue
+        return bool(
+            names
+            & {
+                "cdn-loop",
+                "eo-connecting-ip",
+                "eo-log-uuid",
+                "cf-connecting-ip",
+            }
+        )
+
+    @staticmethod
     def _relay_prefix(path: str, referer: str = "") -> str:
         """从请求路径推断中继前缀，没有则返回空串。
 
@@ -880,19 +910,96 @@ class SpaStaticFiles(StaticFiles):
         return ""
 
     def _inject_prefix(self, html: str, prefix: str) -> str:
-        """给 HTML 里的同源引用加上中继前缀。"""
+        """给 HTML 里的同源引用加上中继前缀。
+
+        只处理 HTML 里**静态写出**的引用。运行时动态请求（fetch/EventSource/
+        WebSocket）由前端 api/client.ts + main.tsx 的劫持补前缀。
+        """
         if not prefix:
             return html
         out = html
         for frag in self._PREFIXABLE:
-            # 绝对写法（vite 产物用 href/src="/x"，或手工 link）
             out = out.replace('"' + frag, '"' + prefix + frag)
             out = out.replace("'" + frag, "'" + prefix + frag)
-            # 相对写法 "./x"（vite base='./' 时）
             rel = "./" + frag.lstrip("/")
             out = out.replace('"' + rel, '"' + prefix + frag)
             out = out.replace("'" + rel, "'" + prefix + frag)
         return out
+
+    def _serve_index_for_relay(self):
+        """远控中继场景的入口页：**返回一段自举 HTML**，由浏览器端自行补前缀。
+
+        为什么不能靠服务端补前缀：中继转发到后端时既剥掉 /{peer} 前缀、
+        也**不提供任何能还原它的请求头**（实测 echo 端点的全部头里只有 CDN 与
+        UA，没有原始路径）。所以后端根本无从得知 peer_id。
+
+        但浏览器知道 —— 它能读 location.pathname。所以这里返回一个最小的
+        自举页面：同步读取首段作为前缀，然后动态插入真正的主 JS / CSS 标签。
+        这样既不依赖任何请求头，也对所有中继形态通用（不是给谁特调）。
+        """
+        from starlette.responses import HTMLResponse
+
+        # 主 JS / CSS 的真实文件名从 dist/index.html 里解析，避免写死 hash。
+        try:
+            raw = open(os.path.join(_FRONTEND_DIST, "index.html"), encoding="utf-8").read()
+        except OSError as e:
+            logger.warning(f"[webapi] 读取 index.html 失败: {e}")
+            raise HTTPException(status_code=500, detail="index.html unreadable")
+
+        import re as _re
+
+        css_links = _re.findall(r'href="([^"]*?/assets/[^"]+\.css)"', raw)
+        js_srcs = _re.findall(r'src="([^"]*?/assets/[^"]+\.js)"', raw)
+        head_links = _re.findall(r'href="(/[^"]+)"', raw)
+        boot_script = _re.findall(r'src="(/static/[^"]+\.js)"', raw)
+        # 只保留老 UI 那批 head 里的静态 link 与 utils 脚本（不含 ./assets/）
+        head_links = [x for x in head_links if "/assets/" not in x]
+        # 统一成以 / 开头的绝对形式，前端拼 prefix 时才不会出现 "static/..." 缺斜杠
+        css_links = ["/" + c.lstrip("./") for c in css_links]
+        js_srcs = ["/" + j.lstrip("./") for j in js_srcs]
+        boot_script = ["/" + b.lstrip("./") for b in boot_script]
+
+        payload = {
+            "css": css_links,
+            "js": js_srcs,
+            "head": head_links,
+            "boot": boot_script,
+        }
+        import json as _json
+
+        data = _json.dumps(payload, ensure_ascii=False)
+        html = (
+            "<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+            "<title>AzurPilot</title>"
+            "<style>html,body{margin:0;height:100%;background:#f5f6f8}body:has(#root > div) #alas-boot-skeleton{display:none}</style>"
+            "</head><body>"
+            "<div id=\"root\"></div>"
+            "<div id=\"alas-boot-skeleton\" style=\"padding:24px;font:14px/1.6 system-ui;color:#7a7a8c\">"
+            "正在加载 AzurPilot…</div>"
+            "<script>"
+            "(function(){"
+            "var DATA=" + data + ";"
+            "var segs=location.pathname.split('/').filter(Boolean);"
+            "var RESERVED=['new','assets','newapi','static','pywebio_static','api'];"
+            "var prefix='';"
+            "if(segs.length&&RESERVED.indexOf(segs[0])<0){"
+            "  if(segs[0]==='p2p'&&segs[1])prefix='/p2p/'+segs[1];"
+            "  else if(/^[0-9a-f]{8,64}$/i.test(segs[0]))prefix='/'+segs[0];"
+            "}"
+            "function add(tag,attrs){var e=document.createElement(tag);"
+            "  for(var k in attrs)e.setAttribute(k,attrs[k]);"
+            "  document.head.appendChild(e);return e;}"
+            "DATA.head.forEach(function(h){add('link',{rel:'stylesheet',href:prefix+h});});"
+            "DATA.css.forEach(function(c){add('link',{rel:'stylesheet',href:prefix+c});});"
+            "DATA.js.forEach(function(j){add('link',{rel:'modulepreload',href:prefix+j});});"
+            "DATA.boot.forEach(function(b){add('script',{src:prefix+b});});"
+            "var m=document.createElement('script');m.type='module';"
+            "m.src=prefix+(DATA.js[0]||'/assets/index.js');document.body.appendChild(m);"
+            "})();"
+            "</script></body></html>"
+        )
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
     async def get_response(self, path: str, scope):
         # 从 ASGI scope 里拿到**原始请求路径**（含中继前缀）
@@ -904,6 +1011,15 @@ class SpaStaticFiles(StaticFiles):
                 referer = v.decode("latin-1")
                 break
         prefix = self._relay_prefix(raw_path, referer)
+        behind_relay = self._is_behind_relay(scope.get("headers") or [])
+
+        # 中继场景且拿不到明确前缀：返回自举页，由浏览器读 location.pathname
+        # 决定前缀（中继不提供 peer_id，后端无从得知，见 _serve_index_for_relay）。
+        # 只对「页面入口」生效，资源请求仍走正常路径（浏览器补完前缀后自然命中）。
+        if behind_relay and not prefix and not raw_path.startswith(
+            ("/assets/", "/static/", "/pywebio_static/", "/newapi/", "/api/")
+        ):
+            return self._serve_index_for_relay()
 
         # ⚠️ 关键：index.html 必须**自己读文件并构造 HTMLResponse**，
         # 不能指望改 FileResponse —— 它没有 .body 属性（流式发送），
