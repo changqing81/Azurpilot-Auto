@@ -82,6 +82,93 @@ function applyTheme(payload: { theme?: string; links?: string[] } | null) {
   window.dispatchEvent(new CustomEvent('alas-theme-change', { detail: { theme } }))
 }
 
+// ============================================================================
+// 远控中继路径前缀：全局劫持 fetch / EventSource / WebSocket
+// ============================================================================
+// 长卿 2026-11-17：「https://remurl.a1.nanoda.work/89982203008c27b2?app=index
+// 他这个完全就是加载不出来……还有其他人的远控也是这样子的，所以说你不能
+// 做我一个人专门的优化，你得做全部的」。
+//
+// remurl.a1.nanoda.work 这类中继把每个客户端挂在 /{peer_id} 下，且**只认
+// 带 peer 前缀的路径**，不带前缀一律 502。实测：
+//   /89982203008c27b2?app=index          → 200 页面
+//   /assets/index-xxx.js                  → 502
+//   /89982203008c27b2/assets/index-xxx.js → 200 真实 JS
+//   /newapi/ui                            → 502
+//   /89982203008c27b2/newapi/ui           → 200
+//
+// 页内所有请求（fetch / EventSource / WebSocket 的 /newapi、/api、/static、
+// /pywebio_static）都必须带上这个前缀。全仓 40+ 处直接 fetch 调用，逐个
+// 改易漏；这里在入口统一包一层，新代码也自动生效。
+//
+// 前缀判定与 api/client.ts 的 relayPrefix() 保持一致。
+const RELAY_PREFIX: string = (() => {
+  const segs = window.location.pathname.split('/').filter(Boolean)
+  if (!segs.length) return ''
+  const RESERVED = ['new', 'assets', 'newapi', 'static', 'pywebio_static', 'api']
+  if (RESERVED.indexOf(segs[0]) >= 0) return ''
+  return /^[0-9a-f]{8,64}$/i.test(segs[0]) ? '/' + segs[0] : ''
+})()
+
+/** 给同源绝对路径加中继前缀；外链、已带前缀、data:/blob: 原样返回。 */
+function withRelayPrefix(url: string): string {
+  if (!RELAY_PREFIX || typeof url !== 'string') return url
+  if (!url.startsWith('/')) return url
+  if (url.startsWith('//')) return url
+  // 已经带前缀（极少数情况下调用方自己拼了）就不重复加
+  if (url.startsWith(RELAY_PREFIX + '/') || url === RELAY_PREFIX) return url
+  return RELAY_PREFIX + url
+}
+
+if (RELAY_PREFIX) {
+  // ① fetch
+  const rawFetch = window.fetch.bind(window)
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    if (typeof input === 'string') return rawFetch(withRelayPrefix(input), init)
+    if (input instanceof URL) return rawFetch(withRelayPrefix(input.href), init)
+    // Request 对象：重建一个换掉 url
+    if (typeof Request !== 'undefined' && input instanceof Request) {
+      const next = withRelayPrefix(new URL(input.url).pathname + new URL(input.url).search)
+      const url = next === new URL(input.url).pathname + new URL(input.url).search
+        ? input.url
+        : new URL(next, window.location.origin).href
+      return rawFetch(new Request(url, input), init)
+    }
+    return rawFetch(input as RequestInfo, init)
+  }) as typeof window.fetch
+
+  // ② EventSource（日志流等）
+  const RawES = window.EventSource
+  if (RawES) {
+    class PatchedES extends RawES {
+      constructor(url: string | URL, init?: EventSourceInit) {
+        super(withRelayPrefix(typeof url === 'string' ? url : url.href), init)
+      }
+    }
+    window.EventSource = PatchedES
+  }
+
+  // ③ WebSocket（/newapi/... 的 ws 端点）
+  const RawWS = window.WebSocket
+  if (RawWS) {
+    class PatchedWS extends RawWS {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        let u = typeof url === 'string' ? url : url.href
+        if (u.startsWith('ws://') || u.startsWith('wss://')) {
+          const parsed = new URL(u)
+          parsed.pathname = withRelayPrefix(parsed.pathname)
+          u = parsed.href
+        } else {
+          u = withRelayPrefix(u)
+          // 相对 ws 路径需要补全协议
+          if (u.startsWith('/')) u = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + u
+        }
+        super(u, protocols)
+      }
+    }
+    window.WebSocket = PatchedWS
+  }
+}
 applyLayoutLayer()
 
 fetch('/newapi/theme-css')

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -797,46 +798,147 @@ async def log_tail(request: Request) -> JSONResponse:
 
 
 class SpaStaticFiles(StaticFiles):
-    """SPA 静态服务：index.html no-cache，hash 资源 immutable 长缓存。
+    """SPA 静态服务：index.html no-cache（并按请求路径重写资源前缀），
+    hash 资源 immutable 长缓存。
 
-    **额外兜底：剥前缀寻径。** 远控隧道会把页面挂在 /p2p/<peer_id>/ 下
-    （见 module/webui/remote_access.py:_normalize_proxy_path），浏览器据此把
-    assets 解析成 /p2p/<id>/assets/index-xxx.js。正常链路里隧道会剥掉
-    /p2p/<id> 再转发，但客户端到隧道的这一段、以及某些隧道的首跳
-    （如 SSR 页面里写死的前缀）仍可能把完整前缀带过来，落在本 StaticFiles
-    上就是 404 —— 表现为主 JS 拿不到、React 不挂载、页面永远停在骨架屏
-    （长卿 2026-11-17：远控端「正在加载 AzurPilot...」出不来，老 UI 正常）。
+    ## 为什么要在服务端重写 index.html 的资源前缀
 
-    这里对 404 的请求按「去掉前若干段路径」重试一次，能命中 dist 里的真实
-    文件就返回它。只影响静态产物，不改变 API 路由。
+    长卿 2026-11-17：「https://remurl.a1.nanoda.work/89982203008c27b2?app=index
+    他这个完全就是加载不出来……还有其他人的远控也是这样子的，你不能做我
+    一个人专门的优化，你得做全部的」。
+
+    远控中继（remurl.a1.nanoda.work 等）把每个客户端挂在 /{peer_id} 下，
+    且**只认带 peer 前缀的路径**。实测：
+      /89982203008c27b2?app=index          → 200 页面
+      /89982203008c27b2/assets/index-xxx.js → 200 真实 JS
+      /assets/index-xxx.js                  → 502
+      /newapi/ui                            → 502
+
+    而入口页 URL 是 /{peer_id}?app=index（末尾没有斜杠），浏览器把最后一段
+    当文件名，于是相对路径 ./assets/x.js 会解析成 /assets/x.js —— 依然 502。
+    所以**相对路径的 vite base 也救不了**，必须让 HTML 里的资源链接显式带上
+    /{peer_id}/ 前缀。而 peer_id 只有请求进来时才知道，只能在服务端渲染时改写。
+
+    做法：返回 index.html 时，若请求路径带一个「像中继 peer_id」的首段
+    （16 位十六进制串，或 /p2p/<id> 形态），就把 HTML 里所有 /assets/、/newapi/、
+    /static/、/pywebio_static/、/api/ 引用前缀成 /{peer_id}/…。
+    前端 api/client.ts 与 main.tsx 的 fetch 劫持负责页面跑起来之后的请求，
+    两者配合覆盖中继的通用形态（不针对某个用户）。
+
+    ## 兜底：剥前缀寻径 + SPA 回退
+    直连场景下若请求意外带了前缀，逐段剥掉重试（最多 4 段）；都失败则回退
+    index.html 交给前端路由。
     """
 
+    #: 需要加前缀的同源引用前缀（vite 产物 + 手工 link + API 前缀）
+    _PREFIXABLE = ("/assets/", "/newapi/", "/static/", "/pywebio_static/", "/api/")
+
+    @staticmethod
+    def _relay_prefix(path: str) -> str:
+        """从请求路径推断中继前缀，没有则返回空串。
+
+        只认两种形态，避免把真实业务路径误当前缀：
+
+          - /{hex16}   （remurl 一类，16 位十六进制）
+          - /p2p/{id}  （内置 WebRTC 隧道）
+        """
+        segs = [p for p in path.replace("\\", "/").split("/") if p]
+        if not segs:
+            return ""
+        if segs[0] == "p2p" and len(segs) >= 2:
+            return "/p2p/" + segs[1]
+        if (
+            len(segs) == 1
+            and len(segs[0]) >= 8
+            and all(c in "0123456789abcdefABCDEF" for c in segs[0])
+        ):
+            return "/" + segs[0]
+        return ""
+
+    def _inject_prefix(self, html: str, prefix: str) -> str:
+        """给 HTML 里的同源引用加上中继前缀。"""
+        if not prefix:
+            return html
+        out = html
+        for frag in self._PREFIXABLE:
+            # 绝对写法（vite 产物用 href/src="/x"，或手工 link）
+            out = out.replace('"' + frag, '"' + prefix + frag)
+            out = out.replace("'" + frag, "'" + prefix + frag)
+            # 相对写法 "./x"（vite base='./' 时）
+            rel = "./" + frag.lstrip("/")
+            out = out.replace('"' + rel, '"' + prefix + frag)
+            out = out.replace("'" + rel, "'" + prefix + frag)
+        return out
+
     async def get_response(self, path: str, scope):
+        # 从 ASGI scope 里拿到**原始请求路径**（含中继前缀）
+        raw_path = str(scope.get("path") or "/")
+        prefix = self._relay_prefix(raw_path)
+
+        # ⚠️ 关键：index.html 必须**自己读文件并构造 HTMLResponse**，
+        # 不能指望改 FileResponse —— 它没有 .body 属性（流式发送），
+        # 第一版就是踩了这个坑：判定 body is None 直接 return，前缀从未注入。
+        if prefix:
+            try:
+                resp = await super().get_response(path, scope)
+            except HTTPException as e:
+                if e.status_code != 404:
+                    raise
+                resp = None
+            # 命中 index.html（含 html=True 对无扩展名路径的目录回退）就重写
+            if resp is not None and self._is_index(resp):
+                return self._serve_index_with_prefix(prefix)
+            if resp is not None:
+                return resp
+
         try:
-            return await super().get_response(path, scope)
+            resp = await super().get_response(path, scope)
         except HTTPException as e:
             if e.status_code != 404:
                 raise
             parts = [p for p in path.replace("\\", "/").split("/") if p]
-            # 从去掉 1 段开始逐段剥离，最多剥 4 段（够 /p2p/<id>/、/new/、
-            # 双层代理之类的场景），命中即返回。
             for cut in range(1, min(5, len(parts))):
                 candidate = "/".join(parts[cut:])
                 if not candidate:
-                    # 剥光了 = 请求的是「带前缀的根」，按 SPA 首页回 index.html
-                    try:
-                        return await super().get_response("index.html", scope)
-                    except HTTPException:
-                        continue
+                    return self._serve_index_with_prefix(prefix)
                 try:
-                    return await super().get_response(candidate, scope)
+                    hit = await super().get_response(candidate, scope)
                 except HTTPException:
                     continue
-            # 都剥不通：作为 SPA 路由回退到首页（前端自己处理 #/ 路由）
-            try:
-                return await super().get_response("index.html", scope)
-            except HTTPException:
-                raise e
+                if self._is_index(hit):
+                    return self._serve_index_with_prefix(prefix)
+                return hit
+            return self._serve_index_with_prefix(prefix)
+        if self._is_index(resp):
+            return self._serve_index_with_prefix(prefix)
+        return resp
+
+    @staticmethod
+    def _is_index(resp) -> bool:
+        """响应是否指向 index.html（FileResponse 的 path 以 index.html 结尾）。"""
+        try:
+            p = str(getattr(resp, "path", "") or "")
+            return p.replace("\\", "/").endswith("index.html")
+        except Exception:  # noqa: BLE001
+            return False
+
+    def _serve_index_with_prefix(self, prefix: str):
+        """读 disc 上的 index.html，注入中继前缀后返回 HTMLResponse。
+
+        前缀存进 <base href>（若有）与所有同源引用；body 与 Content-Length
+        由 HTMLResponse 自己算，不会出现头部不一致导致浏览器挂起。
+        """
+        from starlette.responses import HTMLResponse
+
+        html_path = os.path.join(_FRONTEND_DIST, "index.html")
+        try:
+            html = open(html_path, encoding="utf-8").read()
+        except OSError as e:
+            logger.warning(f"[webapi] 读取 index.html 失败: {e}")
+            raise HTTPException(status_code=500, detail="index.html unreadable")
+        if prefix:
+            html = self._inject_prefix(html, prefix)
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
     def file_response(self, *args, **kwargs):
         response = super().file_response(*args, **kwargs)
@@ -846,6 +948,43 @@ class SpaStaticFiles(StaticFiles):
         elif "/assets/" in resp_path.replace("\\", "/"):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return response
+
+
+class RelayPrefixMiddleware:
+    """剥掉远控中继前缀，让带前缀的请求命中真实路由。
+
+    远控中继（remurl.a1.nanoda.work 等）把每个客户端挂在 /{peer_id} 下。
+    三件事分开处理：
+
+      1. **入口 HTML**：由 SpaStaticFiles 注入 /{peer_id}/ 前缀（见那里注释）
+      2. **页面内的 XHR/SSE/WS**：前端加请求前缀（api/client.ts + main.tsx）
+      3. **本中间件**：中继转发到后端时，有的中继会去掉前缀、有的不会。没去掉时
+         后端要能自己剥掉再匹配路由，否则 /{peer}/newapi/ui 会落进 StaticFiles
+         的 SPA 回退、返回一整页 HTML（前端 fetch 解析 JSON 直接失败）。
+
+    在 ASGI 层把 scope["path"] 换成剥掉前缀后的路径，路由按正常方式匹配。
+    """
+
+    #: 中继前缀形态：/{hex16} 或 /p2p/{id}
+    _RELAY_RE = re.compile(r"^/([0-9a-fA-F]{8,64}|p2p/[^/]+)(?=/)")
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") in ("http", "websocket"):
+            path = scope.get("path") or "/"
+            m = self._RELAY_RE.match(path)
+            if m:
+                rest = path[m.end():] or "/"
+                # 只剥后端路由/共享静态前缀；SPA 自己的 /{peer}/assets/ 交给
+                # StaticFiles 的顺序回退与 index 注入处理。
+                if rest.startswith(("/newapi/", "/api/", "/pywebio_static/", "/static/")):
+                    scope = dict(scope)
+                    scope["path"] = rest
+                    # 不能改 root_path：Starlette 的 Mount 用它拼子路径，改写后
+                    # /static/... 会拼成 /{peer}/static/... 再匹配失败（实测 404）。
+        await self.app(scope, receive, send)
 
 
 def _frontend_files() -> StaticFiles | None:
