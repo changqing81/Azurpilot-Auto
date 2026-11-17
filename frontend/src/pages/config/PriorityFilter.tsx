@@ -9,7 +9,7 @@
 //
 // 认不出的值（含换行、非 > 分隔、空）一律退回普通 textarea，避免把不该用
 // 这个编辑器的参数（如 EquipmentCode 的 YAML）也套进来。
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './priority-filter.css'
 
 /** 值是否为「a > b > c」形式（至少一个 >，元素是字母数字下划线点横线）。 */
@@ -33,7 +33,12 @@ export function PriorityFilter({
 }) {
   const [items, setItems] = useState<string[]>([])
   const [input, setInput] = useState('')
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
+  // ⚠️ 用 useRef 而不是 useState 存拖拽源索引。
+  // HTML5 drag 的 onDragStart 里如果 setState，React 会重渲染并**替换 DOM 节点**，
+  // 浏览器随即判定"被拖元素已消失"、直接取消整个拖拽 —— 表现就是
+  // 「鼠标放上去根本拖不动」（长卿 2026-11-17 实测）。
+  const dragIndexRef = useRef<number | null>(null)
+  const [dragging, setDragging] = useState<number | null>(null)
 
   // 外部值变化（切任务/重新拉配置）时同步。用原串作签名比较，避免父组件
   // 每次渲染生成新数组导致用户编辑被重置。
@@ -70,16 +75,18 @@ export function PriorityFilter({
         {items.map((code, i) => (
           <li
             key={code}
-            className={'task-priority-item priority-filter-item' + (dragIndex === i ? ' task-priority-floating' : '')}
+            className={'task-priority-item priority-filter-item' + (dragging === i ? ' task-priority-floating' : '')}
             draggable
-            onDragStart={() => setDragIndex(i)}
+            onDragStart={() => { dragIndexRef.current = i; setTimeout(() => setDragging(i), 0) }}
             onDragOver={e => e.preventDefault()}
             onDrop={e => {
               e.preventDefault()
-              if (dragIndex !== null) move(dragIndex, i)
-              setDragIndex(null)
+              const from = dragIndexRef.current
+              if (from !== null) move(from, i)
+              dragIndexRef.current = null
+              setDragging(null)
             }}
-            onDragEnd={() => setDragIndex(null)}
+            onDragEnd={() => { dragIndexRef.current = null; setDragging(null) }}
           >
             <span className="task-priority-rank">{i + 1}</span>
             <span className="task-priority-handle" aria-hidden="true">≡</span>

@@ -79,3 +79,37 @@
 [id^="pywebio-scope-arg_container-"]:has(.priority-filter) > *:last-child {
     padding-right: 6px !important;
 }
+
+/* 拖拽兼容：老 UI 的 .task-priority-item 带 touch-action: none / user-select: none，
+   那是给它自己的 pointer 事件拖拽写的。HTML5 native drag 需要元素可被选中、
+   且不能被 touch-action 吃掉鼠标事件 —— 不覆盖的话表现为「鼠标放上去拖不动」
+   （长卿 2026-11-17 实测）。 */
+.priority-filter .priority-filter-item {
+    touch-action: auto !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    cursor: grab !important;
+}
+
+.priority-filter .priority-filter-item:active {
+    cursor: grabbing !important;
+}
+
+/* 拖拽手柄更明显，提示这里可以拖 */
+.priority-filter .task-priority-handle {
+    font-size: 1rem !important;
+    opacity: .8 !important;
+    letter-spacing: -.1em;
+}
+
+/* 被拖起的行 */
+.priority-filter .task-priority-floating {
+    opacity: .55 !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .28) !important;
+}
+
+/* 名称/代号列不拦鼠标事件，避免拖拽起点落在文字上时被浏览器当成选中文本 */
+.priority-filter .task-priority-name,
+.priority-filter .task-priority-code {
+    pointer-events: none;
+}

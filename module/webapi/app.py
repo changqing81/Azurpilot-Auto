@@ -14,6 +14,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException
 from starlette.staticfiles import StaticFiles
 
 from module.logger import logger
@@ -796,14 +797,53 @@ async def log_tail(request: Request) -> JSONResponse:
 
 
 class SpaStaticFiles(StaticFiles):
-    """SPA 静态服务：index.html no-cache（保证发版即生效），hash 资源 immutable 长缓存。"""
+    """SPA 静态服务：index.html no-cache，hash 资源 immutable 长缓存。
+
+    **额外兜底：剥前缀寻径。** 远控隧道会把页面挂在 /p2p/<peer_id>/ 下
+    （见 module/webui/remote_access.py:_normalize_proxy_path），浏览器据此把
+    assets 解析成 /p2p/<id>/assets/index-xxx.js。正常链路里隧道会剥掉
+    /p2p/<id> 再转发，但客户端到隧道的这一段、以及某些隧道的首跳
+    （如 SSR 页面里写死的前缀）仍可能把完整前缀带过来，落在本 StaticFiles
+    上就是 404 —— 表现为主 JS 拿不到、React 不挂载、页面永远停在骨架屏
+    （长卿 2026-11-17：远控端「正在加载 AzurPilot...」出不来，老 UI 正常）。
+
+    这里对 404 的请求按「去掉前若干段路径」重试一次，能命中 dist 里的真实
+    文件就返回它。只影响静态产物，不改变 API 路由。
+    """
+
+    async def get_response(self, path: str, scope):
+        try:
+            return await super().get_response(path, scope)
+        except HTTPException as e:
+            if e.status_code != 404:
+                raise
+            parts = [p for p in path.replace("\\", "/").split("/") if p]
+            # 从去掉 1 段开始逐段剥离，最多剥 4 段（够 /p2p/<id>/、/new/、
+            # 双层代理之类的场景），命中即返回。
+            for cut in range(1, min(5, len(parts))):
+                candidate = "/".join(parts[cut:])
+                if not candidate:
+                    # 剥光了 = 请求的是「带前缀的根」，按 SPA 首页回 index.html
+                    try:
+                        return await super().get_response("index.html", scope)
+                    except HTTPException:
+                        continue
+                try:
+                    return await super().get_response(candidate, scope)
+                except HTTPException:
+                    continue
+            # 都剥不通：作为 SPA 路由回退到首页（前端自己处理 #/ 路由）
+            try:
+                return await super().get_response("index.html", scope)
+            except HTTPException:
+                raise e
 
     def file_response(self, *args, **kwargs):
         response = super().file_response(*args, **kwargs)
-        path = str(getattr(response, "path", ""))
-        if path.endswith("index.html"):
+        resp_path = str(getattr(response, "path", ""))
+        if resp_path.endswith("index.html"):
             response.headers["Cache-Control"] = "no-cache"
-        elif "/assets/" in path.replace("\\", "/"):
+        elif "/assets/" in resp_path.replace("\\", "/"):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         return response
 

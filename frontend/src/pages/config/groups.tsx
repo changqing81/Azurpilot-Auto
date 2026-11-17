@@ -51,8 +51,11 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
     }
     return (
       <textarea
-        className="form-control"
-        rows={3}
+        className="form-control config-textarea"
+        // 老 UI 的 put_textarea 默认 rows=6（module/webui/pin.py:25），
+        // 我原来写死 3 行，YAML 配置（推送 provider/key 那种）只能看到两三行，
+        // 长卿 2026-11-17：「这个输入框怎么还是这种小框啊？不是叫你搞个长文本框吗」。
+        rows={6}
         value={arg.value ?? ''}
         onChange={e => onChange(e.target.value)}
       />
