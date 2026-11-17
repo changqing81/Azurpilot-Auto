@@ -135,7 +135,10 @@ export function OpsiPanel({ name }: { name: string }) {
   }, [view, monthLabel])
 
   return (
-    <div>
+    // #pywebio-scope-opsi_stats 是老 UI 大世界统计面板的 scope 宿主：
+    // advanced-material-alas.css:1207-1223 的毛玻璃卡片挂在它上面。
+    // 新 UI 之前缺这层容器，内容直接压在壁纸上（长卿 2026-11-17 图一）。
+    <div id="pywebio-scope-opsi_stats">
       {/* 图表标题行 + 月份/视图切换（老 UI _render_ap_chart_view_switcher 同构） */}
       <div id="pywebio-scope-ap_chart">
         <div ref={toolbarRef} />

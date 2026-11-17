@@ -132,7 +132,12 @@ export function CommissionIncome({ name }: { name: string }) {
   // 之前我把 ③ 提到最前、running 夹在 ②④ 之间，与老 UI 相反 —— 长卿：
   //   「这个位置反了 进行中的在上面」。
   return (
-    <div>
+    // #pywebio-scope-commission_income 是老 UI 委托面板的 scope 宿主：
+    // advanced-material-alas.css:1207-1223 的毛玻璃卡片（var(--alas-apple-card-bg)
+    // + backdrop-filter）就是挂在这个 id 上的。新 UI 之前没有这个容器，
+    // 所以整个委托面板没有玻璃底、内容直接压在壁纸上
+    // （长卿 2026-11-17：图二毛玻璃没了，字看不清）。
+    <div id="pywebio-scope-commission_income">
       {data?.success && data.running_html && (
         <div dangerouslySetInnerHTML={{ __html: data.running_html }} />
       )}

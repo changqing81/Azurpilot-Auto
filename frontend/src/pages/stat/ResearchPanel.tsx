@@ -120,7 +120,9 @@ export function ResearchPanel({ name }: { name: string }) {
   // 期数文案 = ResearchSeriesOption "第{series}期"（无空格，老 UI 原文）
   const seriesOpts = (data?.series_options ?? []).map(s => ({
     value: s,
-    label: (text('ResearchSeriesOption') || '第{n}期').replace('{n}', String(s)),
+    // ⚠️ 占位符是 {series} 不是 {n}：i18n 原文 = "第{series}期"。
+    // 写成 replace('{n}') 时永远匹配不到，页面上九个按钮全显示字面量「第(series)期」。
+    label: (text('ResearchSeriesOption') || '第{series}期').replace('{series}', String(s)),
   }))
 
   // 三行选项控件（老 UI app_stat_research.py:_output_research_controls）
@@ -156,7 +158,9 @@ export function ResearchPanel({ name }: { name: string }) {
   // 之前我把 ④ 控件提到了 ② 之上，与老 UI 相反 —— 长卿：
   //   「科研也是一样 反了的」。
   return (
-    <div>
+    // #pywebio-scope-research_stats 是老 UI 科研面板的 scope 宿主：
+    // advanced-material-alas.css:1207-1223 的毛玻璃卡片挂在它上面。
+    <div id="pywebio-scope-research_stats">
       {data?.running_html && (
         <div
           style={{ marginBottom: '.75rem' }}
