@@ -231,11 +231,13 @@ export function OpsiPanel({ name }: { name: string }) {
             {/* 两栏布局：老 UI put_row([左栏筛选, 右栏明细], size="168px minmax(0,1fr)")，
                 PyWebIO 产出的是一个 grid div。这里用同款内联 grid 复刻 ——
                 上下堆叠会让筛选器横铺一整行、与老 UI 的观感完全不同。 */}
-            // ⚠️ 用 class 而不是内联 style：老 UI 的移动端媒体查询写的是
-            // div[style*="grid-template-columns: 168px minmax(0, 1fr)"]，
-            // 而 React 会把 0 序列化成 0px（实测 minmax(0px, 1fr)），
-            // 属性选择器匹配不上 → 窄屏两栏不折叠，右栏被挤到 87px，
-            // 侵蚀卡里的指标字变成一字一行（长卿 2026-11-17 图三）。
+            {/* 用 class 而不是内联 style：老 UI 的移动端媒体查询写的是
+                div[style*="grid-template-columns: 168px minmax(0, 1fr)"]，
+                而 React 会把 0 序列化成 0px（实测 minmax(0px, 1fr)），
+                属性选择器匹配不上 → 窄屏两栏不折叠，右栏被挤到 87px，
+                侵蚀卡里的指标字变成一字一行（长卿 2026-11-17 图三）。
+                注意：JSX 的 children 位置写双斜杠注释会被当成纯文本
+                渲染到页面上（长卿 2026-11-17 实测看到一大段注释文字）。 */}
             <div className="meow-loot-two-col">
               {/* 左栏任务筛选（老 UI _meow_filter_placeables 的纯 HTML 版） */}
               <div

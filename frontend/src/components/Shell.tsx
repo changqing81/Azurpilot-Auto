@@ -292,7 +292,13 @@ export function Shell({
       // 移动端：侧栏顶部的「主页」图标在 alas-mobile.css 下退化为「菜单开关」
       // （老 UI app_developer_menu.py:78-84 的 ui_develop 二次点击语义：
       //  点一次展开菜单/内容，再点一次收起）。
-      if (isMobile && asideKey === 'Home') {
+      // 移动端：只有**已激活**的主页图标才退化为菜单开关（老 UI
+      // app_developer_menu.py:78-84 的语义：再次点击已激活的侧栏图标仅展开
+      // 二级菜单，不重渲染内容）。
+      // ⚠️ 原来漏了 active === 'Home' 这个前提，导致在统计/配置等页面点「主页」
+      // 只切换菜单、不跳转，看起来像「点主页给我跳到总览里去了」
+      // （长卿 2026-11-17 实测：在 #/stat/alas 点主页，hash 未变）。
+      if (isMobile && asideKey === 'Home' && active === 'Home') {
         setMenuOpen(v => !v)
         return
       }

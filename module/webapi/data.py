@@ -2327,7 +2327,16 @@ def _stat_cache_key(instance_name: str, panel: str, month: str = "") -> tuple:
         db_mtime = _os.stat(db_path).st_mtime_ns
     except OSError:
         db_mtime = 0
-    return (instance_name, panel, db_mtime, t.year, t.month, month)
+    # ⚠️ 语言必须进缓存键：面板 HTML 里全是 t() 翻译出来的文案
+    # （净赚体力/战斗场次/大世界收获…）。缓存键不含语言时，切到日文后
+    # 再切回中文，命中仍是日文那一次的缓存 —— 表现为「切回中文了，
+    # 某些位置还是日文」（长卿 2026-11-17 实测截图：净赚AP / 戦闘回数）。
+    try:
+        from module.webui.lang import LANG as _lang
+        lang_key = str(_lang or '')
+    except Exception:  # noqa: BLE001
+        lang_key = ''
+    return (instance_name, panel, db_mtime, t.year, t.month, month, lang_key)
 
 
 def _cached_stat_html(instance_name: str, panel: str, builder, month: str = ""):

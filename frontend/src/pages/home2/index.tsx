@@ -119,7 +119,13 @@ const THEMES = [
 ]
 
 async function writeDeploySetting(patch: Record<string, string>) {
-  const r = await fetch('/api/deploy/settings', {
+  // ⚠️ 不能走 /api/deploy/settings：那个端点带 is_local_request 门禁
+  // （launcher.py:24，要求 client.host 与 Host 头都是 127.0.0.1），
+  // 远控经中继转发时 Host 是 remurl 域名 → 直接 403「部署设置只允许从
+  // 本机 WebUI 读取/保存」。实测手机端经 remurl 点主题完全没反应
+  // （长卿 2026-11-17：「切换主题也切不动」）。
+  // /newapi/theme 是远控可用的等价端点（只改 Theme 一个字段）。
+  const r = await fetch('/newapi/theme', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(patch),

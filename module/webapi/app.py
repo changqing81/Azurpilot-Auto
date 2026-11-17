@@ -143,6 +143,53 @@ async def ui_language_set(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(_apply))
 
 
+async def ui_theme_set(request: Request) -> JSONResponse:
+    """切换界面主题：写 deploy.yaml + 立刻换主题样式层。
+
+    ⚠️ 为什么不能用老 UI 的 /api/deploy/settings：那个端点带
+    is_local_request 门禁（launcher.py:24，要求 client.host 与 Host 头
+    都是 127.0.0.1/localhost）。远控经中继转发时 Host 是 remurl 域名、
+    client 也不是本机 → 直接 403「部署设置只允许从本机 WebUI 读取/保存」。
+    实测：手机端经 remurl 访问 /api/deploy/settings 返回 403，于是主题
+    按钮点了完全没反应（长卿 2026-11-17：「切换主题也切不动」）。
+
+    /newapi/* 本来就为远控设计（远控下所有页面都要能用），且只改 Theme
+    这一个字段，不暴露整份 deploy.yaml，安全边界与老 UI 不同但不更低：
+    能打开远控页面的人本来就能改配置（配置页走的也是 /newapi/config）。
+    """
+    import json as _json
+
+    from module.webui.deploy_settings import THEME_OPTIONS
+
+    try:
+        body = _json.loads(await request.body() or b"{}")
+    except Exception:  # noqa: BLE001
+        return JSONResponse(
+            {"success": False, "error": "请求体不是有效 JSON"}, status_code=400
+        )
+    target = str(body.get("theme", "")).strip()
+    if target not in THEME_OPTIONS:
+        return JSONResponse(
+            {"success": False, "error": f"不支持的主题: {target}"}, status_code=400
+        )
+
+    def _apply() -> dict:
+        from module.webui.setting import State
+
+        try:
+            deploy = State.deploy_config
+            deploy.read()
+            deploy.Theme = target
+            # 运行时也切过去，页面重载后 /newapi/theme-css 才会返回新主题层
+            State.theme = target
+            return {"success": True, "theme": target}
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"[webapi] 切换主题失败: {e}")
+            return {"success": False, "error": str(e)}
+
+    return JSONResponse(await run_in_threadpool(_apply))
+
+
 async def healthz(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True})
 
@@ -1170,6 +1217,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/healthz", healthz),
         Route("/newapi/language", ui_language),
         Route("/newapi/language", ui_language_set, methods=["POST"]),
+        # 远控可用（无 is_local_request 门禁），见 ui_theme_set 注释
+        Route("/newapi/theme", ui_theme_set, methods=["POST"]),
         Route("/newapi/version", version),
         Route("/newapi/instances", instances),
         Route("/newapi/dashboard/{name}", dashboard),
