@@ -249,7 +249,7 @@ export function Shell({
   // 长卿：「在运行中，她在丛中笑那后面的小⭕呢，怎么不加回来？」
   // 老 UI 状态 → 样式映射（逐字照抄 340-349 行）：
   //   1 running  → spinner-border success（绿圈）；zh 系状态文字为空，只留圈
-  //   2 inactive → spinner-border secondary（灰圈）
+  //   2 inactive → spinner-border secondary + fill（**静止**灰圆环，不是转圈）
   //   3 warning  → spinner-grow warning（黄色呼吸圈）
   //   4 updating → spinner-grow success（绿色呼吸圈）
   //   0/其他 → 不渲染（主页 app_home.py:378 就是 set_status(0)）
@@ -266,8 +266,13 @@ export function Shell({
     // 老 UI 用 pywebio 的 spinner-border/grow + text-success 等配色类；
     // 尺寸与钩子由 alas.css:1084-1100 的 --loading-*-- 规则给定，
     // 所以这里必须复用 putLoading 的逐字节同构 DOM，不能自己拼。
+    // ⚠️ state=2（非活动）必须 fill=true —— 老 UI set_status 里 `fill = state == 2`，
+    // 用的是 --loading-border-fill--（四边都有色的完整圆环，旋转看不出动静）。
+    // 我之前用了带缺口（border-right-color: transparent）的 --loading-border--，
+    // 于是实例停止后那个灰圈**还在转** —— 长卿 2026-11-17：
+    // 「我的停止了，他那个圆圈还在转，那圆圈应该消失啊，他变灰了」。
     if (headerState === 1) return putLoading('border', 'success')
-    if (headerState === 2) return putLoading('border', 'secondary')
+    if (headerState === 2) return putLoading('border', 'secondary', true)
     if (headerState === 3) return putLoading('grow', 'warning')
     if (headerState === 4) return putLoading('grow', 'success')
     return ''

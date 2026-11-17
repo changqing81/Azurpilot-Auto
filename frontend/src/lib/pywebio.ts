@@ -100,8 +100,14 @@ export function putColumn(items: string[], size = 'auto', style = ''): string {
 }
 
 /** put_loading 同构（Bootstrap spinner + get_loading_style 的标记）。 */
-export function putLoading(shape: 'border' | 'grow' = 'border', color = 'success'): string {
-  const mark = shape === 'grow' ? '--loading-grow--' : '--loading-border--'
+export function putLoading(shape: 'border' | 'grow' = 'border', color = 'success', fill = false): string {
+  // fill=True 对应老 UI get_loading_style(fill=True) 的 --loading-border-fill--：
+  // 完整圆环（alas.css:1096，border: .2em solid currentColor 四边有色）。
+  // Bootstrap 的 spinner-border 虽在转，完整圆环旋转视觉上是静止的；
+  // fill=False 的 --loading-border-- 有 border-right-color: transparent，
+  // 缺口环才看得出来在转。老 UI 非活动态（state=2）用 fill=True —— 用错就是
+  // 「停止了圈还在转」（长卿 2026-11-17）。
+  const mark = shape === 'grow' ? '--loading-grow--' : (fill ? '--loading-border-fill--' : '--loading-border--')
   return (
     `<div style="display: grid; grid-auto-flow: column; grid-template-columns: auto;">` +
     `<div class="spinner-${shape} text-${color}" role="status" style=";;${mark}">` +
