@@ -1,0 +1,96 @@
+/* 优先级过滤器（前端 PriorityFilter 组件）：把「a > b > c」渲染成可拖拽列表。
+ *
+ * 复用老 UI task_priority 的 .task-priority-* 样式（alas.css:951+），但那边是给
+ * 「任务优先级」用的：ol 有 min-height: min(56vh, 40rem)、li 的 gridTemplateColumns
+ * 是 2.6rem 1.5rem minmax(0,1fr) minmax(7rem,auto)（第 4 列留给任务名/代号双列）。
+ * 本组件的第 4 列是三个小按钮，直接套会让名称列被挤成 0 宽（实测 name width: 0px）。
+ * 所以用 .priority-filter 前缀 + !important 覆盖这两处。
+ */
+.priority-filter .priority-filter-list {
+    min-height: 0 !important;
+    max-height: none !important;
+    gap: 4px !important;
+}
+
+.priority-filter .priority-filter-item {
+    grid-template-columns: 1.8rem 1.1rem minmax(0, 1fr) auto !important;
+    min-height: 2.1rem !important;
+    padding: 4px 8px !important;
+}
+
+/* 名称列：代号是短英文串，字号略小、允许点击选中复制 */
+.priority-filter .task-priority-name {
+    font-size: .85rem !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.priority-filter .task-priority-rank {
+    font-size: .78rem !important;
+    opacity: .7;
+}
+
+.priority-filter .task-priority-handle {
+    opacity: .55;
+    cursor: grab;
+}
+
+/* 操作按钮组：固定宽度，否则 justify-self:end 会把它撑到内容宽度、
+   把名称列挤成 0（实测 name width: 0px，界面上只能看到序号和按钮）。 */
+.priority-filter .priority-filter-actions {
+    display: flex;
+    gap: .2rem;
+    justify-self: end;
+    width: 5.4rem;
+    flex: 0 0 auto;
+}
+
+.priority-filter .priority-filter-actions .btn {
+    padding: 1px 6px !important;
+    font-size: .78rem !important;
+    line-height: 1.35 !important;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* 宿主容器：老 UI 的 .pywebio-scope-arg_container-* 是 grid「说明列 1fr / 控件列 auto」
+   （实测 726px + 208px），控件列只有 208px —— 4 列布局（序号/手柄/名称/按钮）
+   在这个宽度下名称只能分到 26px。优先级过滤器需要跨两列占满整行宽度。 */
+/* ⚠️ pywebio-scope-arg_container-* 是 **id** 不是 class（PyWebIO 的 scope 命名约定），
+   写成类选择器一条都不命中 —— 第一版就错在这里，实测名称列仍然 26px。 */
+[id^="pywebio-scope-arg_container-"][id$="-CommonCVFilter"],
+[id^="pywebio-scope-arg_container-"][id$="-CommonDDFilter"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+}
+
+/* 只让**控件那一列**占满：说明列保留在上方。
+   规则原来是「所有子元素跨列」，会把说明文字也拉进后半格、整个容器塌成单列，
+   按钮被挤出右边缘（截图里 ↑↓× 只露出一半）。 */
+/* 说明列与控件列都占满整行（grid-auto-flow: row 保证说明在上、控件在下）。 */
+[id^="pywebio-scope-arg_container-"][id$="-CommonCVFilter"] > *,
+[id^="pywebio-scope-arg_container-"][id$="-CommonDDFilter"] > * {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+/* 控件行右侧留一点内边距，避免 ↑↓× 贴到容器边缘 */
+[id^="pywebio-scope-arg_container-"][id$="-CommonCVFilter"] > *:last-child,
+[id^="pywebio-scope-arg_container-"][id$="-CommonDDFilter"] > *:last-child {
+    padding-right: 6px !important;
+}
+
+/* ↑↓× 按钮组右边被裁：ol 的宽度是 100%，但 .task-priority-item 有
+   padding 6px 10px + border，box-sizing 虽是 border-box，父级 grid 的
+   gap/padding 仍会让内容溢出容器右边缘。把 ol 的右内边距加大即可。 */
+.priority-filter .priority-filter-list {
+    padding-right: 10px !important;
+    box-sizing: border-box !important;
+}
+
+.priority-filter .priority-filter-actions {
+    margin-right: 0 !important;
+}

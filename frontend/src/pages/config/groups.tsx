@@ -8,6 +8,7 @@
 //   #pywebio-scope-group_{组名} > <p>标题</p> + <hr.hr-group> +
 //   #pywebio-scope-arg_container-{类型}-{参数名}
 import { useEffect, useRef, useState } from 'react'
+import { PriorityFilter, isPriorityList } from './PriorityFilter'
 
 export type ArgOption = { label: string; value: string }
 export type Arg = {
@@ -40,6 +41,14 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
     )
   }
   if (arg.type === 'textarea') {
+    // 「a > b > c」形式的优先级过滤器（如自定义旗舰航母过滤器 bogue > ranger >
+    // langley > hermes）渲染成可拖拽排序列表 —— 老 UI task_priority 的同款交互，
+    // 用户拖/点箭头即可调顺序，不用手写 > 分隔符（长卿 2026-11-17）。
+    // 认不出的值（YAML / 多行 / 非 > 分隔）退回普通 textarea。
+    const v = String(arg.value ?? '')
+    if (isPriorityList(v)) {
+      return <PriorityFilter value={v} onChange={onChange} />
+    }
     return (
       <textarea
         className="form-control"
