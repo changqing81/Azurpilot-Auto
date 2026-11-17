@@ -25,7 +25,13 @@ export function OpsiPanel({ name }: { name: string }) {
   const [view, setView] = useState('line')
   const [chart, setChart] = useState<{ html: string; js: string } | null>(null)
   const [chartErr, setChartErr] = useState('')
-  const [panels, setPanels] = useState<{ html: string; meow: string } | null>(null)
+  const [panels, setPanels] = useState<{
+    html: string
+    meow: string
+    meowHeader: string
+    meowStrip: string
+    meowDrop: string
+  } | null>(null)
   const hostRef = useRef<HTMLDivElement>(null)
 
   // 可选月份
@@ -84,10 +90,26 @@ export function OpsiPanel({ name }: { name: string }) {
   useEffect(() => {
     let alive = true
     setPanels(null)
-    apiGet<{ success: boolean; html: string; meow_html: string }>(
+    apiGet<{
+      success: boolean
+      html: string
+      meow_html: string
+      meow_header_html: string
+      meow_strip_html: string
+      meow_drop_html: string
+    }>(
       `/newapi/stat/${name}/panels_html?panel=opsi` + (month ? `&month=${month}` : ''), 25000,
     )
-      .then(r => { if (alive && r.success) setPanels({ html: r.html, meow: r.meow_html }) })
+      .then(r => {
+        if (!alive || !r.success) return
+        setPanels({
+          html: r.html || '',
+          meow: r.meow_html || '',
+          meowHeader: r.meow_header_html || '',
+          meowStrip: r.meow_strip_html || '',
+          meowDrop: r.meow_drop_html || '',
+        })
+      })
       .catch(() => { /* 忽略 */ })
     return () => { alive = false }
   }, [name, month])
@@ -134,6 +156,8 @@ export function OpsiPanel({ name }: { name: string }) {
     }
   }, [view, monthLabel])
 
+  const hasMeow = !!(panels && (panels.meow || panels.meowStrip || panels.meowDrop))
+
   return (
     // #pywebio-scope-opsi_stats 是老 UI 大世界统计面板的 scope 宿主：
     // advanced-material-alas.css:1207-1223 的毛玻璃卡片挂在它上面。
@@ -165,13 +189,33 @@ export function OpsiPanel({ name }: { name: string }) {
         {panels?.html && <div dangerouslySetInnerHTML={{ __html: panels.html }} />}
       </div>
 
-      {/* 大世界收获 */}
-      {panels?.meow && (
-        <details style={{ marginTop: 12 }}>
+      {/* 大世界收获：老 UI app_stat_opsi_export.py:_render_meowofficer_farming 的四块
+          —— 页头 + 合计条 strip + 侵蚀等级卡 + 掉落明细表。
+
+          ⚠️ 两个 scope id 是硬性契约：
+            #pywebio-scope-meow_strip_scope —— 合计条（1 条 CSS 规则）
+            #pywebio-scope-meow_loot_scope  —— 收获内容区（47 条 CSS 规则）
+          meow-loot-alas.css 把掉落明细表的 grid 布局、侵蚀卡、chip、图标、徽标
+          全写成 `#pywebio-scope-meow_loot_scope .xxx` 后代选择器。少了这层容器，
+          明细表退回默认流式布局 —— 一行字挤在一起看不清（长卿 2026-11-17 截图）。
+          与 ft_mind / statistics-content 同源：老 UI 的 scope 容器就是 DOM 契约。 */}
+      {hasMeow && (
+        <details open style={{ marginTop: 12 }}>
           <summary style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>
-            大世界收获
+            <span>{text('OpsiDropTitle') || '大世界收获'}</span>
+            {panels?.meowStrip && (
+              <div
+                id="pywebio-scope-meow_strip_scope"
+                style={{ display: 'inline-block', marginLeft: '.75rem', verticalAlign: 'middle' }}
+                dangerouslySetInnerHTML={{ __html: panels.meowStrip }}
+              />
+            )}
           </summary>
-          <div dangerouslySetInnerHTML={{ __html: panels.meow }} />
+          <div id="pywebio-scope-meow_loot_scope" style={{ marginTop: 8 }}>
+            {panels?.meowHeader && <div dangerouslySetInnerHTML={{ __html: panels.meowHeader }} />}
+            {panels?.meow && <div dangerouslySetInnerHTML={{ __html: panels.meow }} />}
+            {panels?.meowDrop && <div dangerouslySetInnerHTML={{ __html: panels.meowDrop }} />}
+          </div>
         </details>
       )}
 

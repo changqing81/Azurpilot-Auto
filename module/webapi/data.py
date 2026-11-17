@@ -2359,6 +2359,20 @@ class _StatRenderCtx:
             except Exception:  # noqa: BLE001
                 pass
 
+    def _stat_selected_month(self):
+        """用户显式选中的月份 (year, month)；None 表示本月。
+
+        老 UI app_statistics_page.py:1102 同款。REST 下「选中月份」由构造时
+        传入的 _stat_year/_stat_month 表达（默认即当前月），所以这里只在
+        与当前月不同时返回该月份 —— 各面板据此决定 persist 等行为。
+        """
+        from module.config.time_source import now as _now
+
+        now = _now()
+        if (self._stat_year, self._stat_month) == (now.year, now.month):
+            return None
+        return self._stat_year, self._stat_month
+
     def _stat_month_pair(self):
         return self._stat_year, self._stat_month
 
@@ -2379,10 +2393,23 @@ def _current_stat_month():
 
 
 def _stat_render_method(name: str):
-    """取老 UI 的统计渲染方法（未绑定），供适配器调用。"""
-    from module.webui.app_stat_opsi import OpsiStatisticsMixin
+    """取老 UI 的统计渲染方法（未绑定），供适配器调用。
 
-    return getattr(OpsiStatisticsMixin, name)
+    「大世界收获」的四块分散在两个 mixin 里：
+      OpsiStatisticsMixin —— _build_meow_rows / _build_meow_cards_html
+                            / _build_opsi_summary_html / _opsi_card 等
+      OpsiExportMixin     —— _build_meow_header_html / _build_meow_strip_html
+                            / _build_opsi_drop_table_html / _load_meow_loot_view
+                            / _load_opsi_drop_view 等
+    只查第一个会 AttributeError（实测：_build_meow_header_html 找不到）。
+    """
+    from module.webui.app_stat_opsi import OpsiStatisticsMixin
+    from module.webui.app_stat_opsi_export import OpsiExportMixin
+
+    for mixin in (OpsiStatisticsMixin, OpsiExportMixin):
+        if hasattr(mixin, name):
+            return getattr(mixin, name)
+    raise AttributeError(f"统计渲染方法不存在: {name}")
 
 
 def get_opsi_panels_html(instance_name: str, month: str = "") -> dict:
@@ -2417,41 +2444,60 @@ def _get_opsi_panels_html_impl(instance_name: str, month: str = "") -> dict:
         # 绑定老 UI 的方法到适配器。
         # 注意 staticmethod 不能再 __get__ 绑定，否则会多传一个 self
         # （实测报 "got multiple values for argument 'tone'"）。
-        for _m in (
-            "_build_opsi_month_cards",
-            "_build_cl1_summary",
-            "_opsi_fmt_num",
-            "_opsi_card",
-            "_meow_loot_labels",
-            "_build_meow_rows",
-            "_build_opsi_summary_html",
-            "_split_unit_text",
-            "_build_meow_cards_html",
-            "_load_opsi_stats_dependencies",
-        ):
-            if hasattr(ctx, _m):
-                continue
-            _raw = _stat_render_method(_m)
-            # 从类 __dict__ 取原始描述符，判断是否 staticmethod
-            from module.webui.app_stat_opsi import OpsiStatisticsMixin
+        # 把所有统计渲染方法镜像到适配器上。
+        # 原来手写白名单，漏一个就 AttributeError（已经踩了两次：
+        # _build_meow_header_html、_meow_loot_icon_html）。两个 mixin 的
+        # 方法都镜像，白名单维护交给 hasattr 判断。
+        from module.webui.app_stat_opsi import OpsiStatisticsMixin
+        from module.webui.app_stat_opsi_export import OpsiExportMixin
 
-            _desc = OpsiStatisticsMixin.__dict__.get(_m)
-            if isinstance(_desc, staticmethod):
-                setattr(ctx, _m, _desc.__func__)
-            else:
-                setattr(ctx, _m, _raw.__get__(ctx, type(ctx)))
-
+        for _src in (OpsiStatisticsMixin, OpsiExportMixin):
+            for _m in dir(_src):
+                if _m.startswith("__"):
+                    continue
+                if hasattr(ctx, _m) and not _m.startswith("_build"):
+                    continue
+                _desc = _src.__dict__.get(_m)
+                if _desc is None:
+                    continue
+                try:
+                    if isinstance(_desc, staticmethod):
+                        setattr(ctx, _m, _desc.__func__)
+                    elif callable(_desc):
+                        setattr(ctx, _m, _desc.__get__(ctx, type(ctx)))
+                except Exception:  # noqa: BLE001
+                    pass
         payload = ctx._build_opsi_month_cards()
         if payload is None:
             return {"success": False, "html": "", "error": "数据源不可用"}
         net, cards, inst, cl1_db = payload
         summary_html = ctx._build_opsi_summary_html(net, cards)
         meow_rows = ctx._build_meow_rows(cl1_db, inst)
+
+        # 「大世界收获」在老 UI 里是四块（app_stat_opsi_export.py
+        # _render_meowofficer_farming）：页头 + 合计条 strip + 左栏任务筛选
+        # + 右栏明细标签/侵蚀卡/掉落明细表。之前只接了侵蚀卡，长卿看到
+        # 「大世界收获」只剩两张卡（2026-11-17：侵蚀5 其他东西呢？深渊开荒、
+        # 每日统计、金菜、深渊隐蔽呢？）。这里补齐可纯 HTML 化的三块。
         meow_html = ctx._build_meow_cards_html(meow_rows)
+        meow_header_html = ""
+        meow_strip_html = ""
+        meow_drop_html = ""
+        try:
+            _view = ctx._load_meow_loot_view()
+            _drop = ctx._load_opsi_drop_view()
+            meow_header_html = ctx._build_meow_header_html()
+            meow_strip_html = ctx._build_meow_strip_html(_view, _drop)
+            meow_drop_html = ctx._build_opsi_drop_table_html(_drop)
+        except Exception as _e:  # noqa: BLE001
+            logger.warning(f"[webapi] 大世界收获明细渲染失败: {_e}")
         return {
             "success": True,
             "html": summary_html,
             "meow_html": meow_html,
+            "meow_header_html": meow_header_html,
+            "meow_strip_html": meow_strip_html,
+            "meow_drop_html": meow_drop_html,
             "error": "",
         }
     except Exception as e:  # noqa: BLE001
@@ -2963,16 +3009,21 @@ def _get_ship_exp_panel_html_impl(instance_name: str) -> dict:
         ]
 
         def fmt_duration(seconds):
+            """秒数 → 「X小时Y分钟」；单位走 i18n。
+
+            老 UI app_stat_ship.py:152-167 _format_duration 同构：
+            用 Gui.Stat.HourUnit / MinuteUnit（**不是** HourShort/MinuteShort ——
+            这两个键在 i18n 里不存在，t() 会原样返回键名，页面上就出现
+            「≈ 31Gui.Stat.HourShort20Gui.Stat.MinuteShort」这种乱码）。
+            hours=0 时只显示分钟，与老 UI 一致。
+            """
             if not seconds or seconds <= 0:
                 return "-"
             hours = int(seconds // 3600)
             minutes = int((seconds % 3600) // 60)
-            try:
-                h_unit = t("Gui.Stat.HourShort")
-                m_unit = t("Gui.Stat.MinuteShort")
-            except Exception:  # noqa: BLE001
-                h_unit, m_unit = "小时", "分钟"
-            return f"{hours}{h_unit}{minutes}{m_unit}"
+            if hours > 0:
+                return f"{hours}{t('Gui.Stat.HourUnit')}{minutes}{t('Gui.Stat.MinuteUnit')}"
+            return f"{minutes}{t('Gui.Stat.MinuteUnit')}"
 
         exp_rows = []
         for progress in progress_list:

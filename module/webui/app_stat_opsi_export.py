@@ -452,6 +452,52 @@ class OpsiExportMixin(WebUIMixinBase):
             )
         return buttons
 
+    # ---------- 合计条（纯 HTML 版，供 REST 面板复用） ----------
+
+    def _build_meow_strip_html(self, view, drop):
+        """「收获合计」条的纯 HTML 版本。
+
+        老 UI 的 _render_meow_loot_strip 用 put_widget + put_html().onclick
+        拼 PyWebIO 控件（chip 点击走会话回调）。REST 面板没有会话，
+        这里用同一个 _meow_strip_chip_html 生成 chip，拼成一整段 HTML；
+        chip 上的 data-meow-strip="<key>" 供前端事件委托接管。
+        """
+        if view["is_current"]:
+            title = t("Gui.Stat.MeowLootTitleCurrent")
+        else:
+            title = t(
+                "Gui.Stat.MeowLootTitleHistory",
+                month=f"{view['year']:04d}-{view['month']:02d}",
+            )
+        active = getattr(self, "_meow_item_filter", None)
+        totals = self._opsi_strip_totals(drop.get("items") or [])
+        chips = []
+        for key, suffix, icon_name, color in MEOW_LOOT_ITEMS:
+            total = totals.get(key, 0)
+            name = t(f"Gui.Stat.MeowLootItem{suffix}")
+            chips.append(
+                self._meow_strip_chip_html(
+                    key, name, color, icon_name, f"<b>{int(total):,}</b>"
+                )
+            )
+        other_label = t("Gui.Stat.OpsiDropCategoryOther")
+        other_color = _MEOW_CATEGORY_COLORS.get(CATEGORY_OTHER, "#888780")
+        chips.append(
+            self._meow_strip_chip_html(
+                "Other",
+                other_label,
+                other_color,
+                None,
+                f"<b>{html_escape(other_label)}</b>",
+            )
+        )
+        return (
+            '<div class="meow-loot-strip">'
+            f'<span class="meow-loot-strip-title">{html_escape(title)}</span>'
+            + "".join(chips)
+            + "</div>"
+        )
+
     # ---------- 左栏：掉落任务筛选 ----------
 
     def _meow_filter_placeables(self, drop):
