@@ -208,6 +208,60 @@ export function FleetTechPanel({ name }: { name: string }) {
     }
   }
 
+  const [scanning, setScanning] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+
+  // 扫描船坞（老 UI _ft_scan_start）：写扫描范围 → ProcessManager 两段启动
+  const startScan = async () => {
+    const low = Number((document.getElementById("ft-min-level") as HTMLInputElement).value)
+    const high = Number((document.getElementById("ft-max-level") as HTMLInputElement).value)
+    setScanning(true)
+    try {
+      const res = await fetch("/newapi/fleet/" + name + "/scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ min_level: low, max_level: high }),
+      })
+      const j = await res.json().catch(() => null)
+      if (j && j.success) setBatchNotice(text("FtScanStarted") || "船坞扫描已启动，完成后自动保存并刷新。")
+      else setBatchNotice("启动失败: " + ((j && j.error) || ("HTTP " + res.status)))
+    } catch (e) {
+      setBatchNotice("启动失败: " + String(e))
+    } finally {
+      setTimeout(() => setScanning(false), 4000)
+    }
+  }
+
+  // 同步已有心智扫描（老 UI _ft_on_sync）：merge_mind 只增不减
+  const syncMind = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch("/newapi/fleet/" + name + "/sync", { method: "POST" })
+      const j = await res.json().catch(() => null)
+      if (j && j.success) {
+        setBatchNotice(j.changed ? (text("FtSyncDone") || "已同步心智扫描结果") : "没有新的扫描结果可同步")
+        setRefresh(v => v + 1)
+      } else {
+        setBatchNotice("同步失败: " + ((j && j.error) || ("HTTP " + res.status)))
+      }
+    } catch (e) {
+      setBatchNotice("同步失败: " + String(e))
+    } finally {
+      setSyncing(false)
+    }
+  }
+  // 勾选态汇总：更新「本页已选 N」计数与「批量修改已选舰船」按钮的 disabled。
+  // 单独抽出来给「行勾选」与「表头全选」两条路径共用。
+  const syncBatchCount = (host: HTMLElement) => {
+    const count = host.querySelectorAll("[data-ft-select]:checked").length
+    const counter = host.querySelector("[data-ft-selected-count]")
+    if (counter) counter.textContent = String(count)
+    const selBtn = host.querySelector("[data-ft-batch=selected]") as HTMLButtonElement | null
+    if (selBtn) {
+      if (count > 0) selBtn.removeAttribute("disabled")
+      else selBtn.setAttribute("disabled", "")
+    }
+  }
   // 工具栏按钮（data-ft-batch）是表格 HTML 里的原生按钮 —— 事件委托接管
   useEffect(() => {
     const host = document.getElementById("pywebio-scope-ft_table")
@@ -222,16 +276,18 @@ export function FleetTechPanel({ name }: { name: string }) {
     // 表格是 innerHTML 注入的原生 DOM（React 不管），只能在这里委托 change。
     const onChange = (ev: Event) => {
       const target = ev.target as HTMLElement
-      if (!target.hasAttribute || !target.hasAttribute("data-ft-select")) return
-      const boxes = Array.from(host.querySelectorAll("[data-ft-select]:checked"))
-      const count = boxes.length
-      const counter = host.querySelector("[data-ft-selected-count]")
-      if (counter) counter.textContent = String(count)
-      const selBtn = host.querySelector("[data-ft-batch=selected]") as HTMLButtonElement | null
-      if (selBtn) {
-        if (count > 0) selBtn.removeAttribute("disabled")
-        else selBtn.setAttribute("disabled", "")
+      if (!target.hasAttribute) return
+      // 表头「全选本页」：老 UI 的表格 JS 在这里勾选/取消当前页所有行。
+      // 少了这段时点表头框只会把自己勾上（长卿：选择全选他只单勾一个）。
+      if (target.hasAttribute("data-ft-select-page")) {
+        const boxes = Array.from(host.querySelectorAll("[data-ft-select]")) as HTMLInputElement[]
+        const want = (target as HTMLInputElement).checked
+        boxes.forEach(b => { b.checked = want })
+        syncBatchCount(host)
+        return
       }
+      if (!target.hasAttribute("data-ft-select")) return
+      syncBatchCount(host)
     }
     host.addEventListener("click", onClick)
     host.addEventListener("change", onChange)
@@ -341,20 +397,34 @@ export function FleetTechPanel({ name }: { name: string }) {
 
           {/* ④ 扫描范围 + 扫描/同步（老 UI ft_toolbar） */}
           <div id="pywebio-scope-ft_toolbar">
-            <span className="ft-toolbar-label">{text('FtScanRange')}</span>
+            <span className="ft-toolbar-label">{text("FtScanRange")}</span>
             <input
               className="form-control"
               type="number"
+              id="ft-min-level"
               defaultValue={data.min_level}
-              style={{ width: '5rem' }}
+              style={{ width: "5rem" }}
             />
             <span className="ft-range-dash">–</span>
             <input
               className="form-control"
               type="number"
+              id="ft-max-level"
               defaultValue={data.max_level}
-              style={{ width: '5rem' }}
+              style={{ width: "5rem" }}
             />
+            {/* 老 UI ft_toolbar：扫描按钮（BinarySwitchButton）+ 同步按钮 + Hint。
+                之前只做了扫描范围输入，两个按钮和提示全缺 —— 长卿：
+                「筛选扫描什么各个同步…这些怎么都没有」。 */}
+            <div id="pywebio-scope-ft_scan_button">
+              <button className="btn btn-primary btn-sm" disabled={scanning} onClick={startScan}>
+                {scanning ? text("FtScanning") || "正在扫描" : text("FtScan") || "扫描船坞"}
+              </button>
+            </div>
+            <button className="btn btn-secondary btn-sm" disabled={syncing} onClick={syncMind}>
+              {text("FtSync") || "同步已有心智扫描"}
+            </button>
+            <span className="ft-hint">{text("FtHint") || ""}</span>
           </div>
 
           {/* ⑤ 搜索 + 科技条目范围 + 计数（老 UI ft_search） */}

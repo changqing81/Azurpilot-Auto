@@ -502,6 +502,12 @@ _STAT_I18N_KEYS = {
     "FtSelected": "Gui.FleetTechnology.Selected",
     "FtBatchEdit": "Gui.FleetTechnology.BatchEdit",
     "FtSelectionHint": "Gui.FleetTechnology.SelectionHint",
+    "FtScan": "Gui.FleetTechnology.Scan",
+    "FtScanning": "Gui.FleetManagement.Scanning",
+    "FtScanStarted": "Gui.FleetManagement.ScanStarted",
+    "FtSync": "Gui.FleetTechnology.Sync",
+    "FtSyncDone": "Gui.FleetTechnology.SyncDone",
+    "FtHint": "Gui.FleetTechnology.Hint",
     # 心智计算器（与科技列表同组）
     "FtTabMind": "Gui.FleetTechnology.TabMind",
 }
@@ -1173,6 +1179,79 @@ def import_mind_rows(name: str, rows: list) -> dict:
     except Exception as e:  # noqa: BLE001
         logger.warning(f"[webapi] 心智清单导入失败({name}): {e}")
         return {"error": str(e)}
+
+
+def fleet_scan_start(name: str, min_level: int, max_level: int) -> dict:
+    """启动科技扫描（app_fleet_technology.py:_ft_scan_start 同链路）。
+
+    校验等级范围 → 写扫描范围配置 → ProcessManager 两段语义（worker 存活
+    先停后台收尾，再以 FleetTechScan 启动）。
+    """
+    import time as _time
+
+    from module.config.deep import deep_set
+    from module.config.utils import get_config_mod
+    from module.webui.app_dependencies import State
+
+    if not (1 <= min_level <= max_level <= 125):
+        return {"error": "等级范围必须满足 1 ≤ 最低等级 ≤ 最高等级 ≤ 125"}
+    try:
+        updater = State.config_updater
+        cfg = updater.read_file(name)
+        deep_set(cfg, "FleetTechScan.FleetTech.MinLevel", int(min_level))
+        deep_set(cfg, "FleetTechScan.FleetTech.MaxLevel", int(max_level))
+        updater.write_file(name, cfg, get_config_mod(name))
+    except Exception as exc:  # noqa: BLE001
+        return {"error": str(exc)}
+
+    from module.webui.process_manager import ProcessManager
+
+    mgr = ProcessManager.get_manager(name)
+    if mgr.alive:
+        def action():
+            mgr.stop_by_user()
+            deadline = _time.monotonic() + 240
+            while mgr.alive and _time.monotonic() < deadline:
+                _time.sleep(2)
+            mgr.start("FleetTechScan")
+
+        try:
+            from module.webui.instance_action import spawn_instance_action
+            spawn_instance_action(mgr, action, "start")
+        except Exception as exc:  # noqa: BLE001
+            return {"error": str(exc)}
+    else:
+        mgr.start("FleetTechScan")
+    return {"success": True, "task": "FleetTechScan"}
+
+
+def fleet_sync_mind(name: str) -> dict:
+    """把心智扫描结果累计进科技记录（app_fleet_technology.py:_ft_on_sync）。
+
+    只增不减、可重复点击：tech.merge_mind 内部按「取更好值」合并。
+    """
+    from module.config.deep import deep_get, deep_set
+    from module.config.transaction import config_transaction
+    from module.config.utils import filepath_config, get_config_mod
+    from module.runtime import fleet_tech as tech
+    from module.webui.app_dependencies import State, load_config
+
+    try:
+        with config_transaction(filepath_config(name)):
+            cfg = load_config(name).read_file(name)
+            record = tech.read_record(cfg)
+            result = deep_get(cfg, "MindCalculatorScan.MindCalculator.Result", {})
+            ships = result.get("ships", []) if isinstance(result, dict) else []
+            if not ships:
+                return {"error": "没有心智扫描清单可同步（先跑一次心智扫描）", "empty": True}
+            merged = tech.merge_mind(record, ships)
+            changed = merged != record
+            if changed:
+                deep_set(cfg, tech.RECORD_PATH, merged)
+                State.config_updater.write_file(name, cfg, get_config_mod(name))
+        return {"success": True, "changed": changed}
+    except (ValueError, TimeoutError, OSError) as exc:
+        return {"error": str(exc)}
 
 
 def get_update_info() -> dict:
