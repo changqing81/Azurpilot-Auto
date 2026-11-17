@@ -194,6 +194,17 @@ async def ui_theme_set(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(_apply))
 
 
+async def ui_labels(request: Request) -> JSONResponse:
+    """GET /newapi/ui-labels —— 新 UI 固定文案（**无参数**）。
+
+    为什么不用 /newapi/i18n?keys=…：远控中继转发会剥掉 query string，
+    参数一丢就只剩空结果、前端只能回退中文（长卿 2026-11-17 截图：
+    侧栏已是 Home，页面里「调度器/统计/运行中」还是中文）。
+    无参接口不依赖 query，中继下也能完整拿到。
+    """
+    return JSONResponse(await run_in_threadpool(data.get_ui_labels))
+
+
 async def ui_i18n(request: Request) -> JSONResponse:
     """GET /newapi/i18n?keys=Gui.Overview.Scheduler,Gui.Log.Fold
 
@@ -1232,6 +1243,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/healthz", healthz),
         Route("/newapi/language", ui_language),
         Route("/newapi/i18n", ui_i18n),
+        # 无参数版本：远控中继剥 query，这个才靠得住
+        Route("/newapi/ui-labels", ui_labels),
         Route("/newapi/language", ui_language_set, methods=["POST"]),
         # 远控可用（无 is_local_request 门禁），见 ui_theme_set 注释
         Route("/newapi/theme", ui_theme_set, methods=["POST"]),

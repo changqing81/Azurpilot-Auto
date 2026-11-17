@@ -107,18 +107,13 @@ export function Overview({ instance }: { instance: string }) {
   // t("Gui.Overview.X")，新 UI 曾经写死字面量漏了翻译。
   const [i18n, setI18n] = useState<Record<string, string>>({})
   useEffect(() => {
-    const keys = [
-      'Gui.Overview.Scheduler', 'Gui.Overview.Stat', 'Gui.Overview.Running',
-      'Gui.Overview.Pending', 'Gui.Overview.Waiting', 'Gui.Overview.Log',
-      'Gui.Button.ScrollON', 'Gui.Button.ScrollOFF',
-      'Gui.Button.Screenshot', 'Gui.LogExport.ExportToday',
-      'Gui.Button.DashboardON', 'Gui.Button.DashboardOFF',
-      'Gui.Button.Start', 'Gui.Button.Stop', 'Gui.Button.Open',
-      'Gui.Button.Setting',
-    ]
+    // ⚠️ 用**无参数**接口 /newapi/ui-labels，不要用 /newapi/i18n?keys=…：
+    // 远控中继转发会剥掉 query string，参数一丢就只剩空结果、全部回退中文
+    // （长卿 2026-11-17 截图：侧栏已经是 Home，页面里「调度器/统计/运行中/
+    // 队列中/等待中」还是中文）。无参接口不依赖 query，中继下也拿得到。
     const load = () => {
       apiGet<{ success: boolean; items: Record<string, string> }>(
-        '/newapi/i18n?keys=' + encodeURIComponent(keys.join(',')), 10000,
+        '/newapi/ui-labels', 10000,
       ).then(r => { if (r?.items) setI18n(r.items) }).catch(() => { /* 老后端：保持中文兜底 */ })
     }
     load()
@@ -350,7 +345,7 @@ export function Overview({ instance }: { instance: string }) {
     `</div>`
 
   return (
-    <Shell active={instance} title="总览">
+    <Shell active={instance} title={L('Gui.MenuAlas.Overview', '总览')}>
       <div id="pywebio-scope-content">
         <div id="pywebio-scope-overview">
           <div

@@ -590,6 +590,58 @@ def get_fixed_menu() -> dict:
     }
 
 
+# 新 UI 里需要跟语言走的固定文案（总览页 + 日志栏 + 通用按钮）。
+#
+# 为什么不复用 get_i18n_batch(keys)：那个要靠 query 传 key 列表，而**远控
+# 中继转发时会剥掉 query string**（实测：经 remurl 请求
+# /newapi/i18n?keys=Gui.Overview.Scheduler 返回 items: {}，本地直连正常）。
+# 参数一丢，前端拿到的全是空、只能回退中文 —— 长卿 2026-11-17 截图：侧栏
+# 已经是 Home（英文生效），页面里「调度器/统计/运行中/队列中/等待中」还是
+# 中文。所以这里给一份**无参固定清单**，中继下也能完整取到。
+_UI_LABEL_KEYS = (
+    "Gui.Overview.Scheduler",
+    "Gui.Overview.Stat",
+    "Gui.Overview.Running",
+    "Gui.Overview.Pending",
+    "Gui.Overview.Waiting",
+    "Gui.Overview.Log",
+    "Gui.Overview.NoTask",
+    "Gui.Button.ScrollON",
+    "Gui.Button.ScrollOFF",
+    "Gui.Button.Screenshot",
+    "Gui.LogExport.ExportToday",
+    "Gui.Button.DashboardON",
+    "Gui.Button.DashboardOFF",
+    "Gui.Button.Start",
+    "Gui.Button.Stop",
+    "Gui.Button.Open",
+    "Gui.Button.Setting",
+    "Gui.MenuAlas.Overview",
+)
+
+
+def get_ui_labels() -> dict:
+    """新 UI 的固定界面文案（无参数，远控中继下也能完整拿到）。
+
+    Returns:
+        {"success": True, "items": {key: 译文}, "labels": {短名: 译文}}
+        labels 是给前端直接用的扁平表（去掉 Gui. 前缀，取最后一段），
+        避免前端在热路径上反复切字符串。
+    """
+    from module.webui.lang import t as _t
+
+    items: dict = {}
+    labels: dict = {}
+    for key in _UI_LABEL_KEYS:
+        try:
+            val = _t(key)
+        except Exception:  # noqa: BLE001
+            val = key
+        items[key] = val
+        labels[key.rsplit(".", 1)[-1]] = val
+    return {"success": True, "items": items, "labels": labels}
+
+
 def get_i18n_batch(keys: str = "") -> dict:
     """按 key 批量取老 UI 翻译（新 UI 里硬编码的中文文案要走这里）。
 
