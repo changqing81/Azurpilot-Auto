@@ -648,7 +648,13 @@ def get_task_config(name: str, task: str) -> dict:
 
     groups = []
     for group_name, group_body in task_def.items():
-        if group_name.startswith("_") or group_name in ("Scheduler",):
+        # 只跳过 _ 开头的内部组。**Scheduler 不能跳** —— 老 UI 的「任务状态」
+        # 面板就是它（Enable 启用该功能 / PushNotification / NextRun 定时 /
+        # Sensitive 敏感任务）。跳过它配置页就只剩「看」不能「配」
+        # （长卿 2026-11-17：开关配置启用、启用该功能都消失了，只能看）。
+        # 组内 display=hide 的项（Command / SuccessInterval / FailureInterval /
+        # ServerUpdate）由下面的 display 过滤自然排除，不需要整组跳过。
+        if group_name.startswith("_"):
             continue
         group_i18n = i18n.get(group_name, {})
         rows = []
