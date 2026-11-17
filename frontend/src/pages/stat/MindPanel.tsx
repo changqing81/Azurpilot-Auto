@@ -222,7 +222,7 @@ export function MindPanel({ name }: { name: string }) {
         <span className="ft-hint">{text("McScanHint") || "自动扫描支持国服模拟器，按等级降序读取船坞三行的舰名与等级，完成后保存清单并计算。"}</span>
       </div>
       {/* 编辑开关 + 提示行（老 UI 的批量编辑开关在筛选行） */}
-      <div className="ft-toolbar" style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 .5rem' }}>
+      <div id="pywebio-scope-ft_mind_filters" className="ft-toolbar" style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap', margin: '0 0 .5rem' }}>
         <button
           className={'btn ' + (editMode ? 'btn-primary' : 'btn-secondary')}
           onClick={() => { setEditMode(m => !m); load(pageRef.current, !editMode) }}
@@ -252,10 +252,19 @@ export function MindPanel({ name }: { name: string }) {
       </div>
       {data && (
         <>
-          {data.intro_html && <div dangerouslySetInnerHTML={{ __html: data.intro_html }} />}
-          {data.stats_html && <div dangerouslySetInnerHTML={{ __html: data.stats_html }} />}
-          {data.summary_html && <div dangerouslySetInnerHTML={{ __html: data.summary_html }} />}
-          {data.list_html && <div dangerouslySetInnerHTML={{ __html: data.list_html }} />}
+          {/* 老 UI app_mind_calculator_tab.py:134-141 的四段 scope：
+              ft_mind_overview / ft_mind_toolbar / ft_mind_filters / ft_mind_list。
+              fleet-tech-alas.css:88-94 的垫面规则（background: var(--ft-surface)）与
+              advanced-material-alas.css:1866-1872 的毛玻璃都挂在这些 id 上 ——
+              平铺 div 时一张面都垫不上，表格文字直接压在壁纸上。 */}
+          <div id="pywebio-scope-ft_mind_overview">
+            {data.intro_html && <div dangerouslySetInnerHTML={{ __html: data.intro_html }} />}
+            {data.stats_html && <div dangerouslySetInnerHTML={{ __html: data.stats_html }} />}
+            {data.summary_html && <div dangerouslySetInnerHTML={{ __html: data.summary_html }} />}
+          </div>
+          <div id="pywebio-scope-ft_mind_list">
+            {data.list_html && <div dangerouslySetInnerHTML={{ __html: data.list_html }} />}
+          </div>
           {/* 分页（老 UI 页脚：上一页 / N / 下一页） */}
           <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', marginTop: '.5rem' }}>
             <button
