@@ -343,7 +343,10 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     #   research   → period（month/days30/days90/all）+ scope（series/consumable）
     #   commission → period（month/week）
     if panel == "opsi":
-        return JSONResponse(await run_in_threadpool(fn, name, month))
+        # task = 大世界收获的任务筛选后缀（老 UI _meow_task_filter 的 REST 等价物）
+        return JSONResponse(await run_in_threadpool(
+            fn, name, month, request.query_params.get("task") or ""
+        ))
     if panel == "research":
         return JSONResponse(
             await run_in_threadpool(fn, name, period, scope, series)

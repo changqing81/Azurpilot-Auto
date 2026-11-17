@@ -2412,16 +2412,16 @@ def _stat_render_method(name: str):
     raise AttributeError(f"统计渲染方法不存在: {name}")
 
 
-def get_opsi_panels_html(instance_name: str, month: str = "") -> dict:
-    """大世界面板。month = "YYYY-MM"（空 = 本月）。"""
+def get_opsi_panels_html(instance_name: str, month: str = "", task: str = "") -> dict:
+    """大世界面板。month = "YYYY-MM"（空 = 本月）；task = 任务筛选后缀。"""
     return _cached_stat_html(
-        instance_name, "opsi",
-        lambda: _get_opsi_panels_html_impl(instance_name, month),
+        instance_name, "opsi:" + str(task),
+        lambda: _get_opsi_panels_html_impl(instance_name, month, task),
         month,
     )
 
 
-def _get_opsi_panels_html_impl(instance_name: str, month: str = "") -> dict:
+def _get_opsi_panels_html_impl(instance_name: str, month: str = "", task: str = "") -> dict:
     """返回「大世界」页的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
 
     直接调老 UI 的 _render_opsi_stats 系列构建函数，把它们的输出
@@ -2467,6 +2467,11 @@ def _get_opsi_panels_html_impl(instance_name: str, month: str = "") -> dict:
                         setattr(ctx, _m, _desc.__get__(ctx, type(ctx)))
                 except Exception:  # noqa: BLE001
                     pass
+        # 任务筛选：老 UI 的 _meow_task_filter 是会话属性，REST 下由请求参数驱动。
+        # _opsi_drop_filtered_items / _meow_task_record_count 都读它。
+        if task:
+            ctx._meow_task_filter = None if task == "__all__" else task
+
         payload = ctx._build_opsi_month_cards()
         if payload is None:
             return {"success": False, "html": "", "error": "数据源不可用"}
@@ -2479,15 +2484,24 @@ def _get_opsi_panels_html_impl(instance_name: str, month: str = "") -> dict:
         # + 右栏明细标签/侵蚀卡/掉落明细表。之前只接了侵蚀卡，长卿看到
         # 「大世界收获」只剩两张卡（2026-11-17：侵蚀5 其他东西呢？深渊开荒、
         # 每日统计、金菜、深渊隐蔽呢？）。这里补齐可纯 HTML 化的三块。
-        meow_html = ctx._build_meow_cards_html(meow_rows)
+        # 侵蚀等级卡只在「全部任务」与「短猫相接」筛选下出现 ——
+        # 老 UI app_stat_opsi_export.py:546 MEOW_CARDS_FILTER 语义：
+        # 卡内是短猫相接的数据口径，挂在别的任务筛选下会被误读。
+        _task_filter = getattr(ctx, "_meow_task_filter", None)
+        if _task_filter in (None, "MeowfficerFarming"):
+            meow_html = ctx._build_meow_cards_html(meow_rows)
+        else:
+            meow_html = ""
         meow_header_html = ""
         meow_strip_html = ""
+        meow_filter_html = ""
         meow_drop_html = ""
         try:
             _view = ctx._load_meow_loot_view()
             _drop = ctx._load_opsi_drop_view()
             meow_header_html = ctx._build_meow_header_html()
             meow_strip_html = ctx._build_meow_strip_html(_view, _drop)
+            meow_filter_html = ctx._build_meow_filter_html(_drop)
             meow_drop_html = ctx._build_opsi_drop_table_html(_drop)
         except Exception as _e:  # noqa: BLE001
             logger.warning(f"[webapi] 大世界收获明细渲染失败: {_e}")
@@ -2497,6 +2511,7 @@ def _get_opsi_panels_html_impl(instance_name: str, month: str = "") -> dict:
             "meow_html": meow_html,
             "meow_header_html": meow_header_html,
             "meow_strip_html": meow_strip_html,
+            "meow_filter_html": meow_filter_html,
             "meow_drop_html": meow_drop_html,
             "error": "",
         }

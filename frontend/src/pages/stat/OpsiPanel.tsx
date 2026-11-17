@@ -25,11 +25,13 @@ export function OpsiPanel({ name }: { name: string }) {
   const [view, setView] = useState('line')
   const [chart, setChart] = useState<{ html: string; js: string } | null>(null)
   const [chartErr, setChartErr] = useState('')
+  const [meowTask, setMeowTask] = useState('')
   const [panels, setPanels] = useState<{
     html: string
     meow: string
     meowHeader: string
     meowStrip: string
+    meowFilter: string
     meowDrop: string
   } | null>(null)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -96,9 +98,12 @@ export function OpsiPanel({ name }: { name: string }) {
       meow_html: string
       meow_header_html: string
       meow_strip_html: string
+      meow_filter_html: string
       meow_drop_html: string
     }>(
-      `/newapi/stat/${name}/panels_html?panel=opsi` + (month ? `&month=${month}` : ''), 25000,
+      `/newapi/stat/${name}/panels_html?panel=opsi`
+        + (month ? `&month=${month}` : '')
+        + (meowTask ? `&task=${meowTask}` : ''), 25000,
     )
       .then(r => {
         if (!alive || !r.success) return
@@ -107,12 +112,13 @@ export function OpsiPanel({ name }: { name: string }) {
           meow: r.meow_html || '',
           meowHeader: r.meow_header_html || '',
           meowStrip: r.meow_strip_html || '',
+          meowFilter: r.meow_filter_html || '',
           meowDrop: r.meow_drop_html || '',
         })
       })
       .catch(() => { /* 忽略 */ })
     return () => { alive = false }
-  }, [name, month])
+  }, [name, month, meowTask])
 
   // 月份胶囊文案：老 UI 显示 "YYYY-MM" 键，本月显示当前月键
   const monthLabel = useMemo(() => {
@@ -157,6 +163,16 @@ export function OpsiPanel({ name }: { name: string }) {
   }, [view, monthLabel])
 
   const hasMeow = !!(panels && (panels.meow || panels.meowStrip || panels.meowDrop))
+
+  // 任务筛选点击（老 UI _on_meow_task_click 的 REST 等价物）：
+  // 点当前选中的再点一次 = 取消筛选回到「全部任务」（老 UI 同款 toggle）。
+  const onMeowTaskClick = (ev: React.MouseEvent<HTMLDivElement>) => {
+    const btn = (ev.target as HTMLElement).closest('[data-opsi-task]') as HTMLElement | null
+    if (!btn) return
+    ev.preventDefault()
+    const next = btn.getAttribute('data-opsi-task') || ''
+    setMeowTask(prev => (prev === next || next === '__all__' ? '' : next))
+  }
 
   return (
     // #pywebio-scope-opsi_stats 是老 UI 大世界统计面板的 scope 宿主：
@@ -213,8 +229,29 @@ export function OpsiPanel({ name }: { name: string }) {
           </summary>
           <div id="pywebio-scope-meow_loot_scope" style={{ marginTop: 8 }}>
             {panels?.meowHeader && <div dangerouslySetInnerHTML={{ __html: panels.meowHeader }} />}
-            {panels?.meow && <div dangerouslySetInnerHTML={{ __html: panels.meow }} />}
-            {panels?.meowDrop && <div dangerouslySetInnerHTML={{ __html: panels.meowDrop }} />}
+            {/* 两栏布局：老 UI put_row([左栏筛选, 右栏明细], size="168px minmax(0,1fr)")，
+                PyWebIO 产出的是一个 grid div。这里用同款内联 grid 复刻 ——
+                上下堆叠会让筛选器横铺一整行、与老 UI 的观感完全不同。 */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '168px minmax(0, 1fr)',
+                alignItems: 'start',
+                gap: 14,
+              }}
+            >
+              {/* 左栏任务筛选（老 UI _meow_filter_placeables 的纯 HTML 版） */}
+              <div
+                className="meow-loot-filter"
+                onClick={onMeowTaskClick}
+                dangerouslySetInnerHTML={{ __html: panels?.meowFilter || '' }}
+              />
+              {/* 右栏：侵蚀等级卡 + 掉落明细表 */}
+              <div>
+                {panels?.meow && <div dangerouslySetInnerHTML={{ __html: panels.meow }} />}
+                {panels?.meowDrop && <div dangerouslySetInnerHTML={{ __html: panels.meowDrop }} />}
+              </div>
+            </div>
           </div>
         </details>
       )}

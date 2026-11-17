@@ -563,6 +563,55 @@ class OpsiExportMixin(WebUIMixinBase):
         )
         return placeables
 
+    # ---------- 左栏：掉落任务筛选（纯 HTML 版，供 REST 面板复用） ----------
+
+    def _build_meow_filter_html(self, drop):
+        """「掉落任务筛选」的纯 HTML 版。
+
+        老 UI 的 _meow_filter_placeables 用 put_buttons 造 8 个开关（会话回调）。
+        REST 面板没有会话：这里生成带 data-opsi-task="<suffix>" 的原生按钮，
+        选中态用 btn-primary、未选 btn-secondary（与老 UI 配色语义一致），
+        点击由前端事件委托接管 → 带 task 参数重新请求面板。
+        """
+        current = drop.get("genre")
+        tasks = drop.get("tasks") or {}
+        parts = [
+            '<div class="meow-loot-filter-head">'
+            f'<div class="meow-loot-filter-title">'
+            f'{t("Gui.Stat.OpsiDropFilterTitle")}</div>'
+            f'<div class="meow-loot-filter-hint">'
+            f'{t("Gui.Stat.OpsiDropFilterHint")}</div>'
+            "</div>",
+            '<div class="btn-group">',
+        ]
+        all_active = current is None or current == OPSI_DROP_FILTER_ALL
+        parts.append(
+            '<button type="button" class="btn btn-sm '
+            + ("btn-primary" if all_active else "btn-secondary")
+            + '" data-opsi-task="' + OPSI_DROP_FILTER_ALL + '">'
+            + html_escape(t("Gui.Stat.OpsiDropFilterAll"))
+            + "</button>"
+        )
+        for suffix, genres, counted in OPSI_DROP_TASKS:
+            if not counted:
+                continue
+            label = t(f"Gui.Stat.OpsiDropTask{suffix}")
+            count = self._opsi_task_record_count(genres, tasks)
+            active = current == suffix
+            parts.append(
+                '<button type="button" class="btn btn-sm '
+                + ("btn-primary" if active else "btn-secondary")
+                + '" data-opsi-task="' + html_escape(suffix) + '">'
+                + html_escape(f"{label} · {count:,}")
+                + "</button>"
+            )
+        parts.append("</div>")
+        parts.append(
+            f'<div class="meow-loot-filter-note">'
+            f'{t("Gui.Stat.OpsiDropSharedNote")}</div>'
+        )
+        return "".join(parts)
+
     # ---------- 右栏：掉落明细折叠块 ----------
 
     def _meow_drop_detail_placeables(self, meow_rows, drop):
