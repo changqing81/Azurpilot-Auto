@@ -167,7 +167,11 @@ async def ui_theme_set(request: Request) -> JSONResponse:
         return JSONResponse(
             {"success": False, "error": "请求体不是有效 JSON"}, status_code=400
         )
-    target = str(body.get("theme", "")).strip()
+    # 键名兼容两种写法：前端 onClick({ Theme: ... }) 传的是大写（沿用
+    # deploy.yaml 的字段名），早先只读小写 theme 导致 400「不支持的主题: 」，
+    # 而前端 fetch 非 2xx 直接 throw、被 catch 静默吞掉 —— 用户看到的就是
+    # 「点主题完全没反应」（长卿 2026-11-17 二次反馈）。两种都收。
+    target = str(body.get("theme") or body.get("Theme") or "").strip()
     if target not in THEME_OPTIONS:
         return JSONResponse(
             {"success": False, "error": f"不支持的主题: {target}"}, status_code=400
@@ -188,6 +192,17 @@ async def ui_theme_set(request: Request) -> JSONResponse:
             return {"success": False, "error": str(e)}
 
     return JSONResponse(await run_in_threadpool(_apply))
+
+
+async def ui_i18n(request: Request) -> JSONResponse:
+    """GET /newapi/i18n?keys=Gui.Overview.Scheduler,Gui.Log.Fold
+
+    新 UI 里硬编码的中文文案（总览页的调度器/统计/运行中/队列中/等待中/
+    日志/自动滚动/截图预览/导出今日日志/折叠…）切语言后不会跟着变。
+    这个端点把老 UI 的 t() 结果透出来，前端拿到后用译文渲染。
+    """
+    keys = request.query_params.get("keys") or ""
+    return JSONResponse(await run_in_threadpool(data.get_i18n_batch, keys))
 
 
 async def healthz(request: Request) -> JSONResponse:
@@ -1216,6 +1231,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
     routes = [
         Route("/newapi/healthz", healthz),
         Route("/newapi/language", ui_language),
+        Route("/newapi/i18n", ui_i18n),
         Route("/newapi/language", ui_language_set, methods=["POST"]),
         # 远控可用（无 is_local_request 门禁），见 ui_theme_set 注释
         Route("/newapi/theme", ui_theme_set, methods=["POST"]),

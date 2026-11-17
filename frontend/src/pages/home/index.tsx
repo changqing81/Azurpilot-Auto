@@ -24,7 +24,7 @@ import { esc, putText } from '../../lib/pywebio'
 
 type TaskRow = { command: string; name: string; next_run: string }
 type OverviewResp = { running: TaskRow[]; pending: TaskRow[]; waiting: TaskRow[]; alive: boolean }
-type DashItem = { name: string; value: string; limit: string; total: string; color: string; record: string }
+type DashItem = { name: string; label?: string; value: string; limit: string; total: string; color: string; record: string }
 type DashResp = { items: DashItem[] }
 
 // 老 UI 资源名（config/argument/dashboard.yaml + i18n Gui.Dashboard.*）
@@ -61,14 +61,14 @@ function relTime(record: string): string {
 /** 任务卡（app_dashboard.py:222-250 _overview_task 同构）。
  *  id=pywebio-scope-overview-task_{command}；内层 put_column(auto auto) 放
  *  标题(--arg-title--) 与时间(--arg-help--)，右侧「设置」按钮。 */
-function taskCard(task: TaskRow): string {
+function taskCard(task: TaskRow, settingLabel: string): string {
   return (
     `<div id="pywebio-scope-overview-task_${esc(task.command)}">` +
     `<div style="display: grid; grid-auto-flow: row; grid-template-rows: auto auto;">` +
     putText(task.name, ';;--arg-title--') +
     putText(task.next_run, ';;--arg-help--') +
     `</div>` +
-    `<div><button class="btn btn-off">设置</button></div>` +
+    `<div><button class="btn btn-off">${settingLabel}</button></div>` +
     `</div>`
   )
 }
@@ -90,7 +90,7 @@ function dashEntry(item: DashItem): string {
     putText(value, ';;--dashboard-value--') +
     putText(second, `;;${secondMark}`) +
     `</div>` +
-    putText(`${DASH_LABEL[item.name] ?? item.name} - ${relTime(item.record)}`, ';;---dashboard-help--') +
+    putText(`${item.label || DASH_LABEL[item.name] || item.name} - ${relTime(item.record)}`, ';;---dashboard-help--') +
     `</div></div></div></div>`
   )
 }
@@ -100,6 +100,34 @@ export function Overview({ instance }: { instance: string }) {
   const [ov, setOv] = useState<OverviewResp | null>(null)
   const [dash, setDash] = useState<DashItem[]>([])
   const [version, setVersion] = useState('')
+  // 总览页的**固定文案**（调度器/统计/运行中/队列中/等待中/日志/按钮）
+  // 必须走后端 t()，不能在 JSX 里硬编码中文 —— 否则切到日文后这些位置
+  // 仍是中文（长卿 2026-11-17 截图：侧栏变成 ホームページ，但「调度器」「统计」
+  // 「运行中」「队列中」「等待中」还是中文）。老 UI 这些全是
+  // t("Gui.Overview.X")，新 UI 曾经写死字面量漏了翻译。
+  const [i18n, setI18n] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const keys = [
+      'Gui.Overview.Scheduler', 'Gui.Overview.Stat', 'Gui.Overview.Running',
+      'Gui.Overview.Pending', 'Gui.Overview.Waiting', 'Gui.Overview.Log',
+      'Gui.Button.ScrollON', 'Gui.Button.ScrollOFF',
+      'Gui.Button.Screenshot', 'Gui.LogExport.ExportToday',
+      'Gui.Button.DashboardON', 'Gui.Button.DashboardOFF',
+      'Gui.Button.Start', 'Gui.Button.Stop', 'Gui.Button.Open',
+      'Gui.Button.Setting',
+    ]
+    const load = () => {
+      apiGet<{ success: boolean; items: Record<string, string> }>(
+        '/newapi/i18n?keys=' + encodeURIComponent(keys.join(',')), 10000,
+      ).then(r => { if (r?.items) setI18n(r.items) }).catch(() => { /* 老后端：保持中文兜底 */ })
+    }
+    load()
+    // 切语言后 Shell 会派发该事件（见 aura-language-change 的用法）
+    window.addEventListener('alas-language-change', load)
+    return () => window.removeEventListener('alas-language-change', load)
+  }, [])
+  /** 取译文；后端没给就退回中文兜底（与老 UI t() 的失败语义一致）。 */
+  const L = (key: string, fallback: string) => i18n[key] || fallback
   const [autoScroll, setAutoScroll] = useState(true)
   const [dashboardShown, setDashboardShown] = useState(true)
   const autoScrollRef = useRef(true)
@@ -221,8 +249,8 @@ export function Overview({ instance }: { instance: string }) {
     const target = (ev.target as HTMLElement).closest('button')
     if (!target) return
     const label = (target.textContent ?? '').trim()
-    if (label === '启动' || label === '停止') {
-      const action = label === '停止' ? 'stop' : 'start'
+    if (label === L('Gui.Button.Start', '启动') || label === L('Gui.Button.Stop', '停止')) {
+      const action = label === L('Gui.Button.Stop', '停止') ? 'stop' : 'start'
       try {
         await fetch(`/newapi/scheduler/${encodeURIComponent(instance)}/${action}`, { method: 'POST' })
       } catch { /* 网络异常：等 15s 轮询收敛 */ }
@@ -230,8 +258,8 @@ export function Overview({ instance }: { instance: string }) {
       if (next) setOv(next)
       return
     }
-    if (label === '打开') { navigate('/stat/' + encodeURIComponent(instance)); return }
-    if (label === '设置') {
+    if (label === L('Gui.Button.Open', '打开')) { navigate('/stat/' + encodeURIComponent(instance)); return }
+    if (label === L('Gui.Button.Setting', '设置')) {
       // 找到按钮所属任务卡，取 command 后进配置页
       const card = target.closest('[id^="pywebio-scope-overview-task_"]') as HTMLElement | null
       const command = card?.id.replace('pywebio-scope-overview-task_', '') ?? ''
@@ -275,46 +303,46 @@ export function Overview({ instance }: { instance: string }) {
   const alive = ov?.alive ?? false
   const schedulersHtml =
     `<div id="pywebio-scope-scheduler-bar">` +
-    putText('调度器', ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    putText(L('Gui.Overview.Scheduler', '调度器'), ';;font-size: 1.25rem; margin: auto .5rem auto;') +
     `<div id="pywebio-scope-scheduler_btn"><div><button class="btn ${
       alive ? 'btn-off' : 'btn-on'
-    }">${alive ? '停止' : '启动'}</button></div></div>` +
+    }">${alive ? L('Gui.Button.Stop', '停止') : L('Gui.Button.Start', '启动')}</button></div></div>` +
     `</div>` +
     `<div id="pywebio-scope-stat-bar">` +
-    putText('统计', ';;font-size: 1.25rem; margin: auto .5rem auto;') +
-    `<div><button class="btn btn-on">打开</button></div>` +
+    putText(L('Gui.Overview.Stat', '统计'), ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    `<div><button class="btn btn-on">${L('Gui.Button.Open', '打开')}</button></div>` +
     `</div>` +
     `<div id="pywebio-scope-running">` +
-    putText('运行中') +
+    putText(L('Gui.Overview.Running', '运行中')) +
     '<hr class="hr-group">' +
-    `<div id="pywebio-scope-running_tasks">${(ov?.running ?? []).map(taskCard).join('')}</div>` +
+    `<div id="pywebio-scope-running_tasks">${(ov?.running ?? []).map(x => taskCard(x, L('Gui.Button.Setting', '设置'))).join('')}</div>` +
     `</div>` +
     `<div id="pywebio-scope-pending">` +
-    `<p class="overview-group-title">队列中<span class="overview-task-count" id="overview-count-pending">${
+    `<p class="overview-group-title">${L('Gui.Overview.Pending', '队列中')}<span class="overview-task-count" id="overview-count-pending">${
       ov?.pending.length ?? 0
     }</span></p>` +
     '<hr class="hr-group">' +
-    `<div id="pywebio-scope-pending_tasks">${(ov?.pending ?? []).map(taskCard).join('')}</div>` +
+    `<div id="pywebio-scope-pending_tasks">${(ov?.pending ?? []).map(x => taskCard(x, L('Gui.Button.Setting', '设置'))).join('')}</div>` +
     `</div>` +
     `<div id="pywebio-scope-waiting">` +
-    `<p class="overview-group-title">等待中<span class="overview-task-count" id="overview-count-waiting">${
+    `<p class="overview-group-title">${L('Gui.Overview.Waiting', '等待中')}<span class="overview-task-count" id="overview-count-waiting">${
       ov?.waiting.length ?? 0
     }</span></p>` +
     '<hr class="hr-group">' +
-    `<div id="pywebio-scope-waiting_tasks">${(ov?.waiting ?? []).map(taskCard).join('')}</div>` +
+    `<div id="pywebio-scope-waiting_tasks">${(ov?.waiting ?? []).map(x => taskCard(x, L('Gui.Button.Setting', '设置'))).join('')}</div>` +
     `</div>`
 
   const logBarHtml =
     `<div id="pywebio-scope-log-bar">` +
-    putText('日志', ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    putText(L('Gui.Overview.Log', '日志'), ';;font-size: 1.25rem; margin: auto .5rem auto;') +
     `<div id="pywebio-scope-log-bar-btns">` +
     `<div id="pywebio-scope-log_scroll_btn"><div><button class="btn ${
       autoScroll ? 'btn-on' : 'btn-off'
-    }">自动滚动 ${autoScroll ? '开' : '关'}</button></div></div>` +
-    `<div><button class="btn btn-off">截图预览</button></div>` +
-    `<div id="pywebio-scope-log_export_btn"><div><button class="btn btn-off">导出今日日志</button></div></div>` +
+    }">${autoScroll ? L('Gui.Button.ScrollON', '自动滚动 开') : L('Gui.Button.ScrollOFF', '自动滚动 关')}</button></div></div>` +
+    `<div><button class="btn btn-off">${L('Gui.Button.Screenshot', '截图预览')}</button></div>` +
+    `<div id="pywebio-scope-log_export_btn"><div><button class="btn btn-off">${L('Gui.LogExport.ExportToday', '导出今日日志')}</button></div></div>` +
     `<div id="pywebio-scope-dashboard_btn"><div><button class="btn btn-off">${
-      dashboardShown ? '折叠' : '展开'
+      dashboardShown ? L('Gui.Button.DashboardON', '折叠') : L('Gui.Button.DashboardOFF', '展开')
     }</button></div></div>` +
     `</div>` +
     '<hr class="hr-group">' +

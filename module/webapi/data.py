@@ -228,8 +228,20 @@ def get_dashboard(name: str) -> dict:
             limit = str(pt_limit) if pt_limit else ""
             if limit == "0":
                 limit = ""
+        # label 走 t("Gui.Dashboard.{组名}")，与老 UI app_dashboard.py:573
+        # 完全同源。'name' 保留原始组名（前端拿它做 id / 样式钩子，不能翻译）。
+        # 长卿 2026-11-17 截图：切日文后仪表盘还是「石油 / 物资 / 钻石 / 魔方」，
+        # 因为新 UI 直接拿原始组名当文案显示。
+        try:
+            from module.webui.lang import t as _t
+            _label = _t(f"Gui.Dashboard.{item}")
+            if _label == f"Gui.Dashboard.{item}":
+                _label = item
+        except Exception:  # noqa: BLE001
+            _label = item
         items.append({
             "name": item,
+            "label": _label,
             "value": str(group.get("Value")),
             "limit": limit,
             "total": total,
@@ -576,6 +588,37 @@ def get_fixed_menu() -> dict:
         "aside_manage": manage,
         "search_placeholder": search,
     }
+
+
+def get_i18n_batch(keys: str = "") -> dict:
+    """按 key 批量取老 UI 翻译（新 UI 里硬编码的中文文案要走这里）。
+
+    为什么需要（长卿 2026-11-17 截图）：切到日文后，侧栏「ホームページ」
+    变了，但总览页的「调度器 / 统计 / 运行中 / 队列中 / 等待中 / 日志 /
+    自动滚动 / 截图预览 / 导出今日日志 / 折叠」仍是中文 —— 这些是新 UI
+    在 pages/home/index.tsx 里**硬编码**的字符串字面量，压根没经过 t()。
+    老 UI 那边全部走 t("Gui.Overview.X") / t("Gui.Log.X")，所以只有新 UI
+    漏了。
+
+    Args:
+        keys: 逗号分隔的 i18n key（如 "Gui.Overview.Scheduler,Gui.Log.Fold"）。
+
+    Returns:
+        {"success": True, "items": {key: 译文}}；查不到的 key 原样返回 key，
+        调用方据此判断缺失（与 module.webui.lang.t 的行为一致）。
+    """
+    from module.webui.lang import t as _t
+
+    out: dict = {}
+    for raw in str(keys or "").split(","):
+        key = raw.strip()
+        if not key:
+            continue
+        try:
+            out[key] = _t(key)
+        except Exception:  # noqa: BLE001
+            out[key] = key
+    return {"success": True, "items": out}
 
 
 def get_header() -> dict:

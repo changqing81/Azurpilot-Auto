@@ -173,7 +173,12 @@ export function HomePageMain() {
       try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
       location.hash = ''
       location.replace(location.pathname)
-    } catch { /* 写盘失败：不刷新，避免误导 */ }
+    } catch (e) {
+      // ⚠️ 不能静默吞掉：原来 catch 是空的，后端返回 400 时界面毫无反应，
+      // 用户看到的就是「点主题完全没用」（长卿 2026-11-17 二次反馈）。
+      // 现在把真实原因弹出来，至少能立刻知道是失败而不是卡住。
+      window.alert('切换主题失败：' + String(e))
+    }
   }
 
   // 切换语言：走专用端点（同时改配置 + 运行时 LANG），成功后**整页重载**。
