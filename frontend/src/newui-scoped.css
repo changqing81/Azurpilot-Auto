@@ -51,12 +51,12 @@
    中文逐字换行成竖排。手机端把工具栏改纵向堆叠：标题一行占满。
    ============================================================ */
 @media (max-width: 760px) {
-  #root #pywebio-scope-ap_chart > div[style*="grid-auto-flow: column"] {
+  #root #pywebio-scope-ap_chart div[style*="grid-auto-flow: column"] {
     grid-auto-flow: row !important;
     grid-template-columns: minmax(0, 1fr) !important;
     gap: 6px;
   }
-  #root #pywebio-scope-ap_chart > div[style*="grid-auto-flow: column"] > div:first-child {
+  #root #pywebio-scope-ap_chart div[style*="grid-auto-flow: column"] > div:first-child {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -89,4 +89,92 @@
   height: 38px !important;
   box-sizing: border-box !important;
   margin: 0 !important;
+}
+
+/* ============================================================
+   仪表盘随日志跳动的修复（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「仪表盘这块会跟着日志区跳动，老 UI 也有这问题」。
+
+   实测（总览页 1364px 高）：
+     #pywebio-scope-logs        grid-template-rows: auto 1fr
+     #pywebio-scope-log-bar     h=449（在 auto 行，含仪表盘 288）
+     #pywebio-scope-log         scrollH=5208 clientH=410
+
+   仪表盘数据刷新是「清空元素 → 重新插入」，重建瞬间内容高度塌陷 →
+   auto 行变矮 → 1fr 行（日志）变高 → 整块重排，视觉上就是仪表盘
+   跟着日志上下跳。老 UI 只加了 overflow-anchor:none（防滚动锚定），
+   管不到 grid 行高重排，所以老 UI 也有这毛病。
+
+   修法：给 auto 行的容器一个不塌陷的下界。用 min-height 而不是 height，
+   仪表盘变多时仍能自然增高，只是不会再「瞬间塌到 0 再弹回来」。
+   ============================================================ */
+#root #pywebio-scope-log-bar {
+  min-height: 3.2rem;       /* 表头 + 按钮行的高度，仪表盘塌陷时不至于缩没 */
+  align-content: start;
+}
+
+/* 仪表盘容器自身也锁定最小高度：刷新重建期间不参与高度协商。 */
+#root #pywebio-scope-dashboard {
+  min-height: 56px;         /* 单行仪表盘的最小占位（实测单条目 ~56px） */
+  contain: layout;          /* 内部重排不向上传播到 grid 行高 */
+  overflow-anchor: none;    /* 不参与滚动锚定 */
+}
+
+/* log-container 在 flex 布局里默认 min-height:auto —— 子元素撑大时它不收缩，
+   会把 grid 的 1fr 行顶出去。显式 min-height:0 是 flex/grid 防溢出的标准做法。 */
+#root #pywebio-scope-log-container {
+  min-height: 0;
+}
+
+/* 触屏拖拽任务优先级：handle 需要 touch-action:none，否则移动端 pointermove
+   会被浏览器当作滚动手势吞掉（preventDefault 也无效）。 */
+#root .task-priority-handle {
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#root .task-priority-handle:active {
+  cursor: grabbing;
+}
+
+/* 图源管理弹窗深色主题适配（新 UI 专用）：裸 checkbox 不跟随主题，
+   Bootstrap 的 .form-check-input 才跟随；弹窗卡片 .card 是白底。 */
+#root .alas-src-modal .card {
+  background: var(--alas-apple-card-bg, var(--st-surface, #fff)) !important;
+  color: inherit;
+  backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(128, 128, 128, 0.22);
+}
+#root .alas-src-modal input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(128, 128, 128, 0.45);
+  background: rgba(128, 128, 128, 0.28);
+  position: relative;
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+  flex: 0 0 auto;
+}
+#root .alas-src-modal input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .18s;
+}
+#root .alas-src-modal input[type="checkbox"]:checked {
+  background: var(--bs-primary, #4f6ef7);
+  border-color: transparent;
+}
+#root .alas-src-modal input[type="checkbox"]:checked::before {
+  transform: translateX(14px);
 }

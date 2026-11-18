@@ -122,7 +122,7 @@ export function WallpaperSourcesModal({ onClose, onChanged }: {
       onClick={e => { if (e.target === e.currentTarget && !dirty) onClose() }}
     >
       <div
-        className="card"
+        className="card alas-src-modal"
         style={{
           width: 'min(560px, 92vw)',
           maxHeight: '86vh',

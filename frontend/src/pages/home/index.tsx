@@ -18,7 +18,7 @@
 // 一律通过 lib/pywebio.ts 输出与 PyWebIO 逐字节一致的 HTML 字符串。
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet } from '../../api/client'
+import { apiGet, withPrefix } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { esc, putText } from '../../lib/pywebio'
 
@@ -282,18 +282,45 @@ export function Overview({ instance }: { instance: string }) {
     // 截图预览：直接调老 UI 的 alas-utils.js（已作为 public/alas-utils.js 引入，
     // 它内部走 /ws/live_screenshot 的 scrcpy H.264 链路，样式与交互与老 UI 完全一致）
     if (label === '截图预览') { window.alasToggleLivePreview?.(instance); return }
-    // 导出今日日志：走老 UI 现成的 /api/log/runtime（today 范围）
+    // 导出今日日志：走老 UI 现成的 /api/log/runtime（today 范围）。
+    //
+    // 不能再用 window.open：远控中继下 window.open 打开的是裸 URL，
+    // 不带 /{peer} 前缀 → 中继 502（长卿 2026-11-18 实测）。而且它走浏览器
+    // 导航，main.tsx 劫持 fetch 的那套前缀逻辑管不到。
+    // 改成 fetch + blob 下载：请求走 withPrefix 自动补前缀，
+    // blob 用 <a download> 保存 —— 直连/远控都成立。
     if (label === '导出今日日志') {
       const today = new Date()
       const pad = (n: number) => String(n).padStart(2, '0')
       const scope = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
-      window.open(
+      const url = withPrefix(
         `/api/log/runtime?instance=${encodeURIComponent(instance)}&scope=${scope}`,
-        '_blank',
       )
+      const tip = document.createElement('div')
+      tip.textContent = '正在导出日志…'
+      tip.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;padding:10px 18px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;font-size:13px;font-family:system-ui;pointer-events:none'
+      document.body.appendChild(tip)
+      fetch(url)
+        .then(async resp => {
+          if (!resp.ok) throw new Error('HTTP ' + resp.status)
+          const blob = await resp.blob()
+          const cd = resp.headers.get('content-disposition') || ''
+          const m = cd.match(/filename="?([^";]+)"?/)
+          const name = m ? m[1] : `${scope}_${instance}.txt`
+          const objUrl = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = objUrl
+          a.download = name
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          setTimeout(() => URL.revokeObjectURL(objUrl), 10000)
+          tip.textContent = '导出完成'
+        })
+        .catch(e => { tip.textContent = '导出失败：' + String(e) })
+        .finally(() => { setTimeout(() => tip.remove(), 2500) })
     }
   }
-
   // ── 总览左右两列（全部为 HTML 字符串，保证 style 标记逐字节同构）───────────
   const alive = ov?.alive ?? false
   const schedulersHtml =
