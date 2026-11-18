@@ -1,7 +1,6 @@
 // 设置页（对照老 UI app_developer_settings.py：启动器自启动 + deploy.yaml 可视化配置）。
 // 数据全部走老 UI 现成 REST：/api/launcher/status + /api/deploy/settings。
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Shell } from '../../components/Shell'
 
 type LauncherStatus = {
@@ -28,7 +27,6 @@ type DeployGroup = { key: string; label: string; fields: DeployField[] }
 type DeploySchema = { groups?: DeployGroup[]; title?: string }
 
 export function SettingsPage() {
-  const navigate = useNavigate()
   const [launcher, setLauncher] = useState<LauncherStatus | null>(null)
   const [schema, setSchema] = useState<DeploySchema | null>(null)
   const [values, setValues] = useState<Record<string, any>>({})
@@ -203,13 +201,10 @@ export function SettingsPage() {
   return (
     <Shell active="Setting" title="设置">
     <div id="pywebio-scope-content" className="config-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
-        <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
-        <h2>设置</h2>
-        <button className="log-btn" onClick={() => navigate('/update')}>更新器</button>
-        <button className="log-btn" onClick={() => navigate('/remote')}>远程控制</button>
-        <span style={{ fontSize: '.8rem', opacity: .7 }}>{msg}</span>
-      </div>
+      <h2 style={{ margin: '.5rem 0' }}>
+        设置
+        {msg && <span style={{ fontSize: '.8rem', opacity: .7, marginLeft: '.5rem', fontWeight: 400 }}>{msg}</span>}
+      </h2>
 
       {/* 界面版本切换：一次点击 = 写 deploy.yaml + 自动重启 + 轮询落地。
           运行时值由后端 _RUNTIME_UI 报告（不读 deploy.yaml），切换未重启时

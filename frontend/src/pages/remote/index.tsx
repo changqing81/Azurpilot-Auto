@@ -7,7 +7,6 @@
 // 之前只做了两行文字（长卿反馈「干秃秃」），这版按老 UI 补齐状态图标、
 // 连接方式文案映射、入口链接和配置教程。
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
 import { Shell } from '../../components/Shell'
 
@@ -46,7 +45,6 @@ function StateDot({ running, connecting }: { running: boolean; connecting: boole
 }
 
 export function RemotePage() {
-  const navigate = useNavigate()
   const [st, setSt] = useState<RemoteStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const load = () => apiGet<RemoteStatus>('/newapi/remote/status').then(setSt).catch(() => {})
@@ -78,11 +76,7 @@ export function RemotePage() {
   return (
     <Shell active="Remote" title="远程控制">
     <div id="pywebio-scope-content" className="config-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
-        <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
-        <h2>远程控制</h2>
-        <span style={{ fontSize: '.8rem', opacity: .7 }} />
-      </div>
+      <h2 style={{ margin: '.5rem 0' }}>远程控制</h2>
       <div id="pywebio-scope-group_ui1" className="cfg-group">
         {/* 状态行：圆点 + 主状态文案 + 开关（与老 UI put_row[loading|state] 同构） */}
         <div style={{ display: 'grid', gridAutoFlow: 'column', gridTemplateColumns: '1fr 13rem', alignItems: 'center', margin: '.125rem 0' }}>

@@ -350,3 +350,33 @@
   border: 0 !important;
   color: inherit;
 }
+
+/* .log-btn：多处页面（OOBE 引导 / 设置页刷新）在用，但**全仓库没有样式定义**，
+   于是渲染成浏览器默认按钮（白底凸起黑边，90 年代外观）。
+   长卿 2026-11-18 截图「这种东西能不能删除了」即此。
+   这里给一套跟随主题的胶囊按钮样式，与老 UI 的 .btn 观感一致。 */
+#root .log-btn {
+  appearance: none;
+  border: 1px solid var(--alas-apple-glass-border, rgba(128,128,128,.35));
+  background: var(--alas-apple-card-bg, rgba(255,255,255,.6));
+  color: inherit;
+  font: inherit;
+  font-size: .85rem;
+  line-height: 1.4;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background .15s, border-color .15s;
+}
+#root .log-btn:hover {
+  border-color: var(--alas-apple-accent, #2563eb);
+  background: var(--alas-apple-accent-light, rgba(37,99,235,.18));
+}
+#root .log-btn.st-tab-active {
+  border-color: var(--alas-apple-accent, #2563eb);
+  background: var(--alas-apple-accent-light, rgba(37,99,235,.2));
+  color: var(--alas-apple-accent, #2563eb);
+  font-weight: 600;
+}

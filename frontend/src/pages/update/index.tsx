@@ -1,6 +1,5 @@
 // 更新器页（对照 app_developer_update.py：updater_info + 提交表 + 详细历史 + 更新日志）
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../../api/client'
 import { Shell } from '../../components/Shell'
 
@@ -8,7 +7,6 @@ type Commit = { sha: string; author: string; time: string; message: string }
 type UpdateResp = { branch: string; local: Commit; upstream: Commit[] }
 
 export function UpdatePage() {
-  const navigate = useNavigate()
   const [data, setData] = useState<UpdateResp | null>(null)
   const [changelog, setChangelog] = useState<any>(null)
   useEffect(() => {
@@ -18,10 +16,7 @@ export function UpdatePage() {
   return (
     <Shell active="Update" title="更新器">
     <div id="pywebio-scope-content" className="config-page">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
-        <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>
-        <h2>更新器</h2>
-      </div>
+      <h2 style={{ margin: '.5rem 0' }}>更新器</h2>
 
       <div id="pywebio-scope-group_ui1" className="cfg-group">
         <div style={{ fontSize: '1.05rem', fontWeight: 600 }}>版本对照（分支 {data?.branch ?? '-'}）</div>
