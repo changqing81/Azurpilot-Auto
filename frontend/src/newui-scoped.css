@@ -281,3 +281,36 @@
   -webkit-backdrop-filter: blur(18px) saturate(160%);
   border: 1px solid rgba(128, 128, 128, 0.22);
 }
+
+/* 新 UI 表格主题化（更新器/科研等页面的 .research-table）
+   长卿 2026-11-18：「这个更新器这块完全是白色的」。
+   根因：.research-table 这个类名在整个仓库里没有任何样式定义（老 assets
+   里没有、新 CSS 里也没有）。老 UI 更新器用 PyWebIO put_table 靠 Bootstrap
+   表格样式跟随主题；新 UI 直接写 <table>，于是用浏览器默认外观——白底黑框。
+   这里按主题变量补一套表格样式，#root 隔离，老 UI 不受影响。 */
+#root .research-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+  color: var(--alas-content-text, inherit);
+  font-size: .85rem;
+}
+#root .research-table th,
+#root .research-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, .22);
+  text-align: left;
+  vertical-align: top;
+  background: transparent;
+  color: inherit;
+}
+#root .research-table th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+#root .research-table tbody tr:hover {
+  background: rgba(128, 128, 128, .1);
+}
+#root .research-table td:last-child {
+  word-break: break-word;
+}

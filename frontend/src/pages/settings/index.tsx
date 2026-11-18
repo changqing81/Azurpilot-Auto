@@ -1,7 +1,7 @@
 // 设置页（对照老 UI app_developer_settings.py：启动器自启动 + deploy.yaml 可视化配置）。
 // 数据全部走老 UI 现成 REST：/api/launcher/status + /api/deploy/settings。
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { Shell } from '../../components/Shell'
 
 type LauncherStatus = {
@@ -29,7 +29,6 @@ type DeploySchema = { groups?: DeployGroup[]; title?: string }
 
 export function SettingsPage() {
   const navigate = useNavigate()
-  const { name = 'alas' } = useParams()
   const [launcher, setLauncher] = useState<LauncherStatus | null>(null)
   const [schema, setSchema] = useState<DeploySchema | null>(null)
   const [values, setValues] = useState<Record<string, any>>({})
@@ -202,7 +201,7 @@ export function SettingsPage() {
   })()
 
   return (
-    <Shell active={name} title="设置">
+    <Shell active="Setting" title="设置">
     <div id="pywebio-scope-content" className="config-page">
       <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', margin: '.5rem 0' }}>
         <button className="log-btn" onClick={() => navigate('/')}>← 返回总览</button>

@@ -428,6 +428,9 @@ export function Shell({
           { key: 'Utils', name: '开发者工具' },
         ]
 
+  // 「主页层」页面集合：这些页面共用外侧那 6 个固定入口菜单
+  const FIXED_PAGE_KEYS = new Set(['Home', 'Update', 'Remote', 'Setting', 'Announcement', 'Utils'])
+
   const menuItem = (key: string, name: string) =>
     `<div style=";;--menu-${key}--;"><button class="btn btn-menu${
       (active === key || (active === 'Home' && key === 'HomePage')) ? ' btn-menu-active' : ''
@@ -438,8 +441,13 @@ export function Shell({
       ? // 二级菜单（管理/开发者工具等）：老 UI 用 dev_set_menu 往菜单区放按钮，
         // 不显示配置树。高亮仍走 div[style*="--menu-{key}--"] > button 约定。
         submenu.map(it => menuItem(it.key, it.name)).join('')
-    : active === 'Home'
-      ? HOME_MENU.map(it => menuItem(it.key, it.name)).join('')
+    : FIXED_PAGE_KEYS.has(active)
+      ? // 固定入口页（主页/更新器/远程控制/设置/公告/开发者工具）都属于「主页层」，
+        // 菜单区**始终**是这 6 个入口 —— 老 UI 就是这样（固定菜单一棵树，切页只换
+        // 内容区）。之前的 bug：条件写成 active === 'Home'，进更新器后 active='Update'
+        // → 走 else 渲染**实例配置树**（总览/智慧港区/出击…），看起来像「点什么都跳到同
+        // 一个页面」（长卿 2026-11-18 报告）。
+        HOME_MENU.map(it => menuItem(it.key, it.name)).join('')
       : // 实例页：搜索框 + 配置树
         `<div id="pywebio-scope-task_config_search">` +
         `<div class="form-group" style=";;--task-config-search-input--">` +
