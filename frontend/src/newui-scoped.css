@@ -221,3 +221,18 @@
   animation: none !important;
 }
 
+
+/* 任务优先级拖拽手感（新 UI 专用）
+   长卿 2026-11-18：「能拖拽了 但是拖拽很生硬」。
+   ① 拖动中的行浮起（阴影+缩放+半透明），明确「我正抓着它」；
+   ② 其余行位置变化加 transition，重排时是滑过去而不是瞬移。 */
+#root .priority-filter-item {
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+#root .priority-filter-item.task-priority-floating {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+  transform: scale(1.012);
+  opacity: .92;
+  background: var(--alas-apple-card-bg-solid, var(--st-surface, #fff));
+  z-index: 2;
+}

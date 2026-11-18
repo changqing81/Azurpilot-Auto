@@ -49,6 +49,17 @@ export function PriorityFilter({
   const listRef = useRef<HTMLOListElement>(null)
 
   /** 按指针 Y 坐标找落点行（几何命中，不依赖 elementFromPoint）。 */
+  // ── 拖拽：实时预览重排（不是松手才挪） ──────────────────────────
+  //
+  // 长卿 2026-11-18：「能拖拽了 但是拖拽很生硬」。原实现只在 pointerup 时
+  // move()，拖动过程中只有目标行变色，行本身不动 —— 手感是「拖了个寂寞」。
+  //
+  // 现在改成**实时预览**：pointermove 命中新行时立刻重排 items（用 localOrder
+  // 暂存），松手才 onChange 落盘。这样行跟着手指走，与老 UI / 常见拖拽列表一致。
+  const [localOrder, setLocalOrder] = useState<string[] | null>(null)
+  const order = localOrder ?? items
+
+  /** 指针 Y → 落点行号（几何命中，不依赖 elementFromPoint，兼容远控）。 */
   const rowAt = (clientY: number): number | null => {
     const list = listRef.current
     if (!list) return null
@@ -56,31 +67,55 @@ export function PriorityFilter({
       const r = list.children[k].getBoundingClientRect()
       if (clientY >= r.top && clientY <= r.bottom) return k
     }
+    // 拖到列表外：按上下边界归位，避免卡住不动
+    if (list.children.length) {
+      const first = list.children[0].getBoundingClientRect()
+      const last = list.children[list.children.length - 1].getBoundingClientRect()
+      if (clientY < first.top) return 0
+      if (clientY > last.bottom) return list.children.length - 1
+    }
     return null
   }
 
   const onPointerDown = (e: React.PointerEvent, i: number) => {
-    // 只响应主键（鼠标左键 / 触摸 / 笔）
     if (e.button !== 0) return
     dragFromRef.current = i
     setDragOver(i)
-    // 捕获指针：手指/鼠标移出元素后仍能收到 move/up
+    setLocalOrder(items.slice())
     ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
-    if (dragFromRef.current === null) return
-    const k = rowAt(e.clientY)
-    if (k !== null && k !== dragOver) setDragOver(k)
+    const from = dragFromRef.current
+    if (from === null) return
+    const to = rowAt(e.clientY)
+    if (to === null) return
+    if (to === dragOver) return
+    setDragOver(to)
+    // 实时重排：把正在拖的项移到目标位置
+    setLocalOrder(prev => {
+      const base = prev ?? items.slice()
+      const cur = base.indexOf(items[from])
+      if (cur < 0 || cur === to) return base
+      const next = base.slice()
+      const [moved] = next.splice(cur, 1)
+      next.splice(to, 0, moved)
+      return next
+    })
+  }
+
+  const endDrag = () => {
+    const next = localOrder
+    dragFromRef.current = null
+    setDragOver(null)
+    setLocalOrder(null)
+    // 松手才落盘（live 预览期间不动父组件状态，避免每帧触发保存 debounce）
+    if (next && next.join(">") !== items.join(">")) write(next)
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
-    const from = dragFromRef.current
-    const to = rowAt(e.clientY)
-    dragFromRef.current = null
-    setDragOver(null)
     try { (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId) } catch { /* 忽略 */ }
-    if (from !== null && to !== null) move(from, to)
+    endDrag()
   }
 
   // 外部值变化（切任务/重新拉配置）时同步。用原串作签名比较，避免父组件
@@ -121,10 +156,10 @@ export function PriorityFilter({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        {items.map((code, i) => (
+        {order.map((code, i) => (
           <li
             key={code}
-            className={'task-priority-item priority-filter-item' + (dragOver === i ? ' task-priority-floating' : '')}
+            className={'task-priority-item priority-filter-item' + (dragFromRef.current !== null && code === items[dragFromRef.current] ? ' task-priority-floating' : '')}
           >
             <span className="task-priority-rank">{i + 1}</span>
             <span
@@ -140,7 +175,7 @@ export function PriorityFilter({
               <button type="button" className="btn btn-sm btn-secondary" title="上移"
                 disabled={i === 0} onClick={() => move(i, i - 1)}>↑</button>
               <button type="button" className="btn btn-sm btn-secondary" title="下移"
-                disabled={i === items.length - 1} onClick={() => move(i, i + 1)}>↓</button>
+                disabled={i === order.length - 1} onClick={() => move(i, i + 1)}>↓</button>
               <button type="button" className="btn btn-sm btn-secondary" title="移除"
                 onClick={() => write(items.filter((_, k) => k !== i))}>×</button>
             </span>
