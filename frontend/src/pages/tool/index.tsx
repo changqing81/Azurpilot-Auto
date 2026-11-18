@@ -81,11 +81,23 @@ export function ToolPage() {
       '<div class="alas-update-notice__body">' +
       '<div class="alas-update-notice__eyebrow">发现新版本</div>' +
       '<div class="alas-update-notice__title">有可用更新！</div>' +
-      '<div class="alas-update-notice__text">预览：这是开发者工具的测试弹窗，不会真的更新。</div>' +
+      '<div class="alas-update-notice__text">建议及时更新，以获得更稳定的脚本运行体验。</div>' +
+      // 操作按钮区不能漏：老 UI（app_shell.py:196-212）在这里放「立即更新」「稍后再说」。
+      // 之前只拼到 __text 就结束，弹窗只有说明没有出口
+      //（长卿 2026-11-18：「我的选项呢 去更新以及下次再说呢」）。
+      '<div class="alas-update-notice__actions">' +
+      '<button type="button" class="btn btn-danger btn-sm" data-notice-accept>立即更新</button>' +
+      '<button type="button" class="btn btn-secondary btn-sm" data-notice-later>稍后再说</button>' +
+      '</div>' +
       '</div>'
     document.body.appendChild(el)
-    setTimeout(() => el.remove(), 8000)
-    flash('预览更新提示：已显示（8 秒后消失）')
+    el.querySelector('[data-notice-accept]')?.addEventListener('click', () => {
+      el.remove(); flash('预览：点「立即更新」会跳转到更新器页（真实场景）')
+    })
+    el.querySelector('[data-notice-later]')?.addEventListener('click', () => {
+      el.remove(); flash('预览：点「稍后再说」关闭了提示')
+    })
+    flash('预览更新提示：已显示')
   }
 
   /** 模拟错误弹窗：同款机制，用更新通知的容器承载错误文案。 */
@@ -103,11 +115,21 @@ export function ToolPage() {
       '<div class="alas-update-notice__body">' +
       '<div class="alas-update-notice__eyebrow">任务异常</div>' +
       '<div class="alas-update-notice__title">Commission · GameStuckError</div>' +
-      '<div class="alas-update-notice__text">预览：这是开发者工具的模拟错误弹窗。</div>' +
+      '<div class="alas-update-notice__text">以下任务因连续失败已被自动关闭，请逐一处理。</div>' +
+      // 同上：老 UI（app_dashboard.py:420-428）的 actions 有「去处理」「全部已知晓」。
+      '<div class="alas-update-notice__actions">' +
+      '<button type="button" class="btn btn-danger btn-sm" data-notice-handle>去处理</button>' +
+      '<button type="button" class="btn btn-secondary btn-sm" data-notice-ack>全部已知晓</button>' +
+      '</div>' +
       '</div>'
     document.body.appendChild(el)
-    setTimeout(() => el.remove(), 8000)
-    flash('模拟错误弹窗：已显示（8 秒后消失）')
+    el.querySelector('[data-notice-handle]')?.addEventListener('click', () => {
+      el.remove(); flash('预览：点「去处理」会跳到第一个出错任务的配置页（真实场景）')
+    })
+    el.querySelector('[data-notice-ack]')?.addEventListener('click', () => {
+      el.remove(); flash('预览：点「全部已知晓」关闭并标记已读')
+    })
+    flash('模拟错误弹窗：已显示')
   }
 
   const btn = (label: string, color: string, onClick: () => void) => (
@@ -125,26 +147,23 @@ export function ToolPage() {
     <Shell active="Utils" title="开发者工具">
       <div id="pywebio-scope-content">
         <div style={{ padding: '.625rem' }}>
-          <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>GUI测试</h2>
+          <h2 style={{ fontSize: '1.05rem', margin: '0 0 .6rem', opacity: .9 }}>GUI测试</h2>
           {btn('抛出异常事件', 'danger', () => call('raise_exception', {}, '抛出异常事件'))}
           {btn('预览更新提示', 'primary', showUpdateNotice)}
 
-          <hr className="hr-group" />
-          <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>图标状态模拟</h2>
+          <h2 style={{ fontSize: '1.05rem', margin: '1.1rem 0 .6rem', opacity: .9 }}>图标状态模拟</h2>
           {btn('模拟运行图标(10s)', 'success', () => call('mock_icon', { state: 1, seconds: 10 }, '模拟运行图标'))}
           {btn('模拟错误图标(10s)', 'danger', () => call('mock_icon', { state: 3, seconds: 10 }, '模拟错误图标'))}
           {btn('模拟更新图标(10s)', 'warning', () => call('mock_icon', { state: 4, seconds: 10 }, '模拟更新图标'))}
           {btn('清除图标模拟状态', 'secondary', () => call('clear_icon', {}, '清除图标模拟状态'))}
 
-          <hr className="hr-group" />
-          <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>弹窗与预演</h2>
+          <h2 style={{ fontSize: '1.05rem', margin: '1.1rem 0 .6rem', opacity: .9 }}>弹窗与预演</h2>
           {btn('模拟错误弹窗', 'danger', simulateErrorPopup)}
           {btn('跨月预演(仅清理)', 'warning', () => call('cross_month', { mode: 'cleanup' }, '跨月预演(仅清理)'))}
           {btn('跨月预演(全流程)', 'warning', () => call('cross_month', { mode: 'full' }, '跨月预演(全流程)'))}
           {btn('取消跨月预演', 'secondary', () => call('cancel_cross_month', {}, '取消跨月预演'))}
 
-          <hr className="hr-group" />
-          <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>实例操作</h2>
+          <h2 style={{ fontSize: '1.05rem', margin: '1.1rem 0 .6rem', opacity: .9 }}>实例操作</h2>
           <label style={{ display: 'inline-flex', alignItems: 'center', gap: '.5rem', marginRight: '.75rem' }}>
             <span style={{ fontSize: '.9rem' }}>实例</span>
             <select
@@ -159,8 +178,7 @@ export function ToolPage() {
           </label>
           {btn('重启Alas', 'danger', () => call('restart_alas', {}, '重启 Alas'))}
 
-          <hr className="hr-group" />
-          <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>推送测试</h2>
+          <h2 style={{ fontSize: '1.05rem', margin: '1.1rem 0 .6rem', opacity: .9 }}>推送测试</h2>
           {btn('测试更新推送 (updata=True)', 'danger', () => call('notify_test', { kind: 'update' }, '测试更新推送'))}
           {btn('测试公告推送 (updata=False)', 'info', () => call('notify_test', { kind: 'announcement' }, '测试公告推送'))}
           {btn('测试错误推送', 'danger', () => call('notify_test', { kind: 'error' }, '测试错误推送'))}
@@ -169,8 +187,7 @@ export function ToolPage() {
             <p style={{ marginTop: '.75rem', fontSize: '.9rem', opacity: .85 }}>{msg}</p>
           )}
 
-          <hr className="hr-group" />
-          <h2 style={{ fontSize: '1.15rem', margin: '.25rem 0 .75rem' }}>日志导出</h2>
+          <h2 style={{ fontSize: '1.05rem', margin: '1.1rem 0 .6rem', opacity: .9 }}>日志导出</h2>
           <LogExport name={instance} />
 
           <div style={{ marginTop: '1rem' }}>
