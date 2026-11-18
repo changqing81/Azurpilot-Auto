@@ -97,7 +97,8 @@ export function ConfigPage() {
           多塞任何兄弟节点都会把 _groups 挤歪（实测卡片宽度塌成 33px）。
           老 UI 也没有保存按钮 —— 控件改完由 pin_on_change 自动落盘，
           这里用 600ms debounce 自动保存保持一致。 */}
-      {error && <p style={{ color: 'var(--alas-entry-badge-error, #c0392b)', margin: '.5rem .625rem' }}>{error}</p>}
+      {/* 错误条固定占位：条件渲染会改变整体高度 → 滚动条跳 → 页面弹一下。 */}
+      <p style={{ color: 'var(--alas-entry-badge-error, #c0392b)', margin: '.5rem .625rem', minHeight: '1.2rem', visibility: error ? 'visible' : 'hidden' }}>{error || ' '}</p>
       <div id="pywebio-scope-content">
         <div id="pywebio-scope-_groups">
           {/* 占位：老 UI 是 put_none()，对应 grid 的**第一列 0 宽**。

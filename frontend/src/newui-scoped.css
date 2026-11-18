@@ -31,3 +31,34 @@
     margin-right: 4px;
   }
 }
+
+/* ============================================================
+   配置页/统计页滚动条抖动修复（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：配置页点选项、输入文字、保存时页面"弹一下"，
+   切配置页时也弹——是 Windows 经典滚动条出现/消失导致内容宽度
+   突变（约 17px 全局重排）。scrollbar-gutter: stable 让滚动条槽位
+   常驻，宽度恒定不再跳。只作用于新 UI（#root 内），老 UI 不变。
+   ============================================================ */
+#root #pywebio-scope-content,
+#root #pywebio-scope-statistics-content {
+  scrollbar-gutter: stable;
+}
+
+/* ============================================================
+   体力图工具栏手机端换行（新 UI 专用）
+   长卿 2026-11-18 截图：412px 宽下标题被 grid auto 列挤成几十像素，
+   中文逐字换行成竖排。手机端把工具栏改纵向堆叠：标题一行占满。
+   ============================================================ */
+@media (max-width: 760px) {
+  #root #pywebio-scope-ap_chart > div[style*="grid-auto-flow: column"] {
+    grid-auto-flow: row !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 6px;
+  }
+  #root #pywebio-scope-ap_chart > div[style*="grid-auto-flow: column"] > div:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
