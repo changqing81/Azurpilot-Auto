@@ -82,7 +82,9 @@ export function PriorityFilter({
     dragFromRef.current = i
     setDragOver(i)
     setLocalOrder(items.slice())
-    ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+    // 捕获设在 `<ol>` 上（move/up 监听也在 ol）：若设在 li，事件只发给 li，
+    // ol 收不到 pointermove，拖拽就断在第一步。
+    listRef.current?.setPointerCapture?.(e.pointerId)
   }
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -114,7 +116,7 @@ export function PriorityFilter({
   }
 
   const onPointerUp = (e: React.PointerEvent) => {
-    try { (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId) } catch { /* 忽略 */ }
+    try { listRef.current?.releasePointerCapture?.(e.pointerId) } catch { /* 忽略 */ }
     endDrag()
   }
 
@@ -160,13 +162,16 @@ export function PriorityFilter({
           <li
             key={code}
             className={'task-priority-item priority-filter-item' + (dragFromRef.current !== null && code === items[dragFromRef.current] ? ' task-priority-floating' : '')}
+            onPointerDown={e => {
+              // 整行都可拖（老 UI task_priority 同语义），手柄只是视觉提示。
+              // 但点在按钮上时不能抢事件，否则 ↑/↓/× 会被拖拽吞掉。
+              const el = e.target as HTMLElement
+              if (el.closest('button, input, a')) return
+              onPointerDown(e, i)
+            }}
           >
             <span className="task-priority-rank">{i + 1}</span>
-            <span
-              className="task-priority-handle"
-              aria-hidden="true"
-              onPointerDown={e => onPointerDown(e, i)}
-            >≡</span>
+            <span className="task-priority-handle" aria-hidden="true">≡</span>
             {/* 双列：左中文名 / 右英文代号 —— 与老 UI widgets.py:658-663 的
                 task_priority 完全同构（.task-priority-name + .task-priority-code）。 */}
             <span className="task-priority-name">{labelOf ? labelOf(code) : code}</span>

@@ -95,11 +95,32 @@
     cursor: grabbing !important;
 }
 
-/* 拖拽手柄更明显，提示这里可以拖 */
+/* 拖拽手柄：命中区域要够大。长卿 2026-11-18：「拖拽位置少了，点半天才
+   选中」—— 原来只是一根 inline 的 ≡（约 10px 宽），手指点不准。
+   改成 28×28 热区，视觉仍是一根 ≡。 */
 .priority-filter .task-priority-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    margin: -6px 2px -6px -4px;  /* 负 margin：热区变大但不把行撑高 */
+    border-radius: 6px;
     font-size: 1rem !important;
     opacity: .8 !important;
     letter-spacing: -.1em;
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.priority-filter .task-priority-handle:hover {
+    background: rgba(128, 128, 128, .16);
+    opacity: 1 !important;
+}
+.priority-filter .task-priority-handle:active {
+    cursor: grabbing;
 }
 
 /* 被拖起的行 */
