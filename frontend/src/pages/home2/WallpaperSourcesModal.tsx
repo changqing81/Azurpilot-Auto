@@ -111,6 +111,7 @@ export function WallpaperSourcesModal({ onClose, onChanged }: {
 
   return (
     <div
+      className="alas-modal-overlay"
       style={{
         position: 'fixed',
         inset: 0,

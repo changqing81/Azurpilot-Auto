@@ -466,6 +466,7 @@ export function FleetTechPanel({ name }: { name: string }) {
           {/* ⑧ 批量编辑弹窗（老 UI popup 的 REST 等价物） */}
           {batchOpen && (
             <div
+              className="alas-modal-overlay"
               style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.45)", display: "grid", placeItems: "center" }}
               onClick={e => { if (e.target === e.currentTarget && !batchSaving) setBatchOpen(false) }}
             >
