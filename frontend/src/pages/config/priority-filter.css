@@ -14,21 +14,23 @@
 
 .priority-filter .priority-filter-item {
     /* 5 列：序号 / 手柄 / 中文名 / 英文代号 / 按钮组 —— 与老 UI task_priority 同构 */
-    grid-template-columns: 1.8rem 1.1rem minmax(0, 1fr) minmax(6rem, auto) auto !important;
-    min-height: 2.1rem !important;
-    padding: 4px 8px !important;
+    /* 长卿 2026-11-18：「雪风大人这块可以放大一点」——行高 2.1→2.6rem，
+       padding 4/8 → 9/14，整体更舒展、更好点。 */
+    grid-template-columns: 2.2rem 1.4rem minmax(0, 1fr) minmax(6.5rem, auto) auto !important;
+    min-height: 2.6rem !important;
+    padding: 9px 14px !important;
 }
 
 /* 名称列：代号是短英文串，字号略小、允许点击选中复制 */
 .priority-filter .task-priority-name {
-    font-size: .85rem !important;
+    font-size: .95rem !important;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .priority-filter .task-priority-rank {
-    font-size: .78rem !important;
+    font-size: .85rem !important;
     opacity: .7;
 }
 
@@ -43,13 +45,13 @@
     display: flex;
     gap: .2rem;
     justify-self: end;
-    width: 5.4rem;
+    width: 6.6rem;
     flex: 0 0 auto;
 }
 
 .priority-filter .priority-filter-actions .btn {
-    padding: 1px 6px !important;
-    font-size: .78rem !important;
+    padding: 4px 9px !important;
+    font-size: .85rem !important;
     line-height: 1.35 !important;
     flex: 1 1 auto;
     min-width: 0;

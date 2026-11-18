@@ -246,3 +246,11 @@
   background: var(--alas-apple-card-bg-solid, var(--st-surface, #fff));
   z-index: 2;
 }
+/* 配置页右侧分组导航往右靠（新 UI 专用）
+   长卿 2026-11-18：「图片2这里可以往右边移动一点 其他的地方也是一样的」。
+   结构 #pywebio-scope-_groups 是 grid「0 / minmax(25rem,5fr) / 1fr」，
+   导航在第三列（1fr）默认顶左排列，右侧留一大片空白。改成靠右对齐。 */
+#root #pywebio-scope-navigator {
+  justify-self: end;
+  margin-right: .5rem;
+}
