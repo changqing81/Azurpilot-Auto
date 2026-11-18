@@ -71,3 +71,22 @@
 #root .task-priority-list {
   touch-action: pan-x;
 }
+
+/* 心智计算器工具栏对齐（新 UI 专用）：老 CSS 对齐规则全是 ".form-group > .btn"，
+   新 UI 按钮是裸 button 一条不命中 → 扫描按钮与输入框尺寸/对齐偏移。
+   把同等规则复制给裸元素（#root 隔离，老 UI 不变）。 */
+#root #pywebio-scope-ft_mind_toolbar > button.btn,
+#root #pywebio-scope-ft_mind_filters > button.btn {
+  height: 38px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 18px !important;
+}
+#root #pywebio-scope-ft_mind_toolbar > input.form-control {
+  height: 38px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
