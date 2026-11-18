@@ -23,6 +23,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../api/client'
 import { injectWallpaperToggle, hideWallpaperToggle } from '../lib/wallpaperToggle'
+import { applyLayoutLayer } from '../lib/layoutApply'
 import { putLoading } from '../lib/pywebio'
 
 type Instance = { name: string; state: number }
@@ -157,6 +158,7 @@ export function Shell({
   // 纯背景模式圆点：仅主页显示（app_home.py:519 老 UI 在 show_home 注入，
   // 离开主页由 base.py 导航钩子隐藏；React 里用 active 驱动等价语义）。
   useEffect(() => {
+    applyLayoutLayer() // shell 挂载/切页时幂等纠正布局层（修复 theme-css 异步覆盖后回退）
     if (active === 'Home') injectWallpaperToggle()
     else hideWallpaperToggle()
   }, [active])

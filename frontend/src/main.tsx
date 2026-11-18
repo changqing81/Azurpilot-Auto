@@ -39,21 +39,10 @@ function basenameOf(href: string): string {
 // 「菜单折叠 / 日志小字号 / 总览改上下两行 / 仪表盘 6rem 栅格 / 触控 44px」整组窄屏规则。
 // 注意：这两份文件的相对位置在 <link> 链里固定（紧随 alas.css），
 // 直接改 href 不改变顺序，层叠优先级不受影响。
-const MOBILE_UA_TOKENS = ['mobile', 'android', 'iphone', 'ipod', 'ipad', 'windows phone', 'blackberry']
-function isMobileUA(): boolean {
-  const ua = (navigator.userAgent || '').toLowerCase()
-  return MOBILE_UA_TOKENS.some(t => ua.includes(t))
-}
+
 function applyLayoutLayer() {
-  const link = document.getElementById('alas-layout-css') as HTMLLinkElement | null
-  if (!link) return
-  const want = isMobileUA() ? 'alas-mobile' : 'alas-pc'
-  if (!link.href.includes('/' + want + '.css')) {
-    // ⚠️ 必须走 withRelayPrefix：远控中继下 /static/… 不带 /{peer} 前缀会
-    // 404/502，手机端就永远拿不到 alas-mobile.css，一直是电脑布局
-    // （长卿 2026-11-17：「有些东西完全是电脑模式下的东西没有适配移动端」）。
-    link.href = withRelayPrefix('/static/assets/gui/css/' + want + '.css')
-  }
+  // 转发到共享模块（Shell 挂载/切页时也会重复调用，见 lib/layoutApply.ts）
+  return applyLayoutLayerShared()
 }
 
 function applyTheme(payload: { theme?: string; links?: string[] } | null) {
@@ -182,6 +171,7 @@ fetch('/newapi/theme-css')
     applyTheme({ theme: 'default', links: ['/static/assets/gui/css/light-alas.css'] })
   })
 
+import { applyLayoutLayer as applyLayoutLayerShared } from './lib/layoutApply'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useEffect, useRef } from 'react'
