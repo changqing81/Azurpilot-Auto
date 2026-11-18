@@ -46,7 +46,13 @@ function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVi
     if (p && p.catch) p.catch(() => { /* 自动播放被拦，保留静帧 */ })
   } else if (winner?.url) {
     existing?.remove()
-    document.documentElement.style.setProperty('--alas-apple-bg-image', `url("${winner.url}")`)
+    // ⚠️ 必须走 bgUrl()（补中继前缀），不能用 winner.url 原文：
+    // 竞速下载 img.src = bgUrl(url) 是带前缀的（所以能比出胜负），但 CSS 变量
+    // 引用是浏览器按文档 URL 再解析一次 —— 手机经中继时裸路径 /api/wallpapers/custom
+    // 会 502，背景就是空的（长卿 2026-11-19：「电脑端能看见，手机上自己看不见」，
+    // 手机 UA + 中继形态实测复现：变量值 url("/api/wallpapers/custom")，
+    // 浏览器补发的不带前缀请求 loadingFailed，带前缀的那次反而完成）。
+    document.documentElement.style.setProperty('--alas-apple-bg-image', `url("${bgUrl(winner.url)}")`)
   }
 }
 
