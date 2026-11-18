@@ -16,12 +16,16 @@ export function isMobileUA(): boolean {
 }
 
 /** 幂等应用移动端/桌面布局层；返回实际生效的布局名。 */
+declare const __LAYOUT_CSS_V__: string
+
 export function applyLayoutLayer(): string {
   const link = document.getElementById('alas-layout-css') as HTMLLinkElement | null
   if (!link) return 'none'
   const want = isMobileUA() ? 'alas-mobile' : 'alas-pc'
   if (!link.href.includes('/' + want + '.css')) {
-    link.href = withPrefix('/static/assets/gui/css/' + want + '.css')
+    // ?v= 缓存破坏：alas-mobile.css 内容更新后旧客户端仍用缓存旧版，
+    // 造成「ID 级选择器丢失 → 菜单折叠失效」（2026-11-18 实测回退）。
+    link.href = withPrefix('/static/assets/gui/css/' + want + '.css?v=' + __LAYOUT_CSS_V__)
   }
   return want
 }

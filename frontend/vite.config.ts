@@ -5,6 +5,11 @@ import react from '@vitejs/plugin-react'
 // dev 模式代理：/api 与 /assets 转发到老后端 (22267)，复用现有业务与主题 CSS。
 export default defineConfig({
   plugins: [react()],
+  // 布局层 CSS 缓存破坏参数：alas-mobile.css 内容更新后旧客户端仍会用
+  // 缓存旧版（没有 ID 级折叠选择器），菜单折叠失效（2026-11-18 实测）。
+  define: {
+    __LAYOUT_CSS_V__: JSON.stringify(String(Date.now())),
+  },
   // base 用 './'（相对路径）—— 这是远控端能正常加载的**关键**。
   //
   // 远控中继（remurl.a1.nanoda.work）把每个客户端挂在 /{peer_id} 下，
