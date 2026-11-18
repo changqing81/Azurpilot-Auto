@@ -92,7 +92,8 @@ export function ToolPage() {
       '</div>'
     document.body.appendChild(el)
     el.querySelector('[data-notice-accept]')?.addEventListener('click', () => {
-      el.remove(); flash('预览：点「立即更新」会跳转到更新器页（真实场景）')
+      // 与老 UI（app_home.py:2064 goto_update）一致：立即更新 → 更新器页
+      el.remove(); navigate('/update')
     })
     el.querySelector('[data-notice-later]')?.addEventListener('click', () => {
       el.remove(); flash('预览：点「稍后再说」关闭了提示')
@@ -114,7 +115,7 @@ export function ToolPage() {
       '<circle cx="12" cy="12" r="10"></circle><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg></div>' +
       '<div class="alas-update-notice__body">' +
       '<div class="alas-update-notice__eyebrow">任务异常</div>' +
-      '<div class="alas-update-notice__title">Commission · GameStuckError</div>' +
+      '<div class="alas-update-notice__title">委托 · GameStuckError</div>' +
       '<div class="alas-update-notice__text">以下任务因连续失败已被自动关闭，请逐一处理。</div>' +
       // 同上：老 UI（app_dashboard.py:420-428）的 actions 有「去处理」「全部已知晓」。
       '<div class="alas-update-notice__actions">' +
@@ -124,7 +125,8 @@ export function ToolPage() {
       '</div>'
     document.body.appendChild(el)
     el.querySelector('[data-notice-handle]')?.addEventListener('click', () => {
-      el.remove(); flash('预览：点「去处理」会跳到第一个出错任务的配置页（真实场景）')
+      // 与老 UI（app_dashboard.py:405-411）一致：去处理 → 跳到出错任务的配置页
+      el.remove(); navigate('/config/' + encodeURIComponent(name) + '/Commission')
     })
     el.querySelector('[data-notice-ack]')?.addEventListener('click', () => {
       el.remove(); flash('预览：点「全部已知晓」关闭并标记已读')
