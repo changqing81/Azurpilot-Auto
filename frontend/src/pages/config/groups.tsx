@@ -81,6 +81,31 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
   )
 }
 
+/**
+ * 参数容器的 scope id。
+ *
+ * ⚠️ textarea 必须用老 UI 那个**拼错的** id：`arg_contianer`（少一个 n），
+ * 见 module/webui/widgets.py:631。这不是笔误，是必须复刻的契约：
+ *
+ *   alas-pc.css:1  [id^="pywebio-scope-arg_container-"] {
+ *       grid-auto-flow: column;  grid-template-columns: 1fr 13rem;
+ *   }
+ *
+ * 这条两列网格（左 1fr 说明 / 右 13rem 控件）是给下拉框、单行输入框用的。
+ * 老 UI 的 textarea 容器拼成 `arg_contianer` → **匹配不上这条选择器** →
+ * 没有两列网格 → textarea 自然占满整行。
+ *
+ * 我原来写成正确的 `arg_container-textarea-`，正好命中两列网格，textarea
+ * 被塞进 208px 宽的右列，于是又窄又竖（长卿 2026-11-18 截图：
+ * 「我的长条输入文本框呢？是TM横的 不是竖的」）。实测容器 909px、
+ * 右列只有 208px。
+ */
+function scopeIdFor(kind: string, name: string): string {
+  // 只有 textarea 沿用老 UI 的拼写错误，其余控件保持一致
+  const prefix = kind === 'textarea' ? 'arg_contianer' : 'arg_container'
+  return `pywebio-scope-${prefix}-${kind}-${name}`
+}
+
 /** 单个参数块：#pywebio-scope-arg_container-{类型}-{参数名}。 */
 export function ArgBlock({ arg, onChange }: { arg: Arg; onChange: (v: any) => void }) {
   const kind =
@@ -89,7 +114,7 @@ export function ArgBlock({ arg, onChange }: { arg: Arg; onChange: (v: any) => vo
     : arg.type === 'textarea' ? 'textarea'
     : 'input'
   return (
-    <div id={`pywebio-scope-arg_container-${kind}-${arg.name}`}>
+    <div id={scopeIdFor(kind, arg.name)}>
       {/* 标题+帮助必须包在**一个** grid 项里：alas-pc.css 的
           [id^="pywebio-scope-arg_container-"] 是两列 grid（1fr 13rem），
           标题、帮助、控件若是 3 个直接子元素会被拆到 3 个格子里。 */}
