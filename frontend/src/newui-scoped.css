@@ -141,10 +141,15 @@
 
 /* 图源管理弹窗深色主题适配（新 UI 专用）：裸 checkbox 不跟随主题，
    Bootstrap 的 .form-check-input 才跟随；弹窗卡片 .card 是白底。 */
+/* ⚠️ 选择器必须是「自身」而不是后代：alas-src-modal 就加在 .card 元素本身上，
+   写成 `.alas-src-modal .card` 要求 .card 是它的后代 —— 永远不命中，
+   这就是「改了没效果、还是白底」的原因（长卿 2026-11-18 二次反馈）。 */
+#root .alas-src-modal.card,
 #root .alas-src-modal .card {
   background: var(--alas-apple-card-bg, var(--st-surface, #fff)) !important;
-  color: inherit;
+  color: var(--alas-content-text, inherit);
   backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
   border: 1px solid rgba(128, 128, 128, 0.22);
 }
 #root .alas-src-modal input[type="checkbox"] {
@@ -253,4 +258,26 @@
 #root #pywebio-scope-navigator {
   justify-self: end;
   margin-right: .5rem;
+}
+
+/* ============================================================
+   新 UI 二级框统一主题化（所有 .card 容器）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「高级材质暗色下这种二级框都是错误的白色底」
+   「其他的地方也是一样的」。
+
+   根因：新 UI 的弹窗/面板容器都用 Bootstrap 的 .card，它的背景来自
+   --bs-card-bg（白色），而 advanced-material / dark 主题只给特定 scope
+   里的卡片（.opsi-card / .metric / #pywebio-scope-commission_income …）
+   换了背景，**裸 .card 一条规则都没有** → 暗色下全是白块。
+
+   这里统一给新 UI 的 .card 用主题变量（亮 0.72 / 暗 0.78 的半透明），
+   与老 UI 指标卡同一套视觉语言。老 UI 不受影响（#root 隔离）。
+   ============================================================ */
+#root .card {
+  background: var(--alas-apple-card-bg, var(--st-surface, #fff)) !important;
+  color: var(--alas-content-text, inherit);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(128, 128, 128, 0.22);
 }
