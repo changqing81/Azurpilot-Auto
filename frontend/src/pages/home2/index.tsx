@@ -33,8 +33,14 @@ function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVi
       + 'html{background:var(--alas-apple-bg,#f5f5f7) !important;}'
       + '#alas-bg-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;}'
     el.id = 'alas-bg-video'
-    ;(el as HTMLVideoElement).loop = true
-    el.setAttribute('playsinline', '')
+    const v = el as HTMLVideoElement
+    v.loop = true
+    // 自动播放策略：**必须有 muted**，否则浏览器直接拒绝 play()（背景视频不需要声音）
+    v.muted = true
+    v.autoplay = true
+    v.setAttribute('muted', '')
+    v.setAttribute('playsinline', '')
+    v.setAttribute('disablepictureinpicture', '')
     document.body.appendChild(el)
     const p = (el as HTMLVideoElement).play()
     if (p && p.catch) p.catch(() => { /* 自动播放被拦，保留静帧 */ })
@@ -228,8 +234,14 @@ export function HomePageMain() {
       const CHUNK = 512 * 1024
       const total = Math.max(1, Math.ceil(file.size / CHUNK))
       const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+      // 进度提示：视频可能几十片，没有反馈用户会以为卡死。用固定定位的小浮层。
+      const tip = document.createElement('div')
+      tip.id = 'alas-upload-tip'
+      tip.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;padding:10px 18px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;font-size:13px;font-family:system-ui;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3)'
+      document.body.appendChild(tip)
       try {
         for (let i = 0; i < total; i++) {
+          tip.textContent = `正在上传 ${i + 1}/${total}（${Math.round((i / total) * 100)}%）`
           const slice = file.slice(i * CHUNK, (i + 1) * CHUNK)
           const b64 = await new Promise<string>((resolve, reject) => {
             const fr = new FileReader()
@@ -255,8 +267,10 @@ export function HomePageMain() {
             return
           }
         }
+        tip.textContent = '上传完成，正在应用…'
         location.reload()
-      } catch (err) { window.alert('上传失败：' + String(err)) }
+      } catch (err) { tip.remove(); window.alert('上传失败：' + String(err)) }
+      finally { setTimeout(() => tip.remove(), 3000) }
     }
     input.click()
   }

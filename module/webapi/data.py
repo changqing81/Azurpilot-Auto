@@ -2339,8 +2339,10 @@ def upload_custom_background(filename: str, content: bytes) -> dict:
             return {"success": False, "error": "文件为空"}
         # 20MB 上限（老 UI 没限制但内联 data URI 实际上限更低；
         # 走 HTTP 路由后可以放宽）
-        if len(content) > 20 * 1024 * 1024:
-            return {"success": False, "error": "文件超过 20MB 限制"}
+        # 视频背景几十 MB 很常见（手机直出 1080p 30-100MB）。分片上传已绕开
+        # 中继 1MB 限制，这里只保留内存安全的硬上限。
+        if len(content) > 200 * 1024 * 1024:
+            return {"success": False, "error": "文件超过 200MB 限制"}
         ext = _os.path.splitext(filename or "")[1].lower()
         allowed = {
             ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp",
