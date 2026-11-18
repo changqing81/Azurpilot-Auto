@@ -2369,9 +2369,54 @@ def upload_custom_background(filename: str, content: bytes) -> dict:
         return {"success": False, "error": str(e)}
 
 
-# 分片上传的临时目录与登记表（uploadId → {path, filename, received, total}）
+# ───────────── 分片上传（远控中继 body 上限 ~1MB，必须切片）─────────────
+#
+# 设计要点（长卿 2026-11-18：「服务器中断了不白搭？」）：
+#  1. **断点续传**：分片落盘后不丢，客户端重试时带相同 upload_id，
+#     服务端用 GET 返回已收到的分片索引，客户端只补缺失的 —— 中断不白搭。
+#  2. **自动清理**：超过 2 小时的孤儿分片目录在每次上传时顺带清理，
+#     不会无限占磁盘（原实现失败路径会留 .part 垃圾）。
+#  3. **幂等**：同一 index 重复上传直接覆盖，重试安全。
 _UPLOAD_CHUNKS: dict = {}
 _UPLOAD_CHUNKS_LOCK = None
+_UPLOAD_TTL_SECONDS = 2 * 3600
+
+
+def _upload_tmp_dir():
+    d = _wallpapers_dir() / ".upload"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _upload_purge_stale() -> None:
+    """清理超时未完成的孤儿分片，避免失败/中断留下永久垃圾。"""
+    import time as _time
+
+    d = _upload_tmp_dir()
+    now = _time.time()
+    for item in d.iterdir():
+        try:
+            if now - item.stat().st_mtime > _UPLOAD_TTL_SECONDS:
+                item.unlink()
+        except OSError:
+            pass
+
+
+def upload_chunk_received(upload_id: str) -> dict:
+    """已收到哪些分片（断点续传用；客户端据此只补缺失的分片）。"""
+    d = _upload_tmp_dir()
+    got = []
+    prefix = f"{upload_id}."
+    try:
+        for item in d.iterdir():
+            name = item.name
+            if name.startswith(prefix) and name.endswith(".part"):
+                mid = name[len(prefix):-len(".part")]
+                if mid.isdigit():
+                    got.append(int(mid))
+    except OSError:
+        pass
+    return {"success": True, "received": sorted(got)}
 
 
 def upload_custom_background_chunk(
@@ -2381,67 +2426,54 @@ def upload_custom_background_chunk(
     filename: str,
     data_b64: str,
 ) -> dict:
-    """分片上传自定义背景（远控中继的 request body 上限约 1MB，必须切片）。
+    """接收一个分片；集齐后合并落盘并切 custom 模式。
 
-    背景：remurl 中继的 nginx 对请求体限制 ~1MB，超过直接 413（HTML 错误页），
-    前端把 HTML 当 JSON 解析就报 "Unexpected token '<'"。手机拍的照片/视频
-    都远大于 1MB，所以整文件上传在远控下必然失败（长卿 2026-11-18 实测）。
-
-    协议：前端按 512KB 切片，逐片 POST；index 从 0 递增到 total-1。
-    收到最后一片时合并落盘并切到 custom 模式，返回与整文件上传相同的结构。
+    重试安全：同一 index 重复写直接覆盖；客户端中断后可用
+    upload_chunk_received 查已收到的分片，只补缺失部分（断点续传）。
     """
     global _UPLOAD_CHUNKS_LOCK
     import base64 as _b64
-    import os as _os
-    import shutil as _shutil
     import threading as _threading
+
+    if int(total) <= 0:
+        return {"success": True, "probe": True}
 
     if _UPLOAD_CHUNKS_LOCK is None:
         _UPLOAD_CHUNKS_LOCK = _threading.Lock()
+
+    _upload_purge_stale()
 
     try:
         raw = _b64.b64decode(data_b64 or "")
     except Exception as e:  # noqa: BLE001
         return {"success": False, "error": f"分片解码失败: {e}"}
 
-    tmp_dir = _wallpapers_dir() / ".upload"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    part = tmp_dir / f"{upload_id}.{index}.part"
-
+    d = _upload_tmp_dir()
     try:
-        part.write_bytes(raw)
+        (d / f"{upload_id}.{index}.part").write_bytes(raw)
     except Exception as e:  # noqa: BLE001
         return {"success": False, "error": f"分片写入失败: {e}"}
 
-    with _UPLOAD_CHUNKS_LOCK:
-        info = _UPLOAD_CHUNKS.setdefault(
-            upload_id,
-            {"parts": 0, "total": total, "filename": filename},
-        )
-        info["parts"] += 1
-        done = info["parts"] >= total
+    # 以**磁盘实际存在的分片数**判断是否集齐：这样服务端重启后（内存登记表丢失）
+    # 仍能正确判定完成 —— 断点续传的关键。
+    got = upload_chunk_received(upload_id)["received"]
+    if len(got) < int(total):
+        return {"success": True, "partial": True, "received": len(got), "total": total}
 
-    if not done:
-        return {"success": True, "partial": True, "received": info["parts"], "total": total}
-
-    # 最后一片到齐：按序合并
     try:
         merged = bytearray()
-        for k in range(total):
-            merged += (tmp_dir / f"{upload_id}.{k}.part").read_bytes()
+        for k in range(int(total)):
+            merged += (d / f"{upload_id}.{k}.part").read_bytes()
     except Exception as e:  # noqa: BLE001
         return {"success": False, "error": f"分片合并失败: {e}"}
     finally:
-        for k in range(total):
+        for k in range(int(total)):
             try:
-                (tmp_dir / f"{upload_id}.{k}.part").unlink()
+                (d / f"{upload_id}.{k}.part").unlink()
             except OSError:
                 pass
-        with _UPLOAD_CHUNKS_LOCK:
-            _UPLOAD_CHUNKS.pop(upload_id, None)
 
     return upload_custom_background(filename, bytes(merged))
-
 
 def get_custom_background_info() -> dict:
     """自定义背景的访问信息（新 UI 用 <img>/<video> 直接取 /api/wallpapers/custom）。"""

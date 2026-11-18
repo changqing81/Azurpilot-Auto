@@ -223,6 +223,12 @@ export function HomePageMain() {
  *  这里按 512KB 切片，逐片 POST /newapi/background/upload-chunk，最后一片
  *  到达时后端合并落盘。手机照片/视频都能传。
  */
+  /** 上传自定义背景：优先分片上传（绕开远控中继 1MB 限制），不支持时回退整文件。
+ *  · 分片端点 /newapi/background/upload-chunk 是后加的；旧后端没有它（会 404/405）。
+ *  · 电脑端直连没有 1MB 限制，整文件端点一直可用 —— 所以先探测分片端点，
+ *    不可用就走整文件，保证「不重启后端也能上传」；重启后手机远控也能传大文件。
+ *  · 中继 1MB 限制实测：1000KB 通过、1024KB 返回 413 HTML（长卿 2026-11-18）。
+ */
   const uploadBackground = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -230,47 +236,106 @@ export function HomePageMain() {
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
-      if (file.size > 20 * 1024 * 1024) { window.alert('文件超过 20MB 限制'); return }
-      const CHUNK = 512 * 1024
-      const total = Math.max(1, Math.ceil(file.size / CHUNK))
-      const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
-      // 进度提示：视频可能几十片，没有反馈用户会以为卡死。用固定定位的小浮层。
+      if (file.size > 200 * 1024 * 1024) { window.alert('文件超过 200MB 限制'); return }
+
       const tip = document.createElement('div')
       tip.id = 'alas-upload-tip'
-      tip.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;padding:10px 18px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;font-size:13px;font-family:system-ui;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.3)'
+      tip.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);'
+        + 'z-index:99999;padding:10px 18px;border-radius:999px;background:rgba(0,0,0,.78);'
+        + 'color:#fff;font-size:13px;font-family:system-ui;pointer-events:none;'
+        + 'box-shadow:0 4px 16px rgba(0,0,0,.3)'
       document.body.appendChild(tip)
+      const done = (msg: string) => { tip.textContent = msg }
+
       try {
-        for (let i = 0; i < total; i++) {
-          tip.textContent = `正在上传 ${i + 1}/${total}（${Math.round((i / total) * 100)}%）`
-          const slice = file.slice(i * CHUNK, (i + 1) * CHUNK)
-          const b64 = await new Promise<string>((resolve, reject) => {
-            const fr = new FileReader()
-            fr.onload = () => resolve(String(fr.result).split(',')[1] || '')
-            fr.onerror = () => reject(new Error('读取分片失败'))
-            fr.readAsDataURL(slice)
-          })
-          const resp = await fetch('/newapi/background/upload-chunk', {
+        // 探测分片端点是否可用（旧后端没有该路由）
+        let chunkOk = false
+        try {
+          const probe = await fetch('/newapi/background/upload-chunk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ upload_id: uploadId, index: i, total, filename: file.name, data: b64 }),
+            body: JSON.stringify({ upload_id: 'probe', index: 0, total: 0, filename: 'probe', data: '' }),
           })
+          // total=0 的分片请求：端点存在时返回 JSON，不存在时是 404/405
+          chunkOk = probe.status !== 404 && probe.status !== 405
+        } catch { chunkOk = false }
+
+        if (chunkOk) {
+          const CHUNK = 512 * 1024
+          const total = Math.max(1, Math.ceil(file.size / CHUNK))
+          // 断点续传：upload_id 由「文件名+大小+最后修改时间」派生，同一文件重传
+          // 会复用同一 id，服务端据此返回已收到的分片，只补缺失的。
+          // 「服务器中断了不白搭」—— 中断后重新选同一个文件即可续传。
+          const sig = `${file.name}:${file.size}:${file.lastModified}`
+          let h = 0
+          for (let k = 0; k < sig.length; k++) h = ((h << 5) - h + sig.charCodeAt(k)) | 0
+          const uploadId = 'u' + Math.abs(h).toString(36) + file.size.toString(36)
+          let already: number[] = []
+          try {
+            const st = await fetch('/newapi/background/upload-status?upload_id=' + encodeURIComponent(uploadId))
+            if (st.ok) {
+              const sj = await st.json()
+              if (sj && Array.isArray(sj.received)) already = sj.received
+            }
+          } catch { /* 旧后端没有该端点：从零开始 */ }
+          const skip = new Set(already)
+          for (let i = 0; i < total; i++) {
+            if (skip.has(i)) { done(`续传：跳过已传 ${skip.size}/${total}`); continue }
+            done(`正在上传 ${i + 1}/${total}（${Math.round((i / total) * 100)}%）`)
+            const slice = file.slice(i * CHUNK, (i + 1) * CHUNK)
+            const b64 = await new Promise<string>((resolve, reject) => {
+              const fr = new FileReader()
+              fr.onload = () => resolve(String(fr.result).split(',')[1] || '')
+              fr.onerror = () => reject(new Error('读取分片失败'))
+              fr.readAsDataURL(slice)
+            })
+            const resp = await fetch('/newapi/background/upload-chunk', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ upload_id: uploadId, index: i, total, filename: file.name, data: b64 }),
+            })
+            const text = await resp.text()
+            let jr: any = null
+            try { jr = JSON.parse(text) } catch {
+              tip.remove()
+              window.alert('上传失败：服务端返回非 JSON 响应（HTTP ' + resp.status + '）'
+                + (resp.status === 413 ? '\n\n文件分片仍超网关限制。' : ''))
+              return
+            }
+            if (!jr || !jr.success) {
+              tip.remove()
+              window.alert('上传失败：' + ((jr && jr.error) || 'HTTP ' + resp.status))
+              return
+            }
+          }
+        } else {
+          // 回退：整文件上传（电脑端/直连没有中继限制）
+          done('正在上传…')
+          const fd = new FormData()
+          fd.append('file', file)
+          const resp = await fetch('/newapi/background/upload', { method: 'POST', body: fd })
           const text = await resp.text()
-          let j: any = null
-          try { j = JSON.parse(text) } catch {
-            // 中继/网关可能直接返回 HTML 错误页（413 等），别让 JSON 解析错误盖住真因
-            window.alert('上传失败：服务端返回了非 JSON 响应（HTTP ' + resp.status + '）' +
-              (resp.status === 413 ? '\n\n文件分片仍超过网关限制，请把图片压小一点再试。' : ''))
+          let jr: any = null
+          try { jr = JSON.parse(text) } catch {
+            tip.remove()
+            window.alert('上传失败：服务端返回非 JSON（HTTP ' + resp.status + '）'
+              + (resp.status === 413 ? '\n\n文件超过网关限制，请压小图片或等后端支持分片。' : ''))
             return
           }
-          if (!j || !j.success) {
-            window.alert('上传失败：' + ((j && j.error) || 'HTTP ' + resp.status))
+          if (!jr || !jr.success) {
+            tip.remove()
+            window.alert('上传失败：' + ((jr && jr.error) || 'HTTP ' + resp.status))
             return
           }
         }
         tip.textContent = '上传完成，正在应用…'
         location.reload()
-      } catch (err) { tip.remove(); window.alert('上传失败：' + String(err)) }
-      finally { setTimeout(() => tip.remove(), 3000) }
+      } catch (err) {
+        tip.remove()
+        window.alert('上传失败：' + String(err))
+      } finally {
+        setTimeout(() => tip.remove(), 3000)
+      }
     }
     input.click()
   }

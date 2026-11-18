@@ -583,6 +583,20 @@ async def background_media(request: Request) -> JSONResponse:
     )
 
 
+async def background_upload_status(request: Request) -> JSONResponse:
+    """GET /newapi/background/upload-status?upload_id=xxx —— 已收到哪些分片。
+
+    断点续传用：客户端中断后重新上传时先问这里，只补缺失的分片，
+    已传的部分不白费（长卿 2026-11-18：「服务器中断了不白搭？」）。
+    """
+    upload_id = (request.query_params.get("upload_id") or "").strip()
+    if not upload_id:
+        return JSONResponse({"success": False, "error": "缺少 upload_id"}, status_code=400)
+    return JSONResponse(
+        await run_in_threadpool(data.upload_chunk_received, upload_id)
+    )
+
+
 async def background_upload_chunk(request: Request) -> JSONResponse:
     """POST /newapi/background/upload-chunk —— 分片上传（绕开中继 1MB 限制）。
 
@@ -1357,6 +1371,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/background/upload", background_upload, methods=["POST"]),
         # 分片上传：远控中继 body 上限 ~1MB，整文件上传必然 413
         Route("/newapi/background/upload-chunk", background_upload_chunk, methods=["POST"]),
+        Route("/newapi/background/upload-status", background_upload_status),
         Route("/newapi/background/custom", background_custom_info),
         Route("/api/wallpapers/custom", background_custom_file),
         Route("/newapi/background/sources", wallpaper_sources),
