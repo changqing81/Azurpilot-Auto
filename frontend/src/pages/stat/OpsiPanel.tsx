@@ -24,6 +24,7 @@ export function OpsiPanel({ name }: { name: string }) {
   const [month, setMonth] = useState('')
   const [view, setView] = useState('line')
   const [chart, setChart] = useState<{ html: string; js: string } | null>(null)
+  const [chartLoading, setChartLoading] = useState(false)
   const [chartErr, setChartErr] = useState('')
   const [meowTask, setMeowTask] = useState('')
   const [panels, setPanels] = useState<{
@@ -34,6 +35,7 @@ export function OpsiPanel({ name }: { name: string }) {
     meowFilter: string
     meowDrop: string
   } | null>(null)
+  const [panelsLoading, setPanelsLoading] = useState(false)
   const hostRef = useRef<HTMLDivElement>(null)
 
   // 可选月份
@@ -46,7 +48,7 @@ export function OpsiPanel({ name }: { name: string }) {
   // 体力图（老 UI 的 ap_chart）
   useEffect(() => {
     let alive = true
-    setChart(null)
+    setChartLoading(true)
     setChartErr('')
     const qs = new URLSearchParams({ view })
     if (month) qs.set('month', month)
@@ -60,6 +62,7 @@ export function OpsiPanel({ name }: { name: string }) {
         setChart(r)
       })
       .catch(e => { if (alive) setChartErr(String(e)) })
+      .finally(() => { if (alive) setChartLoading(false) })
     return () => { alive = false }
   }, [name, view, month])
 
@@ -91,7 +94,7 @@ export function OpsiPanel({ name }: { name: string }) {
   // 净赚卡 + 12 指标卡 + 大世界收获（老 UI 渲染器）
   useEffect(() => {
     let alive = true
-    setPanels(null)
+    setPanelsLoading(true)
     apiGet<{
       success: boolean
       html: string
@@ -116,6 +119,7 @@ export function OpsiPanel({ name }: { name: string }) {
         })
       })
       .catch(() => { /* 忽略 */ })
+      .finally(() => { if (alive) setPanelsLoading(false) })
     return () => { alive = false }
   }, [name, month, meowTask])
 
@@ -195,13 +199,13 @@ export function OpsiPanel({ name }: { name: string }) {
         </div>
         {chartErr && <div className="st-placeholder">{chartErr}</div>}
         {/* 老 UI 的图表 DOM 挂载点（与工具栏同在 ap_chart scope 内） */}
-        <div ref={hostRef} />
+        <div style={{ opacity: chartLoading ? 0.35 : 1, transition: 'opacity .25s' }}><div ref={hostRef} /></div>
       </div>
 
       {/* 净赚卡 + 12 指标卡 */}
       <div style={{ marginTop: 18 }}>
         <div className="st-title-sub">{text('TabOpsi')}</div>
-        {panels?.html && <div dangerouslySetInnerHTML={{ __html: panels.html }} />}
+        {panels?.html && <div style={{ opacity: panelsLoading ? 0.35 : 1, transition: 'opacity .25s' }} dangerouslySetInnerHTML={{ __html: panels.html }} />}
       </div>
 
       {/* 大世界收获：老 UI app_stat_opsi_export.py:_render_meowofficer_farming 的四块
