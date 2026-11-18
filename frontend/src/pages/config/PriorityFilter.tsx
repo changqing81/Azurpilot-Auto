@@ -57,23 +57,50 @@ export function PriorityFilter({
   // 现在改成**实时预览**：pointermove 命中新行时立刻重排 items（用 localOrder
   // 暂存），松手才 onChange 落盘。这样行跟着手指走，与老 UI / 常见拖拽列表一致。
   const [localOrder, setLocalOrder] = useState<string[] | null>(null)
+  // 正在拖的项（用于高亮）：索引会随实时重排变化，用 code 追踪更稳
+  const draggedCode = dragFromRef.current !== null ? items[dragFromRef.current] : null
   const order = localOrder ?? items
 
   /** 指针 Y → 落点行号（几何命中，不依赖 elementFromPoint，兼容远控）。 */
-  const rowAt = (clientY: number): number | null => {
+  // ── 拖拽：性能优先的实现 ────────────────────────────────────────
+  //
+  // 长卿 2026-11-18：「卡是光标追不上鼠标，会在后面追，像帧率很低」。
+  //
+  // 原因是每帧做了三件昂贵的事：
+  //   ① 每个 pointermove 同步读 getBoundingClientRect() —— 强制同步重排；
+  //   ② 每次都 setState 触发整个列表重渲染；
+  //   ③ 行上有 0.12s transition，连续重排时动画队列叠加成「追赶」。
+  //
+  // 修法：
+  //   · 行矩形只在 dragstart 量一次（布局在拖拽期间不变），缓存到 ref；
+  //   · pointermove 用 rAF 节流，一帧最多处理一次；
+  //   · 命中行没变就直接返回，不 setState；
+  //   · 拖拽期间给 <ol> 加类，**关掉所有过渡动画**（瞬时重排，不追赶）。
+  const rowRectsRef = useRef<{ top: number; bottom: number }[]>([])
+  const rafRef = useRef<number | null>(null)
+  const lastYRef = useRef(0)
+
+  /** 拖拽开始时量一次所有行矩形（拖拽期间布局不变，无需重复读取）。 */
+  const measureRows = () => {
     const list = listRef.current
-    if (!list) return null
+    if (!list) return
+    const rows: { top: number; bottom: number }[] = []
     for (let k = 0; k < list.children.length; k++) {
       const r = list.children[k].getBoundingClientRect()
-      if (clientY >= r.top && clientY <= r.bottom) return k
+      rows.push({ top: r.top, bottom: r.bottom })
     }
-    // 拖到列表外：按上下边界归位，避免卡住不动
-    if (list.children.length) {
-      const first = list.children[0].getBoundingClientRect()
-      const last = list.children[list.children.length - 1].getBoundingClientRect()
-      if (clientY < first.top) return 0
-      if (clientY > last.bottom) return list.children.length - 1
+    rowRectsRef.current = rows
+  }
+
+  /** 指针 Y → 落点行号（纯算术，不碰 DOM）。 */
+  const rowAt = (clientY: number): number | null => {
+    const rows = rowRectsRef.current
+    if (!rows.length) return null
+    for (let k = 0; k < rows.length; k++) {
+      if (clientY >= rows[k].top && clientY <= rows[k].bottom) return k
     }
+    if (clientY < rows[0].top) return 0
+    if (clientY > rows[rows.length - 1].bottom) return rows.length - 1
     return null
   }
 
@@ -82,33 +109,53 @@ export function PriorityFilter({
     dragFromRef.current = i
     setDragOver(i)
     setLocalOrder(items.slice())
-    // 捕获设在 `<ol>` 上（move/up 监听也在 ol）：若设在 li，事件只发给 li，
-    // ol 收不到 pointermove，拖拽就断在第一步。
+    measureRows()
+    // 拖拽期间禁用过渡：连续重排时 transition 会排队播放，视觉上就是「追不上」
+    listRef.current?.classList.add('is-dragging')
     listRef.current?.setPointerCapture?.(e.pointerId)
   }
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const applyMove = (clientY: number) => {
     const from = dragFromRef.current
     if (from === null) return
-    const to = rowAt(e.clientY)
+    const to = rowAt(clientY)
     if (to === null) return
-    if (to === dragOver) return
-    setDragOver(to)
-    // 实时重排：把正在拖的项移到目标位置
-    setLocalOrder(prev => {
-      const base = prev ?? items.slice()
-      const cur = base.indexOf(items[from])
-      if (cur < 0 || cur === to) return base
-      const next = base.slice()
-      const [moved] = next.splice(cur, 1)
-      next.splice(to, 0, moved)
-      return next
+    setDragOver(prev => {
+      if (prev === to) return prev
+      // 命中行变了才重排 —— 同帧重复 move 直接跳过，不做无用渲染
+      setLocalOrder(base => {
+        const cur = (base ?? items.slice()).indexOf(items[from])
+        if (cur < 0 || cur === to) return base
+        const next = (base ?? items.slice()).slice()
+        const [moved] = next.splice(cur, 1)
+        next.splice(to, 0, moved)
+        return next
+      })
+      return to
+    })
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (dragFromRef.current === null) return
+    lastYRef.current = e.clientY
+    // rAF 节流：一帧最多处理一次，避免高频 pointermove 堆积
+    if (rafRef.current !== null) return
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null
+      applyMove(lastYRef.current)
     })
   }
 
   const endDrag = () => {
     const next = localOrder
     dragFromRef.current = null
+    // 清理 rAF 与「拖拽中」类，恢复过渡动画
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    listRef.current?.classList.remove('is-dragging')
+    rowRectsRef.current = []
     setDragOver(null)
     setLocalOrder(null)
     // 松手才落盘（live 预览期间不动父组件状态，避免每帧触发保存 debounce）
@@ -161,7 +208,7 @@ export function PriorityFilter({
         {order.map((code, i) => (
           <li
             key={code}
-            className={'task-priority-item priority-filter-item' + (dragFromRef.current !== null && code === items[dragFromRef.current] ? ' task-priority-floating' : '')}
+            className={'task-priority-item priority-filter-item' + (dragOver !== null && code === draggedCode ? ' task-priority-floating' : '')}
             onPointerDown={e => {
               // 整行都可拖（老 UI task_priority 同语义），手柄只是视觉提示。
               // 但点在按钮上时不能抢事件，否则 ↑/↓/× 会被拖拽吞掉。

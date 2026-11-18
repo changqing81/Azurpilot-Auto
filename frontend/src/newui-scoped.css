@@ -229,6 +229,16 @@
 #root .priority-filter-item {
   transition: transform .12s ease, box-shadow .12s ease;
 }
+/* ⚠️ 拖拽期间必须关掉过渡：连续重排时 0.12s 动画会排队播放，
+   每一行都在「追赶」上一帧的位置，视觉上就是光标追不上鼠标、像帧率很低。
+   长卿 2026-11-18：「卡是光标追不上鼠标 会在后面追」。 */
+#root .priority-filter-list.is-dragging .priority-filter-item {
+  transition: none !important;
+}
+/* 拖起的那一行仍然保留阴影/缩放（瞬时应用，不加过渡） */
+#root .priority-filter-list.is-dragging .priority-filter-item.task-priority-floating {
+  transition: none !important;
+}
 #root .priority-filter-item.task-priority-floating {
   box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
   transform: scale(1.012);
