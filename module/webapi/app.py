@@ -537,6 +537,17 @@ async def stat_panels_warm(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
 
     def _warm() -> dict:
+        # ⚠️ 必须串行，且 opsi 放第一个 —— 这是实测出来的，不要"优化"成并行。
+        #
+        # 进统计页时前端会**同时**发 warm 和当前页签的 panels_html（默认页签
+        # 就是 opsi）。两者都要渲染 opsi，靠 _STAT_HTML_INFLIGHT 合并成一次计算，
+        # 前台等这一次算完就能返回。
+        #
+        # 实测（前台 opsi 耗时 / warm 总耗时，三次取样）：
+        #   串行     110ms 287ms 270ms  /  735ms 777ms 707ms
+        #   并行(4)  313ms 561ms 803ms  /  603ms 693ms 961ms
+        # 并行看起来 warm 快了点，但前台被另外 6 个面板抢 GIL + 磁盘 IO，
+        # 反而慢 2~3 倍 —— 用户感知的是前台那块，所以串行才是对的。
         done = []
         for panel, fn in (
             ("opsi", data.get_opsi_panels_html),

@@ -2556,6 +2556,17 @@ def reset_wallpaper_sources() -> dict:
 
 _STAT_HTML_CACHE: dict = {}
 _STAT_HTML_CACHE_LOCK = None
+# 同一缓存键的「正在计算」标记：并发请求只让第一个真正算，其余等它算完直接取。
+#
+# 为什么需要（长卿 2026-11-18「大世界这块能不能加快点，其他都是毫秒级别的
+# 就他卡1秒」）：进统计页时前端会同时发 /panels_warm（预热 7 个面板，串行
+# 几秒）和当前页签的 /panels_html。两者都要渲染 opsi，缓存里都还没有，
+# 于是同一次渲染算了两种，还互相抢 GIL 和 SQLite。
+# 实测同一台机器：
+#   opsi 单独请求        167ms
+#   warm 并发时请求它    880ms（首屏还被 warm 拖到 4.1s 才返回）
+# 去重后同一 key 只算一次，等待方拿到的就是同一份结果。
+_STAT_HTML_INFLIGHT: dict = {}
 
 
 def _stat_cache_key(instance_name: str, panel: str, month: str = "") -> tuple:
@@ -2583,6 +2594,13 @@ def _stat_cache_key(instance_name: str, panel: str, month: str = "") -> tuple:
         lang_key = str(_lang or '')
     except Exception:  # noqa: BLE001
         lang_key = ''
+    # ⚠️ db_mtime 分桶到 60 秒：不加分桶的话，alas 每 15 秒写一次库
+    # （实测 90 秒 6 次，间隔正好 15s），整库 mtime 一变 7 个面板缓存**全部**
+    # 失效，切页签永远是冷启动 —— 这才是「大世界卡 1 秒」的主因，不是单次
+    # 渲染慢。分桶后 60 秒内复用同一份 HTML，最多旧 1 分钟；统计页本身
+    # 就没有秒级实时性要求（老 UI 也是按 _statistics_cache_key 复用）。
+    # 用户主动点「刷新」/切月份仍然立刻重算（键里本来就含月份）。
+    db_mtime = db_mtime // 60_000_000_000 if db_mtime else 0
     return (instance_name, panel, db_mtime, t.year, t.month, month, lang_key)
 
 
@@ -2600,17 +2618,47 @@ def _cached_stat_html(instance_name: str, panel: str, builder, month: str = ""):
     key = _stat_cache_key(instance_name, panel, month)
     with _STAT_HTML_CACHE_LOCK:
         hit = _STAT_HTML_CACHE.get(key)
-    if hit is not None:
-        return hit
+        if hit is not None:
+            return hit
+        # 同一键正在被别的线程算：登记一个占位事件，等它算完直接读缓存。
+        gate = _STAT_HTML_INFLIGHT.get(key)
+        owner = gate is None
+        if owner:
+            import threading as _threading
 
-    result = builder()
-    if isinstance(result, dict) and result.get("success"):
-        # 只缓存成功结果；失败下次重试（数据可能刚写入）
+            gate = _threading.Event()
+            _STAT_HTML_INFLIGHT[key] = gate
+
+    if not owner:
+        # 等待方：超时兜底（宁可自己重算，也不能把请求挂死）
+        gate.wait(timeout=30)
         with _STAT_HTML_CACHE_LOCK:
-            # 只保留最近的 12 个键（3 面板 × 4 个月份量级），避免无限增长
-            if len(_STAT_HTML_CACHE) > 12:
-                _STAT_HTML_CACHE.clear()
-            _STAT_HTML_CACHE[key] = result
+            hit = _STAT_HTML_CACHE.get(key)
+        if hit is not None:
+            return hit
+        # 等待超时或对方失败：自己算一次（不再登记，避免连环等待）
+        return builder()
+
+    result: dict = {}
+    try:
+        result = builder()
+        if isinstance(result, dict) and result.get("success"):
+            # 只缓存成功结果；失败下次重试（数据可能刚写入）
+            with _STAT_HTML_CACHE_LOCK:
+                # 键上限 40：一次进统计页就会产生 7 个面板键，切 4 个月份就 28 个。
+                # 原来上限 12 且超限直接 clear()，等于「切两次月份就把全部缓存清空、
+                # 回本月还要重算」。
+                if len(_STAT_HTML_CACHE) > 40:
+                    # 按插入顺序淘汰最早的 8 个（dict 保序），不做全清
+                    for _stale in list(_STAT_HTML_CACHE)[:8]:
+                        _STAT_HTML_CACHE.pop(_stale, None)
+                _STAT_HTML_CACHE[key] = result
+    finally:
+        # ⚠️ 顺序敏感：必须**先写缓存再 set()**。反过来（上一版就是错的）等待方
+        # 会被提前唤醒，读到空缓存又自己算一遍，去重等于没做。
+        with _STAT_HTML_CACHE_LOCK:
+            _STAT_HTML_INFLIGHT.pop(key, None)
+        gate.set()
     return result
 
 
