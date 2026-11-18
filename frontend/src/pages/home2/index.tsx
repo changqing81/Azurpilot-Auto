@@ -211,7 +211,12 @@ export function HomePageMain() {
       .then(setBg).catch(() => { /* 读不到就用默认值 */ })
   }, [])
 
-  /** 上传自定义背景：文件选择框直接上传，成功后重载（壁纸竞速会重跑）。 */
+  /** 上传自定义背景：**分片上传**（远控中继 body 上限 ~1MB，整文件必然 413）。
+ *  实测：remurl 中继 1000KB 通过、1024KB 返回 413 HTML 错误页，前端把 HTML
+ *  当 JSON 解析就报 "Unexpected token '<'"（长卿 2026-11-18 截图）。
+ *  这里按 512KB 切片，逐片 POST /newapi/background/upload-chunk，最后一片
+ *  到达时后端合并落盘。手机照片/视频都能传。
+ */
   const uploadBackground = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -220,19 +225,43 @@ export function HomePageMain() {
       const file = input.files?.[0]
       if (!file) return
       if (file.size > 20 * 1024 * 1024) { window.alert('文件超过 20MB 限制'); return }
-      const fd = new FormData()
-      fd.append('file', file)
+      const CHUNK = 512 * 1024
+      const total = Math.max(1, Math.ceil(file.size / CHUNK))
+      const uploadId = Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
       try {
-        const r = await fetch('/newapi/background/upload', { method: 'POST', body: fd })
-        const j = await r.json()
-        if (j.success) location.reload()
-        else window.alert('上传失败：' + (j.error || '未知错误'))
-      } catch (e) { window.alert('上传失败：' + String(e)) }
+        for (let i = 0; i < total; i++) {
+          const slice = file.slice(i * CHUNK, (i + 1) * CHUNK)
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader()
+            fr.onload = () => resolve(String(fr.result).split(',')[1] || '')
+            fr.onerror = () => reject(new Error('读取分片失败'))
+            fr.readAsDataURL(slice)
+          })
+          const resp = await fetch('/newapi/background/upload-chunk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ upload_id: uploadId, index: i, total, filename: file.name, data: b64 }),
+          })
+          const text = await resp.text()
+          let j: any = null
+          try { j = JSON.parse(text) } catch {
+            // 中继/网关可能直接返回 HTML 错误页（413 等），别让 JSON 解析错误盖住真因
+            window.alert('上传失败：服务端返回了非 JSON 响应（HTTP ' + resp.status + '）' +
+              (resp.status === 413 ? '\n\n文件分片仍超过网关限制，请把图片压小一点再试。' : ''))
+            return
+          }
+          if (!j || !j.success) {
+            window.alert('上传失败：' + ((j && j.error) || 'HTTP ' + resp.status))
+            return
+          }
+        }
+        location.reload()
+      } catch (err) { window.alert('上传失败：' + String(err)) }
     }
     input.click()
   }
 
-  /** 随机背景：切回 random 模式并重载（壁纸竞速重跑）。 */
+/** 随机背景：切回 random 模式并重载（壁纸竞速重跑）。 */
   const randomBackground = async () => {
     try {
       const r = await fetch('/newapi/background/mode', {

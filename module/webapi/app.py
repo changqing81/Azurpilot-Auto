@@ -583,6 +583,30 @@ async def background_media(request: Request) -> JSONResponse:
     )
 
 
+async def background_upload_chunk(request: Request) -> JSONResponse:
+    """POST /newapi/background/upload-chunk —— 分片上传（绕开中继 1MB 限制）。
+
+    remurl 等远控中继的 nginx 对 request body 限制约 1MB（实测 1000KB 通过、
+    1024KB 返回 413 HTML），手机照片/视频整文件上传必然失败。前端按 512KB
+    切片逐片发，这里收到最后一片后合并落盘。
+    """
+    import json as _json
+
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(
+        await run_in_threadpool(
+            data.upload_custom_background_chunk,
+            str(body.get("upload_id", "")),
+            int(body.get("index", 0)),
+            int(body.get("total", 1)),
+            str(body.get("filename", "")),
+            str(body.get("data", "")),
+        )
+    )
+
+
 async def background_upload(request: Request) -> JSONResponse:
     """POST /newapi/background/upload（multipart，字段 file）。"""
     try:
@@ -1331,6 +1355,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/background/mode", background_mode, methods=["POST"]),
         Route("/newapi/background/media", background_media, methods=["POST"]),
         Route("/newapi/background/upload", background_upload, methods=["POST"]),
+        # 分片上传：远控中继 body 上限 ~1MB，整文件上传必然 413
+        Route("/newapi/background/upload-chunk", background_upload_chunk, methods=["POST"]),
         Route("/newapi/background/custom", background_custom_info),
         Route("/api/wallpapers/custom", background_custom_file),
         Route("/newapi/background/sources", wallpaper_sources),

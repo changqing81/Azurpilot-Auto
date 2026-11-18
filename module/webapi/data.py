@@ -2367,6 +2367,80 @@ def upload_custom_background(filename: str, content: bytes) -> dict:
         return {"success": False, "error": str(e)}
 
 
+# 分片上传的临时目录与登记表（uploadId → {path, filename, received, total}）
+_UPLOAD_CHUNKS: dict = {}
+_UPLOAD_CHUNKS_LOCK = None
+
+
+def upload_custom_background_chunk(
+    upload_id: str,
+    index: int,
+    total: int,
+    filename: str,
+    data_b64: str,
+) -> dict:
+    """分片上传自定义背景（远控中继的 request body 上限约 1MB，必须切片）。
+
+    背景：remurl 中继的 nginx 对请求体限制 ~1MB，超过直接 413（HTML 错误页），
+    前端把 HTML 当 JSON 解析就报 "Unexpected token '<'"。手机拍的照片/视频
+    都远大于 1MB，所以整文件上传在远控下必然失败（长卿 2026-11-18 实测）。
+
+    协议：前端按 512KB 切片，逐片 POST；index 从 0 递增到 total-1。
+    收到最后一片时合并落盘并切到 custom 模式，返回与整文件上传相同的结构。
+    """
+    global _UPLOAD_CHUNKS_LOCK
+    import base64 as _b64
+    import os as _os
+    import shutil as _shutil
+    import threading as _threading
+
+    if _UPLOAD_CHUNKS_LOCK is None:
+        _UPLOAD_CHUNKS_LOCK = _threading.Lock()
+
+    try:
+        raw = _b64.b64decode(data_b64 or "")
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": f"分片解码失败: {e}"}
+
+    tmp_dir = _wallpapers_dir() / ".upload"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    part = tmp_dir / f"{upload_id}.{index}.part"
+
+    try:
+        part.write_bytes(raw)
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": f"分片写入失败: {e}"}
+
+    with _UPLOAD_CHUNKS_LOCK:
+        info = _UPLOAD_CHUNKS.setdefault(
+            upload_id,
+            {"parts": 0, "total": total, "filename": filename},
+        )
+        info["parts"] += 1
+        done = info["parts"] >= total
+
+    if not done:
+        return {"success": True, "partial": True, "received": info["parts"], "total": total}
+
+    # 最后一片到齐：按序合并
+    try:
+        merged = bytearray()
+        for k in range(total):
+            merged += (tmp_dir / f"{upload_id}.{k}.part").read_bytes()
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": f"分片合并失败: {e}"}
+    finally:
+        for k in range(total):
+            try:
+                (tmp_dir / f"{upload_id}.{k}.part").unlink()
+            except OSError:
+                pass
+        with _UPLOAD_CHUNKS_LOCK:
+            _UPLOAD_CHUNKS.pop(upload_id, None)
+
+    return upload_custom_background(filename, bytes(merged))
+
+
 def get_custom_background_info() -> dict:
     """自定义背景的访问信息（新 UI 用 <img>/<video> 直接取 /api/wallpapers/custom）。"""
     import os as _os
