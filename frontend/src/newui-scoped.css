@@ -178,3 +178,46 @@
 #root .alas-src-modal input[type="checkbox"]:checked::before {
   transform: translateX(14px);
 }
+
+/* ============================================================
+   数据刷新不得重播「入场淡入」动画（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「总览这块这些方块都会闪 在运行途中 闪来闪去」
+   「我猜是数据更新时一闪一闪的 我不需要这要闪」。
+
+   根因（CDP 实测 22267 /new/#/overview/alas，57 秒窗口）：
+     整页 load 次数 = 1（不是页面在重新加载）
+     #pywebio-scope-overview 子树变动 23 次
+     animationstart 计数：
+       pywebio-scope-log-bar                  <- ios-slide-up  4 次
+       pywebio-scope-scheduler-bar / stat-bar <- ios-slide-up  各 2 次
+   首屏只该有 1 次，多出来的全部来自 15 秒一次的数据轮询。
+
+   为什么：新 UI 的数据是「整块 HTML 字符串 + dangerouslySetInnerHTML」
+   替换进容器的（见 pages/home/index.tsx 的 schedulersHtml / logBarHtml）。
+   字符串一变，React 就把 innerHTML 整个换掉 → 卡片节点销毁重建 →
+   advanced-material-alas.css:468/491/1216 挂的
+   `animation: ios-slide-up ... both`（opacity 0 → 1）从第 0 帧重播，
+   整排卡片重新淡入一次，看起来就是「闪一下」。
+   老 UI 由 PyWebIO 原地更新子节点，scope 容器本身不重建，所以只播一次。
+
+   这里对 #root 关掉这批卡片的入场动画。老 UI 没有 #root，不受影响。
+   代价只是首屏那 0.26s 淡入消失，换来数据刷新时零闪烁。
+   ============================================================ */
+#root #pywebio-scope-scheduler-bar,
+#root #pywebio-scope-stat-bar,
+#root #pywebio-scope-running,
+#root #pywebio-scope-pending,
+#root #pywebio-scope-waiting,
+#root #pywebio-scope-log-bar,
+#root #pywebio-scope-dashboard,
+#root #pywebio-scope-image-container,
+#root [id^="pywebio-scope-overview-task_"],
+#root #pywebio-scope-opsi_stats,
+#root #pywebio-scope-ap_chart,
+#root #pywebio-scope-ship_exp_table,
+#root #pywebio-scope-commission_income,
+#root #pywebio-scope-research_stats {
+  animation: none !important;
+}
+
