@@ -62,3 +62,12 @@
     text-overflow: ellipsis;
   }
 }
+
+/* 触屏拖拽任务优先级：handle 区禁用浏览器默认触摸行为，
+   否则 touchmove 被当作滚动、preventDefault 无效（长卿手机实测拖不动）。 */
+#root .task-priority-handle {
+  touch-action: none;
+}
+#root .task-priority-list {
+  touch-action: pan-x;
+}

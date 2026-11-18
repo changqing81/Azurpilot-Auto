@@ -38,6 +38,10 @@ export function PriorityFilter({
   // 浏览器随即判定"被拖元素已消失"、直接取消整个拖拽 —— 表现就是
   // 「鼠标放上去根本拖不动」（长卿 2026-11-17 实测）。
   const dragIndexRef = useRef<number | null>(null)
+  // 触屏拖拽（手机/远控 WebView 不派发 HTML5 drag 事件）：记录起点项，
+  // move 时按手指命中的行落位。桌面鼠标路径不受影响。
+  const touchFromRef = useRef<number | null>(null)
+  const [touchCurrent, setTouchCurrent] = useState<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
 
   // 外部值变化（切任务/重新拉配置）时同步。用原串作签名比较，避免父组件
@@ -71,11 +75,35 @@ export function PriorityFilter({
 
   return (
     <div className="priority-filter">
-      <ol className="task-priority-list priority-filter-list">
+      <ol
+        className="task-priority-list priority-filter-list"
+        onTouchMove={e => {
+          const from = touchFromRef.current
+          if (from === null) return
+          const tY = e.touches[0].clientY
+          // 手指当前命中的行：按几何位置计算（不用 elementFromPoint，兼容远控）
+          const list = e.currentTarget
+          for (let k = 0; k < list.children.length; k++) {
+            const r = list.children[k].getBoundingClientRect()
+            if (tY >= r.top && tY <= r.bottom) {
+              if (k !== touchCurrent) setTouchCurrent(k)
+              break
+            }
+          }
+          e.preventDefault()
+        }}
+        onTouchEnd={() => {
+          const from = touchFromRef.current
+          const to = touchCurrent
+          if (from !== null && to !== null) move(from, to)
+          touchFromRef.current = null
+          setTouchCurrent(null)
+        }}
+      >
         {items.map((code, i) => (
           <li
             key={code}
-            className={'task-priority-item priority-filter-item' + (dragging === i ? ' task-priority-floating' : '')}
+            className={'task-priority-item priority-filter-item' + (dragging === i || touchCurrent === i ? ' task-priority-floating' : '')}
             draggable
             onDragStart={() => { dragIndexRef.current = i; setTimeout(() => setDragging(i), 0) }}
             onDragOver={e => e.preventDefault()}
@@ -89,7 +117,13 @@ export function PriorityFilter({
             onDragEnd={() => { dragIndexRef.current = null; setDragging(null) }}
           >
             <span className="task-priority-rank">{i + 1}</span>
-            <span className="task-priority-handle" aria-hidden="true">≡</span>
+            <span
+              className="task-priority-handle" aria-hidden="true"
+              onTouchStart={() => {
+                touchFromRef.current = i
+                setTouchCurrent(i)
+              }}
+            >≡</span>
             {/* 双列：左中文名 / 右英文代号 —— 与老 UI widgets.py:658-663 的
                 task_priority 完全同构（.task-priority-name + .task-priority-code）。 */}
             <span className="task-priority-name">{labelOf ? labelOf(code) : code}</span>
