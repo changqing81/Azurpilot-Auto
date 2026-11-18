@@ -314,3 +314,39 @@
 #root .research-table td:last-child {
   word-break: break-word;
 }
+
+/* ============================================================
+   根因兜底：markdown-body 把表格每一行强制刷成白底（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「为什么还有」（更新器表格仍白）。
+
+   上一版我给 .research-table 设了 background:transparent，但没用 ——
+   真正刷白的是 **PyWebIO 自带的 markdown.min.css**（GitHub 风格）：
+     .markdown-body table tr               { background-color:#fff }
+     .markdown-body table tr:nth-child(2n) { background-color:#f6f8fa }
+     .markdown-body table td/th            { border:1px solid #dfe2e5 }
+   而新 UI 的 Shell 整个页面都包在 <div class="markdown-body"> 里
+   （为了复用老 CSS 的结构同构），所以**每一个 <table> 都中招**。
+
+   老 CSS 只对特定 scope 做过 tr 透明（rd-table / opsi_stats /
+   ship_exp_table / commission_income），全局这条一直没管。
+   这里用 #root 前缀在**全局层面**兜底，且特异度足够压过 markdown.min.css。
+   ============================================================ */
+#root .markdown-body table,
+#root .markdown-body table thead,
+#root .markdown-body table tbody {
+  background-color: transparent !important;
+}
+#root .markdown-body table tr {
+  background-color: transparent !important;
+  border-top: 0 !important;
+}
+#root .markdown-body table tr:nth-child(2n) {
+  background-color: transparent !important;
+}
+#root .markdown-body table th,
+#root .markdown-body table td {
+  background-color: transparent !important;
+  border: 0 !important;
+  color: inherit;
+}
