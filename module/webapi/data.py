@@ -474,6 +474,9 @@ _STAT_I18N_KEYS = {
     "FtAttribution": "Gui.FleetTechnology.Attribution",
     "ResearchSeriesOption": "Gui.Stat.ResearchSeriesOption",
     "MeowLootBackToCurrent": "Gui.Stat.MeowLootBackToCurrent",
+    "MeowLootPickMonthTitle": "Gui.Stat.MeowLootPickMonthTitle",
+    "MeowLootCurrentMonthOption": "Gui.Stat.MeowLootCurrentMonthOption",
+    "MeowLootNoHistoryMonth": "Gui.Stat.MeowLootNoHistoryMonth",
     # 心智计算器（Gui.MindCalculator 组，老 UI 按钮原文）
     "McBatchEdit": "Gui.MindCalculator.BatchEdit",
     "McBatchExit": "Gui.MindCalculator.BatchExit",
