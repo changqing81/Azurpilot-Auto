@@ -494,29 +494,37 @@ async def stat_panels_html(request: Request) -> JSONResponse:
         )
     if panel == "fleet":
         # 科技列表有完整的筛选/搜索/排序/分页状态（老 UI 是实例属性驱动）
+        #
+        # ⚠️ 必须全部走 _arg()，不能直接读 request.query_params：
+        # 远控中继会把 query string 整段剥掉，只有 _arg() 才有
+        # 「query → 单段路径 → _p 段」三级回退。
+        # 这里曾经直接读 query_params，导致 filters/q/page 等参数在远控下
+        # 全部取默认值 —— 表现为「点驱逐、点阵营毫无反应，count 恒为 904」
+        # （长卿 2026-11-19 远控实测）。
         return JSONResponse(
             await run_in_threadpool(
                 fn, name,
-                request.query_params.get("filters") or "",
-                request.query_params.get("q") or "",
-                request.query_params.get("scope") or "all",
-                request.query_params.get("stage") or "all",
-                request.query_params.get("sort") or "code",
-                request.query_params.get("dir") or "1",
-                int(request.query_params.get("page") or 0),
-                request.query_params.get("pending") in ("1", "true"),
-                request.query_params.get("edit") in ("1", "true"),
-                request.query_params.get("bonuses") in ("1", "true"),
-                request.query_params.get("extra") in ("1", "true"),
+                _arg("filters"),
+                _arg("q"),
+                _arg("scope") or "all",
+                _arg("stage") or "all",
+                _arg("sort") or "code",
+                _arg("dir") or "1",
+                int(_arg("page") or 0),
+                _arg("pending") in ("1", "true"),
+                _arg("edit") in ("1", "true"),
+                _arg("bonuses") in ("1", "true"),
+                _arg("extra") in ("1", "true"),
             )
         )
     if panel == "mind":
         # 心智计算器：清单表分页 + 批量编辑开关（老 UI 是实例属性 _mc_page/_mc_batch）
+        # 同样必须走 _arg()：远控下 query 被剥，分页参数会丢 →「下一页点不动」。
         return JSONResponse(
             await run_in_threadpool(
                 fn, name,
-                int(request.query_params.get("page") or 0),
-                request.query_params.get("edit") in ("1", "true"),
+                int(_arg("page") or 0),
+                _arg("edit") in ("1", "true"),
             )
         )
     if panel == "delta":
@@ -536,10 +544,23 @@ async def stat_ap_chart(request: Request) -> JSONResponse:
 
     体力变化图：返回老 UI 的 ap_chart_panel.html + ap_chart.js 完整产物。
     前端挂载后浏览器执图表脚本 —— 就是老 UI 那张图，不是重画的。
+
+    参数同时支持 query 与路径段（远控中继剥 query）：
+      /ap_chart/{view}/{month}
     """
     name = request.path_params.get("name", "")
-    view = (request.query_params.get("view") or "").strip()
-    month = (request.query_params.get("month") or "").strip()
+    _pp = request.path_params
+
+    def _a(key: str) -> str:
+        v = request.query_params.get(key)
+        if v is None:
+            v = _pp.get(key)
+        v = (v or "").strip()
+        return "" if v == "_" else v
+
+    # 兼容：path 段里没定义时返回空（老路由仍然走 query）
+    view = _a("view")
+    month = _a("month")
     return JSONResponse(
         await run_in_threadpool(data.get_ap_chart_html, name, view, month)
     )
@@ -1472,6 +1493,9 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
         Route("/newapi/stat/{name}/months", stat_months),
         Route("/newapi/stat/{name}/ap_chart", stat_ap_chart),
+        # 体力图参数的路径版：远控中继剥 query，view（折线/按日/按月）
+        # 与 month 会全丢 → 图表切不动（长卿 2026-11-19）。
+        Route("/newapi/stat/{name}/ap_chart/{view}/{month}", stat_ap_chart),
         Route("/newapi/background", background_setting),
         Route("/newapi/background/mode", background_mode, methods=["POST"]),
         Route("/newapi/background/media", background_media, methods=["POST"]),

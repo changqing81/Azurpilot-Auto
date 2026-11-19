@@ -50,10 +50,13 @@ export function OpsiPanel({ name }: { name: string }) {
     let alive = true
     setChartLoading(true)
     setChartErr('')
-    const qs = new URLSearchParams({ view })
-    if (month) qs.set('month', month)
+    // 参数走路径段：远控中继会剥掉 query string，
+    // view（折线/按日/按月）与 month 会全丢 → 图表切不动、月份选不了。
+    const seg = (v: string) => encodeURIComponent(v || '_')
     apiGet<{ success: boolean; html: string; js: string; error: string }>(
-      `/newapi/stat/${name}/ap_chart?${qs}`, 25000,
+      `/newapi/stat/${encodeURIComponent(name)}/ap_chart/${seg(view)}/${seg(month)}` +
+        (month ? `?view=${encodeURIComponent(view)}&month=${encodeURIComponent(month)}` : `?view=${encodeURIComponent(view)}`),
+      25000,
     )
       .then(r => {
         if (!alive) return
