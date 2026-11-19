@@ -107,7 +107,13 @@ export function panelPathWithParams(
     pairs.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)))
   }
   const payload = pairs.length ? pairs.join('&') : '_'
-  return `/newapi/stat/${encodeURIComponent(name)}/panels_html/${encodeURIComponent(panel)}/_p/${payload}`
+  const base = `/newapi/stat/${encodeURIComponent(name)}/panels_html/${encodeURIComponent(panel)}/_p/${payload}`
+  // 同时拼上 query 作为**旧后端**的回退：
+  //   · 新后端（已加载 _p 路由）：_p 段优先，参数完整 —— 远控也能用
+  //   · 旧后端（未重启）：_p 段被 {month} 吃掉，但 query 仍在，电脑直连可用
+  // 远控 + 旧后端时 query 会被中继剥掉，那种组合只有重启后端才能救 ——
+  // 但至少不会因为这一版改动让电脑端变得更糟。
+  return pairs.length ? base + '?' + pairs.join('&') : base
 }
 
 export function panelPath(
