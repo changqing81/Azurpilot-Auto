@@ -128,7 +128,17 @@ export function ArgBlock({ arg, onChange }: { arg: Arg; onChange: (v: any) => vo
           </p>
         )}
       </div>
-      <div style={{ ['--input--' as string]: '1' } as React.CSSProperties}>
+      {/* 老 UI put_arg_checkbox 的控件带 .style("text-align: center")
+          （module/webui/widgets.py:1007）—— MD3 开关只有 52px 宽，在 13rem
+          的控件列里不居中就会贴列左、离卡片右缘差 150+px，视觉上「悬在
+          中间不靠边」（长卿 2026-11-19：「按钮往右边靠点…老UI都是靠边的」）。
+          只对 checkbox 复刻这个 center，其他控件老 UI 没加。 */}
+      <div
+        style={{
+          ['--input--' as string]: '1',
+          ...(kind === 'checkbox' ? { textAlign: 'center' as const } : {}),
+        }}
+      >
         <ArgControl arg={arg} onChange={onChange} />
       </div>
     </div>
