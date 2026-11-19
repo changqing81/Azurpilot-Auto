@@ -77,7 +77,7 @@ class GeneratedConfig:
     # 配置组 `Scheduler`
     Scheduler_Enable = False  # True, False
     Scheduler_PushNotification = False  # True, False
-    Scheduler_NextRun = datetime.datetime(2020, 1, 1, 0, 0)
+    Scheduler_NextRun = datetime.datetime(2026, 1, 1, 0, 0)
     Scheduler_Command = 'Alas'
     Scheduler_SuccessInterval = 0
     Scheduler_FailureInterval = 120

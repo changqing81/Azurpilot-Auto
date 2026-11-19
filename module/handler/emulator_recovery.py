@@ -281,6 +281,15 @@ class EmulatorRecovery:
                 logger.warning(f'[模拟器恢复] 冷却中，本轮未执行启停: {cooling}')
                 raise RecoveryCoolingDown(str(cooling), remain=cooling.remain,
                                           record=cooling.record)
+            # 锁竞争（EmulatorOpBusy）：与冷却期同性质 —— "本轮没干活，稍后自动重试"，
+            # 不该推送打扰用户。实测场景：WebUI 重启实例的瞬间新旧进程短暂共存，
+            # 新进程 open lock 文件撞上旧进程未释放的 msvcrt 锁
+            # （2026-11-16 22:24 推送"[Errno 13] Permission denied ... .lock"就是它）。
+            busy = next((item for item in error if isinstance(item, EmulatorOpBusy)), None)
+            if busy is not None:
+                self.alas.__dict__.pop('device', None)
+                logger.warning(f'[模拟器恢复] 锁竞争，本轮未执行启停: {busy}')
+                raise RecoveryCoolingDown(str(busy), remain=30.0)
             # 失败也要丢弃旧 Device：失效会话只在本对象上生效，缓存若留在
             # alas.__dict__，下一轮 Restart 的 session_guard 会立刻抛
             # DeviceSessionExpired——此时 pending 已消费完，run() 只能

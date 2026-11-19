@@ -1,0 +1,159 @@
+# 新 UI 功能覆盖验收表
+
+> 更新时间：2026-11-16（new-ui 分支 b2b373342）
+> 对照基准：老 UI（PyWebIO）主页菜单 6 项 + 实例内页
+
+## 一、页面覆盖（老 UI 主页菜单 → 新 UI 路由）
+
+| 老 UI 菜单项 | 新 UI 路由 | 状态 | 说明 |
+|---|---|---|---|
+| 主页 HomePage | `#/` | ✅ | 语言/主题/背景管理，壁纸竞赛 TS 移植 |
+| 更新器 Update | `#/update` | ✅ | 本地/上游提交对照 + 详细提交历史 + 更新日志 |
+| 远程控制 Remote | `#/remote` | ✅ | 状态机 + 开关（实测显示「运行中 · 信令中」+ 入口 URL） |
+| 设置 Setting | `#/settings/:name` | ✅ | 启动器自启动 + deploy.yaml 全量可视化 + **界面版本一键切换（自动重启）** |
+| 公告 Announcement | `#/announcement` | ✅ | 本轮新增。正文 + 配图 + 更新日志 |
+| 开发者工具 Utils | `#/tool/:name` | ✅ | 调试按钮 + **可用的日志导出** |
+| 管理 Manage（侧栏） | `#/manage` | ✅ | 实例列表 / 新建 / 删除 / **导入配置** / **导出数据**（全部+单实例） |
+
+## 二、实例内页覆盖
+
+| 页面 | 新 UI 路由 | 状态 | 说明 |
+|---|---|---|---|
+| 总览 | `#/overview/:name` | ✅ | 任务队列 + 仪表盘 13 项 + 日志面板，布局逐项对齐老 UI |
+| 统计 | `#/stat/:name` | ✅ | 6 页签（大世界/委托/科研规划中/资源/科技列表/心智计算器） |
+| 配置 | `#/config/:name/:task` | ✅ | 分组表单 + 控件类型映射 + 保存 + 联动回调 |
+| OOBE | `#/oobe` | ✅ | 五步向导 |
+
+## 三、本轮新增/修复明细
+
+### 3.1 公告页（新增）
+
+- 端点 `GET /newapi/announcement[?force=1]`
+  → `ApiClient.get_announcement()`（jsdelivr → gitcode → GitHub 三源回退）
+  → `localize_images()` 把配图落本地（手机/远控直连 jsdelivr 基本不通）
+  → 5 分钟进程级缓存（三源全超时要 3 秒以上，不能每次打开都重拉）
+- 端点 `GET /newapi/update-log` → `ApiClient.get_changelog()`
+  → 服务端复用 `module/webui/update_log.py:render_entries_html` 渲染 HTML
+  → 与老 UI 更新器页显示**完全一致**（含图片安全性过滤）
+- 前端 `pages/announcement/index.tsx`：公告正文 + 更新日志两张卡片
+- **失败降级明确**：公告源不可达时显示「公告拉取失败：…」+ 一句原因说明，
+  不假装空白页
+
+### 3.2 开发者工具页（新增）
+
+老 UI 该页有两类内容，新 UI 按「能真用的做真、不能的明说」处理：
+
+**① 日志导出（真能用）** —— 走老 UI 现成的 REST：
+- `GET /api/log/runtime?instance=&scope=` → 运行日志 zip
+- `GET /api/log/error?scope=full` → 错误日志目录（含截图）
+- `GET /api/log/error?scope=text` → 仅日志文本
+- 实例下拉 + 日期下拉（日期来自 `/api/log/runtime/dates`）
+- 前端用 fetch + Blob 下载，解析 `Content-Disposition` 取真实文件名
+
+**② 调试动作（不能直接用，已明说）**
+这 20 个按钮（抛异常/预览提示/维护横幅/图标模拟/跨月预演/重启 Alas/推送测试）
+全部是 PyWebIO 会话内的回调（`put_button(onclick=...)`），没有 REST 等价物。
+新 UI 保留按钮入口，点击时明确提示：
+
+> 「XXX」是 PyWebIO 会话内的调试动作，新 UI 尚未提供等价接口；请切回老 UI 使用。
+
+**不静默失败、不假装能用**——这是刻意的选择。
+
+### 3.3 修复：下拉框被压成 0 宽
+
+`entry-alas.css:446` 的 `.deploy-setting-select { width: 100% }` 在
+`.log-export-instance`（inline-flex）里没有可用宽度参照，实测被压成 0。
+修法：给两个 select 加内联 `width:auto; minWidth` —— 不改老 CSS（避免影响老 UI）。
+
+## 四、回归测试结果（9 页全绿）
+
+用 CDP 逐页导航 + 等 9 秒 + 采集 DOM/控制台错误：
+
+```
+主页        root✓ title=主页         menu=6    errors=[]
+总览        root✓ title=总览         menu=100  errors=[]
+统计        root✓ title=统计         menu=100  errors=[]   （6 页签，面板有数据）
+配置        root✓ title=配置         menu=100  errors=[]
+设置        root✓ title=设置         menu=100  errors=[]
+更新器      root✓ title=更新器       menu=100  errors=[]
+远程控制    root✓ title=远程控制     menu=100  errors=[]   （运行中 · 信令中）
+公告        root✓ title=公告         menu=100  errors=[]
+开发者工具  root✓ title=开发者工具   menu=100  errors=[]
+```
+
+**0 个 JS 异常、0 个 console.error。**
+
+## 四b. 复用 alas-utils.js（本轮重大简化）
+
+老 UI 的 `assets/gui/js/alas-utils.js`（65KB / 1615 行）是 **4 个自包含 IIFE**：
+- 样式全部 `style.textContent` 内联注入
+- 只往 `window` 上挂 7 个函数
+- 不依赖老 UI 的任何 DOM 结构
+
+导出：`alasToggleLivePreview` / `alasStartLivePreview` / `alasStopLivePreview` /
+`alasShowAnnouncement` / `alasHasBeenShown` / `alasMarkAnnouncementShown` / `alasGetShownAnnouncements`
+
+**处理方式**：新 UI `index.html` 用经典 `<script>` 直接引用**同一份**文件
+（`/static/assets/gui/js/alas-utils.js`，由现有 `/static` 挂载，不做副本），
+于是下面这些 heavyweight 功能**零成本复用**：
+
+| 功能 | 复用的东西 | 实测 |
+|---|---|---|
+| 截图预览 | scrcpy H.264 解码 + 全屏 + 键盘注入 + 控制栏（约 800 行） | ✅ 面板弹出、「连接中」、控制栏完整 |
+| 公告弹窗 | 正文/配图渲染 + localStorage 去重 | ✅ 首页自动弹（源可达时） |
+| 导出今日日志 | 改走 `/api/log/runtime?scope=今天` | ✅ 浏览器直接下载 zip |
+
+**这一步省掉了重写约 1000 行解码与控制逻辑**，且行为与老 UI 逐字节一致
+（就是同一份代码）。
+
+## 四b·补：UI=new 独占 / 模式端到端验收（本轮完成）
+
+这是此前唯一没完整验证过的路径 —— 把 `Webui.UI` 改成 `new` 后，
+老 UI 的 `/` 与 `/manage` 路由会被摘掉，只剩新 UI。
+
+| 检查项 | 结果 |
+|---|---|
+| `/` 返回新 UI（含 `#root` + 内联骨架） | ✅ |
+| `/manage` 返回 404（老 UI 已关闭） | ✅ |
+| 老 UI 页面路由全部不注册 | ✅ |
+| `/api/*`、`/newapi/*`、`/static`、`/pywebio_static` 保留 | ✅ |
+| 9 个页面在 `/` 下全部正常 | ✅ 0 JS 错误 |
+
+> 注意：新 UI 的路由是 hash 模式（`/#/overview/alas`），所以 `UI=new` 时
+> 所有页面都在 `/` 下，不会与老 UI 的服务端路由冲突。
+
+## 五、仍未实现（明确记录，不含糊）
+
+| 项 | 原因 | 影响 |
+|---|---|---|
+| 开发者工具页的 20 个调试按钮 | 全是 PyWebIO `put_button(onclick=...)` 会话内回调，无 REST 等价物 | 需要调试时切回老 UI（点击已明确提示） |
+| 管理页的任务摘要展开（点实例看已启用任务清单） | app_manage.py:_toggle_summary，纯展示增强 | 可在总览页看任务队列替代 |
+| legacy 数据导入（旧版本备份还原） | 走 `/api/import_legacy_upload`，UI 较复杂 | 端点保留，暂未做前端 |
+| 维护横幅 | 依赖老 UI 的 run_js 增量更新 | 未移植 |
+| 页面骨架屏（切页时） | 老 UI 的 `#alas-page-skeleton` | 新 UI 只有首屏骨架，切页无骨架 |
+| 移动端布局 | `alas-mobile.css` 未纳入 bundle | 窄屏未适配 |
+| 主题热切换 | 老 UI `swap_theme_css` 只换主题层 | 新 UI 改了要刷新 |
+
+## 五b. 本轮修掉的一个「静默致命」问题
+
+`.gitignore` 根目录规则里有一行 `lib/`（本意是忽略 `.venv/lib`），
+它是**全局匹配**——把 `frontend/src/lib/` 也一起忽略了。
+
+后果：`frontend/src/lib/pywebio.ts`（PyWebIO 同构 DOM 输出器，是 Shell 与各页面
+的核心依赖）与 `alas-utils.d.ts` **从未进入版本库**。任何人拉取 new-ui 分支
+都编译不过，而本机因为文件一直在磁盘上，构建始终正常——完全察觉不到。
+
+**发现方式**：commit 时 git 提示 "The following paths are ignored"，顺手查了
+`git check-ignore -v`。
+
+**修复**：改为 `/lib/` 与 `/lib64/`（锚定仓库根），补入两个漏掉的源文件。
+
+**验证**：建了一个干净的 `git worktree`（`git worktree add --detach`）→
+`pnpm install` → `pnpm build` → **编译成功，产物哈希与主工作区完全一致**
+（`index-D94t7MpU.js`）。这才叫「验证过了」。
+
+## 六、下一步
+
+1. 补齐上表里「有 REST 支撑」的项（截图预览、导出今日日志、切页骨架）
+2. 移动端布局（alas-mobile.css + 响应式）
+3. 收尾：热切换 + `/` 与 `/new/` 并存（长卿已定"最后做"）

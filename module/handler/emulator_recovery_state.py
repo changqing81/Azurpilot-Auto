@@ -54,8 +54,14 @@ class InstanceLease:
 
     def __enter__(self):
         self.root.mkdir(parents=True, exist_ok=True)
-        self.stream = self.lock_path.open('a+b')
         try:
+            # open('a+b') **必须在 try 内**：Windows 上当旧进程还持有 msvcrt 区域锁
+            # 时（例：重启瞬间新旧进程短暂共存），新进程 open 会直接抛
+            # PermissionError [Errno 13]。原来 open 在 try 外，这个错误原样冒泡，
+            # 被恢复层包装成"模拟器本轮重启未成功: [Errno 13]..."推送给用户，
+            # 看起来像严重故障，实际只是锁竞争，下一轮自动重试就好。
+            # 2026-11-16 22:24 实测案例（dev_restart_alas 后立刻触发恢复）。
+            self.stream = self.lock_path.open('a+b')
             if os.name == 'nt':
                 import msvcrt
                 if self.stream.seek(0, 2) == 0:

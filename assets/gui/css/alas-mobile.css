@@ -1,9 +1,16 @@
+/* ⚠️ 必须用 ID 级选择器：alas.css 里 #pywebio-scope-menu 是 ID 选择器
+   （特异度 1,0,0，带 width:12rem / overflow-y:auto），
+   原来只写 .container-menu-collapsed{display:none}（特异度 0,1,0）
+   会被它压掉 —— 实测手机端 menu 仍占 192px、把内容区挤到 234px，
+   侵蚀卡里的中文竖排成「一 字 一 行」（长卿 2026-11-17 图三）。 */
+#pywebio-scope-menu.container-menu-collapsed,
 .container-menu-collapsed {
-    display: none;
+    display: none !important;
 }
 
+#pywebio-scope-content.container-content-collapsed,
 .container-content-collapsed {
-    display: none;
+    display: none !important;
 }
 
 #pywebio-scope-log {

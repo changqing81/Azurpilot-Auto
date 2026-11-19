@@ -726,6 +726,20 @@ DeploySetting:
   PasswordHelp:
   CDN:
   CDNHelp:
+  UI:
+  UIHelp:
+  UISwitchLegacy:
+  UISwitchNew:
+  UISwitchCurrent:
+  UISwitchNameLegacy:
+  UISwitchNameNew:
+  UISwitchPending:
+  UISwitchApplying:
+  UISwitchDone:
+  UISwitchFailed:
+  UISwitchRestart:
+  UISwitchRestarting:
+  UISwitchRestartSent:
   WebuiSSLKey:
   WebuiSSLKeyHelp:
   WebuiSSLCert:

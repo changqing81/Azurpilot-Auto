@@ -1,0 +1,138 @@
+/* 优先级过滤器（前端 PriorityFilter 组件）：把「a > b > c」渲染成可拖拽列表。
+ *
+ * 复用老 UI task_priority 的 .task-priority-* 样式（alas.css:951+），但那边是给
+ * 「任务优先级」用的：ol 有 min-height: min(56vh, 40rem)、li 的 gridTemplateColumns
+ * 是 2.6rem 1.5rem minmax(0,1fr) minmax(7rem,auto)（第 4 列留给任务名/代号双列）。
+ * 本组件的第 4 列是三个小按钮，直接套会让名称列被挤成 0 宽（实测 name width: 0px）。
+ * 所以用 .priority-filter 前缀 + !important 覆盖这两处。
+ */
+.priority-filter .priority-filter-list {
+    min-height: 0 !important;
+    max-height: none !important;
+    gap: 4px !important;
+}
+
+.priority-filter .priority-filter-item {
+    /* 5 列：序号 / 手柄 / 中文名 / 英文代号 / 按钮组 —— 与老 UI task_priority 同构 */
+    /* 长卿 2026-11-18：「雪风大人这块可以放大一点」——行高 2.1→2.6rem，
+       padding 4/8 → 9/14，整体更舒展、更好点。 */
+    grid-template-columns: 2.2rem 1.4rem minmax(0, 1fr) minmax(6.5rem, auto) auto !important;
+    min-height: 2.6rem !important;
+    padding: 9px 14px !important;
+}
+
+/* 名称列：代号是短英文串，字号略小、允许点击选中复制 */
+.priority-filter .task-priority-name {
+    font-size: .95rem !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.priority-filter .task-priority-rank {
+    font-size: .85rem !important;
+    opacity: .7;
+}
+
+.priority-filter .task-priority-handle {
+    opacity: .55;
+    cursor: grab;
+}
+
+/* 操作按钮组：固定宽度，否则 justify-self:end 会把它撑到内容宽度、
+   把名称列挤成 0（实测 name width: 0px，界面上只能看到序号和按钮）。 */
+.priority-filter .priority-filter-actions {
+    display: flex;
+    gap: .2rem;
+    justify-self: end;
+    width: 6.6rem;
+    flex: 0 0 auto;
+}
+
+.priority-filter .priority-filter-actions .btn {
+    padding: 4px 9px !important;
+    font-size: .85rem !important;
+    line-height: 1.35 !important;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* 宿主容器：老 UI 的 .pywebio-scope-arg_container-* 是 grid「说明列 1fr / 控件列 auto」
+   （实测 726px + 208px），控件列只有 208px —— 4 列布局（序号/手柄/名称/按钮）
+   在这个宽度下名称只能分到 26px。优先级过滤器需要跨两列占满整行宽度。 */
+/* 宿主容器：老 UI 的 .pywebio-scope-arg_container-* 是 grid「说明列 1fr / 控件列 auto」
+   （实测 726px + 208px）。控件列只有 208px，5 列布局（序号/手柄/名称/代号/按钮）
+   在这个宽度下名称列会被压成 0 —— 界面上只能看到代号和按钮。
+   凡是容器内出现 .priority-filter，就把容器改成单列、子元素各占整行。
+   注意 scope 是 **id** 不是 class（PyWebIO 的 scope 命名约定），
+   写类选择器一条都不命中 —— 第一版就错在这里。 */
+[id^="pywebio-scope-arg_container-"]:has(.priority-filter) {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-auto-flow: row !important;
+}
+
+[id^="pywebio-scope-arg_container-"]:has(.priority-filter) > * {
+    grid-column: 1 / -1 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+[id^="pywebio-scope-arg_container-"]:has(.priority-filter) > *:last-child {
+    padding-right: 6px !important;
+}
+
+/* 拖拽兼容：老 UI 的 .task-priority-item 带 touch-action: none / user-select: none，
+   那是给它自己的 pointer 事件拖拽写的。HTML5 native drag 需要元素可被选中、
+   且不能被 touch-action 吃掉鼠标事件 —— 不覆盖的话表现为「鼠标放上去拖不动」
+   （长卿 2026-11-17 实测）。 */
+.priority-filter .priority-filter-item {
+    touch-action: auto !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    cursor: grab !important;
+}
+
+.priority-filter .priority-filter-item:active {
+    cursor: grabbing !important;
+}
+
+/* 拖拽手柄：命中区域要够大。长卿 2026-11-18：「拖拽位置少了，点半天才
+   选中」—— 原来只是一根 inline 的 ≡（约 10px 宽），手指点不准。
+   改成 28×28 热区，视觉仍是一根 ≡。 */
+.priority-filter .task-priority-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    margin: -6px 2px -6px -4px;  /* 负 margin：热区变大但不把行撑高 */
+    border-radius: 6px;
+    font-size: 1rem !important;
+    opacity: .8 !important;
+    letter-spacing: -.1em;
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.priority-filter .task-priority-handle:hover {
+    background: rgba(128, 128, 128, .16);
+    opacity: 1 !important;
+}
+.priority-filter .task-priority-handle:active {
+    cursor: grabbing;
+}
+
+/* 被拖起的行 */
+.priority-filter .task-priority-floating {
+    opacity: .55 !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .28) !important;
+}
+
+/* 名称/代号列不拦鼠标事件，避免拖拽起点落在文字上时被浏览器当成选中文本 */
+.priority-filter .task-priority-name,
+.priority-filter .task-priority-code {
+    pointer-events: none;
+}

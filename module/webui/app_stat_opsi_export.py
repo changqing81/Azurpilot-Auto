@@ -452,6 +452,52 @@ class OpsiExportMixin(WebUIMixinBase):
             )
         return buttons
 
+    # ---------- 合计条（纯 HTML 版，供 REST 面板复用） ----------
+
+    def _build_meow_strip_html(self, view, drop):
+        """「收获合计」条的纯 HTML 版本。
+
+        老 UI 的 _render_meow_loot_strip 用 put_widget + put_html().onclick
+        拼 PyWebIO 控件（chip 点击走会话回调）。REST 面板没有会话，
+        这里用同一个 _meow_strip_chip_html 生成 chip，拼成一整段 HTML；
+        chip 上的 data-meow-strip="<key>" 供前端事件委托接管。
+        """
+        if view["is_current"]:
+            title = t("Gui.Stat.MeowLootTitleCurrent")
+        else:
+            title = t(
+                "Gui.Stat.MeowLootTitleHistory",
+                month=f"{view['year']:04d}-{view['month']:02d}",
+            )
+        active = getattr(self, "_meow_item_filter", None)
+        totals = self._opsi_strip_totals(drop.get("items") or [])
+        chips = []
+        for key, suffix, icon_name, color in MEOW_LOOT_ITEMS:
+            total = totals.get(key, 0)
+            name = t(f"Gui.Stat.MeowLootItem{suffix}")
+            chips.append(
+                self._meow_strip_chip_html(
+                    key, name, color, icon_name, f"<b>{int(total):,}</b>"
+                )
+            )
+        other_label = t("Gui.Stat.OpsiDropCategoryOther")
+        other_color = _MEOW_CATEGORY_COLORS.get(CATEGORY_OTHER, "#888780")
+        chips.append(
+            self._meow_strip_chip_html(
+                "Other",
+                other_label,
+                other_color,
+                None,
+                f"<b>{html_escape(other_label)}</b>",
+            )
+        )
+        return (
+            '<div class="meow-loot-strip">'
+            f'<span class="meow-loot-strip-title">{html_escape(title)}</span>'
+            + "".join(chips)
+            + "</div>"
+        )
+
     # ---------- 左栏：掉落任务筛选 ----------
 
     def _meow_filter_placeables(self, drop):
@@ -516,6 +562,55 @@ class OpsiExportMixin(WebUIMixinBase):
             )
         )
         return placeables
+
+    # ---------- 左栏：掉落任务筛选（纯 HTML 版，供 REST 面板复用） ----------
+
+    def _build_meow_filter_html(self, drop):
+        """「掉落任务筛选」的纯 HTML 版。
+
+        老 UI 的 _meow_filter_placeables 用 put_buttons 造 8 个开关（会话回调）。
+        REST 面板没有会话：这里生成带 data-opsi-task="<suffix>" 的原生按钮，
+        选中态用 btn-primary、未选 btn-secondary（与老 UI 配色语义一致），
+        点击由前端事件委托接管 → 带 task 参数重新请求面板。
+        """
+        current = drop.get("genre")
+        tasks = drop.get("tasks") or {}
+        parts = [
+            '<div class="meow-loot-filter-head">'
+            f'<div class="meow-loot-filter-title">'
+            f'{t("Gui.Stat.OpsiDropFilterTitle")}</div>'
+            f'<div class="meow-loot-filter-hint">'
+            f'{t("Gui.Stat.OpsiDropFilterHint")}</div>'
+            "</div>",
+            '<div class="btn-group">',
+        ]
+        all_active = current is None or current == OPSI_DROP_FILTER_ALL
+        parts.append(
+            '<button type="button" class="btn btn-sm '
+            + ("btn-primary" if all_active else "btn-secondary")
+            + '" data-opsi-task="' + OPSI_DROP_FILTER_ALL + '">'
+            + html_escape(t("Gui.Stat.OpsiDropFilterAll"))
+            + "</button>"
+        )
+        for suffix, genres, counted in OPSI_DROP_TASKS:
+            if not counted:
+                continue
+            label = t(f"Gui.Stat.OpsiDropTask{suffix}")
+            count = self._opsi_task_record_count(genres, tasks)
+            active = current == suffix
+            parts.append(
+                '<button type="button" class="btn btn-sm '
+                + ("btn-primary" if active else "btn-secondary")
+                + '" data-opsi-task="' + html_escape(suffix) + '">'
+                + html_escape(f"{label} · {count:,}")
+                + "</button>"
+            )
+        parts.append("</div>")
+        parts.append(
+            f'<div class="meow-loot-filter-note">'
+            f'{t("Gui.Stat.OpsiDropSharedNote")}</div>'
+        )
+        return "".join(parts)
 
     # ---------- 右栏：掉落明细折叠块 ----------
 

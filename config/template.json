@@ -221,7 +221,7 @@
     "Scheduler": {
       "Enable": true,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Restart",
       "SuccessInterval": 0,
       "FailureInterval": 0,
@@ -242,7 +242,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Main",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -333,7 +333,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Main2",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -424,7 +424,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Main3",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -515,7 +515,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "GemsFarming",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -615,7 +615,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "GemsFarming2",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -715,7 +715,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "ThreeOilLowCost",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -815,7 +815,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Ambush11",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -926,7 +926,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Event",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -1017,7 +1017,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Event2",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -1108,7 +1108,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Event3",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -1199,7 +1199,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Raid",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -1257,7 +1257,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "RaidScuttle",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -1334,7 +1334,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Hospital",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -1377,7 +1377,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Coalition",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1435,7 +1435,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "CoalitionScuttle",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1496,7 +1496,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "MaritimeEscort",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1514,7 +1514,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "EventShop",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1535,7 +1535,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "WarArchives",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1631,7 +1631,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "EventA",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1721,7 +1721,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "EventB",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1811,7 +1811,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "EventC",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1901,7 +1901,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "EventD",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -1991,7 +1991,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "EventSp",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2077,7 +2077,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "RaidDaily",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2134,7 +2134,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "CoalitionSp",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2192,7 +2192,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Commission",
       "SuccessInterval": "30-60",
       "FailureInterval": "30-60",
@@ -2226,7 +2226,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Tactical",
       "SuccessInterval": "30-60",
       "FailureInterval": "120-240",
@@ -2258,7 +2258,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Research",
       "SuccessInterval": "30-60",
       "FailureInterval": "30-60",
@@ -2285,7 +2285,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Dorm",
       "SuccessInterval": 278,
       "FailureInterval": 278,
@@ -2318,7 +2318,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Meowfficer",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2347,7 +2347,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Guild",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2375,7 +2375,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Reward",
       "SuccessInterval": "120-240",
       "FailureInterval": "120-240",
@@ -2397,7 +2397,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Awaken",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -2416,7 +2416,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Secretary",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -2439,7 +2439,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OperationHandover",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2480,7 +2480,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Daily",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2511,7 +2511,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Hard",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2532,7 +2532,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Exercise",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2557,7 +2557,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "ShopFrequent",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2582,7 +2582,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "ShopOnce",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2634,7 +2634,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Shipyard",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2661,7 +2661,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Gacha",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2684,7 +2684,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Freebies",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2716,7 +2716,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "Minigame",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -2731,7 +2731,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "PrivateQuarters",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2778,7 +2778,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiAshBeacon",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2801,7 +2801,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiAshAssist",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2819,7 +2819,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiExplore",
       "SuccessInterval": 0,
       "FailureInterval": 0,
@@ -2845,7 +2845,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiShop",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2866,7 +2866,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiVoucher",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2884,7 +2884,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiDaily",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -2911,7 +2911,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiObscure",
       "SuccessInterval": 60,
       "FailureInterval": 60,
@@ -2934,7 +2934,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiAbyssal",
       "SuccessInterval": 60,
       "FailureInterval": 60,
@@ -2955,7 +2955,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiArchive",
       "SuccessInterval": 60,
       "FailureInterval": 60,
@@ -2974,7 +2974,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiStronghold",
       "SuccessInterval": 60,
       "FailureInterval": 60,
@@ -2997,7 +2997,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiMonthBoss",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3020,7 +3020,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiMeowfficerFarming",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -3056,7 +3056,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiHazard1Leveling",
       "SuccessInterval": 30,
       "FailureInterval": 60,
@@ -3106,7 +3106,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiScheduling",
       "SuccessInterval": 30,
       "FailureInterval": 30,
@@ -3141,7 +3141,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiPreventActionPointOverflow",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3161,7 +3161,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "OpsiCrossMonth",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3183,7 +3183,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandProductionPlanner",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3239,7 +3239,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandPlan",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3276,7 +3276,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandBusiness",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3357,7 +3357,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandFarm",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3399,7 +3399,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandRancher",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3447,7 +3447,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandMineForest",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3482,7 +3482,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandRestaurant",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3521,7 +3521,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandTeahouse",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3560,7 +3560,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandGrill",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3598,7 +3598,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandJuuEatery",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3636,7 +3636,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandJuuCoffee",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3675,7 +3675,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandManufacture",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3706,7 +3706,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandDailyGather",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3724,7 +3724,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandAirDrop",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3743,7 +3743,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandCargoPreparation",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3761,7 +3761,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandDailyOrder",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3781,7 +3781,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandDailyInteract",
       "SuccessInterval": 0,
       "FailureInterval": 120,
@@ -3799,7 +3799,7 @@
     "Scheduler": {
       "Enable": false,
       "PushNotification": false,
-      "NextRun": "2020-01-01 00:00:00",
+      "NextRun": "2026-01-01 00:00:00",
       "Command": "IslandPearlSell",
       "SuccessInterval": 0,
       "FailureInterval": 120,

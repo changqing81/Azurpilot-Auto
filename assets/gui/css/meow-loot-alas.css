@@ -380,6 +380,27 @@
 	content: "\25BE";
 }
 
+
+/* ---------- 两栏布局（左栏任务筛选 / 右栏明细）---------- */
+/* 用 class 而不是内联 grid：老 UI 原本靠
+   div[style*="grid-template-columns: 168px minmax(0, 1fr)"] 匹配内联样式，
+   但 React 序列化会写成 minmax(0px, 1fr)（实测），属性选择器匹配不上，
+   移动端媒体查询全部失效 —— 窄屏右栏被挤到 87~109px，侵蚀卡里的指标
+   字变成一字一行（长卿 2026-11-17 图三）。class 版不依赖 style 原文。 */
+#pywebio-scope-meow_loot_scope .meow-loot-two-col {
+	display: grid;
+	grid-template-columns: 168px minmax(0, 1fr);
+	align-items: start;
+	gap: 14px;
+}
+
+@media (max-width: 760px) {
+	/* 窄屏折叠成单列：筛选器在上、明细在下 */
+	#pywebio-scope-meow_loot_scope .meow-loot-two-col {
+		grid-template-columns: minmax(0, 1fr) !important;
+	}
+}
+
 /* ---------- 窄屏 ---------- */
 
 /* 远控手机小屏（≤760px）：两行 put_row 都是「1fr/168px + auto」的网格，

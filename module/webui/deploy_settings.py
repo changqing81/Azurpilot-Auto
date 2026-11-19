@@ -116,6 +116,13 @@ DEPLOY_GROUPS: tuple[tuple[str, tuple[DeployField, ...]], ...] = (
             DeployField("DpiScaling", "bool"),
             DeployField("Password", "nullable_string"),
             DeployField("CDN", "cdn"),
+            # 注意：**界面版本（UI）故意不在这里**。
+            # 它是一个「点一下就切换并自动重启」的操作，不是普通表单字段：
+            # 放下拉框里会出现「改了下拉但没点保存 = 什么都没发生」的死角，
+            # 而且改完还要用户自己再点重启。老 UI / 新 UI 的设置页各有专用面板
+            # （老 UI: app_developer_settings.py 的 #ui-switch-panel；
+            #   新 UI: pages/settings/index.tsx 的 group_ui1），
+            # 两者都走 /newapi/ui + /newapi/ui/switch + /newapi/restart。
             DeployField("WebuiSSLKey", "nullable_string"),
             DeployField("WebuiSSLCert", "nullable_string"),
         ),
@@ -182,6 +189,49 @@ def save_deploy_settings(data: dict[str, Any]) -> dict[str, Any]:
 
     State.deploy_config.write()
     State.deploy_config.read()
+
+    # 主题是**三重状态**：deploy.yaml 里的 Theme、State.theme、AlasGUI.theme。
+    # 老 UI 切主题走 app_shell.py:set_theme()，三者一起改；
+    # 而这里（新 UI 的部署设置保存）原先只写了配置文件，导致：
+    #   data.get_theme_name() 优先读 State.theme → 拿到启动时的旧值
+    #   → /newapi/theme-css 永远返回旧主题 → 新 UI 点主题「完全没用」。
+    # 现在保存后同步另外两处，与新老 UI 两条链路保持一致。
+    if "Theme" in updates:
+        from module.webui.app_shell import normalize_webui_theme
+
+        theme = normalize_webui_theme(updates["Theme"])
+        State.theme = theme
+        try:
+            from module.webui.app import AlasGUI
+
+            AlasGUI.theme = theme
+        except Exception:  # noqa: BLE001 —— 导入失败不影响配置已落盘
+            pass
+        State.deploy_config.Theme = theme
+
+    # 语言与主题同理，**也是三重状态**：deploy.yaml 的 Language /
+    # module.webui.lang.LANG（真正决定 t() 返回什么）/ 各语言的已加载词条。
+    # 原先这里只写了配置文件，导致新 UI 点「English / 日本語」界面文字一字不动
+    # ——「切换语言是没有用的」这个反馈就是这么来的。
+    if "Language" in updates:
+        from module.config.utils import LANGUAGES
+
+        language = str(updates["Language"] or "").strip()
+        if language in LANGUAGES:
+            State.deploy_config.Language = language
+            try:
+                from module.webapi.app import sync_runtime_language
+
+                sync_runtime_language(language)
+            except Exception:  # noqa: BLE001
+                # webapi 未挂载（纯老 UI 场景）时退回老 UI 自己的链路
+                try:
+                    from module.webui import lang as _lang
+
+                    _lang.set_language(language)
+                except Exception:  # noqa: BLE001
+                    pass
+
     return {"updated": sorted(updates)}
 
 
@@ -289,7 +339,15 @@ def _parse_value(field: DeployField, value: Any) -> Any:
 
     if field.kind == "select":
         value = str(value or "").strip()
-        if value not in field.options:
+        # options 支持两种写法：
+        #   1) 纯值元组 ("default", "dark", ...)                 —— 老字段
+        #   2) (值, 显示名) 二元组 (("legacy","老 UI"), ...)      —— 需要中文显示名的字段（如 UI）
+        # 校验时统一取「值」那一维比较，否则带标签的选项永远匹配不上。
+        allowed = [
+            opt[0] if isinstance(opt, (tuple, list)) and opt else opt
+            for opt in field.options
+        ]
+        if value not in allowed:
             raise ValueError(f"{field.key} 的值无效")
         return value
 

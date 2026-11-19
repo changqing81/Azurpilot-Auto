@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AzurPilot</title>
+    <!-- 12 个老 UI 样式表合并为一个响应（/newapi/bundle.css）：
+         浏览器原本要等 12 个渲染阻塞请求串行下完才画第一帧；合并后只剩 1 个往返。
+         合并顺序与原 <link> 顺序完全一致（见 module/webapi/data.py:_BUNDLE_CSS_FILES），
+         层叠优先级不变。主题层（light/dark/…）仍单独由 /newapi/theme-css 动态注入。 -->
+        <!-- 实验：独立 link，顺序与老 UI 完全一致 -->
+    <link rel="stylesheet" href="/pywebio_static/css/markdown.min.css" />
+    <link rel="stylesheet" href="/pywebio_static/css/codemirror.min.css" />
+    <link rel="stylesheet" href="/pywebio_static/css/toastify.min.css" />
+    <link rel="stylesheet" id="alas-bs-theme" href="/pywebio_static/css/bs-theme/default.min.css" />
+    <link rel="stylesheet" href="/pywebio_static/css/bootstrap-select.min.css" />
+    <link rel="stylesheet" href="/pywebio_static/css/app.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/alas.css" />
+    <!-- 移动端分支：alas-pc.css 由 main.tsx 按 UA 换成 alas-mobile.css（老 UI 的
+         utils.py:webui_style_names 同样按 is_mobile 二选一）。这里用 id 方便脚本定位。 -->
+    <link rel="stylesheet" id="alas-layout-css" href="/static/assets/gui/css/alas-pc.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/entry-alas.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/statistics-alas.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/stat-delta-alas.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/meowfficer-score-alas.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/meow-loot-alas.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/fleet-tech-alas.css" />
+    <link rel="stylesheet" href="/static/assets/gui/css/fleet-management-alas.css" />
+    <!-- 主题层（light/dark/advanced-material/transparent）**不在这里**：
+         它必须由 main.tsx 按 /newapi/theme-css 返回的当前主题动态注入，
+         否则会与后续注入的主题层叠加，出现深色主题「深底浅块」的脏配色。 -->
+    <!-- 首屏骨架：SPA 必须等 JS 下载+解析+React 挂载才画，实测 FCP 比服务端直出的
+         老 UI 慢约 400ms。把骨架内联在 index.html 里（CSS+HTML 都在文档流内），
+         浏览器解析到就能画——FCP 回到 100ms 级，React 挂载后由 app 代码移除。
+         结构与老 UI 的 #alas-page-skeleton 语义一致（title + 递减宽度线条）。 -->
+    <style>
+      /* 骨架按真实壳层形态摆位：左侧窄栏（对应 aside+menu）+ 内容区卡片，
+         避免加载瞬间看到一个与最终布局无关的方块。
+         ⚠️ 这里**不能**给 html/body 设 background：
+         这段内联 <style> 排在 bundle.css 之后，会盖掉主题层的
+         dark-alas.css 里 body{background-color:#2f3136}，导致 dark 主题
+         出现"深色卡片 + 浅灰底色"的错配色（实测 bodyBg 被覆盖成 #f9f9f9）。
+         底色交给主题层决定；骨架自己带背景，遮住下面的空白即可。 */
+      body { margin: 0; }
+      /* 骨架自带底色（不继承 body），并按 prefers-color-scheme 切换，
+         避免深色主题下首帧闪一块大白。 */
+      #alas-boot-skeleton {
+        display: grid; grid-template-columns: 264px 1fr;
+        position: fixed; inset: 50px 0 0 0;
+        background: #f9f9f9; color: #7a7a8c;
+      }
+      @media (prefers-color-scheme: dark) {
+        #alas-boot-skeleton { background: #1e1f22; }
+        #alas-boot-skeleton .sk-card { background: #2b2d31; border-color: #3a3d42; }
+        #alas-boot-skeleton .sk-rail { background: #232428; border-right-color: #303237; }
+        #alas-boot-skeleton .sk-title,
+        #alas-boot-skeleton .sk-line {
+          background: linear-gradient(90deg, #33363b 25%, #3d4045 50%, #33363b 75%);
+        }
+        #alas-boot-skeleton .sk-text { color: #9aa0a6; }
+      }
+      #alas-boot-skeleton .sk-rail { background: #fff; border-right: 1px solid #eee; }
+      #alas-boot-skeleton .sk-card {
+        margin: .625rem; padding: 1rem 1.25rem; border-radius: 16px;
+        background: #fff; border: 1px solid #e0e0e0; align-self: start;
+      }
+      #alas-boot-skeleton .sk-title {
+        width: 32%; height: 20px; border-radius: 6px; margin-bottom: 12px;
+        background: linear-gradient(90deg, #eef0f4 25%, #f7f8fa 50%, #eef0f4 75%);
+        background-size: 200% 100%; animation: sk-shimmer 1.2s ease-in-out infinite;
+      }
+      #alas-boot-skeleton .sk-line {
+        height: 12px; border-radius: 6px; margin: 8px 0;
+        background: linear-gradient(90deg, #eef0f4 25%, #f7f8fa 50%, #eef0f4 75%);
+        background-size: 200% 100%; animation: sk-shimmer 1.2s ease-in-out infinite;
+      }
+      /* FCP 只统计「文本或图像」的首次绘制，纯色块不算 contentful paint。
+         所以骨架里必须有一段真实文字，否则 FCP 仍要等到 React 渲染完。 */
+      #alas-boot-skeleton .sk-text {
+        font: 500 14px/1.5 'MiSans', 'Microsoft YaHei', sans-serif;
+        color: #7a7a8c; margin-bottom: 14px;
+      }
+      @keyframes sk-shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+      /* React 挂载完成的标记：root 有子节点时骨架自动退场（纯 CSS，无需 JS） */
+      body:has(#root > div) #alas-boot-skeleton { display: none; }
+    </style>
+  </head>
+  <body class="webio-theme-default no-animation">
+    <!-- 老 UI 的前端工具库：直接引用**同一份** assets/gui/js/alas-utils.js
+         （由 /static/assets 挂载，新老 UI 共用，不做副本）。
+         导出 window.alasToggleLivePreview / alasShowAnnouncement / alasHasBeenShown。
+         它是 4 个自包含 IIFE + 内联样式，不依赖老 UI 的任何 DOM，
+         所以新 UI 直接复用整套「截图预览（scrcpy+H.264）/ 公告弹窗」，
+         不必重写 1600 行解码与控制逻辑。用经典 <script>（非 module）加载，
+         保证在 React 之前同步可用。 -->
+    <script src="/static/assets/gui/js/alas-utils.js"></script>
+    <div id="root"></div>
+    <div id="alas-boot-skeleton" aria-hidden="true">
+      <div class="sk-rail"></div>
+      <div class="sk-card">
+        <div class="sk-text">正在加载 AzurPilot…</div>
+        <div class="sk-title"></div>
+        <div class="sk-line" style="width:88%"></div>
+        <div class="sk-line" style="width:77%"></div>
+        <div class="sk-line" style="width:66%"></div>
+        <div class="sk-line" style="width:55%"></div>
+        <div class="sk-line" style="width:44%"></div>
+        <div class="sk-line" style="width:33%"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

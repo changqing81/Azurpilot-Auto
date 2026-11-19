@@ -1,0 +1,1422 @@
+/* 新 UI 专用样式（所有规则必须带 #root 前缀）。
+ *
+ * 背景：老 UI 和新 UI 共用 assets/gui/css/** 下的 10+ 份样式表。
+ * 2026-11-17 我为了修新 UI 的毛玻璃直接改了 advanced-material-alas.css，
+ * 把老 UI 高级材质主题的卡片也变成白块 —— 严重错误，已回滚（98117620b）。
+ * 之后长卿明确：「我要半透明那样子，不是半透明的话都是死，不管新老UI都一样」
+ * —— 所以半透明改在共享 CSS 里统一处理，四个主题各自用 --alas-apple-card-bg
+ * 取值，新老 UI 自动一致。
+ *
+ * 本文件只放新 UI 独有样式。老 UI 是 PyWebIO 直接渲染到 body、没有 #root 节点，
+ * 所以 #root 下的规则对老 UI 完全不生效。
+ */
+
+/* ============================================================
+   移动端触控目标增强（新 UI 专用，#root 前缀隔离）
+   ------------------------------------------------------------
+   远控手机端实测（长卿 2026-11-18）：统计页 btn-sm 按钮组（科研
+   期数/周期、舰队科技筛选）触控目标仅 ~38px 高、间距 0.3rem，
+   手机触屏下频繁误触/点不中。老 UI 同样存在，但只在新 UI 修
+   （#root 前缀隔离，不影响老 UI）。≥760px（桌面）不生效。
+   ============================================================ */
+@media (max-width: 760px) {
+  #root .btn-sm {
+    min-height: 40px;
+    padding-top: 6px;
+    padding-bottom: 6px;
+  }
+  #root .btn-group .btn-sm,
+  #root .btn + .btn.btn-sm {
+    margin-left: 4px;
+    margin-right: 4px;
+  }
+}
+
+/* ============================================================
+   配置页/统计页滚动条抖动修复（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：配置页点选项、输入文字、保存时页面"弹一下"，
+   切配置页时也弹——是 Windows 经典滚动条出现/消失导致内容宽度
+   突变（约 17px 全局重排）。scrollbar-gutter: stable 让滚动条槽位
+   常驻，宽度恒定不再跳。只作用于新 UI（#root 内），老 UI 不变。
+   ============================================================ */
+#root #pywebio-scope-content,
+#root #pywebio-scope-statistics-content {
+  scrollbar-gutter: stable;
+}
+
+/* ============================================================
+   体力图工具栏手机端换行（新 UI 专用）
+   长卿 2026-11-18 截图：412px 宽下标题被 grid auto 列挤成几十像素，
+   中文逐字换行成竖排。手机端把工具栏改纵向堆叠：标题一行占满。
+   ============================================================ */
+@media (max-width: 760px) {
+  #root #pywebio-scope-ap_chart div[style*="grid-auto-flow: column"] {
+    grid-auto-flow: row !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 6px;
+  }
+  #root #pywebio-scope-ap_chart div[style*="grid-auto-flow: column"] > div:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* 触屏拖拽任务优先级：handle 区禁用浏览器默认触摸行为，
+   否则 touchmove 被当作滚动、preventDefault 无效（长卿手机实测拖不动）。 */
+#root .task-priority-handle {
+  touch-action: none;
+}
+#root .task-priority-list {
+  touch-action: pan-x;
+}
+
+/* 心智计算器工具栏对齐（新 UI 专用）：老 CSS 对齐规则全是 ".form-group > .btn"，
+   新 UI 按钮是裸 button 一条不命中 → 扫描按钮与输入框尺寸/对齐偏移。
+   把同等规则复制给裸元素（#root 隔离，老 UI 不变）。 */
+#root #pywebio-scope-ft_mind_toolbar > button.btn,
+#root #pywebio-scope-ft_mind_filters > button.btn {
+  height: 38px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 18px !important;
+}
+#root #pywebio-scope-ft_mind_toolbar > input.form-control {
+  height: 38px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+/* ============================================================
+   仪表盘随日志跳动的修复（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「仪表盘这块会跟着日志区跳动，老 UI 也有这问题」。
+
+   实测（总览页 1364px 高）：
+     #pywebio-scope-logs        grid-template-rows: auto 1fr
+     #pywebio-scope-log-bar     h=449（在 auto 行，含仪表盘 288）
+     #pywebio-scope-log         scrollH=5208 clientH=410
+
+   仪表盘数据刷新是「清空元素 → 重新插入」，重建瞬间内容高度塌陷 →
+   auto 行变矮 → 1fr 行（日志）变高 → 整块重排，视觉上就是仪表盘
+   跟着日志上下跳。老 UI 只加了 overflow-anchor:none（防滚动锚定），
+   管不到 grid 行高重排，所以老 UI 也有这毛病。
+
+   修法：给 auto 行的容器一个不塌陷的下界。用 min-height 而不是 height，
+   仪表盘变多时仍能自然增高，只是不会再「瞬间塌到 0 再弹回来」。
+   ============================================================ */
+#root #pywebio-scope-log-bar {
+  min-height: 3.2rem;       /* 表头 + 按钮行的高度，仪表盘塌陷时不至于缩没 */
+  align-content: start;
+}
+
+/* 仪表盘容器自身也锁定最小高度：刷新重建期间不参与高度协商。 */
+#root #pywebio-scope-dashboard {
+  min-height: 56px;         /* 单行仪表盘的最小占位（实测单条目 ~56px） */
+  contain: layout;          /* 内部重排不向上传播到 grid 行高 */
+  overflow-anchor: none;    /* 不参与滚动锚定 */
+}
+
+/* log-container 在 flex 布局里默认 min-height:auto —— 子元素撑大时它不收缩，
+   会把 grid 的 1fr 行顶出去。显式 min-height:0 是 flex/grid 防溢出的标准做法。 */
+#root #pywebio-scope-log-container {
+  min-height: 0;
+}
+
+/* 触屏拖拽任务优先级：handle 需要 touch-action:none，否则移动端 pointermove
+   会被浏览器当作滚动手势吞掉（preventDefault 也无效）。 */
+#root .task-priority-handle {
+  touch-action: none;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+}
+#root .task-priority-handle:active {
+  cursor: grabbing;
+}
+
+/* 图源管理弹窗深色主题适配（新 UI 专用）：裸 checkbox 不跟随主题，
+   Bootstrap 的 .form-check-input 才跟随；弹窗卡片 .card 是白底。 */
+/* ⚠️ 选择器必须是「自身」而不是后代：alas-src-modal 就加在 .card 元素本身上，
+   写成 `.alas-src-modal .card` 要求 .card 是它的后代 —— 永远不命中，
+   这就是「改了没效果、还是白底」的原因（长卿 2026-11-18 二次反馈）。 */
+#root .alas-src-modal.card,
+#root .alas-src-modal .card {
+  background: var(--alas-apple-card-bg, var(--st-surface, #fff)) !important;
+  color: var(--alas-content-text, inherit);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(128, 128, 128, 0.22);
+}
+#root .alas-src-modal input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(128, 128, 128, 0.45);
+  background: rgba(128, 128, 128, 0.28);
+  position: relative;
+  cursor: pointer;
+  transition: background .18s, border-color .18s;
+  flex: 0 0 auto;
+}
+#root .alas-src-modal input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform .18s;
+}
+#root .alas-src-modal input[type="checkbox"]:checked {
+  background: var(--bs-primary, #4f6ef7);
+  border-color: transparent;
+}
+#root .alas-src-modal input[type="checkbox"]:checked::before {
+  transform: translateX(14px);
+}
+
+/* ============================================================
+   数据刷新不得重播「入场淡入」动画（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「总览这块这些方块都会闪 在运行途中 闪来闪去」
+   「我猜是数据更新时一闪一闪的 我不需要这要闪」。
+
+   根因（CDP 实测 22267 /new/#/overview/alas，57 秒窗口）：
+     整页 load 次数 = 1（不是页面在重新加载）
+     #pywebio-scope-overview 子树变动 23 次
+     animationstart 计数：
+       pywebio-scope-log-bar                  <- ios-slide-up  4 次
+       pywebio-scope-scheduler-bar / stat-bar <- ios-slide-up  各 2 次
+   首屏只该有 1 次，多出来的全部来自 15 秒一次的数据轮询。
+
+   为什么：新 UI 的数据是「整块 HTML 字符串 + dangerouslySetInnerHTML」
+   替换进容器的（见 pages/home/index.tsx 的 schedulersHtml / logBarHtml）。
+   字符串一变，React 就把 innerHTML 整个换掉 → 卡片节点销毁重建 →
+   advanced-material-alas.css:468/491/1216 挂的
+   `animation: ios-slide-up ... both`（opacity 0 → 1）从第 0 帧重播，
+   整排卡片重新淡入一次，看起来就是「闪一下」。
+   老 UI 由 PyWebIO 原地更新子节点，scope 容器本身不重建，所以只播一次。
+
+   这里对 #root 关掉这批卡片的入场动画。老 UI 没有 #root，不受影响。
+   代价只是首屏那 0.26s 淡入消失，换来数据刷新时零闪烁。
+   ============================================================ */
+#root #pywebio-scope-scheduler-bar,
+#root #pywebio-scope-stat-bar,
+#root #pywebio-scope-running,
+#root #pywebio-scope-pending,
+#root #pywebio-scope-waiting,
+#root #pywebio-scope-log-bar,
+#root #pywebio-scope-dashboard,
+#root #pywebio-scope-image-container,
+#root [id^="pywebio-scope-overview-task_"],
+#root #pywebio-scope-opsi_stats,
+#root #pywebio-scope-ap_chart,
+#root #pywebio-scope-ship_exp_table,
+#root #pywebio-scope-commission_income,
+#root #pywebio-scope-research_stats {
+  animation: none !important;
+}
+
+
+/* 任务优先级拖拽手感（新 UI 专用）
+   长卿 2026-11-18：「能拖拽了 但是拖拽很生硬」。
+   ① 拖动中的行浮起（阴影+缩放+半透明），明确「我正抓着它」；
+   ② 其余行位置变化加 transition，重排时是滑过去而不是瞬移。 */
+#root .priority-filter-item {
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+/* ⚠️ 拖拽期间必须关掉过渡：连续重排时 0.12s 动画会排队播放，
+   每一行都在「追赶」上一帧的位置，视觉上就是光标追不上鼠标、像帧率很低。
+   长卿 2026-11-18：「卡是光标追不上鼠标 会在后面追」。 */
+#root .priority-filter-list.is-dragging .priority-filter-item {
+  transition: none !important;
+}
+/* 拖起的那一行仍然保留阴影/缩放（瞬时应用，不加过渡） */
+#root .priority-filter-list.is-dragging .priority-filter-item.task-priority-floating {
+  transition: none !important;
+}
+#root .priority-filter-item.task-priority-floating {
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .28);
+  transform: scale(1.012);
+  opacity: .92;
+  background: var(--alas-apple-card-bg-solid, var(--st-surface, #fff));
+  z-index: 2;
+}
+/* 配置页右侧分组导航往右靠（新 UI 专用）
+   长卿 2026-11-18：「图片2这里可以往右边移动一点 其他的地方也是一样的」。
+   结构 #pywebio-scope-_groups 是 grid「0 / minmax(25rem,5fr) / 1fr」，
+   导航在第三列（1fr）默认顶左排列，右侧留一大片空白。改成靠右对齐。 */
+#root #pywebio-scope-navigator {
+  justify-self: end;
+  margin-right: .5rem;
+}
+
+/* ============================================================
+   新 UI 二级框统一主题化（所有 .card 容器）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「高级材质暗色下这种二级框都是错误的白色底」
+   「其他的地方也是一样的」。
+
+   根因：新 UI 的弹窗/面板容器都用 Bootstrap 的 .card，它的背景来自
+   --bs-card-bg（白色），而 advanced-material / dark 主题只给特定 scope
+   里的卡片（.opsi-card / .metric / #pywebio-scope-commission_income …）
+   换了背景，**裸 .card 一条规则都没有** → 暗色下全是白块。
+
+   这里统一给新 UI 的 .card 用主题变量（亮 0.72 / 暗 0.78 的半透明），
+   与老 UI 指标卡同一套视觉语言。老 UI 不受影响（#root 隔离）。
+   ============================================================ */
+#root .card {
+  background: var(--alas-apple-card-bg, var(--st-surface, #fff)) !important;
+  color: var(--alas-content-text, inherit);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  border: 1px solid rgba(128, 128, 128, 0.22);
+}
+
+/* 新 UI 表格主题化（更新器/科研等页面的 .research-table）
+   长卿 2026-11-18：「这个更新器这块完全是白色的」。
+   根因：.research-table 这个类名在整个仓库里没有任何样式定义（老 assets
+   里没有、新 CSS 里也没有）。老 UI 更新器用 PyWebIO put_table 靠 Bootstrap
+   表格样式跟随主题；新 UI 直接写 <table>，于是用浏览器默认外观——白底黑框。
+   这里按主题变量补一套表格样式，#root 隔离，老 UI 不受影响。 */
+#root .research-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+  color: var(--alas-content-text, inherit);
+  font-size: .85rem;
+}
+#root .research-table th,
+#root .research-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(128, 128, 128, .22);
+  text-align: left;
+  vertical-align: top;
+  background: transparent;
+  color: inherit;
+}
+#root .research-table th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+#root .research-table tbody tr:hover {
+  background: rgba(128, 128, 128, .1);
+}
+#root .research-table td:last-child {
+  word-break: break-word;
+}
+
+/* ============================================================
+   根因兜底：markdown-body 把表格每一行强制刷成白底（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-18：「为什么还有」（更新器表格仍白）。
+
+   上一版我给 .research-table 设了 background:transparent，但没用 ——
+   真正刷白的是 **PyWebIO 自带的 markdown.min.css**（GitHub 风格）：
+     .markdown-body table tr               { background-color:#fff }
+     .markdown-body table tr:nth-child(2n) { background-color:#f6f8fa }
+     .markdown-body table td/th            { border:1px solid #dfe2e5 }
+   而新 UI 的 Shell 整个页面都包在 <div class="markdown-body"> 里
+   （为了复用老 CSS 的结构同构），所以**每一个 <table> 都中招**。
+
+   老 CSS 只对特定 scope 做过 tr 透明（rd-table / opsi_stats /
+   ship_exp_table / commission_income），全局这条一直没管。
+   这里用 #root 前缀在**全局层面**兜底，且特异度足够压过 markdown.min.css。
+   ============================================================ */
+#root .markdown-body table,
+#root .markdown-body table thead,
+#root .markdown-body table tbody {
+  background-color: transparent !important;
+}
+#root .markdown-body table tr {
+  background-color: transparent !important;
+  border-top: 0 !important;
+}
+#root .markdown-body table tr:nth-child(2n) {
+  background-color: transparent !important;
+}
+#root .markdown-body table th,
+#root .markdown-body table td {
+  background-color: transparent !important;
+  border: 0 !important;
+  color: inherit;
+}
+
+/* .log-btn：多处页面（OOBE 引导 / 设置页刷新）在用，但**全仓库没有样式定义**，
+   于是渲染成浏览器默认按钮（白底凸起黑边，90 年代外观）。
+   长卿 2026-11-18 截图「这种东西能不能删除了」即此。
+   这里给一套跟随主题的胶囊按钮样式，与老 UI 的 .btn 观感一致。 */
+#root .log-btn {
+  appearance: none;
+  border: 1px solid var(--alas-apple-glass-border, rgba(128,128,128,.35));
+  background: var(--alas-apple-card-bg, rgba(255,255,255,.6));
+  color: inherit;
+  font: inherit;
+  font-size: .85rem;
+  line-height: 1.4;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background .15s, border-color .15s;
+}
+#root .log-btn:hover {
+  border-color: var(--alas-apple-accent, #2563eb);
+  background: var(--alas-apple-accent-light, rgba(37,99,235,.18));
+}
+#root .log-btn.st-tab-active {
+  border-color: var(--alas-apple-accent, #2563eb);
+  background: var(--alas-apple-accent-light, rgba(37,99,235,.2));
+  color: var(--alas-apple-accent, #2563eb);
+  font-weight: 600;
+}
+
+/* ============================================================
+   界面动效（新 UI 专用）· v2 远控友好版 —— 长卿 2026-11-19：
+   「它不动啊，完全不动，只有按钮会跳动一下，还特别卡」。
+
+   v1 失败的原因：动画全用 transform（位移/缩放），远控视频流帧率只有
+   5-15fps，0.22-0.34s 的 transform 动画只有 2-5 帧 —— 看起来就是
+   「凭空出现」，感知不到任何过渡；按钮的 :active transform 还要等
+   远控回路回来才看到反馈（200-500ms 延迟），像「跳动一下」。
+
+   v2 改为**远控友好的 opacity 动画**：透明度渐变在低帧率下不会跳变，
+   只改合成层属性、不触发 layout/paint，即使 5fps 也能看到平滑渐变。
+   时长同时拉长（.4-.5s），低帧率下帧数翻倍。
+   ============================================================ */
+
+/* ① 页面切换：纯 opacity 淡入（低帧率下也不跳变）。 */
+@keyframes alas-page-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#root #pywebio-scope-content {
+  animation: alas-page-in .4s ease-out;
+}
+
+/* ② 弹窗遮罩：淡入。 */
+@keyframes alas-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#root .alas-modal-overlay {
+  animation: alas-overlay-in .3s ease-out;
+}
+
+/* ③ 弹窗卡片：纯 opacity 淡入（本机上看仍柔和；不再用 scale —— 位移类
+   在远控下必然跳变）。 */
+@keyframes alas-modal-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#root .alas-modal-overlay .card {
+  animation: alas-modal-in .4s ease-out;
+}
+
+/* ④ 更新/错误通知：覆盖老 CSS 的 transform 动画为纯 opacity 版本。
+   老 keyframes（alas-update-notice-in/out/attention）都是 translate3d，
+   远控下全是跳帧；这里在本机动画列表里替换成 fade 版本。 */
+@keyframes alas-update-notice-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes alas-update-notice-attention {
+  0%, 100% { opacity: 1; }
+  45%      { opacity: .82; }
+}
+#root .alas-update-notice {
+  animation: alas-update-notice-in .5s ease-out,
+    alas-update-notice-attention 1.8s ease-in-out .5s 3 !important;
+}
+
+/* ⑤ 按钮按压：**去掉 transform**（远控下反馈延迟 200-500ms，是「跳动」
+   的来源），只保留颜色过渡 —— 颜色变化即使晚一拍也不像"卡"。 */
+#root .btn {
+  transition: color .15s, background-color .15s, border-color .15s, box-shadow .15s;
+}
+
+/* ⑥ 无障碍：系统开启「减少动态效果」时跳过上述所有动画。 */
+@media (prefers-reduced-motion: reduce) {
+  #root #pywebio-scope-content,
+  #root .alas-modal-overlay,
+  #root .alas-modal-overlay .card,
+  #root .alas-update-notice {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   新 UI 高级材质：恢复半透明毛玻璃 + 消除「双面底」
+   ------------------------------------------------------------
+   长卿 2026-11-19：「新 UI 性能够，把高级材质两个主题的实底换回
+   半透明毛玻璃；有些地方是双面底（基础底上再叠第二个黑底），改成
+   一层，界面清爽点」。
+
+   背景：老 UI 因性能瓶颈把按秒刷新的卡片换成 --alas-apple-bar-bg
+   高不透明实底（advanced-material-alas.css:471 注释，实测 78 个
+   blur 元素时主线程被占满）。新 UI 页面结构简单、卡片数量少，
+   不需要这条妥协。
+
+   实现全部走 #root 前缀：老 UI 是 PyWebIO 渲染在 body 直下、没有
+   #root 节点，本节规则对老 UI 零影响（红线：不为新 UI 改共享 CSS）。
+   ============================================================ */
+
+/* 1) 薄玻璃：按主题给「一层」半透明底
+   ------------------------------------------------------------
+   老 UI 的 --alas-apple-card-bg 是 0.78(暗)/0.72(亮)，为了性能；
+   新 UI 卡片少、GPU 够，改成更薄的玻璃，让壁纸真正透出来
+   （长卿 2026-11-19：「改成薄玻璃半透明那种」）。
+
+   为什么需要两个分支：advanced_material 和 dark_advanced_material 在 body 上都
+   是 webio-theme-default（老 UI 的 pywebio_theme_for 只把 dark 映射成 dark），
+   CSS 分不出明暗。main.tsx 的 applyTheme 会把主题名写到
+   html[data-alas-theme]，这里按它分支 —— 不依赖系统 prefers-color-scheme
+   （主题由 deploy 决定，与系统偏好无关）。
+
+   只在 #root 下重定义变量，老 UI（无 #root）继续用共享 CSS 的原值。 */
+html[data-alas-theme='dark_advanced_material'] #root {
+  --alas-apple-card-bg: rgba(15, 23, 42, 0.52);
+  --alas-apple-bar-bg: rgba(15, 23, 42, 0.52);
+}
+html[data-alas-theme='advanced_material'] #root {
+  --alas-apple-card-bg: rgba(255, 255, 255, 0.52);
+  --alas-apple-bar-bg: rgba(255, 255, 255, 0.52);
+}
+
+/* 2) 恢复被 advanced-material-alas.css:483 关掉的毛玻璃：
+      总览分组卡、调度器/统计条、运行/队列/等待卡、截图容器。
+      blur(16px) 与普通玻璃卡（:459）同一档。 */
+#root #pywebio-scope-running,
+#root #pywebio-scope-pending,
+#root #pywebio-scope-waiting,
+#root #pywebio-scope-scheduler-bar,
+#root #pywebio-scope-stat-bar,
+#root #pywebio-scope-image-container,
+#root [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(#pywebio-scope-aside):not(#pywebio-scope-navigator) {
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+}
+
+/* 3) 统计页表格的「双面底」：外层面板已是半透明玻璃，
+      dark-advanced-material-overrides-alas.css:335/344 又给 th/td 垫了
+      0.96/0.92 实底 —— 深上叠深，糊成灰块。
+
+      ⚠️ 这里必须用**主题自适应变量**，不能写死深色值：
+      上一版我写了 rgba(15,23,42,.35)，结果切到亮色高级材质（advanced_material）
+      时科研表格变成一块黑底（长卿 2026-11-19 手机截图：「科研这个地方怎么是
+      黑色的呢」）。--st-surface-muted 由 statistics-alas.css:28 定义，
+      链路是 --alas-entry-surface-muted，亮色/暗色两个主题各有自己的值。
+      透明度用 color-mix 压薄，避免又变成实底。 */
+#root #pywebio-scope-opsi_stats .simple-table th,
+#root #pywebio-scope-ship_exp_table .simple-table th,
+#root #pywebio-scope-research_stats .simple-table th {
+  background: color-mix(in srgb, var(--st-surface-muted, transparent) 55%, transparent) !important;
+}
+#root #pywebio-scope-opsi_stats .simple-table td,
+#root #pywebio-scope-ship_exp_table .simple-table td,
+#root #pywebio-scope-research_stats .simple-table td {
+  background: color-mix(in srgb, var(--st-surface-muted, transparent) 42%, transparent) !important;
+}
+
+/* ============================================================
+   消除「双层底」—— 同一页面上叠了多层同色不透明底
+   ------------------------------------------------------------
+   长卿 2026-11-19：「这不还是双层吗？把这一个底给删了，改成薄玻璃」
+   「其他地方也都改一下」。
+
+   CDP 实测统计页（暗色高级材质）的嵌套链：
+     #pywebio-scope-opsi_stats   rgba(15,23,42,0.78) + blur(6px)   ← 外层
+       #pywebio-scope-ap_chart   rgba(15,23,42,0.78) + blur(6px)   ← 第二层
+         .opsi-card              rgba(15,23,42,0.78) + blur(20px)  ← 第三层
+   0.78 叠两层 = 有效 0.95、叠三层 = 0.99 —— 视觉上就是一块死黑，
+   壁纸一点都透不出来，这就是「灰的一坨 / 双面底」。
+
+   处理原则：**每个面板只保留一层玻璃**（最外层），内层全部让位：
+     · ap_chart 是 opsi_stats 的内部容器 → 撤销底色与模糊
+     · .opsi-card/.metric/.kpi/.rd-stats-item 是玻璃上的「格」，→ 只留描边
+       与文字，不再自带深色底；带语义色色调的卡（.is-cost/.is-akashi/
+       .is-crane/.is-eff、.opsi-net 的绿软底）保留原有淡色调 ——
+       那层是装饰色（alpha 0.05~0.08），不是不透明底，长卿明确喜欢。
+   ============================================================ */
+
+/* 第一层：内嵌的图表容器不再重复上底 */
+#root #pywebio-scope-ap_chart {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 第二层：玻璃上的「格」不再自带深底（带 is-* 语义色的保持原样） */
+#root #pywebio-scope-statistics-content .opsi-card:not([class*='is-']),
+#root #pywebio-scope-statistics-content .metric:not([class*='is-']),
+#root #pywebio-scope-statistics-content .kpi:not([class*='is-']),
+#root #pywebio-scope-statistics-content .rd-stats-item:not([class*='is-']) {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 折叠块头部也是 0.9 实底，叠在玻璃上又是一层 —— 改薄 */
+#root #pywebio-scope-statistics-content .ap-aux-fold {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 图表画布容器（老 UI ap_chart.js 写死 rgb(26,26,46) 不透明底）：
+   保留它的深底（否则网格线/坐标看着糊），但把不透明度压下来，
+   让它跟外层玻璃融合，而不是一块突兀的黑板。 */
+#root #ap_cv_nc_alas_container,
+#root [id^='ap_cv_'][id$='_container'] {
+  opacity: 0.92;
+}
+
+/* ------------------------------------------------------------
+   硬编码底的覆盖：主题里有一批写死的不透明底（不引用变量），
+   改变量对它们无效 —— 实测 #pywebio-scope-opsi_stats 仍是 0.78。
+   这里逐个按 #root 前缀覆盖成薄玻璃。老 UI 无 #root，不受影响。
+   ------------------------------------------------------------ */
+
+/* 四个统计面板 scope：dark-advanced-material-overrides-alas.css:323
+   写死 rgba(15,23,42,0.78)（注释说是为热切换路径兜底白底）。
+   新 UI 用薄玻璃，并且取消重复的 blur(6px)（外层另有 20px 模糊时会
+   叠加成两次采样，视觉更糊、开销翻倍）。 */
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-opsi_stats,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-ship_exp_table,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-research_stats,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income {
+  background-color: rgba(15, 23, 42, 0.52) !important;
+}
+
+/* 表单控件同样是写死 0.78（dark:171）—— 薄一点，跟玻璃卡融合 */
+html[data-alas-theme='dark_advanced_material'] #root .form-control,
+html[data-alas-theme='dark_advanced_material'] #root input:not([type='checkbox']):not([type='radio']),
+html[data-alas-theme='dark_advanced_material'] #root select,
+html[data-alas-theme='dark_advanced_material'] #root select.form-control {
+  background-color: rgba(15, 23, 42, 0.42) !important;
+}
+
+/* 亮色侧：委托表格 td 0.72 / th 0.96 也是写死的，跟着变薄 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table td,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent-row {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+}
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table th {
+  background-color: rgba(245, 245, 247, 0.72) !important;
+}
+
+/* ------------------------------------------------------------
+   ⚠️ 配置页卡片的「双层底」真凶：前缀选择器误伤
+   advanced-material-alas.css:457 的
+     [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(...)
+   本意是给「分组卡」（group_Log）垫玻璃底，但 group_Log 内部的
+   #pywebio-scope-group_Log_body 也以 pywebio-scope-group_ 开头，
+   于是**同一个选择器把它也命中**——卡片里再叠一层同样的玻璃，
+   实测 group_Log 0.52 + group_Log_body 0.52 = 有效 0.77，
+   内层还多出 border/padding/margin，视觉上就是「卡片里套卡片」。
+   新 UI 把 body 层让位（老 UI 无 #root，不受影响）。 */
+/* 特异度说明（踩过坑）：共享 CSS 那条是
+      [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu)
+        :not(#pywebio-scope-aside):not(#pywebio-scope-navigator)
+   三个 :not(#id) 各算一个 ID，总特异度 = 3 个 ID。单靠 #root（1 个 ID）
+   压不住，即使 !important 也一样（双方都是 !important 时比特异度）。
+   这里用 #root#root#root#root 复合选择器（同一元素重复匹配，合法写法）
+   把特异度抬到 4 个 ID，稳定覆盖。 */
+#root#root#root#root [id^='pywebio-scope-group_'][id$='_body'] {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* ------------------------------------------------------------
+   统计页残余内层底（同样叠在 0.52 玻璃上）
+   · .opsi-meow-card / .meow-loot-filter-note：主题变量链落到 0.9 实底
+   · .opsi-card.is-idle：写死 0.52
+   · 图表画布容器：老 UI ap_chart.js 写死 rgb(26,26,46) 不透明底
+   统一让位成薄玻璃上的「格」，只保留描边与色调。 */
+#root #pywebio-scope-opsi_stats .opsi-meow-card,
+#root #pywebio-scope-opsi_stats .meow-loot-filter-note,
+#root #pywebio-scope-opsi_stats .opsi-card.is-idle {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 图表容器：让它透明，图表直接画在玻璃上，不再是一块黑板 */
+#root #pywebio-scope-ap_chart [id^='ap_cv_'] {
+  background-color: transparent !important;
+}
+
+/* 大世界收获卡片内层：.opsi-card.is-akashi 被 dark 主题写死 0.78，
+   叠在 opsi-meow-card 的薄格上又是一层深底 —— 同样交给薄格。 */
+#root#root#root#root #pywebio-scope-opsi_stats .opsi-meow-card .opsi-card {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* --- 体力图月份下拉：与右侧「折线/按日/按月」胶囊同款外观 ---
+   长卿 2026-11-19：「这他妈丑的不要不要的」——
+   根因是这个 select 带 .form-control，命中了老 UI 的 MD3 下划线风格
+   （light-alas.css:51-61 / dark-alas.css:103-117 的 border-bottom + 紫底），
+   而且被 .form-control:focus 染成浅紫底 + 2px 紫下划线，与右侧胶囊格格不入。
+   这里用 #root 前缀重新定义成 .seg 外观：同高、同圆角、同边框、同底色，
+   并去掉下划线与 focus 变色。老 UI 不受影响。 */
+#root #pywebio-scope-ap_chart .ap-month-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 7.2rem !important;
+  height: auto;
+  margin: 0 !important;
+  padding: 5px 26px 5px 12px !important;
+  border: 1px solid var(--st-border) !important;
+  border-bottom-width: 1px !important;
+  border-radius: 10px !important;
+  background-color: var(--st-surface-muted) !important;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 14px !important;
+  color: var(--st-text) !important;
+  font-size: 13px !important;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+
+#root #pywebio-scope-ap_chart .ap-month-select:hover {
+  border-color: var(--st-accent) !important;
+}
+
+#root #pywebio-scope-ap_chart .ap-month-select:focus,
+#root #pywebio-scope-ap_chart .ap-month-select:focus-visible {
+  background-color: var(--st-surface) !important;
+  border: 1px solid var(--st-accent) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 0 0 3px rgba(78, 76, 151, .18) !important;
+  outline: none !important;
+  color: var(--st-text) !important;
+}
+
+/* 下拉展开的选项列表跟随主题（原生 option 在部分平台会强制白底） */
+#root #pywebio-scope-ap_chart .ap-month-select option {
+  background: var(--st-surface);
+  color: var(--st-text);
+}
+
+
+/* ============================================================
+   维护等待横幅（新 UI 专用收敛）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「维护横条手机上会出现一个几层、竖着一条」。
+
+   老 UI 的 .alas-maint-banner 已经是 flex + flex-wrap（alas.css:1473），
+   但它从来没在「手机宽度 + 新 UI 的 content 布局」下跑过 —— 新 UI 的
+   #pywebio-scope-content 是 flex-grow:1 的滚动容器，宽 340px 左右，
+   四个 flex 子项（dot/body/meta）挤在一起时：
+     · __body 里的 __state 有 white-space:nowrap（不许折）
+     · __server 是 "· cn_android-12 ·" 这类长 token，默认不折
+   → 整行撑出横向溢出，看起来就是「被压成竖条 + 几层叠着」。
+
+   这里按 #root 前缀（老 UI 无 #root，不受影响）：
+     · 窄屏下横幅自身改纵向堆叠，body/meta 各占整行，杜绝横向溢出
+     · server 长 token 允许断行
+     · meta 的左推 margin 归零（老 UI 只在 ≤720px 做，这里覆盖更窄档）
+   ============================================================ */
+@media (max-width: 720px) {
+  #root .alas-maint-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  #root .alas-maint-banner__dot {
+    display: none; /* 竖排时圆点没有对齐意义，留着会单独占一行 */
+  }
+  #root .alas-maint-banner__body {
+    display: block;
+    min-width: 0;
+  }
+  #root .alas-maint-banner__state,
+  #root .alas-maint-banner__server,
+  #root .alas-maint-banner__desc {
+    display: inline;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #root .alas-maint-banner__meta {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: 0 !important;
+    gap: 2px 14px;
+  }
+}
+
+/* ============================================================
+   统计面板内层卡变半透明（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「这里白色的地方都可以换成那种半透明的，
+   可以稍微透明一点」。
+
+   统计页的内层卡片（科研进行中、委托收益统计、最近委托记录、
+   KPI 格、攻坚卡…）底色全部消费同一条变量链：
+     --st-surface / --st-surface-muted / --st-surface-subtle
+       ← --alas-entry-surface(-muted|-subtle)      （statistics-alas.css:27-31）
+         ← 主题层给的具体值
+
+   主题层的原值不透明感很强（亮色 rgba(245,245,247,0.82)、
+   暗色 rgba(15,23,42,0.9)）—— 老 UI 为了性能要压住壁纸。
+   新 UI 在 #root 里把这几个变量压薄，一处覆盖全部组件；
+   老 UI 无 #root 继续用原值。
+   ============================================================ */
+html[data-alas-theme='advanced_material'] #root {
+  --alas-entry-surface: rgba(255, 255, 255, 0.34);
+  --alas-entry-surface-muted: rgba(255, 255, 255, 0.24);
+  --alas-entry-surface-subtle: rgba(255, 255, 255, 0.18);
+}
+html[data-alas-theme='dark_advanced_material'] #root {
+  --alas-entry-surface: rgba(15, 23, 42, 0.34);
+  --alas-entry-surface-muted: rgba(15, 23, 42, 0.24);
+  --alas-entry-surface-subtle: rgba(15, 23, 42, 0.18);
+}
+
+/* 内层卡也补一层轻微背景模糊：壁纸从卡片后透出来时，文字仍然清晰。
+   只作用于统计页容器内的卡片，不波及菜单/侧栏。 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-running-card,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-running-hours,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-running-card,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-running-hours {
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
+
+/* ============================================================
+   日志区改毛玻璃（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「日志漆也可以换成毛玻璃啊，两个高级材质，
+   之前是性能，现在性能有了，可以给它改成毛玻璃了」。
+
+   老 UI 对日志区做了三处性能妥协（advanced-material-alas.css）：
+     :45  --alas-log-bg: 0.93 高不透明实底
+     :524 .container-log      backdrop-filter: none
+     :1468 #pywebio-scope-log backdrop-filter: none
+   原因在 :519 注释里写得很清楚：「日志是全页更新频率最高的区域，
+   高频内容变更叠加模糊合成是切页卡死的最大单项来源」。
+
+   新 UI 的日志走增量 DOM 追加（不是整块重建），且卡片数量远少于老 UI，
+   GPU 有余量。但日志每 2 秒才追加一批、且追加后不再重排整页，
+   所以这里**只在日志容器本身上恢复模糊**，不给每行加（那才会真卡）。
+   ============================================================ */
+html[data-alas-theme='advanced_material'] #root {
+  --alas-log-bg: rgba(255, 255, 255, 0.42);
+}
+html[data-alas-theme='dark_advanced_material'] #root {
+  --alas-log-bg: rgba(15, 23, 42, 0.42);
+}
+
+#root .container-log,
+#root #pywebio-scope-log {
+  backdrop-filter: blur(16px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(170%) !important;
+}
+
+/* 日志正文在薄玻璃上需要更实一点的文字，否则细字发虚 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-log {
+  color: #1f2937;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-log {
+  color: #e5edf7;
+}
+
+/* ============================================================
+   委托页整套白底规则统一压薄（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「我这里还是这样子的啊，怎么还是白色的？
+   不是说叫你换成半透明吗？统一样式」。
+
+   根因：上一轮我只改了 --st-* / --alas-entry-* 变量链，但委托页
+   （commission_income）走的是**另一套独立规则**，全部写死白值
+   （advanced-material-alas.css:1342-1386）：
+     .commission-income-summary/-table-wrap/-recent   0.88
+     .commission-income-metric-card                   0.82
+     .commission-income-table                         0.78
+     .commission-income-table th                      0.96
+     .commission-income-table td                      0.72
+     .commission-income-recent-row                    0.72
+   暗色侧（dark-advanced-material-overrides-alas.css:237-258）同样是写死深值。
+
+   这些是唯一没有走变量链的白底，所以变量改了它们不动。
+   这里按 #root 前缀 + 主题分支逐个覆盖成半透明。
+   ============================================================ */
+
+/* --- 亮色高级材质 --- */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-summary,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table-wrap,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent-row {
+  background-color: rgba(255, 255, 255, 0.26) !important;
+}
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table th {
+  background-color: rgba(255, 255, 255, 0.34) !important;
+}
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table td {
+  background-color: rgba(255, 255, 255, 0.20) !important;
+}
+
+/* --- 暗色高级材质 --- */
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-summary,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table-wrap,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent-row {
+  background-color: rgba(15, 23, 42, 0.26) !important;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table th {
+  background-color: rgba(15, 23, 42, 0.34) !important;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table td {
+  background-color: rgba(15, 23, 42, 0.20) !important;
+}
+
+/* 委托页的内层卡也补轻微模糊，壁纸透出时文字不发虚 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card {
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+/* --- 统计页其余写死白/深底：页签、数据截至条、来源角标 --- */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-tab,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-head-meta {
+  background-color: rgba(255, 255, 255, 0.28) !important;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-tab,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-head-meta {
+  background-color: rgba(15, 23, 42, 0.30) !important;
+}
+
+/* ============================================================
+   「立即运行」按钮（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「老 UI 的那个自动立即运行也没有了，得添加回来；
+   不过我们新 UI 就创新点吧，不要照着老 UI 那样直接按一个开关键，
+   就像音乐播放器那个箭头一样的开关做一个样式，点击它就会立即运行」。
+
+   老 UI 的实现是 NextRun 下方一行 12px 的小字链接
+   （app_task_config.py:677-681）。这里做成音乐播放器风格的圆形 ▶ 按钮：
+   圆形描边 + 内嵌三角，hover 时填充主色，点击把 NextRun 置空触发立即执行。
+   ============================================================ */
+/* 整行就是一个按钮（球 + 文字都是热区）—— 点「立即运行」四个字也能触发 */
+#root .run-now-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 3px 10px 3px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background .16s, color .16s;
+  color: var(--bs-primary, #4f6ef7);
+  font: inherit;
+  line-height: 1;
+}
+
+#root .run-now-row:hover {
+  background: rgba(79, 110, 247, .10);
+}
+
+#root .run-now-row:active {
+  background: rgba(79, 110, 247, .18);
+}
+
+/* 运行中：整行变成不可点 + 转圈 */
+#root .run-now-row.is-running {
+  cursor: progress;
+  opacity: .7;
+}
+
+#root .run-now-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  flex: 0 0 auto;
+  transition: background .16s, color .16s;
+  /* 三角视觉重心偏左，补 2px 让它在圆里看起来居中 */
+  padding-left: 2px;
+}
+
+#root .run-now-row:hover .run-now-btn {
+  background: var(--bs-primary, #4f6ef7);
+  color: #fff;
+}
+
+#root .run-now-text {
+  font-size: .82rem;
+  opacity: .85;
+  user-select: none;
+  white-space: nowrap;
+}
+
+#root .run-now-row:hover .run-now-text {
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* 触控目标：手机端把按钮撑到 34px（低于 24px 容易点不中） */
+@media (max-width: 760px) {
+  #root .run-now-row {
+    min-height: 40px;
+  }
+  #root .run-now-btn {
+    width: 34px;
+    height: 34px;
+  }
+  #root .run-now-text {
+    font-size: .86rem;
+  }
+}
+
+/* ============================================================
+   科研面板工具栏：复用折线图的胶囊观感 + 横向单行（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「科研那地方可以重构一下，不要沿用老 UI 那种…
+   改成那种点进去就跟折线图上面 11 月那个那样子的，改成长的改成横的」。
+
+   老 UI 是三行平铺的 btn-sm 按钮（PyWebIO 时代只能一行行堆）。
+   新 UI 改成一行横向：口径胶囊 + 周期胶囊 + 期数下拉。
+
+   样式复用 statistics-alas.css:837-870 的 ap_chart 胶囊规则 ——
+   那套规则的选择器前缀写死了 #pywebio-scope-ap_chart，科研面板拿不到，
+   所以在 #root 前缀下平行复制一份给 .st-research-toolbar。
+   老 UI 无 #root，不受影响。
+   ============================================================ */
+#root .st-research-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  margin: .1rem 0 .6rem;
+}
+
+/* 胶囊：与 ap_chart 的 .btn-group 逐条对齐 */
+#root .st-research-toolbar .btn-group.st-seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  padding: 3px;
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  background: var(--st-surface-muted);
+}
+
+#root .st-research-toolbar .btn-group.st-seg .btn {
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--st-muted);
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+#root .st-research-toolbar .btn-group.st-seg .btn:hover {
+  color: var(--st-text);
+}
+
+#root .st-research-toolbar .btn-group.st-seg .btn-primary {
+  background: var(--st-surface);
+  color: var(--st-accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .12);
+}
+
+/* 期数下拉：与月份胶囊同款宽度策略（不铺满整行） */
+#root .st-research-toolbar .st-seg-select {
+  width: auto;
+  min-width: 7rem;
+  max-width: 9rem;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+  background-color: var(--st-surface-muted);
+  color: var(--st-text);
+}
+
+/* 手机端：胶囊不换行地被压缩会溢出，允许横向滚动而不是折成多行 */
+@media (max-width: 760px) {
+  #root .st-research-toolbar {
+    gap: .4rem;
+  }
+  #root .st-research-toolbar .btn-group.st-seg .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* 委托面板工具栏：与科研/折线图共用同一套胶囊观感 */
+#root .st-commission-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  margin: .2rem 0 .6rem;
+}
+
+#root .st-commission-toolbar .btn-group.st-seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  padding: 3px;
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  background: var(--st-surface-muted);
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn {
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--st-muted);
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn:hover {
+  color: var(--st-text);
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn-primary {
+  background: var(--st-surface);
+  color: var(--st-accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .12);
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+#root .st-commission-toolbar .st-seg-select {
+  width: auto;
+  min-width: 7rem;
+  max-width: 9rem;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+  background-color: var(--st-surface-muted);
+  color: var(--st-text);
+}
+
+#root .st-commission-toolbar .st-back-current {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+}
+
+@media (max-width: 760px) {
+  #root .st-commission-toolbar {
+    gap: .4rem;
+  }
+  #root .st-commission-toolbar .btn-group.st-seg .btn {
+    padding: 6px 10px;
+  }
+}
+
+/* ============================================================
+   委托收益统计：标题与工具栏同行（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19 给了参考图：「日 周 月 2026-11」在标题「委托收益统计」
+   同一行右侧 —— 就是折线图工具栏的排法：
+     [标题 ................ 周期胶囊 月份胶囊]
+
+   原来工具栏在标题下方独占一行，且是两块（胶囊 + 年月翻页），
+   手机上占掉半屏。这里改成 grid「auto 1fr auto」，标题左、工具栏右。
+   ============================================================ */
+#root .st-commission-head {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid rgba(128, 128, 128, .2);
+}
+
+#root .st-commission-head .st-commission-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: inherit;
+  flex: 0 0 auto;
+}
+
+/* 工具栏在标题行里：推到右侧，取消自身的上下外边距 */
+#root .st-commission-head .st-commission-toolbar {
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+}
+
+/* 窄屏：标题与工具栏各占一行（横排会挤成一坨） */
+@media (max-width: 760px) {
+  #root .st-commission-head {
+    gap: .5rem;
+  }
+  #root .st-commission-head .st-commission-toolbar {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* ============================================================
+   心智计算器：手机端「编辑/删除」按钮跑到屏幕外
+   ------------------------------------------------------------
+   长卿 2026-11-19：「心智计算器那个编辑全选按钮直接消失不见了，
+   底下切换下一页也点不动」。
+
+   CDP 实测（412x915，alas-mobile.css）：每行的「编辑」按钮 left=571、
+   「删除」按钮 left=621，而视口只有 412 —— 按钮在屏幕外，既看不见也点不到。
+   面板本身只有 332 宽。
+
+   根因：清单表 .ft-table 有 min-width: 980px（窄屏 640px），而
+   .ft-table-scroll 的 overflow:auto 只有在**自身宽度被约束**时才产生
+   横向滚动条。新 UI 的面板里，外层 scope 的 min-width 是 auto（由内容撑），
+   于是容器跟着表一起变宽 → 整块被推出视口，而不是表格内部滚动。
+
+   修法：给滚动容器和它的祖先链补 min-width:0，并把宽度钉死为 100%，
+   让溢出真正被 overflow:auto 吃掉（表格内部横滚，按钮回到屏内）。
+   ============================================================ */
+#root #pywebio-scope-ft_mind,
+#root #pywebio-scope-ft_mind_list,
+#root #pywebio-scope-ft_mind_filters,
+#root #pywebio-scope-ft_mind_toolbar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#root #pywebio-scope-ft_mind_list .ft-table-scroll,
+#root [id^='pywebio-scope-ft_'] .ft-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 表格：手机上取消 640px 最小宽度，让 6 列压进屏内。
+   清单表是 table-layout:fixed + 百分比列宽，去 min-width 后各列按比例压缩，
+   单元格已有 overflow:hidden + text-overflow:ellipsis（fleet-tech-alas.css:683），
+   舰名过长会显示省略号 —— 好过「编辑/删除按钮要横滑才看得见」。 */
+@media (max-width: 760px) {
+  #root #pywebio-scope-ft_mind_list .ft-table,
+  #root [id^='pywebio-scope-ft_'] .ft-table-scroll .ft-table {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* 分页行：底部的「上一页/下一页」在手机上要够大才点得中 */
+#root #pywebio-scope-ft_mind_list .ft-pager,
+#root #pywebio-scope-ft_mind_list [class*='pager'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+
+#root #pywebio-scope-ft_mind_list [class*='pager'] button,
+#root #pywebio-scope-ft_mind_list [class*='pager'] .btn {
+  min-height: 36px;
+  min-width: 36px;
+}
+
+/* ============================================================
+   全局 toast（老 UI PyWebIO toast 的等价物）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「老 UI 都有一个绿色小弹窗说保存成功了」。
+   右下角堆叠、点击关闭、自动淡出；绿色=成功、红色=失败。
+   ============================================================ */
+#root .alas-toast-stack,
+.alas-toast-stack {
+  position: fixed;
+  right: 1rem;
+  bottom: 1.25rem;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  align-items: flex-end;
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 2rem));
+}
+
+#root .alas-toast,
+.alas-toast {
+  pointer-events: auto;
+  padding: .6rem .95rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: .875rem;
+  line-height: 1.45;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(16, 24, 40, .24);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  animation: alas-toast-in .22s ease-out;
+  word-break: break-word;
+}
+
+@keyframes alas-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root .alas-toast,
+  .alas-toast { animation: none !important; }
+}
+
+/* --- 配置项校验失败：控件红框（对应老 UI pin_set_invalid_mark 的 .is-invalid） --- */
+#root .config-invalid .form-control,
+#root .config-invalid textarea,
+#root .config-invalid input[type="text"] {
+  border-color: var(--alas-entry-badge-error, #c0392b) !important;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, .18) !important;
+}
+#root .run-now-spin {
+  animation: run-now-spin .8s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes run-now-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root .run-now-spin { animation: none !important; }
+}
+
+
+/* ============================================================
+   统计页两处视觉修正（新 UI 专用）
+   ============================================================ */
+
+/* ① 折线图去掉外面的框 —— 长卿 2026-11-19：「这个折线图外面的框删掉」
+   
+   根因：#pywebio-scope-ap_chart 与 #pywebio-scope-opsi_stats 在**老 CSS 里
+   各自都是一张卡片**（statistics-alas.css:1116 与
+   advanced-material-alas.css:1201 都把两者列入卡片组），而新 UI 把 ap_chart
+   嵌在 opsi_stats 内部（OpsiPanel.tsx），于是卡片套卡片 = 图外套框。
+   老 UI 里两者是不同 tab 的兄弟容器，从不嵌套，所以没有这个问题。
+   
+   修法：内层 ap_chart 取消卡片外观，融进外层 opsi_stats 的卡片里。 */
+#root #pywebio-scope-opsi_stats #pywebio-scope-ap_chart {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 0 !important;
+}
+
+/* ② 委托统计控件改方角（长卿 2026-11-19：「为什么还是有那种胶囊一样的东西，
+   不要这个设计了，统一改成正方形的那种」「那个 2026-11 得给他有个框包起来，
+   太凸了」）。
+   
+   原样式：外层 10px 圆角胶囊壳 + 内层 8px 圆角按钮，月份下拉是填充色块 ——
+   填充色让它比周围「凸」出来。改成：小方角、只留描边、去掉填充底。 */
+#root .st-commission-toolbar .btn-group.st-seg {
+  border-radius: 6px;
+  background: transparent;
+  padding: 2px;
+  gap: 2px;
+}
+#root .st-commission-toolbar .btn-group.st-seg .btn {
+  border-radius: 4px;
+}
+#root .st-commission-toolbar .btn-group.st-seg .btn-primary {
+  border-radius: 4px;
+}
+
+/* 月份下拉：与按钮同一套方角 + 描边，去掉填充底（填充是「太凸」的来源）。 */
+#root .st-commission-toolbar .st-seg-select {
+  border-radius: 6px;
+  background-color: transparent;
+}
+#root .st-commission-toolbar .st-back-current {
+  border-radius: 6px;
+}
+
+/* 折线图工具栏（折线/按日/按月 + 月份）同步改方角 —— 长卿：「统一改成正方形」 */
+#root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group {
+  border-radius: 6px;
+  background: transparent;
+}
+#root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn {
+  border-radius: 4px;
+}
+#root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn-primary {
+  border-radius: 4px;
+}
+
+/* 折线图外层框（真正的元凶）—— 新 UI 专用覆盖
+   长卿 2026-11-19：「这个框还不是在吗？改这个框有这么难吗？」
+
+   前两次改 CSS 都没用的原因：框不在 CSS 里，而是后端返回的 HTML 模板
+   webapp/ap_chart_panel.html:31 的内联样式：
+     <div id="ap_cv_nc_{instance}_container"
+          style="...background:#1a1a2e;border-radius:16px;border:1px solid #333;padding:6px;">
+   内联样式优先级最高，普通类选择器压不住。
+
+   该模板老/新 UI 共用（data.py read_webapp_template 直接复用），改模板会一起
+   改老 UI，所以用 !important 在 #root 范围内压掉内联边框。
+   保留深色背景（图表文字浅色，去掉会白底白字看不清）。 */
+#root [id^="ap_cv_"][id$="_container"] {
+  border: 0 !important;
+  border-radius: 0 !important;
+}

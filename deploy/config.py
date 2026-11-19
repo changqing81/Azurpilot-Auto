@@ -97,6 +97,8 @@ class ConfigModel:
     Password: Optional[str] = None
     CDN: Union[str, bool] = False
     Run: Optional[str] = None
+    # UI 选择：'legacy' = 老 UI（PyWebIO，默认）；'new' = 新 UI（React 直接占据 /，老 UI 页面关闭）
+    UI: str = "legacy"
 
     # 动态配置
     GitOverCdn: bool = False

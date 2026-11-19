@@ -1,0 +1,27 @@
+/* 新 UI 样式表 —— **故意保持极简**。
+ *
+ * 设计原则（长卿拍板 2026-11-16）：
+ *   只抄老 UI 的 CSS，不抄老 UI 为 PyWebIO 做的妥协。
+ *
+ * 因此这里**不写任何卡片/按钮/表单/布局样式** —— 那些全部由
+ * index.html 里按老 UI 顺序加载的 15 个 <link> 提供。
+ * 新 UI 的 DOM 必须使用老 UI 的真实 ID 与 class，让原版 CSS 直接命中。
+ *
+ * 唯一的例外（见下方）：flex 布局下的收缩兜底。
+ * 原因是 alas.css 的 .form-control 是 width:100%，放进 flex 行里会把
+ * 兄弟按钮挤出去、视觉上叠在一起。老 UI 的控件都在 PyWebIO 的 row 里
+ * （有独立的 grid 定义），不会遇到这个问题；新 UI 用 flex 排布就需要兜底。
+ */
+
+/* flex 行内的表单控件与按钮不参与压缩，宽度按内容或显式设置 */
+[style*="display: flex"] > .form-control,
+[style*="display:flex"] > .form-control {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 6rem;
+}
+
+[style*="display: flex"] > .btn,
+[style*="display:flex"] > .btn {
+    flex: 0 0 auto;
+}
