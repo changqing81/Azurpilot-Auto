@@ -314,8 +314,21 @@ export function Shell({
       }
       if (asideKey === 'Home') { navigate('/'); return }
       if (asideKey === 'Manage') { navigate('/manage'); return }
-      // 实例按钮：进对应实例的总览页（asideKey 就是实例名）
-      if (asideKey) navigate('/overview/' + encodeURIComponent(asideKey))
+      if (asideKey) {
+        // 实例按钮（asideKey = 实例名），语义对齐老 UI ui_alas
+        // （module/webui/app_instances.py:41-45）：
+        //   点的实例 == 当前实例 → expand_menu() 展开二级任务菜单，**不重渲染内容**；
+        //   点的实例 != 当前实例 → 切换实例进它的总览。
+        //
+        // 之前一律 navigate('/overview/...')，已在总览页时同路由重渲染 = 长卿
+        // 2026-11-19 图三的「闪一下回到总览」，任务菜单永远出不来，手机端没法
+        // 进任务配置（只能开电脑模式操作）。
+        if (asideKey === active) {
+          if (isMobile) setMenuOpen(true) // 老 UI expand_menu：只展开不收起
+          return
+        }
+        navigate('/overview/' + encodeURIComponent(asideKey))
+      }
     }
   }
   const menuRef = (el: HTMLDivElement | null) => {
