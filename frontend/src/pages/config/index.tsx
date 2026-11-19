@@ -101,8 +101,6 @@ export function ConfigPage() {
           多塞任何兄弟节点都会把 _groups 挤歪（实测卡片宽度塌成 33px）。
           老 UI 也没有保存按钮 —— 控件改完由 pin_on_change 自动落盘，
           这里用 600ms debounce 自动保存保持一致。 */}
-      {/* 错误条固定占位：条件渲染会改变整体高度 → 滚动条跳 → 页面弹一下。 */}
-      <p style={{ color: 'var(--alas-entry-badge-error, #c0392b)', margin: '.5rem .625rem', minHeight: '1.2rem', visibility: error ? 'visible' : 'hidden' }}>{error || ' '}</p>
       <div id="pywebio-scope-content">
         <div id="pywebio-scope-_groups">
           {/* 占位：老 UI 是 put_none()，对应 grid 的**第一列 0 宽**。
@@ -121,6 +119,22 @@ export function ConfigPage() {
                       key={a.name}
                       arg={a}
                       onChange={v => setArg(g.group, a.name, v)}
+                      // Scheduler.NextRun 带「立即运行」按钮：置空即触发调度器
+                      // 立即执行（老 UI app_task_config.py:669-690 同款语义）。
+                      onRunNow={
+                        g.group === 'Scheduler' && a.name === 'NextRun'
+                          ? () => {
+                              setGroups(gs => gs.map(gg => gg.group !== g.group ? gg : {
+                                ...gg,
+                                args: gg.args.map(x => x.name !== a.name ? x : { ...x, value: '' }),
+                              }))
+                              pendingRef.current = { ...pendingRef.current, [`${g.group}.${a.name}`]: '' }
+                              if (saveTimer.current) clearTimeout(saveTimer.current)
+                              // 立即保存，不等 debounce：点一下就该跑
+                              void save()
+                            }
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
@@ -146,6 +160,33 @@ export function ConfigPage() {
         </div>
         {!loaded && <p style={{ margin: '.5rem', opacity: .7 }}>加载中…</p>}
       </div>
+      {/* 保存结果提示：浮层 toast，不占布局（老 UI 用 PyWebIO toast 也是浮层）。
+          之前这条错误信息直接塞在 children 里，落进 #pywebio-scope-contents 的 grid
+          被排到左侧栏，看起来像侧边栏报错（长卿 2026-11-19 截图）。 */}
+      {error && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            right: '1rem',
+            bottom: '1.25rem',
+            zIndex: 10001,
+            maxWidth: 'min(420px, calc(100vw - 2rem))',
+            padding: '.65rem .9rem',
+            borderRadius: 10,
+            background: 'var(--alas-entry-surface, #fff)',
+            color: 'var(--alas-entry-text, #202124)',
+            border: '1px solid var(--alas-entry-border, #dde0e5)',
+            borderLeft: '3px solid var(--alas-entry-badge-error, #c0392b)',
+            boxShadow: '0 8px 28px rgba(16,24,40,.18)',
+            fontSize: '.875rem',
+            lineHeight: 1.5,
+            animation: 'alas-toast-in .22s ease-out',
+          }}
+        >
+          {error}
+        </div>
+      )}
     </Shell>
   )
 }

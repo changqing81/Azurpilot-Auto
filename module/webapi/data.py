@@ -940,11 +940,15 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
     modified: {"Group.Arg": value, ...}（路径不含 task 前缀，与老 UI pin 命名一致）
     返回 {valid: [...], invalid: [...]}。
     """
-    import re as _re
-
     from module.config.config_updater import ConfigUpdater
     from module.config.deep import deep_get, deep_set
-    from module.webui.utils import parse_pin_value
+    # ⚠️ 必须用老 UI 的 re_fullmatch（module/webui/utils.py:1053），不是 Python 的
+    # re.fullmatch：validate 为 "datetime" 时它不是正则，而是"能否被
+    # datetime.fromisoformat 解析"的特判；为 [min, max] 列表时是数值区间判断。
+    # 之前这里用的裸 re.fullmatch("datetime", v) 把 "datetime" 当正则，
+    # 永远匹配不上 —— 合法日期也判「校验失败」（2026-11-19 实测：
+    # POST NextRun="2026-01-01 00:00:00" 返回 invalid）。
+    from module.webui.utils import parse_pin_value, re_fullmatch
 
     if os.environ.get("DEMO") == "1":
         return {"valid": [], "invalid": list(modified.keys()), "error": "demo mode"}
@@ -987,7 +991,7 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
             modified[k] = default
             deep_set(config, k, default)
             valid.append(k)
-        elif not validate or _re.fullmatch(validate, v):
+        elif not validate or re_fullmatch(validate, v):
             deep_set(config, k, v)
             modified[k] = v
             valid.append(k)

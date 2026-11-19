@@ -1182,3 +1182,75 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
     width: 100%;
   }
 }
+
+/* ============================================================
+   心智计算器：手机端「编辑/删除」按钮跑到屏幕外
+   ------------------------------------------------------------
+   长卿 2026-11-19：「心智计算器那个编辑全选按钮直接消失不见了，
+   底下切换下一页也点不动」。
+
+   CDP 实测（412x915，alas-mobile.css）：每行的「编辑」按钮 left=571、
+   「删除」按钮 left=621，而视口只有 412 —— 按钮在屏幕外，既看不见也点不到。
+   面板本身只有 332 宽。
+
+   根因：清单表 .ft-table 有 min-width: 980px（窄屏 640px），而
+   .ft-table-scroll 的 overflow:auto 只有在**自身宽度被约束**时才产生
+   横向滚动条。新 UI 的面板里，外层 scope 的 min-width 是 auto（由内容撑），
+   于是容器跟着表一起变宽 → 整块被推出视口，而不是表格内部滚动。
+
+   修法：给滚动容器和它的祖先链补 min-width:0，并把宽度钉死为 100%，
+   让溢出真正被 overflow:auto 吃掉（表格内部横滚，按钮回到屏内）。
+   ============================================================ */
+#root #pywebio-scope-ft_mind,
+#root #pywebio-scope-ft_mind_list,
+#root #pywebio-scope-ft_mind_filters,
+#root #pywebio-scope-ft_mind_toolbar {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#root #pywebio-scope-ft_mind_list .ft-table-scroll,
+#root [id^='pywebio-scope-ft_'] .ft-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 表格：手机上取消 640px 最小宽度，让 6 列压进屏内。
+   清单表是 table-layout:fixed + 百分比列宽，去 min-width 后各列按比例压缩，
+   单元格已有 overflow:hidden + text-overflow:ellipsis（fleet-tech-alas.css:683），
+   舰名过长会显示省略号 —— 好过「编辑/删除按钮要横滑才看得见」。 */
+@media (max-width: 760px) {
+  #root #pywebio-scope-ft_mind_list .ft-table,
+  #root [id^='pywebio-scope-ft_'] .ft-table-scroll .ft-table {
+    min-width: 100% !important;
+    width: 100% !important;
+  }
+}
+
+/* 分页行：底部的「上一页/下一页」在手机上要够大才点得中 */
+#root #pywebio-scope-ft_mind_list .ft-pager,
+#root #pywebio-scope-ft_mind_list [class*='pager'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+
+#root #pywebio-scope-ft_mind_list [class*='pager'] button,
+#root #pywebio-scope-ft_mind_list [class*='pager'] .btn {
+  min-height: 36px;
+  min-width: 36px;
+}
+
+/* --- 配置页保存提示 toast 入场（配置页 index.tsx 用 animation: alas-toast-in） --- */
+@keyframes alas-toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes alas-toast-in { from { opacity: 0; } to { opacity: 1; } }
+}
+

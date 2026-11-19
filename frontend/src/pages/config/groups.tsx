@@ -41,6 +41,27 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
       </div>
     )
   }
+  if (arg.type === 'datetime') {
+    // 老 UI 就是普通文本框（widgets.py:1012 put_arg_datetime → 1018 put_input），
+    // 用户可以随手输入、随时改，格式由后端 validate 校验。
+    //
+    // 这里绝对不能用 type="datetime-local"（2026-11-19 事故）：
+    //   用户想输「2026」表达年份 → 浏览器直接判定非法值 → e.target.value 变空串
+    //   → 被当成「清空」→ 触发立即运行 → 后端回写模板默认值 2020-01-01
+    //   → 用户看到的是「我输入 2026 结果变成 2020 还报错」。
+    // 文本框不会静默丢字符，输错了也能看见自己输的是什么。
+    const str = String(arg.value ?? '')
+    return (
+      <input
+        className="form-control"
+        type="text"
+        inputMode="numeric"
+        placeholder="YYYY-MM-DD HH:MM:SS"
+        value={str}
+        onChange={e => onChange(e.target.value)}
+      />
+    )
+  }
   if (arg.type === 'textarea') {
     // 「a > b > c」形式的优先级过滤器（如自定义旗舰航母过滤器 bogue > ranger >
     // langley > hermes）渲染成可拖拽排序列表 —— 老 UI task_priority 的同款交互，
@@ -108,11 +129,22 @@ function scopeIdFor(kind: string, name: string): string {
 }
 
 /** 单个参数块：#pywebio-scope-arg_container-{类型}-{参数名}。 */
-export function ArgBlock({ arg, onChange }: { arg: Arg; onChange: (v: any) => void }) {
+export function ArgBlock({
+  arg, onChange, onRunNow,
+}: {
+  arg: Arg
+  onChange: (v: any) => void
+  /** 传了就在控件下方渲染「立即运行」按钮（仅 Scheduler.NextRun 用）。 */
+  onRunNow?: () => void
+}) {
   const kind =
     arg.type === 'select' ? 'select'
     : arg.type === 'checkbox' || typeof arg.value === 'boolean' ? 'checkbox'
     : arg.type === 'textarea' ? 'textarea'
+    // 老 UI widget_type 有自己的 scope 名（widgets.py:1012 put_arg_datetime →
+    // 'arg_container-datetime-{name}'）。必须区分出来，否则 NextRun 这类
+    // 时间控件会和普通输入框共用一个 id 前缀，也不利于按类型做样式。
+    : arg.type === 'datetime' ? 'datetime'
     : 'input'
   return (
     <div id={scopeIdFor(kind, arg.name)}>
@@ -140,6 +172,26 @@ export function ArgBlock({ arg, onChange }: { arg: Arg; onChange: (v: any) => vo
           ...(kind === 'checkbox' ? { textAlign: 'center' as const } : {}),
         }}
       >
+        {onRunNow ? (
+          // 「立即运行」：老 UI 是 NextRun 下方一行小字链接
+          // （app_task_config.py:669-690，点击把 NextRun 置空触发调度器立即执行）。
+          // 长卿 2026-11-19 要求做得更像音乐播放器的播放按钮，所以这里用
+          // 圆形 ▶ 按钮 + 文字，点击后置空 NextRun。
+          <div className="run-now-row">
+            <button
+              type="button"
+              className="run-now-btn"
+              onClick={onRunNow}
+              title="立即运行该任务"
+              aria-label="立即运行"
+            >
+              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                <path d="M8 5v14l11-7z" fill="currentColor" />
+              </svg>
+            </button>
+            <span className="run-now-text">立即运行</span>
+          </div>
+        ) : null}
         <ArgControl arg={arg} onChange={onChange} />
       </div>
     </div>
@@ -231,7 +283,27 @@ export function ConfigGroups({
           <hr className="hr-group" />
           <div id={`pywebio-scope-group_${g.group}_body`}>
             {g.args.map(a => (
-              <ArgBlock key={a.name} arg={a} onChange={v => setArg(g.group, a.name, v)} />
+              <ArgBlock
+                key={a.name}
+                arg={a}
+                onChange={v => setArg(g.group, a.name, v)}
+                // Scheduler 组的 NextRun 带「立即运行」：置空即触发调度器立即执行
+                // （老 UI app_task_config.py:669-690 同款语义）。
+                onRunNow={
+                  g.group === 'Scheduler' && a.name === 'NextRun'
+                    ? () => {
+                        setGroups(gs => gs.map(gg => gg.group !== g.group ? gg : {
+                          ...gg,
+                          args: gg.args.map(x => x.name !== a.name ? x : { ...x, value: '' }),
+                        }))
+                        pendingRef.current = { ...pendingRef.current, [`${task}.${g.group}.${a.name}`]: '' }
+                        if (saveTimer.current) clearTimeout(saveTimer.current)
+                        // 立即保存，不等 600ms debounce：用户期望「点一下就跑」
+                        void flush()
+                      }
+                    : undefined
+                }
+              />
             ))}
           </div>
         </div>
