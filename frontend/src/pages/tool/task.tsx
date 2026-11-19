@@ -24,7 +24,7 @@
 // 日志复用总览页的增量拉取，调度器走现成的 /newapi/scheduler/*。
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { apiGet } from '../../api/client'
+import { apiGet, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { putText } from '../../lib/pywebio'
 import { ConfigGroups, type Group } from '../config/groups'
@@ -84,7 +84,7 @@ export function TaskToolPage() {
   useEffect(() => {
     let mounted = true
     const load = () => {
-      apiGet<OverviewResp>('/newapi/overview/' + encodeURIComponent(name))
+      apiGet<OverviewResp>('/newapi/overview/' + instSeg(name))
         .then(r => { if (mounted) setAlive(!!r.alive) })
         .catch(() => {})
     }
@@ -97,11 +97,11 @@ export function TaskToolPage() {
   const toggleScheduler = async () => {
     setBusy(true)
     try {
-      await fetch(`/newapi/scheduler/${encodeURIComponent(name)}/${alive ? 'stop' : 'start'}`, {
+      await fetch(`/newapi/scheduler/${instSeg(name)}/${alive ? 'stop' : 'start'}`, {
         method: 'POST',
       })
       // 立刻读回状态：不要等 15s 轮询，否则按钮像没反应
-      const next = await apiGet<OverviewResp>('/newapi/overview/' + encodeURIComponent(name)).catch(() => null)
+      const next = await apiGet<OverviewResp>('/newapi/overview/' + instSeg(name)).catch(() => null)
       if (next) setAlive(!!next.alive)
     } catch (e) {
       setError('调度器操作失败: ' + String(e))

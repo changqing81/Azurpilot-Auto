@@ -35,6 +35,23 @@ export function withPrefix(path: string): string {
   return relayPrefix() + p
 }
 
+
+/** 实例名 → 路径段：
+ *
+ * 远控中继拒绝百分号编码的多字节（中文等）路径段（400 Invalid HTTP request），
+ * 直连则无此问题。所以统一把实例名编码成 base64url 并加 b64_ 前缀 ——
+ * 纯 ASCII 字符集中继必放行；后端 B64InstanceNameMiddleware 在 ASGI 层
+ * 还原成原名，handler 无感知。ASCII 实例名（如 alas）不做编码，URL 保持可读。
+ */
+export function instSeg(name: string): string {
+  if (!/^[_a-zA-Z0-9]+$/.test(name)) {
+    const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(name)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    return 'b64_' + b64
+  }
+  return encodeURIComponent(name)
+}
+
 export async function apiGet<T>(path: string, timeoutMs = 8000): Promise<T> {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -71,7 +88,7 @@ export function panelPath(
     encodeURIComponent(v === undefined || v === '' ? '_' : v)
   const order = ['month', 'task', 'period', 'scope', 'year', 'yearmonth']
   const tail = order.map(k => seg(args[k])).join('/')
-  return `/newapi/stat/${encodeURIComponent(name)}/panels_html/${encodeURIComponent(panel)}/${tail}`
+  return `/newapi/stat/${instSeg(name)}/panels_html/${encodeURIComponent(panel)}/${tail}`
 }
 
 /** POST 封装，同样带中继前缀。 */

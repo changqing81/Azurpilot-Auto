@@ -9,6 +9,7 @@
 //   3. 分块插入 + 200 块上限（RichLog.dom_max_chunks），逐节点删会残留裸文本节点。
 //   4. 页面隐藏时暂停轮询（visibilitychange）。
 import { useEffect, useRef } from 'react'
+import { instSeg } from '../../api/client'
 
 export function LogPanel({ instance, autoScroll = true }: { instance: string; autoScroll?: boolean }) {
   // 自动滚动开关由父组件持有（它在 log-bar 里，日志区自己看不到那个按钮）
@@ -42,7 +43,7 @@ export function LogPanel({ instance, autoScroll = true }: { instance: string; au
       const scope = document.getElementById('pywebio-scope-log') as HTMLElement | null
       if (!scope) return
       if (!measured) { width = measureWidth(scope); measured = true }
-      fetch(`/newapi/log/${encodeURIComponent(instance)}/tail?since=${cursor}&width=${width}`)
+      fetch(`/newapi/log/${instSeg(instance)}/tail?since=${cursor}&width=${width}`)
         .then(r => (r.ok ? r.json() : null))
         .then((j: { html: string; cursor: number; full: boolean } | null) => {
           if (!j || stopped) return

@@ -8,6 +8,7 @@
 //   #pywebio-scope-group_{组名} > <p>标题</p> + <hr.hr-group> +
 //   #pywebio-scope-arg_container-{类型}-{参数名}
 import { useEffect, useRef, useState } from 'react'
+import { instSeg } from '../../api/client'
 import { PriorityFilter, isPriorityList } from './PriorityFilter'
 
 export type ArgOption = { label: string; value: string }
@@ -179,7 +180,7 @@ export function ConfigGroups({
     if (!Object.keys(batch).length) return
     pendingRef.current = {}
     try {
-      const res = await fetch(`/newapi/config/${name}/task/${task}`, {
+      const res = await fetch(`/newapi/config/${instSeg(name)}/task/${encodeURIComponent(task)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modified: batch }),

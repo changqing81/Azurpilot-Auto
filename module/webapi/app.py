@@ -960,6 +960,50 @@ async def log_tail(request: Request) -> JSONResponse:
 
 
 
+class B64InstanceNameMiddleware:
+    """路径段里的实例名 base64url 解码（远控中继拒绝百分号编码 CJK）。
+
+    铁证（2026-11-19 长卿实测）：
+      直连  /newapi/config/%E5%B0%8F%E5%8F%B7/task/General → 200
+      中继  /{peer}/newapi/config/%E5%B0%8F%E5%8F%B7/task/General →
+            400 Invalid HTTP request received（隧道层拒绝编码多字节路径段）
+      中继  /{peer}/newapi/config/alas/task/General → 200
+
+    所有非 ASCII 实例名（中文等）在远控下全部打不开配置页 ——
+    alas 这种 ASCII 名独活。
+
+    修法：前端把 {name} 段编码成 base64url 前缀 b64_（纯 ASCII，中继放行）；
+    本中间件在 ASGI 层把 b64_xxx 还原成中文实例名，handler 无感知。
+    """
+
+    _B64_NAME_RE = re.compile(r"(?<=/)(b64_[A-Za-z0-9_-]+)(?=/)")
+
+    def __init__(self, app) -> None:
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope.get("type") == "http":
+            path = scope.get("path") or "/"
+            if "b64_" in path:
+                import base64 as _b64
+
+                def _decode(m: "re.Match[str]") -> str:
+                    try:
+                        raw = _b64.urlsafe_b64decode(m.group(1)[4:] + "==")
+                        return raw.decode("utf-8")
+                    except Exception:
+                        return m.group(1)
+
+                new_path = self._B64_NAME_RE.sub(_decode, path)
+                if new_path != path:
+                    scope["path"] = new_path
+                    # raw_path 也要同步（uvicorn 用 raw_path 重新解析 query）
+                    if "raw_path" in scope:
+                        scope["raw_path"] = new_path.encode("utf-8") + (
+                            scope["raw_path"].split(b"?")[1:] and b"?" + scope["raw_path"].split(b"?", 1)[1] or b""
+                        )
+        return await self.app(scope, receive, send)
+
 class SpaStaticFiles(StaticFiles):
     """SPA 静态服务：index.html no-cache（并按请求路径重写资源前缀），
     hash 资源 immutable 长缓存。

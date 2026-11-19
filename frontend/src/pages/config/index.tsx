@@ -25,7 +25,7 @@
 // React 一次渲染完即可，这里**不做懒渲染、不做骨架屏**。
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { apiGet } from '../../api/client'
+import { apiGet, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { ArgBlock, type Group } from './groups'
 
@@ -38,11 +38,15 @@ export function ConfigPage() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    // task 为空时（路由参数丢失，如切实例后落在 /config/{name} 无任务段）不发请求：
+    // 之前会请求 /newapi/config/{name}/task/ 打到 SPA 回退返回 HTML，JSON 解析失败；
+    // 这里直接提示，等用户从菜单选任务。
+    if (!task) { setError('请从左侧菜单选择一个任务'); setLoaded(true); return }
     setLoaded(false)
-    apiGet<ConfigResp>(`/newapi/config/${name}/task/${task}`).then(r => {
+    apiGet<ConfigResp>(`/newapi/config/${instSeg(name)}/task/${encodeURIComponent(task)}`).then(r => {
       if (r.error) setError(r.error)
       setGroups(r.groups)
-    }).catch(e => setError(String(e))).finally(() => setLoaded(true))
+    }).catch(e => setError(String(e) + `  (${name}/${task})`)).finally(() => setLoaded(true))
   }, [name, task])
 
   const setArg = (group: string, argName: string, value: any) => {
@@ -70,7 +74,7 @@ export function ConfigPage() {
     if (!Object.keys(batch).length) return
     pendingRef.current = {}
     try {
-      const res = await fetch(`/newapi/config/${name}/task/${task}`, {
+      const res = await fetch(`/newapi/config/${instSeg(name)}/task/${encodeURIComponent(task)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modified: batch }),

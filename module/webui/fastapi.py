@@ -331,9 +331,12 @@ def asgi_app(
         logging.getLogger(__name__).error(f"Failed to load api routes: {e}")
 
     # 延迟导入：module.webapi.app 也会 import 本模块的标志，顶层导入会成环。
-    from module.webapi.app import RelayPrefixMiddleware
+    from module.webapi.app import RelayPrefixMiddleware, B64InstanceNameMiddleware
 
     middleware = [
+        # 路径段实例名 base64url 解码（远控中继拒绝百分号编码 CJK 路径段），
+        # 详见 module/webapi/app.py:B64InstanceNameMiddleware 的注释。
+        Middleware(B64InstanceNameMiddleware),
         # 远控中继前缀剥离（必须在最外层，先于 GZip 改写 scope.path）：
         # 中继把客户端挂在 /{peer_id} 下，转发到后端时有的会剥前缀、有的不会。
         # 不剥时会落进 SPA 静态回退、返回一整页 HTML，前端 fetch 解析 JSON 失败。

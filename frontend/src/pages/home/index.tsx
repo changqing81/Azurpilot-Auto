@@ -18,7 +18,7 @@
 // 一律通过 lib/pywebio.ts 输出与 PyWebIO 逐字节一致的 HTML 字符串。
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet, withPrefix } from '../../api/client'
+import { apiGet, withPrefix, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { esc, putText } from '../../lib/pywebio'
 
@@ -193,7 +193,7 @@ export function Overview({ instance }: { instance: string }) {
         widthMeasured = true
       }
       fetch(
-        `/newapi/log/${encodeURIComponent(instance)}/tail?since=${cursor}&width=${width}`,
+        `/newapi/log/${instSeg(instance)}/tail?since=${cursor}&width=${width}`,
       )
         .then(r => (r.ok ? r.json() : null))
         .then((j: { html: string; cursor: number; full: boolean } | null) => {
@@ -247,7 +247,7 @@ export function Overview({ instance }: { instance: string }) {
     if (label === L('Gui.Button.Start', '启动') || label === L('Gui.Button.Stop', '停止')) {
       const action = label === L('Gui.Button.Stop', '停止') ? 'stop' : 'start'
       try {
-        await fetch(`/newapi/scheduler/${encodeURIComponent(instance)}/${action}`, { method: 'POST' })
+        await fetch(`/newapi/scheduler/${instSeg(instance)}/${action}`, { method: 'POST' })
       } catch { /* 网络异常：等 15s 轮询收敛 */ }
       const next = await apiGet<OverviewResp>('/newapi/overview/' + instance).catch(() => null)
       if (next) setOv(next)

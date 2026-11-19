@@ -1,5 +1,6 @@
 // 统计页：与老 UI 同构（app_statistics_page.py:527-578 的 st-head + st-tabs 结构）。
 // 页签顺序与命名 = _STAT_TABS：opsi 大世界 / commission 委托 / research 科研 / resource 资源 / fleet 科技列表 / mind 心智计算器。
+import { instSeg } from '../../api/client'
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { DeltaSummary } from './DeltaPanel'
@@ -86,7 +87,7 @@ export function StatPage() {
 
   useEffect(() => {
     let alive = true
-    fetch(`/newapi/stat/${name}/state`)
+    fetch(`/newapi/stat/${instSeg(name)}/state`)
       .then(r => (r.ok ? r.json() : null))
       .then(j => {
         if (!alive || !j) return
@@ -141,7 +142,7 @@ export function StatPage() {
   // 首次渲染 opsi 要 1.3s（_build_meow_rows 对侵蚀等级 1~6 各查一次 SQLite），
   // 用户点页签时才开始算就会有明显卡顿。预热后点页签只需 8~40ms。
   useEffect(() => {
-    fetch(`/newapi/stat/${name}/panels_warm`, { cache: 'no-store' }).catch(() => {
+    fetch(`/newapi/stat/${instSeg(name)}/panels_warm`, { cache: 'no-store' }).catch(() => {
       /* 预热失败不影响正常请求，用户点页签时再算 */
     })
   }, [name])
