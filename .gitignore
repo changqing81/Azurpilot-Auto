@@ -372,5 +372,12 @@ nul
 !.cursor/rules/config-system.mdc
 !.cursor/rules/develop-rules.mdc
 
-# 新 UI 构建产物（CI 构建或本地 pnpm build 生成）
-frontend/dist/
+# 新 UI 构建产物：**要入库**（方案 A）
+# 为什么入库：启动器/CND 只搬 git 内容，dist 不入库的话所有非 Docker 用户
+# 都拿不到新 UI 产物（2026-11-19 实测：Windows 用户切换新 UI 必然回退）。
+# vite 配置已改成内容哈希（不再是 Date.now），构建可复现，CI 能校验产物一致性。
+!frontend/dist/
+!frontend/dist/**
+
+# 但构建产物里的缓存文件不入库
+frontend/dist/**/*.tsbuildinfo

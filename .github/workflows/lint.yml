@@ -54,6 +54,48 @@ jobs:
           git checkout -- pyproject.toml uv.lock
           git diff --exit-code
 
+  frontend-dist-fresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # 方案 A（2026-11-19）：frontend/dist 入库，随 git 分发到启动器/CND 用户。
+      # 代价是必须保证「入库产物 = 当前源码构建出来」，
+      # 否则有人改了 React 源码忘了 pnpm build，所有用户拿到的还是旧 UI。
+      # 这里用同一份 lockfile 重新构建，产物与仓库里的逐字节比对。
+      # 之所以能逐字节比：vite.config.ts 的缓存破坏参数已从 Date.now()
+      # 改成「主题 CSS 内容哈希」，构建因此可复现。
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Build frontend
+        working-directory: frontend
+        run: pnpm run build
+      - name: Verify committed dist matches source
+        run: |
+          if [ -n "$(git status --porcelain frontend/dist)" ]; then
+            echo ""
+            echo "::error::frontend/dist 与源码不一致 —— 改了前端却忘了提交构建产物。"
+            echo ""
+            echo "本地执行："
+            echo "  cd frontend && pnpm build && cd .."
+            echo "  git add frontend/dist && git commit"
+            echo ""
+            echo "差异文件："
+            git status --porcelain frontend/dist
+            echo ""
+            git --no-pager diff --stat frontend/dist || true
+            exit 1
+          fi
+          echo "frontend/dist 与源码一致 ✓"
+
   call-signature-audit:
     runs-on: ubuntu-latest
     steps:

@@ -1,4 +1,9 @@
 node_modules
-dist
 *.local
 *.tsbuildinfo
+
+# dist 要入库（方案 A：启动器/CND 只搬 git 内容，产物必须随仓库分发）。
+# vite 配置已把缓存破坏参数从 Date.now() 改成主题 CSS 内容哈希，
+# 构建可复现，因此产物入库不会产生无意义 diff。
+!dist
+!dist/**

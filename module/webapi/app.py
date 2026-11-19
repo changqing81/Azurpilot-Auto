@@ -844,6 +844,25 @@ async def switch_ui(request: Request) -> JSONResponse:
             {"success": False, "error": "ui 必须是 legacy 或 new"}, status_code=400
         )
 
+    # ⚠️ 切到 new 之前必须确认前端产物存在，否则写进配置也是白搭：
+    # 重启后 module/webui/app.py 里 _mount_root = (UI==new and _has_dist) 为 False，
+    # 静默降级回老 UI，用户看到的就是「点了切换、重启了、还是老 UI」，无任何提示。
+    # 2026-11-19 实测：Windows 启动器用户与 Docker 用户都踩这个坑
+    # （dist 曾长期不入库，git/CND 分发拿不到构建产物）。
+    if target == "new" and not os.path.isdir(_FRONTEND_DIST):
+        return JSONResponse(
+            {
+                "success": False,
+                "error": (
+                    "前端产物缺失，无法切换到新 UI。"
+                    f"（{_FRONTEND_DIST} 不存在）"
+                    " 请联系维护者更新，或自行在 frontend 目录执行 pnpm build。"
+                ),
+                "dist": False,
+            },
+            status_code=400,
+        )
+
     def _write() -> dict:
         from module.webui.setting import State
         from module.logger import logger as _lg
