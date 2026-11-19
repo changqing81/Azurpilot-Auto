@@ -202,37 +202,31 @@ export function StatPage() {
         <div className="st-panels" id="statistics-panels">
         {tab === 'opsi' && (
           <div id="st-panel-opsi" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('opsi')}</p>
             <OpsiPanel name={name} />
           </div>
         )}
         {tab === 'commission' && (
           <div id="st-panel-commission" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('commission')}</p>
             <CommissionIncome name={name} />
           </div>
         )}
         {tab === 'research' && (
           <div id="st-panel-research" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('research')}</p>
             <ResearchPanel name={name} />
           </div>
         )}
         {tab === 'resource' && (
           <div id="st-panel-resource" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('resource')}</p>
             <DeltaSummary name={name} />
           </div>
         )}
         {tab === 'fleet' && (
           <div id="st-panel-fleet" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('fleet')}</p>
             <FleetTechPanel name={name} />
           </div>
         )}
         {tab === 'mind' && (
           <div id="st-panel-mind" className="st-panel is-active">
-            <p style={{ whiteSpace: 'pre-wrap', ['--arg-title--' as string]: '1' } as React.CSSProperties}>{tabName('mind')}</p>
             <MindPanel name={name} />
           </div>
         )}

@@ -204,7 +204,6 @@ export function OpsiPanel({ name }: { name: string }) {
 
       {/* 净赚卡 + 12 指标卡 */}
       <div style={{ marginTop: 18 }}>
-        <div className="st-title-sub">{text('TabOpsi')}</div>
         {panels?.html && <div style={{ opacity: panelsLoading ? 0.35 : 1, transition: 'opacity .25s' }} dangerouslySetInnerHTML={{ __html: panels.html }} />}
       </div>
 
