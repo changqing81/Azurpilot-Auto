@@ -471,15 +471,26 @@
    #root 节点，本节规则对老 UI 零影响（红线：不为新 UI 改共享 CSS）。
    ============================================================ */
 
-/* 1) 实底变量改半透明：直接引用主题自身的 card-bg —— 它已经是
-      「按主题自适应的半透明玻璃」规范值（亮 0.72 / 暗 0.78 / 透明主题
-      另有自己的值），bar-bg 跟它同值即自动跟随主题明暗，无需自己判断
-      （按 prefers-color-scheme 判断是错的：主题明暗由 deploy 主题决定，
-      与系统偏好无关 —— 第一版就错在这里）。在 #root 上重定义变量，
-      内部所有 bar-bg 卡片自动继承；老 UI 无 #root，继续用共享 CSS 的
-      0.93 实底，零影响。 */
-#root {
-  --alas-apple-bar-bg: var(--alas-apple-card-bg);
+/* 1) 薄玻璃：按主题给「一层」半透明底
+   ------------------------------------------------------------
+   老 UI 的 --alas-apple-card-bg 是 0.78(暗)/0.72(亮)，为了性能；
+   新 UI 卡片少、GPU 够，改成更薄的玻璃，让壁纸真正透出来
+   （长卿 2026-11-19：「改成薄玻璃半透明那种」）。
+
+   为什么需要两个分支：advanced_material 和 dark_advanced_material 在 body 上都
+   是 webio-theme-default（老 UI 的 pywebio_theme_for 只把 dark 映射成 dark），
+   CSS 分不出明暗。main.tsx 的 applyTheme 会把主题名写到
+   html[data-alas-theme]，这里按它分支 —— 不依赖系统 prefers-color-scheme
+   （主题由 deploy 决定，与系统偏好无关）。
+
+   只在 #root 下重定义变量，老 UI（无 #root）继续用共享 CSS 的原值。 */
+html[data-alas-theme='dark_advanced_material'] #root {
+  --alas-apple-card-bg: rgba(15, 23, 42, 0.52);
+  --alas-apple-bar-bg: rgba(15, 23, 42, 0.52);
+}
+html[data-alas-theme='advanced_material'] #root {
+  --alas-apple-card-bg: rgba(255, 255, 255, 0.52);
+  --alas-apple-bar-bg: rgba(255, 255, 255, 0.52);
 }
 
 /* 2) 恢复被 advanced-material-alas.css:483 关掉的毛玻璃：
@@ -509,4 +520,145 @@
 #root #pywebio-scope-ship_exp_table .simple-table td,
 #root #pywebio-scope-research_stats .simple-table td {
   background: rgba(15, 23, 42, 0.28) !important;
+}
+
+/* ============================================================
+   消除「双层底」—— 同一页面上叠了多层同色不透明底
+   ------------------------------------------------------------
+   长卿 2026-11-19：「这不还是双层吗？把这一个底给删了，改成薄玻璃」
+   「其他地方也都改一下」。
+
+   CDP 实测统计页（暗色高级材质）的嵌套链：
+     #pywebio-scope-opsi_stats   rgba(15,23,42,0.78) + blur(6px)   ← 外层
+       #pywebio-scope-ap_chart   rgba(15,23,42,0.78) + blur(6px)   ← 第二层
+         .opsi-card              rgba(15,23,42,0.78) + blur(20px)  ← 第三层
+   0.78 叠两层 = 有效 0.95、叠三层 = 0.99 —— 视觉上就是一块死黑，
+   壁纸一点都透不出来，这就是「灰的一坨 / 双面底」。
+
+   处理原则：**每个面板只保留一层玻璃**（最外层），内层全部让位：
+     · ap_chart 是 opsi_stats 的内部容器 → 撤销底色与模糊
+     · .opsi-card/.metric/.kpi/.rd-stats-item 是玻璃上的「格」，→ 只留描边
+       与文字，不再自带深色底；带语义色色调的卡（.is-cost/.is-akashi/
+       .is-crane/.is-eff、.opsi-net 的绿软底）保留原有淡色调 ——
+       那层是装饰色（alpha 0.05~0.08），不是不透明底，长卿明确喜欢。
+   ============================================================ */
+
+/* 第一层：内嵌的图表容器不再重复上底 */
+#root #pywebio-scope-ap_chart {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 第二层：玻璃上的「格」不再自带深底（带 is-* 语义色的保持原样） */
+#root #pywebio-scope-statistics-content .opsi-card:not([class*='is-']),
+#root #pywebio-scope-statistics-content .metric:not([class*='is-']),
+#root #pywebio-scope-statistics-content .kpi:not([class*='is-']),
+#root #pywebio-scope-statistics-content .rd-stats-item:not([class*='is-']) {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 折叠块头部也是 0.9 实底，叠在玻璃上又是一层 —— 改薄 */
+#root #pywebio-scope-statistics-content .ap-aux-fold {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* 图表画布容器（老 UI ap_chart.js 写死 rgb(26,26,46) 不透明底）：
+   保留它的深底（否则网格线/坐标看着糊），但把不透明度压下来，
+   让它跟外层玻璃融合，而不是一块突兀的黑板。 */
+#root #ap_cv_nc_alas_container,
+#root [id^='ap_cv_'][id$='_container'] {
+  opacity: 0.92;
+}
+
+/* ------------------------------------------------------------
+   硬编码底的覆盖：主题里有一批写死的不透明底（不引用变量），
+   改变量对它们无效 —— 实测 #pywebio-scope-opsi_stats 仍是 0.78。
+   这里逐个按 #root 前缀覆盖成薄玻璃。老 UI 无 #root，不受影响。
+   ------------------------------------------------------------ */
+
+/* 四个统计面板 scope：dark-advanced-material-overrides-alas.css:323
+   写死 rgba(15,23,42,0.78)（注释说是为热切换路径兜底白底）。
+   新 UI 用薄玻璃，并且取消重复的 blur(6px)（外层另有 20px 模糊时会
+   叠加成两次采样，视觉更糊、开销翻倍）。 */
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-opsi_stats,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-ship_exp_table,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-research_stats,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income {
+  background-color: rgba(15, 23, 42, 0.52) !important;
+}
+
+/* 表单控件同样是写死 0.78（dark:171）—— 薄一点，跟玻璃卡融合 */
+html[data-alas-theme='dark_advanced_material'] #root .form-control,
+html[data-alas-theme='dark_advanced_material'] #root input:not([type='checkbox']):not([type='radio']),
+html[data-alas-theme='dark_advanced_material'] #root select,
+html[data-alas-theme='dark_advanced_material'] #root select.form-control {
+  background-color: rgba(15, 23, 42, 0.42) !important;
+}
+
+/* 亮色侧：委托表格 td 0.72 / th 0.96 也是写死的，跟着变薄 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table td,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent-row {
+  background-color: rgba(255, 255, 255, 0.55) !important;
+}
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table th {
+  background-color: rgba(245, 245, 247, 0.72) !important;
+}
+
+/* ------------------------------------------------------------
+   ⚠️ 配置页卡片的「双层底」真凶：前缀选择器误伤
+   advanced-material-alas.css:457 的
+     [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(...)
+   本意是给「分组卡」（group_Log）垫玻璃底，但 group_Log 内部的
+   #pywebio-scope-group_Log_body 也以 pywebio-scope-group_ 开头，
+   于是**同一个选择器把它也命中**——卡片里再叠一层同样的玻璃，
+   实测 group_Log 0.52 + group_Log_body 0.52 = 有效 0.77，
+   内层还多出 border/padding/margin，视觉上就是「卡片里套卡片」。
+   新 UI 把 body 层让位（老 UI 无 #root，不受影响）。 */
+/* 特异度说明（踩过坑）：共享 CSS 那条是
+      [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu)
+        :not(#pywebio-scope-aside):not(#pywebio-scope-navigator)
+   三个 :not(#id) 各算一个 ID，总特异度 = 3 个 ID。单靠 #root（1 个 ID）
+   压不住，即使 !important 也一样（双方都是 !important 时比特异度）。
+   这里用 #root#root#root#root 复合选择器（同一元素重复匹配，合法写法）
+   把特异度抬到 4 个 ID，稳定覆盖。 */
+#root#root#root#root [id^='pywebio-scope-group_'][id$='_body'] {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* ------------------------------------------------------------
+   统计页残余内层底（同样叠在 0.52 玻璃上）
+   · .opsi-meow-card / .meow-loot-filter-note：主题变量链落到 0.9 实底
+   · .opsi-card.is-idle：写死 0.52
+   · 图表画布容器：老 UI ap_chart.js 写死 rgb(26,26,46) 不透明底
+   统一让位成薄玻璃上的「格」，只保留描边与色调。 */
+#root #pywebio-scope-opsi_stats .opsi-meow-card,
+#root #pywebio-scope-opsi_stats .meow-loot-filter-note,
+#root #pywebio-scope-opsi_stats .opsi-card.is-idle {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 图表容器：让它透明，图表直接画在玻璃上，不再是一块黑板 */
+#root #pywebio-scope-ap_chart [id^='ap_cv_'] {
+  background-color: transparent !important;
+}
+
+/* 大世界收获卡片内层：.opsi-card.is-akashi 被 dark 主题写死 0.78，
+   叠在 opsi-meow-card 的薄格上又是一层深底 —— 同样交给薄格。 */
+#root#root#root#root #pywebio-scope-opsi_stats .opsi-meow-card .opsi-card {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

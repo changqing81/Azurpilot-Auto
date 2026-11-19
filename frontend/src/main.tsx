@@ -66,6 +66,13 @@ function applyTheme(payload: { theme?: string; links?: string[] } | null) {
     const want = withRelayPrefix('/pywebio_static/css/bs-theme/' + (theme === 'dark' ? 'dark' : 'default') + '.min.css')
     if (!bs.href.includes(want)) bs.href = want
   }
+  // 3.5) 主题名挂到 <html> 的 data 属性上。
+  // 为什么要：advanced_material 与 dark_advanced_material 在 body 上都映射成
+  // webio-theme-default（老 UI 只有 dark 用 dark 类），CSS 无法区分这两个主题的
+  // 明暗。但新 UI 的「薄玻璃」需要按主题给不同透明度的底
+  // （newui-scoped.css 里 html[data-alas-theme="..."] 分支）。
+  // 只在新 UI 侧写，老 UI 读不到（它在另一个页面生命周期里）。
+  document.documentElement.setAttribute('data-alas-theme', theme || 'default')
   // 4) body 的 Bootstrap 主题类（老 UI pywebio_theme_for：只有 dark 用 dark，其余 default）
   const pywebioTheme = theme === 'dark' ? 'dark' : 'default'
   document.body.className =
