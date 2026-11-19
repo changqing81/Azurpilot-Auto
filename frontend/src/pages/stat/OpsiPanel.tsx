@@ -15,14 +15,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet, panelPath } from '../../api/client'
 import { LegacyHtmlPanel } from './LegacyHtmlPanel'
-import { apMonthCapsuleHtml, apToolbarHtml, type ApView } from './ApToolbar'
+import { apMonthSelectHtml, apToolbarHtml, type ApView } from './ApToolbar'
 import { useStatText } from './i18n'
 
 export function OpsiPanel({ name }: { name: string }) {
   const text = useStatText()
   const [months, setMonths] = useState<string[]>([])
   const [month, setMonth] = useState('')
-const [monthPickerOpen, setMonthPickerOpen] = useState(false)
   const [view, setView] = useState('line')
   const [chart, setChart] = useState<{ html: string; js: string } | null>(null)
   const [chartLoading, setChartLoading] = useState(false)
@@ -130,8 +129,6 @@ const [monthPickerOpen, setMonthPickerOpen] = useState(false)
     const d = new Date()
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
   }, [month])
-  // 本月键（YYYY-MM）：「本月」按钮文案与历史月份过滤用
-  const currentMonthKey = monthLabel
 
   // 工具栏与图表必须同处 #pywebio-scope-ap_chart 内 —— statistics-alas.css:809
   // 的分段控件规则前缀就是 #pywebio-scope-statistics-content #pywebio-scope-ap_chart，
@@ -150,17 +147,17 @@ const [monthPickerOpen, setMonthPickerOpen] = useState(false)
         if (v && v !== view) setView(v)
       }
     }
-    // 月份胶囊：老 UI 点开共用月份选择器；这里用原生 select 弹层，
-    // 但**外观仍是胶囊**（button.btn.btn-secondary 包在 .btn-group 里）。
+    // 月份：原生 select —— 点开就是可滚动的年月列表，选完即切
+    // （长卿 2026-11-19 否掉弹窗方案：「明明可以点击它然后往下拖」）。
     const monthGroup = host.querySelector('[data-ap-month-group]') as HTMLElement | null
     if (monthGroup) {
-      monthGroup.innerHTML = apMonthCapsuleHtml(monthLabel)
-      const btn = monthGroup.querySelector('button')
-      if (btn) {
-        btn.onclick = () => setMonthPickerOpen(true)
+      monthGroup.innerHTML = apMonthSelectHtml(monthLabel, months, month)
+      const sel = monthGroup.querySelector('select') as HTMLSelectElement | null
+      if (sel) {
+        sel.onchange = () => setMonth(sel.value)
       }
     }
-  }, [view, monthLabel])
+  }, [view, monthLabel, months, month])
 
   const hasMeow = !!(panels && (panels.meow || panels.meowStrip || panels.meowDrop))
 
@@ -182,37 +179,6 @@ const [monthPickerOpen, setMonthPickerOpen] = useState(false)
       {/* 图表标题行 + 月份/视图切换（老 UI _render_ap_chart_view_switcher 同构） */}
       <div id="pywebio-scope-ap_chart">
         <div ref={toolbarRef} />
-        {/* 月份选择弹层（老 UI _open_stat_month_picker 的 REST 等价物：
-            本月 + 有记录的历史月份，按钮列表点选即切）。
-            之前这里是隐藏的 form-control select，胶囊一点就展开成占满整行的大框
-            （长卿 2026-11-19：「这么大谁看啊」）—— 改成老 UI 同款小弹层。 */}
-        {monthPickerOpen && (
-          <div
-            className="alas-modal-overlay"
-            style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,.45)", display: "grid", placeItems: "center" }}
-            onClick={e => { if (e.target === e.currentTarget) setMonthPickerOpen(false) }}
-          >
-            <div className="card" style={{ width: "min(320px, 92vw)", maxHeight: "70vh", overflow: "auto", padding: "1rem 1.25rem", borderRadius: 12 }}>
-              <h5 style={{ margin: 0, marginBottom: ".6rem" }}>{text('MeowLootPickMonthTitle') || '选择查看月份'}</h5>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: ".4rem" }}>
-                <button
-                  className={'btn btn-sm ' + (!month ? 'btn-primary' : 'btn-secondary')}
-                  onClick={() => { setMonth(''); setMonthPickerOpen(false) }}
-                >{(text('MeowLootCurrentMonthOption') || '本月 {month}').replace('{month}', currentMonthKey)}</button>
-                {months.filter(m => m !== currentMonthKey).map(m => (
-                  <button
-                    key={m}
-                    className={'btn btn-sm ' + (month === m ? 'btn-primary' : 'btn-secondary')}
-                    onClick={() => { setMonth(m); setMonthPickerOpen(false) }}
-                  >{m}</button>
-                ))}
-              </div>
-              {months.length === 0 && (
-                <small style={{ opacity: .75 }}>{text('MeowLootNoHistoryMonth') || '暂无历史月份'}</small>
-              )}
-            </div>
-          </div>
-        )}
         {chartErr && <div className="st-placeholder">{chartErr}</div>}
         {/* 老 UI 的图表 DOM 挂载点（与工具栏同在 ap_chart scope 内） */}
         <div style={{ opacity: chartLoading ? 0.35 : 1, transition: 'opacity .25s' }}><div ref={hostRef} /></div>

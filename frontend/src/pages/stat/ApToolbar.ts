@@ -51,18 +51,26 @@ export function apToolbarHtml(view: ApView, text: (key: string) => string = k =>
     `<div style="display: grid; grid-auto-flow: column; grid-template-columns: auto 1fr auto auto;;;align-items: center; margin-top: 16px; margin-bottom: 8px;">` +
     `<div style="font-weight: 600; font-size: 14px;">${esc(label('ApChartTitle'))} - ${esc(AP_VIEW_LABELS[view])}</div>` +
     `<div></div>` +
-    // 月份胶囊：老 UI 是单个 btn 包在 .btn-group 里，点开共用月份选择弹窗。
-    // 这里同构，但值来自 /newapi/stat/{name}/months（已含「本月」语义）。
-    `<div class="btn-group" data-ap-month-group="1"></div>` +
+    // 月份：老 UI 是胶囊按钮 + PyWebIO 弹窗（PyWebIO 只能那样做）。
+    // 新 UI 不受限，直接给原生 select —— 点开往下滚就能选年月
+    // （长卿 2026-11-19：「明明可以点击它然后往下拖」）。
+    `<div data-ap-month-group="1"></div>` +
     `<div class="btn-group" data-ap-view-group="1">${segs}</div>` +
     `</div>`
   )
 }
 
 /**
- * 月份胶囊单独渲染：结构必须与视图分段一致（btn-group > button.btn.btn-secondary），
- * 才能在 statistics-alas.css 下拿到同一套外观。
+ * 月份下拉（新 UI 直接给原生 select，不用老 UI 的弹出选项框）。
+ *
+ * current 是当前月的 YYYY-MM 键；month 为空串表示「本月」。
+ * 选项顺序：当前月在最前（选中即本月），其后是有记录的历史月份（新→旧）。
+ * 宽度写死 7.2rem：form-control 默认铺满整行，之前就是它变成大框的原因。
  */
-export function apMonthCapsuleHtml(label: string): string {
-  return `<button class="btn btn-secondary" data-ap-month-picker="1">${esc(label)}</button>`
+export function apMonthSelectHtml(current: string, months: string[], month: string): string {
+  const rest = months.filter(m => m !== current)
+  const opts = [`<option value=""${month === '' ? ' selected' : ''}>${esc(current)}</option>`]
+    .concat(rest.map(m => `<option value="${esc(m)}"${month === m ? ' selected' : ''}>${esc(m)}</option>`))
+    .join('')
+  return `<select class="form-control form-control-sm ap-month-select" data-ap-month-select="1" style="width: 7.2rem; display: inline-block;">${opts}</select>`
 }
