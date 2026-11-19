@@ -662,3 +662,57 @@ html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* --- 体力图月份下拉：与右侧「折线/按日/按月」胶囊同款外观 ---
+   长卿 2026-11-19：「这他妈丑的不要不要的」——
+   根因是这个 select 带 .form-control，命中了老 UI 的 MD3 下划线风格
+   （light-alas.css:51-61 / dark-alas.css:103-117 的 border-bottom + 紫底），
+   而且被 .form-control:focus 染成浅紫底 + 2px 紫下划线，与右侧胶囊格格不入。
+   这里用 #root 前缀重新定义成 .seg 外观：同高、同圆角、同边框、同底色，
+   并去掉下划线与 focus 变色。老 UI 不受影响。 */
+#root #pywebio-scope-ap_chart .ap-month-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 7.2rem !important;
+  height: auto;
+  margin: 0 !important;
+  padding: 5px 26px 5px 12px !important;
+  border: 1px solid var(--st-border) !important;
+  border-bottom-width: 1px !important;
+  border-radius: 10px !important;
+  background-color: var(--st-surface-muted) !important;
+  background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 14px !important;
+  color: var(--st-text) !important;
+  font-size: 13px !important;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer;
+  transition: border-color .15s, background-color .15s;
+}
+
+#root #pywebio-scope-ap_chart .ap-month-select:hover {
+  border-color: var(--st-accent) !important;
+}
+
+#root #pywebio-scope-ap_chart .ap-month-select:focus,
+#root #pywebio-scope-ap_chart .ap-month-select:focus-visible {
+  background-color: var(--st-surface) !important;
+  border: 1px solid var(--st-accent) !important;
+  border-bottom-width: 1px !important;
+  box-shadow: 0 0 0 3px rgba(78, 76, 151, .18) !important;
+  outline: none !important;
+  color: var(--st-text) !important;
+}
+
+/* 下拉展开的选项列表跟随主题（原生 option 在部分平台会强制白底） */
+#root #pywebio-scope-ap_chart .ap-month-select option {
+  background: var(--st-surface);
+  color: var(--st-text);
+}
+
