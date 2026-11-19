@@ -1403,3 +1403,20 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
 #root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn-primary {
   border-radius: 4px;
 }
+
+/* 折线图外层框（真正的元凶）—— 新 UI 专用覆盖
+   长卿 2026-11-19：「这个框还不是在吗？改这个框有这么难吗？」
+
+   前两次改 CSS 都没用的原因：框不在 CSS 里，而是后端返回的 HTML 模板
+   webapp/ap_chart_panel.html:31 的内联样式：
+     <div id="ap_cv_nc_{instance}_container"
+          style="...background:#1a1a2e;border-radius:16px;border:1px solid #333;padding:6px;">
+   内联样式优先级最高，普通类选择器压不住。
+
+   该模板老/新 UI 共用（data.py read_webapp_template 直接复用），改模板会一起
+   改老 UI，所以用 !important 在 #root 范围内压掉内联边框。
+   保留深色背景（图表文字浅色，去掉会白底白字看不清）。 */
+#root [id^="ap_cv_"][id$="_container"] {
+  border: 0 !important;
+  border-radius: 0 !important;
+}
