@@ -19,7 +19,7 @@
 // ResearchSeriesOption），注意「心智 / 物资」「近 30 天」「第9期」的
 // 空格与写法和老 UI 完全一致。
 import { useEffect, useState } from 'react'
-import { apiGet, panelPath } from '../../api/client'
+import { apiGet, panelPathWithParams } from '../../api/client'
 import { useStatText } from './i18n'
 
 type Resp = {
@@ -137,8 +137,11 @@ export function ResearchPanel({ name }: { name: string }) {
     // 参数走 7 段路径 + query：路径段保证 period/scope 不被中继剥掉，
     // series（期数）只能走 query —— 后端第 8 段路由尚未在运行进程里加载，
     // 拼 8 段会落进 SPA 回退拿到 HTML，整块面板报废。
+    // 用 _p 通用参数段：远控中继会剥掉 query，只有路径段能保住参数。
+    // 这就是「点第 8 期自动跳回第 9 期」的真正原因 —— series 只走 query 时
+    // 到后端永远是空，后端回退到最新一期（第 9 期）。
     apiGet<Resp>(
-      panelPath(name, 'research', { period, scope }) + `?${qs}`,
+      panelPathWithParams(name, 'research', { period, scope, series: series || '' }),
       25000,
     )
       .then(r => {

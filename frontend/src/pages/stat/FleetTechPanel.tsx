@@ -18,7 +18,7 @@
 // DOM 契约：fleet-tech-alas.css 的规则全部以 [id^="pywebio-scope-ft_"] 为前缀
 // （54 条），因此容器 id 必须逐个照抄，否则样式一条都不命中。
 import { useEffect, useState } from 'react'
-import { apiGet, panelPath } from '../../api/client'
+import { apiGet, panelPathWithParams } from '../../api/client'
 import { useStatText } from './i18n'
 
 type FilterButton = { value: string; label: string; active: boolean }
@@ -81,21 +81,26 @@ export function FleetTechPanel({ name }: { name: string }) {
   useEffect(() => {
     let alive = true
     setLoading(true)
-    const qs = new URLSearchParams({
-      
-      filters: filters.join(','),
-      q: query,
-      scope,
-      stage,
-      sort: 'code',
-      dir: '1',
-      page: String(page),
-      pending: pending ? '1' : '0',
-      edit: edit ? '1' : '0',
-      bonuses: bonuses ? '1' : '0',
-      extra: extra ? '1' : '0',
-    })
-    apiGet<Resp>(panelPath(name, 'fleet') + `?${qs}`, 30000)
+    // ⚠️ 用 _p 通用参数段：远控中继会剥掉整个 query string。
+    // 舰队科技的筛选（驱逐/轻巡…）、搜索、分页、排序全在 query 里，
+    // 远控下这些参数全部丢失 → 后端永远返回默认视图，表现为
+    // 「点驱逐没反应」（长卿 2026-11-19：「我说的都是远控，电脑端肯定正常」）。
+    apiGet<Resp>(
+      panelPathWithParams(name, 'fleet', {
+        filters: filters.join(','),
+        q: query,
+        scope,
+        stage,
+        sort: 'code',
+        dir: '1',
+        page: String(page),
+        pending: pending ? '1' : '0',
+        edit: edit ? '1' : '0',
+        bonuses: bonuses ? '1' : '0',
+        extra: extra ? '1' : '0',
+      }),
+      30000,
+    )
       .then(r => { if (alive) setData(r) })
       .catch(e => { if (alive) setData({ success: false, error: String(e) }) })
       .finally(() => { if (alive) setLoading(false) })

@@ -79,6 +79,37 @@ export async function apiGet<T>(path: string, timeoutMs = 8000): Promise<T> {
  * 编码约定：每个参数取 encodeURIComponent，空值用 "_" 占位
  * （空路径段会被服务端/浏览器折叠掉）。后端 _arg() 会把 "_" 还原成空串。
  */
+/**
+ * 全参数路径通道（远控根治方案）。
+ *
+ * 远控中继（remurl 等）会把 query string **整段剥掉**，所以
+ *   ?period=days30&scope=series&series=8
+ * 到达后端时全部为空 → 按钮点了没反应 / 点第 8 期跳回第 9 期
+ * （长卿 2026-11-19：「我说的都是远控，电脑端肯定正常」）。
+ *
+ * 后端为此开了一条专门路由：
+ *   GET /newapi/stat/{name}/panels_html/{panel}/_p/{params}
+ * 参数整体编码进一个路径段，中继不剥路径。
+ *
+ * 编码格式：k=v&k=v（UTF-8 百分号编码整段），空值用 "_"。
+ */
+export function panelPathWithParams(
+  name: string,
+  panel: string,
+  params: Record<string, string | number | undefined | null>,
+): string {
+  // ⚠️ 不能把整段 encodeURIComponent：那会把 & 和 = 一起编码成 %26/%3D，
+  // 后端 parse_qsl 解析出的是一个完整键名（实测 'period=days30&scope=series' → 空值）。
+  // 正确做法：k/v 各自编码，& 与 = 保持原样作为分隔符。
+  const pairs: string[] = []
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null || v === '') continue
+    pairs.push(encodeURIComponent(k) + '=' + encodeURIComponent(String(v)))
+  }
+  const payload = pairs.length ? pairs.join('&') : '_'
+  return `/newapi/stat/${encodeURIComponent(name)}/panels_html/${encodeURIComponent(panel)}/_p/${payload}`
+}
+
 export function panelPath(
   name: string,
   panel: string,

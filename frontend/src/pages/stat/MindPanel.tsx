@@ -7,7 +7,7 @@
 //   /newapi/mind/{name}/ships 全量保存（revision 乐观锁在服务端）。
 // 容器 id 必须是 #pywebio-scope-ft_mind（fleet-tech-alas.css 后代选择器契约）。
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { apiGet, panelPath } from '../../api/client'
+import { apiGet, panelPathWithParams } from '../../api/client'
 import { useStatText } from './i18n'
 
 type MindData = {
@@ -65,7 +65,8 @@ export function MindPanel({ name }: { name: string }) {
     // 模式都走这条；整面板「加载中…」闪烁（长卿 2026-11-19）就是 setData(null)
     // 把说明框/统计卡一起卸载重挂造成的。
     if (!opts?.soft) { setData(null); setErr('') }
-    apiGet<MindData>(panelPath(name, 'mind', {}) + `?page=${page}&edit=${edit ? 1 : 0}`, 25000)
+    // 远控中继剥 query，分页与编辑态必须走路径段（否则翻页点不动）
+      apiGet<MindData>(panelPathWithParams(name, 'mind', { page, edit: edit ? '1' : '0' }), 25000)
       .then(r => {
         if (r.success === false) { setErr(r.error || '加载失败'); return }
         setData(prev => (prev && opts?.soft ? { ...prev, list_html: r.list_html, page: r.page, pages: r.pages, total: r.total } : r))

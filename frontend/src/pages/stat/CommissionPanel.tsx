@@ -10,7 +10,7 @@
 // 我上一版只放了「本月/本周」两个按钮，顺序还反了 —— 长卿：
 //   「每日不翼而飞 而且还反了 顺序是每日 每周 每月」。
 import { useEffect, useState } from 'react'
-import { apiGet, panelPath } from '../../api/client'
+import { apiGet, panelPathWithParams } from '../../api/client'
 import { useStatText } from './i18n'
 
 type Resp = {
@@ -63,12 +63,13 @@ export function CommissionIncome({ name }: { name: string }) {
       qs.set('year', String(ym.y))
       qs.set('month', String(ym.m))
     }
+    // 用 _p 通用参数段：远控中继剥 query，period/year/month 只有走路径段才保得住。
     apiGet<Resp>(
-      panelPath(name, 'commission', {
+      panelPathWithParams(name, 'commission', {
         period,
         year: ym ? String(ym.y) : '',
         yearmonth: ym ? String(ym.m) : '',
-      }) + `?${qs}`,
+      }),
       25000,
     )
       .then(r => {
@@ -160,6 +161,21 @@ export function CommissionIncome({ name }: { name: string }) {
   //   ⑥ recent_html    最近记录
   // 之前我把 ③ 提到最前、running 夹在 ②④ 之间，与老 UI 相反 —— 长卿：
   //   「这个位置反了 进行中的在上面」。
+  // 把后端 summary_html 里的「委托收益统计」标题抽出来，让标题与工具栏同一行。
+  // 后端结构（mind_calculator_view 风格）：
+  //   <div id="commission_income_container" class="commission-income-summary">
+  //     <div style="font-size:1rem;font-weight:600;...">委托收益统计</div>
+  //     <div style="display:grid;...">…五张卡…</div>
+  //   </div>
+  // 标题那层的判别特征：font-size: 1rem + font-weight: 600。
+  // 抽不到就原样整块渲染（不强依赖后端结构）。
+  const { summaryTitle, summaryBody } = (() => {
+    const html = data?.summary_html || ''
+    const m = html.match(/<div style="font-size:\s*1rem;\s*font-weight:\s*600;[^"]*">([^<]*)<\/div>/)
+    if (!m) return { summaryTitle: '', summaryBody: html }
+    return { summaryTitle: m[1], summaryBody: html.replace(m[0], '') }
+  })()
+
   return (
     // #pywebio-scope-commission_income 是老 UI 委托面板的 scope 宿主：
     // advanced-material-alas.css:1207-1223 的毛玻璃卡片（var(--alas-apple-card-bg)
@@ -178,8 +194,21 @@ export function CommissionIncome({ name }: { name: string }) {
 
       {data?.success && (
         <>
-          {data.summary_html && <div dangerouslySetInnerHTML={{ __html: data.summary_html }} />}
-          {controls}
+          {data.summary_html && (
+            <>
+              {/* 标题行与工具栏**合并成一行**（长卿 2026-11-19：
+                  「这个委托就跟我第二张图这样子，参考折线图上面的」——
+                  即「委托收益统计」左、「日 周 月 2026-11」右）。
+                  后端 summary_html 里标题和数据卡是连在一起的
+                  （mind_calculator 风格的单个 div），所以这里把标题抽出来
+                  单独渲染，其余部分照原样挂载。 */}
+              <div className="st-commission-head">
+                <span className="st-commission-title">{summaryTitle}</span>
+                {controls}
+              </div>
+              <div dangerouslySetInnerHTML={{ __html: summaryBody }} />
+            </>
+          )}
           {data.table_html && <div dangerouslySetInnerHTML={{ __html: data.table_html }} />}
           {data.gem_html && <div dangerouslySetInnerHTML={{ __html: data.gem_html }} />}
           {data.recent_html && <div dangerouslySetInnerHTML={{ __html: data.recent_html }} />}

@@ -1137,3 +1137,48 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
     padding: 6px 10px;
   }
 }
+
+/* ============================================================
+   委托收益统计：标题与工具栏同行（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19 给了参考图：「日 周 月 2026-11」在标题「委托收益统计」
+   同一行右侧 —— 就是折线图工具栏的排法：
+     [标题 ................ 周期胶囊 月份胶囊]
+
+   原来工具栏在标题下方独占一行，且是两块（胶囊 + 年月翻页），
+   手机上占掉半屏。这里改成 grid「auto 1fr auto」，标题左、工具栏右。
+   ============================================================ */
+#root .st-commission-head {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+  padding-bottom: .5rem;
+  border-bottom: 1px solid rgba(128, 128, 128, .2);
+}
+
+#root .st-commission-head .st-commission-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: inherit;
+  flex: 0 0 auto;
+}
+
+/* 工具栏在标题行里：推到右侧，取消自身的上下外边距 */
+#root .st-commission-head .st-commission-toolbar {
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+}
+
+/* 窄屏：标题与工具栏各占一行（横排会挤成一坨） */
+@media (max-width: 760px) {
+  #root .st-commission-head {
+    gap: .5rem;
+  }
+  #root .st-commission-head .st-commission-toolbar {
+    margin-left: 0;
+    width: 100%;
+  }
+}

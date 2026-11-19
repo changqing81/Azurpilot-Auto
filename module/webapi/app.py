@@ -422,10 +422,29 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     # 见 Route 注册处与 docs 注释。
     _pp = request.path_params
 
+    # ⭐ 通用参数段解包（/panels_html/{panel}/_p/{k=v&k=v}）。
+    # 远控中继会把 query string 整段剥掉，各面板参数又互不相同、还会继续增加，
+    # 「每个参数加一段路由」不可持续。这里把参数整体编码进一个路径段，
+    # 解包成 dict 后与 query / 单段路径参数一起作为三级回退。
+    _p_params: dict = {}
+    _raw_p = _pp.get("params") or ""
+    if _raw_p and _raw_p != "_":
+        from urllib.parse import parse_qsl as _parse_qsl
+
+        try:
+            for _k, _v in _parse_qsl(_raw_p, keep_blank_values=True):
+                # 空值约定：前端用 "_" 占位，这里还原成空串
+                _p_params[_k] = "" if _v == "_" else _v
+        except Exception:  # noqa: BLE001 —— 解包失败按无参数处理
+            _p_params = {}
+
     def _arg(key: str, default: str = "") -> str:
+        # 优先级：query（直连）> 单段路径（老路由）> 通用参数段（远控保底）
         v = request.query_params.get(key)
         if v is None:
             v = _pp.get(key)
+        if v is None:
+            v = _p_params.get(key)
         v = (v or "").strip()
         return "" if v == "_" else v
 
@@ -1413,6 +1432,21 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         # path 版把 panel 放进路径段，中继不剥路径，所以远控下也能正确分发。
         Route("/newapi/stat/{name}/panels_html", stat_panels_html),
         Route("/newapi/stat/{name}/panels_html/{panel}", stat_panels_html),
+        # ⭐ 通用「全参数路径」通道（必须注册在 {month} 路由**之前**）。
+        #
+        # 为什么单独开一条：远控中继会把 query string 整段剥掉，而各面板的参数
+        # 集互不相同且会继续增加（科研 series、科技 filters/q/page/edit…、
+        # 资源 period）。每加一个参数就加一段路由不可持续。
+        # 这里把参数整体编码进**一个**路径段（k=v&k=v），中继不剥路径。
+        #
+        # ⚠️ 顺序敏感：Starlette 按注册顺序匹配，
+        #   "/{panel}/{month}/{task}" 会把 "_p/xxx" 里的 "_p" 当成 {month} 吃掉，
+        #   导致参数永远解析不到（实测：series 恒为 9、period 恒为 month）。
+        #   所以这条必须排在 {month} 之前。
+        Route(
+            "/newapi/stat/{name}/panels_html/{panel}/_p/{params:path}",
+            stat_panels_html,
+        ),
         # path 版：panel / month / task 都放进路径段。远控中继会剥掉 query
         # string（实测 ?panel=ship_exp 到达后端时为空），但不动路径。
         Route(
@@ -1434,6 +1468,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
             "/{scope}/{year}/{yearmonth}/{series}",
             stat_panels_html,
         ),
+
         Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
         Route("/newapi/stat/{name}/months", stat_months),
         Route("/newapi/stat/{name}/ap_chart", stat_ap_chart),
