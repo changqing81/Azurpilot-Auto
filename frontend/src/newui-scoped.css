@@ -927,11 +927,35 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
    （app_task_config.py:677-681）。这里做成音乐播放器风格的圆形 ▶ 按钮：
    圆形描边 + 内嵌三角，hover 时填充主色，点击把 NextRun 置空触发立即执行。
    ============================================================ */
+/* 整行就是一个按钮（球 + 文字都是热区）—— 点「立即运行」四个字也能触发 */
 #root .run-now-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   margin: 0 0 4px;
+  padding: 3px 10px 3px 4px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  transition: background .16s, color .16s;
+  color: var(--bs-primary, #4f6ef7);
+  font: inherit;
+  line-height: 1;
+}
+
+#root .run-now-row:hover {
+  background: rgba(79, 110, 247, .10);
+}
+
+#root .run-now-row:active {
+  background: rgba(79, 110, 247, .18);
+}
+
+/* 运行中：整行变成不可点 + 转圈 */
+#root .run-now-row.is-running {
+  cursor: progress;
+  opacity: .7;
 }
 
 #root .run-now-btn {
@@ -944,32 +968,35 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   border: 1.5px solid currentColor;
   border-radius: 50%;
   background: transparent;
-  color: var(--bs-primary, #4f6ef7);
-  cursor: pointer;
-  transition: background .16s, color .16s, transform .16s;
+  color: inherit;
   flex: 0 0 auto;
+  transition: background .16s, color .16s;
   /* 三角视觉重心偏左，补 2px 让它在圆里看起来居中 */
   padding-left: 2px;
 }
 
-#root .run-now-btn:hover {
+#root .run-now-row:hover .run-now-btn {
   background: var(--bs-primary, #4f6ef7);
   color: #fff;
-  transform: scale(1.06);
-}
-
-#root .run-now-btn:active {
-  transform: scale(0.94);
 }
 
 #root .run-now-text {
   font-size: .82rem;
-  opacity: .78;
+  opacity: .85;
   user-select: none;
+  white-space: nowrap;
+}
+
+#root .run-now-row:hover .run-now-text {
+  opacity: 1;
+  font-weight: 600;
 }
 
 /* 触控目标：手机端把按钮撑到 34px（低于 24px 容易点不中） */
 @media (max-width: 760px) {
+  #root .run-now-row {
+    min-height: 40px;
+  }
   #root .run-now-btn {
     width: 34px;
     height: 34px;
@@ -1245,12 +1272,70 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   min-width: 36px;
 }
 
-/* --- 配置页保存提示 toast 入场（配置页 index.tsx 用 animation: alas-toast-in） --- */
+/* ============================================================
+   全局 toast（老 UI PyWebIO toast 的等价物）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「老 UI 都有一个绿色小弹窗说保存成功了」。
+   右下角堆叠、点击关闭、自动淡出；绿色=成功、红色=失败。
+   ============================================================ */
+#root .alas-toast-stack,
+.alas-toast-stack {
+  position: fixed;
+  right: 1rem;
+  bottom: 1.25rem;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  align-items: flex-end;
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 2rem));
+}
+
+#root .alas-toast,
+.alas-toast {
+  pointer-events: auto;
+  padding: .6rem .95rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: .875rem;
+  line-height: 1.45;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 8px 28px rgba(16, 24, 40, .24);
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+  animation: alas-toast-in .22s ease-out;
+  word-break: break-word;
+}
+
 @keyframes alas-toast-in {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
 @media (prefers-reduced-motion: reduce) {
-  @keyframes alas-toast-in { from { opacity: 0; } to { opacity: 1; } }
+  #root .alas-toast,
+  .alas-toast { animation: none !important; }
+}
+
+/* --- 配置项校验失败：控件红框（对应老 UI pin_set_invalid_mark 的 .is-invalid） --- */
+#root .config-invalid .form-control,
+#root .config-invalid textarea,
+#root .config-invalid input[type="text"] {
+  border-color: var(--alas-entry-badge-error, #c0392b) !important;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, .18) !important;
+}
+#root .run-now-spin {
+  animation: run-now-spin .8s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+@keyframes run-now-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #root .run-now-spin { animation: none !important; }
 }
 

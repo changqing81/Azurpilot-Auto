@@ -183,6 +183,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useEffect, useRef } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { ToastProvider } from './components/Toast'
 import { Overview } from './pages/home'
 import { useParams as useParamsForOverview } from 'react-router-dom'
 import { HomePageMain, startWallpaperRace } from './pages/home2'
@@ -290,6 +291,7 @@ function RestoreLastRoute() {
 startWallpaperRace()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
+    <ToastProvider>
     <HashRouter>
       <RestoreLastRoute />
       <Routes>
@@ -312,5 +314,6 @@ createRoot(document.getElementById('root')!).render(
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
+    </ToastProvider>
   </StrictMode>
 )

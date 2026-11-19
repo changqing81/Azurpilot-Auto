@@ -28,25 +28,23 @@ import { useParams } from 'react-router-dom'
 import { apiGet, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { ArgBlock, type Group } from './groups'
-
+import { useToast } from '../../components/Toast'
 type ConfigResp = { task: string; groups: Group[]; error?: string }
-
 export function ConfigPage() {
   const { name = 'alas', task = '' } = useParams()
   const [groups, setGroups] = useState<Group[]>([])
-  const [error, setError] = useState('')
+  const toast = useToast()
   const [loaded, setLoaded] = useState(false)
-
   useEffect(() => {
     // task 为空时（路由参数丢失，如切实例后落在 /config/{name} 无任务段）不发请求：
     // 之前会请求 /newapi/config/{name}/task/ 打到 SPA 回退返回 HTML，JSON 解析失败；
     // 这里直接提示，等用户从菜单选任务。
-    if (!task) { setError('请从左侧菜单选择一个任务'); setLoaded(true); return }
+    if (!task) { toast.error('请从左侧菜单选择一个任务'); setLoaded(true); return }
     setLoaded(false)
     apiGet<ConfigResp>(`/newapi/config/${instSeg(name)}/task/${encodeURIComponent(task)}`).then(r => {
-      if (r.error) setError(r.error)
+      if (r.error) toast.error(r.error)
       setGroups(r.groups)
-    }).catch(e => setError(String(e) + `  (${name}/${task})`)).finally(() => setLoaded(true))
+    }).catch(e => toast.error(String(e))).finally(() => setLoaded(true))
   }, [name, task])
 
   const setArg = (group: string, argName: string, value: any) => {
@@ -56,7 +54,6 @@ export function ConfigPage() {
     }))
     scheduleSave({ [`${group}.${argName}`]: value })
   }
-
   // 老 UI 配置页没有「保存」按钮 —— 每个控件改完由 pin_on_change 自动落盘。
   // 新 UI 用 debounce 自动保存，交互与老 UI 一致。
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -79,13 +76,28 @@ export function ConfigPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ modified: batch }),
       })
-      if (!res.ok) { setError(`保存失败: HTTP ${res.status}`); return }
+      if (!res.ok) { toast.error(`保存失败: HTTP ${res.status}`); return }
       const j = await res.json().catch(() => null)
-      if (!j) { setError('保存失败: 后端返回了无法解析的内容'); return }
-      if (j.error) { setError('保存失败: ' + j.error); return }
-      if (j.invalid?.length) setError(`${j.valid?.length ?? 0} 项已保存，${j.invalid.length} 项校验失败`)
-      else setError('')
-    } catch (e) { setError('保存失败: ' + String(e)) }
+      if (!j) { toast.error('保存失败: 后端返回异常'); return }
+      if (j.error) { toast.error('保存失败: ' + j.error); return }
+      // 老 UI：valid 项有 toast 成功提示（Gui.Toast.ConfigSaved「设置已保存」），
+      // invalid 项给控件本身加红框（pin_set_invalid_mark），不弹整体错误。
+      if (j.invalid?.length) {
+        toast.error(`${j.invalid.length} 项格式不符，未保存`)
+        // 给校验失败的控件加红框（对应老 UI pin_set_invalid_mark 的 is-invalid）。
+        // DOM 容器 id 形如 arg_container-{widget}-{Group_Arg}，先把所有红框清掉再标。
+        document.querySelectorAll('.config-invalid').forEach(el => el.classList.remove('config-invalid'))
+        for (const k of j.invalid as string[]) {
+          const parts = String(k).split('.')
+          const key = parts.slice(-2).join('_')          // Group_Arg
+          const el = Array.from(document.querySelectorAll('[id^="pywebio-scope-arg_container-"]'))
+            .find(n => (n as HTMLElement).id.endsWith('-' + key))
+          if (el) el.classList.add('config-invalid')
+        }
+      } else {
+        if (j.valid?.length) toast.ok('设置已保存')
+      }
+    } catch (e) { toast.error('保存失败: ' + String(e)) }
   }
 
   // 右侧分组导航（老 UI #pywebio-scope-navigator 同构）
@@ -93,7 +105,6 @@ export function ConfigPage() {
     () => groups.map(g => ({ id: `pywebio-scope-group_${g.group}`, name: g.title || g.group })),
     [groups],
   )
-
   return (
     <Shell active={task} title="配置">
       {/* #pywebio-scope-content 里**只能有 #pywebio-scope-_groups**：
@@ -131,6 +142,7 @@ export function ConfigPage() {
                               pendingRef.current = { ...pendingRef.current, [`${g.group}.${a.name}`]: '' }
                               if (saveTimer.current) clearTimeout(saveTimer.current)
                               // 立即保存，不等 debounce：点一下就该跑
+                              toast.ok('已触发立即运行')  // 老 UI：toast(t("Gui.Text.RunNow"))「立即运行」
                               void save()
                             }
                           : undefined
@@ -160,33 +172,6 @@ export function ConfigPage() {
         </div>
         {!loaded && <p style={{ margin: '.5rem', opacity: .7 }}>加载中…</p>}
       </div>
-      {/* 保存结果提示：浮层 toast，不占布局（老 UI 用 PyWebIO toast 也是浮层）。
-          之前这条错误信息直接塞在 children 里，落进 #pywebio-scope-contents 的 grid
-          被排到左侧栏，看起来像侧边栏报错（长卿 2026-11-19 截图）。 */}
-      {error && (
-        <div
-          role="status"
-          style={{
-            position: 'fixed',
-            right: '1rem',
-            bottom: '1.25rem',
-            zIndex: 10001,
-            maxWidth: 'min(420px, calc(100vw - 2rem))',
-            padding: '.65rem .9rem',
-            borderRadius: 10,
-            background: 'var(--alas-entry-surface, #fff)',
-            color: 'var(--alas-entry-text, #202124)',
-            border: '1px solid var(--alas-entry-border, #dde0e5)',
-            borderLeft: '3px solid var(--alas-entry-badge-error, #c0392b)',
-            boxShadow: '0 8px 28px rgba(16,24,40,.18)',
-            fontSize: '.875rem',
-            lineHeight: 1.5,
-            animation: 'alas-toast-in .22s ease-out',
-          }}
-        >
-          {error}
-        </div>
-      )}
     </Shell>
   )
 }

@@ -137,6 +137,15 @@ export function ArgBlock({
   /** 传了就在控件下方渲染「立即运行」按钮（仅 Scheduler.NextRun 用）。 */
   onRunNow?: () => void
 }) {
+  // 点击后的短反馈（长卿 2026-11-19：「点完了之后没有任何反馈」）：
+  // 1.2 秒内切到「正在触发…」并禁用，防止连点，也让用户确认点上了。
+  const [running, setRunning] = useState(false)
+  const fireRunNow = () => {
+    if (!onRunNow || running) return
+    setRunning(true)
+    onRunNow()
+    setTimeout(() => setRunning(false), 1200)
+  }
   const kind =
     arg.type === 'select' ? 'select'
     : arg.type === 'checkbox' || typeof arg.value === 'boolean' ? 'checkbox'
@@ -177,20 +186,30 @@ export function ArgBlock({
           // （app_task_config.py:669-690，点击把 NextRun 置空触发调度器立即执行）。
           // 长卿 2026-11-19 要求做得更像音乐播放器的播放按钮，所以这里用
           // 圆形 ▶ 按钮 + 文字，点击后置空 NextRun。
-          <div className="run-now-row">
-            <button
-              type="button"
-              className="run-now-btn"
-              onClick={onRunNow}
-              title="立即运行该任务"
-              aria-label="立即运行"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
-                <path d="M8 5v14l11-7z" fill="currentColor" />
-              </svg>
-            </button>
-            <span className="run-now-text">立即运行</span>
-          </div>
+          // 整行可点（长卿 2026-11-19：「为什么一定要点到球才它才可以立即运行？
+          // 点那个立即运行那个字它没有反馈，点不动」）—— 用 <button> 包住球+文字，
+          // 整块都是热区，鼠标移上去文字也会高亮。
+          <button
+            type="button"
+            className={'run-now-row' + (running ? ' is-running' : '')}
+            onClick={fireRunNow}
+            disabled={running}
+            title="立即运行该任务"
+            aria-label="立即运行"
+          >
+            <span className="run-now-btn" aria-hidden="true">
+              {running ? (
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" className="run-now-spin">
+                  <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="2.4" strokeDasharray="14 42" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" fill="currentColor" />
+                </svg>
+              )}
+            </span>
+            <span className="run-now-text">{running ? '正在触发…' : '立即运行'}</span>
+          </button>
         ) : null}
         <ArgControl arg={arg} onChange={onChange} />
       </div>
