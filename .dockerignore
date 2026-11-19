@@ -13,3 +13,8 @@ dist
 debug_img
 ocr_debug
 toolkit
+
+# 前端依赖与构建缓存：镜像内 pnpm install 会重新装，
+# 不能把本机 node_modules 传进构建上下文（体积几百 MB）。
+node_modules
+frontend/tsconfig.tsbuildinfo
