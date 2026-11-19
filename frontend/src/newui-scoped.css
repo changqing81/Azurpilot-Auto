@@ -507,19 +507,25 @@ html[data-alas-theme='advanced_material'] #root {
   -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
 }
 
-/* 3) 统计页表格的「双面底」：外层面板已是 rgba(15,23,42,0.78) 玻璃，
+/* 3) 统计页表格的「双面底」：外层面板已是半透明玻璃，
       dark-advanced-material-overrides-alas.css:335/344 又给 th/td 垫了
-      0.96/0.92 实底 —— 深上叠深，糊成灰块。改成薄薄一层半透明，
-      与外层玻璃融合成单层观感；文字对比度靠外层玻璃兜底。 */
+      0.96/0.92 实底 —— 深上叠深，糊成灰块。
+
+      ⚠️ 这里必须用**主题自适应变量**，不能写死深色值：
+      上一版我写了 rgba(15,23,42,.35)，结果切到亮色高级材质（advanced_material）
+      时科研表格变成一块黑底（长卿 2026-11-19 手机截图：「科研这个地方怎么是
+      黑色的呢」）。--st-surface-muted 由 statistics-alas.css:28 定义，
+      链路是 --alas-entry-surface-muted，亮色/暗色两个主题各有自己的值。
+      透明度用 color-mix 压薄，避免又变成实底。 */
 #root #pywebio-scope-opsi_stats .simple-table th,
 #root #pywebio-scope-ship_exp_table .simple-table th,
 #root #pywebio-scope-research_stats .simple-table th {
-  background: rgba(15, 23, 42, 0.35) !important;
+  background: color-mix(in srgb, var(--st-surface-muted, transparent) 55%, transparent) !important;
 }
 #root #pywebio-scope-opsi_stats .simple-table td,
 #root #pywebio-scope-ship_exp_table .simple-table td,
 #root #pywebio-scope-research_stats .simple-table td {
-  background: rgba(15, 23, 42, 0.28) !important;
+  background: color-mix(in srgb, var(--st-surface-muted, transparent) 42%, transparent) !important;
 }
 
 /* ============================================================
@@ -716,3 +722,126 @@ html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income
   color: var(--st-text);
 }
 
+
+/* ============================================================
+   维护等待横幅（新 UI 专用收敛）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「维护横条手机上会出现一个几层、竖着一条」。
+
+   老 UI 的 .alas-maint-banner 已经是 flex + flex-wrap（alas.css:1473），
+   但它从来没在「手机宽度 + 新 UI 的 content 布局」下跑过 —— 新 UI 的
+   #pywebio-scope-content 是 flex-grow:1 的滚动容器，宽 340px 左右，
+   四个 flex 子项（dot/body/meta）挤在一起时：
+     · __body 里的 __state 有 white-space:nowrap（不许折）
+     · __server 是 "· cn_android-12 ·" 这类长 token，默认不折
+   → 整行撑出横向溢出，看起来就是「被压成竖条 + 几层叠着」。
+
+   这里按 #root 前缀（老 UI 无 #root，不受影响）：
+     · 窄屏下横幅自身改纵向堆叠，body/meta 各占整行，杜绝横向溢出
+     · server 长 token 允许断行
+     · meta 的左推 margin 归零（老 UI 只在 ≤720px 做，这里覆盖更窄档）
+   ============================================================ */
+@media (max-width: 720px) {
+  #root .alas-maint-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+  #root .alas-maint-banner__dot {
+    display: none; /* 竖排时圆点没有对齐意义，留着会单独占一行 */
+  }
+  #root .alas-maint-banner__body {
+    display: block;
+    min-width: 0;
+  }
+  #root .alas-maint-banner__state,
+  #root .alas-maint-banner__server,
+  #root .alas-maint-banner__desc {
+    display: inline;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #root .alas-maint-banner__meta {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: 0 !important;
+    gap: 2px 14px;
+  }
+}
+
+/* ============================================================
+   统计面板内层卡变半透明（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「这里白色的地方都可以换成那种半透明的，
+   可以稍微透明一点」。
+
+   统计页的内层卡片（科研进行中、委托收益统计、最近委托记录、
+   KPI 格、攻坚卡…）底色全部消费同一条变量链：
+     --st-surface / --st-surface-muted / --st-surface-subtle
+       ← --alas-entry-surface(-muted|-subtle)      （statistics-alas.css:27-31）
+         ← 主题层给的具体值
+
+   主题层的原值不透明感很强（亮色 rgba(245,245,247,0.82)、
+   暗色 rgba(15,23,42,0.9)）—— 老 UI 为了性能要压住壁纸。
+   新 UI 在 #root 里把这几个变量压薄，一处覆盖全部组件；
+   老 UI 无 #root 继续用原值。
+   ============================================================ */
+html[data-alas-theme='advanced_material'] #root {
+  --alas-entry-surface: rgba(255, 255, 255, 0.34);
+  --alas-entry-surface-muted: rgba(255, 255, 255, 0.24);
+  --alas-entry-surface-subtle: rgba(255, 255, 255, 0.18);
+}
+html[data-alas-theme='dark_advanced_material'] #root {
+  --alas-entry-surface: rgba(15, 23, 42, 0.34);
+  --alas-entry-surface-muted: rgba(15, 23, 42, 0.24);
+  --alas-entry-surface-subtle: rgba(15, 23, 42, 0.18);
+}
+
+/* 内层卡也补一层轻微背景模糊：壁纸从卡片后透出来时，文字仍然清晰。
+   只作用于统计页容器内的卡片，不波及菜单/侧栏。 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-running-card,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-running-hours,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-running-card,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-running-hours {
+  backdrop-filter: blur(10px) saturate(160%);
+  -webkit-backdrop-filter: blur(10px) saturate(160%);
+}
+
+/* ============================================================
+   日志区改毛玻璃（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「日志漆也可以换成毛玻璃啊，两个高级材质，
+   之前是性能，现在性能有了，可以给它改成毛玻璃了」。
+
+   老 UI 对日志区做了三处性能妥协（advanced-material-alas.css）：
+     :45  --alas-log-bg: 0.93 高不透明实底
+     :524 .container-log      backdrop-filter: none
+     :1468 #pywebio-scope-log backdrop-filter: none
+   原因在 :519 注释里写得很清楚：「日志是全页更新频率最高的区域，
+   高频内容变更叠加模糊合成是切页卡死的最大单项来源」。
+
+   新 UI 的日志走增量 DOM 追加（不是整块重建），且卡片数量远少于老 UI，
+   GPU 有余量。但日志每 2 秒才追加一批、且追加后不再重排整页，
+   所以这里**只在日志容器本身上恢复模糊**，不给每行加（那才会真卡）。
+   ============================================================ */
+html[data-alas-theme='advanced_material'] #root {
+  --alas-log-bg: rgba(255, 255, 255, 0.42);
+}
+html[data-alas-theme='dark_advanced_material'] #root {
+  --alas-log-bg: rgba(15, 23, 42, 0.42);
+}
+
+#root .container-log,
+#root #pywebio-scope-log {
+  backdrop-filter: blur(16px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(170%) !important;
+}
+
+/* 日志正文在薄玻璃上需要更实一点的文字，否则细字发虚 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-log {
+  color: #1f2937;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-log {
+  color: #e5edf7;
+}

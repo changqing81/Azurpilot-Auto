@@ -238,6 +238,12 @@ async def overview(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_overview, name))
 
 
+async def maintenance(request: Request) -> JSONResponse:
+    """GET /newapi/maintenance/{name} — 维护等待横幅状态 + 已翻译文案。"""
+    name = request.path_params.get("name", "")
+    return JSONResponse(await run_in_threadpool(data.get_maintenance, name))
+
+
 async def task_config_save(request: Request) -> JSONResponse:
     import json as _json
 
@@ -1363,6 +1369,9 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/instances", instances),
         Route("/newapi/dashboard/{name}", dashboard),
         Route("/newapi/overview/{name}", overview),
+        # 维护等待横幅（老 UI 概览页那条「服务器维护中 · cn_android-12 · …」）。
+        # 数据与老 UI 同源：实例写 log/<name>.maintenance.json，这里读并翻译文案。
+        Route("/newapi/maintenance/{name}", maintenance),
         Route("/newapi/log/{name}/tail", log_tail),
         Route("/newapi/header", header),
         Route("/newapi/menu/fixed", fixed_menu),

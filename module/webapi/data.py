@@ -199,6 +199,75 @@ def get_instances() -> dict:
     return {"instances": items}
 
 
+def get_maintenance(name: str) -> dict:
+    """维护等待横幅状态（老 UI 概览页那条「服务器维护中 · …」）。
+
+    数据来源与老 UI 完全同源：实例侧 alas.py 的 _maintenance_wait 把状态写进
+    log/<name>.maintenance.json，WebUI 是独立进程只能读这个文件。
+    收敛逻辑复用 module.webui.maintenance_banner.normalize（opened 态按 TTL
+    自行过期、实例已停止则不出横幅）。
+
+    Returns:
+        {show: bool, state: {...} | None, labels: {...}}
+        labels 由后端 t() 翻译，前端不做文案硬编码（切语言自动跟随）。
+    """
+    try:
+        from module.webui import maintenance_banner
+        from module.webui import lang as _langmod
+
+        # ⚠️ 必须确保当前语言已加载：dic_lang 默认是空 dict，只有
+        # load_language()/reload() 跑过才有内容。老 UI 在启动流程里调过它，
+        # 但 REST 端点可能在新进程早期、或单测/脚本里被调用 —— 那时
+        # t() 会原样返回 key（实测返回 "Gui.Maintenance.StateWaiting"）。
+        # reload() 内部有「已加载就跳过」判断，重复调用无开销。
+        try:
+            _langmod.reload()
+        except Exception:  # noqa: BLE001 —— 语言加载失败也不能影响横幅
+            pass
+        _t = _langmod.t
+
+        labels = {
+            "state": _t("Gui.Maintenance.StateWaiting"),
+            "state_open": _t("Gui.Maintenance.StateOpen"),
+            "desc": _t("Gui.Maintenance.DescWaiting"),
+            "desc_running": _t("Gui.Maintenance.DescRunning"),
+            "desc_open": _t("Gui.Maintenance.DescOpen"),
+            "elapsed": _t("Gui.Maintenance.Elapsed"),
+            "next": _t("Gui.Maintenance.NextPoll"),
+        }
+        raw = maintenance_banner.read_state(name)
+        alive = _instance_alive(name)
+        state = maintenance_banner.normalize(raw, alive)
+        if not state:
+            return {"show": False, "state": None, "labels": labels}
+        # 只回传前端需要的字段，避免把内部标记透出去
+        return {
+            "show": True,
+            "state": {
+                "opened": bool(state.get("opened")),
+                "emulator_closed": bool(state.get("emulator_closed")),
+                "server": maintenance_banner._server_text(state.get("server")),
+                "since": float(state.get("since") or 0),
+                "last_poll": float(state.get("last_poll") or 0),
+                "poll_seconds": float(state.get("poll_seconds") or 60),
+            },
+            "labels": labels,
+        }
+    except Exception as e:  # noqa: BLE001 —— 横幅失败不能影响总览页
+        logger.warning(f"[webapi] 维护横幅状态读取失败({name}): {e}")
+        return {"show": False, "state": None, "labels": {}}
+
+
+def _instance_alive(name: str) -> bool:
+    """实例进程是否存活（维护横幅的 normalize 需要）。"""
+    try:
+        from module.webui.process_manager import ProcessManager
+
+        return bool(getattr(ProcessManager.get_manager(name), "alive", False))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def get_dashboard(name: str) -> dict:
     """仪表盘数据（与 app_dashboard.py:479-547 渲染口径逐字段对齐）。
 

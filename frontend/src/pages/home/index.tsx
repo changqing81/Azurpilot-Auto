@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router-dom'
 import { apiGet, withPrefix, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { esc, putText } from '../../lib/pywebio'
+import { MaintenanceBanner } from './MaintenanceBanner'
 
 type TaskRow = { command: string; name: string; next_run: string }
 type OverviewResp = { running: TaskRow[]; pending: TaskRow[]; waiting: TaskRow[]; alive: boolean }
@@ -374,6 +375,14 @@ export function Overview({ instance }: { instance: string }) {
   return (
     <Shell active={instance} title={L('Gui.MenuAlas.Overview', '总览')}>
       <div id="pywebio-scope-content">
+        {/* 维护等待横幅：老 UI app_overview.py:227 是 put_html 在
+            put_scope("overview") **之前**，也就是 content 直下、overview 网格之外。
+            ⚠️ 不能放进 #pywebio-scope-overview：那是 2 列网格
+            （alas-pc.css:65 minmax(16rem,20rem) + 1fr，schedulers | logs），
+            横幅作为第 3 个子元素会被塞进新格子，撑成一条竖条把左栏挤走
+            （实测截图：横幅占满左列，调度器被推到右边）。
+            只在维护等待/刚开服时出现，其余时刻返回 null 不占位。 */}
+        <MaintenanceBanner name={instance} />
         <div id="pywebio-scope-overview">
           <div
             id="pywebio-scope-schedulers"
