@@ -178,7 +178,7 @@ import { useEffect, useRef } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Overview } from './pages/home'
 import { useParams as useParamsForOverview } from 'react-router-dom'
-import { HomePageMain } from './pages/home2'
+import { HomePageMain, startWallpaperRace } from './pages/home2'
 import { ConfigPage } from './pages/config'
 import { StatPage } from './pages/stat'
 import { SettingsPage } from './pages/settings'
@@ -276,6 +276,11 @@ function RestoreLastRoute() {
 // （老 UI 的骨架 CSS 还在 alas.css 里，但没人用，无副作用。）
 
 // 新 UI 入口。路由用 hash 模式：避免与老 UI 的服务端路由 / scope 约定冲突。
+// 应用级壁纸竞速：老 UI 每次会话建立就 init_wallpaper（app_home.py:1916），
+// 壁纸是全应用背景而非主页专属。直达统计/配置页（手机远控恢复
+// RestoreLastRoute）也要有壁纸，否则半透明卡片叠在纯深底上就是「灰的一坨」。
+// 竞速内部有 raceDone 与 started 双守卫，与主页挂载的调用互不重复。
+startWallpaperRace()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>

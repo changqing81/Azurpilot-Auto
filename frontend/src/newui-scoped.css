@@ -454,3 +454,59 @@
     animation: none !important;
   }
 }
+
+/* ============================================================
+   新 UI 高级材质：恢复半透明毛玻璃 + 消除「双面底」
+   ------------------------------------------------------------
+   长卿 2026-11-19：「新 UI 性能够，把高级材质两个主题的实底换回
+   半透明毛玻璃；有些地方是双面底（基础底上再叠第二个黑底），改成
+   一层，界面清爽点」。
+
+   背景：老 UI 因性能瓶颈把按秒刷新的卡片换成 --alas-apple-bar-bg
+   高不透明实底（advanced-material-alas.css:471 注释，实测 78 个
+   blur 元素时主线程被占满）。新 UI 页面结构简单、卡片数量少，
+   不需要这条妥协。
+
+   实现全部走 #root 前缀：老 UI 是 PyWebIO 渲染在 body 直下、没有
+   #root 节点，本节规则对老 UI 零影响（红线：不为新 UI 改共享 CSS）。
+   ============================================================ */
+
+/* 1) 实底变量改半透明：直接引用主题自身的 card-bg —— 它已经是
+      「按主题自适应的半透明玻璃」规范值（亮 0.72 / 暗 0.78 / 透明主题
+      另有自己的值），bar-bg 跟它同值即自动跟随主题明暗，无需自己判断
+      （按 prefers-color-scheme 判断是错的：主题明暗由 deploy 主题决定，
+      与系统偏好无关 —— 第一版就错在这里）。在 #root 上重定义变量，
+      内部所有 bar-bg 卡片自动继承；老 UI 无 #root，继续用共享 CSS 的
+      0.93 实底，零影响。 */
+#root {
+  --alas-apple-bar-bg: var(--alas-apple-card-bg);
+}
+
+/* 2) 恢复被 advanced-material-alas.css:483 关掉的毛玻璃：
+      总览分组卡、调度器/统计条、运行/队列/等待卡、截图容器。
+      blur(16px) 与普通玻璃卡（:459）同一档。 */
+#root #pywebio-scope-running,
+#root #pywebio-scope-pending,
+#root #pywebio-scope-waiting,
+#root #pywebio-scope-scheduler-bar,
+#root #pywebio-scope-stat-bar,
+#root #pywebio-scope-image-container,
+#root [id^="pywebio-scope-group_"]:not(#pywebio-scope-menu):not(#pywebio-scope-aside):not(#pywebio-scope-navigator) {
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+}
+
+/* 3) 统计页表格的「双面底」：外层面板已是 rgba(15,23,42,0.78) 玻璃，
+      dark-advanced-material-overrides-alas.css:335/344 又给 th/td 垫了
+      0.96/0.92 实底 —— 深上叠深，糊成灰块。改成薄薄一层半透明，
+      与外层玻璃融合成单层观感；文字对比度靠外层玻璃兜底。 */
+#root #pywebio-scope-opsi_stats .simple-table th,
+#root #pywebio-scope-ship_exp_table .simple-table th,
+#root #pywebio-scope-research_stats .simple-table th {
+  background: rgba(15, 23, 42, 0.35) !important;
+}
+#root #pywebio-scope-opsi_stats .simple-table td,
+#root #pywebio-scope-ship_exp_table .simple-table td,
+#root #pywebio-scope-research_stats .simple-table td {
+  background: rgba(15, 23, 42, 0.28) !important;
+}

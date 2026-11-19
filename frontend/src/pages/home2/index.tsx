@@ -152,6 +152,29 @@ async function writeDeploySetting(patch: Record<string, string>) {
   if (!r.ok) throw new Error('HTTP ' + r.status)
 }
 
+/**
+ * 启动壁纸竞速（应用级，任意页面都能看到背景）。
+ *
+ * 老 UI 的语义：每次 WebSocket 会话建立就 init_wallpaper()
+ * （module/webui/app_home.py:1916），壁纸是**整个应用**的背景，不是主页专属。
+ * 新 UI 原来只在 HomePageMain 挂载时跑竞速 —— 手机远控恢复时直达
+ * 统计/配置页（RestoreLastRoute），壁纸竞速从未运行，
+ * --alas-apple-bg-image 停在 none：半透明卡叠在纯深色底上，
+ * 整页糊成「灰的一坨」，半透明材质完全看不出来（长卿 2026-11-19：
+ * 「新UI有好多地方是双面底…灰的一坨」的真实原因之一）。
+ *
+ * 竞速本身有 raceDone 守卫（跑过就不再跑），这里加一层模块级
+ * started 标记，主页挂载与 App 启动两处调用也只会跑一次。
+ */
+let wallpaperStarted = false
+export function startWallpaperRace(): void {
+  if (wallpaperStarted) return
+  wallpaperStarted = true
+  apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
+    .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
+    .catch(() => { /* 图源不可用：保持纯色背景 */ })
+}
+
 export function HomePageMain() {
   // 页面标题（老 UI set_title(t("Gui.MenuDevelop.HomePage"))）
   const [pageTitle, setPageTitle] = useState('主页')
@@ -163,9 +186,7 @@ export function HomePageMain() {
   }, [])
 
   useEffect(() => {
-    apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
-      .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
-      .catch(() => { /* 图源不可用：保持纯色背景 */ })
+    startWallpaperRace()
 
     // 公告自动弹窗：与老 UI app_home.py:1811-1840 完全同一条链路——
     // 拉 /newapi/announcement → 用 alas-utils.js 的 window.alasShowAnnouncement 渲染，
