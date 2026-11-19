@@ -1,6 +1,30 @@
 # docker build -t hgjazhgj/alas:latest -f deploy/docker/Dockerfile.cn .
 # docker run -v ${PWD}:/app/AzurLaneAutoScript -p 25548:25548 --name AzurPilot -it --rm hgjazhgj/alas
 
+# ============================================================
+# 阶段 1：前端预构建（国内镜像版，node 工具链不进最终镜像）
+# ============================================================
+# 产物放 /opt/alas-frontend/dist —— 不能放仓库目录，运行时
+# docker-compose 的 '.:/app/AzurLaneAutoScript' 会把它盖掉。
+# Python 侧按 frontend/dist → ALAS_FRONTEND_DIST → /opt 顺序取。
+FROM node:22-bookworm-slim AS frontend
+
+WORKDIR /build/frontend
+
+# 国内 npm 镜像加国内网速；corepack 取 pnpm 后装依赖。
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN corepack enable && \
+    corepack prepare pnpm@10 --activate && \
+    pnpm config set registry https://registry.npmmirror.com && \
+    pnpm install --frozen-lockfile
+
+COPY frontend/tsconfig.json frontend/vite.config.ts frontend/index.html ./
+COPY frontend/src ./src
+RUN pnpm run build
+
+# ============================================================
+# 阶段 2：运行时镜像
+# ============================================================
 FROM python:3.14-slim-bookworm
 
 ENV UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
@@ -32,5 +56,8 @@ deb-src https://mirrors.aliyun.com/debian/ bookworm-updates main non-free contri
  && rm -rf /root/.cache/uv
 
 COPY . .
+
+# 前端产物搬到挂载路径之外（见文件头说明）
+COPY --from=frontend /build/frontend/dist /opt/alas-frontend/dist
 
 CMD [".venv/bin/python", "gui.py"]

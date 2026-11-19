@@ -21,9 +21,43 @@ from starlette.staticfiles import StaticFiles
 from module.logger import logger
 from module.webapi import data
 
-_FRONTEND_DIST = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-)
+# 前端静态产物目录：**按优先级取第一个存在 index.html 的**。
+#
+# 为什么是列表而不是单个路径（2026-11-19 Docker 用户「切新 UI 自动回退」事故）：
+#   Docker 镜像里没有 frontend/dist —— .gitignore/.dockerignore 都不带它，
+#   Dockerfile 也不构建前端。于是 UI=new 时 _has_dist=False，
+#   代码按设计降级回老 UI，用户看到的就是「切了没反应」。
+#   现在镜像内会预构建一份放到 /opt/alas-frontend/dist（挂载路径之外，
+#   否则会被 docker-compose 的 '.:/app/AzurPilot' 整个盖掉）。
+#
+# 顺序含义：
+#   1. 仓库内 frontend/dist —— 本地 pnpm build 的产物，开发/自建镜像优先用它
+#   2. ALAS_FRONTEND_DIST 环境变量 —— 给自定义部署一个显式覆盖口子
+#   3. /opt/alas-frontend/dist —— Docker 镜像预构建的兜底
+#
+# 老 UI 与本地的行为完全不变：第一项存在就用第一项。
+_DIST_CANDIDATES = [
+    os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+    ),
+    os.environ.get("ALAS_FRONTEND_DIST", ""),
+    "/opt/alas-frontend/dist",
+]
+
+
+def _resolve_frontend_dist() -> str:
+    """返回第一个含有 index.html 的候选目录；都没有则返回第一项（原仓库路径）。
+
+    返回不存在的路径是有意的：调用方用 os.path.isdir 判断即可沿用原来的
+    降级逻辑（_has_dist=False → 老 UI 继续服务 /）。
+    """
+    for candidate in _DIST_CANDIDATES:
+        if candidate and os.path.isfile(os.path.join(candidate, "index.html")):
+            return candidate
+    return _DIST_CANDIDATES[0]
+
+
+_FRONTEND_DIST = _resolve_frontend_dist()
 
 # **实际正在运行**的界面版本。由 mount_webapi(mount_root=...) 在启动时写入，
 # 之后不再改变（切换界面版本必须重启，见 module/webui/app.py 的「新 UI 挂载」段）。
