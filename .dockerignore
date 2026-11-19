@@ -9,6 +9,8 @@ __pycache__
 .agents
 .claude
 log
+# dist：排除仓库里的 frontend/dist（镜像在构建阶段 1 自己 pnpm build，
+# 保证产物与源码一致；不用可能过期的入库版本）
 dist
 debug_img
 ocr_debug
