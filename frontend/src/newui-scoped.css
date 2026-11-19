@@ -1339,3 +1339,67 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   #root .run-now-spin { animation: none !important; }
 }
 
+
+/* ============================================================
+   统计页两处视觉修正（新 UI 专用）
+   ============================================================ */
+
+/* ① 折线图去掉外面的框 —— 长卿 2026-11-19：「这个折线图外面的框删掉」
+   
+   根因：#pywebio-scope-ap_chart 与 #pywebio-scope-opsi_stats 在**老 CSS 里
+   各自都是一张卡片**（statistics-alas.css:1116 与
+   advanced-material-alas.css:1201 都把两者列入卡片组），而新 UI 把 ap_chart
+   嵌在 opsi_stats 内部（OpsiPanel.tsx），于是卡片套卡片 = 图外套框。
+   老 UI 里两者是不同 tab 的兄弟容器，从不嵌套，所以没有这个问题。
+   
+   修法：内层 ap_chart 取消卡片外观，融进外层 opsi_stats 的卡片里。 */
+#root #pywebio-scope-opsi_stats #pywebio-scope-ap_chart {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: 0 !important;
+}
+
+/* ② 委托统计控件改方角（长卿 2026-11-19：「为什么还是有那种胶囊一样的东西，
+   不要这个设计了，统一改成正方形的那种」「那个 2026-11 得给他有个框包起来，
+   太凸了」）。
+   
+   原样式：外层 10px 圆角胶囊壳 + 内层 8px 圆角按钮，月份下拉是填充色块 ——
+   填充色让它比周围「凸」出来。改成：小方角、只留描边、去掉填充底。 */
+#root .st-commission-toolbar .btn-group.st-seg {
+  border-radius: 6px;
+  background: transparent;
+  padding: 2px;
+  gap: 2px;
+}
+#root .st-commission-toolbar .btn-group.st-seg .btn {
+  border-radius: 4px;
+}
+#root .st-commission-toolbar .btn-group.st-seg .btn-primary {
+  border-radius: 4px;
+}
+
+/* 月份下拉：与按钮同一套方角 + 描边，去掉填充底（填充是「太凸」的来源）。 */
+#root .st-commission-toolbar .st-seg-select {
+  border-radius: 6px;
+  background-color: transparent;
+}
+#root .st-commission-toolbar .st-back-current {
+  border-radius: 6px;
+}
+
+/* 折线图工具栏（折线/按日/按月 + 月份）同步改方角 —— 长卿：「统一改成正方形」 */
+#root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group {
+  border-radius: 6px;
+  background: transparent;
+}
+#root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn {
+  border-radius: 4px;
+}
+#root #pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group .btn-primary {
+  border-radius: 4px;
+}
