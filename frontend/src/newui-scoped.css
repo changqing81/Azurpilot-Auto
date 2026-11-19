@@ -382,58 +382,67 @@
 }
 
 /* ============================================================
-   界面动效（新 UI 专用）—— 长卿 2026-11-19：
-   「新UI很多地方切出来瞬间切出来没有一点过渡动画，感觉很卡、怪怪的」
-   ------------------------------------------------------------
-   原则：只加过渡/入场动画，不改布局、不影响功能、不碰
-   「数据刷新不得重播动画」清单里的元素（那是为了防轮询闪烁）。
+   界面动效（新 UI 专用）· v2 远控友好版 —— 长卿 2026-11-19：
+   「它不动啊，完全不动，只有按钮会跳动一下，还特别卡」。
+
+   v1 失败的原因：动画全用 transform（位移/缩放），远控视频流帧率只有
+   5-15fps，0.22-0.34s 的 transform 动画只有 2-5 帧 —— 看起来就是
+   「凭空出现」，感知不到任何过渡；按钮的 :active transform 还要等
+   远控回路回来才看到反馈（200-500ms 延迟），像「跳动一下」。
+
+   v2 改为**远控友好的 opacity 动画**：透明度渐变在低帧率下不会跳变，
+   只改合成层属性、不触发 layout/paint，即使 5fps 也能看到平滑渐变。
+   时长同时拉长（.4-.5s），低帧率下帧数翻倍。
    ============================================================ */
 
-/* ① 页面切换：内容区淡入 + 轻微上移。
-   React Router 切页时 #pywebio-scope-content 会重挂载，动画自动重放。
-   不在 animation:none 清单里，安全。 */
+/* ① 页面切换：纯 opacity 淡入（低帧率下也不跳变）。 */
 @keyframes alas-page-in {
-  from { opacity: 0; transform: translate3d(0, 10px, 0); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 #root #pywebio-scope-content {
-  animation: alas-page-in .22s cubic-bezier(.25, .8, .35, 1);
+  animation: alas-page-in .4s ease-out;
 }
 
-/* ② 弹窗遮罩：淡入（背景变暗的过程平滑）。 */
+/* ② 弹窗遮罩：淡入。 */
 @keyframes alas-overlay-in {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 #root .alas-modal-overlay {
-  animation: alas-overlay-in .18s ease-out;
+  animation: alas-overlay-in .3s ease-out;
 }
 
-/* ③ 弹窗卡片：上浮 + 缩放（「从远处弹到眼前」的观感）。
-   作用于 .card 是因为两处弹窗（图源管理/舰队科技批量编辑）都是 .card。 */
+/* ③ 弹窗卡片：纯 opacity 淡入（本机上看仍柔和；不再用 scale —— 位移类
+   在远控下必然跳变）。 */
 @keyframes alas-modal-in {
-  from { opacity: 0; transform: translate3d(0, 16px, 0) scale(.96); }
-  to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 #root .alas-modal-overlay .card {
-  animation: alas-modal-in .24s cubic-bezier(.2, .9, .3, 1.2);
+  animation: alas-modal-in .4s ease-out;
 }
 
-/* ④ 更新/错误通知：老 CSS 已有 alas-update-notice-in（.34s 弹入）+
-   attention（1.8s 后三次上下浮动提醒），无需额外规则 —— 但要确保
-   没被上面的 animation:none 清单误伤。这里显式恢复一次，防将来误加。 */
+/* ④ 更新/错误通知：覆盖老 CSS 的 transform 动画为纯 opacity 版本。
+   老 keyframes（alas-update-notice-in/out/attention）都是 translate3d，
+   远控下全是跳帧；这里在本机动画列表里替换成 fade 版本。 */
+@keyframes alas-update-notice-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes alas-update-notice-attention {
+  0%, 100% { opacity: 1; }
+  45%      { opacity: .82; }
+}
 #root .alas-update-notice {
-  animation: alas-update-notice-in .34s cubic-bezier(.2, .8, .2, 1),
-    alas-update-notice-attention 1.8s ease-in-out .45s 3 !important;
+  animation: alas-update-notice-in .5s ease-out,
+    alas-update-notice-attention 1.8s ease-in-out .5s 3 !important;
 }
 
-/* ⑤ 按钮按压反馈：按下轻微下压，松开回弹（配合 bootstrap 的颜色过渡）。 */
+/* ⑤ 按钮按压：**去掉 transform**（远控下反馈延迟 200-500ms，是「跳动」
+   的来源），只保留颜色过渡 —— 颜色变化即使晚一拍也不像"卡"。 */
 #root .btn {
-  transition: color .15s, background-color .15s, border-color .15s,
-    box-shadow .15s, transform .08s ease-out;
-}
-#root .btn:active {
-  transform: translateY(1px) scale(.98);
+  transition: color .15s, background-color .15s, border-color .15s, box-shadow .15s;
 }
 
 /* ⑥ 无障碍：系统开启「减少动态效果」时跳过上述所有动画。 */
