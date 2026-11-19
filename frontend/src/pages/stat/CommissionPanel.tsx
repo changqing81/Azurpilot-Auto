@@ -42,16 +42,35 @@ export function CommissionIncome({ name }: { name: string }) {
   const [ym, setYm] = useState<{ y: number; m: number } | null>(null)
   const [data, setData] = useState<Resp | null>(null)
   const [loading, setLoading] = useState(true)
+  // 可选历史月份（新→旧）。与 ap_chart 的月份胶囊同源：/newapi/stat/{name}/months
+  const [availableMonths, setAvailableMonths] = useState<string[]>([])
+  useEffect(() => {
+    apiGet<{ months: string[] }>('/newapi/stat/' + encodeURIComponent(name) + '/months', 10000)
+      .then(r => { if (r.months?.length) setAvailableMonths(r.months) })
+      .catch(() => { /* 只显示当前月 */ })
+  }, [name])
 
   useEffect(() => {
     let alive = true
     setLoading(true)
-    const qs = new URLSearchParams({})
+    // ⚠️ period 必须传给后端，否则「今日/本周/本月」点了永远返回同一个数
+    // —— 这就是长卿 2026-11-19 报的「委托年月日点不动、固定返回 650」的根因：
+    // 这一行原来只有 year/month，period 从头到尾没进过 query，
+    // 后端 _arg('period') 恒为空 → 永远走默认档。
+    // 参数同时写 query 与路径段：远控中继会剥 query，路径段是保底通道。
+    const qs = new URLSearchParams({ period })
     if (ym) {
       qs.set('year', String(ym.y))
       qs.set('month', String(ym.m))
     }
-    apiGet<Resp>(panelPath(name, 'commission') + `?${qs}`, 25000)
+    apiGet<Resp>(
+      panelPath(name, 'commission', {
+        period,
+        year: ym ? String(ym.y) : '',
+        yearmonth: ym ? String(ym.m) : '',
+      }) + `?${qs}`,
+      25000,
+    )
       .then(r => {
         if (!alive) return
         setData(r)
@@ -68,29 +87,31 @@ export function CommissionIncome({ name }: { name: string }) {
   const now = new Date()
   const isCurrentMonth = !ym || (ym.y === now.getFullYear() && ym.m === now.getMonth() + 1)
 
-  const stepMonth = (delta: number) => {
-    if (!ym) return
-    let y = ym.y
-    let m = ym.m + delta
-    if (m < 1) { m = 12; y -= 1 }
-    if (m > 12) { m = 1; y += 1 }
-    // 不允许翻到未来
-    if (y > now.getFullYear() || (y === now.getFullYear() && m > now.getMonth() + 1)) return
-    setYm({ y, m })
-  }
+  // 工具栏：一行横向 —— 周期胶囊（今日/本周/本月）+ 月份胶囊（长卿 2026-11-19：
+  // 「这个委托也太丑了，参考一下那个折线图上面的」）。
+  //
+  // 老 UI 的委托控件是两个独立的块：三个 btn 按钮一行、◀ 年月 ▶ 一行
+  // （PyWebIO 时代每个是独立输出块，只能堆叠）。新 UI 统一改成折线图那套
+  // .btn-group 胶囊，且合并成一行；手机上 flex-wrap 自动换行。
+  //
+  // 月份同样用原生 select（与 ap_chart 的月份胶囊一致），点开往下选，
+  // 不再需要 ◀ ▶ 逐月点 —— 长卿之前就说过「明明可以点击它然后往下拖」。
+  const monthKey = ym ? `${ym.y}-${String(ym.m).padStart(2, '0')}` : ''
+  const monthOptions = availableMonths.length
+    ? availableMonths
+    : (monthKey ? [monthKey] : [])
 
-  // 周期按钮 + 年月翻页（老 UI 里它们夹在 summary 和 table 之间）
   const controls = (
-    <>
-      {/* 周期按钮：每日 / 每周 / 每月（顺序照老 UI）；历史月份下前两档禁用 */}
-      <div style={{ display: 'flex', gap: '.375rem', marginBottom: '.5rem' }}>
+    <div className="st-commission-toolbar">
+      <div className="btn-group st-seg" role="group">
         {PERIOD_VALUES.map(x => {
           const o = { value: x.value, label: text(x.key) }
           const disabled = o.value !== 'month' && !isCurrentMonth
           return (
             <button
               key={o.value}
-              className={'btn ' + (o.value === period ? 'btn-on' : 'btn-off')}
+              type="button"
+              className={'btn ' + (o.value === period ? 'btn-primary' : 'btn-off')}
               disabled={disabled}
               title={disabled ? '历史月份下该周期无数据' : undefined}
               onClick={() => setPeriod(o.value)}
@@ -100,26 +121,34 @@ export function CommissionIncome({ name }: { name: string }) {
           )
         })}
       </div>
-      {/* 年月翻页：◀ 2026-11 ▶（对应老 UI _output_commission_month_switch） */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '.5rem', marginBottom: '.6rem' }}>
-        <button className="btn btn-off" onClick={() => stepMonth(-1)}>◀</button>
-        <span style={{ fontSize: '.95rem', fontWeight: 600, minWidth: '5.5rem', textAlign: 'center' }}>
-          {ym ? `${ym.y}-${String(ym.m).padStart(2, '0')}` : '—'}
-        </span>
-        <button className="btn btn-off" disabled={isCurrentMonth} onClick={() => stepMonth(1)}>▶</button>
-        {!isCurrentMonth && (
-          <button
-            className="btn btn-off"
-            onClick={() => {
-              setYm({ y: now.getFullYear(), m: now.getMonth() + 1 })
-              setPeriod('month')
-            }}
-          >
-            {text('MeowLootBackToCurrent') || '回到本月'}
-          </button>
-        )}
-      </div>
-    </>
+      {monthOptions.length > 0 && (
+        <select
+          className="form-control form-control-sm st-seg-select"
+          value={monthKey}
+          onChange={e => {
+            const [y, m] = e.target.value.split('-').map(Number)
+            if (y && m) setYm({ y, m })
+          }}
+          aria-label="查看月份"
+        >
+          {[...new Set(monthOptions)].map(k => (
+            <option key={k} value={k}>{k}</option>
+          ))}
+        </select>
+      )}
+      {!isCurrentMonth && (
+        <button
+          type="button"
+          className="btn btn-off st-back-current"
+          onClick={() => {
+            setYm({ y: now.getFullYear(), m: now.getMonth() + 1 })
+            setPeriod('month')
+          }}
+        >
+          {text('MeowLootBackToCurrent') || '回到本月'}
+        </button>
+      )}
+    </div>
   )
 
   // 渲染顺序**严格照抄老 UI app_stat_commission.py:454-499**：

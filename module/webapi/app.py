@@ -1426,6 +1426,14 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
             "/{scope}/{year}/{yearmonth}",
             stat_panels_html,
         ),
+        # 第 8 段 series：科研的期数。
+        # 中继会剥掉 query string，series 只放在 ?series= 里时远控下永远丢失
+        # →「第9期/第5期」点了没反应（长卿 2026-11-19 报的按钮点不动之一）。
+        Route(
+            "/newapi/stat/{name}/panels_html/{panel}/{month}/{task}/{period}"
+            "/{scope}/{year}/{yearmonth}/{series}",
+            stat_panels_html,
+        ),
         Route("/newapi/stat/{name}/panels_warm", stat_panels_warm),
         Route("/newapi/stat/{name}/months", stat_months),
         Route("/newapi/stat/{name}/ap_chart", stat_ap_chart),

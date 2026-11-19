@@ -86,6 +86,14 @@ export function panelPath(
 ): string {
   const seg = (v: string | undefined) =>
     encodeURIComponent(v === undefined || v === '' ? '_' : v)
+  // ⚠️ 顺序必须与后端路由的路径段顺序**完全一致**：
+  //   /newapi/stat/{name}/panels_html/{panel}/{month}/{task}/{period}/{scope}/{year}/{yearmonth}
+  // 后端 series 不在路径段里（它只在 query 里），所以这里也不放 —— 见下方说明。
+  // ⚠️ 不要加 series：后端第 8 段路由是在「重启后才可能加载」的新代码，
+  // 而 panelPath 是**所有面板共用**的 —— 一旦拼出 8 段，旧进程上所有面板
+  // 都会落进 SPA 回退拿到 HTML，等于全部失效。
+  // series（科研期数）目前只能走 query；远控中继剥 query 时它会丢，
+  // 等后端第 8 段路由确认上线后再单独给科研开一条专用 path builder。
   const order = ['month', 'task', 'period', 'scope', 'year', 'yearmonth']
   const tail = order.map(k => seg(args[k])).join('/')
   return `/newapi/stat/${instSeg(name)}/panels_html/${encodeURIComponent(panel)}/${tail}`

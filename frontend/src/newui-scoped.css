@@ -845,3 +845,295 @@ html[data-alas-theme='advanced_material'] #root #pywebio-scope-log {
 html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-log {
   color: #e5edf7;
 }
+
+/* ============================================================
+   委托页整套白底规则统一压薄（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「我这里还是这样子的啊，怎么还是白色的？
+   不是说叫你换成半透明吗？统一样式」。
+
+   根因：上一轮我只改了 --st-* / --alas-entry-* 变量链，但委托页
+   （commission_income）走的是**另一套独立规则**，全部写死白值
+   （advanced-material-alas.css:1342-1386）：
+     .commission-income-summary/-table-wrap/-recent   0.88
+     .commission-income-metric-card                   0.82
+     .commission-income-table                         0.78
+     .commission-income-table th                      0.96
+     .commission-income-table td                      0.72
+     .commission-income-recent-row                    0.72
+   暗色侧（dark-advanced-material-overrides-alas.css:237-258）同样是写死深值。
+
+   这些是唯一没有走变量链的白底，所以变量改了它们不动。
+   这里按 #root 前缀 + 主题分支逐个覆盖成半透明。
+   ============================================================ */
+
+/* --- 亮色高级材质 --- */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-summary,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table-wrap,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent-row {
+  background-color: rgba(255, 255, 255, 0.26) !important;
+}
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table th {
+  background-color: rgba(255, 255, 255, 0.34) !important;
+}
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-table td {
+  background-color: rgba(255, 255, 255, 0.20) !important;
+}
+
+/* --- 暗色高级材质 --- */
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-summary,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table-wrap,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-recent-row {
+  background-color: rgba(15, 23, 42, 0.26) !important;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table th {
+  background-color: rgba(15, 23, 42, 0.34) !important;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-table td {
+  background-color: rgba(15, 23, 42, 0.20) !important;
+}
+
+/* 委托页的内层卡也补轻微模糊，壁纸透出时文字不发虚 */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-commission_income .commission-income-metric-card {
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+
+/* --- 统计页其余写死白/深底：页签、数据截至条、来源角标 --- */
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-tab,
+html[data-alas-theme='advanced_material'] #root #pywebio-scope-statistics-content .st-head-meta {
+  background-color: rgba(255, 255, 255, 0.28) !important;
+}
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-tab,
+html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-content .st-head-meta {
+  background-color: rgba(15, 23, 42, 0.30) !important;
+}
+
+/* ============================================================
+   「立即运行」按钮（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「老 UI 的那个自动立即运行也没有了，得添加回来；
+   不过我们新 UI 就创新点吧，不要照着老 UI 那样直接按一个开关键，
+   就像音乐播放器那个箭头一样的开关做一个样式，点击它就会立即运行」。
+
+   老 UI 的实现是 NextRun 下方一行 12px 的小字链接
+   （app_task_config.py:677-681）。这里做成音乐播放器风格的圆形 ▶ 按钮：
+   圆形描边 + 内嵌三角，hover 时填充主色，点击把 NextRun 置空触发立即执行。
+   ============================================================ */
+#root .run-now-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+
+#root .run-now-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--bs-primary, #4f6ef7);
+  cursor: pointer;
+  transition: background .16s, color .16s, transform .16s;
+  flex: 0 0 auto;
+  /* 三角视觉重心偏左，补 2px 让它在圆里看起来居中 */
+  padding-left: 2px;
+}
+
+#root .run-now-btn:hover {
+  background: var(--bs-primary, #4f6ef7);
+  color: #fff;
+  transform: scale(1.06);
+}
+
+#root .run-now-btn:active {
+  transform: scale(0.94);
+}
+
+#root .run-now-text {
+  font-size: .82rem;
+  opacity: .78;
+  user-select: none;
+}
+
+/* 触控目标：手机端把按钮撑到 34px（低于 24px 容易点不中） */
+@media (max-width: 760px) {
+  #root .run-now-btn {
+    width: 34px;
+    height: 34px;
+  }
+  #root .run-now-text {
+    font-size: .86rem;
+  }
+}
+
+/* ============================================================
+   科研面板工具栏：复用折线图的胶囊观感 + 横向单行（新 UI 专用）
+   ------------------------------------------------------------
+   长卿 2026-11-19：「科研那地方可以重构一下，不要沿用老 UI 那种…
+   改成那种点进去就跟折线图上面 11 月那个那样子的，改成长的改成横的」。
+
+   老 UI 是三行平铺的 btn-sm 按钮（PyWebIO 时代只能一行行堆）。
+   新 UI 改成一行横向：口径胶囊 + 周期胶囊 + 期数下拉。
+
+   样式复用 statistics-alas.css:837-870 的 ap_chart 胶囊规则 ——
+   那套规则的选择器前缀写死了 #pywebio-scope-ap_chart，科研面板拿不到，
+   所以在 #root 前缀下平行复制一份给 .st-research-toolbar。
+   老 UI 无 #root，不受影响。
+   ============================================================ */
+#root .st-research-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  margin: .1rem 0 .6rem;
+}
+
+/* 胶囊：与 ap_chart 的 .btn-group 逐条对齐 */
+#root .st-research-toolbar .btn-group.st-seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  padding: 3px;
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  background: var(--st-surface-muted);
+}
+
+#root .st-research-toolbar .btn-group.st-seg .btn {
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--st-muted);
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+#root .st-research-toolbar .btn-group.st-seg .btn:hover {
+  color: var(--st-text);
+}
+
+#root .st-research-toolbar .btn-group.st-seg .btn-primary {
+  background: var(--st-surface);
+  color: var(--st-accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .12);
+}
+
+/* 期数下拉：与月份胶囊同款宽度策略（不铺满整行） */
+#root .st-research-toolbar .st-seg-select {
+  width: auto;
+  min-width: 7rem;
+  max-width: 9rem;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+  background-color: var(--st-surface-muted);
+  color: var(--st-text);
+}
+
+/* 手机端：胶囊不换行地被压缩会溢出，允许横向滚动而不是折成多行 */
+@media (max-width: 760px) {
+  #root .st-research-toolbar {
+    gap: .4rem;
+  }
+  #root .st-research-toolbar .btn-group.st-seg .btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+}
+
+/* 委托面板工具栏：与科研/折线图共用同一套胶囊观感 */
+#root .st-commission-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem;
+  margin: .2rem 0 .6rem;
+}
+
+#root .st-commission-toolbar .btn-group.st-seg {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  padding: 3px;
+  border: 1px solid var(--st-border);
+  border-radius: 10px;
+  background: var(--st-surface-muted);
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn {
+  margin: 0;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--st-muted);
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  transition: background-color .16s ease, color .16s ease, box-shadow .16s ease;
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn:hover {
+  color: var(--st-text);
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn-primary {
+  background: var(--st-surface);
+  color: var(--st-accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .12);
+}
+
+#root .st-commission-toolbar .btn-group.st-seg .btn:disabled {
+  opacity: .38;
+  cursor: not-allowed;
+}
+
+#root .st-commission-toolbar .st-seg-select {
+  width: auto;
+  min-width: 7rem;
+  max-width: 9rem;
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+  background-color: var(--st-surface-muted);
+  color: var(--st-text);
+}
+
+#root .st-commission-toolbar .st-back-current {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--st-border);
+}
+
+@media (max-width: 760px) {
+  #root .st-commission-toolbar {
+    gap: .4rem;
+  }
+  #root .st-commission-toolbar .btn-group.st-seg .btn {
+    padding: 6px 10px;
+  }
+}

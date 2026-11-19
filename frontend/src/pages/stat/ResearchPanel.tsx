@@ -50,41 +50,72 @@ const PERIOD_VALUES = [
 ]
 
 /**
- * 按钮组：类名与老 UI put_buttons(small=True, color=…) 的输出**逐字一致**。
+ * 胶囊分段控件（与折线图工具栏同款）。
  *
- *   选中  → btn btn-primary btn-sm
- *   未选中 → btn btn-secondary btn-sm
+ * 长卿 2026-11-19：「科研那地方可以重构一下，不要沿用老 UI 那种…
+ * 改成那种点进去就跟折线图上面 11 月那个那样子的，改成长的改成横的，不要竖的」。
  *
- * 不要改成 btn-on/btn-off：那两个类在老 CSS 里没有 btn-sm 的尺寸规则，
- * 按钮会变大、间距散开（长卿截图的「丑」就是这么来的）。
+ * 老 UI 的科研控件是三行平铺的 btn-sm 按钮（app_stat_research.py:228-295）——
+ * 那是 PyWebIO 时代的产物：每个按钮都是独立输出块，只能一行行堆。
+ * 新 UI 不受限，统一改用 ap_chart 工具栏那套 .btn-group 胶囊：
+ *   div.btn-group > button.btn（选中 .btn-primary / 未选 .btn-off）
  *
- * 老 UI 的按钮之间靠 PyWebIO 插入的空白文本节点产生 ≈5px 间隙，
- * 这里用父容器 gap 等价实现（老 UI 的 .btn margin 是 4px 0，左右为 0）。
+ * 样式契约：statistics-alas.css:837-870 的规则前缀是
+ * `#pywebio-scope-statistics-content #pywebio-scope-ap_chart .btn-group`，
+ * 只作用于 ap_chart。科研面板要复用同一观感，在 newui-scoped.css 里用
+ * #root 前缀把这套规则平行给 research_stats（老 UI 无 #root，不受影响）。
  */
-function BtnRow({
+function SegGroup({
   options,
   value,
   onChange,
-  marginBottom,
 }: {
   options: { value: string; label: string }[]
   value: string
   onChange: (v: string) => void
-  marginBottom?: string
 }) {
   return (
-    <div style={{ marginBottom: marginBottom ?? '.35rem' }}>
-      {options.map((o, i) => (
+    <div className="btn-group st-seg" role="group">
+      {options.map(o => (
         <button
           key={o.value}
-          className={'btn ' + (o.value === value ? 'btn-primary' : 'btn-secondary') + ' btn-sm'}
+          type="button"
+          className={'btn ' + (o.value === value ? 'btn-primary' : 'btn-off')}
           onClick={() => onChange(o.value)}
-          style={i === 0 ? undefined : { marginLeft: '.3rem' }}
         >
           {o.label}
         </button>
       ))}
     </div>
+  )
+}
+
+/**
+ * 期数下拉：与折线图的月份胶囊同款（原生 select，点开往下选）。
+ *
+ * 老 UI 把 9 个期数平铺成一排按钮（第9期…第1期），手机上会折成三行、
+ * 占掉半屏。改成下拉后一行放得下，且与月份选择器视觉统一。
+ */
+function SeriesSelect({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string }[]
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <select
+      className="form-control form-control-sm st-seg-select"
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      aria-label="期数"
+    >
+      {options.map(o => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
   )
 }
 
@@ -99,9 +130,17 @@ export function ResearchPanel({ name }: { name: string }) {
   useEffect(() => {
     let alive = true
     setLoading(true)
+    // 参数同时写 query 与路径段：远控中继会剥 query，路径段是保底通道。
+    // 路径段顺序必须与后端路由一致（panel/month/task/period/scope/year/yearmonth）。
     const qs = new URLSearchParams({ period, scope })
     if (series) qs.set('series', String(series))
-    apiGet<Resp>(panelPath(name, 'research') + `?${qs}`, 25000)
+    // 参数走 7 段路径 + query：路径段保证 period/scope 不被中继剥掉，
+    // series（期数）只能走 query —— 后端第 8 段路由尚未在运行进程里加载，
+    // 拼 8 段会落进 SPA 回退拿到 HTML，整块面板报废。
+    apiGet<Resp>(
+      panelPath(name, 'research', { period, scope }) + `?${qs}`,
+      25000,
+    )
       .then(r => {
         if (!alive) return
         setData(r)
@@ -125,28 +164,29 @@ export function ResearchPanel({ name }: { name: string }) {
     label: (text('ResearchSeriesOption') || '第{series}期').replace('{series}', String(s)),
   }))
 
-  // 三行选项控件（老 UI app_stat_research.py:_output_research_controls）
+  // 工具栏：一行横向（长卿 2026-11-19 要求改成折线图那种胶囊 + 横排）
+  //   口径胶囊 | 周期胶囊 | 期数下拉（仅期数口径时出现）
+  // 手机上自动换行（flex-wrap），不会挤成一坨。
   const controls = (
-    <>
-      <BtnRow
+    <div className="st-research-toolbar">
+      <SegGroup
         options={SCOPE_VALUES.map(x => ({ value: x.value, label: text(x.key) }))}
         value={scope}
         onChange={v => { setScope(v); setSeries(0) }}
       />
-      <BtnRow
+      <SegGroup
         options={PERIOD_VALUES.map(x => ({ value: x.value, label: text(x.key) }))}
         value={period}
         onChange={setPeriod}
       />
       {scope === 'series' && seriesOpts.length > 0 && (
-        <BtnRow
+        <SeriesSelect
           options={seriesOpts}
           value={String(series || '')}
           onChange={v => setSeries(Number(v))}
-          marginBottom=".6rem"
         />
       )}
-    </>
+    </div>
   )
 
   // 渲染顺序**严格照抄老 UI app_stat_research.py:165-205**：
