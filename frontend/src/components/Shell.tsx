@@ -333,16 +333,28 @@ export function Shell({
   }
   const menuRef = (el: HTMLDivElement | null) => {
     if (!el) return
+    // 分组展开态：用 toggle 事件的**捕获阶段**监听（toggle 不冒泡，但捕获能收到）。
+    // 这样拿到的一定是翻转后的真实状态，不用猜、不会与原生行为打架。
+    // 必须同步进 openGroups，否则 menuHtml 每次重建（dangerouslySetInnerHTML）
+    // 都会按旧状态写 open 属性 → 点二级菜单跳转后分组「缩回去」（长卿 2026-11-19）。
+    // 防止 callback ref 重复调用时叠加监听（同一元素只绑一次）
+    if ((el as any).__alasToggleBound) return
+    ;(el as any).__alasToggleBound = true
+    el.addEventListener('toggle', (ev: Event) => {
+      const d = ev.target as HTMLDetailsElement
+      const gk = d?.dataset?.group
+      if (gk && d.tagName === 'DETAILS') {
+        setOpenGroups(v => ({ ...v, [gk]: d.open }))
+      }
+    }, true)
     el.onclick = (ev) => {
       // 分组标题（summary）：只切换展开态，不跳转、不收起其它分组
       const summary = (ev.target as HTMLElement).closest('summary')
       if (summary) {
         const details = summary.parentElement as HTMLDetailsElement | null
-        const groupKey = details?.dataset.group
-        if (groupKey) {
-          // 用 React 状态驱动，避免直接改 DOM 被下次渲染覆盖
-          setOpenGroups(v => ({ ...v, [groupKey]: !v[groupKey] }))
-        }
+        // 展开态的同步交给下面的 toggle 监听（原生 toggle 在 click 之后才发生，
+        // 这里读 details.open 只会读到旧值）。这里只负责「不要当成按钮跳转」。
+        void details
         return
       }
       const btnEl = (ev.target as HTMLElement).closest('button')
@@ -352,6 +364,16 @@ export function Shell({
       const m = mark.match(/--menu-(.+?)--/)
       if (!m) return
       const key = m[1]
+      // ⚠️ 点二级菜单项时，必须先把它所属分组标记为展开再跳转。
+      // 根因（长卿 2026-11-19）：「点一个主线图它会瞬间缩回去，第二次点才好」——
+      // 菜单是 dangerouslySetInnerHTML 注入的字符串，跳转后 active 变化触发
+      // React 重渲染 → innerHTML 整体重建 → <details> 回到 openGroups 记录的状态。
+      // 而 openGroups 只有点 summary 时才更新，点菜单项时是空的 → 分组收起。
+      // 这里把当前按钮所在的 details 分组写进 openGroups，重建后就保持展开。
+      const holderGroup = btnEl.closest('details') as HTMLDetailsElement | null
+      const holderKey = holderGroup?.dataset.group
+      if (holderKey) setOpenGroups(v => (v[holderKey] ? v : { ...v, [holderKey]: true }))
+
       // 二级菜单项：先看 submenu 里有没有注册回调
       const sub = submenu?.find(it => it.key === key)
       if (sub?.onClick) { sub.onClick(); return }
@@ -424,6 +446,19 @@ export function Shell({
     iconButton(ICON.setting, fixedMenu.aside_manage, 'Manage', active === 'Manage') +
     `</div>`
 
+  // 页眉标题：老 UI 是 set_title(t(f"Task.{task}.name")) —— 显示**当前任务的中文名**
+  // （主线图 / 紧急委托 / 大世界…），不是笼统的「配置」。
+  // 之前配置页传了固定的 title="配置"，所有任务页眉都一样，分不清在看哪个
+  // （长卿 2026-11-19：「除了总览和统计，其他的都是配置这东西根本分不清楚」）。
+  const resolvedTitle = (() => {
+    if (title && title !== '配置') return title
+    for (const g of menu) {
+      const hit = g.tasks.find(x => x.key === active)
+      if (hit) return hit.name
+    }
+    return title
+  })()
+
   // 菜单树：老 UI 有两套，必须区分（实测 22267 真实 DOM）。
   //   ① 主页（HomePagePage）：6 个固定入口，无搜索框，--menu-HomePage/Update/Remote/Setting/Announcement/Utils
   //   ② 实例页：配置搜索框 + 完整配置树，分组用 <details><summary>，首项 --menu-Overview
@@ -494,7 +529,7 @@ export function Shell({
                 id="pywebio-scope-header_status"
                 dangerouslySetInnerHTML={{ __html: headerStatusHtml }}
               />
-              <div id="pywebio-scope-header_title"><p style={{ whiteSpace: 'pre-wrap' }}>{title}</p></div>
+              <div id="pywebio-scope-header_title"><p style={{ whiteSpace: 'pre-wrap' }}>{resolvedTitle}</p></div>
             </div>
             <div id="pywebio-scope-contents">
               <div id="pywebio-scope-aside" ref={asideRef} dangerouslySetInnerHTML={{ __html: asideHtml }} />
