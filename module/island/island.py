@@ -38,7 +38,9 @@ POST_EDGE_NUDGE_LIMIT = 3
 # 各账号、各服务器的格子顺序都可能不同（如国际服未解锁洋葱时，草莓格子上是棉花）。
 # 因此商品按图标在整页范围内模板搜索定位，而不是在国服坐标上做颜色检测；
 # 种子包外观相同、只有中间图案不同，相似度需提高到 0.93 才不会误认成其他商品。
-ISLAND_SHOP_ITEM_SEARCH_OFFSET = (700, 300)
+# 横向偏移要覆盖整排格子（约 x=225~1190）：解锁新商品后商品会换行，例如国际服解锁洋葱后
+# 薰衣草从第一行最右移到第二行最左，700 的偏移从任一端都够不到另一端。
+ISLAND_SHOP_ITEM_SEARCH_OFFSET = (950, 300)
 ISLAND_SHOP_ITEM_SIMILARITY = 0.93
 # 模板匹配只比形状：同形不同色的商品（如国服鲈鱼苗与国际服鲫鱼苗）会互相误认。
 # 匹配后再逐像素比较颜色（5x5 模糊后各像素 RGB 最大差的 95 分位数），
@@ -127,7 +129,7 @@ ISLAND_ITEM_CN_NAMES = {
     # 渔场
     'bass': '鲈鱼', 'yellowfin_tuna': '黄鳍金枪鱼', 'shell': '贝壳', 'shrimp': '小河虾',
     'crayfish': '小龙虾', 'crab': '螃蟹', 'squid': '鱿鱼', 'sea_cucumber': '海参', 'koi_carp': '鲤鱼', 'mackerel': '马鲛鱼',
-    'catfish': '鲶鱼', 'common_carp': '鲫鱼', 'tuna': '金枪鱼', 'salmon': '三文鱼', 'red_sea_bream': '红鲷鱼',
+    'catfish': '鲶鱼', 'common_carp': '鲫鱼', 'tuna': '金枪鱼', 'salmon': '三文鱼', 'red_sea_bream': '红鲷鱼', 'black_porgy': '黑鲷鱼',
     # 矿山/林场
     'Copper': '铜矿', 'Aluminium': '铝矿', 'Iron': '铁矿', 'Sulphur': '硫磺',
     'Silver': '银矿', 'Elegant': '典雅之木', 'Practical': '实用之木', 'Selected': '精选之木',
@@ -470,17 +472,20 @@ class Island(SelectCharacter):
     def island_map_goto(self,destination):
         def get_destination_buttons(name):
             if name == 'mine_forest':
-                return ISLAND_MAP_MINE_FOREST, ISLAND_MAP_MINE_FOREST_CHECK
+                return (ISLAND_MAP_MINE_FOREST,), ISLAND_MAP_MINE_FOREST_CHECK
             if name == 'farm':
-                return ISLAND_MAP_FARM, ISLAND_MAP_FARM_CHECK
+                return (ISLAND_MAP_FARM,), ISLAND_MAP_FARM_CHECK
             if name == 'nursery':
-                return ISLAND_MAP_NURSERY, ISLAND_MAP_NURSERY_CHECK
+                return (ISLAND_MAP_NURSERY,), ISLAND_MAP_NURSERY_CHECK
             if name == 'assembly':
-                return ISLAND_MAP_ASSEMBLY, ISLAND_MAP_ASSEMBLY_CHECK
+                return (ISLAND_MAP_ASSEMBLY,), ISLAND_MAP_ASSEMBLY_CHECK
             if name == 'port':
-                return ISLAND_MAP_PORT, ISLAND_MAP_PORT_CHECK
+                return (
+                    ISLAND_MAP_PORT,
+                    ISLAND_MAP_PORT_ALT,
+                ), ISLAND_MAP_PORT_CHECK
             if name == 'port_business':
-                return ISLAND_MAP_PORT_BUSINESS, ISLAND_MAP_PORT_BUSINESS_CHECK
+                return (ISLAND_MAP_PORT_BUSINESS,), ISLAND_MAP_PORT_BUSINESS_CHECK
             raise ValueError(f"未知的岛屿地图目的地: {name}")
 
         def get_friend_destination_check_button(name):
@@ -490,17 +495,24 @@ class Island(SelectCharacter):
                 return ISLAND_MAP_PORT_FRIEND_CHECK
             raise ValueError(f"好友岛地图不支持目的地: {name}")
 
-        destination_button, check_button = get_destination_buttons(destination)
+        destination_buttons, check_button = get_destination_buttons(destination)
         in_friend = bool(getattr(self, "_island_expect_friend", False))
         if in_friend:
             check_button = get_friend_destination_check_button(destination)
+
+        def click_destination(interval=1):
+            for button in destination_buttons:
+                if self.appear_then_click(button, interval=interval):
+                    return True
+            return False
+
         if not self.goto_island_map():
             return False
         destination_clicked = False
         confirmed = False
         for _ in self.loop(timeout=20, skip_first=False):
             if not destination_clicked:
-                if self.appear_then_click(destination_button, interval=1):
+                if click_destination():
                     logger.info(f"[岛屿] 点击岛屿地图目的地: {destination}")
                     destination_clicked = True
                 continue
@@ -513,7 +525,7 @@ class Island(SelectCharacter):
                 self.device.click(ISLAND_MAP_CONFIRM)
                 confirmed = True
                 break
-            if self.appear_then_click(destination_button, interval=1):
+            if click_destination():
                 continue
 
         if not confirmed:
@@ -915,6 +927,13 @@ class Island(SelectCharacter):
         # 滑动定位/整页重试/上推补点多轮可达十几秒，45 秒预算在低端机上撑不满整条重试链，
         # 放宽到 90 秒；正常路径在命中时就退出，不受影响。
         for image in self.loop(timeout=90, skip_first=False):
+            # 上一个岗位收取后，「获得物品」弹窗（如矿山的额外掉落）可能晚一点才弹出，
+            # 盖住岗位列表；不关掉它，目标岗位一直识别不到，等到卡死超时
+            if self.appear(ISLAND_GET, offset=1):
+                if self.appear(ISLAND_GET, offset=1, interval=1):
+                    self.device.click(ISLAND_POST_SAFE_AREA)
+                retry_swipe_timer.reset()
+                continue
             post_appear = self.appear(post, offset=300)
             if post_appear:
                 retry_swipe_timer.reset()
