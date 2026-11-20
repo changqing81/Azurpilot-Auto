@@ -1197,8 +1197,8 @@
       "False": "Disabled"
     },
     "OilLimit": {
-      "name": "Oil consumption threshold",
-      "help": "Consumption above this value within the window is treated as an anomaly (500-5000, default 800). Note this is the consumption amount, not the remaining-oil limit."
+      "name": "Postpone Below Oil",
+      "help": "When spending books, postpone the task if oil is below this threshold. 0 disables the check. EXP-only commissions cost no oil; the continuous sortie needed for auto-unlock still checks oil."
     },
     "Window": {
       "name": "Time window",
@@ -1400,6 +1400,10 @@
       "name": "Use Auto-Search",
       "help": ""
     },
+    "MultipleSortiesCount": {
+      "name": "Multiple Sorties Batch",
+      "help": "0 uses normal sorties. When greater than 0, each batch runs up to that many stages. The actual count is limited by the game cap, remaining runs and stop conditions."
+    },
     "ContinueAfterRestart": {
       "name": "Continue after an abnormal restart",
       "help": "Disabled by default. After a successful restart in the same script process, resume the confirmed map with clearing mode and auto search enabled. Fall back after settings or task changes, 10 minutes, or 3 recovery attempts. Battles and results are not resumed directly."
@@ -1434,16 +1438,28 @@
       "help": ""
     },
     "Count": {
-      "name": "Handover Count",
-      "help": "How many sorties this Operation Handover runs\n0 means the minimum the game allows: in that case the task is disabled unless Consume all Handover Books is on"
+      "name": "Stages per Batch",
+      "help": "Number of stages each started batch contains; the actual value is limited by the game cap, remaining time and the next sortie schedule. 0 means claim only, starting no fixed-count batch; scheduled book consumption and maintenance plans can still start one. When there is no reward to claim and both timers are off, this task is disabled."
+    },
+    "DailyRunCount": {
+      "name": "Daily Normal Commission Batches",
+      "help": "Maximum number of normal commissions started per day, default 1; 0 means unlimited. Counted only after a confirmed start and reset at server midnight. Existing commissions are still claimed. Weekly book consumption and maintenance plans run independently."
+    },
+    "DailyRunCountUsed": {
+      "name": "Batches Started Today",
+      "help": ""
+    },
+    "DailyRunCountRecord": {
+      "name": "Batch Count Record Time",
+      "help": ""
     },
     "AutoSupplementTime": {
       "name": "Auto Supplement Time",
       "help": "Exchange Handover Books for available time when the remaining time is not enough (1 book = 1 hour)"
     },
     "UseHandoverBook": {
-      "name": "Use Handover Book",
-      "help": "Max out the invested Handover Books before starting"
+      "name": "Use Handover Books",
+      "help": "Off: consumes no oil or books, only grants lecture-hall EXP; no extra gain once EXP is full. On: spends available books and extra oil to earn stage drops; postpones when no book is available instead of falling back to an EXP commission."
     },
     "ConsumeAllBook": {
       "name": "Consume all Handover Books",
@@ -4384,6 +4400,10 @@
       "name": "Red Sea Bream Stock Threshold",
       "help": ""
     },
+    "MinBlackPorgy": {
+      "name": "Black Porgy Stock Threshold",
+      "help": ""
+    },
     "MinYellowfinTuna": {
       "name": "Yellowfin Tuna Stock Threshold",
       "help": ""
@@ -4424,6 +4444,7 @@
       "tuna": "Tuna",
       "salmon": "Salmon",
       "red_sea_bream": "Red Sea Bream",
+      "black_porgy": "Black Porgy",
       "yellowfin_tuna": "Yellowfin Tuna",
       "sea_cucumber": "Sea Cucumber"
     },
@@ -6897,6 +6918,7 @@
       "tuna": "Tuna",
       "salmon": "Salmon",
       "red_sea_bream": "Red Sea Bream",
+      "black_porgy": "Black Porgy",
       "yellowfin_tuna": "Yellowfin Tuna",
       "sea_cucumber": "Sea Cucumber"
     },
