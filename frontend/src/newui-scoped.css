@@ -1420,3 +1420,102 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   border: 0 !important;
   border-radius: 0 !important;
 }
+
+/* ==========================================================================
+   更新器页（长卿 2026-11-20：「新UI的更新器是不是没有更新入口啊？…
+   检查更新也没有检查到…有立即更新的那个地方吗？…屏蔽更新呢，老UI都有的」）
+
+   老 UI 更新器是 PyWebIO Switch(delay=0.5) 轮询 updater.state 驱动按钮，
+   新 UI 改由 pages/update 每秒轮询 /newapi/update/state。这里只补三个新
+   组件的样式（状态行/警告条/转圈），其余块复用 entry-alas.css 的
+   startup-run-panel / launcher-switch / update-log-*（新 UI 同样加载）。
+   ========================================================================== */
+
+/* 状态行：转圈 + 文案 + 动作按钮同一行，窄屏换行不挤成竖条 */
+#root .st-update-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .625rem;
+  margin: .25rem 0 .75rem;
+}
+
+#root .st-update-state-text {
+  color: var(--alas-entry-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+#root .st-update-msg {
+  color: var(--alas-entry-muted);
+  font-size: .875rem;
+}
+
+/* 转圈：静止时是灰点（无更新/失败），进行中变主题色并旋转。
+   与老 UI 的 put_loading 视觉等价（border 型）。 */
+#root .st-update-spinner {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  border: 2px solid var(--alas-entry-border, rgba(127, 127, 127, .45));
+  border-radius: 50%;
+  opacity: .7;
+}
+#root .st-update-spinner.is-spinning {
+  border-top-color: var(--alas-entry-accent, #4a9eff);
+  opacity: 1;
+  animation: st-update-spin .8s linear infinite;
+}
+@keyframes st-update-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root .st-update-spinner.is-spinning { animation: none !important; }
+}
+
+/* 警告条：更新模块未启用（deploy.yaml EnableReload=false）时提示手动更新，
+   文案与老 UI Gui.Update.DisabledWarn 一致。 */
+#root .st-update-warn {
+  margin: .25rem 0 .5rem;
+  padding: .5rem .75rem;
+  color: var(--alas-entry-text);
+  background: color-mix(in srgb, #f5a623 14%, transparent);
+  border: 1px solid color-mix(in srgb, #f5a623 45%, transparent);
+  border-radius: 10px;
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+/* 更新日志：服务端渲染的 .update-log 挂在 cfg-group 里，
+   去掉它与 cfg-group 的重复内边距，避免「框套框」。 */
+#root [id^="pywebio-scope-group_ui2"] > .cfg-group,
+#root #pywebio-scope-group_ui2 {
+  padding-left: 0;
+  padding-right: 0;
+}
+#root #pywebio-scope-group_ui2 .update-log {
+  margin-top: 0;
+}
+
+/* 更新器页表格在窄屏的横向滚动
+   长卿实测 412px 手机截图：提交信息列被裁到屏幕外、第一列「本地/上游仓库」
+   被挤成两字一行。原因是 5 列表格最小内容宽度 ~530px > 视口。
+   处理：外层 .st-table-scroll 承载横向滚动，表格自身放宽到 min-content，
+   第一列 nowrap —— 让用户左右滑，而不是把字竖排。 */
+#root .st-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#root .st-table-scroll > .research-table {
+  min-width: max-content;
+}
+#root .st-table-scroll > .research-table td:first-child,
+#root .st-table-scroll > .research-table th:first-child {
+  white-space: nowrap;
+}
+/* 提交时间列：日期时间戳带空格，允许在窄屏折一行但不要逐字断行 */
+#root .st-table-scroll > .research-table td:nth-child(3) {
+  white-space: nowrap;
+}
