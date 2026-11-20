@@ -806,14 +806,31 @@ def get_menu() -> dict:
     def _name(key: str) -> str:
         return str(i18n.get("Menu", {}).get(key, {}).get("name") or key)
 
+    # 「活动计算器」是**纯入口项**（不是配置任务）：长卿 2026-11-20 定，
+    # 它要挂在配置树「活动」分组里、紧跟「活动通用设置」下面。
+    # 放在主页层侧栏是错的 —— 那里只有 7 个固定入口，用户根本不会往那儿找。
+    _EVENT_CALC_ENTRY = "EventCalcEntry"
+
     groups = []
     for key, body in menu.items():
         tasks = []
-        for task in body.get("tasks", []):
+        task_keys = list(body.get("tasks", []))
+        for task in task_keys:
             tasks.append({
                 "key": task,
                 "name": str(i18n.get("Task", {}).get(task, {}).get("name") or task),
             })
+            # 紧跟 EventGeneral（活动通用设置）之后插入计算器入口
+            if task == "EventGeneral":
+                # 注意：_load_i18n(scope) 的 scope 只是缓存命名空间，
+                # 实际都读同一个主 i18n 文件（filepath_i18n(lang)），
+                # 返回的是整个 dict —— 顶层就是 Gui/Menu/Task 这些域。
+                _gui_i18n = _load_i18n("menu")
+                _calc_name = (
+                    _gui_i18n.get("Gui", {}).get("MenuDevelop", {}).get("EventCalc")
+                    or "活动计算器"
+                )
+                tasks.append({"key": _EVENT_CALC_ENTRY, "name": str(_calc_name)})
         groups.append({
             "key": key,
             "name": _name(key),

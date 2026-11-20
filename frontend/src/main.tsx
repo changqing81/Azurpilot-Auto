@@ -191,6 +191,7 @@ import { ConfigPage } from './pages/config'
 import { StatPage } from './pages/stat'
 import { SettingsPage } from './pages/settings'
 import { UpdatePage } from './pages/update'
+import { EventCalcPage } from './pages/eventcalc'
 import { RemotePage } from './pages/remote'
 import { OobePage } from './pages/oobe'
 import { ToolPage } from './pages/tool'
@@ -257,6 +258,7 @@ function RestoreLastRoute() {
     // 只恢复白名单，避免历史脏数据把用户带到 404
     const ok = /^\/(overview|stat|config|settings|tool)\/[^/]+(\/[^/]+)?$/.test(saved)
       || /^\/(update|remote|announcement|manage)$/.test(saved)
+      || /^\/event-calc\/[^/]+$/.test(saved)
     if (ok) navigate(saved, { replace: true })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -300,6 +302,7 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/config/:name/:task" element={<ConfigPage />} />
         <Route path="/stat/:name" element={<StatPage />} />
         <Route path="/settings/:name" element={<SettingsPage />} />
+        <Route path="/event-calc/:name" element={<EventCalcPage />} />
         <Route path="/update" element={<UpdatePage />} />
         <Route path="/remote" element={<RemotePage />} />
         <Route path="/oobe" element={<OobePage />} />

@@ -442,6 +442,8 @@ MeowfficerScore:
 
 MenuDevelop:
   HomePage:
+  # 活动计算器独立页入口（长卿 2026-11-20 定）
+  EventCalc:
   Translate:
   Announcement:
   Update:

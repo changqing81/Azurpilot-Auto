@@ -1533,21 +1533,141 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
    全部 #root 前缀隔离，老 UI 无 #root 不受影响。
    ========================================================================== */
 
-/* ① 位置修正 */
-#root #pywebio-scope-group_EventCalculator {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  min-width: 0;
-  width: 100%;
+/* ① 独立页容器
+   计算器已移出配置页（独立路由 /event-calc/:name），不再嵌在
+   #pywebio-scope-_groups 网格里，所以原来的 grid-row/grid-column
+   修正规则全部删除 —— 留着反而会污染配置页的网格。
+   这个容器只是给独立页一个宽度约束，保证不使用配置页的两栏网格。 */
+#root .ec-page-wrap {
   display: block;
+  width: 100%;
+  min-width: 0;
+
+  /* 整页毛玻璃底板（长卿 2026-11-20：「底下加块毛玻璃」）
+     计算器页内容压在壁纸上，虽然每张卡片自己有底，但卡片之间的
+     空隙（KPI 与三栏之间、栏与栏之间）壁纸透上来，整体发花。
+     这里给整个计算器区域垫一层统一的玻璃，卡片再叠在上面。
+
+     ⚠️ 关于 backdrop-filter：advanced-material-alas.css:154 有一条
+     明确记录——「透明/高级材质本身已经很重，再叠一层模糊会让滚动与重绘
+     明显掉帧；纯 background + border 是零渲染成本的」。
+     所以这里**底板不用 backdrop-filter**，只用半透明背景 + 描边；
+     卡片自身保留已有的 blur(12px)（数量少，压力可控）。 */
+  position: relative;
+  padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--st-bg, #ffffff) 42%, transparent);
+  border: 1px solid color-mix(in srgb, var(--st-border, rgba(128,128,128,.24)) 70%, transparent);
+  box-sizing: border-box;
 }
-#root #pywebio-scope-_groups > div:first-child,
-#root #pywebio-scope-groups,
-#root #pywebio-scope-navigator {
-  grid-row: 1;
+
+/* 主题分支：与卡片同一套色系，但更透一层（底板在卡片下面，不能抢戏） */
+/* ⚠️ 选择器必须是 html[data-alas-theme] #root 而不是 #root html[data-alas-theme]：
+   data-alas-theme 挂在 <html> 上，而 #root 是它的后代。
+   写成 #root html[…] 是在找「#root 的后代里的 html」，永远选不中 —— 
+   之前所有暗色规则因此全部失效（长卿 2026-11-20：「你高级材质暗色依旧不考虑啊」）。 */
+/* 底板不透明度（长卿 2026-11-20：「毛玻璃还是太淡了…
+   上面的文字在一些壁纸下看不清」）
+   0.42 太透 —— 标题「活动计算器」和副标题直接压在壁纸花色上。
+   提到 0.78 后：壁纸仍隐约可见（保留毛玻璃质感），
+   但文字对比度足够，不再依赖壁纸颜色。
+   ⚠️ 不用 backdrop-filter：advanced-material-alas.css:154 记录过
+   「透明/高级材质本身已经很重，再叠一层模糊会让滚动与重绘明显掉帧」。 */
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap {
+  background: rgba(255, 255, 255, 0.78) !important;
+  border-color: rgba(255, 255, 255, 0.72) !important;
 }
-#root #pywebio-scope-group_EventCalculator > p {
-  white-space: pre-wrap;
+html[data-alas-theme="transparent"] #root .ec-page-wrap {
+  background: rgba(255, 255, 255, 0.72) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap,
+html[data-alas-theme="dark"] #root .ec-page-wrap {
+  background: rgba(22, 27, 38, 0.82) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+html[data-alas-theme="default"] #root .ec-page-wrap {
+  background: rgba(248, 250, 252, 0.92) !important;
+}
+
+/* 页面标题与说明（在底板之上）：暗色要保证对比度 */
+html[data-alas-theme="dark"] #root #pywebio-scope-content > h2,
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-content > h2 {
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+html[data-alas-theme="dark"] #root #pywebio-scope-content > p,
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-content > p {
+  color: rgba(255, 255, 255, 0.6) !important;
+  opacity: 1 !important;
+}
+
+/* 底板上的第一层元素别再顶出额外的 margin-top，避免顶部空太多 */
+#root .ec-page-wrap .ec-root {
+  margin-top: 0;
+}
+
+/* 计算器页面：提高卡片不透明度
+   长卿 2026-11-20 截图反馈：independent 页上壁纸直接透过卡片，
+   31 行商店的数字压在人物脸上看不清。
+   advanced_material 主题的 --alas-apple-card-bg 是 0.52（半透明），
+   对总览那种大卡片够用，但计算器信息密度高，需要更实。
+   这里在本页范围内把底提到 0.88 / 暗色 0.85 —— 仍保留一点通透感，
+   但文字对比度足够。 */
+#root .ec-page-wrap .ec-card,
+#root .ec-page-wrap .ec-kpi {
+  background: color-mix(in srgb, var(--st-bg, #ffffff) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-kpi {
+  background: rgba(255, 255, 255, 0.88);
+}
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-kpi,
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-kpi {
+  background: rgba(24, 29, 40, 0.92);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html[data-alas-theme="transparent"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="transparent"] #root .ec-page-wrap .ec-kpi {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* 表头也要实，否则滚动时数字和背景混在一起 */
+#root .ec-page-wrap .ec-root th {
+  background: color-mix(in srgb, var(--st-bg, #ffffff) 92%, transparent);
+}
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-root th {
+  background: rgba(255, 255, 255, 0.92);
+}
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-root th,
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-root th {
+  background: rgba(30, 36, 48, 0.96);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* 输入框同理 */
+#root .ec-page-wrap .ec-root input[type="number"],
+#root .ec-page-wrap .ec-root input[type="date"],
+#root .ec-page-wrap .ec-qty {
+  background: color-mix(in srgb, var(--st-bg, #ffffff) 94%, transparent);
+}
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-root input[type="number"],
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-root input[type="date"],
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-qty {
+  background: rgba(255, 255, 255, 0.94);
+}
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-root input[type="number"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-root input[type="date"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-qty,
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-root input[type="number"],
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-root input[type="date"],
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-qty {
+  background: rgba(32, 38, 52, 0.96);
+  color: rgba(255, 255, 255, 0.92);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 /* ② 根容器 */
@@ -1572,7 +1692,11 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   margin-bottom: 12px;
 }
 #root .ec-kpi {
-  background: var(--st-surface, rgba(255,255,255,.06));
+  /* ⚠️ 必须用 --alas-apple-card-bg（实底）而不是 --st-surface（半透明）：
+     advanced_material 主题下 --st-surface 几乎透明，壁纸会直接透上来，
+     卡片里的文字糊在背景图上完全看不清（长卿 2026-11-20 截图反馈）。
+     其他页面（总览/统计）用的也是这一层，保持一致。 */
+  background: var(--alas-apple-card-bg, var(--st-surface, rgba(255,255,255,.06)));
   border: 1px solid var(--st-border, rgba(128,128,128,.24));
   border-radius: 11px;
   padding: 11px 13px;
@@ -1648,7 +1772,7 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
 
 /* ⑤ 卡片 */
 #root .ec-card {
-  background: var(--st-surface, rgba(255,255,255,.06));
+  background: var(--alas-apple-card-bg, var(--st-surface, rgba(255,255,255,.06)));
   border: 1px solid var(--st-border, rgba(128,128,128,.24));
   border-radius: 12px;
   padding: 13px;
@@ -1697,15 +1821,31 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
 #root .ec-root input[type="date"] {
   height: 32px;
   padding: 0 9px;
-  border: 1px solid var(--st-border, rgba(128,128,128,.24));
+  border: 1px solid rgba(128, 128, 128, 0.28);
   border-radius: 7px;
   color: var(--alas-content-text, inherit);
-  background: var(--st-surface-muted, rgba(128,128,128,.04));
+  /* 具体色值兜底：高级材质下 --alas-apple-card-bg-solid 在暗色是 #111827，
+     但亮色主题下这条会被其他规则抢；这里先给亮色值，再由下面主题规则覆盖 */
+  background: #ffffff;
   font-size: 13px;
   font-weight: 600;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+html[data-alas-theme="dark"] #root .ec-root input[type="number"],
+html[data-alas-theme="dark"] #root .ec-root input[type="date"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="number"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="date"] {
+  background: #232b3a;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+}
+html[data-alas-theme="advanced_material"] #root .ec-root input[type="number"],
+html[data-alas-theme="advanced_material"] #root .ec-root input[type="date"],
+html[data-alas-theme="transparent"] #root .ec-root input[type="number"],
+html[data-alas-theme="transparent"] #root .ec-root input[type="date"] {
+  background: #ffffff;
 }
 #root .ec-root input[type="number"]:focus,
 #root .ec-root input[type="date"]:focus {
@@ -1765,12 +1905,13 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
 #root .ec-slidercell {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 170px;
+  gap: 10px;
+  min-width: 220px;
 }
+/* 拖动条做大（长卿 2026-11-20：滑块要比输入框显眼） */
 #root .ec-root input[type="range"] {
-  flex: 1;
-  height: 5px;
+  flex: 1 1 auto;
+  height: 8px;
   border-radius: 99px;
   background: var(--st-border, rgba(128,128,128,.28));
   -webkit-appearance: none;
@@ -1778,16 +1919,17 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   cursor: pointer;
   outline: none;
   margin: 0;
-  min-width: 70px;
+  min-width: 120px;
+  padding: 0;
 }
 #root .ec-root input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--alas-entry-accent, #4f46e5);
   border: 2px solid #fff;
-  box-shadow: 0 1px 3px rgba(79,70,229,.4);
+  box-shadow: 0 2px 6px rgba(79,70,229,.45);
   cursor: pointer;
   transition: transform .12s;
 }
@@ -1795,25 +1937,31 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   transform: scale(1.18);
 }
 #root .ec-root input[type="range"]::-moz-range-thumb {
-  width: 15px;
-  height: 15px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: var(--alas-entry-accent, #4f46e5);
   border: 2px solid #fff;
   cursor: pointer;
 }
+/* ⚠️ 特异性必须压过 #root .ec-root input[type="number"]（那条写了 width:100%），
+   否则数字框会被撑满整列、滑块被挤没 —— 长卿 2026-11-20 截图反馈
+   「输入框不要做这么大，反而是拖动条需要大一点，你搞反了」。 */
+#root .ec-root input.ec-qty,
 #root .ec-qty {
-  width: 44px;
-  height: 24px;
-  padding: 0 3px;
+  width: 46px !important;
+  min-width: 46px !important;
+  max-width: 46px !important;
+  flex: 0 0 46px !important;
+  height: 26px;
+  padding: 0 2px;
   border: 1px solid var(--st-border, rgba(128,128,128,.24));
   border-radius: 5px;
   text-align: center;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 12px;
   background: var(--st-surface-muted, rgba(128,128,128,.06));
   color: var(--alas-content-text, inherit);
-  flex: 0 0 auto;
   box-sizing: border-box;
 }
 #root .ec-qty:focus {
@@ -1821,7 +1969,7 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   outline-offset: -2px;
 }
 #root .ec-subc {
-  width: 64px;
+  width: 58px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
@@ -1893,4 +2041,219 @@ html[data-alas-theme='dark_advanced_material'] #root #pywebio-scope-statistics-c
   #root .ec-grid3 > div:last-child { grid-column: auto; }
   #root .ec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   #root .ec-slidercell { min-width: 0; }
+}
+
+/* ==========================================================================
+   活动计算器：暗色主题补全
+   长卿 2026-11-20：「你高级材质暗色依旧不考虑啊」
+
+   上面已经把底色/表头/输入框的选择器修对了（html[…] #root 而非 #root html[…]），
+   但还有一批元素没有暗色分支 —— 文字、边框、滑块轨道、进度条在深色底上
+   对比度不够。这里统一补齐。
+   ========================================================================== */
+
+html[data-alas-theme="dark"] #root .ec-root,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root {
+  color: rgba(255, 255, 255, 0.92);
+}
+html[data-alas-theme="dark"] #root .ec-kpi-k,
+html[data-alas-theme="dark"] #root .ec-kpi-d,
+html[data-alas-theme="dark_advanced_material"] #root .ec-kpi-k,
+html[data-alas-theme="dark_advanced_material"] #root .ec-kpi-d {
+  color: rgba(255, 255, 255, 0.52);
+}
+html[data-alas-theme="dark"] #root .ec-chip,
+html[data-alas-theme="dark_advanced_material"] #root .ec-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.6);
+}
+html[data-alas-theme="dark"] #root .ec-chip b,
+html[data-alas-theme="dark_advanced_material"] #root .ec-chip b {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* 卡片/表格边框：深色下用白色低透明度，纯黑边框看不见 */
+html[data-alas-theme="dark"] #root .ec-card,
+html[data-alas-theme="dark_advanced_material"] #root .ec-card,
+html[data-alas-theme="dark"] #root .ec-kpi,
+html[data-alas-theme="dark_advanced_material"] #root .ec-kpi {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+html[data-alas-theme="dark"] #root .ec-root td,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root td {
+  border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+html[data-alas-theme="dark"] #root .ec-root th,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root th {
+  border-bottom-color: rgba(255, 255, 255, 0.14);
+}
+
+/* 滑块轨道：默认的深灰在深底上看不清，提亮 */
+html[data-alas-theme="dark"] #root .ec-root input[type="range"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="range"] {
+  background: rgba(255, 255, 255, 0.18);
+}
+/* 已填充部分用主题色 */
+html[data-alas-theme="dark"] #root .ec-root input[type="range"]::-webkit-slider-thumb,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="range"]::-webkit-slider-thumb {
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.6);
+}
+
+/* 进度条底槽 */
+html[data-alas-theme="dark"] #root .ec-prog,
+html[data-alas-theme="dark_advanced_material"] #root .ec-prog {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* 小计金额：暗色下用更亮的强调色 */
+html[data-alas-theme="dark"] #root .ec-subc,
+html[data-alas-theme="dark_advanced_material"] #root .ec-subc {
+  color: #a5b4fc;
+}
+html[data-alas-theme="dark"] #root .ec-subc.zero,
+html[data-alas-theme="dark_advanced_material"] #root .ec-subc.zero {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* 按钮 */
+html[data-alas-theme="dark"] #root .ec-root button,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root button {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}
+html[data-alas-theme="dark"] #root .ec-root button:hover,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+html[data-alas-theme="dark"] #root .ec-root button.primary,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root button.primary {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+/* 页脚说明 */
+html[data-alas-theme="dark"] #root .ec-foot,
+html[data-alas-theme="dark"] #root .ec-sub,
+html[data-alas-theme="dark_advanced_material"] #root .ec-foot,
+html[data-alas-theme="dark_advanced_material"] #root .ec-sub {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* 警告条 */
+html[data-alas-theme="dark"] #root .ec-warn,
+html[data-alas-theme="dark_advanced_material"] #root .ec-warn {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+/* ==========================================================================
+   活动计算器：暗色/亮色最终覆盖（!important 兜底）
+
+   长卿 2026-11-20：「你高级材质暗色依旧不考虑啊」
+
+   为什么非要 !important：
+   CDP 枚举 matched rules 发现，主题层里有**通配规则**会命中我的元素，
+   而且主题 CSS 是在 newui-scoped.css **之后**动态注入的：
+     dark-advanced-material-overrides-alas.css:
+       .form-control, input:not([type="checkbox"]):not([type="radio"]), select { … }
+       → 把 <input type="number">、<input type="range"> 全部命中
+   再加上项目里原有的
+       html[data-alas-theme="dark"] #root .form-control … { background: rgba(15,23,42,.42) }
+   这些选择器特异性都在 (1,2,1)~(1,4,1) 区间互相咬，靠调整写法规避成本很高。
+   本页样式只作用于 #root 内的计算器，用 !important 明确表达「这里说了算」。
+   ========================================================================== */
+
+/* ---------- 表头：必须有实底，否则 sticky 滚动时数字透上来 ---------- */
+html[data-alas-theme="dark"] #root .ec-root th,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root th {
+  background: #1e2430 !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.16) !important;
+}
+html[data-alas-theme="advanced_material"] #root .ec-root th,
+html[data-alas-theme="transparent"] #root .ec-root th,
+html[data-alas-theme="default"] #root .ec-root th {
+  background: #f7f9fc !important;
+  color: #5c6373 !important;
+}
+
+/* ---------- 数字输入框 / 日期框 ---------- */
+html[data-alas-theme="dark"] #root .ec-root input[type="number"],
+html[data-alas-theme="dark"] #root .ec-root input[type="date"],
+html[data-alas-theme="dark"] #root .ec-qty,
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="number"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="date"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-qty {
+  background: #232b3a !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+html[data-alas-theme="advanced_material"] #root .ec-root input[type="number"],
+html[data-alas-theme="advanced_material"] #root .ec-root input[type="date"],
+html[data-alas-theme="advanced_material"] #root .ec-qty,
+html[data-alas-theme="transparent"] #root .ec-root input[type="number"],
+html[data-alas-theme="transparent"] #root .ec-root input[type="date"],
+html[data-alas-theme="transparent"] #root .ec-qty,
+html[data-alas-theme="default"] #root .ec-root input[type="number"],
+html[data-alas-theme="default"] #root .ec-root input[type="date"],
+html[data-alas-theme="default"] #root .ec-qty {
+  background: #ffffff !important;
+  border-color: rgba(128, 128, 128, 0.28) !important;
+  color: #1a1d24 !important;
+}
+
+/* ---------- 滑块轨道 ---------- */
+html[data-alas-theme="dark"] #root .ec-root input[type="range"],
+html[data-alas-theme="dark_advanced_material"] #root .ec-root input[type="range"] {
+  background: rgba(255, 255, 255, 0.24) !important;
+}
+html[data-alas-theme="advanced_material"] #root .ec-root input[type="range"],
+html[data-alas-theme="transparent"] #root .ec-root input[type="range"],
+html[data-alas-theme="default"] #root .ec-root input[type="range"] {
+  background: rgba(128, 128, 128, 0.35) !important;
+}
+
+/* ---------- 卡片 / KPI 底色 ---------- */
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="dark"] #root .ec-page-wrap .ec-kpi,
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-wrap .ec-kpi {
+  background: rgba(24, 29, 40, 0.92) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="advanced_material"] #root .ec-page-wrap .ec-kpi,
+html[data-alas-theme="transparent"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="transparent"] #root .ec-page-wrap .ec-kpi,
+html[data-alas-theme="default"] #root .ec-page-wrap .ec-card,
+html[data-alas-theme="default"] #root .ec-page-wrap .ec-kpi {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(128, 128, 128, 0.2) !important;
+}
+
+/* 底板内的页面标题与说明 */
+#root .ec-page-title {
+  margin: 0 0 .375rem;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--alas-content-text, inherit);
+}
+#root .ec-page-desc {
+  margin: 0 0 1rem;
+  font-size: .875rem;
+  line-height: 1.6;
+  color: var(--alas-entry-muted, #7a8291);
+}
+html[data-alas-theme="dark"] #root .ec-page-title,
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-title {
+  color: rgba(255, 255, 255, 0.96);
+}
+html[data-alas-theme="dark"] #root .ec-page-desc,
+html[data-alas-theme="dark_advanced_material"] #root .ec-page-desc {
+  color: rgba(255, 255, 255, 0.62);
 }

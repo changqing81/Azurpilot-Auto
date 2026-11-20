@@ -28,7 +28,6 @@ import { useParams } from 'react-router-dom'
 import { apiGet, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { ArgBlock, type Group } from './groups'
-import { EventCalculator } from './EventCalculator'
 import { useToast } from '../../components/Toast'
 type ConfigResp = { task: string; groups: Group[]; error?: string }
 export function ConfigPage() {
@@ -155,16 +154,10 @@ export function ConfigPage() {
               </div>
             ))}
           </div>
-            {/* 活动计算器：老 UI app_task_config.py:487-489 挂在 EventGeneral 组之后。
-                新 UI 无懒渲染，直接在组列表末尾渲染（EventGeneral 是该页最后一组前的位置；
-                放在 navigator 前保持「属于 groups 列」的 DOM 层级，垫面规则才能命中。 */}
-            {task === 'EventGeneral' && (
-              <div id="pywebio-scope-group_EventCalculator">
-                <p style={{ whiteSpace: 'pre-wrap' }}>活动计算器</p>
-                <hr className="hr-group" />
-                <EventCalculator name={name} />
-              </div>
-            )}
+                        {/* 活动计算器已移出本页（长卿 2026-11-20 定：独立成页）。
+                原因：它挂在 #pywebio-scope-_groups 网格里，会把本页配置项挤到
+                第一行只剩 227px。现在走侧栏「活动计算器」入口 →
+                /event-calc/:name（见 pages/eventcalc/index.tsx）。 */}
           <div id="pywebio-scope-navigator">
             {navItems.map(it => (
               <button

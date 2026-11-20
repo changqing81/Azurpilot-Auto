@@ -378,6 +378,11 @@ export function Shell({
       const sub = submenu?.find(it => it.key === key)
       if (sub?.onClick) { sub.onClick(); return }
       if (key === 'Overview') { navigate('/overview/' + encodeURIComponent(instanceName)); return }
+      // 活动计算器是**纯入口项**（后端 get_menu 插在「活动通用设置」之后），
+      // 不是配置任务 —— 它跳独立页 /event-calc/:name，不进配置页。
+      // 长卿 2026-11-20：放主页层侧栏是错的位置，用户根本不会往那儿找；
+      // 正确位置是配置树「活动」分组里、紧跟「活动通用设置」。
+      if (key === 'EventCalcEntry') { navigate('/event-calc/' + encodeURIComponent(instanceName)); return }
       if (key === 'HomePage') {
         // 清掉「上次页面」记录：否则下次从 /new/ 进来又被带回子页面，像回不到主页
         try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
