@@ -146,6 +146,15 @@ Deploy:
     # [Default] 08:00
     AutoRestartTime: 08:00
 
+    # 隐藏更新提示（更新器页面顶部的开关）
+    # Hide update notice
+    # 【关键】poor_yaml_write() 是按本模板做正则替换写盘的：模板里没有这一行，
+    # 写进去的值会被静默丢弃（实测：写 true 后回读仍是 false，文件里也不出现）。
+    # 老 UI 的 /api/deploy/settings 与更新器页顶部的同款开关一直因此无效。
+    # [默认] false
+    # [Default] false
+    HideUpdateNotice: false
+
     # 隐藏公告弹窗
     # Hide announcement popup
     # [默认] true
