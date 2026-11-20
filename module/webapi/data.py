@@ -2406,6 +2406,9 @@ def set_background_mode(mode: str) -> dict:
         return {"success": False, "error": "mode 必须是 random 或 custom"}
     try:
         _write_bg_setting({"mode": mode})
+        # 2026-11-20 长卿的背景「消失」排查：mode 被切回 random 但日志里查不到写入方，
+        # 只能靠文件 mtime 反推。加这条日志，下次直接定位谁在什么时候切的。
+        logger.info(f"[webapi] 背景模式已切换为 {mode}")
         return {"success": True, "mode": mode}
     except Exception as e:  # noqa: BLE001
         logger.error(f"[webapi] 切换背景模式失败: {e}")
@@ -2421,6 +2424,7 @@ def set_media_preference(media: str) -> dict:
         return {"success": False, "error": "media 必须是 image/video/auto"}
     try:
         _write_bg_setting({"media": media})
+        logger.info(f"[webapi] 背景媒体偏好已切换为 {media}")
         return {"success": True, "media": media}
     except Exception as e:  # noqa: BLE001
         return {"success": False, "error": str(e)}

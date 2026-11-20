@@ -1336,7 +1336,11 @@ class HomeMixin(WebUIMixinBase):
         """保存当前背景模式："random" 随机图源 / "custom" 自定义图片或视频。
 
         同文件中还持久化媒体类型偏好，写入时保留该字段避免被覆盖。
+        2026-11-20 补日志：背景「消失」排查时 mode 被切回 random 但日志无记录，
+        加这条让老 UI / 新 UI 两边的切换都可追溯（调用方：上传后自动切 custom、
+        「随机壁纸」按钮切 random）。
         """
+        logger.info(f"[WebUI] 背景模式已切换为 {mode}")
         self._write_background_setting({"mode": mode})
 
     def _load_media_preference(self) -> str:
