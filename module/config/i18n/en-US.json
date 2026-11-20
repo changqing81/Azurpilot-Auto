@@ -7727,7 +7727,12 @@
       "Remote": "Remote Control",
       "Setting": "Settings",
       "Utils": "Utils",
-      "EventCalc": "Event Calculator"
+      "EventCalc": "Event Calculator",
+      "OtherConfig": "Other Settings",
+      "MainChapters": "Main Chapters",
+      "GemsFarmingGroup": "Urgent Commission",
+      "EventStages": "Event Stages",
+      "EventDailyGroup": "Event Daily"
     },
     "Overview": {
       "Scheduler": "Scheduler",

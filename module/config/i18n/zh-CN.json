@@ -7727,7 +7727,12 @@
       "Remote": "远程控制",
       "Setting": "设置",
       "Utils": "开发者工具",
-      "EventCalc": "活动计算器"
+      "EventCalc": "活动计算器",
+      "OtherConfig": "其他配置",
+      "MainChapters": "主线图",
+      "GemsFarmingGroup": "紧急委托",
+      "EventStages": "活动图",
+      "EventDailyGroup": "活动每日"
     },
     "Overview": {
       "Scheduler": "调度器",

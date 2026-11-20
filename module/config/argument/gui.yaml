@@ -444,6 +444,12 @@ MenuDevelop:
   HomePage:
   # 活动计算器独立页入口（长卿 2026-11-20 定）
   EventCalc:
+  # 任务集合页入口（各项的配置收成一个页签页）
+  OtherConfig:
+  MainChapters:
+  GemsFarmingGroup:
+  EventStages:
+  EventDailyGroup:
   Translate:
   Announcement:
   Update:

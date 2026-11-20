@@ -806,31 +806,90 @@ def get_menu() -> dict:
     def _name(key: str) -> str:
         return str(i18n.get("Menu", {}).get(key, {}).get("name") or key)
 
-    # 「活动计算器」是**纯入口项**（不是配置任务）：长卿 2026-11-20 定，
-    # 它要挂在配置树「活动」分组里、紧跟「活动通用设置」下面。
-    # 放在主页层侧栏是错的 —— 那里只有 7 个固定入口，用户根本不会往那儿找。
+    # ── 纯入口项（不是配置任务，点进去是独立页面）──
+    # 长卿 2026-11-20 两次要求把占位置的菜单项收成页签页：
+    #   ① 其他配置 = 共斗活动/共斗沉船/深谷来信/夜勤病栋/联盟沉船/商路护航/作战档案
+    #   ② 主线图   = 主线图-1/2/3
+    #   ③ 紧急委托 = 紧急委托/紧急委托-2/三油低耗/1-1刷伏击
+    #   ④ 活动图   = 活动图-1/2/3
+    #   ⑤ 活动每日 = 每日A/B/C/D/SP图 + 共斗活动每日 + 怪谈纪实SP
+    # 各任务的配置本身完全不变（配置项、保存、调度都照旧），
+    # 只是菜单不再各占一行，改成进集合页后用页签切换。
     _EVENT_CALC_ENTRY = "EventCalcEntry"
+
+    # 集合页入口：(插入到哪个分组, 入口 key, i18n 键, 收纳的任务)
+    # 入口插在「该分组里第一个被收纳的任务原本所在的位置」，
+    # 这样菜单顺序看起来和原来一致（只是多项并成一行）。
+    _COLLECTIONS = (
+        ("Event", "OtherConfigEntry", "OtherConfig", (
+            "Raid", "RaidScuttle", "Hospital", "Coalition",
+            "CoalitionScuttle", "MaritimeEscort", "WarArchives",
+        )),
+        ("Farm", "MainChaptersEntry", "MainChapters", ("Main", "Main2", "Main3")),
+        ("Farm", "GemsFarmingEntry", "GemsFarmingGroup", (
+            "GemsFarming", "GemsFarming2", "ThreeOilLowCost", "Ambush11",
+        )),
+        ("Event", "EventStagesEntry", "EventStages", ("Event", "Event2", "Event3")),
+        ("EventDaily", "EventDailyEntry", "EventDailyGroup", (
+            "EventA", "EventB", "EventC", "EventD", "EventSp",
+            "RaidDaily", "CoalitionSp",
+        )),
+    )
+
+    # 任务 → 所属集合入口（用于跳过显示 & 决定入口插入位置）
+    _task_collection = {}
+    for _gkey, _ekey, _iname, _members in _COLLECTIONS:
+        for _m in _members:
+            _task_collection[_m] = (_gkey, _ekey, _iname, _members)
+
+    _gui_i18n = _load_i18n("menu")
+    _menu_develop = _gui_i18n.get("Gui", {}).get("MenuDevelop", {})
+    _defaults = {
+        "OtherConfig": "其他配置",
+        "MainChapters": "主线图",
+        "GemsFarmingGroup": "紧急委托",
+        "EventStages": "活动图",
+        "EventDailyGroup": "活动每日",
+    }
+
+    # 每组要插入的集合入口：group -> [(位置任务 key 或 None=末尾, entry, name)]
+    _entries_by_group = {}
+    for _gkey, _ekey, _iname, _members in _COLLECTIONS:
+        _entries_by_group.setdefault(_gkey, []).append({
+            "entry": _ekey,
+            "name": str(_menu_develop.get(_iname) or _defaults.get(_iname) or _iname),
+            "members": _members,
+            "inserted": False,
+        })
 
     groups = []
     for key, body in menu.items():
         tasks = []
         task_keys = list(body.get("tasks", []))
+        entries = _entries_by_group.get(key, [])
         for task in task_keys:
+            # 该任务被某个集合收纳：不显示它本身，改为在它的位置插入集合入口
+            col = _task_collection.get(task)
+            if col is not None:
+                for e in entries:
+                    if not e["inserted"] and task in e["members"]:
+                        tasks.append({"key": e["entry"], "name": e["name"]})
+                        e["inserted"] = True
+                continue
             tasks.append({
                 "key": task,
                 "name": str(i18n.get("Task", {}).get(task, {}).get("name") or task),
             })
-            # 紧跟 EventGeneral（活动通用设置）之后插入计算器入口
+            # 紧跟 EventGeneral（活动通用设置）之后插入活动计算器入口
             if task == "EventGeneral":
-                # 注意：_load_i18n(scope) 的 scope 只是缓存命名空间，
-                # 实际都读同一个主 i18n 文件（filepath_i18n(lang)），
-                # 返回的是整个 dict —— 顶层就是 Gui/Menu/Task 这些域。
-                _gui_i18n = _load_i18n("menu")
-                _calc_name = (
-                    _gui_i18n.get("Gui", {}).get("MenuDevelop", {}).get("EventCalc")
-                    or "活动计算器"
-                )
-                tasks.append({"key": _EVENT_CALC_ENTRY, "name": str(_calc_name)})
+                tasks.append({
+                    "key": _EVENT_CALC_ENTRY,
+                    "name": str(_menu_develop.get("EventCalc") or "活动计算器"),
+                })
+        # 没被插入的集合入口（成员一个都没匹配上）追加到组尾，保证不丢
+        for e in entries:
+            if not e["inserted"]:
+                tasks.append({"key": e["entry"], "name": e["name"]})
         groups.append({
             "key": key,
             "name": _name(key),

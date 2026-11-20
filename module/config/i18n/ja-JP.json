@@ -7727,7 +7727,12 @@
       "Remote": "リモコン",
       "Setting": "設定",
       "Utils": "道具",
-      "EventCalc": "イベント計算機"
+      "EventCalc": "イベント計算機",
+      "OtherConfig": "その他の設定",
+      "MainChapters": "メイン海域",
+      "GemsFarmingGroup": "緊急依頼",
+      "EventStages": "イベント海域",
+      "EventDailyGroup": "イベントデイリー"
     },
     "Overview": {
       "Scheduler": "スケジューラ",

@@ -383,6 +383,12 @@ export function Shell({
       // 长卿 2026-11-20：放主页层侧栏是错的位置，用户根本不会往那儿找；
       // 正确位置是配置树「活动」分组里、紧跟「活动通用设置」。
       if (key === 'EventCalcEntry') { navigate('/event-calc/' + encodeURIComponent(instanceName)); return }
+      // 集合页入口：把多个占位置的菜单项收成一个页签页
+      // （其他配置 / 主线图 / 紧急委托 / 活动图 / 活动每日）
+      if (COLLECTION_ROUTES[key]) {
+        navigate('/' + COLLECTION_ROUTES[key] + '/' + encodeURIComponent(instanceName))
+        return
+      }
       if (key === 'HomePage') {
         // 清掉「上次页面」记录：否则下次从 /new/ 进来又被带回子页面，像回不到主页
         try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
@@ -483,6 +489,15 @@ export function Shell({
 
   // 「主页层」页面集合：这些页面共用外侧那 6 个固定入口菜单
   const FIXED_PAGE_KEYS = new Set(['Home', 'Update', 'Remote', 'Setting', 'Announcement', 'Utils'])
+
+  // 集合页入口 key → 路由段（长卿 2026-11-20：把占位置的菜单项收成页签页）
+  const COLLECTION_ROUTES: Record<string, string> = {
+    OtherConfigEntry: 'config-other',
+    MainChaptersEntry: 'main-chapters',
+    GemsFarmingEntry: 'gems-farming',
+    EventStagesEntry: 'event-stages',
+    EventDailyEntry: 'event-daily',
+  }
 
   const menuItem = (key: string, name: string) =>
     `<div style=";;--menu-${key}--;"><button class="btn btn-menu${

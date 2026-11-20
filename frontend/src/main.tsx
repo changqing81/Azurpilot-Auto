@@ -192,6 +192,10 @@ import { StatPage } from './pages/stat'
 import { SettingsPage } from './pages/settings'
 import { UpdatePage } from './pages/update'
 import { EventCalcPage } from './pages/eventcalc'
+import {
+  OtherConfigPage, MainChaptersPage, GemsFarmingPage,
+  EventStagesPage, EventDailyPage,
+} from './pages/otherconfig'
 import { RemotePage } from './pages/remote'
 import { OobePage } from './pages/oobe'
 import { ToolPage } from './pages/tool'
@@ -259,6 +263,11 @@ function RestoreLastRoute() {
     const ok = /^\/(overview|stat|config|settings|tool)\/[^/]+(\/[^/]+)?$/.test(saved)
       || /^\/(update|remote|announcement|manage)$/.test(saved)
       || /^\/event-calc\/[^/]+$/.test(saved)
+      || /^\/config-other\/[^/]+$/.test(saved)
+      || /^\/main-chapters\/[^/]+$/.test(saved)
+      || /^\/gems-farming\/[^/]+$/.test(saved)
+      || /^\/event-stages\/[^/]+$/.test(saved)
+      || /^\/event-daily\/[^/]+$/.test(saved)
     if (ok) navigate(saved, { replace: true })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -303,6 +312,11 @@ createRoot(document.getElementById('root')!).render(
         <Route path="/stat/:name" element={<StatPage />} />
         <Route path="/settings/:name" element={<SettingsPage />} />
         <Route path="/event-calc/:name" element={<EventCalcPage />} />
+        <Route path="/config-other/:name" element={<OtherConfigPage />} />
+        <Route path="/main-chapters/:name" element={<MainChaptersPage />} />
+        <Route path="/gems-farming/:name" element={<GemsFarmingPage />} />
+        <Route path="/event-stages/:name" element={<EventStagesPage />} />
+        <Route path="/event-daily/:name" element={<EventDailyPage />} />
         <Route path="/update" element={<UpdatePage />} />
         <Route path="/remote" element={<RemotePage />} />
         <Route path="/oobe" element={<OobePage />} />

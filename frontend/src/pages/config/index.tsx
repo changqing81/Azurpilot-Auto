@@ -24,14 +24,67 @@
 // 另外：老 UI 的「分组懒渲染」是 PyWebIO 的妥协（服务端逐个 scope 推送），
 // React 一次渲染完即可，这里**不做懒渲染、不做骨架屏**。
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { apiGet, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { ArgBlock, type Group } from './groups'
 import { useToast } from '../../components/Toast'
 type ConfigResp = { task: string; groups: Group[]; error?: string }
+
+/** 任务 key → 所属集合页 route（旧地址 /config/{name}/{task} 重定向用） */
+export const TASK_TO_COLLECTION: Record<string, string> = {
+  // 其他配置
+  Raid: 'config-other', RaidScuttle: 'config-other', Hospital: 'config-other',
+  Coalition: 'config-other', CoalitionScuttle: 'config-other',
+  MaritimeEscort: 'config-other', WarArchives: 'config-other',
+  // 主线图
+  Main: 'main-chapters', Main2: 'main-chapters', Main3: 'main-chapters',
+  // 紧急委托
+  GemsFarming: 'gems-farming', GemsFarming2: 'gems-farming',
+  ThreeOilLowCost: 'gems-farming', Ambush11: 'gems-farming',
+  // 活动图
+  Event: 'event-stages', Event2: 'event-stages', Event3: 'event-stages',
+  // 活动每日
+  EventA: 'event-daily', EventB: 'event-daily', EventC: 'event-daily',
+  EventD: 'event-daily', EventSp: 'event-daily', RaidDaily: 'event-daily',
+  CoalitionSp: 'event-daily',
+}
+/**
+ * 配置页外壳：从路由读 task，渲染单个任务的配置。
+ *
+ * 拆分原因（长卿 2026-11-20「其他配置」页签页）：
+ * 原来的实现把路由参数 task 写死在组件里，无法在一个页面里切换多个任务。
+ * 现在拆成 ConfigBody（接受 task 参数、可复用）+ ConfigPage（路由外壳）。
+ */
 export function ConfigPage() {
   const { name = 'alas', task = '' } = useParams()
+  const navigate = useNavigate()
+  // 被集合页收纳的任务：旧地址 /config/{name}/{task} 自动跳转并选中页签
+  // （长卿 2026-11-20：旧地址要还能打开，体验无缝）
+  const collectionRoute = TASK_TO_COLLECTION[task]
+  useEffect(() => {
+    if (collectionRoute) {
+      navigate(
+        '/' + collectionRoute + '/' + encodeURIComponent(name) + '?tab=' + encodeURIComponent(task),
+        { replace: true },
+      )
+    }
+  }, [name, task, navigate, collectionRoute])
+  if (collectionRoute) return null
+  return <ConfigBody name={name} task={task} />
+}
+
+/** 单任务配置主体。task 由调用方传入 —— 页签页可以复用它切换任务。 */
+export function ConfigBody({
+  name,
+  task,
+  hideShell = false,
+}: {
+  name: string
+  task: string
+  /** true 时不自带 Shell 外壳 —— 供页签页嵌在自己的 Shell 里 */
+  hideShell?: boolean
+}) {
   const [groups, setGroups] = useState<Group[]>([])
   const toast = useToast()
   const [loaded, setLoaded] = useState(false)
@@ -105,8 +158,8 @@ export function ConfigPage() {
     () => groups.map(g => ({ id: `pywebio-scope-group_${g.group}`, name: g.title || g.group })),
     [groups],
   )
-  return (
-    <Shell active={task} title="配置">
+  const body = (
+    <>
       {/* #pywebio-scope-content 里**只能有 #pywebio-scope-_groups**：
           老 CSS 中 contents 是 display:flex，_groups 是 height:100% + grid 三列。
           多塞任何兄弟节点都会把 _groups 挤歪（实测卡片宽度塌成 33px）。
@@ -177,6 +230,13 @@ export function ConfigPage() {
         </div>
         {!loaded && <p style={{ margin: '.5rem', opacity: .7 }}>加载中…</p>}
       </div>
+    </>
+  )
+
+  if (hideShell) return body
+  return (
+    <Shell active={task} title="配置">
+      {body}
     </Shell>
   )
 }

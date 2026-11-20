@@ -2257,3 +2257,225 @@ html[data-alas-theme="dark"] #root .ec-page-desc,
 html[data-alas-theme="dark_advanced_material"] #root .ec-page-desc {
   color: rgba(255, 255, 255, 0.62);
 }
+
+/* ==========================================================================
+   「其他配置」页签页（长卿 2026-11-20）
+   「这几个东西能不能整合成一个界面，占位置太多，整成类似统计界面那种
+     但是界面不动 参考图片2 外面显示的配置名叫其他配置」
+
+   页签外观照搬统计页的 st-tabs 胶囊（胶囊圆角 + 激活态白底 + 滑动指示条）。
+   用 .oc-tabs 独立命名而不是直接套 .st-tabs —— 统计页那套选择器全部挂在
+   #pywebio-scope-statistics-content 下，这里不在那个容器里，复用不了。
+   ========================================================================== */
+
+#root .oc-title {
+  margin: .5rem 0 .375rem;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--alas-content-text, inherit);
+}
+#root .oc-desc {
+  margin: 0 0 .875rem;
+  font-size: .875rem;
+  color: var(--alas-entry-muted, #7a8291);
+  line-height: 1.6;
+}
+
+/* 页签条（胶囊导航） */
+#root .oc-tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  padding: .375rem;
+  border-radius: 999px;
+  background: var(--st-surface-muted, rgba(128, 128, 128, .08));
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#root .oc-tabs::-webkit-scrollbar { display: none; }
+
+#root .oc-tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--alas-entry-muted, #7a8291);
+  font-size: .8125rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s;
+}
+#root .oc-tab:hover {
+  color: var(--alas-content-text, inherit);
+  background: color-mix(in srgb, var(--st-surface, rgba(255,255,255,.6)) 60%, transparent);
+}
+#root .oc-tab.active {
+  color: var(--alas-entry-accent, #4f46e5);
+  font-weight: 600;
+  background: var(--alas-apple-card-bg-solid, #ffffff);
+  border-color: color-mix(in srgb, var(--alas-entry-accent, #4f46e5) 28%, transparent);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .08);
+}
+
+/* 滑动指示条（统计页同款） */
+#root .oc-tab-indicator {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  top: 50%;
+  height: 34px;
+  border-radius: 999px;
+  background: var(--alas-apple-card-bg-solid, #ffffff);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: transform .28s cubic-bezier(.4, 0, .2, 1), width .28s cubic-bezier(.4, 0, .2, 1);
+  pointer-events: none;
+}
+
+/* 页签内容区：去掉配置页原本的顶部留白，让卡片直接接在页签下面 */
+#root .oc-body #pywebio-scope-content {
+  padding: 0;
+}
+#root .oc-body #pywebio-scope-_groups {
+  height: auto;
+  min-height: auto;
+}
+
+/* 暗色适配 */
+html[data-alas-theme="dark"] #root .oc-tabs,
+html[data-alas-theme="dark_advanced_material"] #root .oc-tabs {
+  background: rgba(255, 255, 255, .07);
+}
+html[data-alas-theme="dark"] #root .oc-tab.active,
+html[data-alas-theme="dark_advanced_material"] #root .oc-tab.active {
+  background: rgba(255, 255, 255, .14);
+  border-color: rgba(165, 180, 252, .45);
+  color: #a5b4fc;
+}
+html[data-alas-theme="dark"] #root .oc-tab-indicator,
+html[data-alas-theme="dark_advanced_material"] #root .oc-tab-indicator {
+  background: rgba(255, 255, 255, .14);
+}
+html[data-alas-theme="dark"] #root .oc-tab:hover,
+html[data-alas-theme="dark_advanced_material"] #root .oc-tab:hover {
+  background: rgba(255, 255, 255, .1);
+  color: rgba(255, 255, 255, .9);
+}
+html[data-alas-theme="dark"] #root .oc-title,
+html[data-alas-theme="dark_advanced_material"] #root .oc-title {
+  color: rgba(255, 255, 255, .95);
+}
+html[data-alas-theme="dark"] #root .oc-desc,
+html[data-alas-theme="dark_advanced_material"] #root .oc-desc {
+  color: rgba(255, 255, 255, .55);
+}
+
+/* 窄屏：页签横向滚动，不换行堆成好几行 */
+@media (max-width: 760px) {
+  #root .oc-tabs {
+    flex-wrap: nowrap;
+    border-radius: 14px;
+    width: 100%;
+  }
+  #root .oc-tab {
+    height: 30px;
+    padding: 0 .75rem;
+    font-size: .75rem;
+  }
+}
+
+/* ==========================================================================
+   「其他配置」整块毛玻璃容器
+   长卿 2026-11-20：
+     「这块也得加上毛玻璃，以后这种有字体的地方都要权衡一下
+       在高级材质和高级材质暗色 透明 该加的地方加」
+     「最好是连成整块」
+
+   之前的写法是标题 / 说明 / 页签 / 配置各自独立，壁纸从元素缝隙直接透上来，
+   文字压在浅色壁纸花色上完全读不出来（截图里「这些任务的配置项都在」那行
+   字几乎看不见）。现在包成 .oc-glass 一整块，统一垫底。
+
+   ⚠️ 不透明度按主题分级（这是「权衡」的核心）：
+     - advanced_material（浅色玻璃）  : 0.82 —— 内容本身就是浅色卡片，需要压住壁纸
+     - dark_advanced_material（深色玻璃）: 0.86 —— 深底 + 白字，对比度容易够，可稍低
+     - transparent（透明）           : 0.88 —— 这个主题用户就是要看壁纸，但文字必须能读
+     - default（浅色实底）           : 0.96 —— 不需要透明，接近不透明
+   不用 backdrop-filter：advanced-material-alas.css:154 明确记录过
+   「透明/高级材质本身已经很重，再叠一层模糊会让滚动与重绘明显掉帧」。
+   ========================================================================== */
+
+#root .oc-glass {
+  position: relative;
+  padding: 1.125rem 1.25rem 1.25rem;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  /* 内容内的卡片本身也有色，这里只要保证「缝隙」不露壁纸 */
+  background: rgba(248, 250, 252, 0.96);
+  border-color: rgba(128, 128, 128, 0.14);
+}
+
+/* 浅色高级材质 */
+html[data-alas-theme="advanced_material"] #root .oc-glass {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.62);
+  box-shadow: 0 2px 16px rgba(16, 24, 40, 0.05);
+}
+
+/* 透明主题：用户要看壁纸，但仍要保证文字可读 */
+html[data-alas-theme="transparent"] #root .oc-glass {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* 深色高级材质 / 深色 */
+html[data-alas-theme="dark_advanced_material"] #root .oc-glass,
+html[data-alas-theme="dark"] #root .oc-glass {
+  background: rgba(22, 27, 38, 0.86);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.28);
+}
+
+/* 容器内的标题/说明不要再额外留白把内容顶开 */
+#root .oc-glass .oc-title {
+  margin-top: 0;
+}
+
+/* 页签条在玻璃内改用更细的分隔，避免「玻璃里又套一层玻璃」的厚重感 */
+#root .oc-glass .oc-tabs {
+  background: rgba(128, 128, 128, 0.1);
+}
+html[data-alas-theme="dark"] #root .oc-glass .oc-tabs,
+html[data-alas-theme="dark_advanced_material"] #root .oc-glass .oc-tabs {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* 配置主体：玻璃容器已经提供了边距，这里去掉重复留白 */
+#root .oc-glass .oc-body {
+  margin: 0;
+}
+#root .oc-glass .oc-body .config-page,
+#root .oc-glass .oc-body #pywebio-scope-content {
+  padding: 0;
+  background: transparent;
+}
+
+/* 窄屏：内边距收一点，圆角小一点 */
+@media (max-width: 760px) {
+  #root .oc-glass {
+    padding: .875rem .75rem 1rem;
+    border-radius: 14px;
+  }
+}
