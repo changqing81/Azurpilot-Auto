@@ -1,15 +1,20 @@
-// 活动计算器（老 UI app_event_tools.py + event_calculator.py 的 REST 化复刻）。
+// 活动计算器 —— 方案3（长卿 2026-11-20 选定）。
 //
-// 数据流：
-//   GET  /newapi/event-calculator/{name}           → Wiki 数据 + 本实例初始值
-//   GET  /newapi/event-calculator/{name}?refresh=1 → 强制重拉 Wiki
-//   POST /newapi/config/{name}/task/EventGeneral   → 写回（复用普通配置保存，
-//        modified: {EventGeneral.EventGeneral.PtLimit / TimeLimit} 与
-//        {EventShop.EventShop.PresetFilter/CustomFilter}）
+// 布局：左 270px（输入+日常） | 中 flex（商店，最宽） | 右 250px（出击+写回）
+// KPI 顶栏 5 格 + 进度条；商店每行带「数字框 + 滑块」双向联动。
 //
-// 界面对齐老 UI _render_event_calculator：徽章行（活动名/来源/总价）+
-// 目标与每日收益（日常/额外表）+ 兑换商店（勾选算价）+ 出击数计算 +
-// 五个写回按钮。样式用主题变量（--st-*），四套主题自动跟随。
+// 滑块语义来自老 UI（module/webui/event_calculator.py:642-650）：
+//   每行 = 商品 | 单价 | [数字框][range][小计] | ×库存上限
+//   拖动滑块 → 数字跟着变；改数字 → 滑块跟着变；总价实时汇总。
+//   上限是该商品库存（quantity），不是随便填。
+//
+// 位置修正：计算器在 #pywebio-scope-_groups 里（grid-auto-flow:column），
+// 每个直接子元素各占一列 → 只分到 400px。CSS 用 grid-column 跨满 +
+// grid-row 另起一行解决（只写 grid-column 会和第一行重叠）。
+//
+// 数据流不变：
+//   GET  /newapi/event-calculator/{name}[?refresh=1]
+//   POST /newapi/config/{name}/task/EventGeneral
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { apiGet, instSeg } from '../../api/client'
 import { useToast } from '../../components/Toast'
@@ -36,35 +41,8 @@ type CalcData = {
   owned: number
 }
 
-const PANEL: React.CSSProperties = {
-  border: '1px solid var(--st-border, rgba(128,128,128,.25))',
-  borderRadius: 8,
-  padding: '10px 12px',
-  background: 'var(--st-surface-muted, rgba(128,128,128,.04))',
-}
-
-const TABLE: React.CSSProperties = {
-  width: '100%',
-  borderCollapse: 'collapse',
-  fontSize: '12px',
-}
-
-const CELL: React.CSSProperties = {
-  border: '1px solid var(--st-border, rgba(128,128,128,.25))',
-  padding: '4px 6px',
-  verticalAlign: 'middle',
-}
-
-const BADGE: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  minHeight: 26,
-  padding: '3px 8px',
-  border: '1px solid var(--st-border, rgba(128,128,128,.28))',
-  borderRadius: 4,
-  fontSize: 12,
-  opacity: 0.85,
-}
+/** 商店某一行：库存上限 + 当前选择数量 */
+type ShopRow = ShopItem & { value: number }
 
 export function EventCalculator({ name }: { name: string }) {
   const toast = useToast()
@@ -74,14 +52,17 @@ export function EventCalculator({ name }: { name: string }) {
   const [refreshing, setRefreshing] = useState(false)
   const [saving, setSaving] = useState('')
 
-  // 目标/已有/结束日期（可编辑，写回配置）
+  // 目标/已有/结束日期
   const [target, setTarget] = useState(0)
   const [owned, setOwned] = useState(0)
   const [endDate, setEndDate] = useState('')
 
-  // 商店勾选（不落盘，仅算价；「导入商店总价」把结果填进目标框）
-  const [shopSel, setShopSel] = useState<Record<string, boolean>>({})
-  // 日常/额外勾选（计算用）
+  // 商店选择数量（默认全 0，用户自己拖）
+  const [shop, setShop] = useState<ShopRow[]>([])
+  // 商店变动同步目标（老 UI data-field="auto-target"，默认开）
+  const [autoTarget, setAutoTarget] = useState(true)
+
+  // 日常/额外勾选
   const [daily, setDaily] = useState<Record<string, Flag>>({})
   const [extra, setExtra] = useState<Record<string, Flag>>({})
 
@@ -100,10 +81,13 @@ export function EventCalculator({ name }: { name: string }) {
         setEndDate(r.end_date || '')
         setDaily(r.daily || {})
         setExtra(r.extra || {})
-        // 商店默认全不勾（老 UI 也是空的，用户自己挑要买的）
-        const sel: Record<string, boolean> = {}
-        for (const it of r.shop_items || []) sel[it.name] = false
-        setShopSel(sel)
+        // 商店：带上库存上限，初始全选 0（与老 UI 一致，用户自己挑）
+        setShop((r.shop_items || []).map(it => ({
+          name: it.name,
+          price: Number(it.price) || 0,
+          quantity: Number(it.quantity) || 0,
+          value: 0,
+        })))
       })
       .catch(e => setErr(String(e)))
       .finally(() => { setLoading(false); setRefreshing(false) })
@@ -111,15 +95,12 @@ export function EventCalculator({ name }: { name: string }) {
 
   useEffect(() => { void load() }, [load])
 
-  /** 商店勾选总价（勾选项 price×quantity 之和） */
+  /** 勾选总价 = Σ(单价 × 选择数量) */
   const shopSelTotal = useMemo(() => {
-    if (!data) return 0
-    return (data.shop_items || [])
-      .filter(it => shopSel[it.name])
-      .reduce((sum, it) => sum + it.price * it.quantity, 0)
-  }, [data, shopSel])
+    return shop.reduce((sum, it) => sum + it.price * it.value, 0)
+  }, [shop])
 
-  /** 剩余天数（结束日期 − 今天） */
+  /** 剩余天数 */
   const remainingDays = useMemo(() => {
     if (!endDate) return null
     const end = new Date(endDate + 'T23:59:59')
@@ -128,21 +109,39 @@ export function EventCalculator({ name }: { name: string }) {
     return Number.isNaN(days) ? null : days
   }, [endDate])
 
-  /** 日常任务每日 PT 合计（勾选「会做」的） */
-  const dailyTotal = useMemo(() => {
+  /** 日常任务每日 PT 合计 */
+  const perDay = useMemo(() => {
     if (!data) return 0
     return (data.wiki_daily || [])
       .filter(it => it.name && daily[it.name] && !daily[it.name].never)
       .reduce((s, it) => s + (Number(it.points) || 0), 0)
   }, [data, daily])
 
-  /** 每日总收益 = 日常勾选（每日额外的点数 Wiki ECALCExtra 未在接口暴露，按 0 计） */
-  const perDay = dailyTotal
-
-  /** 还需 PT = 目标 − 已有 */
   const remain = Math.max(0, target - owned)
+  const pct = target > 0 ? Math.min(100, (owned / target) * 100) : 0
 
-  /** 写回配置（复用普通配置保存通道） */
+  /** 商店某行数量变更（数字框与滑块共用）*/
+  const setShopValue = useCallback((index: number, raw: number) => {
+    setShop(prev => {
+      const next = prev.slice()
+      const row = next[index]
+      if (!row) return prev
+      // 上限是该商品库存，不是随便填（老 UI setShopValue 同语义）
+      const v = Math.max(0, Math.min(Math.floor(Number(raw) || 0), row.quantity));
+      next[index] = { ...row, value: v }
+      // 商店变动同步目标
+      if (autoTarget) {
+        const total = next.reduce((s, it) => s + it.price * it.value, 0)
+        setTarget(total)
+      }
+      return next
+    })
+  }, [autoTarget])
+
+  const clearShop = () => setShop(prev => prev.map(it => ({ ...it, value: 0 })))
+  const fillShop = () => setShop(prev => prev.map(it => ({ ...it, value: it.quantity })))
+
+  /** 写回配置 */
   const savePatch = useCallback(async (patch: Record<string, any>, label: string) => {
     setSaving(label)
     try {
@@ -166,24 +165,23 @@ export function EventCalculator({ name }: { name: string }) {
     }
   }, [name, toast])
 
-  const writeTarget = async () => {
-    await savePatch({ 'EventGeneral.EventGeneral.PtLimit': Number(target) || 0 }, '写入目标 PT')
+  const writeTarget = () =>
+    savePatch({ 'EventGeneral.EventGeneral.PtLimit': Number(target) || 0 }, '写入目标 PT')
+  const writeTime = () => {
+    if (!endDate) { toast.error('结束日期为空'); return Promise.resolve(false) }
+    return savePatch({ 'EventGeneral.EventGeneral.TimeLimit': endDate + ' 23:59:59' }, '写入结束时间')
   }
-  const writeTime = async () => {
-    if (!endDate) { toast.error('结束日期为空'); return }
-    await savePatch({ 'EventGeneral.EventGeneral.TimeLimit': endDate + ' 23:59:59' }, '写入结束时间')
-  }
-  const writeBoth = async () => {
-    if (!endDate) { toast.error('结束日期为空'); return }
-    await savePatch({
+  const writeBoth = () => {
+    if (!endDate) { toast.error('结束日期为空'); return Promise.resolve(false) }
+    return savePatch({
       'EventGeneral.EventGeneral.PtLimit': Number(target) || 0,
       'EventGeneral.EventGeneral.TimeLimit': endDate + ' 23:59:59',
     }, '写入目标 PT 和结束时间')
   }
-  const writeShopFilter = async () => {
-    const names = (data?.shop_items || []).filter(it => shopSel[it.name]).map(it => it.name)
-    if (!names.length) { toast.error('请先勾选要兑换的商品'); return }
-    await savePatch({
+  const writeShopFilter = () => {
+    const names = shop.filter(it => it.value > 0).map(it => it.name)
+    if (!names.length) { toast.error('请先选择要兑换的商品'); return Promise.resolve(false) }
+    return savePatch({
       'EventShop.EventShop.PresetFilter': 'custom',
       'EventShop.EventShop.CustomFilter': names.join(' > '),
     }, '写入商店过滤器')
@@ -192,163 +190,249 @@ export function EventCalculator({ name }: { name: string }) {
   if (loading) return <div style={{ opacity: .7, margin: '10px 0' }}>活动计算器加载中…</div>
   if (err) {
     return (
-      <div style={PANEL}>
-        <div style={{ color: 'var(--alas-entry-badge-error, #c0392b)', marginBottom: 8 }}>
-          活动计算器：{err}
+      <div className="ec-root">
+        <div className="ec-card">
+          <div style={{ color: 'var(--alas-entry-badge-error, #c0392b)', marginBottom: 8 }}>
+            活动计算器：{err}
+          </div>
+          <button disabled={refreshing} onClick={() => void load(true)}>
+            {refreshing ? '拉取中…' : '重新从 Wiki 拉取'}
+          </button>
         </div>
-        <button className="btn btn-sm btn-warning" disabled={refreshing} onClick={() => void load(true)}>
-          {refreshing ? '拉取中…' : '重新从 Wiki 拉取'}
-        </button>
       </div>
     )
   }
   if (!data) return null
 
-  const th: React.CSSProperties = { ...CELL, fontWeight: 600, background: 'var(--st-table-head, rgba(128,128,128,.12))' }
+  // 时间不够的警告（老 UI 没这功能，方案3 新增）
+  const daysNeeded = perDay > 0 ? Math.ceil(remain / perDay) : 0
+  const timeShort = remainingDays !== null && remainingDays > 0 && perDay > 0 && daysNeeded > remainingDays
 
   return (
-    <div style={{ marginTop: 14 }}>
-      {/* 徽章行 */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-        <span style={BADGE}>{data.event_name || '活动'}</span>
-        <span style={BADGE}>总价 <b style={{ color: '#e53935', marginLeft: 4 }}>{(data.shop_total || 0).toLocaleString()}</b></span>
-        <span style={BADGE}>{data.from_cache ? '缓存数据' : 'Wiki 实时'} · {data.updated_at}</span>
-        <label style={BADGE}>
-          <input type="checkbox" checked={shopSelTotal > 0 && shopSelTotal === target} readOnly style={{ marginRight: 6 }} />
-          勾选总价 <b style={{ marginLeft: 4 }}>{shopSelTotal.toLocaleString()}</b>
+    <div className="ec-root">
+
+      {/* KPI 顶栏 5 格 */}
+      <div className="ec-kpis">
+        <div className="ec-kpi hi">
+          <div className="ec-kpi-k">活动</div>
+          <div className="ec-kpi-v" title={data.event_name}>{data.event_name || '活动'}</div>
+          <div className="ec-kpi-d">结束 {data.end_date || '—'}</div>
+        </div>
+        <div className="ec-kpi">
+          <div className="ec-kpi-k">商店总价</div>
+          <div className="ec-kpi-v">{(data.shop_total || 0).toLocaleString()}</div>
+          <div className="ec-kpi-d">全部兑换</div>
+        </div>
+        <div className="ec-kpi">
+          <div className="ec-kpi-k">目标</div>
+          <div className="ec-kpi-v">{target.toLocaleString()}</div>
+          <div className="ec-kpi-d">达成 {pct.toFixed(1)}%</div>
+          <div className="ec-prog"><i style={{ width: pct + '%' }} /></div>
+        </div>
+        <div className="ec-kpi ok">
+          <div className="ec-kpi-k">已有</div>
+          <div className="ec-kpi-v">{owned.toLocaleString()}</div>
+          <div className="ec-kpi-d">{owned.toLocaleString()} / {target.toLocaleString()}</div>
+        </div>
+        <div className="ec-kpi danger">
+          <div className="ec-kpi-k">还差</div>
+          <div className="ec-kpi-v">{remain.toLocaleString()}</div>
+          <div className="ec-kpi-d">
+            {remainingDays === null ? '—' : remainingDays > 0 ? `需 ${daysNeeded} 天` : '已结束'}
+          </div>
+        </div>
+      </div>
+
+      {/* 工具栏 */}
+      <div className="ec-toolbar">
+        <span className="ec-chip accent">勾选总价 <b>{shopSelTotal.toLocaleString()}</b></span>
+        <label className="ec-chip" style={{ gap: 5 }}>
+          <input type="checkbox" checked={autoTarget} onChange={e => setAutoTarget(e.target.checked)} />
+          商店变动同步目标
         </label>
-        <button className="btn btn-sm btn-secondary" onClick={() => setTarget(shopSelTotal)} disabled={shopSelTotal <= 0}>
+        <button type="button" onClick={() => setTarget(shopSelTotal)} disabled={shopSelTotal <= 0}>
           导入商店总价
         </button>
-        <button className="btn btn-sm btn-secondary" onClick={() => { const sel: Record<string, boolean> = {}; for (const it of data.shop_items) sel[it.name] = false; setShopSel(sel) }}>
-          清空兑换
-        </button>
-        <button className="btn btn-sm btn-secondary" onClick={() => { const sel: Record<string, boolean> = {}; for (const it of data.shop_items) sel[it.name] = true; setShopSel(sel) }}>
-          重置兑换
-        </button>
-        <button className="btn btn-sm btn-secondary" disabled={refreshing} onClick={() => void load(true)}>
+        <button type="button" onClick={clearShop}>清空兑换</button>
+        <button type="button" onClick={fillShop}>重置兑换</button>
+        <button type="button" disabled={refreshing} onClick={() => void load(true)}>
           {refreshing ? '刷新中…' : '刷新 Wiki 数据'}
         </button>
       </div>
 
-      {/* 三栏面板 */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 380px) minmax(300px, 1fr)', gap: 14, gridAutoRows: 'min-content' }}>
-        {/* 目标与每日收益 */}
-        <div style={{ ...PANEL, gridColumn: '1 / -1' }}>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>目标与每日收益</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, marginBottom: 10 }}>
-            <label style={{ fontSize: 12 }}>目标点数
-              <input className="form-control form-control-sm" type="number" min={0} step={1} value={target} onChange={e => setTarget(Number(e.target.value) || 0)} />
-            </label>
-            <label style={{ fontSize: 12 }}>已有点数
-              <input className="form-control form-control-sm" type="number" min={0} step={1} value={owned} onChange={e => setOwned(Number(e.target.value) || 0)} />
-            </label>
-            <label style={{ fontSize: 12 }}>结束日期
-              <input className="form-control form-control-sm" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-            </label>
-            <label style={{ fontSize: 12 }}>剩余天数
-              <input className="form-control form-control-sm" type="number" value={remainingDays ?? ''} readOnly />
-            </label>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12, opacity: .85 }}>日常任务（勾选=会做）</div>
-              <table style={TABLE}>
-                <tbody>
-                  {(data.wiki_daily || []).map(it => (
-                    <tr key={it.name}>
-                      <td style={CELL}>{it.name}</td>
-                      <td style={CELL}>{it.points} PT</td>
-                      <td style={CELL}>
-                        <input type="checkbox" checked={!!daily[it.name] && !daily[it.name].never}
-                          onChange={e => setDaily(m => ({ ...m, [it.name]: { never: !e.target.checked, already: !!daily[it.name]?.already } }))} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {/* 三栏主体 */}
+      <div className="ec-grid3">
+
+        {/* 左栏：目标与收益 + 日常 */}
+        <div>
+          <div className="ec-card">
+            <h2>目标与收益</h2>
+            <div className="ec-fields">
+              <label>目标点数
+                <input type="number" min={0} step={1} value={target}
+                  onChange={e => setTarget(Number(e.target.value) || 0)} />
+              </label>
+              <label>已有点数
+                <input type="number" min={0} step={1} value={owned}
+                  onChange={e => setOwned(Number(e.target.value) || 0)} />
+              </label>
+              <label>结束日期
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
+              </label>
+              <label>剩余天数
+                <input type="number" value={remainingDays ?? ''} readOnly />
+              </label>
             </div>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 12, opacity: .85 }}>每日额外（勾选=会做）</div>
-              <table style={TABLE}>
-                <tbody>
-                  {Object.entries(extra).map(([nm, f]) => (
-                    <tr key={nm}>
-                      <td style={CELL}>{nm}</td>
-                      <td style={CELL}>
-                        <input type="checkbox" checked={!!f && !f.never}
-                          onChange={e => setExtra(m => ({ ...m, [nm]: { never: !e.target.checked, already: !!f?.already } }))} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {timeShort && (
+              <div className="ec-warn">
+                按当前日收益还需 {daysNeeded} 天，活动结束前刷不完：
+                每天需 {Math.ceil(remain / Math.max(1, remainingDays!))} PT。
+              </div>
+            )}
           </div>
-          <div style={{ marginTop: 8, fontSize: 13 }}>
-            每日收益 ≈ <b>{perDay}</b> PT；还需 <b>{remain.toLocaleString()}</b> PT
-            {perDay > 0 && <>，约需 <b>{Math.ceil(remain / Math.max(1, perDay))}</b> 天</>}
+
+          <div className="ec-card">
+            <h2>日常任务</h2>
+            <table>
+              <tbody>
+                {(data.wiki_daily || []).map(it => (
+                  <tr key={it.name}>
+                    <td>{it.name}</td>
+                    <td className="ec-num">{it.points}</td>
+                    <td style={{ width: 26 }}>
+                      <input type="checkbox"
+                        checked={!!daily[it.name] && !daily[it.name].never}
+                        onChange={e => setDaily(m => ({
+                          ...m,
+                          [it.name]: { never: !e.target.checked, already: !!daily[it.name]?.already },
+                        }))} />
+                    </td>
+                  </tr>
+                ))}
+                {Object.entries(extra).map(([nm, f]) => (
+                  <tr key={nm}>
+                    <td>{nm}</td>
+                    <td className="ec-num">—</td>
+                    <td style={{ width: 26 }}>
+                      <input type="checkbox"
+                        checked={!!f && !f.never}
+                        onChange={e => setExtra(m => ({
+                          ...m,
+                          [nm]: { never: !e.target.checked, already: !!f?.already },
+                        }))} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="ec-foot">每日收益 {perDay} PT</div>
           </div>
         </div>
 
-        {/* 兑换商店 */}
-        <div style={PANEL}>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>兑换商店（勾选要买的）</div>
-          <div style={{ maxHeight: 320, overflow: 'auto' }}>
-            <table style={TABLE}>
+        {/* 中栏：商店（最宽，带滑块）*/}
+        <div className="ec-card" style={{ margin: 0 }}>
+          <h2>
+            兑换商店
+            <span style={{ marginLeft: 'auto', fontWeight: 400, fontSize: 10, opacity: .7 }}>
+              拖动滑块选数量
+            </span>
+          </h2>
+          <div className="ec-shopwrap">
+            <table>
               <thead>
-                <tr><th style={{ ...th, width: 34 }}></th><th style={th}>商品</th><th style={{ ...th, width: 70 }}>单价</th><th style={{ ...th, width: 60 }}>数量</th><th style={{ ...th, width: 80 }}>小计</th></tr>
+                <tr>
+                  <th style={{ width: '28%' }}>商品</th>
+                  <th className="ec-num" style={{ width: '11%' }}>单价</th>
+                  <th style={{ width: '47%' }}>兑换数量</th>
+                  <th className="ec-num" style={{ width: '14%' }}>小计</th>
+                </tr>
               </thead>
               <tbody>
-                {(data.shop_items || []).map(it => (
-                  <tr key={it.name + it.price}>
-                    <td style={CELL}><input type="checkbox" checked={!!shopSel[it.name]} onChange={e => setShopSel(m => ({ ...m, [it.name]: e.target.checked }))} /></td>
-                    <td style={CELL}>{it.name}</td>
-                    <td style={CELL}>{it.price.toLocaleString()}</td>
-                    <td style={CELL}>{it.quantity}</td>
-                    <td style={CELL}>{(it.price * it.quantity).toLocaleString()}</td>
-                  </tr>
-                ))}
+                {shop.map((it, i) => {
+                  const sub = it.price * it.value;
+                  return (
+                    <tr key={it.name + it.price} className="ec-shoprow">
+                      <td>{it.name}</td>
+                      <td className="ec-num">{it.price.toLocaleString()}</td>
+                      <td>
+                        <div className="ec-slidercell">
+                          <input className="ec-qty" type="number" min={0} max={it.quantity}
+                            value={it.value}
+                            onChange={e => setShopValue(i, Number(e.target.value))} />
+                          <input type="range" min={0} max={it.quantity}
+                            value={it.value}
+                            onChange={e => setShopValue(i, Number(e.target.value))} />
+                          <span className={'ec-subc' + (sub ? '' : ' zero')}>
+                            {sub ? sub.toLocaleString() : '—'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="ec-num" style={{ fontSize: 10, opacity: .6 }}>
+                        ×{it.quantity}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!shop.length && <tr><td colSpan={4}>Wiki 未给出商店数据</td></tr>}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* 出击数计算 */}
-        <div style={PANEL}>
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>出击数计算</div>
-          <table style={TABLE}>
-            <thead>
-              <tr><th style={th}>关卡</th><th style={th}>PT/场</th><th style={th}>还需场次</th></tr>
-            </thead>
-            <tbody>
-              {(data.stages || []).map(s => {
-                const pts = Number(s.points) || 0
-                const count = pts > 0 ? Math.ceil(remain / pts) : null
-                return (
-                  <tr key={s.name}>
-                    <td style={CELL}>{s.name}</td>
-                    <td style={CELL}>{pts || '—'}</td>
-                    <td style={CELL}>{count === null ? '—' : count.toLocaleString() + ' 场'}</td>
-                  </tr>
-                )
-              })}
-              {!data.stages?.length && <tr><td style={CELL} colSpan={3}>Wiki 未给出关卡数据</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* 右栏：出击数 + 写回 */}
+        <div>
+          <div className="ec-card">
+            <h2>出击数计算</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>关卡</th>
+                  <th className="ec-num">PT</th>
+                  <th className="ec-num">还需</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.stages || []).map(s => {
+                  const pts = Number(s.points) || 0;
+                  return (
+                    <tr key={s.name}>
+                      <td>{s.name}</td>
+                      <td className="ec-num">{pts || '—'}</td>
+                      <td className="ec-num">
+                        {pts > 0 ? Math.ceil(remain / pts).toLocaleString() : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!data.stages?.length && <tr><td colSpan={3}>Wiki 未给出关卡数据</td></tr>}
+              </tbody>
+            </table>
+          </div>
 
-      {/* 写回按钮（老 UI 五连，同款语义） */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-        <button className="btn btn-sm btn-secondary" disabled={!!saving} onClick={() => void writeTarget()}>{saving === '写入目标 PT' ? '写入中…' : '写入目标 PT'}</button>
-        <button className="btn btn-sm btn-secondary" disabled={!!saving} onClick={() => void writeTime()}>{saving === '写入结束时间' ? '写入中…' : '写入结束时间'}</button>
-        <button className="btn btn-sm btn-secondary" disabled={!!saving} onClick={() => void writeBoth()}>{saving === '写入目标 PT 和结束时间' ? '写入中…' : '写入目标 PT 和结束时间'}</button>
-        <button className="btn btn-sm btn-secondary" disabled={!!saving} onClick={() => void writeShopFilter()}>{saving === '写入商店过滤器' ? '写入中…' : '写入商店过滤器'}</button>
+          <div className="ec-card">
+            <h2>写回配置</h2>
+            <div className="ec-acts">
+              <button type="button" className="primary" disabled={!!saving}
+                onClick={() => void writeTarget()}>
+                {saving === '写入目标 PT' ? '写入中…' : '写入目标 PT'}
+              </button>
+              <button type="button" disabled={!!saving} onClick={() => void writeTime()}>
+                {saving === '写入结束时间' ? '写入中…' : '写入结束时间'}
+              </button>
+              <button type="button" disabled={!!saving} onClick={() => void writeBoth()}>
+                {saving === '写入目标 PT 和结束时间' ? '写入中…' : '写入目标和时间'}
+              </button>
+              <button type="button" disabled={!!saving} onClick={() => void writeShopFilter()}>
+                {saving === '写入商店过滤器' ? '写入中…' : '写入商店过滤器'}
+              </button>
+            </div>
+            <div className="ec-foot">
+              写回即保存到活动通用设置 / 活动商店，调度器按此执行。
+            </div>
+          </div>
+        </div>
+
       </div>
-      <small style={{ opacity: .65, marginTop: 6, display: 'block' }}>
-        写回即保存到配置（活动通用设置 / 活动商店），调度器按此执行。数据来自碧蓝航线 Wiki。
-      </small>
     </div>
-  )
+  );
 }
