@@ -14,6 +14,7 @@
 组合了地图操作、战斗系统和战役状态追踪的能力。
 """
 
+from module.base.button import Button
 from module.base.timer import Timer
 from module.campaign.campaign_status import CampaignStatus
 from module.combat.assets import *
@@ -24,6 +25,14 @@ from module.handler.assets import AUTO_SEARCH_MAP_OPTION_ON, GET_MISSION
 from module.logger import logger
 from module.map.assets import WITHDRAW, SWITCH_OVER, FLEET_WITHDRAW, FLEET_SWITCH_CONFIRM, FLEET_WITHDRAW_BOSS
 from module.map.map_operation import MapOperation
+
+# 地图中央的空白区域，用来唤醒冻结的自律寻敌画面（点击后客户端重新下发移动指令）
+AUTO_SEARCH_MAP_CENTER = Button(
+    area=(0, 0, 1, 1),
+    color=(0, 0, 0),
+    button=(634, 354, 646, 366),
+    name='AUTO_SEARCH_MAP_CENTER'
+)
 
 
 class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus):
@@ -53,6 +62,77 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
     _auto_search_fleet_index = 1
     auto_search_oil_limit_triggered = False
     auto_search_coin_limit_triggered = False
+    # 自律寻敌卡死自救：地图被渲染成小窗、图标显示运行中但舰队不动
+    auto_search_stuck_timeout = 18       # 连“停止自律”都认不出来：18 秒就唤醒
+    auto_search_frozen_timeout = 90      # 显示运行中却一直没进展：90 秒兜底
+    auto_search_stuck_max_attempt = 3
+    _auto_search_stuck_timer = None
+    _auto_search_frozen_timer = None
+
+    def _auto_search_stuck_check(self):
+        """
+        Detect a frozen auto search screen and wake it up.
+
+        客户端偶发：地图被渲染成左上角小窗或画面完全冻结，
+        此时任何已知 UI 都匹配不到，舰队也不动，
+        原逻辑会一直空等到 device.stuck_record_check 的 195 秒超时。
+
+        实测有效的两种唤醒方式：
+          1. 点击地图中央；
+          2. 点一下「自律寻敌」把它的状态翻回来（关掉再开）。
+
+        Returns:
+            bool: If a recovery action was performed.
+        """
+        fast = self._auto_search_stuck_timer
+        if fast is None:
+            fast = Timer(self.auto_search_stuck_timeout).start()
+            self._auto_search_stuck_timer = fast
+        slow = self._auto_search_frozen_timer
+        if slow is None:
+            slow = Timer(self.auto_search_frozen_timeout).start()
+            self._auto_search_frozen_timer = slow
+
+        # 认不出“停止自律”说明地图渲染已坏，等 18s 就动手；
+        # 还认得出来但长时间毫无进展，才等到 90s 兜底。
+        if not (fast.reached() and not self.is_auto_search_running()) and not slow.reached():
+            return False
+
+        attempt = self.__dict__.get('_auto_search_stuck_attempt', 0) + 1
+        self._auto_search_stuck_attempt = attempt
+        fast.reset()
+        slow.reset()
+
+        if attempt > self.auto_search_stuck_max_attempt:
+            logger.warning('[自动搜索-移动] 多次唤醒无效，交给恢复流程')
+            raise GameStuckError('自动搜索画面无响应')
+
+        if attempt == 1:
+            logger.warning(f'[自动搜索-移动] {self.auto_search_stuck_timeout}s 无进展，点击地图中央唤醒')
+            self.device.click(AUTO_SEARCH_MAP_CENTER, control_check=False)
+        else:
+            # 单次点击即可：显示运行中会被点成关闭，脚本随后自己会再开；
+            # 显示未运行则直接被点开。连点两下会互相抵消。
+            logger.warning(f'[自动搜索-移动] 第 {attempt} 次唤醒：切换自律寻敌状态')
+            self.device.click(AUTO_SEARCH_MAP_OPTION_ON, control_check=False)
+        self.device.sleep(1)
+        return True
+
+    def _auto_search_progress(self, running=False):
+        """
+        Mark progress, resetting the frozen-screen watchdog.
+
+        Args:
+            running: True 只表示“自律寻敌显示运行中”这种软进展，
+                     仅续期快计时器，不动慢计时器，
+                     避免画面冻结但图标仍是运行时被无限续期。
+        """
+        if not running:
+            self.__dict__.pop('_auto_search_stuck_attempt', None)
+            if self._auto_search_frozen_timer is not None:
+                self._auto_search_frozen_timer.reset()
+        if self._auto_search_stuck_timer is not None:
+            self._auto_search_stuck_timer.reset()
 
     def _handle_auto_search_menu_missing(self):
         """
@@ -212,12 +292,19 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
         self.device.stuck_record_clear()
         # 清空上一流程残留的 OFF 确认，确保本流程内重新积累
         self._auto_search_off_frame = None
+        # 重置冻结画面看门狗
+        self._auto_search_progress()
         checked_fleet = False
         checked_oil = False
         checked_coin = False
         for _ in self.loop():
 
+            # 画面冻结自救，放在最前面，避免任何模板匹配不到时干等超时
+            if self._auto_search_stuck_check():
+                continue
             if self.is_auto_search_running():
+                # 只续期快计时器：画面能看出运行中，就算正在移动，不算冻结
+                self._auto_search_progress(running=True)
                 checked_fleet = self.auto_search_watch_fleet(checked_fleet)
                 if not checked_oil or not checked_coin:
                     checked_oil = self.auto_search_watch_oil(checked_oil)
@@ -227,21 +314,28 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
                     and self.multiple_sorties_result_appear()):
                 raise CampaignEnd
             if self.handle_multiple_sorties_stop():
+                self._auto_search_progress()
                 continue
             if self.handle_retirement():
+                self._auto_search_progress()
                 self.map_offensive_auto_search()
                 # Map offensive ends at is_combat_loading
                 break
             if self.handle_auto_search_map_option():
+                self._auto_search_progress()
                 continue
             if self.handle_combat_low_emotion():
                 self._auto_search_status_confirm = True
+                self._auto_search_progress()
                 continue
             if self.handle_story_skip():
+                self._auto_search_progress()
                 continue
             if self.handle_map_cat_attack():
+                self._auto_search_progress()
                 continue
             if self.handle_vote_popup():
+                self._auto_search_progress()
                 continue
 
             # End
