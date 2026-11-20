@@ -217,6 +217,7 @@ class GeneratedConfig:
     Campaign_UseClearMode = True
     Campaign_UseFleetLock = True
     Campaign_UseAutoSearch = True
+    Campaign_MultipleSortiesCount = 0
     Campaign_ContinueAfterRestart = False
     Campaign_Use2xBook = False
     Campaign_AmbushEvade = True
@@ -226,6 +227,9 @@ class GeneratedConfig:
 
     # 配置组 `OperationHandover`
     OperationHandover_Count = 1
+    OperationHandover_DailyRunCount = 1
+    OperationHandover_DailyRunCountUsed = 0
+    OperationHandover_DailyRunCountRecord = datetime.datetime(2020, 1, 1, 0, 0)
     OperationHandover_AutoSupplementTime = False
     OperationHandover_UseHandoverBook = False
     OperationHandover_ConsumeAllBook = False  # True, False
@@ -848,12 +852,13 @@ class GeneratedConfig:
     IslandFishery_MinTuna = 0
     IslandFishery_MinSalmon = 0
     IslandFishery_MinRedSeaBream = 0
+    IslandFishery_MinBlackPorgy = 0
     IslandFishery_MinYellowfinTuna = 50
     IslandFishery_MinSeaCucumber = 50
     IslandFishery_MinFreshwaterFishMeat = 0
     IslandFishery_MinSaltwaterFishMeat = 0
     IslandFishery_PlantYellowfinTuna = 3  # 0, 1, 2, 3
-    IslandFishery_DefaultFish = 'yellowfin_tuna'  # shell, catfish, koi_carp, common_carp, shrimp, crayfish, bass, crab, squid, mackerel, tuna, salmon, red_sea_bream, yellowfin_tuna, sea_cucumber
+    IslandFishery_DefaultFish = 'yellowfin_tuna'  # shell, catfish, koi_carp, common_carp, shrimp, crayfish, bass, crab, squid, mackerel, tuna, salmon, red_sea_bream, black_porgy, yellowfin_tuna, sea_cucumber
     IslandFishery_RancherFilter = 'WorkerJuu'
 
     # 配置组 `IslandMine`
@@ -1164,7 +1169,7 @@ class GeneratedConfig:
     IslandProductionPlanner_Priority = 'pt'  # pt, coins
     IslandProductionPlanner_FillSparePosts = True  # True, False
     IslandProductionPlanner_AutoPositions = True  # True, False
-    IslandProductionPlanner_UnlockedFish = ['shell', 'catfish', 'koi_carp', 'common_carp', 'shrimp', 'crayfish', 'bass', 'crab', 'squid', 'mackerel', 'tuna', 'salmon', 'red_sea_bream', 'yellowfin_tuna', 'sea_cucumber']  # shell, catfish, koi_carp, common_carp, shrimp, crayfish, bass, crab, squid, mackerel, tuna, salmon, red_sea_bream, yellowfin_tuna, sea_cucumber
+    IslandProductionPlanner_UnlockedFish = ['shell', 'catfish', 'koi_carp', 'common_carp', 'shrimp', 'crayfish', 'bass', 'crab', 'squid', 'mackerel', 'tuna', 'salmon', 'red_sea_bream', 'black_porgy', 'yellowfin_tuna', 'sea_cucumber']  # shell, catfish, koi_carp, common_carp, shrimp, crayfish, bass, crab, squid, mackerel, tuna, salmon, red_sea_bream, black_porgy, yellowfin_tuna, sea_cucumber
     IslandProductionPlanner_RescanTechnology = True  # True, False
     IslandProductionPlanner_ScanSeasonTasks = True  # True, False
     IslandProductionPlanner_SeasonTaskTargets = None

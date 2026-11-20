@@ -90,7 +90,8 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
             # Auto search icon shows it's running but it's doing nothing
             # when Alas exited from retirement and turned it on immediately.
             # Monkey clicker, disable auto search every 3s, beginning not included
-            if not self.__dict__.get('_restart_resume_guard', False) \
+            if not self.__dict__.get('_multiple_sorties_stop_requested', False) \
+                    and not self.__dict__.get('_restart_resume_guard', False) \
                     and self.appear(AUTO_SEARCH_MAP_OPTION_ON, offset=self._auto_search_offset, interval=3) \
                     and self.appear_then_click(AUTO_SEARCH_MAP_OPTION_ON):
                 continue
@@ -221,6 +222,12 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
                 if not checked_oil or not checked_coin:
                     checked_oil = self.auto_search_watch_oil(checked_oil)
                     checked_coin = self.auto_search_watch_coin(checked_coin)
+            # 连续作战：原生批次结算出现时整批结束，由外层关闭结算界面
+            if (self.__dict__.get('_multiple_sorties_requested', 0)
+                    and self.multiple_sorties_result_appear()):
+                raise CampaignEnd
+            if self.handle_multiple_sorties_stop():
+                continue
             if self.handle_retirement():
                 self.map_offensive_auto_search()
                 # Map offensive ends at is_combat_loading
@@ -544,6 +551,9 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
                 self._auto_search_status_confirm = True
                 continue
             if self.handle_urgent_commission():
+                continue
+            # 连续作战：周回中检测到停止请求时关自律，由游戏结算当前批次
+            if self.handle_multiple_sorties_stop():
                 continue
             if self.handle_story_skip():
                 continue
