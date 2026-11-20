@@ -10,6 +10,7 @@
 //   4. 页面隐藏时暂停轮询（visibilitychange）。
 import { useEffect, useRef } from 'react'
 import { instSeg } from '../../api/client'
+import { downloadRuntimeLog } from '../../api/logExport'
 
 export function LogPanel({ instance, autoScroll = true }: { instance: string; autoScroll?: boolean }) {
   // 自动滚动开关由父组件持有（它在 log-bar 里，日志区自己看不到那个按钮）
@@ -92,13 +93,17 @@ export function LogPanel({ instance, autoScroll = true }: { instance: string; au
   )
 }
 
-/** 导出今日日志：走老 UI 现成的 /api/log/runtime（today 范围）。 */
+/** 导出今日日志：走老 UI 现成的 /api/log/runtime（today 范围）。
+ *
+ * ⚠️ 这里原来是 window.open + query 参数，两个远控坑同时踩中：
+ * - window.open 打开的是裸 URL，不带 /{peer} 前缀 → 中继 502（2026-11-18 实测）；
+ * - ?instance=&scope= 会被中继整段剥掉 → HTTP 400「缺少实例名」（2026-11-20 实测）。
+ * 现在改成 fetch + blob + path 形式的候选 URL（见 api/logExport.ts）。
+ */
 export function exportTodayLog(instance: string) {
-  const d = new Date()
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const scope = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  window.open(
-    `/api/log/runtime?instance=${encodeURIComponent(instance)}&scope=${scope}`,
-    '_blank',
-  )
+  downloadRuntimeLog(instance, 'today').catch(e => {
+    // 工具页没有状态行，反馈落在按钮 title 上（与老 UI fail() 一致）
+    if (window.console) console.warn('[log-export] ' + String(e))
+    window.alert('导出失败：' + String(e))
+  })
 }

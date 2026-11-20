@@ -18,7 +18,8 @@
 // 一律通过 lib/pywebio.ts 输出与 PyWebIO 逐字节一致的 HTML 字符串。
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet, withPrefix, instSeg } from '../../api/client'
+import { apiGet, instSeg } from '../../api/client'
+import { downloadRuntimeLog } from '../../api/logExport'
 import { Shell } from '../../components/Shell'
 import { esc, putText } from '../../lib/pywebio'
 import { MaintenanceBanner } from './MaintenanceBanner'
@@ -285,39 +286,25 @@ export function Overview({ instance }: { instance: string }) {
     if (label === '截图预览') { window.alasToggleLivePreview?.(instance); return }
     // 导出今日日志：走老 UI 现成的 /api/log/runtime（today 范围）。
     //
-    // 不能再用 window.open：远控中继下 window.open 打开的是裸 URL，
-    // 不带 /{peer} 前缀 → 中继 502（长卿 2026-11-18 实测）。而且它走浏览器
-    // 导航，main.tsx 劫持 fetch 的那套前缀逻辑管不到。
-    // 改成 fetch + blob 下载：请求走 withPrefix 自动补前缀，
-    // blob 用 <a download> 保存 —— 直连/远控都成立。
+    // 两个远控坑（都实测过）：
+    // 1. 不能再用 window.open：远控中继下打开的是裸 URL，不带 /{peer} 前缀 →
+    //    中继 502（长卿 2026-11-18 实测）。而且它走浏览器导航，
+    //    main.tsx 劫持 fetch 的那套前缀逻辑管不到。
+    // 2. 参数不能只放在 query 里：中继会把 query 整段剥掉 →
+    //    后端拿不到 instance → HTTP 400「缺少实例名」
+    //    （2026-11-20 实测 /api/log/runtime?instance=alas&scope=today 就是 400，
+    //     而 path 形式 /api/log/runtime/alas/today 正常返回）。
+    //    候选 URL 与失败详情统一交给 api/logExport.ts 处理。
+    //
+    // scope 用字面量 'today' 交给服务端解析日期，不在客户端 new Date() 算：
+    // 远控时手机时区/时钟可能和服务器不一致，会算成别的天（导错或 404）。
     if (label === '导出今日日志') {
-      const today = new Date()
-      const pad = (n: number) => String(n).padStart(2, '0')
-      const scope = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
-      const url = withPrefix(
-        `/api/log/runtime?instance=${encodeURIComponent(instance)}&scope=${scope}`,
-      )
       const tip = document.createElement('div')
       tip.textContent = '正在导出日志…'
       tip.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:99999;padding:10px 18px;border-radius:999px;background:rgba(0,0,0,.78);color:#fff;font-size:13px;font-family:system-ui;pointer-events:none'
       document.body.appendChild(tip)
-      fetch(url)
-        .then(async resp => {
-          if (!resp.ok) throw new Error('HTTP ' + resp.status)
-          const blob = await resp.blob()
-          const cd = resp.headers.get('content-disposition') || ''
-          const m = cd.match(/filename="?([^";]+)"?/)
-          const name = m ? m[1] : `${scope}_${instance}.txt`
-          const objUrl = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = objUrl
-          a.download = name
-          document.body.appendChild(a)
-          a.click()
-          a.remove()
-          setTimeout(() => URL.revokeObjectURL(objUrl), 10000)
-          tip.textContent = '导出完成'
-        })
+      downloadRuntimeLog(instance, 'today')
+        .then(name => { tip.textContent = '已导出 ' + name })
         .catch(e => { tip.textContent = '导出失败：' + String(e) })
         .finally(() => { setTimeout(() => tip.remove(), 2500) })
     }

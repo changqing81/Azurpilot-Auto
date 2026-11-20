@@ -8,7 +8,8 @@
 // 它依赖 alas-utils.js 的渲染函数——那个函数是 window 全局的，这里直接调用。
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet } from '../../api/client'
+import { apiGet, withPrefix } from '../../api/client'
+import { responseErrorDetail, saveResponse } from '../../api/logExport'
 import { Shell } from '../../components/Shell'
 
 type InstItem = { name: string; state: number; mod: string }
@@ -207,22 +208,29 @@ function LogExport({ name }: { name: string }) {
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
 
+  // 三个按钮的语义（对齐老 UI app_developer_tools.py）：
+  //   runtime → /api/log/runtime/{instance}/{scope}   实例运行日志（txt）
+  //   error   → /api/log/error/full                  log/error 全打包（zip，含截图）
+  //   text    → /api/log/error/text                  仅文本（zip）
+  // 注意 text 以前被拼成 /api/log/text，**这个路由根本不存在**，点了必 404 ——
+  // 它本该是 error 的 text 范围（后端 SCOPE_TEXT）。
   const download = async (kind: 'runtime' | 'error' | 'text') => {
     setBusy(kind)
     setMsg('')
     try {
-      const qs = new URLSearchParams({ instance: name, scope })
-      const r = await fetch(`/api/log/${kind}?${qs}`)
-      if (!r.ok) throw new Error('HTTP ' + r.status)
-      const blob = await r.blob()
-      const cd = r.headers.get('content-disposition') || ''
-      const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = m ? decodeURIComponent(m[1]) : kind + '.zip'
-      a.click()
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000)
-      setMsg('已导出 ' + a.download)
+      // 参数走 path：远控中继会剥掉 query（2026-11-20 实测 400「缺少实例名」）
+      const dest =
+        kind === 'runtime'
+          ? `/api/log/runtime/${encodeURIComponent(name)}/${encodeURIComponent(scope)}`
+          : kind === 'error'
+            ? '/api/log/error/full'
+            : '/api/log/error/text'
+      const r = await fetch(withPrefix(dest), { cache: 'no-store' })
+      if (!r.ok) throw new Error(await responseErrorDetail(r))
+      const fallback =
+        kind === 'runtime' ? `${name}_runtime_log_${scope}.txt` : `error_log_${kind}.zip`
+      const saved = await saveResponse(r, fallback)
+      setMsg('已导出 ' + saved)
     } catch (e) {
       setMsg('导出失败：' + String(e))
     } finally {
