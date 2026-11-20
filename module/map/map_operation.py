@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 import cv2
 
 from module.base.timer import Timer
+from module.campaign.multiple_sorties import MultipleSorties
 from module.config.time_source import now as current_time
 from module.exception import CampaignEnd, GameStuckError, RequestHumanTakeover, ScriptEnd
 from module.handler.fast_forward import FastForwardHandler
@@ -34,7 +35,7 @@ from module.ui.assets import BACK_ARROW, DAILY_CHECK
 HANDOVER_CONFLICT_RETRY_MINUTES = 15
 
 
-class MapOperation(MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
+class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement, FastForwardHandler):
     """地图操作处理器。
 
     封装战役地图中的所有基础操作，包括进入关卡、舰队切换、
