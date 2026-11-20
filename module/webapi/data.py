@@ -1146,6 +1146,113 @@ def get_fleet_tech(name: str) -> dict:
         logger.warning(f"[webapi] 科技列表失败({name}): {e}")
         return {"rows": [], "error": str(e), "total": 0}
 
+def get_event_calculator(name: str, force_refresh: bool = False) -> dict:
+    """活动计算器数据（老 UI app_event_tools.py:_render_event_calculator 的数据面）。
+
+    复用 module/webui/event_calculator.py 的引擎（Wiki 拉取/解析/缓存/冷却），
+    这里只做三件事：
+      1. 调 load_event_calculator 拿 Wiki 数据
+      2. 从该实例配置读出初始值（目标 PT / 已有 PT / 结束时间），与老 UI
+         _event_calculator_defaults 同口径（日常任务/每日额外的开关与完成态）
+      3. 返回给前端渲染；写回走现有的 /newapi/config/{name}/task/EventGeneral
+         （普通配置保存通道），不另开写接口 —— 计算只是算，落盘仍是配置保存。
+    """
+    try:
+        from module.config.config import AzurLaneConfig
+        from module.config.deep import deep_get
+        from module.webui.event_calculator import load_event_calculator
+
+        data = load_event_calculator(force_refresh=force_refresh)
+        # Wiki 全挂且无缓存时不硬失败，前端展示错误并提供重试
+        if data.get("error") and not data.get("shop_items"):
+            return {"success": False, "error": data["error"], "wiki": data}
+
+        config = AzurLaneConfig(name, task=None)
+        cfg = config.read_file(name)
+
+        def task_enabled(task: str) -> bool:
+            return bool(deep_get(cfg, f"{task}.Scheduler.Enable", False))
+
+        def task_done_today(task: str) -> bool:
+            # current_time 是 time_source.now 的别名（app_dependencies re-export），
+            # module.config.time_source 里没有这个名字 —— 2026-11-20 实测踩过
+            from module.webui.app_dependencies import current_time
+            from datetime import datetime as _dt
+            next_run = deep_get(cfg, f"{task}.Scheduler.NextRun")
+            return isinstance(next_run, _dt) and next_run.date() > current_time().date()
+
+        # 日常任务（老 UI _event_calculator_defaults 同款三条）
+        gacha_value = deep_get(cfg, "Gacha.Gacha.Amount", 0)
+        try:
+            gacha_amount = int(gacha_value or 0)
+        except (TypeError, ValueError, OverflowError):
+            gacha_amount = 0
+        daily = {}
+        if "建造3次" in [i.get("name") for i in data.get("daily", [])]:
+            daily["建造3次"] = {
+                "never": not (task_enabled("Gacha") and gacha_amount >= 3),
+                "already": task_done_today("Gacha"),
+            }
+        if any(i.get("name") == "出击胜利15次" for i in data.get("daily", [])):
+            daily["出击胜利15次"] = {
+                "never": not task_enabled("Daily"),
+                "already": task_done_today("Daily"),
+            }
+        if any(i.get("name") == "通关1次困难关卡" for i in data.get("daily", [])):
+            daily["通关1次困难关卡"] = {
+                "never": not task_enabled("Hard"),
+                "already": task_done_today("Hard"),
+            }
+
+        # 每日额外：Wiki 的 extra 名单 ∩ 用户配置的打图计划（EventA-D / EventSp）
+        extra: dict = {}
+        for item in data.get("extra", []):
+            if isinstance(item, dict) and item.get("name"):
+                extra[item["name"]] = {"never": True, "already": False}
+        for task in ("EventA", "EventB", "EventC", "EventD"):
+            enabled = task_enabled(task)
+            already = task_done_today(task)
+            raw = str(deep_get(cfg, f"{task}.EventDaily.StageFilter", "") or "")
+            for stage in [x.strip().upper() for x in raw.replace("\n", ">").split(">") if x.strip()]:
+                if stage in extra:
+                    extra[stage] = {"never": not enabled, "already": already}
+        if "SP" in extra:
+            extra["SP"] = {
+                "never": not task_enabled("EventSp"),
+                "already": task_done_today("EventSp"),
+            }
+
+        # 结束日期：优先配置里的 TimeLimit（用户确认过的），Wiki 的只作初始展示
+        end_date = data.get("end_date", "")
+        time_limit = deep_get(cfg, "EventGeneral.EventGeneral.TimeLimit")
+        if hasattr(time_limit, "date") and time_limit.year > 2023:
+            end_date = time_limit.date().isoformat()
+        elif isinstance(time_limit, str) and time_limit[:4] not in ("2020", "2023", ""):
+            end_date = time_limit[:10]
+
+        return {
+            "success": True,
+            "event_name": data.get("event_name", ""),
+            "end_date": end_date,
+            "shop_items": data.get("shop_items", []),
+            "shop_total": data.get("shop_total", 0),
+            "stages": data.get("stages", []),
+            "wiki_daily": data.get("daily", []),
+            "daily": daily,
+            "extra": extra,
+            "source_url": data.get("source_url", ""),
+            "updated_at": data.get("updated_at", ""),
+            "from_cache": data.get("from_cache", False),
+            "error": data.get("error", ""),
+            # 初始值：来自该实例配置（老 UI initial 的等价物）
+            "target": deep_get(cfg, "EventGeneral.EventGeneral.PtLimit", 0) or 0,
+            "owned": deep_get(cfg, "Dashboard.Pt.Value", 0) or 0,
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.exception(f"[webapi] 活动计算器数据失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
 def get_mind_calculator(name: str) -> dict:
     """心智计算器面板（app_mind_calculator_tab.py:_mc_load 同链路：清单+实时计算）。"""
     from module.config.config import AzurLaneConfig

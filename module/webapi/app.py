@@ -961,6 +961,19 @@ async def update_info(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_update_info))
 
 
+async def event_calculator(request: Request) -> JSONResponse:
+    name = request.path_params["name"]
+    force = request.query_params.get("refresh") == "1"
+    return JSONResponse(
+        await run_in_threadpool(data.get_event_calculator, name, force)
+    )
+
+
+async def event_calculator_refresh(request: Request) -> JSONResponse:
+    name = request.path_params["name"]
+    return JSONResponse(await run_in_threadpool(data.get_event_calculator, name, True))
+
+
 async def mind_calculator(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     return JSONResponse(await run_in_threadpool(data.get_mind_calculator, name))
@@ -1477,6 +1490,8 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/stat/{name}/research_stats", research_stats),
         Route("/newapi/stat/{name}/fleet_tech", fleet_tech),
         Route("/newapi/stat/{name}/mind", mind_calculator),
+        Route("/newapi/event-calculator/{name}", event_calculator),
+        Route("/newapi/event-calculator/{name}/refresh", event_calculator_refresh, methods=["POST"]),
     Route("/newapi/mind/{name}/ships", mind_ships_save, methods=["POST"]),
     Route("/newapi/mind/{name}/export", mind_ships_export),
     Route("/newapi/mind/{name}/import", mind_ships_import, methods=["POST"]),
