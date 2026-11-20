@@ -1648,6 +1648,81 @@ def get_update_info() -> dict:
         "upstream": history,
     }
 
+
+def get_update_state() -> dict:
+    """更新器状态机（app_developer_update.py 的 Switch 数据面）。
+
+    老 UI 用 PyWebIO Switch（delay=0.5）轮询 updater.state 驱动按钮；
+    新 UI 无该通道，改由前端每秒轮询本端点，语义与老 UI 完全一致。
+    restart_enabled / hide_notice 一并返回，页面少发一次请求。
+    """
+    from module.webui.app_dependencies import State
+    from module.webui.updater import updater
+
+    return {
+        "state": updater.state,
+        "restart_enabled": State.restart_event is not None,
+        "hide_notice": bool(getattr(State.deploy_config, "HideUpdateNotice", False)),
+    }
+
+
+def update_check_now() -> dict:
+    """手动检查更新（updater.check_update(force=True)，后台线程执行）。"""
+    from module.webui.updater import updater
+
+    try:
+        updater.check_update(force=True)
+        return {"success": True, "state": updater.state}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 检查更新失败: {e}")
+        return {"success": False, "error": str(e), "state": updater.state}
+
+
+def update_run_now() -> dict:
+    """立即更新（updater.run_update：停实例 → git 更新 → 重启，全事务）。"""
+    from module.webui.updater import updater
+
+    try:
+        ok = updater.run_update()
+        return {"success": bool(ok), "state": updater.state}
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 立即更新失败: {e}")
+        return {"success": False, "error": str(e), "state": updater.state}
+
+
+def update_cancel_now() -> dict:
+    """取消更新（updater.cancel，只置状态位，由状态机自行收尾）。"""
+    from module.webui.updater import updater
+
+    try:
+        updater.cancel()
+        return {"success": True, "state": updater.state}
+    except Exception as e:  # noqa: BLE001
+        return {"success": False, "error": str(e), "state": updater.state}
+
+
+def set_hide_update_notice(enabled: bool) -> dict:
+    """「隐藏更新提示」开关（写 deploy.yaml 的 HideUpdateNotice）。
+
+    写盘姿势与老 UI /api/deploy/settings 的 save_deploy_settings 完全一致：
+    改 config 字典后 DeployConfig.write()，再 read() 同步实例属性。
+    """
+    from module.webui.app_dependencies import State
+
+    try:
+        State.deploy_config.read()
+        State.deploy_config.config["HideUpdateNotice"] = bool(enabled)
+        State.deploy_config.write()
+        State.deploy_config.read()
+        return {
+            "success": True,
+            "hide_notice": bool(State.deploy_config.HideUpdateNotice),
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"[webapi] 写入 HideUpdateNotice 失败: {e}")
+        return {"success": False, "error": str(e)}
+
+
 def get_remote_status() -> dict:
     """远程控制页状态（app_developer_tools.py:dev_remote 的数据面）。"""
     from module.webui.app_dependencies import RemoteAccess, State
@@ -2057,9 +2132,19 @@ def get_update_log() -> dict:
 
         data = ApiClient.get_changelog(timeout=5)
         entries = normalize_entries(data)
+        # 折叠行标题与老 UI 一致传 t("Gui.Update.Changelog")；t() 查不到 key 会
+        # 原样返回 key 本身，此时落回中文，避免折叠行显示一个 i18n key。
+        try:
+            from module.webui.lang import t as _t
+
+            title = _t("Gui.Update.Changelog")
+            if title == "Gui.Update.Changelog":
+                title = "更新日志"
+        except Exception:  # noqa: BLE001
+            title = "更新日志"
         return {
             "entries": entries,
-            "html": render_entries_html(entries, ""),
+            "html": render_entries_html(entries, title),
             "error": "",
         }
     except Exception as e:  # noqa: BLE001 —— 更新日志是辅助信息，失败不阻塞页面

@@ -961,6 +961,36 @@ async def update_info(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_update_info))
 
 
+async def update_state(request: Request) -> JSONResponse:
+    """GET /newapi/update/state —— 更新器状态机（老 UI Switch 同口径）。"""
+    return JSONResponse(await run_in_threadpool(data.get_update_state))
+
+
+async def update_check(request: Request) -> JSONResponse:
+    """POST /newapi/update/check —— 手动检查更新（force=True）。"""
+    return JSONResponse(await run_in_threadpool(data.update_check_now))
+
+
+async def update_run(request: Request) -> JSONResponse:
+    """POST /newapi/update/run —— 立即更新（停实例 → git → 重启）。"""
+    return JSONResponse(await run_in_threadpool(data.update_run_now))
+
+
+async def update_cancel(request: Request) -> JSONResponse:
+    """POST /newapi/update/cancel —— 取消更新。"""
+    return JSONResponse(await run_in_threadpool(data.update_cancel_now))
+
+
+async def update_hide_notice(request: Request) -> JSONResponse:
+    """POST /newapi/update/hide-notice {enabled: bool} —— 隐藏更新提示。"""
+    body, err = _parse_json_body(await request.body())
+    if err:
+        return JSONResponse({"success": False, "error": err}, status_code=400)
+    return JSONResponse(
+        await run_in_threadpool(data.set_hide_update_notice, bool(body.get("enabled")))
+    )
+
+
 async def event_calculator(request: Request) -> JSONResponse:
     name = request.path_params["name"]
     force = request.query_params.get("refresh") == "1"
@@ -1499,6 +1529,11 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
     Route("/newapi/fleet/{name}/sync", fleet_sync, methods=["POST"]),
     Route("/newapi/fleet/{name}/batch", fleet_tech_batch, methods=["POST"]),
         Route("/newapi/update/info", update_info),
+    Route("/newapi/update/state", update_state),
+    Route("/newapi/update/check", update_check, methods=["POST"]),
+    Route("/newapi/update/run", update_run, methods=["POST"]),
+    Route("/newapi/update/cancel", update_cancel, methods=["POST"]),
+    Route("/newapi/update/hide-notice", update_hide_notice, methods=["POST"]),
         Route("/newapi/remote/status", remote_status),
         Route("/newapi/remote/toggle", remote_toggle, methods=["POST"]),
         Route("/newapi/wallpaper/candidates", wallpaper_candidates),
