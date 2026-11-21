@@ -45,6 +45,21 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
         auto_search_coin_limit_triggered (bool): 物资限制是否已触发。
     """
     _auto_search_in_stage_timer = Timer(3, count=6)
+    # 自律停滞唤醒：图标显示运行中但舰队长时间不动时，点一次自律开关把它唤回来。
+    # 阈值依据 2026-11-20 日志中 201 次「自动搜索移动中」的实测分布：
+    # 从进入移动阶段到出现加载条/战斗 p99 = 5.9s、最大 5.9s，段内最长无点击
+    # 同样不超过 5.9s，也就是正常流程从不出现长时间无操作。取 120 秒是 20 倍余量。
+    auto_search_stall_seconds = 120
+    # 唤醒后的复查窗口。必须短于首判，否则「120 + 120 = 240 秒」反而比设备层
+    # 195 秒长等待判死更慢；60 秒保证最坏 180 秒交回重启链路。
+    auto_search_stall_retry_seconds = 60
+    # 每个移动阶段最多唤醒一次：点一次仍不动说明不是同一类故障，
+    # 继续点只会刷点击记录、拖长无进展时间。
+    auto_search_stall_max_wake = 1
+    # 停滞检测的运行时状态（auto_search_moving 入口由 _auto_search_stall_reset 重置）
+    _auto_search_stall_clicks = 0
+    _auto_search_stall_wake = 0
+    _auto_search_stall_timer = None
     _auto_search_status_confirm = False
     _withdraw = False
     _defeat_count = 0
@@ -202,6 +217,93 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
                 logger.warning('[自动搜索-地图] 等待退役后进入地图超时，假设已在地图中')
                 break
 
+    def _auto_search_stall_reset(self):
+        """进入新的移动阶段时复位停滞检测。
+
+        每场战斗开始前都会重新进入 auto_search_moving，计数必须在入口归零；
+        否则上一场的点击计数会被带进来，第一帧就误判为停滞。
+        """
+        self._auto_search_stall_clicks = getattr(self.device, 'click_count', 0)
+        self._auto_search_stall_timer = Timer(self.auto_search_stall_seconds).start()
+        self._auto_search_stall_wake = 0
+
+    def _auto_search_stall_detected(self):
+        """判定自律是否已停滞：图标在跑、但既没进战斗也没动过。
+
+        三个条件必须同时成立：
+        1. 距离上一次真正点击/滑动超过阈值（读 device.click_count，滑动也算）；
+        2. 自律图标仍显示为运行中（颜色 + 模板双重确认，避免误判）；
+        3. 当前没有战斗加载、战斗执行、结算菜单这些"正常推进中"的画面。
+
+        守护模式（DaemonBase 把 _combat_status_timeout 置 None）直接跳过：
+        用户手动暂停时不该被脚本抢着点。
+
+        Returns:
+            bool: 停滞需要唤醒返回 True。
+        """
+        if self._combat_status_timeout is None:
+            return False
+        if self._auto_search_stall_timer is None:
+            # 未经过 auto_search_moving 入口（如外部直接复用了检测方法），无计时器可用
+            return False
+        # 先做纯内存判断：正常流程每帧只会走完这三步，不额外增加画面识别开销。
+        # 昂贵的历史判断（战斗加载 / 战斗执行 / 结算菜单 / 自律图标）只在计时器
+        # 真的到期之后才执行，避免每帧重复调用十几个模板匹配。
+        current = getattr(self.device, 'click_count', 0)
+        if current != self._auto_search_stall_clicks:
+            # 有任何点击/滑动都会让 click_count 自增，等价于"游戏被操作过"
+            self._auto_search_stall_clicks = current
+            self._auto_search_stall_timer.reset()
+            return False
+        if not self._auto_search_stall_timer.reached():
+            return False
+
+        # 计时器到期后确认画面：推进中的画面不是停滞。
+        # 这里必须重置计时器：否则到期状态会保持，下一帧又跑一轮十几个模板匹配，
+        # 在"确实在推进但推进很慢"的画面（如慢速加载）上变成每帧重复识别。
+        if self.is_combat_loading() or self.is_combat_executing() \
+                or self.is_in_auto_search_menu():
+            self._auto_search_stall_timer.reset()
+            return False
+
+        if self._auto_search_stall_wake >= self.auto_search_stall_max_wake:
+            # 已经关过一次自律，复查窗口内仍然没有动静：不是同一类故障，
+            # 继续点只会刷点击记录。主动报错交回重启链路，比干等设备层 195 秒
+            # 更早、且日志能直接说明是自律没响应而不是画面卡死。
+            logger.warning(
+                f'[自动搜索-停滞] 关闭自律后 {self.auto_search_stall_retry_seconds}s 仍未恢复移动，'
+                '判定游戏侧自律失效')
+            raise GameStuckError('[自动搜索-停滞] 自律图标运行中但舰队长时间不动，唤醒无效')
+
+        running = self.match_template_color(
+            AUTO_SEARCH_MAP_OPTION_ON, offset=self._auto_search_offset)
+        if not running:
+            # 图标不在（已进入战斗或已停），同样重置计时器避免逐帧重复识别
+            self._auto_search_stall_timer.reset()
+        return running
+
+    def _auto_search_stall_wake_up(self):
+        """点一次自律开关把它关掉，交回地图循环唤醒游戏。
+
+        只点一次关闭、不在这里连点开启：下一帧由 handle_auto_search_map_option
+        的两帧确认逻辑重新点亮，既避免连点触发点击洪水检测，也复用已有的
+        "确认 OFF 后才点击"保护。
+
+        Returns:
+            bool: 已发出唤醒点击返回 True。
+        """
+        logger.warning(
+            f'[自动搜索-停滞] 自律图标显示运行中但超过 {self.auto_search_stall_seconds}s 无任何操作，'
+            f'尝试关闭自律唤醒（第 {self._auto_search_stall_wake + 1}/{self.auto_search_stall_max_wake} 次）')
+        self.device.click(AUTO_SEARCH_MAP_OPTION_ON)
+        self.interval_reset(AUTO_SEARCH_MAP_OPTION_ON)
+        # 计数与计时必须在点击之后记录：device.click 自身会让 click_count 自增，
+        # 先记录的话下一帧会把它当成"又操作过"，复查窗口被无限重置，永远等不到报错。
+        self._auto_search_stall_wake += 1
+        self._auto_search_stall_timer = Timer(self.auto_search_stall_retry_seconds).start()
+        self._auto_search_stall_clicks = getattr(self.device, 'click_count', 0)
+        return True
+
     def auto_search_moving(self, skip_first_screenshot=True):
         """
         Pages:
@@ -212,6 +314,7 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
         self.device.stuck_record_clear()
         # 清空上一流程残留的 OFF 确认，确保本流程内重新积累
         self._auto_search_off_frame = None
+        self._auto_search_stall_reset()
         checked_fleet = False
         checked_oil = False
         checked_coin = False
@@ -242,6 +345,11 @@ class AutoSearchCombat(AutoSearchRecovery, MapOperation, Combat, CampaignStatus)
             if self.handle_map_cat_attack():
                 continue
             if self.handle_vote_popup():
+                continue
+            # 停滞唤醒：图标在跑但舰队长时间不动（游戏客户端 bug / 网络掉线后
+            # 自律指令被吞），点一次开关让游戏重新下发移动指令。
+            if self._auto_search_stall_detected():
+                self._auto_search_stall_wake_up()
                 continue
 
             # End
