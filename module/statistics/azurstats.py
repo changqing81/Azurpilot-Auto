@@ -237,12 +237,34 @@ class AzurStats:
                     device_id TEXT,
                     genre TEXT,
                     combat_count INTEGER,
-                    created_at INTEGER
+                    created_at INTEGER,
+                    instance TEXT
                 )
             ''')
+            # 老库迁移：instance 列按实例隔离掉落数据（长卿 2026-11-21：
+            # 「alas 实例的数据串到小号实例上面了」——opsi_items 原来只按
+            # device_id 存，一台机器上主号小号全部混在一桶里）。
+            # 历史行 instance 为 NULL：迁移时统一归到实例列表的第一个实例
+            # （主号），小号从迁移后开始积累自己的数据。
+            cols = {r[1] for r in conn.execute('PRAGMA table_info(opsi_items)').fetchall()}
+            if 'instance' not in cols:
+                conn.execute('ALTER TABLE opsi_items ADD COLUMN instance TEXT')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_opsi_items_device_genre ON opsi_items(device_id, genre)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_opsi_items_imgid ON opsi_items(imgid)')
-            conn.commit()
+            conn.execute('CREATE INDEX IF NOT EXISTS idx_opsi_items_instance ON opsi_items(instance, genre)')
+            # 历史行一次性归属：全部归到实例列表的第一个实例（主号）。
+            # 无实例可取时保持 NULL（仍按 device_id 语义被查询端排除）。
+            try:
+                from module.config.utils import alas_instance as _alas_instance
+
+                _instances = _alas_instance()
+                _owner = _instances[0] if _instances else None
+            except Exception:  # noqa: BLE001 —— 迁移失败不影响建表
+                _owner = None
+            if _owner:
+                conn.execute(
+                    'UPDATE opsi_items SET instance = ? WHERE instance IS NULL', (_owner,))
+                conn.commit()
 
     @staticmethod
     def _insert_local_opsi_items(rows):
@@ -363,7 +385,7 @@ class AzurStats:
         return [str(item) for item in candidates if item]
 
     @staticmethod
-    def get_opsi_drop_rows(device_id=None, start=None, end=None, genre=None):
+    def get_opsi_drop_rows(device_id=None, start=None, end=None, genre=None, instance=None):
         """读取大世界掉落明细，供统计页按时间窗口汇总。
 
         只取需要解析的大世界任务（见 is_opsi_drop_genre），侵蚀1练级的历史行
@@ -376,6 +398,8 @@ class AzurStats:
             end (int): 结束时间戳（不含，秒）；None 表示不限。
             genre (str | Iterable[str]): 只看某个（或某几个）大世界任务
                 （genre，如 'opsi_abyssal'）；None 表示全部。
+            instance (str): 实例名（config_name）；None 表示不过滤
+                （历史调用方兼容）。统计页按实例隔离时传实例名。
 
         Returns:
             list[dict]: opsi_items 明细行，按记录时间升序。
@@ -389,6 +413,9 @@ class AzurStats:
             " WHERE device_id = ? AND genre LIKE ? ESCAPE '\\'"
         )
         params = [device_id, pattern]
+        if instance:
+            query += ' AND instance = ?'
+            params.append(instance)
         for excluded in sorted(OPSI_DROP_GENRE_EXCLUDE):
             query += ' AND genre <> ?'
             params.append(excluded)
@@ -413,7 +440,7 @@ class AzurStats:
             return []
 
     @staticmethod
-    def get_opsi_drop_summary(device_id=None, year=None, month=None, genre=None):
+    def get_opsi_drop_summary(device_id=None, year=None, month=None, genre=None, instance=None):
         """按物品汇总指定月份（默认本月）的大世界掉落。
 
         从本地掉落明细库 opsi_items 汇总，供统计页「大世界收获」明细表使用。
@@ -451,12 +478,14 @@ class AzurStats:
             month_end = int(datetime(year, month + 1, 1).timestamp())
 
         rows = AzurStats.get_opsi_drop_rows(
-            device_id=device_id, start=month_start, end=month_end, genre=genre)
+            device_id=device_id, start=month_start, end=month_end, genre=genre,
+            instance=instance)
         # 任务计数始终按全月全任务算：左栏筛选器要显示每个任务的状态与条数，
         # 不能因为当前选中了某个任务就把其它任务的计数抹掉。
         if AzurStats._opsi_genre_filter(genre):
             task_rows = AzurStats.get_opsi_drop_rows(
-                device_id=device_id, start=month_start, end=month_end)
+                device_id=device_id, start=month_start, end=month_end,
+                instance=instance)
         else:
             task_rows = rows
 
@@ -530,7 +559,7 @@ class AzurStats:
         }
 
     @staticmethod
-    def get_opsi_drop_available_months(device_id=None, limit=24):
+    def get_opsi_drop_available_months(device_id=None, limit=24, instance=None):
         """返回掉落明细库中存在大世界掉落数据的月份列表（从新到旧）。
 
         口径与 get_opsi_drop_rows 一致：凡属大世界任务（除侵蚀1练级）都算。
@@ -551,6 +580,9 @@ class AzurStats:
             "FROM opsi_items WHERE device_id = ? AND genre LIKE ? ESCAPE '\\'"
         )
         params = [device_id, pattern]
+        if instance:
+            query += ' AND instance = ?'
+            params.append(instance)
         for excluded in sorted(OPSI_DROP_GENRE_EXCLUDE):
             query += ' AND genre <> ?'
             params.append(excluded)
@@ -611,7 +643,7 @@ class AzurStats:
         return [first[key] for key in order]
 
     @staticmethod
-    def _parse_local_opsi_items(image, imgid, genre, combat_count, filename=None):
+    def _parse_local_opsi_items(self, image, imgid, genre, combat_count, filename=None):
         SceneOperationSiren = AzurStats._ensure_local_parser()
         scene = SceneOperationSiren()
         scene.load_file(image)
@@ -619,11 +651,17 @@ class AzurStats:
         rows = []
         created_at = int(time.time())
         device_id = get_device_id()
+        # 按实例隔离：config_name 即实例名（长卿 2026-11-21 报的多实例串号）
+        try:
+            instance = str(self.config.config_name or '') or None
+        except Exception:  # noqa: BLE001 —— 拿不到实例名时退回 device_id 语义
+            instance = None
 
         for item in scene.parse_scene():
             row = asdict(item)
             row['imgid'] = imgid
             row['device_id'] = device_id
+            row['instance'] = instance
             row['genre'] = genre
             row['combat_count'] = int(combat_count or 0)
             row['created_at'] = created_at

@@ -228,6 +228,69 @@ class OpsiDropFilterTest(unittest.TestCase):
         other_chip.click_callback()
         self.assertEqual(harness._meow_item_filter, "Other")
 
+    def test_strip_chip_has_data_attribute(self):
+        """chip 必须带 data-meow-strip：新 UI（REST）靠它做事件委托。
+
+        老 UI 走 Output.onclick 回调，新 UI 没有会话通道，前端按这个属性
+        接管点击（OpsiPanel.tsx 捕获阶段委托）。属性丢了新 UI 点不动。
+        """
+        with patch("module.webui.app_stat_opsi_export.put_html",
+                   side_effect=lambda html: _FakeChip(html)), \
+             patch("module.webui.app_stat_opsi_export.put_widget"), \
+             patch("module.webui.app_stat_opsi_export.t",
+                   side_effect=lambda key, **kwargs: key):
+            self.harness._render_meow_loot_strip(
+                {"year": 2026, "month": 10, "is_current": True}, self.harness.drop
+            )
+        # _meow_strip_chip_html 是纯函数，直接验证产物更直接
+        html = self.harness._meow_strip_chip_html(
+            "Plate", "金菜", "#BA7517", "meow_plate.png", "<b>60</b>"
+        )
+        self.assertIn('data-meow-strip="Plate"', html)
+        html = self.harness._meow_strip_chip_html(
+            "Other", "其他", "#888780", None, "<b>其他</b>"
+        )
+        self.assertIn('data-meow-strip="Other"', html)
+
+    def test_table_body_scroll_wrapper(self):
+        """明细表行区必须有 .meow-drop-table-body 滚动框包住。
+
+        长卿 2026-11-21：「物品太多了，做个固定的框，可以滚动的」——
+        表头与表尾说明固定在框外，只有行在 max-height 框内滚动。
+        """
+        html = self.harness._build_opsi_drop_table_html(self.harness.drop)
+        # 行区开标签在表头之后、首个行之前
+        self.assertIn('<div class="meow-drop-table-body">', html)
+        # 表尾说明必须落在滚动框外面（框在 source 之前闭合）
+        self.assertLess(
+            html.index("</div><div class=\"meow-drop-source\">"),
+            html.index('class="meow-drop-source"'),
+        )
+        # CSS 侧滚动框规则存在（结构性样式必须进 CSS 文件，不能内联）
+        with open("assets/gui/css/meow-loot-alas.css", encoding="utf-8") as fh:
+            css = fh.read()
+        self.assertIn(".meow-drop-table-body", css)
+        self.assertIn("overflow-y: auto", css)
+
+    def test_rest_show_all_rows_expands_table(self):
+        """REST 全量标记（_meow_show_all_rows）必须绕过 5 行预览折叠。
+
+        新 UI 没有「其余 N 项」按钮（挂回调的 Output 塞不进纯 HTML 通道），
+        不展开等于永远只能看 5 行（长卿 2026-11-21 报的「只显示一部分」）。
+        """
+        # 默认（老 UI）：仍折叠
+        self.assertEqual(self.harness._opsi_drop_hidden_rows(self.harness.drop),
+                         len(_items()) - 5)
+        # REST 标记打开：全量平铺（amount 走千分位格式，如 170,221）
+        self.harness._meow_show_all_rows = True
+        html = self.harness._build_opsi_drop_table_html(self.harness.drop)
+        for item in _items():
+            self.assertIn(f"{item['amount']:,}", html)
+        # 「其余 N 项」计数只服务老 UI 的按钮文案（REST 没有该按钮），
+        # 不感知 _meow_show_all_rows，保持原语义不变
+        self.assertEqual(self.harness._opsi_drop_hidden_rows(self.harness.drop),
+                         len(_items()) - 5)
+
     def test_strip_renders_via_widget_template(self):
         """合计条走 put_widget 模板渲染（chips 必须是独立 Output 才能挂回调）。"""
         with patch("module.webui.app_stat_opsi_export.put_html",

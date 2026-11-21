@@ -516,11 +516,18 @@ async def stat_panels_html(request: Request) -> JSONResponse:
     #   commission → period（month/week）
     if panel == "opsi":
         # task = 大世界收获的任务筛选后缀（老 UI _meow_task_filter 的 REST 等价物）
+        # item = 合计条类别筛选键（老 UI _meow_item_filter 的 REST 等价物，
+        # 新 UI 点「收获合计」chip 时由前端回传）。
+        # 两个参数都必须走 _arg()：远控中继剥 query，只有 _arg() 才有
+        # 「query → 单段路径 → _p 段」三级回退（fleet 面板的同款教训）。
+        # month 同样走 _arg()：前端已切到 panelPathWithParams（_p 段），
+        # 早期那段「query → 单段路径」的 month 读法在远控下会丢月份。
         return JSONResponse(await run_in_threadpool(
             fn,
             name,
-            month,
-            _task_of(request),
+            _arg("month") or month,
+            _arg("task") or _task_of(request),
+            _arg("item"),
         ))
     if panel == "research":
         return JSONResponse(

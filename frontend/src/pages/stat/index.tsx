@@ -42,6 +42,62 @@ function SourceChip({ state }: { state: 'ok' | 'stale' | 'missing' }) {
   )
 }
 
+/** 后端内容校验的单项结果 */
+type StateDetail = { source: string; status: 'abnormal' | 'info' | 'none'; message: string }
+
+/**
+ * 内容异常提示徽：琥珀色叹号 / 灰色 i（档位未开启），悬停或长按弹出说明。
+ *
+ * 与三态灯的区别（长卿 2026-11-21）：灯只反映"统计库在写入"（mtime 7 天），
+ * 说明不了数据本身有效——短猫 500 轮金菜全 0 统计上不可能，属于识别异常，
+ * mtime 判定抓不到。details 由后端逐项校验（大世界/委托/科研）。
+ * 档位关闭（do_not）不算异常，显示灰色 i 提示开启路径。
+ */
+function SourceWarnBadge({ details }: { details: StateDetail[] }) {
+  if (!details.length) return null
+  const abnormal = details.filter(d => d.status === 'abnormal')
+  const info = details.filter(d => d.status === 'info')
+  const isInfo = !abnormal.length && !!info.length
+  const pop = abnormal.length
+    ? (
+      <>
+        <b>数据内容可能异常{abnormal.length > 1 ? '（' + abnormal.length + ' 项）' : ''}</b>
+        <br />
+        {abnormal.map((d, i) => (
+          <span key={i}>
+            {i > 0 && <br />}
+            ① {d.source}：{d.message}
+          </span>
+        ))}
+        <br />
+        <span style={{ opacity: .7 }}>检查：Alas → 其他配置 → 掉落记录</span>
+      </>
+    )
+    : (
+      <>
+        <b>未开启本地保存</b>
+        <br />
+        {info.map((d, i) => (
+          <span key={i}>
+            {i > 0 && <br />}
+            {d.message}
+          </span>
+        ))}
+      </>
+    )
+  return (
+    <span
+      className={'st-warn' + (isInfo ? ' st-warn-info' : '')}
+      tabIndex={0}
+      role="note"
+      aria-label={abnormal.length ? '数据内容可能异常' : '未开启本地保存'}
+    >
+      {isInfo ? 'i' : '!'}
+      <span className="st-warn-pop">{pop}</span>
+    </span>
+  )
+}
+
 export function StatPage() {
   const { name = 'alas' } = useParams()
   const [searchParams] = useSearchParams()
@@ -92,6 +148,8 @@ export function StatPage() {
       .then(j => {
         if (!alive || !j) return
         setSourceState((j.state === "stale" || j.state === "missing") ? j.state : "ok")
+        // 旧后端无 details 字段：回空数组
+        setDetails(Array.isArray(j.details) ? j.details : [])
         // PageMeta 模板用的是 {time} / {instance}（老 UI 的 t() 已经做过一次
         // format，所以这里只替换这两个占位符，不能整串再 format 一次）
         const tpl = i18n.PageMeta || "数据截至 {time} · 实例 {instance}"
@@ -107,6 +165,8 @@ export function StatPage() {
   // 取 cl1_data.db / azurstats_local.db / resource_delta.db / ship_exp_data.json
   // （含 -wal）的最新 mtime，7 天内有写入 = ok，更早 = stale，一个都没有 = missing。
   const [sourceState, setSourceState] = useState<"ok" | "stale" | "missing">("ok")
+  // 内容合理性校验结果（后端逐项返回 abnormal/info，空数组=数据健康）
+  const [details, setDetails] = useState<StateDetail[]>([])
   // 指示条跟随激活页签滑动（老 UI statistics-tab-indicator 同款）
   // 指示条跟随激活页签（老 UI 用 JS 同步 left/width，见 _layout_statistics_panels）。
   // 必须在**布局完成后**测量：直接在 useEffect 里读 offsetLeft 有时拿到 0，
@@ -173,6 +233,7 @@ export function StatPage() {
           </div>
           <div className="st-head-actions">
             <SourceChip state={sourceState} />
+            <SourceWarnBadge details={details} />
             <button className="btn btn-on" onClick={() => setMeta(m => m)}>{text('Refresh') || '刷新'}</button>
           </div>
         </div>

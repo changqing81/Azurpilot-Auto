@@ -1084,12 +1084,156 @@ def save_task_config(name: str, task: str, modified: dict) -> dict:
         return {"valid": valid, "invalid": invalid, "error": str(e)}
     return {"valid": valid, "invalid": invalid}
 
+def _check_meow_drop_health(instance: str) -> dict | None:
+    """短猫掉落数据健康检查（大世界页签）。
+
+    按实测基线，短猫金菜掉率约 0.11/轮（约 9 轮 1 个）、黄币必掉。
+    30 轮全 0 在统计上不可能 ((1-0.114)^30 ≈ 3%)，判定为异常。
+
+    Returns:
+        {"status": "abnormal"|"info"|"none", "message": str}
+        abnormal: 数据异常（有轮数但掉落全 0）
+        info: 掉落记录档位关闭（没记录不算异常，但提示）
+        none: 数据正常或轮数不足阈值
+    """
+    from module.config.config_generated import GeneratedConfig
+
+    try:
+        method = getattr(GeneratedConfig, 'DropRecord_OpsiMeowfficerFarming', 'local')
+    except Exception:
+        method = 'local'
+    if method == 'do_not':
+        return {"status": "info", "message": "未开启本地保存：当前「掉落记录」档位为不记录，统计页将没有掉落数据。开启路径：Alas → 其他配置 → 掉落记录 → 本地"}
+
+    try:
+        from module.statistics.azurstats import AzurStats
+        data = AzurStats.load_meowofficer_farming()
+    except Exception:
+        return {"status": "none", "message": ""}
+    # 列：[侵蚀等级, 上次记录时间, 有效战斗轮数, 平均黄币/轮, 平均金菜/轮, 平均深渊/轮, 平均隐秘/轮]
+    problems = []
+    for row in data:
+        level = int(row[0])
+        rounds = float(row[2])
+        coin_avg = float(row[3])
+        crystal_avg = float(row[4])
+        if rounds < 30:
+            continue
+        if crystal_avg <= 0:
+            problems.append(f"短猫 {level} 级 {int(rounds)} 轮，平均金菜/轮为 0")
+        if coin_avg <= 0:
+            problems.append(f"短猫 {level} 级 {int(rounds)} 轮，平均黄币/轮为 0")
+    if not problems:
+        return {"status": "none", "message": ""}
+    return {"status": "abnormal", "message": "；".join(problems) + "——按实测掉率 30 轮内应至少掉 1 个，识别可能异常。检查：Alas → 其他配置 → 掉落记录"}
+
+
+def _check_commission_drop_health(instance: str) -> dict | None:
+    """委托奖励数据健康检查（委托页签）。
+
+    近 30 天委托记录 >= 10 条且钻石/魔方合计为 0 —— 委托必有钻石或魔方收益，
+    全 0 说明识别层没有采到数据。
+
+    Returns:
+        同 _check_meow_drop_health。
+    """
+    try:
+        from module.statistics.cl1_database import db as cl1_db
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        # 近 30 天：当月 + 上月（月初时跨月）
+        months = []
+        cursor = now.replace(day=1)
+        for _ in range(2):
+            months.append((cursor.year, cursor.month))
+            cursor = (cursor - timedelta(days=1)).replace(day=1)
+        entries = []
+        for year, month in months:
+            entries.extend(cl1_db.get_commission_income(instance, year=year, month=month))
+    except Exception:
+        return {"status": "none", "message": ""}
+    cutoff = now - timedelta(days=30)
+    recent = []
+    for entry in entries:
+        try:
+            ts = datetime.fromisoformat(entry.get("ts", ""))
+        except Exception:
+            continue
+        if ts >= cutoff:
+            recent.append(entry)
+    if len(recent) < 10:
+        return {"status": "none", "message": ""}
+    total = 0
+    for entry in recent:
+        items = entry.get("items", {}) or {}
+        try:
+            total += int(items.get("Gem", 0) or 0) + int(items.get("Cube", 0) or 0)
+        except Exception:
+            pass
+    if total > 0:
+        return {"status": "none", "message": ""}
+    return {"status": "abnormal", "message": f"委托：近 30 天 {len(recent)} 条记录，钻石/魔方合计 0——识别可能异常"}
+
+
+def _check_research_drop_health(instance: str) -> dict | None:
+    """科研掉落数据健康检查（科研页签）。
+
+    近 90 天完成项目 >= 10 且掉落记录合计为 0 —— 正常科研项目必有图纸/方块产出。
+    """
+    try:
+        from module.statistics.cl1_database import db as cl1_db
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        total_items = 0
+        finished = 0
+        # 近 90 天：逐月读掉落条目（月初跨 3 个月）
+        months = []
+        cursor = now.replace(day=1)
+        for _ in range(3):
+            months.append((cursor.year, cursor.month))
+            cursor = (cursor - timedelta(days=1)).replace(day=1)
+        cutoff = now - timedelta(days=90)
+        for year, month in months:
+            for entry in cl1_db.get_research_drop(instance, year=year, month=month):
+                ts = None
+                for key in ('ts', 'completed_at'):
+                    raw = entry.get(key)
+                    if raw:
+                        try:
+                            ts = datetime.fromisoformat(str(raw))
+                            break
+                        except ValueError:
+                            continue
+                if ts is None or ts < cutoff:
+                    continue
+                finished += 1
+                items = entry.get("items", {}) or {}
+                for v in items.values():
+                    try:
+                        total_items += int(v or 0)
+                    except Exception:
+                        pass
+    except Exception:
+        return {"status": "none", "message": ""}
+    if finished < 10:
+        return {"status": "none", "message": ""}
+    if total_items > 0:
+        return {"status": "none", "message": ""}
+    return {"status": "abnormal", "message": f"科研：近 90 天完成 {finished} 个项目，掉落记录合计 0——识别可能异常"}
+
+
 def get_statistics_data_state(name: str = "") -> dict:
     """本地统计库状态（app_statistics_page.py:_get_statistics_data_state 同口径）。
 
-    Returns: {latest: "%Y-%m-%d %H:%M" 或 "", state: ok/stale/missing, instance}
+    Returns: {latest: "%Y-%m-%d %H:%M" 或 "", state: ok/stale/missing, instance,
+              details: [{status: abnormal/info/none, source: str, message: str}]}
     候选数据源：cl1_data.db / azurstats_local.db / resource_delta.db /
     ship_exp_data.json（含 -wal 文件，WAL 里的写入也算）。
+
+    details 是内容合理性校验结果（2026-11-21 长卿要求）：
+    mtime 只能说明"文件在写"，说明不了"写进来的数据有效"——例如短猫
+    500 轮金菜全 0 在统计上不可能，属于识别层异常，mtime 判定抓不到。
+    档位关闭（do_not）不算异常，返回 info 提示。
     """
     from datetime import datetime, timedelta
     from pathlib import Path
@@ -1118,14 +1262,32 @@ def get_statistics_data_state(name: str = "") -> dict:
             if newest is None or stamp > newest:
                 newest = stamp
     if newest is None:
-        return {"latest": "", "state": "missing", "instance": instance}
+        return {"latest": "", "state": "missing", "instance": instance, "details": []}
     latest = datetime.fromtimestamp(newest)
     stale_days = 7
     state = "stale" if datetime.now() - latest > timedelta(days=stale_days) else "ok"
+
+    # 内容合理性校验：每项独立 try，任何一项挂了不影响整体状态
+    details = []
+    checks = [
+        ("大世界", _check_meow_drop_health),
+        ("委托", _check_commission_drop_health),
+        ("科研", _check_research_drop_health),
+    ]
+    for source, fn in checks:
+        try:
+            result = fn(instance)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"[webapi] 统计内容校验失败({source}): {e}")
+            continue
+        if result and result.get("status") in ("abnormal", "info"):
+            details.append({"source": source, **result})
+
     return {
         "latest": latest.strftime("%Y-%m-%d %H:%M"),
         "state": state,
         "instance": instance,
+        "details": details,
     }
 
 
@@ -3133,16 +3295,22 @@ def _stat_render_method(name: str):
     raise AttributeError(f"统计渲染方法不存在: {name}")
 
 
-def get_opsi_panels_html(instance_name: str, month: str = "", task: str = "") -> dict:
-    """大世界面板。month = "YYYY-MM"（空 = 本月）；task = 任务筛选后缀。"""
+def get_opsi_panels_html(
+    instance_name: str, month: str = "", task: str = "", item: str = ""
+) -> dict:
+    """大世界面板。month = "YYYY-MM"（空 = 本月）；task = 任务筛选后缀；
+    item = 合计条类别筛选键（老 UI _meow_item_filter 的 REST 等价物）。"""
+    # item 必须进缓存键：筛选键不同产出不同 HTML（明细行与 chip 选中态都变）
     return _cached_stat_html(
-        instance_name, "opsi:" + str(task),
-        lambda: _get_opsi_panels_html_impl(instance_name, month, task),
+        instance_name, "opsi:" + str(task) + ":" + str(item),
+        lambda: _get_opsi_panels_html_impl(instance_name, month, task, item),
         month,
     )
 
 
-def _get_opsi_panels_html_impl(instance_name: str, month: str = "", task: str = "") -> dict:
+def _get_opsi_panels_html_impl(
+    instance_name: str, month: str = "", task: str = "", item: str = ""
+) -> dict:
     """返回「大世界」页的完整 HTML（净赚卡 + 12 指标卡 + 大世界收获）。
 
     直接调老 UI 的 _render_opsi_stats 系列构建函数，把它们的输出
@@ -3192,6 +3360,15 @@ def _get_opsi_panels_html_impl(instance_name: str, month: str = "", task: str = 
         # _opsi_drop_filtered_items / _meow_task_record_count 都读它。
         if task:
             ctx._meow_task_filter = None if task == "__all__" else task
+        # 合计条类别筛选：老 UI 点 chip 改 _meow_item_filter 后整块重绘；
+        # REST 下前端把 chip 的 data-meow-strip 值回传到这里，同一状态位。
+        # 空 / "__all__" / "None" 都还原成 None（不过滤）。
+        if item and item not in ("__all__", "None"):
+            ctx._meow_item_filter = item
+        # 明细表全量显示：「其余 N 项」按钮是挂回调的 PyWebIO Output，
+        # 塞不进 REST 纯 HTML 通道，新 UI 点不了 —— 折叠等于永远 5 行
+        # （长卿 2026-11-21：「为什么只显示一部分」）。REST 下默认展开。
+        ctx._meow_show_all_rows = True
 
         payload = ctx._build_opsi_month_cards()
         if payload is None:
@@ -3780,11 +3957,23 @@ def _get_ship_exp_panel_html_impl(instance_name: str) -> dict:
             t("Gui.Stat.ShipExpTargetShort", level=target_level),
             t("Gui.Stat.ShipExpTodayShort", n=fmt(today_battles)),
         ])
-        html = build_fold_block(
-            t("Gui.Stat.ShipExpProgressTitle"),
-            build_chip_row(chips)
-            + build_simple_table(exp_labels, exp_rows, numeric_from=1),
-            digest=digest,
+        # 新 UI 不要折叠壳（长卿 2026-11-21：「可以把这两个折叠状态删了，新UI不需要」）：
+        # 标题行保留 .fold/.fold-title/.fold-digest 的观感（statistics-alas.css
+        # 的样式挂在 #pywebio-scope-statistics-content 下，仍然命中），
+        # 内容常驻、不可收起。老 UI 的 build_fold_block 折叠保持原样不动。
+        from html import escape as html_escape
+
+        html = (
+            '<div class="fold fold-static">'
+            '<div class="fold-summary">'
+            f'<span class="fold-title">{html_escape(str(t("Gui.Stat.ShipExpProgressTitle")))}</span>'
+            f'<span class="fold-digest">{html_escape(str(digest))}</span>'
+            "</div>"
+            '<div class="fold-body">'
+            + build_chip_row(chips)
+            + build_simple_table(exp_labels, exp_rows, numeric_from=1)
+            + "</div>"
+            "</div>"
         )
         return {"success": True, "html": html, "error": ""}
     except Exception as e:  # noqa: BLE001
@@ -4102,7 +4291,8 @@ def get_stat_available_months(instance_name: str) -> dict:
         months = set()
         for label, loader in (
             ("cl1_data.db", lambda: get_available_months(instance_name)),
-            ("azurstats_local.db", AzurStats.get_opsi_drop_available_months),
+            # azurstats 侧也按实例隔离（长卿 2026-11-21 报的多实例串号）
+            ("azurstats_local.db", lambda: AzurStats.get_opsi_drop_available_months(instance=instance_name)),
         ):
             try:
                 months |= {(int(y), int(m)) for y, m in loader()}

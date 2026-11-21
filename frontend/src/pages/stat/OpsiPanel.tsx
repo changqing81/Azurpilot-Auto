@@ -13,7 +13,7 @@
 // 前端挂载 HTML 后把 js 当 <script> 执行 —— 就是老 UI 那张图。
 // 其余区块（净赚卡/12指标卡/大世界收获/舰船经验）继续用老 UI 的渲染器。
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { apiGet, panelPath } from '../../api/client'
+import { apiGet, panelPathWithParams } from '../../api/client'
 import { LegacyHtmlPanel } from './LegacyHtmlPanel'
 import { apMonthSelectHtml, apToolbarHtml, type ApView } from './ApToolbar'
 import { useStatText } from './i18n'
@@ -27,6 +27,10 @@ export function OpsiPanel({ name }: { name: string }) {
   const [chartLoading, setChartLoading] = useState(false)
   const [chartErr, setChartErr] = useState('')
   const [meowTask, setMeowTask] = useState('')
+  // 合计条类别筛选（老 UI _meow_item_filter 的 REST 等价物）：
+  // 点「收获合计」chip 筛选明细表，再点同一个取消。后端按这个值过滤
+  // meow_drop_html 并标记 chip 选中态，所以必须随请求回传（panelPath 的 task 段旁路）。
+  const [meowItem, setMeowItem] = useState('')
   const [panels, setPanels] = useState<{
     html: string
     meow: string
@@ -107,8 +111,11 @@ export function OpsiPanel({ name }: { name: string }) {
       meow_filter_html: string
       meow_drop_html: string
     }>(
-      // 参数全部走路径段：远控中继会剥掉 query string（见 panelPath 注释）
-      panelPath(name, 'opsi', { month, task: meowTask }), 25000,
+      // 参数走 panelPathWithParams 全参数通道：远控中继会剥掉 query string，
+      // panelPath 的固定段序（month/task/period/...）又装不下 item ——
+      // 与 fleet/科研/委托面板同款，参数整体编码进 _p 段（中继不剥路径）。
+      // 后端 opsi 分支用 _arg() 三级回退读取。
+      panelPathWithParams(name, 'opsi', { month, task: meowTask, item: meowItem }), 25000,
     )
       .then(r => {
         if (!alive || !r.success) return
@@ -124,7 +131,9 @@ export function OpsiPanel({ name }: { name: string }) {
       .catch(() => { /* 忽略 */ })
       .finally(() => { if (alive) setPanelsLoading(false) })
     return () => { alive = false }
-  }, [name, month, meowTask])
+    // ⚠️ meowItem 必须进依赖：漏掉时点合计条只改状态不发请求，
+    // 表现为「点了没反应」（长卿 2026-11-21 复测抓到的正是这个）
+  }, [name, month, meowTask, meowItem])
 
   // 月份胶囊文案：老 UI 显示 "YYYY-MM" 键，本月显示当前月键
   const monthLabel = useMemo(() => {
@@ -163,6 +172,20 @@ export function OpsiPanel({ name }: { name: string }) {
   }, [view, monthLabel, months, month])
 
   const hasMeow = !!(panels && (panels.meow || panels.meowStrip || panels.meowDrop))
+
+  // 合计条 chip 点击（老 UI _on_meow_strip_click 的 REST 等价物）：
+  // 点当前选中的再点一次 = 取消筛选（老 UI 同款 toggle）。
+  // ⚠️ 必须 onClickCapture：chip 按钮带内联
+  // onclick="event.preventDefault();event.stopPropagation()"
+  // （挡 <summary> 开合的，老 UI 就有），冒泡阶段的监听会被它拦掉；
+  // 捕获阶段在目标元素的内联 handler 之前执行，能稳定拿到点击。
+  const onMeowStripClick = (ev: React.MouseEvent<HTMLDivElement>) => {
+    const btn = (ev.target as HTMLElement).closest('[data-meow-strip]') as HTMLElement | null
+    if (!btn) return
+    ev.preventDefault()
+    const next = btn.getAttribute('data-meow-strip') || ''
+    setMeowItem(prev => (prev === next ? '' : next))
+  }
 
   // 任务筛选点击（老 UI _on_meow_task_click 的 REST 等价物）：
   // 点当前选中的再点一次 = 取消筛选回到「全部任务」（老 UI 同款 toggle）。
@@ -203,19 +226,28 @@ export function OpsiPanel({ name }: { name: string }) {
           明细表退回默认流式布局 —— 一行字挤在一起看不清（长卿 2026-11-17 截图）。
           与 ft_mind / statistics-content 同源：老 UI 的 scope 容器就是 DOM 契约。 */}
       {hasMeow && (
-        <details open style={{ marginTop: 12 }}>
-          <summary style={{ cursor: 'pointer', fontSize: '1rem', fontWeight: 600 }}>
-            <span>{text('OpsiDropTitle') || '大世界收获'}</span>
+        // 顶行 = 实例胶囊（最左，原折叠箭头位置）+ OS 页头 + 合计条（长卿 2026-11-21 手绘：
+        // 「把上面那个大世界收获删了，把下面移上来，alas 实例移到之前展开的箭头那里」）。
+        // 内容常驻不可折叠；pill 显示在最左由 CSS order 实现（meow-head-row 规则），
+        // 不动后端 HTML 结构（老 UI 同一份 _build_meow_header_html）。
+        <div className="fold fold-static meow-section" style={{ marginTop: 12 }}>
+          <div className="meow-head-row">
+            {panels?.meowHeader && (
+              <div
+                className="meow-head-cell"
+                dangerouslySetInnerHTML={{ __html: panels.meowHeader }}
+              />
+            )}
             {panels?.meowStrip && (
               <div
                 id="pywebio-scope-meow_strip_scope"
-                style={{ display: 'inline-block', marginLeft: '.75rem', verticalAlign: 'middle' }}
+                className="meow-strip-cell"
+                onClickCapture={onMeowStripClick}
                 dangerouslySetInnerHTML={{ __html: panels.meowStrip }}
               />
             )}
-          </summary>
+          </div>
           <div id="pywebio-scope-meow_loot_scope" style={{ marginTop: 8 }}>
-            {panels?.meowHeader && <div dangerouslySetInnerHTML={{ __html: panels.meowHeader }} />}
             {/* 两栏布局：老 UI put_row([左栏筛选, 右栏明细], size="168px minmax(0,1fr)")，
                 PyWebIO 产出的是一个 grid div。这里用同款内联 grid 复刻 ——
                 上下堆叠会让筛选器横铺一整行、与老 UI 的观感完全不同。 */}
@@ -240,7 +272,7 @@ export function OpsiPanel({ name }: { name: string }) {
               </div>
             </div>
           </div>
-        </details>
+        </div>
       )}
 
       {/* 舰船经验进度 */}

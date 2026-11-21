@@ -37,14 +37,14 @@
 
 /* ---------- 页头（OS 徽标 + 中英标题 + 实例胶囊） ---------- */
 
-#pywebio-scope-meow_loot_scope .meow-loot-head {
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-head {
 	display: flex;
 	align-items: center;
 	gap: 10px;
 	min-width: 0;
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-badge {
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-badge {
 	flex: 0 0 auto;
 	display: inline-flex;
 	align-items: center;
@@ -59,25 +59,26 @@
 	letter-spacing: 0.5px;
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-head-text {
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-head-text {
 	min-width: 0;
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-head-title {
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-head-title {
 	font-size: 1.05rem;
 	font-weight: 700;
 	line-height: 1.25;
 	color: var(--st-text, inherit);
 }
 
-#pywebio-scope-meow_loot_scope .meow-loot-head-subtitle {
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-head-subtitle {
 	font-size: 0.72rem;
 	line-height: 1.3;
 	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
 }
 
-/* 实例胶囊：靠右，紧挨右侧的月份按钮组 */
-#pywebio-scope-meow_loot_scope .meow-loot-pill {
+/* 实例胶囊：老 UI 靠右（紧挨月份按钮组）；新 UI 顶行用 CSS order 把它提到
+   最左（原折叠箭头位置，长卿 2026-11-21 手绘），见 .meow-head-row 规则 */
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-pill {
 	margin-left: auto;
 	flex: 0 0 auto;
 	padding: 3px 10px;
@@ -88,8 +89,45 @@
 	color: var(--st-text, inherit);
 }
 
+/* ---------- 新 UI 顶行：实例胶囊 + OS 页头 + 合计条（常驻区，无折叠壳） ----------
+
+   长卿 2026-11-21 手绘：「把上面那个大世界收获删了，把下面移上来，把那个 alas
+   实例移到之前展开的箭头那里」。实例胶囊用 order 提到行首（原箭头位置），
+   不动后端 _build_meow_header_html 的 DOM 顺序（老 UI 仍靠右）。 */
+
+#pywebio-scope-opsi_stats .meow-head-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px 14px;
+	min-width: 0;
+	margin-bottom: 8px;
+}
+
+#pywebio-scope-opsi_stats .meow-head-cell {
+	min-width: 0;
+}
+
+#pywebio-scope-opsi_stats .meow-head-cell .meow-loot-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	min-width: 0;
+}
+
+#pywebio-scope-opsi_stats .meow-head-cell .meow-loot-pill {
+	order: -1;
+	margin-left: 0;
+	margin-right: 12px;
+}
+
+#pywebio-scope-opsi_stats .meow-strip-cell {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
 /* 月份胶囊：页头右侧的按钮组（只针对页头那一行，左栏的按钮组另有一套规则） */
-#pywebio-scope-meow_loot_scope .pywebio-row > .btn-group .btn {
+#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .pywebio-row > .btn-group .btn {
 	border-radius: 999px;
 	padding: 3px 12px;
 	font-size: 0.72rem;
@@ -233,6 +271,37 @@
 	font-size: 0.72rem;
 	color: var(--st-muted, var(--alas-entry-muted, #6f737a));
 	border-bottom: 1px solid var(--st-divider, rgba(128, 128, 128, 0.2));
+}
+
+/* 行区滚动框：表头与表尾说明固定在框外，只有行参与滚动
+   （长卿 2026-11-21：「物品太多了，做个固定的框，可以滚动的」）。
+   高度压住约 10 行；行不足时框不撑高（max-height 而非固定 height）。 */
+#pywebio-scope-meow_loot_scope .meow-drop-table-body {
+	max-height: 380px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	/* 行有 border-bottom，滚动到边界时首/末行贴边会显得被裁掉，留 2px 呼吸 */
+	padding-bottom: 2px;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-table-body::-webkit-scrollbar {
+	width: 8px;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-table-body::-webkit-scrollbar-thumb {
+	background: var(--st-divider, rgba(128, 128, 128, 0.35));
+	border-radius: 4px;
+}
+
+#pywebio-scope-meow_loot_scope .meow-drop-table-body::-webkit-scrollbar-thumb:hover {
+	background: var(--st-muted, rgba(128, 128, 128, 0.55));
+}
+
+/* 窄屏（手机档）：框随视口收窄，压到约 8 行 */
+@media (max-width: 720px) {
+	#pywebio-scope-meow_loot_scope .meow-drop-table-body {
+		max-height: 300px;
+	}
 }
 
 #pywebio-scope-meow_loot_scope .meow-drop-row {
@@ -422,7 +491,7 @@
 	}
 
 	/* 英文副标题在小屏是纯占位的字母汤（用户裁定可删），直接隐藏 */
-	#pywebio-scope-meow_loot_scope .meow-loot-head-subtitle {
+	#pywebio-scope-opsi_stats :is(#pywebio-scope-meow_loot_scope, .meow-head-cell) .meow-loot-head-subtitle {
 		display: none;
 	}
 

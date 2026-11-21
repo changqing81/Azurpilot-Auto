@@ -935,6 +935,20 @@
     background: var(--st-idle);
 }
 
+/* 状态点呼吸闪烁：暗 → 突然一亮 → 回暗，约 2.4s 一轮。
+   用 opacity 动画而不是 color-mix 混色：color-mix 混 transparent 会在
+   sRGB→oklab 插值里把颜色往灰黑拉（实测绿点变灰，2026-11-21 长卿截图）。
+   opacity 对任何主题底色都只会变淡不会变色，最稳。
+   不响应 prefers-reduced-motion：装饰性动效，长卿明确要求恒定闪烁
+   （Windows 关闭"动画效果"会把 reduce 信号发给浏览器，有这个媒体查询就不闪了）。 */
+@keyframes st-source-breathe {
+    0%, 100% { opacity: .35; }
+    50%      { opacity: 1; }
+}
+#pywebio-scope-statistics-content .st-source-dot {
+    animation: st-source-breathe 2.4s ease-in-out infinite;
+}
+
 #pywebio-scope-statistics-content .st-source.is-ok .st-source-dot {
     background: var(--st-ok);
 }
@@ -1341,6 +1355,39 @@
 }
 
 #pywebio-scope-statistics-content .fold .fold-digest {
+    margin-left: auto;
+    min-width: 0;
+    color: var(--st-muted);
+    font-size: .74rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 无折叠壳的常驻块（.fold-static）：新 UI 把「大世界收获」「舰船经验」的
+   <details> 折叠删掉了（长卿 2026-11-21：「可以把这两个折叠状态删了，新UI不需要
+   这个，老UI还是一样别动」）。标题行沿用 .fold-title/.fold-digest 的观感，
+   .fold-summary 承担原 summary 的 flex 布局，无箭头、不可点、内容常驻。 */
+#pywebio-scope-statistics-content .fold-static > .fold-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 0 12px;
+}
+
+#pywebio-scope-statistics-content .fold-static .fold-title {
+    flex: none;
+    color: var(--st-text);
+    font-size: .95rem;
+    font-weight: 700;
+    letter-spacing: -.1px;
+}
+
+#pywebio-scope-statistics-content .fold-static .fold-body {
+    padding-top: 2px;
+}
+
+#pywebio-scope-statistics-content .fold-static .fold-digest {
     margin-left: auto;
     min-width: 0;
     color: var(--st-muted);

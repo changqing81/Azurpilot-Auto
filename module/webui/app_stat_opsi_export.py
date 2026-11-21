@@ -327,11 +327,15 @@ class OpsiExportMixin(WebUIMixinBase):
         filter_key = getattr(self, "_meow_task_filter", None)
         if filter_key == OPSI_DROP_FILTER_ALL:
             filter_key = None
+        # 按实例隔离：opsi_items 表有 instance 列后，主号/小号各看各的数据
+        # （长卿 2026-11-21：「alas 实例的数据串到小号实例上面了」）。
+        # 历史行已在建表迁移时一次性归到实例列表的第一个实例（主号）。
+        instance = getattr(self, "alas_name", None)
         try:
             if filter_key == OPSI_DROP_FILTER_OTHER:
                 # 兜底开关 = 其余所有大世界任务，集合只能从本月实际数据里算补集
                 full = AzurStats.get_opsi_drop_summary(
-                    year=view["year"], month=view["month"]
+                    year=view["year"], month=view["month"], instance=instance
                 )
                 named = {
                     genre
@@ -342,7 +346,8 @@ class OpsiExportMixin(WebUIMixinBase):
                 genres = [g for g in (full.get("tasks") or {}) if g not in named]
                 if genres:
                     drop = AzurStats.get_opsi_drop_summary(
-                        year=view["year"], month=view["month"], genre=genres
+                        year=view["year"], month=view["month"], genre=genres,
+                        instance=instance,
                     )
                 else:
                     drop = dict(full, items=[], records=0, grand_total=0, unknown=0)
@@ -351,6 +356,7 @@ class OpsiExportMixin(WebUIMixinBase):
                     year=view["year"],
                     month=view["month"],
                     genre=self._opsi_task_genres(filter_key),
+                    instance=instance,
                 )
         except Exception:
             logger.warning('[Statistics] 汇总大世界掉落失败', exc_info=True)
@@ -742,8 +748,12 @@ class OpsiExportMixin(WebUIMixinBase):
             hint = t("Gui.Stat.MeowLootStripClickHint")
             state_style = ""
         style = f' style="{state_style}"' if state_style else ""
+        # data-meow-strip="<key>"：新 UI（REST 面板）没有 PyWebIO 回调通道，
+        # 靠前端事件委托按这个属性接管 chip 点击（OpsiPanel.tsx 捕获阶段）；
+        # 老 UI 走 Output.onclick，多一个 data 属性互不影响。
         return (
             f'<button type="button" class="meow-loot-strip-item" '
+            f'data-meow-strip="{html_escape(key)}" '
             f'onclick="event.preventDefault();event.stopPropagation()" '
             f'title="{html_escape(f"{name} · {hint}")}"{style}>'
             f'<span class="meow-loot-strip-icon" style="background: {color}1a;">'
@@ -830,6 +840,12 @@ class OpsiExportMixin(WebUIMixinBase):
             return build_muted_notice(t("Gui.Stat.OpsiDropEmptyNotice"))
 
         expanded = bool(getattr(self, "_meow_drop_expanded", False))
+        # REST 面板（新 UI）没有「其余 N 项」按钮可点（按钮是挂回调的
+        # PyWebIO Output，塞不进纯 HTML 通道），折叠等于永远只能看 5 行。
+        # 有 _meow_show_all_rows 标记时全量平铺，展开态交给该标记管理。
+        show_all = bool(getattr(self, "_meow_show_all_rows", False))
+        if show_all:
+            expanded = True
         shown = items if expanded else items[:OPSI_DROP_TABLE_PREVIEW]
 
         head = (
@@ -848,11 +864,15 @@ class OpsiExportMixin(WebUIMixinBase):
             f'<span class="meow-drop-cell-level">'
             f'{t("Gui.Stat.OpsiDropLevelHeader")}</span>'
             "</div>"
+            # 行区包一层固定高度的滚动框：物品种类多时不再无限拉长页面
+            # （长卿 2026-11-21：「做个固定的框，可以滚动的」）。
+            '<div class="meow-drop-table-body">'
         )
         body = "".join(self._build_opsi_drop_row_html(row) for row in shown)
         return (
             head
             + body
+            + "</div>"
             + f'<div class="meow-drop-source">'
             f'{t("Gui.Stat.OpsiDropSourceNote")}</div>'
             "</div>"
