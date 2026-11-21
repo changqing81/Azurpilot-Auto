@@ -26,6 +26,38 @@ import { injectWallpaperToggle, hideWallpaperToggle } from '../lib/wallpaperTogg
 import { applyLayoutLayer } from '../lib/layoutApply'
 import { putLoading } from '../lib/pywebio'
 
+/**
+ * 菜单分组的展开态（跨页面共享）。
+ *
+ * 为什么是模块级变量而不是组件 state：每个页面各自渲染一个 <Shell>，
+ * 路由切换会卸载重建组件，组件内 state 直接归零 —— 表现就是
+ * 「点开出击分组、点里面的主线图，整组缩回去，页面还跳一下」
+ * （长卿 2026-11-20 反馈，实测复现：overview → 展开 Farm → 点主线图 → 全收起）。
+ *
+ * 用模块级变量而不是 localStorage：
+ *   - 同一次会话内跨路由保留，正是需要的粒度；
+ *   - 刷新页面回到「全收起」，与老 UI（PyWebIO 整页重载）一致；
+ *   - 无序列化/跨标签页同步的额外复杂度。
+ */
+let persistedOpenGroups: Record<string, boolean> = {}
+
+/**
+ * 菜单/页眉/固定菜单/实例列表的上一次结果（跨页面共享）。
+ *
+ * 为什么需要：每个页面各自渲染一个 <Shell>，路由切换会卸载重建组件，
+ * 所有 state 从空开始，要等 /newapi/menu 等接口回来才有内容。
+ * 实测（2026-11-20，overview → 点主线图）：切换瞬间菜单 innerHTML
+ * 从 8180 字符掉到 519（只剩搜索框），10 个分组全消失，约 0.9 秒后才回来。
+ * 这正是长卿说的「还会大幅度刷新加跳动一下」。
+ *
+ * 修法：新实例初次渲染时先用上次的数据兜底，接口回来后覆盖。
+ * 菜单内容对同一实例/语言是稳定的，所以复用是安全的。
+ */
+let cachedMenu: MenuGroup[] = []
+let cachedFixedMenu: FixedMenuResp | null = null
+let cachedHeader: HeaderResp | null = null
+let cachedInstances: Instance[] = []
+
 type Instance = { name: string; state: number }
 type InstancesResp = { instances: Instance[] }
 type MenuGroup = { key: string; name: string; page: string; tasks: { key: string; name: string }[] }
@@ -151,8 +183,11 @@ export function Shell({
   submenu?: SubMenuItem[]
 }) {
   const navigate = useNavigate()
-  const [instances, setInstances] = useState<Instance[]>([])
-  const [menu, setMenu] = useState<MenuGroup[]>([])
+  // 初值取模块级缓存：路由切换会重建本组件，若从空数组起步，
+  // 菜单区会先塌成「只剩搜索框」再被接口内容填回来（实测 8180 → 519 字符，
+  // 约 0.9 秒），表现为页面大幅跳动。用上次数据兜底可让切换瞬间菜单不消失。
+  const [instances, setInstances] = useState<Instance[]>(() => cachedInstances)
+  const [menu, setMenu] = useState<MenuGroup[]>(() => cachedMenu)
   // 移动端内容区与菜单互斥：菜单展开时给内容区挂 container-content-collapsed
   // （alas-mobile.css 里就是 display:none）。同一时刻只有一个可见。
   // 纯背景模式圆点：仅主页显示（app_home.py:519 老 UI 在 show_home 注入，
@@ -183,13 +218,15 @@ export function Shell({
   // 固定菜单文案（主页 6 个入口 + 侧栏「主页/管理」）由后端按当前语言返回。
   // 以前这些是**前端硬编码中文**，导致切英文后配置页已经是 "For example,
   // 7-2..." 了，侧栏还写着「主页/更新器/远程控制」。
-  const [fixedMenu, setFixedMenu] = useState<FixedMenuResp>({
+  // 同样用缓存兜底：固定菜单/页眉文案在切换瞬间若为空，
+  // 菜单会短暂退回 6 个入口或空标题，视觉上也是「跳一下」。
+  const [fixedMenu, setFixedMenu] = useState<FixedMenuResp>(() => cachedFixedMenu ?? {
     items: [],
     aside_home: '主页',
     aside_manage: '管理',
     search_placeholder: '搜索配置',
   })
-  const [header, setHeader] = useState<HeaderResp>({
+  const [header, setHeader] = useState<HeaderResp>(() => cachedHeader ?? {
     icon: '/static/assets/spa/spa-icon-192x192.png',
     prefix: '待到山花烂漫时，她在丛中笑',
     title: 'AzurPilot',
@@ -223,6 +260,8 @@ export function Shell({
       apiGet<InstancesResp>('/newapi/instances', 8000)
         .then(r => {
           if (!alive) return
+          // 写回模块级缓存，供下次路由切换的首帧兜底（否则侧栏实例图标会闪一下空的）
+          cachedInstances = r.instances
           // 状态没变就不 setState，避免每 3 秒重建 aside 的 HTML 字符串
           setInstances(prev => {
             const sig = (list: Instance[]) => list.map(i => i.name + ':' + i.state).join('|')
@@ -247,9 +286,17 @@ export function Shell({
   }, [langTick])
 
   useEffect(() => {
-    apiGet<MenuResp>('/newapi/menu').then(r => setMenu(r.groups)).catch(() => {})
-    apiGet<HeaderResp>('/newapi/header').then(setHeader).catch(() => {})
-    apiGet<FixedMenuResp>('/newapi/menu/fixed').then(setFixedMenu).catch(() => {})
+    // 每份数据拿到后都写回模块级缓存，供下一次路由切换的首帧兜底。
+    // 语言变化（langTick）时会重新拉取并覆盖，文案不会串语言。
+    apiGet<MenuResp>('/newapi/menu')
+      .then(r => { cachedMenu = r.groups; setMenu(r.groups) })
+      .catch(() => {})
+    apiGet<HeaderResp>('/newapi/header')
+      .then(h => { cachedHeader = h; setHeader(h) })
+      .catch(() => {})
+    apiGet<FixedMenuResp>('/newapi/menu/fixed')
+      .then(f => { cachedFixedMenu = f; setFixedMenu(f) })
+      .catch(() => {})
   }, [langTick])
 
   // 当前实例名（菜单跳转用）：优先当前页 active，回退第一个实例
@@ -435,7 +482,19 @@ export function Shell({
   // 坑：原来直接输出 `<details>` 字符串，React 每次重渲染都会重建这些 DOM，
   // 浏览器的 open 属性随之丢失 —— 表现就是「点了一个二级菜单项，
   // 其他展开的分组全被收起了」（长卿反馈）。改成受控状态后，重渲染不影响展开态。
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({})
+  //
+  // ⚠️ 2026-11-20 第二次踩：这个状态只活在本组件实例里。每个页面（总览/配置/
+  // 集合页/统计…）都各自挂一个 <Shell>，路由切换 = 组件卸载重建 = openGroups
+  // 归零。表现就是长卿说的「点二级菜单（比如出击→主线图）整组缩回去」，
+  // 而且因为菜单区 DOM 被重建，右侧内容高度突变，页面会大幅跳动一下。
+  // 实测复现：从 #/overview/alas 展开「出击」点「主线图」→ Farm 从 open 变全收起。
+  // 修法：用模块级变量做跨实例持久化（比 localStorage 快、无序列化开销，
+  // 刷新页面按「默认全收起」处理，与老 UI 行为一致）。
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(
+    () => ({ ...persistedOpenGroups }),
+  )
+  // 每次变化都同步回模块级变量（同一次会话内跨路由保留）
+  useEffect(() => { persistedOpenGroups = openGroups }, [openGroups])
   const menuClass = isMobile
     ? (menuOpen ? '' : 'container-menu-collapsed')
     : 'container-menu-collapsed'

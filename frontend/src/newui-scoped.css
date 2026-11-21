@@ -2348,9 +2348,47 @@ html[data-alas-theme="dark_advanced_material"] #root .ec-page-desc {
 #root .oc-body #pywebio-scope-content {
   padding: 0;
 }
+/* 集合页的配置主体不自己滚，改成整块跟页面一起滚。
+   原因：`_groups` 原本是 height:100% 的固定高网格，groups 靠它拿到高度
+   （alas.css:675 / 718）。集合页内容高于视口时，若仍让 groups 内部滚动，
+   会出现「页签固定 + 内层滚动」的双滚动条，且右侧分组导航的锚点
+   （见 config/index.tsx scrollToGroup）会跟着失效。
+   改 auto 后由外层 #pywebio-scope-content 统一滚动。
+
+   ⚠️ 代价：navigator 是外层滚动容器的子孙节点，会跟着内容滚出视口
+   （2026-11-21 长卿：「侧边栏会跟着配置页滚动，点底部的选项整个侧边栏
+   就消失了，得用滚轮往上才显出来」。实测：滚动 1122px 后 navigator
+   top 243 → -879，完全滚出视口顶）。
+   独立配置页不需要这条 —— 那里是 groups 内部滚动，navigator 在
+   _groups 第三列本来就不动。 */
 #root .oc-body #pywebio-scope-_groups {
   height: auto;
   min-height: auto;
+}
+/* 集合页右侧分组导航吸附：随整块滚动时保持可见。
+   ⚠️ sticky 的吸附基准是「最近的滚动祖先」。内层 #pywebio-scope-content
+   继承了 alas.css 的 overflow:auto，虽然它从不滚动（被撑满），
+   却会截胡 sticky 基准 —— 第一版实测吸附完全无效（mid/bottom 位置
+   navigator top -314 / -875，仍滚出视口）。所以下面把内层 content
+   改成 overflow:visible，让基准落到真正滚动的最外层 content。
+   align-self:start 防网格拉伸，navigator 自身 height:min-content 不受影响。 */
+#root .oc-body #pywebio-scope-navigator {
+  position: sticky;
+  top: .75rem;
+  align-self: start;
+}
+/* 内层 content 退出滚动容器身份：集合页的滚动统一由最外层 content 负责
+   （见上方 height:auto 的说明）。不退出的话，sticky 基准会被它截胡，
+   内层自己也可能在极端内容下出现第二条滚动条。 */
+#root .oc-body #pywebio-scope-content {
+  overflow: visible;
+}
+
+/* 分组导航跳转的落点留白：scrollIntoView({block:'start'}) 会把分组标题
+   顶到容器最上沿，紧贴页签下边框。留 1rem 让标题不贴边。
+   （原先写死 offsetTop - 59，集合页多了 .oc-glass/.oc-tabs 包装层后不再成立） */
+#root [id^="pywebio-scope-group_"] {
+  scroll-margin-top: 1rem;
 }
 
 /* 暗色适配 */

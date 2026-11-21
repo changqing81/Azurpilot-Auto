@@ -31,6 +31,52 @@ import { ArgBlock, type Group } from './groups'
 import { useToast } from '../../components/Toast'
 type ConfigResp = { task: string; groups: Group[]; error?: string }
 
+/**
+ * 点击右侧分组导航后把目标分组滚到可视区。
+ *
+ * 为什么不能直接写 box.scrollTop：滚动容器随页面形态变化。
+ *   - 独立配置页：`#pywebio-scope-groups` 有固定高度（`_groups` 是 height:100%
+ *     的网格），内容溢出它自身滚动，能滚的就是 groups；
+ *   - 集合页（其他配置/主线图/紧急委托/活动图/活动每日）：`newui-scoped.css`
+ *     把 `.oc-body #pywebio-scope-_groups` 改成 height:auto，groups 被内容撑满，
+ *     `scrollHeight === clientHeight` 没有可滚空间，实际滚动落在外层
+ *     `#pywebio-scope-content` 上。
+ * 2026-11-20 实测：集合页点导航 groupsTop 恒为 0（写死滚 groups 无效），
+ * 外层 content 才是真正的滚动容器。
+ *
+ * 为什么不用 scrollIntoView：它会选中「最近的滚动祖先」就停手。集合页里
+ * 最近的那个是 .oc-body 下的内层 #pywebio-scope-content（overflow-y:auto
+ * 但被 .oc-glass 撑满、无可滚空间），于是外层容器永远不动 —— 实测无效。
+ * 所以这里自己扫出「真的能滚」的容器，手算偏移再 scrollTo。
+ * 手算用 getBoundingClientRect 差值而非 offsetTop：集合页多了
+ * .oc-glass / .oc-tabs 等包装层，offsetTop 相对最近定位祖先，不再可直接用。
+ */
+function scrollToGroup(groupId: string) {
+  const el = document.getElementById(groupId)
+  if (!el) return
+  // 找到第一个「真的能滚」的祖先容器。
+  // 注意不能只看 overflowY：集合页里内层 #pywebio-scope-content 也是
+  // overflow-y:auto，但被 .oc-glass 撑满（scrollHeight === clientHeight），
+  // 它没有可滚空间，真正能滚的是更外层的 #pywebio-scope-content。
+  let box: HTMLElement | null = el.parentElement
+  let container: HTMLElement | null = null
+  while (box && box !== document.body) {
+    const style = getComputedStyle(box)
+    const scrollStyle = style.overflowY === 'auto' || style.overflowY === 'scroll'
+    if (scrollStyle && box.scrollHeight > box.clientHeight + 1) { container = box; break }
+    box = box.parentElement
+  }
+  if (!container) return
+  // 手算相对容器的偏移再设 scrollTop。
+  // 不能用 scrollIntoView：它会选中「最近的滚动祖先」（集合页里就是那个
+  // 滚不动的内层 content）并提前停手，外层容器永远不动 —— 2026-11-20 实测。
+  const top = el.getBoundingClientRect().top
+    - container.getBoundingClientRect().top
+    + container.scrollTop
+    - 16                                   // 顶部留白，分组标题不贴边
+  container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+}
+
 /** 任务 key → 所属集合页 route（旧地址 /config/{name}/{task} 重定向用） */
 export const TASK_TO_COLLECTION: Record<string, string> = {
   // 其他配置
@@ -216,12 +262,7 @@ export function ConfigBody({
               <button
                 key={it.id}
                 className="btn btn-menu"
-                onClick={() => {
-                  // 滚动定位（对应 _expand_config_group_and_scroll 的滚动部分）
-                  const el = document.getElementById(it.id)
-                  const box = document.getElementById('pywebio-scope-groups')
-                  if (el && box) box.scrollTop = el.offsetTop - 59
-                }}
+                onClick={() => scrollToGroup(it.id)}
               >
                 {it.name}
               </button>
