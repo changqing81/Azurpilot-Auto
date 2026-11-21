@@ -1201,14 +1201,14 @@
       "help": "When spending books, postpone the task if oil is below this threshold. 0 disables the check. EXP-only commissions cost no oil; the continuous sortie needed for auto-unlock still checks oil."
     },
     "Window": {
-      "1": "1 h",
-      "2": "2 h",
-      "3": "3 h",
       "name": "Time window",
       "help": "Sliding window length with half-hour precision (default 1 hour).",
       "0.5": "0.5 h",
+      "1": "1 h",
       "1.5": "1.5 h",
-      "2.5": "2.5 h"
+      "2": "2 h",
+      "2.5": "2.5 h",
+      "3": "3 h"
     }
   },
   "Campaign": {
@@ -1592,14 +1592,14 @@
       "help": ""
     },
     "Fleet1": {
+      "name": "Fleet 1 Number",
+      "help": "",
       "1": "1 ",
       "2": "2 ",
       "3": "3 ",
       "4": "4 ",
       "5": "5 ",
-      "6": "6 ",
-      "name": "Fleet 1 Number",
-      "help": ""
+      "6": "6 "
     },
     "Fleet1Formation": {
       "name": "Fleet 1 Formation",
@@ -1618,23 +1618,23 @@
       "hide_in_upper_left": "Hide in Upper Left"
     },
     "Fleet1Step": {
+      "name": "Fleet 1 Step Size",
+      "help": "Limit movement distance in event maps",
       "2": "2 ",
       "3": "3 ",
       "4": "4 ",
-      "5": "5 ",
-      "name": "Fleet 1 Step Size",
-      "help": "Limit movement distance in event maps"
+      "5": "5 "
     },
     "Fleet2": {
+      "name": "Fleet 2 Number",
+      "help": "",
       "0": "Not used",
       "1": "1 ",
       "2": "2 ",
       "3": "3 ",
       "4": "4 ",
       "5": "5 ",
-      "6": "6 ",
-      "name": "Fleet 2 Number",
-      "help": ""
+      "6": "6 "
     },
     "Fleet2Formation": {
       "name": "Fleet 2 Formation",
@@ -1653,12 +1653,12 @@
       "hide_in_upper_left": "Hide in Upper Left"
     },
     "Fleet2Step": {
+      "name": "Fleet 2 Step Size",
+      "help": "Limit movement distance in event maps",
       "2": "2 ",
       "3": "3 ",
       "4": "4 ",
-      "5": "5 ",
-      "name": "Fleet 2 Step Size",
-      "help": "Limit movement distance in event maps"
+      "5": "5 "
     },
     "FleetOrder": {
       "name": "Fleet Role",
@@ -1679,11 +1679,11 @@
       "help": ""
     },
     "Fleet": {
+      "name": "Submarine Fleet Number",
+      "help": "",
       "0": "Not used",
       "1": "1 ",
-      "2": "2 ",
-      "name": "Submarine Fleet Number",
-      "help": ""
+      "2": "2 "
     },
     "Mode": {
       "name": "Submarine Attack Mode",
@@ -1866,12 +1866,12 @@
       "help": "Use a low-power fleet to level up at 12-2, retreat after defeating non-3-star enemies.\nIncrease EXP/oil ratio by reducing fleet power"
     },
     "LargeEnemyTolerance": {
+      "name": "Fight up to X-star enemies",
+      "help": "",
       "0": "0",
       "1": "1",
       "2": "2",
-      "10": "10",
-      "name": "Fight up to X-star enemies",
-      "help": ""
+      "10": "10"
     }
   },
   "C124LargeLeveling": {
@@ -1880,26 +1880,26 @@
       "help": "Use a strong fleet to level up at 12-4, retreat after defeating 3-star enemies.\nIncrease EXP/oil ratio by defeating more 3-star enemies"
     },
     "NonLargeEnterTolerance": {
+      "name": "After entering the map, X fights no three-star enemies and retreats.",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "After entering the map, X fights no three-star enemies and retreats.",
-      "help": ""
+      "2": "2"
     },
     "NonLargeRetreatTolerance": {
+      "name": "Fight up to X non-three-star enemies",
+      "help": "",
       "0": "0",
       "1": "1",
       "2": "2",
-      "10": "10",
-      "name": "Fight up to X non-three-star enemies",
-      "help": ""
+      "10": "10"
     },
     "PickupAmmo": {
+      "name": "Pick Up Ammo After X Battles",
+      "help": "",
       "3": "3",
       "4": "4",
-      "5": "5",
-      "name": "Pick Up Ammo After X Battles",
-      "help": ""
+      "5": "5"
     }
   },
   "GemsFarming": {
@@ -2161,11 +2161,11 @@
       "help": ""
     },
     "BuyURShip": {
+      "name": "Buy X UR Ships",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "Buy X UR Ships",
-      "help": ""
+      "2": "2"
     },
     "PresetFilter": {
       "name": "Event Shop Filter",
@@ -2921,24 +2921,24 @@
       "help": "Buy Rainbow Research blueprints every day. Rainbow and Gold Research blueprint discounts are counted independently, and you can get 2 of each for free every day."
     },
     "ResearchSeries": {
+      "name": "Research series",
+      "help": "",
       "2": "PR2",
       "3": "PR3",
       "4": "PR4",
       "5": "PR5",
-      "6": "PR6",
-      "name": "Research series",
-      "help": ""
+      "6": "PR6"
     },
     "ShipIndex": {
+      "name": "Ship index",
+      "help": "Counting from left to right, starting from 1",
       "0": "Don't buy",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Ship index",
-      "help": "Counting from left to right, starting from 1"
+      "6": "6"
     },
     "BuyAmount": {
       "name": "Purchase amount",
@@ -2955,25 +2955,25 @@
       "help": ""
     },
     "ResearchSeries": {
+      "name": "Research series",
+      "help": "",
       "1": "PR1",
       "2": "PR2",
       "3": "PR3",
       "4": "PR4",
       "5": "PR5",
-      "6": "PR6",
-      "name": "Research series",
-      "help": ""
+      "6": "PR6"
     },
     "ShipIndex": {
+      "name": "Ship index",
+      "help": "Counting from left to right, starting from 1",
       "0": "Don't buy",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Ship index",
-      "help": "Counting from left to right, starting from 1"
+      "6": "6"
     },
     "BuyAmount": {
       "name": "Purchase quantity",
@@ -2999,6 +2999,8 @@
       "wishing_well": "Wishing Well"
     },
     "Amount": {
+      "name": "Number of builds",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
@@ -3008,15 +3010,15 @@
       "7": "7",
       "8": "8",
       "9": "9",
-      "10": "10",
-      "name": "Number of builds",
-      "help": ""
+      "10": "10"
     },
     "UseTicket": {
       "name": "Use single build permit",
       "help": "When enabled, first visit the event pool to use single build permits, regardless of the selected pool type. If the event pool has no available permits or not enough for the requested amount, complete the remaining builds in the selected pool using Cubes and Coins."
     },
     "TicketAmount": {
+      "name": "Use X single build permits daily",
+      "help": "Requires single build permits to be enabled. Use all remaining permits if fewer are available; this amount may exceed the daily build minimum. When the event pool is selected, also use remaining permits to meet the minimum.",
       "1": "1",
       "2": "2",
       "3": "3",
@@ -3026,9 +3028,7 @@
       "7": "7",
       "8": "8",
       "9": "9",
-      "10": "10",
-      "name": "Use X single build permits daily",
-      "help": "Requires single build permits to be enabled. Use all remaining permits if fewer are available; this amount may exceed the daily build minimum. When the event pool is selected, also use remaining permits to meet the minimum."
+      "10": "10"
     },
     "ClearTicket": {
       "name": "Use all permits on the last event day",
@@ -3095,15 +3095,15 @@
       "help": ""
     },
     "DayOfWeek": {
+      "name": "Extend to which day of the week",
+      "help": "It is recommended to set it to weekdays (Monday to Friday) to avoid missing purchases",
       "0": "Monday",
       "1": "Tuesday",
       "2": "Wednesday",
       "3": "Thursday",
       "4": "Friday",
       "5": "Saturday",
-      "6": "Sunday",
-      "name": "Extend to which day of the week",
-      "help": "It is recommended to set it to weekdays (Monday to Friday) to avoid missing purchases"
+      "6": "Sunday"
     }
   },
   "Minigame": {
@@ -3163,14 +3163,14 @@
       "third": "Third"
     },
     "EscortMissionFleet": {
+      "name": "Trade Convoy sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Trade Convoy sortie fleet",
-      "help": ""
+      "6": "6"
     },
     "AdvanceMission": {
       "name": "Advance Mission (Textbook, Bomb Ship)",
@@ -3181,14 +3181,14 @@
       "third": "Third"
     },
     "AdvanceMissionFleet": {
+      "name": "Advance Mission sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Advance Mission sortie fleet",
-      "help": ""
+      "6": "6"
     },
     "FierceAssault": {
       "name": "Fierce Assault (Equipment Box)",
@@ -3199,14 +3199,14 @@
       "third": "Third"
     },
     "FierceAssaultFleet": {
+      "name": "Fierce Assault sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Fierce Assault sortie fleet",
-      "help": ""
+      "6": "6"
     },
     "TacticalTraining": {
       "name": "Tactical Training (Cognitive Chips)",
@@ -3217,14 +3217,14 @@
       "third": "Third"
     },
     "TacticalTrainingFleet": {
+      "name": "Tactical Training sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Tactical Training sortie fleet",
-      "help": ""
+      "6": "6"
     },
     "SupplyLineDisruption": {
       "name": "Supply Line Disruption (Submarine)",
@@ -3242,14 +3242,14 @@
       "second": "Second"
     },
     "ModuleDevelopmentFleet": {
+      "name": "Module Development sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Module Development sortie fleet",
-      "help": ""
+      "6": "6"
     },
     "EmergencyModuleDevelopment": {
       "name": "Emergency Module Development (Limited-time Augment Module)",
@@ -3259,14 +3259,14 @@
       "second": "Second"
     },
     "EmergencyModuleDevelopmentFleet": {
+      "name": "Emergency Module Development sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "6": "6",
-      "name": "Emergency Module Development sortie fleet",
-      "help": ""
+      "6": "6"
     }
   },
   "Hard": {
@@ -3283,10 +3283,10 @@
       "help": "For example 11-2, 12-2, 12-4"
     },
     "HardFleet": {
-      "1": "1",
-      "2": "2",
       "name": "Sortie fleet",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "UseRecommendFleet": {
       "name": "Auto Fleet Composition",
@@ -3299,14 +3299,14 @@
       "help": "Run Exercise, automatically retreat when HP is too low"
     },
     "DelayUntilHoursBeforeNextUpdate": {
+      "name": "Delay Exercise until X hours before next refresh",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
-      "12": "Don't delay",
-      "name": "Delay Exercise until X hours before next refresh",
-      "help": ""
+      "12": "Don't delay"
     },
     "OpponentChooseMode": {
       "name": "Opponent selection mode",
@@ -3355,6 +3355,8 @@
       "help": ""
     },
     "Chapter": {
+      "name": "SOS sortie chapter",
+      "help": "",
       "3": "3",
       "4": "4",
       "5": "5",
@@ -3362,9 +3364,7 @@
       "7": "7",
       "8": "8",
       "9": "9",
-      "10": "10",
-      "name": "SOS sortie chapter",
-      "help": ""
+      "10": "10"
     }
   },
   "OpsiAshAssist": {
@@ -3387,14 +3387,14 @@
       "help": "Every time you enter the storage, use all Coordinate Loggers"
     },
     "BuyActionPointLimit": {
+      "name": "Buy Action Points X times",
+      "help": "Maximum number of times to buy Action Points",
       "0": "Don't buy",
       "1": "1 time (1000 Oil, 100 AP)",
       "2": "2 times (2000 Oil, 200 AP)",
       "3": "3 times (4000 Oil, 400 AP)",
       "4": "4 times (6000 Oil, 600 AP)",
-      "5": "5 times (10000 Oil, 1000 AP)",
-      "name": "Buy Action Points X times",
-      "help": "Maximum number of times to buy Action Points"
+      "5": "5 times (10000 Oil, 1000 AP)"
     },
     "OilLimit": {
       "name": "When buying AP, keep X Oil",
@@ -3514,12 +3514,12 @@
       "help": ""
     },
     "Fleet": {
+      "name": "Sortie fleet",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Sortie fleet",
-      "help": ""
+      "4": "4"
     },
     "Submarine": {
       "name": "Call submarine",
@@ -3691,14 +3691,14 @@
       "help": "Stop when Action Points are lower than X, and automatically open Action Point boxes. X includes Action Points in boxes. It is recommended to preserve 3000 AP for Corrosion 1 Leveling.\nThis value will be automatically reduced to 200 points 3 days before Operation Siren reset. If Corrosion 1 Leveling is enabled, it will be changed to 1000 points, and will be automatically reduced to 0 points on the last day."
     },
     "HazardLevel": {
+      "name": "Corrosion Level",
+      "help": "Attack sea zones with specific Corrosion levels in clockwise order\nIt is recommended to choose 5 or 3, which has a higher cat point/AP ratio.",
       "2": "2",
       "3": "3",
       "4": "4",
       "5": "5",
       "6": "6",
-      "10": "Central Sea Zone",
-      "name": "Corrosion Level",
-      "help": "Attack sea zones with specific Corrosion levels in clockwise order\nIt is recommended to choose 5 or 3, which has a higher cat point/AP ratio."
+      "10": "Central Sea Zone"
     },
     "TargetZone": {
       "name": "Target Zone",
@@ -3737,11 +3737,11 @@
       "help": "Consume Combat Supply Vouchers to gain large amounts of EXP and small amounts of Action Points\nIt is recommended to bring 1-2 preloaded carriers to obtain the highest hourly income.\n\nSome safety restrictions of the original AzurPilot have been lifted, please set parameters carefully"
     },
     "TargetZone": {
-      "0": "Not specified",
-      "22": "22 | NA Ocean SW B",
-      "44": "44 | Western Continental Shelf D",
       "name": "Target Zone",
-      "help": "Only attack the designated zone, can be used to avoid zone refresh issues caused by game bugs"
+      "help": "Only attack the designated zone, can be used to avoid zone refresh issues caused by game bugs",
+      "0": "Not specified",
+      "44": "44 | Western Continental Shelf D",
+      "22": "22 | NA Ocean SW B"
     },
     "OperationCoinsPreserve": {
       "name": "Preserve X Combat Supply Vouchers",
@@ -3752,10 +3752,10 @@
       "help": "Give it a try, the bicycle turns into a motorcycle. Yukikaze-sama has given the luck to Commander nanoda, go for it nanoda!"
     },
     "ExecuteFixedPatrolScan": {
-      "1": "Efficiency mode",
-      "2": "Conservative mode",
       "name": "Forced Movement Level",
-      "help": "When Akashi is blocked by a fleet icon or spawns outside radar range, choose how to move fleets to deal with it. 1 = Efficiency mode: only switch fleets and check each radar, move no fleet, fastest; give up if not found. 2 = Conservative mode: first scan radars only (no movement), then move fleets one by one and rescan if not found; more thorough but moves fleets and slower. Default 1 (Efficiency); legacy bool true maps to 2, false/0 maps to 1."
+      "help": "When Akashi is blocked by a fleet icon or spawns outside radar range, choose how to move fleets to deal with it. 1 = Efficiency mode: only switch fleets and check each radar, move no fleet, fastest; give up if not found. 2 = Conservative mode: first scan radars only (no movement), then move fleets one by one and rescan if not found; more thorough but moves fleets and slower. Default 1 (Efficiency); legacy bool true maps to 2, false/0 maps to 1.",
+      "1": "Efficiency mode",
+      "2": "Conservative mode"
     },
     "SkipHpCheck": {
       "name": "Sacrifice run: skip HP check",
@@ -3800,13 +3800,13 @@
       "enemy": "Repeatedly attempt to detect hidden enemies"
     },
     "Siren_Fleet": {
+      "name": "Fleet for Enemy Detection",
+      "help": "Select the fleet to use when detecting hidden enemies. 0 means use current fleet, 1-4 means use specified fleet",
       "0": "Use current fleet",
       "1": "Fleet 1",
       "2": "Fleet 2",
       "3": "Fleet 3",
-      "4": "Fleet 4",
-      "name": "Fleet for Enemy Detection",
-      "help": "Select the fleet to use when detecting hidden enemies. 0 means use current fleet, 1-4 means use specified fleet"
+      "4": "Fleet 4"
     }
   },
   "OpsiCheckLeveling": {
@@ -3859,12 +3859,12 @@
       "False": "Disabled"
     },
     "CooldownHours": {
+      "name": "Cooldown Hours",
+      "help": "Cooldown period in hours after an auto-compose before the next one.",
       "12": "12",
       "24": "24",
       "48": "48",
-      "72": "72",
-      "name": "Cooldown Hours",
-      "help": "Cooldown period in hours after an auto-compose before the next one."
+      "72": "72"
     },
     "LastRun": {
       "name": "Last Run Time (Auto-recorded)",
@@ -3962,14 +3962,14 @@
       "help": "Only for 'Meowfficer Farming' mode. When current AP falls below this value, stop executing sea zone tasks and return to purchase step. Default 100."
     },
     "BuyActionPointMonthWeeks": {
+      "name": "Monthly Purchase Week Limit",
+      "help": "Buy action points with oil in at most N weeks per month; which weeks depends on actual demand, first come first served. 0 means no limit. The month-end purchase block week still applies.",
       "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
       "4": "4",
-      "5": "5",
-      "name": "Monthly Purchase Week Limit",
-      "help": "Buy action points with oil in at most N weeks per month; which weeks depends on actual demand, first come first served. 0 means no limit. The month-end purchase block week still applies."
+      "5": "5"
     }
   },
   "OpsiPreventActionPointOverflow": {
@@ -4151,12 +4151,12 @@
       "help": ""
     },
     "Positions": {
+      "name": "Farmland Positions",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Farmland Positions",
-      "help": ""
+      "4": "4"
     },
     "WorkerFilter": {
       "name": "Farm Worker Filter",
@@ -4183,13 +4183,13 @@
       "coffee_bean": "Coffee Beans"
     },
     "PlantPotatoes": {
+      "name": "Plant Wheat",
+      "help": "",
       "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Plant Wheat",
-      "help": ""
+      "4": "4"
     }
   },
   "IslandOrchard": {
@@ -4198,12 +4198,12 @@
       "help": "The warehouse only recognizes two rows. Please clean up regularly."
     },
     "Positions": {
+      "name": "Orchard Positions",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Orchard Positions",
-      "help": ""
+      "4": "4"
     },
     "WorkerFilter": {
       "name": "Orchard Worker Filter",
@@ -4237,13 +4237,13 @@
       "green_jujube": "Green Jujube"
     },
     "PlantRubber": {
+      "name": "Plant Rubber",
+      "help": "",
       "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Plant Rubber",
-      "help": ""
+      "4": "4"
     },
     "AmagiChanRubber": {
       "name": "Amagi-chan Plants Rubber",
@@ -4256,10 +4256,10 @@
       "help": ""
     },
     "Positions": {
-      "1": "1",
-      "2": "2",
       "name": "Nursery Positions",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "WorkerFilter": {
       "name": "Nursery Worker Filter",
@@ -4291,11 +4291,11 @@
       "asparagus": "Asparagus"
     },
     "PlantLavender": {
+      "name": "Plant Lavender",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "Plant Lavender",
-      "help": ""
+      "2": "2"
     }
   },
   "IslandRancher": {
@@ -4342,11 +4342,11 @@
       "help": "Supports 7 types of seafood: Bass, Yellowfin Tuna, Shell, Shrimp, Crab, Squid, Sea Cucumber.\nDefault: raise Yellowfin Tuna."
     },
     "Positions": {
+      "name": "Fishery Positions",
+      "help": "",
       "1": "1",
       "2": "2",
-      "3": "3",
-      "name": "Fishery Positions",
-      "help": ""
+      "3": "3"
     },
     "MinShell": {
       "name": "Shell Stock Threshold",
@@ -4421,12 +4421,12 @@
       "help": "Same for Saltwater Fish Meat (e.g. one Yellowfin Tuna gives 18). 0 = no exchange."
     },
     "PlantYellowfinTuna": {
+      "name": "Raise Yellowfin Tuna",
+      "help": "",
       "0": "0",
       "1": "1",
       "2": "2",
-      "3": "3",
-      "name": "Raise Yellowfin Tuna",
-      "help": ""
+      "3": "3"
     },
     "DefaultFish": {
       "name": "Default Fish",
@@ -4459,21 +4459,21 @@
       "help": ""
     },
     "Positions": {
+      "name": "Position Count",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Position Count",
-      "help": ""
+      "4": "4"
     },
     "MineSilver": {
+      "name": "Silver Mining Slots",
+      "help": "Number of idle mine posts to produce Silver; remaining stay idle",
       "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Silver Mining Slots",
-      "help": "Number of idle mine posts to produce Silver; remaining stay idle"
+      "4": "4"
     },
     "DefaultOre": {
       "name": "Default Ore",
@@ -4515,21 +4515,21 @@
       "help": ""
     },
     "Positions": {
+      "name": "Position Count",
+      "help": "",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Position Count",
-      "help": ""
+      "4": "4"
     },
     "CutElegant": {
+      "name": "Elegant Wood Slots",
+      "help": "Number of idle forest posts to produce Elegant wood; remaining stay idle",
       "0": "0",
       "1": "1",
       "2": "2",
       "3": "3",
-      "4": "4",
-      "name": "Elegant Wood Slots",
-      "help": "Number of idle forest posts to produce Elegant wood; remaining stay idle"
+      "4": "4"
     },
     "DefaultWood": {
       "name": "Default Wood",
@@ -4571,10 +4571,10 @@
       "help": "Meals are produced sequentially from 1 to 8. The production target is the Meal X quantity option. The next item is only executed after the previous one is fully satisfied. Later items will not affect the completion of earlier items during runtime.\nDouble Bamboo Shoots and Asparagus Shrimp in meals 1-8 will automatically switch to corresponding seasonal meals based on the current season."
     },
     "PostNumber": {
-      "1": "1",
-      "2": "2",
       "name": "Position Count",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "ChefFilter": {
       "name": "Chef Filter",
@@ -4818,10 +4818,10 @@
       "help": "Meals are produced sequentially from 1 to 8. The production target is the Meal X quantity option. The next item is only executed after the previous one is fully satisfied. Later items will not affect the completion of earlier items during runtime.\nHoney drinks support automatic production; make sure honey stock is sufficient.\nSpring Flower Tea and Fresh Pineapple Juice in meals will automatically switch to corresponding seasonal meals based on the current season."
     },
     "PostNumber": {
-      "1": "1",
-      "2": "2",
       "name": "Position Count",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "ChefFilter": {
       "name": "Chef Filter",
@@ -5029,10 +5029,10 @@
       "help": "Meals are produced sequentially from 1 to 8. The production target is the Meal X quantity option. The next item is only executed after the previous one is fully satisfied. Later items will not affect the completion of earlier items during runtime."
     },
     "PostNumber": {
-      "1": "1",
-      "2": "2",
       "name": "Position Count",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "ChefFilter": {
       "name": "Chef Filter",
@@ -5200,10 +5200,10 @@
       "help": "Meals are produced sequentially from 1 to 8. The production target is the Meal X quantity option. The next item is only executed after the previous one is fully satisfied. Later items will not affect the completion of earlier items during runtime."
     },
     "PostNumber": {
-      "1": "1",
-      "2": "2",
       "name": "Position Count",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "ChefFilter": {
       "name": "Chef Filter",
@@ -5407,10 +5407,10 @@
       "help": "Meals are produced sequentially from 1 to 8. The production target is the Meal X quantity option. The next item is only executed after the previous one is fully satisfied. Later items will not affect the completion of earlier items during runtime."
     },
     "PostNumber": {
-      "1": "1",
-      "2": "2",
       "name": "Position Count",
-      "help": ""
+      "help": "",
+      "1": "1",
+      "2": "2"
     },
     "ChefFilter": {
       "name": "Chef Filter",
@@ -5591,11 +5591,11 @@
       "help": "Only crafts filing cabinets."
     },
     "Positions": {
+      "name": "Position Count",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "Position Count",
-      "help": ""
+      "2": "2"
     },
     "Products": {
       "name": "Wood Processing Products",
@@ -5608,11 +5608,11 @@
       "help": "Only crafts filter cartridges."
     },
     "Positions": {
+      "name": "Position Count",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "Position Count",
-      "help": ""
+      "2": "2"
     },
     "Products": {
       "name": "Electronic Processing Products",
@@ -5625,11 +5625,11 @@
       "help": "Starts making cutlery when nails exceed 20. Manual operation needed if not unlocked."
     },
     "Positions": {
+      "name": "Position Count",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "Position Count",
-      "help": ""
+      "2": "2"
     },
     "Products": {
       "name": "Industrial Goods",
@@ -5642,11 +5642,11 @@
       "help": "Starts making footwear when leather exceeds 10. Manual operation needed if not unlocked."
     },
     "Positions": {
+      "name": "Position Count",
+      "help": "",
       "0": "0",
       "1": "1",
-      "2": "2",
-      "name": "Position Count",
-      "help": ""
+      "2": "2"
     },
     "Products": {
       "name": "Handmade Goods",
@@ -5745,22 +5745,22 @@
       "False": "Disabled"
     },
     "Batch1Shops": {
+      "name": "Batch 1 Shops",
+      "help": "Select shops for the first batch",
       "1": "Fish Restaurant",
       "2": "Teahouse",
       "3": "Juu Eatery",
       "4": "Grill",
-      "5": "Juu Coffee",
-      "name": "Batch 1 Shops",
-      "help": "Select shops for the first batch"
+      "5": "Juu Coffee"
     },
     "Batch2Shops": {
+      "name": "Batch 2 Shops",
+      "help": "Select shops for the second batch",
       "1": "Fish Restaurant",
       "2": "Teahouse",
       "3": "Juu Eatery",
       "4": "Grill",
-      "5": "Juu Coffee",
-      "name": "Batch 2 Shops",
-      "help": "Select shops for the second batch"
+      "5": "Juu Coffee"
     },
     "SeasonalReplaceEnabled": {
       "name": "Seasonal Replace",
@@ -6965,25 +6965,25 @@
       "help": "Scales daily usage targets up, e.g. 0.1 keeps 10% extra."
     },
     "FieldsEfficiency": {
+      "name": "Farmland efficiency bonus",
+      "help": "Faircrop Fields output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
       "0": "0",
       "4": "4",
-      "12": "12",
-      "name": "Farmland efficiency bonus",
-      "help": "Faircrop Fields output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more."
+      "12": "12"
     },
     "OrchardEfficiency": {
+      "name": "Orchard efficiency bonus",
+      "help": "Sweetscent Orchard output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
       "0": "0",
       "4": "4",
-      "12": "12",
-      "name": "Orchard efficiency bonus",
-      "help": "Sweetscent Orchard output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more."
+      "12": "12"
     },
     "NurseryEfficiency": {
+      "name": "Nursery efficiency bonus",
+      "help": "Newsprout Nursery output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more.",
       "0": "0",
       "4": "4",
-      "12": "12",
-      "name": "Nursery efficiency bonus",
-      "help": "Newsprout Nursery output bonus from the island Character Collection rewards; pick the value you have claimed (0, 4% or 12%). If unsure, pick 0: the plan slightly underestimates output and just plants a little more."
+      "12": "12"
     },
     "RestaurantGrade": {
       "name": "Fish Restaurant grade",
@@ -7721,18 +7721,18 @@
     },
     "MenuDevelop": {
       "HomePage": "Home",
-      "Translate": "Translate",
-      "Announcement": "Announcement",
-      "Update": "Updater",
-      "Remote": "Remote Control",
-      "Setting": "Settings",
-      "Utils": "Utils",
       "EventCalc": "Event Calculator",
       "OtherConfig": "Other Settings",
       "MainChapters": "Main Chapters",
       "GemsFarmingGroup": "Urgent Commission",
       "EventStages": "Event Stages",
-      "EventDailyGroup": "Event Daily"
+      "EventDailyGroup": "Event Daily",
+      "Translate": "Translate",
+      "Announcement": "Announcement",
+      "Update": "Updater",
+      "Remote": "Remote Control",
+      "Setting": "Settings",
+      "Utils": "Utils"
     },
     "Overview": {
       "Scheduler": "Scheduler",
