@@ -19,7 +19,7 @@
 //   *[style*="--header-text--"] { font-size:1rem; font-weight:bold }
 //   div[style*="--menu-X--"]>button { ... }
 // 所以 aside/menu/header 也必须是同一套 id 与标记。
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet } from '../api/client'
 import { injectWallpaperToggle, hideWallpaperToggle } from '../lib/wallpaperToggle'
@@ -57,6 +57,39 @@ let cachedMenu: MenuGroup[] = []
 let cachedFixedMenu: FixedMenuResp | null = null
 let cachedHeader: HeaderResp | null = null
 let cachedInstances: Instance[] = []
+
+/**
+ * 菜单收起态（桌面端）：true = 菜单列收起、aside 下显示任务缩写片。
+ * localStorage 持久记忆（跨标签/刷新都保持，长卿 2026-11-21 反馈 sessionStorage 在
+ * 新标签/重开页面时会丢）；写入同时落 localStorage，读不到时按展开处理。
+ */
+let persistedMenuCollapsed = (() => {
+  try { return localStorage.getItem('alas_newui_menu_collapsed') === '1' } catch { return false }
+})()
+
+/**
+ * 收起态任务片的两字缩写（组 key → 短名）。仅中文文案可用；
+ * 非中文（en/ja）退化为名称前两字符。日活/OS 为长卿 2026-11-21 定稿。
+ */
+const MENU_SHORT_ZH: Record<string, string> = {
+  Overview: '总览',
+  Alas: '智慧',
+  Farm: '出击',
+  Event: '活动',
+  EventDaily: '日活',
+  Reward: '收获',
+  DailyMission: '每日',
+  Opsi: 'OS',
+  Island: '岛屿',
+  FleetManagement: '舰队',
+  Tool: '工具',
+  HomePage: '主页',
+  Update: '更新',
+  Remote: '远程',
+  Setting: '设置',
+  Announcement: '公告',
+  Utils: '开发',
+}
 
 type Instance = { name: string; state: number }
 type InstancesResp = { instances: Instance[] }
@@ -169,6 +202,9 @@ function iconButton(icon: string, label: string, value: string, active: boolean)
 /** 二级菜单项（老 UI 的「管理」「开发者工具」等页面会在菜单区放自己的入口列表，
  *  而不是显示实例的配置树）。key 用于 --menu-{key}-- 高亮标记。 */
 export type SubMenuItem = { key: string; name: string; onClick?: () => void }
+
+/** 收起态任务片数据（D4a）：subs 非空 = 有二级（红点 + 弹层预览）。 */
+type ChipItem = { key: string; name: string; short: string; subs?: { key: string; name: string }[] }
 
 export function Shell({
   active,
@@ -338,6 +374,68 @@ export function Shell({
   // 侧栏/菜单由 HTML 字符串注入，导航靠事件委托（与老 UI onclick 语义一致）。
   const asideRef = (el: HTMLDivElement | null) => {
     if (!el) return
+    // ===== 菜单收起态（D4a）事件委托：防重复绑定，chips 悬停/点击/弹层 =====
+    if (!(el as any).__alasChipBound) {
+      ;(el as any).__alasChipBound = true
+      // 悬停 0.2s 弹层预览（悬停=预览，不改变当前任务）
+      el.addEventListener('mouseover', (ev: MouseEvent) => {
+        if (!persistedMenuCollapsed) return
+        const chip = (ev.target as HTMLElement).closest('.alas-menu-chip') as HTMLElement | null
+        if (!chip) return
+        if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current)
+        const key = chip.dataset.key ?? ''
+        hoverTimerRef.current = window.setTimeout(() => {
+          const item = chipItemsRef.current.find(x => x.key === key)
+          if (!item) return
+          // 无二级的项不弹窗（长卿 2026-11-21）：悬停只对有二级的片生效
+          if (!item.subs || !item.subs.length) return
+          const cr = chip.getBoundingClientRect()
+          // 弹层用 fixed 定位挂 body（aside 有 overflow:auto 会裁掉溢出的弹层，
+          // 且内容区卡片会盖住 aside 内的浮层——长卿 2026-11-21 反馈）
+          setChipPop({ key, name: item.name, top: cr.top, left: cr.right + 8 })
+        }, 200)
+      })
+      // 移出 0.26s 后收回；移入弹层不收回
+      el.addEventListener('mouseout', (ev: MouseEvent) => {
+        if (!persistedMenuCollapsed) return
+        const chip = (ev.target as HTMLElement).closest('.alas-menu-chip') as HTMLElement | null
+        if (!chip) return
+        if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current)
+        const rel = ev.relatedTarget as HTMLElement | null
+        if (rel && rel.closest && rel.closest('.alas-chip-pop')) return
+        window.setTimeout(() => {
+          setChipPop(cur => (cur && document.querySelector('.alas-chip-pop') && (document.querySelector('.alas-chip-pop') as HTMLElement).matches(':hover')) ? cur : null)
+        }, 260)
+      })
+      // 点击=确认：片跳组内第一项/自身；弹层子项直达；展开按钮恢复菜单列
+      el.addEventListener('click', (ev: MouseEvent) => {
+        if (!persistedMenuCollapsed) return
+        const t = ev.target as HTMLElement
+        const expandBtn = t.closest('.alas-chip-expand') as HTMLElement | null
+        if (expandBtn) {
+          ev.stopPropagation()
+          toggleMenuCollapsed()
+          return
+        }
+        const popItem = t.closest('.alas-chip-pop-item') as HTMLElement | null
+        if (popItem) {
+          ev.stopPropagation()
+          setChipPop(null)
+          navigateMenuKeyRef.current?.(popItem.dataset.key ?? '')
+          return
+        }
+        const chip = t.closest('.alas-menu-chip') as HTMLElement | null
+        if (!chip) return
+        setChipPop(null)
+        const key = chip.dataset.key ?? ''
+        const item = chipItemsRef.current.find(x => x.key === key)
+        if (!item) return
+        navigateMenuKeyRef.current?.(item.subs && item.subs.length ? item.subs[0].key : key)
+      })
+      document.addEventListener('keydown', (ev: KeyboardEvent) => {
+        if (ev.key === 'Escape') setChipPop(null)
+      })
+    }
     el.onclick = (ev) => {
       const btnEl = (ev.target as HTMLElement).closest('button')
       if (!btnEl) return
@@ -478,6 +576,25 @@ export function Shell({
   // 桌面端：两者同时存在（aside/menu/content 三栏），menuClass 永远是 collapsed
   //        这个类只在 alas-mobile.css 里是 display:none，桌面无影响。
   const [menuOpen, setMenuOpen] = useState(false)  // 移动端专用：菜单是否展开
+  // 桌面端菜单伸缩（D4a 定稿：默认展开；点把手收起 → 菜单列宽度归零，
+  // aside 下方出现当前入口的任务缩写片；悬停 0.2s 弹层预览二级，点击确认）。
+  // 长卿 2026-11-21：「旁边这个长条不要加」——收起态不留窄条，宽度直接为 0。
+  const [menuCollapsed, setMenuCollapsed] = useState(persistedMenuCollapsed)
+  // 弹层：当前悬停/点击的片（组 key 或固定入口 key），null = 关闭
+  const [chipPop, setChipPop] = useState<{ key: string; name: string; top: number; left: number } | null>(null)
+  const hoverTimerRef = useRef<number | null>(null)
+  // asideRef 的事件监听只绑一次，闭包里引用最新数据用 ref 中转
+  const chipItemsRef = useRef<ChipItem[]>([])
+  const navigateMenuKeyRef = useRef<((key: string) => void) | null>(null)
+  const toggleMenuCollapsed = () => {
+    setMenuCollapsed(v => {
+      const next = !v
+      persistedMenuCollapsed = next
+      try { localStorage.setItem('alas_newui_menu_collapsed', next ? '1' : '0') } catch { /* 隐私模式 */ }
+      return next
+    })
+    setChipPop(null)
+  }
   // 菜单折叠状态：**必须由 React 管理**。
   // 坑：原来直接输出 `<details>` 字符串，React 每次重渲染都会重建这些 DOM，
   // 浏览器的 open 属性随之丢失 —— 表现就是「点了一个二级菜单项，
@@ -498,36 +615,14 @@ export function Shell({
   const menuClass = isMobile
     ? (menuOpen ? '' : 'container-menu-collapsed')
     : 'container-menu-collapsed'
+  // 桌面端伸缩：alas-menu-x 收起（宽度归零、无长条——长卿 2026-11-21）。
+  // 展开态不加类，菜单列照常显示。
+  const menuXClass = !isMobile && menuCollapsed ? ' alas-menu-x' : ''
 
-  const asideHtml =
-    `<div id="pywebio-scope-aside_home">` +
-    iconButton(ICON.develop, fixedMenu.aside_home, 'Home', active === 'Home') +
-    `</div>` +
-    `<div id="pywebio-scope-aside_instance">` +
-    instances
-      .map((inst, i) =>
-        `<div id="pywebio-scope-alas-instance-${i}">` +
-        iconButton(instanceIcon(inst.state), inst.name, inst.name, active === inst.name) +
-        `</div>`,
-      )
-      .join('') +
-    `</div>` +
-    `<div id="pywebio-scope-aside_manage">` +
-    iconButton(ICON.setting, fixedMenu.aside_manage, 'Manage', active === 'Manage') +
-    `</div>`
 
-  // 页眉标题：老 UI 是 set_title(t(f"Task.{task}.name")) —— 显示**当前任务的中文名**
-  // （主线图 / 紧急委托 / 大世界…），不是笼统的「配置」。
-  // 之前配置页传了固定的 title="配置"，所有任务页眉都一样，分不清在看哪个
-  // （长卿 2026-11-19：「除了总览和统计，其他的都是配置这东西根本分不清楚」）。
-  const resolvedTitle = (() => {
-    if (title && title !== '配置') return title
-    for (const g of menu) {
-      const hit = g.tasks.find(x => x.key === active)
-      if (hit) return hit.name
-    }
-    return title
-  })()
+  // ===== 菜单收起态（D4a 定稿）=====
+  // 收起态任务片数据：与 menuHtml 同一套三分支数据源。
+  // subs 非空 = 有二级（片上加红点 + 悬停弹层预览）。
 
   // 菜单树：老 UI 有两套，必须区分（实测 22267 真实 DOM）。
   //   ① 主页（HomePagePage）：6 个固定入口，无搜索框，--menu-HomePage/Update/Remote/Setting/Announcement/Utils
@@ -596,6 +691,124 @@ export function Shell({
           .join('') +
         `</div>`
 
+  const chipItems = (): ChipItem[] => {
+    const shortOf = (key: string, name: string) => {
+      const zh = MENU_SHORT_ZH[key]
+      // 中文映射优先；非中文文案退化为前两字符
+      if (zh && /[\u4e00-\u9fa5]/.test(name)) return zh
+      return name.slice(0, 2)
+    }
+    if (submenu && submenu.length) {
+      return submenu.map(it => ({ key: it.key, name: it.name, short: shortOf(it.key, it.name) }))
+    }
+    if (FIXED_PAGE_KEYS.has(active)) {
+      return HOME_MENU.map(it => ({ key: it.key, name: it.name, short: shortOf(it.key, it.name) }))
+    }
+    const items: ChipItem[] = []
+    items.push({ key: 'Overview', name: '总览', short: shortOf('Overview', '总览') })
+    for (const g of menu) {
+      if (!g.tasks.length) {
+        items.push({ key: g.key, name: g.name, short: shortOf(g.key, g.name) })
+      } else {
+        items.push({ key: g.key, name: g.name, short: shortOf(g.key, g.name), subs: g.tasks })
+      }
+    }
+    return items
+  }
+  const chipItemsList = chipItems()
+
+  // 与 menuRef 委托同一套路由表（抽函数避免两处维护）
+  const navigateMenuKey = (key: string) => {
+    const sub = submenu?.find(it => it.key === key)
+    if (sub?.onClick) { sub.onClick(); return }
+    if (key === 'Overview') { navigate('/overview/' + encodeURIComponent(instanceName)); return }
+    if (key === 'EventCalcEntry') { navigate('/event-calc/' + encodeURIComponent(instanceName)); return }
+    if (COLLECTION_ROUTES[key]) {
+      navigate('/' + COLLECTION_ROUTES[key] + '/' + encodeURIComponent(instanceName))
+      return
+    }
+    if (key === 'HomePage') {
+      try { sessionStorage.removeItem('alas_newui_last_route') } catch { /* 隐私模式 */ }
+      navigate('/')
+      return
+    }
+    if (key === 'Update') { navigate('/update'); return }
+    if (key === 'Remote') { navigate('/remote'); return }
+    if (key === 'Setting') { navigate('/settings/' + encodeURIComponent(instanceName)); return }
+    if (key === 'Announcement') { navigate('/announcement'); return }
+    if (key === 'Utils') { navigate('/tool/' + encodeURIComponent(instanceName)); return }
+    const toolGroup = menu.find(g => g.page === 'tool' && g.tasks.some(t => t.key === key))
+    if (toolGroup) {
+      navigate(`/tool/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
+      return
+    }
+    navigate(`/config/${encodeURIComponent(instanceName)}/${encodeURIComponent(key)}`)
+  }
+  // 事件闭包引用最新值（监听只绑一次）
+  chipItemsRef.current = chipItemsList
+  navigateMenuKeyRef.current = navigateMenuKey
+
+  // 弹层内容：该入口的二级任务列表（点击直达子项）
+  const chipPopHtml = (() => {
+    if (!chipPop) return ''
+    const item = chipItemsList.find(x => x.key === chipPop.key)
+    const subs = item?.subs ?? []
+    const rows = subs.length
+      ? subs.map(t => `<button class="alas-chip-pop-item" data-key="${t.key}">${t.name}</button>`).join('')
+      : `<div class="alas-chip-pop-empty">（无二级）</div>`
+    return `<div class="alas-chip-pop-title">${chipPop.name}</div>${rows}`
+  })()
+
+  const asideHtml =
+    `<div id="pywebio-scope-aside_home">` +
+    iconButton(ICON.develop, fixedMenu.aside_home, 'Home', active === 'Home') +
+    `</div>` +
+    `<div id="pywebio-scope-aside_instance">` +
+    instances
+      .map((inst, i) =>
+        `<div id="pywebio-scope-alas-instance-${i}">` +
+        iconButton(instanceIcon(inst.state), inst.name, inst.name, active === inst.name) +
+        `</div>`,
+      )
+      .join('') +
+    `</div>` +
+    `<div id="pywebio-scope-aside_manage">` +
+    iconButton(ICON.setting, fixedMenu.aside_manage, 'Manage', active === 'Manage') +
+    `</div>` +
+    // 收起态任务片区（桌面端）：divider + 任务片滚动区 + 展开钮固定底部。
+    // 展开态整体隐藏（CSS 控制），不干扰原侧栏。
+    `<div class="alas-chip-zone${menuCollapsed ? ' alas-chip-zone-open' : ''}">` +
+    `<div class="alas-chip-divider"></div>` +
+    `<div class="alas-chip-list">` +
+    chipItemsList
+      .map(it => {
+        const on = active === it.key || (active === 'Home' && it.key === 'HomePage')
+          || (() => {
+            // 实例页：当前任务 key 命中组内任务时高亮该组片
+            if (!it.subs) return false
+            return it.subs.some(t => t.key === active)
+          })()
+        return `<button class="alas-menu-chip${on ? ' alas-menu-chip-on' : ''}${it.subs?.length ? ' alas-menu-chip-has-sub' : ''}"` +
+          ` data-key="${it.key}" title="${it.name}">${it.short}</button>`
+      })
+      .join('') +
+    `</div>` +
+    `<button class="alas-chip-expand" title="展开菜单" aria-label="展开菜单">›</button>` +
+    `</div>`
+
+  // 页眉标题：老 UI 是 set_title(t(f"Task.{task}.name")) —— 显示**当前任务的中文名**
+  // （主线图 / 紧急委托 / 大世界…），不是笼统的「配置」。
+  // 之前配置页传了固定的 title="配置"，所有任务页眉都一样，分不清在看哪个
+  // （长卿 2026-11-19：「除了总览和统计，其他的都是配置这东西根本分不清楚」）。
+  const resolvedTitle = (() => {
+    if (title && title !== '配置') return title
+    for (const g of menu) {
+      const hit = g.tasks.find(x => x.key === active)
+      if (hit) return hit.name
+    }
+    return title
+  })()
+
   return (
     <div className="pywebio">
       <div id="output-container" className="container no-fix-height">
@@ -612,7 +825,41 @@ export function Shell({
             </div>
             <div id="pywebio-scope-contents">
               <div id="pywebio-scope-aside" ref={asideRef} dangerouslySetInnerHTML={{ __html: asideHtml }} />
-              <div id="pywebio-scope-menu" ref={menuRef} className={menuClass} dangerouslySetInnerHTML={{ __html: menuHtml }} />
+              <div id="pywebio-scope-menu" ref={menuRef} className={menuClass + menuXClass} dangerouslySetInnerHTML={{ __html: menuHtml }} />
+              {!isMobile &&
+                <button
+                  type="button"
+                  className={'alas-menu-handle' + (menuCollapsed ? ' alas-menu-handle-x' : '')}
+                  aria-label={menuCollapsed ? '展开菜单' : '收起菜单'}
+                  title={menuCollapsed ? '展开菜单' : '收起菜单'}
+                  onClick={toggleMenuCollapsed}
+                >{menuCollapsed ? '›' : '‹'}</button>
+              }
+              {!isMobile && chipPop &&
+                <div className="alas-chip-pop" style={{ top: chipPop.top, left: chipPop.left }}
+                  ref={(el) => {
+                    // 防截断：弹层底部超出视口时上移（长卿 2026-11-21：底部显示一半）。
+                    // 弹层切换目标（key 变）时重新校正。
+                    if (!el) return
+                    const curKey = chipPop.key
+                    if ((el as any).__alasPopKey === curKey) return
+                    ;(el as any).__alasPopKey = curKey
+                    const r = el.getBoundingClientRect()
+                    const vh = window.innerHeight
+                    if (r.bottom > vh - 8) {
+                      const shifted = Math.max(8, vh - r.height - 8)
+                      setChipPop(cur => (cur ? { ...cur, top: shifted } : cur))
+                    }
+                  }}
+                  onClick={(ev) => {
+                    const item = (ev.target as HTMLElement).closest('.alas-chip-pop-item') as HTMLElement | null
+                    if (!item) return
+                    ev.stopPropagation()
+                    setChipPop(null)
+                    navigateMenuKey(item.dataset.key ?? '')
+                  }}
+                  dangerouslySetInnerHTML={{ __html: chipPopHtml }} />
+              }
               {children}
               <div id="pywebio-scope-statistics-content" style={{ display: 'none' }}></div>
             </div>

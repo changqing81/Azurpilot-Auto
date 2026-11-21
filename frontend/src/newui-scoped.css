@@ -2391,6 +2391,93 @@ html[data-alas-theme="dark_advanced_material"] #root .ec-page-desc {
   scroll-margin-top: 1rem;
 }
 
+/* ==========================================================================
+   统计页数据源内容异常提示徽（st-warn）
+   长卿 2026-11-21：数据源灯只反映"库在写入"，反映不了数据本身有效——
+   短猫 500 轮金菜全 0 统计上不可能却判"正常"。后端 get_statistics_data_state
+   逐项内容校验（大世界/委托/科研），前端用琥珀叹号 + 悬浮说明展示；
+   档位关闭（do_not）不算异常，显示灰色 i 提示开启路径。
+   ========================================================================== */
+#root .st-warn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: .95rem;
+  height: .95rem;
+  border-radius: 50%;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: .7rem;
+  font-weight: 700;
+  cursor: help;
+  border: 1px solid rgba(180, 83, 9, .25);
+  user-select: none;
+}
+
+#root .st-warn .st-warn-pop {
+  position: absolute;
+  bottom: calc(100% + .55rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  min-width: 240px;
+  max-width: 300px;
+  background: #1f2937;
+  color: #f9fafb;
+  font-size: .74rem;
+  font-weight: 400;
+  line-height: 1.55;
+  padding: .6rem .75rem;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .22);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+  z-index: 30;
+  text-align: left;
+  white-space: normal;
+}
+#root .st-warn .st-warn-pop::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1f2937;
+}
+#root .st-warn:hover .st-warn-pop,
+#root .st-warn:focus .st-warn-pop,
+#root .st-warn:active .st-warn-pop {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+#root .st-warn .st-warn-pop b {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* 档位关闭：灰色 i（信息性提示，不是异常） */
+#root .st-warn.st-warn-info {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+}
+
+/* 深色主题适配 */
+html[data-alas-theme="dark"] #root .st-warn,
+html[data-alas-theme="dark_advanced_material"] #root .st-warn {
+  background: rgba(251, 191, 36, .15);
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, .3);
+}
+html[data-alas-theme="dark"] #root .st-warn.st-warn-info,
+html[data-alas-theme="dark_advanced_material"] #root .st-warn.st-warn-info {
+  background: rgba(255, 255, 255, .08);
+  color: #9ca3af;
+  border-color: rgba(255, 255, 255, .15);
+}
+
 /* 暗色适配 */
 html[data-alas-theme="dark"] #root .oc-tabs,
 html[data-alas-theme="dark_advanced_material"] #root .oc-tabs {
@@ -2418,6 +2505,259 @@ html[data-alas-theme="dark_advanced_material"] #root .oc-title {
 html[data-alas-theme="dark"] #root .oc-desc,
 html[data-alas-theme="dark_advanced_material"] #root .oc-desc {
   color: rgba(255, 255, 255, .55);
+}
+
+/* ==========================================================================
+   菜单伸缩（D4a 定稿，2026-11-21 长卿确认）
+   - 桌面端：菜单列可收起（.alas-menu-x = 宽度归零，无长条）；
+     收起后 aside 下方出现任务双字片（.alas-menu-chip）+ 悬停弹层预览二级。
+   - 把手（.alas-menu-handle）常驻菜单列右缘，‹/› 切换。
+   - 移动端不启用（互斥逻辑沿用 alas-mobile.css 的原语义）。
+   ========================================================================== */
+#root #pywebio-scope-contents {
+  /* 把手（.alas-menu-handle）的定位基准 */
+  position: relative;
+}
+
+#root #pywebio-scope-menu.alas-menu-x {
+  /* !important：主题 CSS（transparent/advanced-material 等）在 scoped.css 之后
+     动态注入，且带有 #pywebio-scope-menu 的宽度规则，会压过同特异度的本规则
+     （先例见上方「活动计算器」段注释 2153-2168）。 */
+  width: 0 !important;
+  min-width: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  transition: width .26s ease, opacity .18s ease, padding .26s ease;
+}
+
+/* 展开态：也给一个过渡，收起/展开动画对称 */
+#root #pywebio-scope-menu {
+  transition: width .26s ease, opacity .18s ease, padding .26s ease;
+}
+
+/* 把手：挂在 header 与内容区交界的垂直中部；默认完全透明，悬停时半透明白底。
+   长卿 2026-11-21：移到中间、跟背景一样透明、只留一个小箭头。 */
+#root .alas-menu-handle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 246px;
+  width: 18px;
+  height: 44px;
+  border: none;
+  border-radius: 0 8px 8px 0;
+  background: transparent;
+  color: rgba(90, 97, 120, .8);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 95;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: left .26s ease, background-color .15s ease, color .15s ease;
+}
+#root .alas-menu-handle:hover {
+  background: rgba(255, 255, 255, .45);
+  color: #3a4256;
+}
+/* 展开态：把手贴在菜单列右缘（aside 64px + menu 192px）；收起态贴图标栏右缘。
+   top 用 50% + translateY 居中于 header 下方的内容区。 */
+#root .alas-menu-handle {
+  left: 247px;
+}
+#root .alas-menu-handle.alas-menu-handle-x {
+  left: 57px;
+}
+
+/* 收起态任务片区：在 aside 底部追加，展开态整体隐藏 */
+#root .alas-chip-zone {
+  display: none;
+}
+#root .alas-chip-zone.alas-chip-zone-open {
+  /* 占满 aside 剩余高度：任务片区可滚，展开钮固定在最底（长卿 2026-11-21） */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 6px 12px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(80, 90, 120, .18);
+  overflow: hidden;
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* aside 收起态变 flex 列：chip-zone 拿到除图标区外的全部高度（:has 需要 Edge 105+） */
+#root #pywebio-scope-aside:has(> .alas-chip-zone-open) {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* 任务片滚动区：超出滚动，展开钮不参与滚动 */
+#root .alas-chip-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  scrollbar-width: thin;
+}
+
+#root .alas-chip-divider {
+  width: 30px;
+  height: 1px;
+  background: rgba(80, 90, 120, .18);
+  flex-shrink: 0;
+}
+
+#root .alas-menu-chip {
+  position: relative;
+  width: 46px;
+  height: 30px;
+  border-radius: 9px;
+  border: none;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, .75);
+  color: #3a4256;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 2px;
+  letter-spacing: .5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+#root .alas-menu-chip:hover {
+  background: rgba(255, 255, 255, .95);
+}
+#root .alas-menu-chip.alas-menu-chip-on {
+  background: #2f3542;
+  color: #fff;
+}
+/* 有二级的片：右下红点提示 */
+#root .alas-menu-chip.alas-menu-chip-has-sub::after {
+  content: "";
+  position: absolute;
+  right: 4px;
+  bottom: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #e91e63;
+  opacity: .75;
+}
+#root .alas-menu-chip.alas-menu-chip-on.alas-menu-chip-has-sub::after {
+  background: #ffd0dd;
+}
+
+/* 展开按钮（收起态左栏底部） */
+#root .alas-chip-expand {
+  width: 40px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(120, 100, 150, .28);
+  background: rgba(255, 255, 255, .92);
+  color: #6b7386;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+#root .alas-chip-expand:hover {
+  background: #fff;
+  color: #3a4256;
+}
+
+/* 悬停弹层：二级任务列表。
+   fixed 挂在组件顶层（不在 aside 内）：aside 有 overflow:auto 会裁掉溢出弹层，
+   且内容区卡片在 DOM 顺序上靠后，会盖住 aside 内浮层（长卿 2026-11-21 反馈）。 */
+#root .alas-chip-pop {
+  position: fixed;
+  min-width: 158px;
+  max-width: 220px;
+  z-index: 9999;
+  background: rgba(255, 255, 255, .97);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 12px 34px rgba(120, 80, 140, .28);
+  border: 1px solid rgba(255, 255, 255, .7);
+}
+#root .alas-chip-pop-title {
+  padding: 4px 12px 8px;
+  font-size: .8rem;
+  font-weight: 600;
+  color: #3a4256;
+  border-bottom: 1px solid rgba(80, 90, 120, .14);
+  margin-bottom: 6px;
+}
+#root .alas-chip-pop-item {
+  display: block;
+  width: 100%;
+  padding: 7px 12px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  font-size: .84rem;
+  font-family: inherit;
+  color: #3a4256;
+  text-align: left;
+  cursor: pointer;
+}
+#root .alas-chip-pop-item:hover {
+  background: rgba(72, 117, 164, .12);
+}
+#root .alas-chip-pop-empty {
+  padding: 7px 12px;
+  font-size: .8rem;
+  color: #9aa0b0;
+}
+
+/* 深色主题适配（dark / dark_advanced_material） */
+html[data-alas-theme="dark"] #root .alas-menu-chip,
+html[data-alas-theme="dark_advanced_material"] #root .alas-menu-chip {
+  background: rgba(255, 255, 255, .12);
+  color: rgba(255, 255, 255, .88);
+}
+html[data-alas-theme="dark"] #root .alas-menu-chip.alas-menu-chip-on,
+html[data-alas-theme="dark_advanced_material"] #root .alas-menu-chip.alas-menu-chip-on {
+  background: rgba(255, 255, 255, .92);
+  color: #2f3542;
+}
+html[data-alas-theme="dark"] #root .alas-chip-pop,
+html[data-alas-theme="dark_advanced_material"] #root .alas-chip-pop {
+  background: rgba(40, 44, 56, .97);
+  border-color: rgba(255, 255, 255, .12);
+}
+html[data-alas-theme="dark"] #root .alas-chip-pop-item,
+html[data-alas-theme="dark_advanced_material"] #root .alas-chip-pop-item {
+  color: rgba(255, 255, 255, .88);
+}
+html[data-alas-theme="dark"] #root .alas-chip-pop-title,
+html[data-alas-theme="dark_advanced_material"] #root .alas-chip-pop-title {
+  color: rgba(255, 255, 255, .92);
+}
+html[data-alas-theme="dark"] #root .alas-menu-handle,
+html[data-alas-theme="dark_advanced_material"] #root .alas-menu-handle {
+  background: rgba(40, 44, 56, .8);
+  border-color: rgba(255, 255, 255, .15);
+  color: rgba(255, 255, 255, .7);
 }
 
 /* 窄屏：页签横向滚动，不换行堆成好几行 */
