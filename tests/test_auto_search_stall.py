@@ -1,190 +1,202 @@
-"""自律停滞唤醒的单元测试。
+"""自律寻敌两级看门狗的单元测试（收编 PR #43 + 本地保护）。
 
-锁定 _auto_search_stall_detected / _auto_search_stall_wake_up 的行为：
+锁定 _auto_search_stuck_check / _auto_search_progress 的行为：
 
-1. 无操作未超时：不唤醒；
-2. 超时但画面在推进（战斗加载 / 战斗执行 / 结算菜单）：不唤醒；
-3. 超时且画面停滞 + 自律图标仍显示运行中：唤醒一次；
-4. 唤醒后复查窗口内仍无操作：报 GameStuckError 交回重启，不无限等待；
-5. 每次进入移动阶段重新计数（不跨战斗沿用）；
-6. 守护模式（_combat_status_timeout 为 None）完全跳过；
-7. device.click 自增 click_count 不会被误判成"又操作过"。
-
-阈值依据 2026-11-20 日志中 201 次「自动搜索移动中」实测：
-正常段内最长无操作 5.9 秒，取 120 秒是 20 倍余量。
+快级（18s）：
+1. 画面冻结（认不出自律开关）超时 → 点地图中央（第 1 次）；
+2. 图标仍在运行（软进展）→ 不触发快级；
+慢级（90s）：
+3. 图标仍在运行但持续无进展 → 超时点开关；
+4. 软进展只续快级，慢级照常到期；
+第 2/3 次唤醒点开关（单次点击防互相抵消）；
+5. 唤醒次数用尽 → GameStuckError 交回重启；
+6. 真进展（progress）全量重置计时器与尝试计数；
+7. 移动阶段入口重置（不跨战斗沿用）；
+本地保护：
+8. 守护模式（_combat_status_timeout 为 None）完全跳过；
+9. 续接链互斥（_restart_resume_guard）跳过；
+10. 未经 auto_search_moving 入口（计时器为 None）不误判。
 """
 
 import time
 import unittest
 from types import SimpleNamespace
 
-from module.combat.auto_search_combat import AutoSearchCombat
+from module.combat.auto_search_combat import (
+    AutoSearchCombat,
+    AUTO_SEARCH_MAP_CENTER,
+)
 from module.exception import GameStuckError
 
 
-class _StallStub:
-    """只挂载停滞检测所需方法的最小桩。
+class _FakeButton:
+    def __init__(self, name):
+        self.name = name
+        self.button = (0, 0, 1, 1)
 
-    直接复用真实方法（unbound），验证真实逻辑而非拷贝。
-    """
+    def __str__(self):
+        return self.name
 
-    _auto_search_stall_detected = AutoSearchCombat._auto_search_stall_detected
-    _auto_search_stall_wake_up = AutoSearchCombat._auto_search_stall_wake_up
+
+class _StuckStub:
+    """只挂载两级看门狗所需方法的最小桩。"""
+
+    _auto_search_stuck_check = AutoSearchCombat._auto_search_stuck_check
+    _auto_search_progress = AutoSearchCombat._auto_search_progress
     _auto_search_stall_reset = AutoSearchCombat._auto_search_stall_reset
-    auto_search_stall_seconds = 0.05
-    auto_search_stall_retry_seconds = 0.05
-    auto_search_stall_max_wake = 1
-    _auto_search_stall_clicks = 0
-    _auto_search_stall_wake = 0
-    _auto_search_stall_timer = None
+    auto_search_stuck_timeout = 0.05
+    auto_search_frozen_timeout = 0.05
+    auto_search_stuck_max_attempt = 3
+    _auto_search_stuck_timer = None
+    _auto_search_frozen_timer = None
     _auto_search_offset = (5, 5)
     _combat_status_timeout = 300
 
-    def __init__(self, loading=False, executing=False, menu=False, running=True,
-                 daemon=False):
-        self.device = SimpleNamespace(click_count=0, clicks=[])
-        self._loading = loading
-        self._executing = executing
-        self._menu = menu
+    def __init__(self, running=False, daemon=False, resume_guard=False):
+        self.device = SimpleNamespace(clicks=[])
         self._running = running
-        if daemon:
-            self._combat_status_timeout = None
-        self._intervals = {}
+        self._combat_status_timeout = None if daemon else 300
+        # 与真实实现一致：互斥标志挂在 __dict__，_auto_search_stuck_check 用
+        # self.__dict__.get('_restart_resume_guard') 读取
+        if resume_guard:
+            self.__dict__['_restart_resume_guard'] = True
+        self._intervals = []
 
-    # --- 画面识别替身 ---
-    def is_combat_loading(self):
-        return self._loading
-
-    def is_combat_executing(self):
-        return self._executing
-
-    def is_in_auto_search_menu(self):
-        return self._menu
-
-    def match_template_color(self, button, offset=(20, 20), interval=0,
-                             similarity=0.85, threshold=30):
+    def is_auto_search_running(self):
         return self._running
 
     def interval_reset(self, button, interval=3):
-        self._intervals[getattr(button, 'name', str(button))] = True
+        self._intervals.append(getattr(button, 'name', str(button)))
 
-    def _click(self, button):
-        """模拟 device.click：既记录点击，也让 click_count 自增。"""
+    def _click(self, button, control_check=True):
         self.device.clicks.append(getattr(button, 'name', str(button)))
-        self.device.click_count += 1
 
-    # 桩上把 device.click 指向 _click
-    def __getattr__(self, item):
-        raise AttributeError(item)
+    def _sleep(self, seconds):
+        pass
 
 
-class _FakeButton:
-    name = 'AUTO_SEARCH_MAP_OPTION_ON'
+def _stub(**kwargs):
+    stub = _StuckStub(**kwargs)
+    stub.device.click = stub._click
+    stub.device.sleep = stub._sleep
+    stub._auto_search_stall_reset()
+    return stub
 
 
-class TestAutoSearchStall(unittest.TestCase):
+class TestFastWatchdog(unittest.TestCase):
 
-    def _stub(self, **kwargs):
-        stub = _StallStub(**kwargs)
-        stub.device.click = stub._click
-        stub._auto_search_stall_reset()
-        return stub
-
-    def test_no_wake_before_timeout(self):
-        """刚进入移动阶段、未超时：不唤醒。"""
-        stub = self._stub()
-        self.assertFalse(stub._auto_search_stall_detected())
-
-    def test_wake_after_timeout(self):
-        """超时 + 画面停滞 + 图标运行中：唤醒一次。"""
-        stub = self._stub()
+    def test_frozen_screen_clicks_map_center(self):
+        """画面冻结（认不出开关）超时：第 1 次点地图中央。"""
+        stub = _stub(running=False)
         time.sleep(0.08)
-        self.assertTrue(stub._auto_search_stall_detected())
-        self.assertTrue(stub._auto_search_stall_wake_up())
-        self.assertEqual(len(stub.device.clicks), 1, '应点一次自律开关')
+        self.assertTrue(stub._auto_search_stuck_check())
+        self.assertEqual(stub.device.clicks, ['AUTO_SEARCH_MAP_CENTER'])
 
-    def test_wake_click_resets_click_count_baseline(self):
-        """唤醒点击让 click_count 自增，不能被下一帧当成"新操作"。"""
-        stub = self._stub()
+    def test_running_icon_goes_to_slow_path(self):
+        """图标显示运行中：快级不判冻结，但慢级兜底仍会触发（点开关）。"""
+        stub = _stub(running=True)
         time.sleep(0.08)
-        stub._auto_search_stall_wake_up()
-        baseline = stub._auto_search_stall_clicks
-        self.assertEqual(baseline, stub.device.click_count,
-                         '基线应等于点击后的计数值')
-        # 紧接着一帧不因刚才那次点击而被判为"有操作"
-        self.assertFalse(stub._auto_search_stall_detected())
+        self.assertTrue(stub._auto_search_stuck_check())
+        # 不点地图中央（快级被图标可见挡住），走的是开关切换
+        self.assertEqual(stub.device.clicks, ['AUTO_SEARCH_MAP_OPTION_ON'])
 
-    def test_no_wake_while_combat_loading(self):
-        """战斗加载中属于正常推进，不唤醒。"""
-        stub = self._stub(loading=True)
-        time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
-
-    def test_no_wake_while_combat_executing(self):
-        stub = self._stub(executing=True)
-        time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
-
-    def test_no_wake_in_auto_search_menu(self):
-        stub = self._stub(menu=True)
-        time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
-
-    def test_no_wake_when_icon_not_running(self):
-        """图标不显示运行中：不是"显示在跑却不动"，不碰。"""
-        stub = self._stub(running=False)
-        time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
-
-    def test_click_progress_resets_timer(self):
-        """任何真实点击都会重置计时，正常流程不会被误唤醒。"""
-        stub = self._stub()
+    def test_soft_progress_only_extends_fast(self):
+        """软进展只续快级：慢级仍会到期并触发。"""
+        stub = _stub(running=True)
         time.sleep(0.03)
-        stub.device.click_count += 1          # 模拟一次正常点击
-        self.assertFalse(stub._auto_search_stall_detected())
-        time.sleep(0.03)
-        self.assertFalse(stub._auto_search_stall_detected(), '计时器已被重置')
+        stub._auto_search_progress(running=True)
+        time.sleep(0.03)   # 快级（0.05）未到，慢级（0.05）已过
+        self.assertTrue(stub._auto_search_stuck_check())
+        self.assertEqual(stub.device.clicks, ['AUTO_SEARCH_MAP_OPTION_ON'])
 
-    def test_raise_after_wake_failed(self):
-        """唤醒一次后复查窗口内仍无操作：主动报错交回重启。"""
-        stub = self._stub()
+
+class TestSlowWatchdog(unittest.TestCase):
+
+    def test_frozen_long_hits_switch(self):
+        """快级第一次点中央后再次到期：第 2 次点开关。"""
+        stub = _stub(running=False)
         time.sleep(0.08)
-        stub._auto_search_stall_wake_up()
+        stub._auto_search_stuck_check()          # 第 1 次：点中央
+        time.sleep(0.08)
+        self.assertTrue(stub._auto_search_stuck_check())   # 第 2 次：点开关
+        self.assertEqual(stub.device.clicks,
+                         ['AUTO_SEARCH_MAP_CENTER', 'AUTO_SEARCH_MAP_OPTION_ON'])
+
+    def test_switch_click_is_single(self):
+        """点开关只点一次（连点两下会互相抵消），且带 interval_reset。"""
+        stub = _stub(running=False)
+        time.sleep(0.08)
+        stub._auto_search_stuck_check()          # 第 1 次
+        time.sleep(0.08)
+        stub._auto_search_stuck_check()          # 第 2 次：开关
+        self.assertEqual(stub.device.clicks.count('AUTO_SEARCH_MAP_OPTION_ON'), 1)
+        self.assertIn('AUTO_SEARCH_MAP_OPTION_ON', stub._intervals)
+
+    def test_raise_after_attempts_exhausted(self):
+        """3 次唤醒仍无进展：抛 GameStuckError。"""
+        stub = _stub(running=False)
+        for _ in range(3):
+            time.sleep(0.08)
+            stub._auto_search_stuck_check()
         time.sleep(0.08)
         with self.assertRaises(GameStuckError):
-            stub._auto_search_stall_detected()
+            stub._auto_search_stuck_check()
 
-    def test_no_raise_after_wake_if_progress(self):
-        """唤醒后恢复正常移动（有点击）：不报错。"""
-        stub = self._stub()
+
+class TestProgress(unittest.TestCase):
+
+    def test_real_progress_resets_everything(self):
+        """真进展：全量重置，尝试计数归零，重计 3 次。"""
+        stub = _stub(running=False)
         time.sleep(0.08)
-        stub._auto_search_stall_wake_up()
-        stub.device.click_count += 1          # 自律恢复了，产生了新点击
+        stub._auto_search_stuck_check()          # 第 1 次
+        stub._auto_search_progress()             # 真进展
+        self.assertEqual(stub.__dict__.get('_auto_search_stuck_attempt'), None)
+        # 重置后再次到期：又是第 1 次（点中央）而不是第 2 次
         time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
+        stub._auto_search_stuck_check()
+        self.assertEqual(stub.device.clicks,
+                         ['AUTO_SEARCH_MAP_CENTER', 'AUTO_SEARCH_MAP_CENTER'])
+
+
+class TestResetOnNewStage(unittest.TestCase):
 
     def test_reset_on_new_move_stage(self):
-        """进入新的移动阶段后重新计数，不跨战斗沿用。"""
-        stub = self._stub()
+        """进入新的移动阶段：计时器与尝试计数全归零。"""
+        stub = _stub(running=False)
         time.sleep(0.08)
-        stub._auto_search_stall_wake_up()
+        stub._auto_search_stuck_check()
         stub._auto_search_stall_reset()
-        self.assertEqual(stub._auto_search_stall_wake, 0, '唤醒次数应归零')
-        self.assertFalse(stub._auto_search_stall_detected(), '新阶段重新计时')
+        self.assertEqual(stub.__dict__.get('_auto_search_stuck_attempt'), None)
+        time.sleep(0.08)
+        stub._auto_search_stuck_check()
+        self.assertEqual(stub.device.clicks,
+                         ['AUTO_SEARCH_MAP_CENTER', 'AUTO_SEARCH_MAP_CENTER'])
+
+
+class TestLocalGuards(unittest.TestCase):
 
     def test_daemon_mode_skipped(self):
-        """守护模式下用户可能手动暂停，脚本不得主动点击。"""
-        stub = self._stub(daemon=True)
-        stub._combat_status_timeout = None
+        """守护模式：用户手动暂停时不抢操作。"""
+        stub = _stub(daemon=True)
         time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
+        self.assertFalse(stub._auto_search_stuck_check())
+        self.assertEqual(stub.device.clicks, [])
+
+    def test_resume_guard_skipped(self):
+        """续接链互斥：AutoSearchRecovery 自己管唤醒。"""
+        stub = _stub(resume_guard=True)
+        time.sleep(0.08)
+        self.assertFalse(stub._auto_search_stuck_check())
+        self.assertEqual(stub.device.clicks, [])
 
     def test_no_timer_guard(self):
-        """未经 auto_search_moving 入口（计时器为 None）时不崩、不误判。"""
-        stub = self._stub()
-        stub._auto_search_stall_timer = None
+        """未经 auto_search_moving 入口（计时器为 None）不误判。"""
+        stub = _stub(running=False)
+        stub._auto_search_stuck_timer = None
+        stub._auto_search_frozen_timer = None
         time.sleep(0.08)
-        self.assertFalse(stub._auto_search_stall_detected())
+        self.assertFalse(stub._auto_search_stuck_check())
 
 
 if __name__ == '__main__':
