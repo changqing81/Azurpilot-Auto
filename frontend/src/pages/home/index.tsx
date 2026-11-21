@@ -75,8 +75,46 @@ function taskCard(task: TaskRow, settingLabel: string): string {
   )
 }
 
-/** 仪表盘条目（app_dashboard.py:479-547 同构）。
- *  外层 put_row("20px 1fr") 放 status-point 圆点 + 资源组；
+/** 数值转数字；None/非数字返回 null（仪表盘进度环判定用）。 */
+function dashNum(v: string | null | undefined): number | null {
+  if (v == null) return null
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
+/** 仪表盘前置视觉：有上限 → SVG 圆环进度（满环转红）；无上限 → 竖向渐变色条。
+ *  颜色走内联 --ring-color / --anchor-color，样式在 newui-scoped.css（新 UI 专用）。 */
+function dashVisual(item: DashItem): string {
+  // 后端 color 已带 # 前缀（data.py get_dashboard 做 ^→# 替换），兼容两种写法
+  const raw = (item.color || '').trim()
+  const color = /^#?[0-9A-Fa-f]{6}$/.test(raw) ? (raw.startsWith('#') ? raw : '#' + raw) : '#8a93a6'
+  const valueNum = dashNum(item.value)
+  const limitNum = dashNum(item.limit)
+  if (limitNum != null && limitNum > 0 && valueNum != null) {
+    const pct = (valueNum / limitNum) * 100
+    const shown = Math.min(Math.max(pct, 0), 100)
+    const over = pct >= 100
+    const C = 131.9
+    const dash = Math.round((shown / 100) * C * 10) / 10
+    const cls = over ? 'dash-ring dash-ring-over' : 'dash-ring'
+    return (
+      `<div class="dash-visual">` +
+      `<svg class="${cls}" viewBox="0 0 52 52" style="--ring-color:${color}">` +
+      `<circle class="dash-ring-track" cx="26" cy="26" r="21"/>` +
+      `<circle class="dash-ring-arc" cx="26" cy="26" r="21" stroke-dasharray="${dash} ${C}"/>` +
+      `<text class="dash-ring-pct" x="26" y="30.5" text-anchor="middle">${Math.round(shown)}%</text>` +
+      `</svg></div>`
+    )
+  }
+  return (
+    `<div class="dash-visual dash-visual-anchor">` +
+    `<div class="dash-anchor" style="--anchor-color:${color}"></div>` +
+    `</div>`
+  )
+}
+
+/** 仪表盘条目（app_dashboard.py:479-547 同构，视觉升级为 V2 圆环）。
+ *  外层 put_row("48px 1fr") 放圆环/色条 + 资源组；
  *  资源组内 put_row("min-content auto") 放值/上限，再接记录时间。 */
 function dashEntry(item: DashItem): string {
   const value = item.value === 'None' || !item.value ? '无' : item.value
@@ -84,8 +122,8 @@ function dashEntry(item: DashItem): string {
   const secondMark = item.limit ? '--dashboard-limit--' : '--dashboard-total--'
   return (
     `<div id="pywebio-scope-dashboard_${esc(item.name)}">` +
-    `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 20px 1fr;;;height: 1fr">` +
-    `<div class="status-point" style="background-color:${esc(item.color)}"></div>` +
+    `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 48px 1fr;;;height: 1fr">` +
+    dashVisual(item) +
     `<div id="pywebio-scope-${esc(item.name)}_group">` +
     `<div style="display: grid; grid-auto-flow: row; grid-template-rows: auto auto;">` +
     `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr;;;grid-template-columns:min-content auto;align-items: baseline;">` +
