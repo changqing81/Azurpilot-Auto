@@ -20,7 +20,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiGet, instSeg } from '../../api/client'
 import { downloadRuntimeLog } from '../../api/logExport'
-import { Shell } from '../../components/Shell'
+import { Shell, toggleSchedFab } from '../../components/Shell'
 import { esc, putText } from '../../lib/pywebio'
 import { MaintenanceBanner } from './MaintenanceBanner'
 
@@ -165,6 +165,16 @@ export function Overview({ instance }: { instance: string }) {
   const L = (key: string, fallback: string) => i18n[key] || fallback
   const [autoScroll, setAutoScroll] = useState(true)
   const [dashboardShown, setDashboardShown] = useState(true)
+  // 悬浮快启开关变化 → 重渲染调度器卡片（开关 label 的 on 类由 schedFabStore 决定）。
+  // 开关在总览页卡片上，球显隐在 Shell —— 两组件靠 store 事件同步。
+  const [fabOn, setFabOn] = useState<boolean>(() => {
+    try { return localStorage.getItem('alas_sched_fab_enabled') !== '0' } catch { return true }
+  })
+  useEffect(() => {
+    const on = (ev: Event) => setFabOn((ev as CustomEvent<boolean>).detail)
+    window.addEventListener('alas-sched-fab-change', on)
+    return () => window.removeEventListener('alas-sched-fab-change', on)
+  }, [])
   const autoScrollRef = useRef(true)
   autoScrollRef.current = autoScroll
   const aliveRef = useRef(false)
@@ -281,6 +291,12 @@ export function Overview({ instance }: { instance: string }) {
   // 事件委托：「调度器启停 / 统计打开 / 自动滚动 / 折叠 / 任务设置」都渲染成 HTML 字符串，
   // 无法挂 React 事件，统一在容器上按文本分派（与老 UI onclick 语义一致）。
   const onSchedulersClick = async (ev: React.MouseEvent<HTMLDivElement>) => {
+    // 悬浮快启开关（label，非 button）：先于按钮分派处理
+    const fabSwitch = (ev.target as HTMLElement).closest('.alas-fab-switch') as HTMLElement | null
+    if (fabSwitch) {
+      toggleSchedFab()
+      return
+    }
     const target = (ev.target as HTMLElement).closest('button')
     if (!target) return
     const label = (target.textContent ?? '').trim()
@@ -352,6 +368,9 @@ export function Overview({ instance }: { instance: string }) {
   const schedulersHtml =
     `<div id="pywebio-scope-scheduler-bar">` +
     putText(L('Gui.Overview.Scheduler', '调度器'), ';;font-size: 1.25rem; margin: auto .5rem auto;') +
+    // 悬浮快启开关（长卿 2026-11-22：放左边标题旁，启动/停止按钮保持最右老位置）。
+    // 开关管「其他页面右缘的调度器快启球」，总览页本身不显示球。
+    `<label class="alas-fab-switch${fabOn ? ' on' : ''}" id="alas-fab-switch" title="在其他页面右缘显示调度器快启悬浮球"><span class="alas-fab-switch-tk"></span>悬浮快启</label>` +
     `<div id="pywebio-scope-scheduler_btn"><div><button class="btn ${
       alive ? 'btn-off' : 'btn-on'
     }">${alive ? L('Gui.Button.Stop', '停止') : L('Gui.Button.Start', '启动')}</button></div></div>` +

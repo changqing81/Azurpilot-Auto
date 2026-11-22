@@ -20,11 +20,12 @@
 //   div[style*="--menu-X--"]>button { ... }
 // 所以 aside/menu/header 也必须是同一套 id 与标记。
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { apiGet } from '../api/client'
 import { injectWallpaperToggle, hideWallpaperToggle } from '../lib/wallpaperToggle'
 import { applyLayoutLayer } from '../lib/layoutApply'
 import { putLoading } from '../lib/pywebio'
+import { SchedulerFab } from './SchedulerFab'
 
 /**
  * 菜单分组的展开态（跨页面共享）。
@@ -57,6 +58,23 @@ let cachedMenu: MenuGroup[] = []
 let cachedFixedMenu: FixedMenuResp | null = null
 let cachedHeader: HeaderResp | null = null
 let cachedInstances: Instance[] = []
+
+/** 调度器快启悬浮球开关（模块级单例 + localStorage 持久化）。
+ *  总览页开关（home/index.tsx）与 Shell 的球显隐是两个组件，
+ *  用 CustomEvent('alas-sched-fab-change') 双向同步。 */
+const schedFabStore = {
+  get(): boolean {
+    try { return localStorage.getItem('alas_sched_fab_enabled') !== '0' } catch { return true }
+  },
+  set(v: boolean) {
+    try { localStorage.setItem('alas_sched_fab_enabled', v ? '1' : '0') } catch { /* 隐私模式 */ }
+    window.dispatchEvent(new CustomEvent('alas-sched-fab-change', { detail: v }))
+  },
+}
+/** 总览页开关用（home/index.tsx 引不到 Shell 内部 state）。 */
+export function toggleSchedFab() {
+  schedFabStore.set(!schedFabStore.get())
+}
 
 /**
  * 菜单收起态（桌面端）：true = 菜单列收起、aside 下显示任务缩写片。
@@ -219,6 +237,10 @@ export function Shell({
   submenu?: SubMenuItem[]
 }) {
   const navigate = useNavigate()
+  // 总览页判定：调度器快启悬浮球在总览页不显示（长卿 2026-11-22）。
+  // Overview 传的 active 是实例名，不能靠 active；直接看路由。
+  const location = useLocation()
+  const isOverviewRoute = /^\/overview\//.test(location.pathname)
   // 初值取模块级缓存：路由切换会重建本组件，若从空数组起步，
   // 菜单区会先塌成「只剩搜索框」再被接口内容填回来（实测 8180 → 519 字符，
   // 约 0.9 秒），表现为页面大幅跳动。用上次数据兜底可让切换瞬间菜单不消失。
@@ -251,6 +273,16 @@ export function Shell({
     )
   })
   const [instNames, setInstNames] = useState<string[]>([])
+  // 调度器快启悬浮球开关（长卿 2026-11-22：加个开关，总览页随处可见）。
+  // 状态放模块级 store（schedFabStore）：总览页的开关与 Shell 的球显示
+  // 是两个组件，用事件同步；localStorage 持久化。
+  // 总览页（active==='Overview'）始终隐藏球，开关只管其他页面。
+  const [schedFabOn, setSchedFabOn] = useState<boolean>(() => schedFabStore.get())
+  useEffect(() => {
+    const on = (ev: Event) => setSchedFabOn((ev as CustomEvent<boolean>).detail)
+    window.addEventListener('alas-sched-fab-change', on)
+    return () => window.removeEventListener('alas-sched-fab-change', on)
+  }, [])
   // 固定菜单文案（主页 6 个入口 + 侧栏「主页/管理」）由后端按当前语言返回。
   // 以前这些是**前端硬编码中文**，导致切英文后配置页已经是 "For example,
   // 7-2..." 了，侧栏还写着「主页/更新器/远程控制」。
@@ -756,7 +788,15 @@ export function Shell({
     const rows = subs.length
       ? subs.map(t => `<button class="alas-chip-pop-item" data-key="${t.key}">${t.name}</button>`).join('')
       : `<div class="alas-chip-pop-empty">（无二级）</div>`
-    return `<div class="alas-chip-pop-title">${chipPop.name}</div>${rows}`
+    // 标题行右侧加 ×：点它关掉弹层（长卿 2026-11-22 要求）。
+    // 事件在容器 onClick 里按 .alas-chip-pop-close 分派（与 pop-item 同套委托）。
+    return (
+      `<div class="alas-chip-pop-head">` +
+      `<span class="alas-chip-pop-title">${chipPop.name}</span>` +
+      `<button type="button" class="alas-chip-pop-close" title="关闭">×</button>` +
+      `</div>` +
+      rows
+    )
   })()
 
   const asideHtml =
@@ -852,6 +892,12 @@ export function Shell({
                     }
                   }}
                   onClick={(ev) => {
+                    // × 关闭按钮：先于条目分派（长卿 2026-11-22 要求弹层可关）
+                    if ((ev.target as HTMLElement).closest('.alas-chip-pop-close')) {
+                      ev.stopPropagation()
+                      setChipPop(null)
+                      return
+                    }
                     const item = (ev.target as HTMLElement).closest('.alas-chip-pop-item') as HTMLElement | null
                     if (!item) return
                     ev.stopPropagation()
@@ -861,6 +907,11 @@ export function Shell({
                   dangerouslySetInnerHTML={{ __html: chipPopHtml }} />
               }
               {children}
+              {/* 调度器快启悬浮球：总览页不显示（长卿：总览那块不要显示，
+                  切到别的页面才显示）；开关在总览页调度器卡片上。
+                  ⚠️ 不能用 active 判断：Overview 传的 active 是实例名不是 'Overview'，
+                  这里直接看路由路径（/overview/:name 才是总览页）。 */}
+                <SchedulerFab instances={instances} visible={schedFabOn && !isOverviewRoute} />
               <div id="pywebio-scope-statistics-content" style={{ display: 'none' }}></div>
             </div>
           </div>

@@ -2699,13 +2699,56 @@ html[data-alas-theme="dark_advanced_material"] #root .oc-desc {
   box-shadow: 0 12px 34px rgba(120, 80, 140, .28);
   border: 1px solid rgba(255, 255, 255, .7);
 }
+#root .alas-chip-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 8px 12px;
+  border-bottom: 1px solid rgba(80, 90, 120, .14);
+  margin-bottom: 6px;
+}
 #root .alas-chip-pop-title {
-  padding: 4px 12px 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: .8rem;
   font-weight: 600;
   color: #3a4256;
-  border-bottom: 1px solid rgba(80, 90, 120, .14);
-  margin-bottom: 6px;
+}
+/* 弹层关闭按钮（长卿 2026-11-22 要求） */
+#root .alas-chip-pop-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(125, 135, 155, .14);
+  color: #6a7390;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, color .15s;
+}
+#root .alas-chip-pop-close:hover {
+  background: rgba(229, 57, 53, .16);
+  color: #d32f2f;
+}
+/* 暗色主题适配 */
+html[data-alas-theme="dark"] #root .alas-chip-pop-close,
+html[data-alas-theme="dark_advanced_material"] #root .alas-chip-pop-close {
+  background: rgba(255, 255, 255, .12);
+  color: #c8cedb;
+}
+html[data-alas-theme="dark"] #root .alas-chip-pop-close:hover,
+html[data-alas-theme="dark_advanced_material"] #root .alas-chip-pop-close:hover {
+  background: rgba(229, 57, 53, .26);
+  color: #ff8a80;
 }
 #root .alas-chip-pop-item {
   display: block;
@@ -2949,6 +2992,415 @@ html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .d
   }
   #root #pywebio-scope-dashboard .dash-ring-pct {
     font-size: 9px;
+  }
+}
+
+/* ==========================================================================
+   调度器快启悬浮球（V3 · 长卿 2026-11-22）
+   - 总览页调度器卡片上的开关（A 版滑块，标题旁左侧）
+   - 右缘贴边悬浮球：收起半透明 40%、hover 展开、5 秒无操作收回
+   - 球面颜色 = 主实例状态色（内联 --fab-c），绿色呼吸圈 = 运行中
+   ========================================================================== */
+
+/* --- 总览页开关（标题旁）--- */
+#root #pywebio-scope-scheduler-bar .alas-fab-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 12.5px;
+  color: #6a7390;
+  margin: auto 0 auto 6px;
+}
+#root #pywebio-scope-scheduler-bar .alas-fab-switch .alas-fab-switch-tk {
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: #c9cfdd;
+  position: relative;
+  transition: background .18s;
+  flex: none;
+}
+#root #pywebio-scope-scheduler-bar .alas-fab-switch .alas-fab-switch-tk::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+  transition: transform .18s;
+}
+#root #pywebio-scope-scheduler-bar .alas-fab-switch.on .alas-fab-switch-tk {
+  background: #4f6ef7;
+}
+#root #pywebio-scope-scheduler-bar .alas-fab-switch.on .alas-fab-switch-tk::after {
+  transform: translateX(15px);
+}
+
+/* --- 悬浮球本体 --- */
+#root .alas-sched-fab {
+  position: fixed;
+  /* 水平贴边由 side-left / side-right 类接管（长卿 2026-11-22 第三版：
+     只存 side + topPercent 两个语义值，无像素换算，永不ictions出界）。
+     垂直由内联 top:xx% + translateY(-50%)。 */
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  z-index: 9998;
+  transition: opacity .3s;
+}
+/* 收回 5 秒后半透明，hover 恢复 */
+#root .alas-sched-fab-dim {
+  opacity: .55;
+}
+#root .alas-sched-fab:hover {
+  opacity: 1;
+}
+#root .alas-sched-fab-ball {
+  width: 46px;
+  height: 46px;
+  /* 完整圆（长卿 2026-11-22：半圆太难搞，直接做圆）。 */
+  border-radius: 50%;
+  background: var(--fab-c, #8a93a6);
+  box-shadow: -3px 3px 14px rgba(60, 70, 110, .35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+  position: relative;
+}
+/* 主实例运行中：绿色呼吸圈（球面就是绿的，圈做外扩呼吸提示） */
+#root .alas-sched-fab-pulse {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--fab-c, #34b46b);
+  opacity: .5;
+  animation: alas-fab-breath 2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes alas-fab-breath {
+  50% { opacity: 0; transform: scale(1.08); }
+}
+#root .alas-sched-fab-badge {
+  position: absolute;
+  top: -6px;
+  left: 6px;
+  background: #fff;
+  color: var(--fab-c, #4f6ef7);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 1px 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .18);
+}
+/* ---- 悬浮球 + 展开面板（单一真源，长卿 2026-11-22 第五版）----
+   设计：容器只装球（46×46 整圆，贴死视口边缘）；面板**绝对定位**贴死同一侧边缘；
+   展开时球淡出、面板接管那个边缘位置（长卿 2026-11-22：「球怎么不消失？」）。
+   为什么这么改：之前面板在 flex 流里，会占掉球旁边 200px 宽，导致
+   ①「卡片没贴最侧边，被球挤开一截」②球/面板方向、圆角、阴影一路互相打架
+   （长卿原话：「卡片在原来的位置出现 不要这样 靠最侧边」）。
+   现在面板完全脱离布局流，位置只由 side 类决定，几何上不可能再错位。 */
+#root .alas-sched-fab-panel {
+  position: absolute;
+  /* 垂直居中：展开时球会淡出，面板就接管球的位置，不需要错开。 */
+  top: 50%;
+  transform: translateY(-50%);
+  width: 200px;
+  padding: 10px 14px 10px 12px;
+  z-index: 0;
+  background: rgba(255, 255, 255, .96);
+  /* 默认 side-left：面板贴左边缘 → 左侧贴屏取直角、右侧朝屏幕内圆角 */
+  border-radius: 0 12px 12px 0;
+  box-shadow: 6px 0 20px rgba(80, 90, 140, .2);
+  /* 收起：沿 X 滑出屏幕并淡出；展开滑回 */
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), opacity .22s ease;
+}
+/* 贴边方向：容器（球）贴死视口边缘 */
+#root .alas-sched-fab-side-right {
+  right: 0;
+}
+#root .alas-sched-fab-side-left {
+  left: 0;
+}
+/* 面板贴的是**视口边缘**，不是球旁边：side-right 贴右、side-left 贴左 */
+#root .alas-sched-fab-side-right .alas-sched-fab-panel {
+  right: 0;
+  left: auto;
+  border-radius: 12px 0 0 12px;
+  box-shadow: -6px 0 20px rgba(80, 90, 140, .2);
+}
+#root .alas-sched-fab-side-left .alas-sched-fab-panel {
+  left: 0;
+  right: auto;
+}
+/* 收起态位移方向跟着贴边侧走（从屏幕外滑入） */
+#root .alas-sched-fab-side-right .alas-sched-fab-panel {
+  transform: translateY(-50%) translateX(28px);
+}
+#root .alas-sched-fab-side-right.alas-sched-fab-open .alas-sched-fab-panel {
+  transform: translateY(-50%) translateX(0);
+}
+#root .alas-sched-fab-side-left .alas-sched-fab-panel {
+  transform: translateY(-50%) translateX(-28px);
+}
+#root .alas-sched-fab-side-left.alas-sched-fab-open .alas-sched-fab-panel {
+  transform: translateY(-50%) translateX(0);
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel {
+  opacity: 1;
+  pointer-events: auto;
+}
+/* 球：展开时淡出消失，由面板接管这个边缘位置（长卿 2026-11-22：
+   「球怎么不消失？」——他要的是球让位给卡片，不是两个叠一起）。 */
+#root .alas-sched-fab-ball {
+  position: relative;
+  z-index: 1;
+  transition: opacity .18s ease;
+}
+#root .alas-sched-fab-open .alas-sched-fab-ball {
+  opacity: 0;
+  pointer-events: none;
+}
+/* 贴右缘时角标镜像 */
+#root .alas-sched-fab-side-right .alas-sched-fab-badge {
+  left: auto;
+  right: 6px;
+}
+/* 面板内部级联淡入淡出：用 transition + delay，展开正向逐行入场、
+   收回反向逐行退场（长卿 2026-11-22：「一消失整个就消失了」——
+   animation both 模式收回时行瞬间消失，改 transition 后收回也平滑）。 */
+#root .alas-sched-fab-panel .alas-sched-fab-row,
+#root .alas-sched-fab-panel .alas-sched-fab-head,
+#root .alas-sched-fab-panel .alas-sched-fab-notice {
+  opacity: 0;
+  transform: translateX(14px);
+  transition: opacity .18s ease, transform .22s cubic-bezier(.22, 1, .36, 1);
+  transition-delay: 0s; /* 收回：无延迟，整体快速退场 */
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel .alas-sched-fab-head {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: .05s;
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel .alas-sched-fab-row:nth-of-type(1) {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: .09s;
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel .alas-sched-fab-row:nth-of-type(2) {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: .15s;
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel .alas-sched-fab-row:nth-of-type(3) {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: .21s;
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel .alas-sched-fab-row:nth-of-type(n+4) {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: .26s;
+}
+#root .alas-sched-fab-open .alas-sched-fab-panel .alas-sched-fab-notice {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: .12s;
+}
+/* 球常驻可见：side 布局下球与面板并排不重叠，
+   展开时隐藏球会让面板「跑」到球的另一侧，看起来反了（长卿 2026-11-22）。 */
+#root .alas-sched-fab-ball {
+  transition: box-shadow .15s ease;
+}
+/* 拖动中：关位置过渡手感（吸附回弹除外），球加抓取光标与阴影强化 */
+#root .alas-sched-fab {
+  transition: opacity .3s, transform .3s cubic-bezier(.22, 1, .36, 1);
+}
+#root .alas-sched-fab-dragging {
+  /* 拖动中禁一切位置过渡：跟手必须 1:1，任何 transition 都会造成「追赶/硬切」
+     （长卿 2026-11-22：「完全不跟着鼠标走 直接硬切」）。 */
+  transition: opacity .3s !important;
+}
+#root .alas-sched-fab-dragging[data-drag-src="ball"] .alas-sched-fab-panel {
+  /* 拖「球」时面板不显示：跟手时只该看到球（长卿 2026-11-22）。 */
+  display: none !important;
+}
+/* 拖「面板标题条」时：面板保持打开并一起跟手移动 */
+#root .alas-sched-fab-dragging[data-drag-src="head"] .alas-sched-fab-panel {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transition: none !important;
+  transform: translateY(-50%) translateX(0) !important;
+}
+#root .alas-sched-fab-dragging[data-drag-src="head"] .alas-sched-fab-ball {
+  /* 拖面板时不显示球（面板已接管） */
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+#root .alas-sched-fab-dragging .alas-sched-fab-ball {
+  cursor: grabbing;
+  box-shadow: -6px 6px 22px rgba(60, 70, 110, .5);
+  transition: opacity .2s ease, box-shadow .15s ease;
+}
+#root .alas-sched-fab-ball {
+  cursor: grab;
+}
+/* 触屏/远控端拖拽：handle 必须 touch-action:none，否则移动端浏览器把
+   pointermove 当滚动手势吞掉，拖动完全无响应（与优先级列表 handle 同款修法，
+   见本文件 130-133 行注释）。 */
+#root .alas-sched-fab-ball,
+#root .alas-sched-fab-head {
+  touch-action: none;
+}
+/* 远控端实例列表加载失败/为空时的空态（长卿 2026-11-22：面板空白） */
+#root .alas-sched-fab-empty {
+  padding: 14px 4px;
+  font-size: 12px;
+  color: #99a1b0;
+  text-align: center;
+  line-height: 1.5;
+}
+#root .alas-sched-fab-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: #8a92a2;
+  margin-bottom: 6px;
+  letter-spacing: .5px;
+  cursor: grab;
+}
+#root .alas-sched-fab-head-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 关闭按钮：立即收起面板（长卿 2026-11-22 要求） */
+#root .alas-sched-fab-close {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(125, 135, 155, .14);
+  color: #6a7390;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .15s, color .15s;
+}
+#root .alas-sched-fab-close:hover {
+  background: rgba(229, 57, 53, .16);
+  color: #d32f2f;
+}
+#root .alas-sched-fab-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(120, 130, 160, .1);
+  font-size: 14px;
+  color: #333846;
+  cursor: pointer;
+}
+#root .alas-sched-fab-row-main .alas-sched-fab-name {
+  font-weight: 700;
+}
+#root .alas-sched-fab-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--fab-c, #8a93a6);
+  flex: none;
+}
+#root .alas-sched-fab-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#root .alas-sched-fab-state {
+  font-style: normal;
+  font-size: 10.5px;
+  color: #99a1b0;
+  flex: none;
+}
+#root .alas-sched-fab-btn {
+  border: 0;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  font-weight: 600;
+  flex: none;
+}
+#root .alas-sched-fab-btn.is-start {
+  background: #4f6ef7;
+  color: #fff;
+}
+#root .alas-sched-fab-btn.is-stop {
+  background: #f1f3f9;
+  color: #6a7390;
+}
+#root .alas-sched-fab-btn:disabled {
+  opacity: .55;
+  cursor: default;
+}
+#root .alas-sched-fab-notice {
+  font-size: 11.5px;
+  color: #4f6ef7;
+  padding-top: 6px;
+  text-align: center;
+}
+
+/* 暗色主题：面板底色与行文字适配 */
+html[data-alas-theme="dark"] #root .alas-sched-fab-panel,
+html[data-alas-theme="dark_advanced_material"] #root .alas-sched-fab-panel {
+  background: rgba(30, 36, 48, .96);
+}
+html[data-alas-theme="dark"] #root .alas-sched-fab-row,
+html[data-alas-theme="dark_advanced_material"] #root .alas-sched-fab-row {
+  color: #d5dae3;
+}
+html[data-alas-theme="dark"] #root .alas-sched-fab-btn.is-stop,
+html[data-alas-theme="dark_advanced_material"] #root .alas-sched-fab-btn.is-stop {
+  background: rgba(255, 255, 255, .08);
+  color: #aeb6c4;
+}
+html[data-alas-theme="dark"] #root .alas-sched-fab-badge,
+html[data-alas-theme="dark_advanced_material"] #root .alas-sched-fab-badge {
+  background: #1e2430;
+}
+
+/* 窄屏：球缩小、面板收窄 */
+@media (max-width: 760px) {
+  #root .alas-sched-fab-ball {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+  #root .alas-sched-fab-panel {
+    width: 168px;
+    /* ⚠️ 不要加 margin-right:-168px：那是第一版 margin 滑入方案的残留，
+       会让面板不占流、容器塌成球宽，row-reverse 翻转后面板整体溢出屏幕外
+       （长卿 2026-11-22 远控端面板出屏根因）。收起态由 transform 接管。 */
   }
 }
 
