@@ -653,9 +653,12 @@ class CampaignRun(CampaignEvent, ShopStatus):
                     self.config, remaining=self.config.StopCondition_RunCount,
                     total_remaining=max(total - self.run_count, 0),
                     one_time=self.campaign.config.MAP_IS_ONE_TIME_STAGE or self.is_stage_loop)
+                # GemsFarming/GemsFarming2/ThreeOilLowCost 走同一条 CampaignRun 主循环，
+                # 放开即等同于主线；换船检查在批次结束后的循环里照常执行。
                 eligible = batch_count and self.config.task.command in (
                     'Main', 'Main2', 'Main3', 'Event', 'Event2', 'Event3',
-                    'EventA', 'EventB', 'EventC', 'EventD')
+                    'EventA', 'EventB', 'EventC', 'EventD',
+                    'GemsFarming', 'GemsFarming2', 'ThreeOilLowCost')
                 if batch_count and eligible and not resume_map:
                     if self.campaign.get_event_pt_limit() > 0:
                         batch_count = 1

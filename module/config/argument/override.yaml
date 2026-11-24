@@ -35,6 +35,8 @@ Main3:
 GemsFarming:
   Campaign:
     Mode: normal
+    MultipleSortiesCount:
+      display: display
     UseClearMode: true
     UseFleetLock: true
     Use2xBook: false
@@ -64,6 +66,8 @@ GemsFarming:
 GemsFarming2:
   Campaign:
     Mode: normal
+    MultipleSortiesCount:
+      display: display
     UseClearMode: true
     UseFleetLock: true
     Use2xBook: false
@@ -101,6 +105,8 @@ ThreeOilLowCost:
     # FailureInterval: 0
   Campaign:
     Mode: normal
+    MultipleSortiesCount:
+      display: display
     UseClearMode: true
     UseFleetLock: true
     Use2xBook: false

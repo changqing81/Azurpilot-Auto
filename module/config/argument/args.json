@@ -2883,7 +2883,7 @@
           0,
           999
         ],
-        "display": "hide"
+        "display": "display"
       },
       "ContinueAfterRestart": {
         "type": "checkbox",
@@ -3488,7 +3488,7 @@
           0,
           999
         ],
-        "display": "hide"
+        "display": "display"
       },
       "ContinueAfterRestart": {
         "type": "checkbox",
@@ -4093,7 +4093,7 @@
           0,
           999
         ],
-        "display": "hide"
+        "display": "display"
       },
       "ContinueAfterRestart": {
         "type": "checkbox",
