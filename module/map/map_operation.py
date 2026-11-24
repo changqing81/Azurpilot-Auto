@@ -179,6 +179,9 @@ class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement
         进行，但委托是有明确结束时间的，不必整天不刷。委托是脚本自己开的
         （任务开关为开）时额外推送一次「功能冲突」提示。
 
+        Returns:
+            bool: 已执行查看或领奖动作，调用方应重新截图。
+
         Pages:
             in: 关卡页（阻止弹窗）
             out: 关卡页
@@ -187,7 +190,7 @@ class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement
             TaskEnd: 作战委托进行中无法出击，当前任务到此为止。
         """
         if not self.handover_conflict_appear():
-            return
+            return False
 
         logger.hr('功能冲突: 作战委托进行中', level=2)
 
@@ -211,6 +214,7 @@ class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement
             logger.warning('[功能冲突] 阻止弹窗关闭失败，当前页面可能无法正常操作')
 
         self.config.task_stop('作战委托进行中，无法出击')
+        return True
 
     def handover_conflict_delay(self):
         """把当前任务推迟到作战委托结束之后。
@@ -356,7 +360,23 @@ class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement
                     continue
 
                 # 作战委托进行中，出击会被游戏阻止
-                self.handle_handover_conflict()
+                if self.handover_conflict_appear():
+                    self.handle_handover_conflict()
+                    continue
+
+                # 连续作战：舰队准备页上的「连续作战」入口会把下一屏换成设置面板，
+                # 面板里选次数、核对油耗、点开始，全部复用同一个截图循环。
+                if self.__dict__.get('_multiple_sorties_requested', 0) and self.multiple_sorties_panel_appear():
+                    if self.handle_multiple_sorties_preparation():
+                        campaign_timer.reset()
+                        fleet_timer.reset()
+                    continue
+                # 面板里判定不可执行（油量不足 / 情绪不够）时，退回舰队准备页再抛，
+                # 避免在面板上抛异常把游戏停在半开的界面里。
+                if (self.__dict__.get('_multiple_sorties_requested', 0)
+                        and self.__dict__.get('_multiple_sorties_abort') is not None
+                        and self.appear(FLEET_PREPARATION, offset=(20, 50))):
+                    raise self._multiple_sorties_abort
 
                 # 地图准备
                 if map_timer.reached() and self.handle_map_mode_switch(mode):
@@ -386,7 +406,13 @@ class MapOperation(MultipleSorties, MysteryHandler, FleetPreparation, Retirement
                         self.handle_auto_submarine_call_disable()
                         self.handle_auto_search_setting()
                         self.map_fleet_checked = True
-                    self.device.click(FLEET_PREPARATION)
+                    # 连续作战批次走面板入口，普通单场仍点「出击」。
+                    if self.__dict__.get('_multiple_sorties_requested', 0):
+                        if not self.appear(MULTIPLE_SORTIES_ENTER, offset=(20, 20)):
+                            raise ScriptEnd('[连续作战] 当前关卡没有连续作战入口')
+                        self.device.click(MULTIPLE_SORTIES_ENTER)
+                    else:
+                        self.device.click(FLEET_PREPARATION)
                     fleet_click += 1
                     fleet_timer.reset()
                     campaign_timer.reset()

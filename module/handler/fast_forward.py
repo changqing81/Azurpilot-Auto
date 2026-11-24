@@ -9,6 +9,7 @@ from module.base.utils import color_bar_percentage
 from module.handler.assets import *
 from module.handler.auto_search import AutoSearchHandler
 from module.logger import logger
+from module.map.assets import MULTIPLE_SORTIES_RESULT_CHECK, MULTIPLE_SORTIES_RESULT_EXIT
 from module.ui.switch import Switch
 
 FAST_FORWARD = Switch('Fast_Forward', offset=(5, 5))
@@ -424,6 +425,12 @@ class FastForwardHandler(AutoSearchHandler):
         点击「再次前往」（最多 6 次、每次间隔 0.5 秒，见
         handle_auto_search_continue_retry）；失败或需要切换任务时交回调用方。
         """
+        # 连续作战批次的「合计获得奖励」结算页要用它自己的退出按钮，
+        # 误点「再次前往」会被游戏拒绝，脚本会卡在结算页反复点击。
+        # 必须门控在批次内：普通单场的结算页若被这张特化模板误命中，
+        # 走这里只会点什么都不在的退出按钮，然后返回 False 让外层空转。
+        if self.__dict__.get('_multiple_sorties_requested', 0)                 and self.appear(MULTIPLE_SORTIES_RESULT_CHECK, offset=(20, 20)):
+            return self.appear_then_click(MULTIPLE_SORTIES_RESULT_EXIT, offset=(20, 20), interval=2)
         if self.appear(AUTO_SEARCH_MENU_CONTINUE, offset=self._auto_search_menu_offset, interval=2):
             self.map_is_2x_book = self.config.Campaign_Use2xBook
             self.handle_2x_book_setting(mode='auto')

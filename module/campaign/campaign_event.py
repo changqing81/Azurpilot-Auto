@@ -31,6 +31,10 @@ from module.ui.page import page_campaign_menu, page_coalition, page_event, page_
 from module.war_archives.assets import WAR_ARCHIVES_CAMPAIGN_CHECK
 
 
+# 会读取活动 PT 的任务集合：只有这些任务的活动关卡右上角才有 PT 追踪条。
+EVENT_PT_TASKS = EVENTS + RAIDS + COALITIONS + GEMS_FARMINGS + HOSPITAL
+
+
 class CampaignEvent(CampaignStatus):
     """战役活动管理器。
 
@@ -90,6 +94,26 @@ class CampaignEvent(CampaignStatus):
 
             logger.info(f'[活动战役] 重置活动时间限制')
             self.config.cross_set(keys='EventGeneral.EventGeneral.TimeLimit', value=DEFAULT_TIME)
+
+    def get_event_pt_limit(self):
+        """返回当前任务适用的 PT 上限，不适用时返回 0。
+
+        只做配置与任务名判断，不读取游戏画面。连续作战准备阶段靠它临时
+        退回单场：PT 上限是「累计够就停」，一次开多场会冲过头。
+
+        Returns:
+            int: PT 上限数值，不限制时返回 0。
+        """
+        # 部分配置可能使用 "100,000" 这种带逗号的格式
+        limit = int(
+            re.sub(r'[,.\'""，。]', '', str(self.config.EventGeneral_PtLimit))
+        )
+        command = self.config.Scheduler_Command
+        if command not in EVENT_PT_TASKS:
+            return 0
+        if command in GEMS_FARMINGS and self.stage_is_main(self.config.Campaign_Name):
+            return 0
+        return limit
 
     def event_pt_limit_triggered(self):
         """
