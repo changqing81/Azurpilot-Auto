@@ -64,6 +64,39 @@ export function UpdatePage() {
   const [msg, setMsg] = useState('')
   const aliveRef = useRef(true)
 
+  // ── 更新完成后自动刷新页面 ────────────────────────────────────────
+  //
+  // 长卿 2026-11-25：「点击更新器的时候为什么不刷新 UI 界面，导致有一部分人
+  // 反馈活动图还是老翻译键，刷新了之后变成新的了」。
+  //
+  // 原因：更新只做 git pull + 重启后端进程，页面本身不动。而前端译文（活动名
+  // 一类）是页面挂载时拉一次就固定的（home/index.tsx:154 load()），后端的
+  // t() 翻译表也要重启才重新加载 —— 更新完成但没刷新时，两边都还是旧译文，
+  // 于是活动图继续显示 coalition_20261124 这种原始 key。
+  //
+  // 这里在既有的 1s 状态轮询里加判断：一旦后端报告更新成功（reload/finish），
+  // 等后端重启稳定后自动 location.reload()，拿新代码 + 新译文。
+  //
+  // 三条约束：
+  //   ① 只在本会话确实点过「进行更新/重试更新」后才自动刷（avoid：用户刚打开
+  //      更新页、后端恰好停在 reload 态时被莫名刷新）；
+  //   ② 一次性锁，防止轮询每秒触发一次 reload 形成死循环；
+  //   ③ 延时 2s 让后端完成重启，否则刷到 502 或旧进程。
+  const reloadArmedRef = useRef(false)
+  const reloadDoneRef = useRef(false)
+
+  const maybeReloadAfterUpdate = (raw: UpdateState['state']) => {
+    const st = normalizeState(raw)
+    if (st !== 'reload' && st !== 'finish') return
+    if (!reloadArmedRef.current || reloadDoneRef.current) return
+    reloadDoneRef.current = true
+    setTimeout(() => {
+      // 刷新前把「更新完成后该回到哪」记住由路由自己处理（RestoreLastRoute），
+      // 这里只清掉可能残留的临时态
+      location.reload()
+    }, 2000)
+  }
+
   // 版本对照表：git 子进程 + fetch，只在页面进入与「检查更新」完成后拉一次
   const loadInfo = () => {
     apiGet<UpdateResp>('/newapi/update/info', 120000).then(d => { if (aliveRef.current) setData(d) }).catch(() => {})
@@ -83,6 +116,7 @@ export function UpdatePage() {
           if (!aliveRef.current) return
           setState(s)
           setHideStatus(s.hide_notice ? '启用' : '禁用')
+          maybeReloadAfterUpdate(s.state)
         })
         .catch(() => { /* 后端旧版本（未重启）时该端点不存在，保持默认 */ })
     }
@@ -96,6 +130,8 @@ export function UpdatePage() {
   const act = async (kind: string, path: string, timeoutMs = 30000) => {
     setBusy(kind)
     setMsg('')
+    // 用户主动发起更新：武装「完成后自动刷新」（见 maybeReloadAfterUpdate 的约束①）
+    if (kind === 'run') reloadArmedRef.current = true
     try {
       const r = await apiPost<{ success?: boolean; state?: string | number; error?: string }>(path, undefined, timeoutMs)
       setState(s => (s ? { ...s, state: r.state ?? s.state } : s))

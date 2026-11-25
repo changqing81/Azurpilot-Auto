@@ -14,26 +14,72 @@ import { btn, btnGroup, putText } from '../../lib/pywebio'
 type RaceCandidate = { url: string; video?: boolean }
 
 // 壁纸竞赛（app_home.py:_WALLPAPER_RACE_JS 的 TS 移植）：候选并发下载，最快者胜。
+//
+// ⚠️ 2026-11-25 由「<img> 比加载速度 + CSS 引用原 URL」改成「fetch 比拿到 blob」。
+//
+// 旧实现有个致命缺陷：CSS 变量设的是 winner.url，浏览器为渲染背景**会再请求一次**。
+// 对随机直链图源（api.yppp.net 之类，每次请求返回不同图）来说，竞技阶段下载到的是
+// A 图，「下载当前背景图」拿到的也是 A 图，但屏幕上显示的其实是第二次请求的 B 图。
+// 长卿 2026-11-25 实测截图：屏幕上白毛短发角色，下载下来是格子裙角色 —— 两张都不是
+// 同一个文件，改下载方式（canvas / 重新打开）都治不了根。
+//
+// 现在改成：每个候选 fetch 成 Blob，最快拿到 blob 的胜出；显示与下载共用
+// 同一个 blob 生成的 objectURL —— 浏览器不会再发任何远程请求，屏幕上是什么、
+// 存下来就是什么，逐字节相同。
+//
+// 代价（已与长卿确认）：不给 Access-Control-Allow-Origin 的图源 fetch 会失败，
+// 在竞技阶段直接被淘汰。同源的 /api/wallpapers/custom（自定义背景）不受影响。
 let raceDone = false
 let raceTimer: ReturnType<typeof setTimeout> | null = null
-let raceImages: (HTMLImageElement | HTMLVideoElement)[] = []
+let raceAbort: AbortController | null = null
+// 胜者的 blob 与其 objectURL：下载直接用这份数据，不重新请求
+let raceWinnerBlob: Blob | null = null
+let raceWinnerObjectUrl: string | null = null
 
-function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVideoElement) {
+/** 从 blob 的 MIME 推断扩展名；未知时回退 .jpg。 */
+function extOfBlob(blob: Blob): string {
+  const sub = (blob.type || '').split('/')[1] || ''
+  const map: Record<string, string> = {
+    jpeg: 'jpg', jpg: 'jpg', png: 'png', webp: 'webp', gif: 'gif',
+    mp4: 'mp4', webm: 'webm', quicktime: 'mov',
+  }
+  return map[sub.toLowerCase()] || (blob.type.startsWith('video/') ? 'mp4' : 'jpg')
+}
+
+/** 释放上一轮的 objectURL，避免内存泄漏（一张 8K 图就有几十 MB）。 */
+function revokeWinnerUrl(): void {
+  if (raceWinnerObjectUrl) {
+    try { URL.revokeObjectURL(raceWinnerObjectUrl) } catch { /* 忽略 */ }
+    raceWinnerObjectUrl = null
+  }
+}
+
+function finishRace(winner: RaceCandidate | null, blob?: Blob) {
   if (raceDone) return
   raceDone = true
   if (raceTimer) clearTimeout(raceTimer)
+  if (raceAbort) { try { raceAbort.abort() } catch { /* 忽略 */ } raceAbort = null }
   ;(window as any).__alasWallpaperWinner = winner ?? null
-  raceImages.forEach(item => { if (item !== el) { try { (item as any).src = '' } catch { /* 忽略 */ } } })
+  // 拿到胜者：永久停止自动重试（否则会在后台一直重抽）
+  if (winner?.url) settleWallpaper()
+
+  if (winner?.url && blob) {
+    // 先释放旧 URL 再建新的
+    revokeWinnerUrl()
+    raceWinnerBlob = blob
+    raceWinnerObjectUrl = URL.createObjectURL(blob)
+  }
+
   const existing = document.getElementById('alas-custom-bg-style')
-  if (winner?.video && el) {
+  if (winner?.video && raceWinnerObjectUrl) {
     document.getElementById('alas-bg-video')?.remove()
     let st = document.getElementById('alas-custom-bg-style')
     if (!st) { st = document.createElement('style'); st.id = 'alas-custom-bg-style'; document.head.appendChild(st) }
     st.textContent = 'body{background:transparent !important;}'
       + 'html{background:var(--alas-apple-bg,#f5f5f7) !important;}'
       + '#alas-bg-video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;}'
-    el.id = 'alas-bg-video'
-    const v = el as HTMLVideoElement
+    const v = document.createElement('video')
+    v.id = 'alas-bg-video'
     v.loop = true
     // 自动播放策略：**必须有 muted**，否则浏览器直接拒绝 play()（背景视频不需要声音）
     v.muted = true
@@ -41,18 +87,17 @@ function finishRace(winner: RaceCandidate | null, el?: HTMLImageElement | HTMLVi
     v.setAttribute('muted', '')
     v.setAttribute('playsinline', '')
     v.setAttribute('disablepictureinpicture', '')
-    document.body.appendChild(el)
-    const p = (el as HTMLVideoElement).play()
+    v.src = raceWinnerObjectUrl
+    document.body.appendChild(v)
+    const p = v.play()
     if (p && p.catch) p.catch(() => { /* 自动播放被拦，保留静帧 */ })
-  } else if (winner?.url) {
+  } else if (winner?.url && raceWinnerObjectUrl) {
     existing?.remove()
-    // ⚠️ 必须走 bgUrl()（补中继前缀），不能用 winner.url 原文：
-    // 竞速下载 img.src = bgUrl(url) 是带前缀的（所以能比出胜负），但 CSS 变量
-    // 引用是浏览器按文档 URL 再解析一次 —— 手机经中继时裸路径 /api/wallpapers/custom
-    // 会 502，背景就是空的（长卿 2026-11-19：「电脑端能看见，手机上自己看不见」，
-    // 手机 UA + 中继形态实测复现：变量值 url("/api/wallpapers/custom")，
-    // 浏览器补发的不带前缀请求 loadingFailed，带前缀的那次反而完成）。
-    document.documentElement.style.setProperty('--alas-apple-bg-image', `url("${bgUrl(winner.url)}")`)
+    // 用 objectURL 而不是远程 URL：浏览器不会再发请求，显示的必然是竞技时那一份。
+    // 这也是本例修掉「屏幕上一张、下载另一张」的关键——旧实现把 winner.url 交给 CSS，
+    // 浏览器按它重新请求，随机图源于是又给了一张新图。
+    document.documentElement.style.setProperty(
+      '--alas-apple-bg-image', `url("${raceWinnerObjectUrl}")`)
   }
 }
 
@@ -63,34 +108,187 @@ function bgUrl(url: string): string {
   return /^https?:\/\//i.test(url) ? url : withPrefix(url)
 }
 
-function startOne(c: RaceCandidate) {
-  let el: HTMLImageElement | HTMLVideoElement
-  if (c.video) {
-    const v = document.createElement('video')
-    v.muted = true
-    v.preload = 'auto'
-    v.setAttribute('playsinline', '')
-    v.oncanplay = () => finishRace(c, v)
-    v.onerror = () => { /* 该候选失败，等其它候选 */ }
-    v.src = bgUrl(c.url)
-    el = v
-  } else {
-    const img = new Image()
-    img.onload = () => finishRace(c, img)
-    img.onerror = () => { /* 该候选失败，等其它候选 */ }
-    img.src = bgUrl(c.url)
-    el = img
+/** 下载单个候选为 blob；超时或跨域被拒时抛错，由调用方静默淘汰。 */
+async function fetchCandidate(c: RaceCandidate, signal: AbortSignal): Promise<Blob> {
+  const res = await fetch(bgUrl(c.url), { mode: 'cors', signal })
+  if (!res.ok) throw new Error('HTTP ' + res.status)
+  const blob = await res.blob()
+  if (!blob.size) throw new Error('空响应')
+  // 视频候选的 blob 类型可能是 application/octet-stream，按候选标记补正
+  if (c.video && !blob.type.startsWith('video/')) {
+    return new Blob([blob], { type: 'video/mp4' })
   }
-  raceImages.push(el)
+  // 图片候选同理：部分 CDN 不给 content-type
+  if (!c.video && !blob.type.startsWith('image/')) {
+    return new Blob([blob], { type: 'image/jpeg' })
+  }
+  return blob
+}
+
+/** 竞速：谁先拿到 blob 谁赢。 */
+function startOne(c: RaceCandidate, signal: AbortSignal) {
+  fetchCandidate(c, signal)
+    .then(blob => finishRace(c, blob))
+    .catch(() => { /* 该候选失败（网络 / 跨域被拒 / 超时），等其它候选 */ })
+}
+
+
+/** 竞速失败：把「无胜者」也交给 finishRace 收尾，并通知重试调度。 */
+function finishRaceFailed() {
+  if (raceDone) return
+  finishRace(null)
 }
 
 function wallpaperRace(candidates: RaceCandidate[]) {
   raceDone = false
-  raceImages = []
   if (raceTimer) clearTimeout(raceTimer)
+  if (raceAbort) { try { raceAbort.abort() } catch { /* 忽略 */ } }
   ;(window as any).__alasWallpaperWinner = null
-  raceTimer = setTimeout(() => finishRace(null), 30000)
-  candidates.forEach(startOne)
+  const controller = new AbortController()
+  raceAbort = controller
+  // 30s 全员失败兜底：主动中止所有还在下载的候选，避免大图把带宽占满
+  raceTimer = setTimeout(() => {
+    try { controller.abort() } catch { /* 忽略 */ }
+    finishRaceFailed()
+  }, 30000)
+  candidates.forEach(c => startOne(c, controller.signal))
+}
+
+// ── 竞速失败后的自动重试 ──────────────────────────────────────────
+//
+// 长卿 2026-11-25：「为什么有时候高级材质和暗色会没有背景图片」。
+//
+// 根因不是网络本身，而是**一次失败就永久放弃**：原实现在 .then() 里只判
+// candidates 非空就开赛，失败分支是空注释；而高级材质/暗色主题的玻璃感完全
+// 依赖 --alas-apple-bg-image，变量停在 none 时半透明卡叠在纯色底上，
+// 看起来就是「没有背景图」。浅色主题底够亮，同样失败却看不出来，
+// 所以用户只会觉得「只有高级材质和暗色有问题」。
+//
+// 现在：拿不到候选 / 30s 内全员加载失败 → 指数退避重抽，拿到胜者即永久停。
+// 退避 2s→4s→8s→15s→30s（封顶），页面隐藏时暂停（回来立刻补一次），
+// 避免后台标签页白烧请求与流量。
+const RETRY_DELAYS = [2000, 4000, 8000, 15000, 30000]
+let retryTimer: ReturnType<typeof setTimeout> | null = null
+// 竞速结果的独立探测定时器（与 retryTimer 分开，见 armRaceFailureProbe）
+let probeTimer: ReturnType<typeof setTimeout> | null = null
+let retryCount = 0
+/** 已经有胜者（或用户已拿到图）就不再重试。 */
+let wallpaperSettled = false
+
+function hasWinner(): boolean {
+  return Boolean((window as any).__alasWallpaperWinner?.url)
+}
+
+/** 停掉重试并标记已收尾（拿到胜者时调用）。 */
+function settleWallpaper(): void {
+  wallpaperSettled = true
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+  if (probeTimer) { clearTimeout(probeTimer); probeTimer = null }
+}
+
+/** 清掉重试状态，让下一轮可以重新开始（切主题/显式重抽时用）。 */
+export function resetWallpaperRetry(): void {
+  wallpaperSettled = false
+  retryCount = 0
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
+  if (probeTimer) { clearTimeout(probeTimer); probeTimer = null }
+  // 重抽会换掉胜者：旧 blob 的 objectURL 必须释放，否则每次重抽泄漏一张大图
+  revokeWinnerUrl()
+  raceWinnerBlob = null
+}
+
+/** 把竞速胜者存成文件，保证「存下来的就是屏幕上那张」。
+ *
+ *  长卿 2026-11-25：「有些图源点击下载背景图显示完全不一样的图片」。
+ *
+ *  根因不只是下载方式：旧实现把 winner.url 交给 CSS 变量，浏览器为渲染背景**又请求
+ *  一次**，随机图源于是给出第二张图 —— 屏幕上是 B、下载的是 A，两者都不是同一个文件。
+ *  现在竞技阶段就把候选 fetch 成 blob，显示用 blob 的 objectURL、下载也用同一个 blob，
+ *  逐字节相同，浏览器不再发任何远程请求。
+ *
+ *  Returns:
+ *    'saved'  已作为文件保存
+ *    'none'   还没有胜者（竞技未完成或全部失败）
+ */
+export async function downloadCurrentWallpaper(): Promise<'saved' | 'none'> {
+  const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
+  if (!winner?.url || !raceWinnerBlob) return 'none'
+
+  const url = URL.createObjectURL(raceWinnerBlob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'wallpaper_' + new Date()
+    .toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.' + extOfBlob(raceWinnerBlob)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  // 立刻 revoke 会让部分浏览器来不及取数据，延后释放
+  setTimeout(() => URL.revokeObjectURL(url), 10000)
+  return 'saved'
+}
+
+/** 拉一次候选并发起竞速；拿到胜者即停，否则排下一次重试。 */
+function loadCandidatesAndRace(): void {
+  apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates', 30000)
+    .then(r => {
+      const candidates = r?.candidates ?? []
+      if (!candidates.length) {
+        // 全部图源都没返回直链（网络抖动 / 图源临时不可用）
+        scheduleRetry()
+        return
+      }
+      wallpaperRace(candidates)
+      // 竞速本身可能全员失败，30s 兜底结束后会再走一次 scheduleRetry
+      armRaceFailureProbe()
+    })
+    .catch(() => { scheduleRetry() })
+}
+
+/** 竞速开赛后盯着结果：一旦有胜者就收尾，否则退避重试。 */
+function armRaceFailureProbe(): void {
+  const startedAt = Date.now()
+  // probe 用独立定时器：与 retryTimer（重抽调度）分开，否则两边互相 clearTimeout，
+  // 会出现「探测被取消就再也不重试」的静默卡死。
+  if (probeTimer) clearTimeout(probeTimer)
+  const probe = () => {
+    probeTimer = null
+    if (wallpaperSettled) return
+    if (hasWinner()) { settleWallpaper(); return }
+    // raceDone 且仍无胜者 = 本轮全员失败；或超过竞速 30s 兜底 + 余量
+    if (raceDone || Date.now() - startedAt > 32000) {
+      scheduleRetry()
+      return
+    }
+    probeTimer = setTimeout(probe, 500)
+  }
+  probeTimer = setTimeout(probe, 500)
+}
+
+function scheduleRetry(): void {
+  if (wallpaperSettled || hasWinner()) { settleWallpaper(); return }
+  if (typeof document !== 'undefined' && document.hidden) {
+    // 页面在后台：不烧请求，等可见性回调补
+    return
+  }
+  const delay = RETRY_DELAYS[Math.min(retryCount, RETRY_DELAYS.length - 1)]
+  retryCount += 1
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = setTimeout(() => {
+    retryTimer = null
+    if (wallpaperSettled || hasWinner()) { settleWallpaper(); return }
+    if (typeof document !== 'undefined' && document.hidden) return
+    loadCandidatesAndRace()
+  }, delay)
+}
+
+// 页面回到前台时：还没胜者就立刻补一次（幂等，不叠加定时器）
+function onVisibilityChange(): void {
+  if (document.hidden || wallpaperSettled || hasWinner()) return
+  if (retryTimer) clearTimeout(retryTimer)
+  retryTimer = setTimeout(() => { retryTimer = null; loadCandidatesAndRace() }, 300)
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', onVisibilityChange)
 }
 
 const LANGS = [
@@ -170,9 +368,7 @@ let wallpaperStarted = false
 export function startWallpaperRace(): void {
   if (wallpaperStarted) return
   wallpaperStarted = true
-  apiGet<{ candidates: RaceCandidate[] }>('/newapi/wallpaper/candidates')
-    .then(r => { if (r.candidates?.length) wallpaperRace(r.candidates) })
-    .catch(() => { /* 图源不可用：保持纯色背景 */ })
+  loadCandidatesAndRace()
 }
 
 export function HomePageMain() {
@@ -410,8 +606,9 @@ export function HomePageMain() {
   const manageSources = () => { setShowSources(true) }
 
   const downloadWallpaper = () => {
-    const winner = (window as any).__alasWallpaperWinner as RaceCandidate | null
-    if (winner?.url) window.open(winner.url, '_blank')
+    void downloadCurrentWallpaper().then(result => {
+      if (result === 'none') window.alert('当前还没有加载出背景图，请稍候再试')
+    }).catch(e => window.alert('保存失败：' + String(e)))
   }
 
   // 容器 style 必须是 ";;text-align: center"（与老 UI put_buttons 的 .style 原样一致），
