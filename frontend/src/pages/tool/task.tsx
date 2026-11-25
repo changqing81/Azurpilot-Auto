@@ -111,7 +111,7 @@ export function TaskToolPage() {
   }
 
   return (
-    <Shell active={task} title={title}>
+    <Shell active={task} instance={name} title={title}>
       {/* 注意：Shell 的 children 直接挂在 #pywebio-scope-contents（display:flex）下。
           在这里放 content 的**兄弟**元素会被当成 flex 子项，把 content 挤窄
           （实测多一个 <p> + 一个按钮后，content 从 1336px 掉到 856px，

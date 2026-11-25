@@ -226,11 +226,27 @@ type ChipItem = { key: string; name: string; short: string; subs?: { key: string
 
 export function Shell({
   active,
+  instance,
   title,
   children,
   submenu,
 }: {
   active: string
+  /**
+   * 当前实例名（`ProcessManager` 里的 config_name）。
+   *
+   * 为什么必须显式传：`active` 是**高亮用的 key**，配置页传的是任务名
+   * （Alas/Commission…）、开发者工具传的是 'Utils'、设置页传的是 'Setting'、
+   * 集合页传的是 'CollectionEntry'，这些都不是实例名。不传就只能靠下面的
+   * 「回退到 instNames[0]」兜底，而 alas_instance() 的顺序来自 os.listdir，
+   * 第一个通常是 alas —— 于是一个**多实例**用户在小号配置页点任何菜单项，
+   * 都会被带回 alas 的配置页（长卿 2026-11-25 实测：「点小号的联合作战
+   * 能给我调到 alas 的实例配置页里」）。
+   *
+   * 结论：凡是有实例名的页面，必须把它传进来；只有真正的全局页
+   * （更新器/远程控制/公告/管理）才允许省略。
+   */
+  instance?: string
   title: string
   children: React.ReactNode
   /** 传了就用它替换配置树菜单（老 UI 的 init_menu(name="ManageXxx") 同语义） */
@@ -367,8 +383,11 @@ export function Shell({
       .catch(() => {})
   }, [langTick])
 
-  // 当前实例名（菜单跳转用）：优先当前页 active，回退第一个实例
-  const instanceName = instNames.includes(active) ? active : instNames[0] ?? 'alas'
+  // 当前实例名（菜单跳转用），优先级：
+  //   ① 调用方显式传入的 instance —— 唯一可靠来源，见 Shell 参数说明；
+  //   ② active 本身就是实例名（总览页、统计页就是这么传的）；
+  //   ③ 回退到实例列表第一个（仅全局页/降级路径会走到，等于老 UI 行为）。
+  const instanceName = instance || (instNames.includes(active) ? active : instNames[0] ?? 'alas')
 
   // 页眉状态圈（老 UI app_shell.py:318-359 set_status 的同构实现）。
   // 长卿：「在运行中，她在丛中笑那后面的小⭕呢，怎么不加回来？」
@@ -514,16 +533,24 @@ export function Shell({
     // 这样拿到的一定是翻转后的真实状态，不用猜、不会与原生行为打架。
     // 必须同步进 openGroups，否则 menuHtml 每次重建（dangerouslySetInnerHTML）
     // 都会按旧状态写 open 属性 → 点二级菜单跳转后分组「缩回去」（长卿 2026-11-19）。
-    // 防止 callback ref 重复调用时叠加监听（同一元素只绑一次）
-    if ((el as any).__alasToggleBound) return
-    ;(el as any).__alasToggleBound = true
-    el.addEventListener('toggle', (ev: Event) => {
-      const d = ev.target as HTMLDetailsElement
-      const gk = d?.dataset?.group
-      if (gk && d.tagName === 'DETAILS') {
-        setOpenGroups(v => ({ ...v, [gk]: d.open }))
-      }
-    }, true)
+    // 防止 callback ref 重复调用时叠加监听（同一元素只绑一次）。
+    // ⚠️ 守卫只能包住 addEventListener；onclick 是**赋值**，天然幂等，必须放在
+    // 守卫外面。它曾经写在守卫里面，于是 React 复用同一个 #pywebio-scope-menu
+    // 节点跨路由时（hash 路由切换不重载页面），callback ref 再被调用一次就被
+    // 直接 return 掉，onclick 永远停在**首次渲染那份闭包**上 —— 里面捕获的
+    // instanceName 跟着过期。以前看不出来是因为 instanceName 靠
+    // instNames[0] ?? 'alas' 兜底、等于常量；2026-11-25 改成读页面实例名后
+    // 立刻暴露：在 alas 的配置页点「委托」会跳到小号去。
+    if (!(el as any).__alasToggleBound) {
+      ;(el as any).__alasToggleBound = true
+      el.addEventListener('toggle', (ev: Event) => {
+        const d = ev.target as HTMLDetailsElement
+        const gk = d?.dataset?.group
+        if (gk && d.tagName === 'DETAILS') {
+          setOpenGroups(v => ({ ...v, [gk]: d.open }))
+        }
+      }, true)
+    }
     el.onclick = (ev) => {
       // 分组标题（summary）：只切换展开态，不跳转、不收起其它分组
       const summary = (ev.target as HTMLElement).closest('summary')

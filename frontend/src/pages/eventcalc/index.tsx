@@ -16,7 +16,7 @@ import { EventCalculator } from '../config/EventCalculator'
 export function EventCalcPage() {
   const { name = 'alas' } = useParams()
   return (
-    <Shell active="EventCalcEntry" title="活动计算器">
+    <Shell active="EventCalcEntry" instance={name} title="活动计算器">
       <div id="pywebio-scope-content" className="config-page">
         {/* 标题与说明放进底板内 —— 否则它们浮在壁纸上，浅色壁纸时看不清
             （长卿 2026-11-20：「上面的文字在一些壁纸下看不清」）。 */}

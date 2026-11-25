@@ -1,6 +1,7 @@
 // 设置页（对照老 UI app_developer_settings.py：启动器自启动 + deploy.yaml 可视化配置）。
 // 数据全部走老 UI 现成 REST：/api/launcher/status + /api/deploy/settings。
 import { useEffect, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { Shell } from '../../components/Shell'
 
 type LauncherStatus = {
@@ -27,6 +28,10 @@ type DeployGroup = { key: string; label: string; fields: DeployField[] }
 type DeploySchema = { groups?: DeployGroup[]; title?: string }
 
 export function SettingsPage() {
+  // 从 /settings/:name 取当前实例名，供 Shell 拼菜单跳转 URL。
+  // 设置页内容本身是全局的（deploy.yaml + 启动器状态），但用户从这里点回
+  // 「委托」「总览」等菜单项时，必须回到他原来那个实例，不能一律回 alas。
+  const { name = 'alas' } = useParams()
   const [launcher, setLauncher] = useState<LauncherStatus | null>(null)
   const [schema, setSchema] = useState<DeploySchema | null>(null)
   const [values, setValues] = useState<Record<string, any>>({})
@@ -199,7 +204,7 @@ export function SettingsPage() {
   })()
 
   return (
-    <Shell active="Setting" title="设置">
+    <Shell active="Setting" instance={name} title="设置">
     <div id="pywebio-scope-content" className="config-page">
       <h2 style={{ margin: '.5rem 0' }}>
         设置

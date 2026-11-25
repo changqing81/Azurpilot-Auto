@@ -275,8 +275,11 @@ export function ConfigBody({
   )
 
   if (hideShell) return body
+  // active 是**任务名**（配置树高亮用），实例名必须单独传：Shell 里所有菜单
+  // 跳转都靠它拼 URL，缺了就会回退到实例列表第一个 —— 多实例用户在小号
+  // 配置页点任何菜单项都会跳到 alas 的配置页（长卿 2026-11-25 实测）。
   return (
-    <Shell active={task} title="配置">
+    <Shell active={task} instance={name} title="配置">
       {body}
     </Shell>
   )

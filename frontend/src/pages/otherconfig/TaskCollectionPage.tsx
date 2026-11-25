@@ -76,7 +76,7 @@ export function TaskCollectionPage({ collection }: { collection: TaskCollection 
   }, [tab])
 
   return (
-    <Shell active="CollectionEntry" title={collection.title}>
+    <Shell active="CollectionEntry" instance={name} title={collection.title}>
       <div id="pywebio-scope-content" className="config-page">
         {/* 整块毛玻璃容器（长卿：「最好是连成整块」＋「这块也得加上毛玻璃」）
             标题 / 说明 / 页签 / 配置内容全包在一块里，壁纸不从缝隙透上来。 */}

@@ -147,7 +147,7 @@ export function ToolPage() {
   )
 
   return (
-    <Shell active="Utils" title="开发者工具">
+    <Shell active="Utils" instance={name} title="开发者工具">
       <div id="pywebio-scope-content">
         <div style={{ padding: '.625rem' }}>
           <h2 style={{ fontSize: '1.05rem', margin: '0 0 .6rem', opacity: .9 }}>GUI测试</h2>
