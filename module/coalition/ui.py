@@ -411,6 +411,8 @@ class CoalitionUI(Combat):
             return NEONCITY_FLEET_PREPARATION
         elif event == 'coalition_20260723':
             return HORROR_FLEET_PREPARATION
+        elif event == 'coalition_20261124':
+            return VERITAS_FLEET_PREPARATION
         else:
             logger.error(f'[联动-UI] FLEET_PREPARATION未定义在活动中 {event}')
             raise ScriptError
