@@ -29,6 +29,21 @@ function ArgControl({ arg, onChange }: { arg: Arg; onChange: (v: any) => void })
       </select>
     )
   }
+  // state 类型 = 老 UI 的 put_arg_state（widgets.py:592）：只读下拉框，
+  // 显示当前活动的**中文名**而不是配置值。老 UI 是把所有 option 收窄成
+  // 「当前值」一条再交给 select 渲染，所以用户看到「真理学院的转校生」，
+  // 但改不了（活动由调度器自动选中最新）。我原来没接这个分支，
+  // 它掉到最后的普通文本框，直接把 coalition_20261124 这种原始 key
+  // 显示给用户了（2026-11-25 长卿截图）。
+  if (arg.type === 'state') {
+    const hit = (arg.option || []).find(o => String(o.value) === String(arg.value ?? ''))
+    const label = hit ? hit.label : (arg.value ?? '')
+    return (
+      <select className="form-control state" value={arg.value ?? ''} disabled>
+        <option value={arg.value ?? ''}>{label}</option>
+      </select>
+    )
+  }
   if (arg.type === 'checkbox' || typeof arg.value === 'boolean') {
     return (
       <div className="form-check">
