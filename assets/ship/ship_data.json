@@ -181826,7 +181826,7 @@
   "702131": {
     "name": {
       "cn": "莫洛托夫",
-      "en": null,
+      "en": "Molotov",
       "jp": "モロトフ",
       "tw": null,
       "kr": null
@@ -181900,7 +181900,7 @@
   "702132": {
     "name": {
       "cn": "莫洛托夫",
-      "en": null,
+      "en": "Molotov",
       "jp": "モロトフ",
       "tw": null,
       "kr": null
@@ -181974,7 +181974,7 @@
   "702133": {
     "name": {
       "cn": "莫洛托夫",
-      "en": null,
+      "en": "Molotov",
       "jp": "モロトフ",
       "tw": null,
       "kr": null
@@ -182048,7 +182048,7 @@
   "702134": {
     "name": {
       "cn": "莫洛托夫",
-      "en": null,
+      "en": "Molotov",
       "jp": "モロトフ",
       "tw": null,
       "kr": null
@@ -186336,7 +186336,7 @@
   "705101": {
     "name": {
       "cn": "锡诺普",
-      "en": null,
+      "en": "Sinop",
       "jp": "シノープ",
       "tw": null,
       "kr": null
@@ -186410,7 +186410,7 @@
   "705102": {
     "name": {
       "cn": "锡诺普",
-      "en": null,
+      "en": "Sinop",
       "jp": "シノープ",
       "tw": null,
       "kr": null
@@ -186484,7 +186484,7 @@
   "705103": {
     "name": {
       "cn": "锡诺普",
-      "en": null,
+      "en": "Sinop",
       "jp": "シノープ",
       "tw": null,
       "kr": null
@@ -186558,7 +186558,7 @@
   "705104": {
     "name": {
       "cn": "锡诺普",
-      "en": null,
+      "en": "Sinop",
       "jp": "シノープ",
       "tw": null,
       "kr": null
@@ -186632,7 +186632,7 @@
   "705111": {
     "name": {
       "cn": "玛丽亚皇后",
-      "en": null,
+      "en": "Imperatritsa Mariya",
       "jp": "インペラトリッツァ・マリーヤ",
       "tw": null,
       "kr": null
@@ -186706,7 +186706,7 @@
   "705112": {
     "name": {
       "cn": "玛丽亚皇后",
-      "en": null,
+      "en": "Imperatritsa Mariya",
       "jp": "インペラトリッツァ・マリーヤ",
       "tw": null,
       "kr": null
@@ -186780,7 +186780,7 @@
   "705113": {
     "name": {
       "cn": "玛丽亚皇后",
-      "en": null,
+      "en": "Imperatritsa Mariya",
       "jp": "インペラトリッツァ・マリーヤ",
       "tw": null,
       "kr": null
@@ -186854,7 +186854,7 @@
   "705114": {
     "name": {
       "cn": "玛丽亚皇后",
-      "en": null,
+      "en": "Imperatritsa Mariya",
       "jp": "インペラトリッツァ・マリーヤ",
       "tw": null,
       "kr": null
@@ -247487,7 +247487,7 @@
   "9701141": {
     "name": {
       "cn": "凯尔圣·META",
-      "en": null,
+      "en": "Kersaint META",
       "jp": "ケルサン(META)",
       "tw": null,
       "kr": null
@@ -247561,7 +247561,7 @@
   "9701142": {
     "name": {
       "cn": "凯尔圣·META",
-      "en": null,
+      "en": "Kersaint META",
       "jp": "ケルサン(META)",
       "tw": null,
       "kr": null
@@ -247635,7 +247635,7 @@
   "9701143": {
     "name": {
       "cn": "凯尔圣·META",
-      "en": null,
+      "en": "Kersaint META",
       "jp": "ケルサン(META)",
       "tw": null,
       "kr": null
@@ -247709,7 +247709,7 @@
   "9701144": {
     "name": {
       "cn": "凯尔圣·META",
-      "en": null,
+      "en": "Kersaint META",
       "jp": "ケルサン(META)",
       "tw": null,
       "kr": null
@@ -251341,7 +251341,7 @@
       "cn": "纽伦堡·META",
       "en": "Nürnberg META",
       "jp": "ニュルンベルク(META)",
-      "tw": null,
+      "tw": "紐倫堡·META",
       "kr": "뉘른베르크·META"
     },
     "english_name": "Nürnberg.META",
@@ -251415,7 +251415,7 @@
       "cn": "纽伦堡·META",
       "en": "Nürnberg META",
       "jp": "ニュルンベルク(META)",
-      "tw": null,
+      "tw": "紐倫堡·META",
       "kr": "뉘른베르크·META"
     },
     "english_name": "Nürnberg.META",
@@ -251489,7 +251489,7 @@
       "cn": "纽伦堡·META",
       "en": "Nürnberg META",
       "jp": "ニュルンベルク(META)",
-      "tw": null,
+      "tw": "紐倫堡·META",
       "kr": "뉘른베르크·META"
     },
     "english_name": "Nürnberg.META",
@@ -251563,7 +251563,7 @@
       "cn": "纽伦堡·META",
       "en": "Nürnberg META",
       "jp": "ニュルンベルク(META)",
-      "tw": null,
+      "tw": "紐倫堡·META",
       "kr": "뉘른베르크·META"
     },
     "english_name": "Nürnberg.META",
@@ -290558,7 +290558,7 @@
     },
     "english_name": "Liliel Angel Paratroopers/Ririsa",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 6,
     "type_name": "轻航",
     "rarity": 5,
@@ -290632,7 +290632,7 @@
     },
     "english_name": "Liliel Angel Paratroopers/Ririsa",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 6,
     "type_name": "轻航",
     "rarity": 5,
@@ -290706,7 +290706,7 @@
     },
     "english_name": "Liliel Angel Paratroopers/Ririsa",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 6,
     "type_name": "轻航",
     "rarity": 5,
@@ -290780,7 +290780,7 @@
     },
     "english_name": "Liliel Angel Paratroopers/Ririsa",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 6,
     "type_name": "轻航",
     "rarity": 5,
@@ -290854,7 +290854,7 @@
     },
     "english_name": "Miriella Angel Paratroopers/Mikari",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 2,
     "type_name": "轻巡",
     "rarity": 5,
@@ -290928,7 +290928,7 @@
     },
     "english_name": "Miriella Angel Paratroopers/Mikari",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 2,
     "type_name": "轻巡",
     "rarity": 5,
@@ -291002,7 +291002,7 @@
     },
     "english_name": "Miriella Angel Paratroopers/Mikari",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 2,
     "type_name": "轻巡",
     "rarity": 5,
@@ -291076,7 +291076,7 @@
     },
     "english_name": "Miriella Angel Paratroopers/Mikari",
     "nationality": 118,
-    "nation_name": "2.5次元的诱惑",
+    "nation_name": "未知阵营(118)",
     "type": 2,
     "type_name": "轻巡",
     "rarity": 5,

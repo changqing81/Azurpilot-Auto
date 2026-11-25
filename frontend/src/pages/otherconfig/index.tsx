@@ -20,7 +20,7 @@ const OTHER_CONFIG: TaskCollection = {
     { id: 'Raid', label: '共斗活动' },
     { id: 'RaidScuttle', label: '共斗沉船' },
     { id: 'Hospital', label: '深谷来信' },
-    { id: 'Coalition', label: '联合出击' },
+    { id: 'Coalition', label: '夜勤病栋' },
     { id: 'CoalitionScuttle', label: '联盟沉船' },
     { id: 'MaritimeEscort', label: '商路护航' },
     { id: 'WarArchives', label: '作战档案' },
@@ -76,7 +76,7 @@ const EVENT_DAILY: TaskCollection = {
     { id: 'EventD', label: '每日D图' },
     { id: 'EventSp', label: '每日SP图' },
     { id: 'RaidDaily', label: '共斗活动每日' },
-    { id: 'CoalitionSp', label: '联合出击每日 SP' },
+    { id: 'CoalitionSp', label: '怪谈纪实：逃离白夜山庄SP' },
   ],
 }
 
