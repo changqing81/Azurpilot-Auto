@@ -114,6 +114,8 @@ class Coalition(CoalitionCombat, CampaignEvent):
         elif event == 'coalition_20260723':
             threshold = 256 if self.config.SERVER == 'en' else 221
             ocr = Digit(HORROR_PT_OCR, name='OCR_PT', lang='cnocr', letter=(228, 230, 237), threshold=threshold)
+        elif event == 'coalition_20261124':
+            ocr = Digit(VERITAS_PT_OCR, name='OCR_PT', letter=(192, 208, 227), threshold=192)
         else:
             logger.error(f'[联动] 活动 {event} 未定义OCR对象')
             raise ScriptError
@@ -172,6 +174,7 @@ class Coalition(CoalitionCombat, CampaignEvent):
         if self.config.Campaign_Event in [
             'coalition_20260122',
             'coalition_20260723',
+            'coalition_20261124',
         ]:
             return False
         return True
@@ -244,8 +247,8 @@ class Coalition(CoalitionCombat, CampaignEvent):
         if self.config.Coalition_Fleet == 'single' and self.config.Emotion_Fleet1Control == 'prevent_red_face':
             logger.warning('[联动] 不允许单舰队联动心情低于30，强制切换为防止黄脸模式')
             self.config.override(Emotion_Fleet1Control='prevent_yellow_face')
-        if stage == 'sp':
-            # SP 关卡需要多舰队
+        if stage == 'sp' or (event == 'coalition_20261124' and stage == 'ex'):
+            # SP 和真理学院的 EX 关卡需要多舰队。
             self.config.override(
                 Coalition_Fleet='multi',
             )

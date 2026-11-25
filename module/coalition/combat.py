@@ -27,6 +27,8 @@ class CoalitionCombat(CoalitionUI, CampaignBase):
         status_clicked = False
         click_timer = Timer(0.3)
         click_last = Timer(1, count=3)
+        veritas_ex = getattr(self.config, 'Campaign_Name', '') == 'coalition_20261124_ex'
+        result_timer = Timer(2)
         while 1:
             if skip_first_screenshot:
                 skip_first_screenshot = False
@@ -56,6 +58,13 @@ class CoalitionCombat(CoalitionUI, CampaignBase):
             if self.handle_combat_automation_confirm():
                 status_clicked = False
                 continue
+            if self.handle_exp_info():
+                continue
+            if veritas_ex and result_timer.reached():
+                result_timer.reset()
+                if self.handle_veritas_ex_result():
+                    status_clicked = False
+                    continue
             if self.handle_battle_status():
                 status_clicked = True
                 click_last.reset()

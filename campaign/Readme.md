@@ -333,3 +333,4 @@
 | 20261022   | event 20250520 cn        | A Rose on the High Tower Rerun               | -                          | -                                                  | -                                    | 復刻高塔上的薔薇           |
 | 20261022   | event 20250814 cn        | Secrets of the Abyss Rerun                   | -                          | -                                                  | -                                    | 復刻奇淵下的秘密           |
 | 20261022   | event 20250912 cn        | A Dance for Amahara Above Rerun              | -                          | -                                                  | -                                    | 復刻起舞於天原之上         |
+| 20261124   | coalition 20261124       | The Transfer Student at Veritas Academy      | 真理学院的转校生           | The Transfer Student at Veritas Academy            | 真理学園の転校生                     | -                          |
