@@ -18,7 +18,7 @@
 // 一律通过 lib/pywebio.ts 输出与 PyWebIO 逐字节一致的 HTML 字符串。
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet, instSeg } from '../../api/client'
+import { apiGet, instSeg, withPrefix } from '../../api/client'
 import { downloadRuntimeLog } from '../../api/logExport'
 import { Shell, toggleSchedFab } from '../../components/Shell'
 import { esc, putText } from '../../lib/pywebio'
@@ -75,63 +75,85 @@ function taskCard(task: TaskRow, settingLabel: string): string {
   )
 }
 
-/** 数值转数字；None/非数字返回 null（仪表盘进度环判定用）。 */
+/** 数值转数字；None/非数字返回 null。 */
 function dashNum(v: string | null | undefined): number | null {
   if (v == null) return null
   const n = Number(v)
   return Number.isFinite(n) ? n : null
 }
 
-/** 仪表盘前置视觉：有上限 → SVG 圆环进度（满环转红）；无上限 → 竖向渐变色条。
- *  颜色走内联 --ring-color / --anchor-color，样式在 newui-scoped.css（新 UI 专用）。 */
-function dashVisual(item: DashItem): string {
-  // 后端 color 已带 # 前缀（data.py get_dashboard 做 ^→# 替换），兼容两种写法
-  const raw = (item.color || '').trim()
-  const color = /^#?[0-9A-Fa-f]{6}$/.test(raw) ? (raw.startsWith('#') ? raw : '#' + raw) : '#8a93a6'
-  const valueNum = dashNum(item.value)
-  const limitNum = dashNum(item.limit)
-  if (limitNum != null && limitNum > 0 && valueNum != null) {
-    const pct = (valueNum / limitNum) * 100
-    const shown = Math.min(Math.max(pct, 0), 100)
-    const over = pct >= 100
-    const C = 131.9
-    const dash = Math.round((shown / 100) * C * 10) / 10
-    const cls = over ? 'dash-ring dash-ring-over' : 'dash-ring'
-    return (
-      `<div class="dash-visual">` +
-      `<svg class="${cls}" viewBox="0 0 52 52" style="--ring-color:${color}">` +
-      `<circle class="dash-ring-track" cx="26" cy="26" r="21"/>` +
-      `<circle class="dash-ring-arc" cx="26" cy="26" r="21" stroke-dasharray="${dash} ${C}"/>` +
-      `<text class="dash-ring-pct" x="26" y="30.5" text-anchor="middle">${Math.round(shown)}%</text>` +
-      `</svg></div>`
-    )
-  }
-  return (
-    `<div class="dash-visual dash-visual-anchor">` +
-    `<div class="dash-anchor" style="--anchor-color:${color}"></div>` +
-    `</div>`
-  )
+/** 资源名 → 图标文件（frontend/public/icons/*.webp）。
+ *  图标来自上游 AzurPilot 的 frontend/public（webp 透明背景），已按实际观感核对映射：
+ *  行动力 = 金锚（上游文件名 guild_coin）、舰队币 = 银币（上游文件名 stamina）——
+ *  上游的文件名与我们的资源名并不一一对应，这里按「资源名」重新命名落地，避免误导。
+ *  缺失时回退成 color 色点（后端 group.Color）。 */
+const DASH_ICON: Record<string, string> = {
+  Oil: 'Oil',
+  Coin: 'Coin',
+  Gem: 'Gem',
+  Cube: 'Cube',
+  Pt: 'Pt',
+  ActionPoint: 'ActionPoint',
+  YellowCoin: 'YellowCoin',
+  PurpleCoin: 'PurpleCoin',
+  Core: 'Core',
+  Medal: 'Medal',
+  Merit: 'Merit',
+  GuildCoin: 'GuildCoin',
 }
 
-/** 仪表盘条目（app_dashboard.py:479-547 同构，视觉升级为 V2 圆环）。
- *  外层 put_row("48px 1fr") 放圆环/色条 + 资源组；
- *  资源组内 put_row("min-content auto") 放值/上限，再接记录时间。 */
+/** 仪表盘单条（C4 版式，长卿 2026-11-25 选定）：
+ *     [24px 图标] 资源名 ........ 数值(右对齐)
+ *                  上限 —        更新时间
+ *                  ─── 2px 进度线（仅有上限时显示，溢出转红）
+ *  结构说明：
+ *    - 用 grid（icon / body 两列），数字统一右对齐形成整齐的数字列；
+ *    - 名称 flex:1 + ellipsis，"大世界黄币"这类长名不推挤数值；
+ *    - 上限与时间同一行，时间 margin-left:auto 贴右；
+ *    - 进度线只在 Limit 有效时出现；Total（行动力累计）不算上限，不画线。 */
 function dashEntry(item: DashItem): string {
-  const value = item.value === 'None' || !item.value ? '无' : item.value
-  const second = item.limit ? ' / ' + item.limit : item.total ? ' (' + item.total + ')' : ''
-  const secondMark = item.limit ? '--dashboard-limit--' : '--dashboard-total--'
+  const hasValue = item.value !== 'None' && !!item.value
+  const value = hasValue ? item.value : '无'
+  const limitNum = dashNum(item.limit)
+  const valueNum = dashNum(item.value)
+  const hasLimit = limitNum != null && limitNum > 0 && valueNum != null
+  const pct = hasLimit ? (valueNum! / limitNum!) * 100 : 0
+  const shown = Math.min(Math.max(pct, 0), 100)
+  const over = hasLimit && pct >= 100
+
+  // 第二行：上限 / 累计 / 占位破折号
+  const sub = item.limit
+    ? putText('/ ' + item.limit, over ? ';;--dashboard-limit--;;is-over' : ';;--dashboard-limit--')
+    : item.total
+      ? putText('累计 ' + item.total, ';;--dashboard-total--')
+      : putText('—', ';;--dashboard-none--')
+
+  const iconName = DASH_ICON[item.name]
+  const iconHtml = iconName
+    ? `<img class="dash-ico" src="${withPrefix('/icons/' + iconName + '.webp')}" alt="" width="24" height="24">`
+    : (() => {
+        // 无图标时回退成后端给的资源色点
+        const raw = (item.color || '').trim()
+        const c = /^#?[0-9A-Fa-f]{6}$/.test(raw) ? (raw.startsWith('#') ? raw : '#' + raw) : '#8a93a6'
+        return `<span class="dash-ico dash-ico-dot" style="background:${c}"></span>`
+      })()
+
   return (
-    `<div id="pywebio-scope-dashboard_${esc(item.name)}">` +
-    `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 48px 1fr;;;height: 1fr">` +
-    dashVisual(item) +
-    `<div id="pywebio-scope-${esc(item.name)}_group">` +
-    `<div style="display: grid; grid-auto-flow: row; grid-template-rows: auto auto;">` +
-    `<div style="display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr;;;grid-template-columns:min-content auto;align-items: baseline;">` +
+    `<div class="dash-item" id="pywebio-scope-dashboard_${esc(item.name)}">` +
+    iconHtml +
+    `<div class="dash-body" id="pywebio-scope-${esc(item.name)}_group">` +
+    `<div class="dash-row1">` +
+    putText(item.label || DASH_LABEL[item.name] || item.name, ';;--dashboard-name--') +
     putText(value, ';;--dashboard-value--') +
-    putText(second, `;;${secondMark}`) +
     `</div>` +
-    putText(`${item.label || DASH_LABEL[item.name] || item.name} - ${relTime(item.record)}`, ';;---dashboard-help--') +
-    `</div></div></div></div>`
+    `<div class="dash-row2">` +
+    sub +
+    putText(relTime(item.record), ';;--dashboard-help--') +
+    `</div>` +
+    (hasLimit
+      ? `<div class="dash-bar"><i class="dash-bar-fill${over ? ' is-over' : ''}" style="width:${shown}%"></i></div>`
+      : `<div class="dash-bar dash-bar-none"></div>`) +
+    `</div></div>`
   )
 }
 

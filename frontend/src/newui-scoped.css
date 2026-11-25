@@ -2902,96 +2902,225 @@ html[data-alas-theme="dark_advanced_material"] #root .oc-glass .oc-tabs {
 }
 
 /* ==========================================================================
-   仪表盘 V2：圆环进度 / 竖向渐变锚点（新 UI 专用，#root 前缀老 UI 不命中）
+   仪表盘条目（C4 版式 · 长卿 2026-11-25 选定；新 UI 专用，#root 前缀老 UI 不命中）
 
-   条目结构（pages/home/index.tsx dashEntry）：
-     外层 grid 48px 1fr = dash-visual + 资源组
-     有上限（Limit / PtLimit）→ SVG 圆环：轨道 + 进度弧 + 环内百分比，
-       进度封顶 100%，≥100% 整环转红（dash-ring-over），文字仍显示百分比；
-     无上限 / 累计 Total / 从未记录 → 竖向渐变色条（透明 → 资源色），
-       替代原 status-point 圆点。
+   结构（pages/home/index.tsx dashEntry）：
+     .dash-item  grid[24px 1fr]
+       > img.dash-ico        资源图标（frontend/public/icons/*.webp，透明 webp）
+       > .dash-body
+           .dash-row1         资源名 ........ 数值（右对齐）
+           .dash-row2         上限/累计 — 更新时间（时间贴右）
+           .dash-bar          2px 进度线（仅有上限时显示，≥100% 转红）
 
-   颜色全部走 currentColor / 内联 --ring-color --anchor-color：
-   主题层（dark / advanced_material / transparent…）不用逐个覆盖，
-   文字色跟条目文本自动明暗。
+   图标来自上游 AzurPilot 的 frontend/public（webp 透明背景），已按实际观感
+   重新映射成我们的资源名（行动力=金锚、舰队币=银币，上游文件名会误导）。
+   颜色不写死：进度线与文字走主题变量，暗色主题自动可读。
    ========================================================================== */
-#root #pywebio-scope-dashboard .dash-visual {
+/* 容器列宽：alas.css 里是 minmax(10rem,1fr)=160px，放不下「图标+名称+6位数字」，
+   这里覆盖成 13rem 起步，宽屏自动铺更多列。长卿 2026-11-25 实站截图：数值贴边拥挤。 */
+#root #pywebio-scope-dashboard {
+  /* 列宽 11rem（176px）：13rem 时一行只能放 3 列 → 12 项要 4 行，占位太多
+     （长卿 2026-11-25「这仪表盘站位有点多了 缩小一点」）。
+     11rem 能放 4 列 → 只需 3 行，高度立省 1/4。 */
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)) !important;
+  gap: 8px 14px;
+  align-items: start;
+  /* 不做额外底色/毛玻璃（长卿 2026-11-25：加了半透明白 + blur 反而「灰成一坨」）。
+     仪表盘直接铺在日志卡片自己的主题底色上，靠文字层级区分即可。 */
+}
+#root #pywebio-scope-dashboard .dash-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+}
+
+/* 图标：透明 webp，object-fit contain 保证不变形；无图标时回退色点。
+   ⚠️ 必须显式去白底：PyWebIO 自带的 markdown.min.css 有一条
+   .markdown-body img { background-color: #fff }（GitHub 风格给正文插图垫白底），
+   整个页面都在 .markdown-body 内 → 透明 webp 会被垫成白色小方块
+   （长卿 2026-11-25：「这白底跟底部不配合」）。
+   统计页早踩过同一坑（statistics-alas.css:2194 只覆盖统计页），仪表盘在总览页需单独兜。 */
+#root #pywebio-scope-dashboard .dash-ico {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex: none;
+  display: block;
+  margin-top: 1px;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+#root #pywebio-scope-dashboard .dash-ico-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin: 7px 0 0 7px;
+}
+
+#root #pywebio-scope-dashboard .dash-body {
+  min-width: 0;
+}
+
+/* 第一行：名称（可省略）+ 数值右对齐 */
+#root #pywebio-scope-dashboard .dash-row1 {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 第二行：上限 / 累计 + 时间贴右 */
+#root #pywebio-scope-dashboard .dash-row2 {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+/* 进度线：2px，仅有上限时出现；无上限给一条空轨保持行高一致 */
+#root #pywebio-scope-dashboard .dash-bar {
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(120, 120, 150, .14);
+  margin-top: 5px;
+  overflow: hidden;
+}
+#root #pywebio-scope-dashboard .dash-bar-none {
+  background: transparent;
+}
+#root #pywebio-scope-dashboard .dash-bar-fill {
+  display: block;
   height: 100%;
+  border-radius: 2px;
+  background: #7b8fe0;
+}
+#root #pywebio-scope-dashboard .dash-bar-fill.is-over {
+  background: linear-gradient(90deg, #e05252, #ff8a65);
 }
 
-/* 竖向渐变色条锚点：无上限资源用，替代原圆形色点 */
-#root #pywebio-scope-dashboard .dash-anchor {
-  width: 5px;
-  height: 42px;
-  border-radius: 3px;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, var(--anchor-color, #8a93a6) 85%);
-}
-
-/* SVG 圆环进度：有上限资源用 */
-#root #pywebio-scope-dashboard .dash-ring {
-  width: 44px;
-  height: 44px;
-}
-
-#root #pywebio-scope-dashboard .dash-ring-track,
-#root #pywebio-scope-dashboard .dash-ring-arc {
-  fill: none;
-  stroke-width: 5;
-}
-
-#root #pywebio-scope-dashboard .dash-ring-track {
-  stroke: rgba(125, 135, 155, 0.22);
-}
-
-#root #pywebio-scope-dashboard .dash-ring-arc {
-  stroke: var(--ring-color, #8a93a6);
-  stroke-linecap: round;
-  transform: rotate(-90deg);
-  transform-origin: center;
-}
-
-/* 满环/溢出：整环转红（文字仍显示百分比，不另做溢出标记） */
-#root #pywebio-scope-dashboard .dash-ring-over .dash-ring-arc {
-  stroke: #e53935;
-}
-
-#root #pywebio-scope-dashboard .dash-ring-pct {
-  font-size: 11px;
-  font-weight: 700;
-  fill: currentColor;
-}
-
-/* 上限文本（/ 20300、(3710)）不折行：窄列下 min-content 轨道会把
-   「18908 / 20300」折成两行（长卿 2026-11-21 实测），压成单行溢出省略。 */
-#root #pywebio-scope-dashboard *[style*="--dashboard-limit--"],
-#root #pywebio-scope-dashboard *[style*="--dashboard-total--"] {
+/* 名称：占满左侧，超长省略（"大世界黄币"不推挤数值） */
+#root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-name--"] {
+  flex: 1;
+  min-width: 0;
+  margin: 0 !important;
+  font-size: .72rem;
+  line-height: 1.3;
+  /* 深灰：原来 #8a8fa0 在浅色卡上发虚 */
+  color: #5b6270;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 暗色系主题：轨道与文字提亮（arc 色来自内联变量，无需覆盖） */
-html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-ring-track,
-html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-ring-track {
-  stroke: rgba(255, 255, 255, 0.12);
+/* 数值：18px 加粗、右对齐、等宽数字 */
+#root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-value--"] {
+  flex: none;
+  margin: 0 !important;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: #23262e;
 }
 
-/* 窄屏（alas-mobile 同款 6rem 栅格）：圆环与锚点缩小 */
+/* 上限 / 累计文本 */
+#root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-limit--"],
+#root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-total--"],
+#root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-none--"] {
+  margin: 0 !important;
+  font-size: .68rem;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  /* 深灰（长卿 2026-11-25：小字太浅读不出来） */
+  color: #6b7280;
+  white-space: nowrap;
+}
+#root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-none--"] {
+  color: #9ca3af;
+}
+/* 上限溢出（物资 / 活动PT 超限）：转红提示 */
+#root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-limit--"][style*="is-over"] {
+  color: #e05252;
+  font-weight: 600;
+}
+
+/* 更新时间：贴右，最小字号 */
+#root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-help--"] {
+  margin: 0 0 0 auto !important;
+  font-size: .62rem;
+  line-height: 1.3;
+  /* 深灰，比上限再浅一档（时间次要） */
+  color: #7b8291;
+  white-space: nowrap;
+}
+
+/* 暗色主题：数值与文字提亮（进度线本身是蓝/红，不需改） */
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-value--"],
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-value--"] {
+  color: #e8ecf4;
+}
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-name--"],
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-name--"] {
+  color: #9aa3b5;
+}
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-help--"],
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-help--"] {
+  color: #9aa3b5;
+}
+/* 暗色下上限/累计也要提亮（浅色主题的深灰在深底上读不出） */
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-limit--"],
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-total--"],
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-none--"],
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-limit--"],
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-total--"],
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-none--"] {
+  color: #aeb6c6;
+}
+/* 暗色下进度线轨道提亮 */
+html[data-alas-theme="dark"] #root #pywebio-scope-dashboard .dash-bar,
+html[data-alas-theme="dark_advanced_material"] #root #pywebio-scope-dashboard .dash-bar {
+  background: rgba(255, 255, 255, .14);
+}
+
+/* 窄屏：图标与字号缩一档，两列等宽（长卿 2026-11-25：窄屏不能裁字） */
 @media (max-width: 760px) {
-  #root #pywebio-scope-dashboard .dash-visual {
-    width: 34px;
+  #root #pywebio-scope-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px 12px;
   }
-  #root #pywebio-scope-dashboard .dash-ring {
-    width: 30px;
-    height: 30px;
+  #root #pywebio-scope-dashboard .dash-item {
+    grid-template-columns: 19px minmax(0, 1fr);
+    gap: 7px;
   }
-  #root #pywebio-scope-dashboard .dash-anchor {
-    height: 30px;
+  #root #pywebio-scope-dashboard .dash-ico {
+    width: 19px;
+    height: 19px;
   }
-  #root #pywebio-scope-dashboard .dash-ring-pct {
-    font-size: 9px;
+  #root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-value--"] {
+    font-size: .98rem;
+  }
+  #root #pywebio-scope-dashboard .dash-row1 > *[style*="--dashboard-name--"] {
+    font-size: .66rem;
+    /* 窄屏 130px 列宽下「大世界黄币」曾折成两行把行高撑开（长卿 2026-11-25 实测），
+       强制单行 + 省略，宁可截断也不破版。 */
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* 窄屏：数值与名称之间收一点间距，给长名让位 */
+  #root #pywebio-scope-dashboard .dash-row1 {
+    gap: 4px;
+  }
+  #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-limit--"],
+  #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-total--"] {
+    font-size: .6rem;
+  }
+  #root #pywebio-scope-dashboard .dash-row2 > *[style*="--dashboard-help--"] {
+    font-size: .56rem;
   }
 }
 
