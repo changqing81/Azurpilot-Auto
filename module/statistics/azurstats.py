@@ -247,24 +247,34 @@ class AzurStats:
             # 历史行 instance 为 NULL：迁移时统一归到实例列表的第一个实例
             # （主号），小号从迁移后开始积累自己的数据。
             cols = {r[1] for r in conn.execute('PRAGMA table_info(opsi_items)').fetchall()}
-            if 'instance' not in cols:
+            added_instance = 'instance' not in cols
+            if added_instance:
                 conn.execute('ALTER TABLE opsi_items ADD COLUMN instance TEXT')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_opsi_items_device_genre ON opsi_items(device_id, genre)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_opsi_items_imgid ON opsi_items(imgid)')
             conn.execute('CREATE INDEX IF NOT EXISTS idx_opsi_items_instance ON opsi_items(instance, genre)')
-            # 历史行一次性归属：全部归到实例列表的第一个实例（主号）。
-            # 无实例可取时保持 NULL（仍按 device_id 语义被查询端排除）。
-            try:
-                from module.config.utils import alas_instance as _alas_instance
+            # 历史行一次性归属：加列那一次把存量行全归到实例列表的第一个实例
+            # （主号），无实例可取时保持 NULL（仍按 device_id 语义被查询端排除）。
+            #
+            # ⚠️ 必须只在「加列那一次」执行：这个方法每次建表都会跑，而早先
+            # 写入端漏写了 instance 列（INSERT 列清单没有它），行落库恒为 NULL，
+            # 于是这里的 UPDATE 每写一条就把它搬回主号名下——小号的掉落被静默
+            # 记到主号头上，实例隔离形同虚设。存量行本来就没有实例标记，这次
+            # 一次性归属是唯一能做的事；之后再出现的 NULL 属于写入端 bug，
+            # 不许用迁移来兜底掩盖。
+            if added_instance:
+                try:
+                    from module.config.utils import alas_instance as _alas_instance
 
-                _instances = _alas_instance()
-                _owner = _instances[0] if _instances else None
-            except Exception:  # noqa: BLE001 —— 迁移失败不影响建表
-                _owner = None
-            if _owner:
-                conn.execute(
-                    'UPDATE opsi_items SET instance = ? WHERE instance IS NULL', (_owner,))
-                conn.commit()
+                    _instances = _alas_instance()
+                    _owner = _instances[0] if _instances else None
+                except Exception:  # noqa: BLE001 —— 迁移失败不影响建表
+                    _owner = None
+                if _owner:
+                    conn.execute(
+                        'UPDATE opsi_items SET instance = ? WHERE instance IS NULL',
+                        (_owner,))
+            conn.commit()
 
     @staticmethod
     def _insert_local_opsi_items(rows):
@@ -277,10 +287,12 @@ class AzurStats:
                 conn.executemany('''
                     INSERT INTO opsi_items (
                         imgid, server, zone, zone_type, zone_id, hazard_level,
-                        item, amount, tag, device_id, genre, combat_count, created_at
+                        item, amount, tag, device_id, genre, combat_count, created_at,
+                        instance
                     ) VALUES (
                         :imgid, :server, :zone, :zone_type, :zone_id, :hazard_level,
-                        :item, :amount, :tag, :device_id, :genre, :combat_count, :created_at
+                        :item, :amount, :tag, :device_id, :genre, :combat_count, :created_at,
+                        :instance
                     )
                 ''', rows)
                 conn.commit()
@@ -642,8 +654,24 @@ class AzurStats:
                 first[key] = row
         return [first[key] for key in order]
 
-    @staticmethod
     def _parse_local_opsi_items(self, image, imgid, genre, combat_count, filename=None):
+        """把一包掉落截图解析成待入库的行。
+
+        必须留作**实例方法**：要用 ``self.config.config_name`` 给行打上实例标记
+        （opsi_items.instance），否则统计页没法按实例隔离。曾经被误留
+        ``@staticmethod`` 而形参又加了 self，调用方把 image 顶到 self 位置上，
+        每次都抛 TypeError 被上层吞掉 —— 2026-11-22 起大世界掉落一条没入库。
+
+        Args:
+            image (np.ndarray): 打包后的掉落截图。
+            imgid (str): 记录标识（一次结算一个）。
+            genre (str): 掉落分类，如 'opsi_meowfficer_farming'。
+            combat_count (int): 该记录覆盖的战斗轮数。
+            filename (str): 原始文件名，仅用于未识别物品留证。
+
+        Returns:
+            list[dict]: 去重后的待入库行，每行带 device_id / instance / genre 等。
+        """
         SceneOperationSiren = AzurStats._ensure_local_parser()
         scene = SceneOperationSiren()
         scene.load_file(image)
