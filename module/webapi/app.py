@@ -294,6 +294,17 @@ async def task_config(request: Request) -> JSONResponse:
     return JSONResponse(await run_in_threadpool(data.get_task_config, name, task))
 
 
+async def config_search(request: Request) -> JSONResponse:
+    """GET /newapi/config/{name}/search —— 配置搜索索引（新 UI 侧栏搜索框）。
+
+    只回索引，匹配在前端按老 UI 同一套排序规则（见 module/webui/config_search.py）
+    本地完成：全量约 1000 项 / 150KB，本地过滤是逐帧级的，比每次敲键打一趟
+    服务端（还要走远控中继）快得多，也少一层并发风险。
+    """
+    name = request.path_params.get("name", "")
+    return JSONResponse(await run_in_threadpool(data.get_config_search_index, name))
+
+
 async def resource_delta(request: Request) -> JSONResponse:
     name = request.path_params.get("name", "")
     return JSONResponse(await run_in_threadpool(data.get_resource_delta, name))
@@ -1623,6 +1634,7 @@ def mount_webapi(app: Starlette, mount_root: bool = False) -> None:
         Route("/newapi/update-log", update_log),
         Route("/newapi/config/{name}/task/{task}", task_config),
         Route("/newapi/config/{name}/task/{task}", task_config_save, methods=["POST"]),
+        Route("/newapi/config/{name}/search", config_search),
     ]
     files = _frontend_files()
     # 记录**实际挂载**结果，供 /newapi/ui 回答「现在跑的是哪套」

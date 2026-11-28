@@ -36,6 +36,9 @@ export function TaskCollectionPage({ collection }: { collection: TaskCollection 
   const TAB_KEY = 'alas_collection_tab_' + collection.route
 
   // 优先级：URL ?tab= > localStorage（上次看的页签）> 第一个
+  // 配置搜索的落点参数（?arg=Group.Arg）：页签由 ?tab= 决定，
+  // 具体参数由 ConfigBody 负责滚动高亮。
+  const targetArg = searchParams.get('arg') || ''
   const [tab, setTabRaw] = useState<string>(() => {
     const fromUrl = searchParams.get('tab')
     if (fromUrl && TABS.some(t => t.id === fromUrl)) return fromUrl
@@ -108,7 +111,7 @@ export function TaskCollectionPage({ collection }: { collection: TaskCollection 
           {/* 配置主体：key 用 tab 保证切换时重新挂载 ——
               不同任务的分组结构不同，复用同一实例会残留上一个任务的 groups 状态。 */}
           <div className="oc-body" key={tab}>
-            <ConfigBody name={name} task={tab} hideShell />
+            <ConfigBody name={name} task={tab} hideShell targetArg={targetArg} />
           </div>
         </div>
       </div>

@@ -133,6 +133,72 @@ class TestWebUIConfigSearch(unittest.TestCase):
         self.assertEqual(search_config_entries(entries, "   "), ([], 0))
         self.assertEqual(search_config_entries(entries, "不存在的配置"), ([], 0))
 
+    def test_build_config_search_index_matches_visible_arguments(self):
+        """共享索引构建函数必须只收「页面上真会渲染」的参数。"""
+        from module.webui.config_search import build_config_search_index
+
+        args = {
+            "Alas": {
+                "Error": {
+                    "HandleError": {"type": "checkbox", "value": False},
+                    "Hidden": {"type": "input", "value": "x", "display": "hide"},
+                    "_internal": {"type": "input", "value": "x"},
+                },
+                "Storage": {
+                    "Settings": {"type": "storage", "value": {}},
+                },
+            }
+        }
+        translate = Mock(side_effect=lambda key: key)
+
+        entries = build_config_search_index(args, {}, ["Alas", "Alas", "Missing"], translate)
+
+        self.assertEqual([entry.key for entry in entries], ["Alas.Error.HandleError"])
+
+    def test_build_config_search_index_uses_server_option_whitelist(self):
+        """服务器限定的选项裁剪会影响「只剩一个选项时不渲染」的判定。"""
+        from module.webui.config_search import build_config_search_index
+
+        args = {
+            "GemsFarming": {
+                "Campaign": {
+                    "Event": {
+                        "type": "select",
+                        "value": "active",
+                        "option": ["active", "event"],
+                    }
+                }
+            }
+        }
+
+        same_server = build_config_search_index(
+            args, {}, ["GemsFarming"], Mock(side_effect=lambda k: k), server=None
+        )
+        narrowed = build_config_search_index(
+            args,
+            {},
+            ["GemsFarming"],
+            Mock(side_effect=lambda k: k),
+            server="cn",
+        )
+        self.assertEqual(len(same_server), 1)
+        self.assertEqual(len(narrowed), 1)
+
+    def test_build_config_search_index_falls_back_to_technical_names(self):
+        """缺翻译（translate 返回 key 本身）时回退技术名，不能搜到空标题。"""
+        from module.webui.config_search import build_config_search_index
+
+        args = {"Alas": {"Error": {"HandleError": {"type": "checkbox", "value": False}}}}
+
+        entries = build_config_search_index(
+            args, {}, ["Alas"], Mock(side_effect=lambda k: k)
+        )
+
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0].argument_name, "HandleError")
+        self.assertEqual(entries[0].task_name, "Alas")
+        self.assertEqual(entries[0].help_text, "")
+
     def test_should_render_config_argument_excludes_hidden_and_conditional_fields(self):
         self.assertFalse(
             should_render_config_argument(

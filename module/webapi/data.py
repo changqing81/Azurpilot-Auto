@@ -1010,6 +1010,102 @@ def get_task_config(name: str, task: str) -> dict:
             })
     return {"task": task, "groups": groups}
 
+# 配置搜索索引缓存：键 = (实例, 语言, args.json mtime, 配置 mtime)，
+# 任一变化自动重建。全量约 1000 项、构建 ~10ms，但侧栏搜索框会在每页
+# 挂载时拉一次，缓存后重复请求是零成本（新 UI 多标签页 / 远控轮询都受益）。
+_SEARCH_CACHE: dict = {}
+
+
+def get_config_search_index(name: str) -> dict:
+    """新 UI 配置搜索的扁平索引（等价老 UI _build_config_search_entries 的数据面）。
+
+    范围与老 UI 搜索框完全一致：菜单里 page=setting 的任务，逐参数按
+    「实际可见」口径过滤（display=hide、空 storage 不收），标题/帮助取当前
+    界面语言的译文。匹配与排序不在这里做 —— 前端拿全量索引本地过滤。
+
+    Returns:
+        {"success": True, "entries": [{key, task, group, argument,
+         taskName, groupName, argumentName, help}, ...]}；
+        取不到配置时 success=False 且 entries 为空（前端退化为无结果）。
+    """
+    import module.config.server as _server
+    from module.config.deep import deep_get_emulator
+    from module.config.utils import filepath_args, filepath_config
+    from module.webui.config_search import (
+        build_config_search_index,
+        config_search_entry_to_dict,
+    )
+
+    try:
+        args_path = filepath_args()
+        config_path = filepath_config(name)
+        args_stat = os.stat(args_path)
+        config_stat = os.stat(config_path)
+    except Exception as e:  # noqa: BLE001 —— 索引失败不能让侧栏搜索框炸掉整页
+        logger.warning(f"[webapi] 搜索索引路径解析失败({name}): {e}")
+        return {"success": False, "entries": [], "error": str(e)}
+
+    language = _current_language()
+    language_stat = None
+    try:
+        st = os.stat(_i18n_path(language))
+        language_stat = (st.st_mtime_ns, st.st_size)
+    except Exception:  # noqa: BLE001
+        language_stat = None
+    key = (
+        name,
+        language,
+        args_stat.st_mtime_ns,
+        config_stat.st_mtime_ns,
+        config_stat.st_size,
+        language_stat,
+    )
+    cached = _SEARCH_CACHE.get(name)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+
+    try:
+        from module.webui import lang as _langmod
+
+        # dic_lang 默认是空的，REST 端点可能在新进程早期被调用 ——
+        # reload() 内部「已加载就跳过」，重复调用无开销。
+        _langmod.reload()
+        translate = _langmod.t
+        args = read_file(args_path)
+        config = read_file(config_path)
+        # ⚠️ 任务表必须读 menu.json 的**原始**结构，不能用 get_menu()：
+        # 后者把 WarArchives / Main / EventA 等收纳进了「其他配置 / 主线图 /
+        # 活动每日」集合页（返回的是 *Entry 入口 key），按它取任务会把
+        # 作战档案、主线图这些任务的参数全部漏掉 —— 实测搜「作战档案」
+        # 只命中 1 条无关项。老 UI 的 ALAS_MENU 就是 menu.json 原表，同源。
+        menu = read_file(
+            os.path.join(
+                os.path.dirname(__file__), "..", "config", "argument", "menu.json"
+            )
+        )
+        tasks = [
+            task
+            for group in menu.values()
+            if group.get("page") == "setting"
+            for task in group.get("tasks", [])
+        ]
+        # 服务器会影响某参数的可见 option（option_{server}），与老 UI 同口径：
+        # 老 UI 调 to_server(package_name) 取，这里传显式值，不改进程全局状态。
+        package_name = deep_get_emulator(config, "Emulator.PackageName", "cn")
+        server = _server.to_server(package_name if isinstance(package_name, str) else "cn")
+        entries = build_config_search_index(args, config, tasks, translate, server=server)
+        payload = {
+            "success": True,
+            "entries": [config_search_entry_to_dict(entry) for entry in entries],
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"[webapi] 搜索索引构建失败({name}): {e}")
+        return {"success": False, "entries": [], "error": str(e)}
+
+    _SEARCH_CACHE[name] = (key, payload)
+    logger.debug(f"[webapi] 搜索索引已重建({name}/{language}): {len(payload['entries'])} 项")
+    return payload
+
 def save_task_config(name: str, task: str, modified: dict) -> dict:
     """保存配置修改（等价 _save_config 的核心链路：类型解析+校验+联动回调+写盘）。
 

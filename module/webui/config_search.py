@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 import json
-from typing import Any, Iterable, List, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Sequence, Tuple
 
 
 def normalize_search_text(value: Any) -> str:
@@ -201,6 +201,127 @@ def build_config_search_result_click_script(pin_name: str) -> str:
             document.addEventListener("click", window[listenerName]);
         }})();
     """
+
+
+def _visible_options(
+    arg_definition: Dict[str, Any], server: str | None
+) -> List[Any]:
+    """按当前服务器裁剪某参数的 option，与老 UI _iter_group_arguments 同口径。
+
+    老 UI 里 select 的可见选项会先被 option_{server} 白名单过滤，再允许
+    option_{server} 整表替换。这一步会影响「只剩一个选项时不渲染」的判定
+    （例如 GemsFarming.Campaign.Event 在部分服务器上只剩一个选项），
+    所以搜索索引必须走同一套裁剪，否则会搜出页面上根本没渲染的参数。
+    """
+    options = list(arg_definition.get("option") or [])
+    if not server:
+        return options
+    whitelist = arg_definition.get(f"option_{server}")
+    if isinstance(whitelist, list):
+        options = [option for option in options if option in whitelist]
+    server_options = arg_definition.get(f"option_{server}")
+    if arg_definition.get("type") == "select" and isinstance(server_options, list):
+        if server_options:
+            options = list(server_options)
+    return options
+
+
+def build_config_search_index(
+    args: Dict[str, Any],
+    config: Dict[str, Any],
+    tasks: Iterable[str],
+    translate: Callable[..., str],
+    server: str | None = None,
+) -> List[ConfigSearchEntry]:
+    """按「当前实例实际可见参数」构建配置搜索索引。
+
+    老 UI（PyWebIO）与新 UI（React）共用这一份口径，两边的数据源相同：
+    args.json 给 schema，用户配置给 storage 判空依据，translate 给任务名 /
+    组名 / 参数名 / 帮助文本。与 TaskConfigMixin._build_config_search_entries
+    的区别只是把「取菜单里 page=setting 的任务」这一步交给调用方，
+    避免把 PyWebIO 会话对象拖进这个纯数据模块。
+
+    Args:
+        args: args.json 全量定义（task → group → argument）。
+        config: 当前实例的用户配置（task → group → argument → value）。
+        tasks: 参与搜索的任务名序列（重复项自动跳过）。
+        translate: 翻译函数，签名与 module.webui.lang.t 一致；
+            缺键时返回键本身即为「没有翻译」，这里据此回退技术名。
+        server: 当前服务器（cn/en/jp/tw），用于裁剪服务器限定的选项；
+            省略时不做裁剪。
+
+    Returns:
+        按菜单顺序排列的 ConfigSearchEntry 列表。
+    """
+    from module.config.deep import deep_get
+
+    def _text(key: str, fallback: str) -> str:
+        """取翻译，缺失（返回键本身）时回退技术名。"""
+        translated = translate(key)
+        return fallback if translated == key else translated
+
+    entries: List[ConfigSearchEntry] = []
+    seen_tasks = set()
+    for task in tasks:
+        if task in seen_tasks or task not in args:
+            continue
+        seen_tasks.add(task)
+        task_name = _text(f"Task.{task}.name", task)
+        for group_name, group_args in args[task].items():
+            if not isinstance(group_args, dict) or group_name.startswith("_"):
+                continue
+            group_title = _text(f"{group_name}._info.name", group_name)
+            for arg_name, arg_definition in group_args.items():
+                if arg_name.startswith("_") or not isinstance(arg_definition, dict):
+                    continue
+                widget_type = arg_definition.get("type", "input")
+                display = arg_definition.get("display", None)
+                # storage 的 visibility 规则（见 should_render_config_argument）
+                # 看的是「当前值是否为空 dict」；模板默认值本来就空时按空处理。
+                raw_value = deep_get(config, [task, group_name, arg_name], None)
+                if raw_value is None:
+                    raw_value = arg_definition.get("value")
+                value = {} if raw_value in (None, {}) else raw_value
+                if not should_render_config_argument(
+                    task,
+                    group_name,
+                    arg_name,
+                    display,
+                    widget_type,
+                    _visible_options(arg_definition, server),
+                    value,
+                ):
+                    continue
+                entries.append(
+                    ConfigSearchEntry(
+                        task=task,
+                        group=group_name,
+                        argument=arg_name,
+                        task_name=task_name,
+                        group_name=group_title,
+                        argument_name=_text(f"{group_name}.{arg_name}.name", arg_name),
+                        help_text=_text(f"{group_name}.{arg_name}.help", ""),
+                    )
+                )
+    return entries
+
+
+def config_search_entry_to_dict(entry: ConfigSearchEntry) -> Dict[str, str]:
+    """序列化一条索引项，供新 UI 的 REST 接口回传。
+
+    key 是三段全路径（Task.Group.Arg），前端用它做跳转与参数定位；
+    其余驼峰字段直接给结果列表渲染。
+    """
+    return {
+        "key": entry.key,
+        "task": entry.task,
+        "group": entry.group,
+        "argument": entry.argument,
+        "taskName": entry.task_name,
+        "groupName": entry.group_name,
+        "argumentName": entry.argument_name,
+        "help": entry.help_text,
+    }
 
 
 def _term_match_rank(query: str, terms: Iterable[str], base_rank: int) -> int | None:

@@ -26,6 +26,7 @@ import { injectWallpaperToggle, hideWallpaperToggle } from '../lib/wallpaperTogg
 import { applyLayoutLayer } from '../lib/layoutApply'
 import { putLoading } from '../lib/pywebio'
 import { SchedulerFab } from './SchedulerFab'
+import { MenuSearch } from './MenuSearch'
 
 /**
  * 菜单分组的展开态（跨页面共享）。
@@ -717,7 +718,11 @@ export function Shell({
       (active === key || (active === 'Home' && key === 'HomePage')) ? ' btn-menu-active' : ''
     }">${name}</button></div>`
 
-  const menuHtml =
+  // 是否渲染侧栏搜索框：与 menuHtml 的「实例页」分支同条件
+  // （二级菜单页 / 固定入口页都不显示，与老 UI 一致）。
+  const showMenuSearch = !(submenu && submenu.length) && !FIXED_PAGE_KEYS.has(active)
+
+  const menuItemsHtml =
     submenu && submenu.length
       ? // 二级菜单（管理/开发者工具等）：老 UI 用 dev_set_menu 往菜单区放按钮，
         // 不显示配置树。高亮仍走 div[style*="--menu-{key}--"] > button 约定。
@@ -729,14 +734,7 @@ export function Shell({
         // → 走 else 渲染**实例配置树**（总览/智慧港区/出击…），看起来像「点什么都跳到同
         // 一个页面」（长卿 2026-11-18 报告）。
         HOME_MENU.map(it => menuItem(it.key, it.name)).join('')
-      : // 实例页：搜索框 + 配置树
-        `<div id="pywebio-scope-task_config_search">` +
-        `<div class="form-group" style=";;--task-config-search-input--">` +
-        `<input type="text" class="form-control" name="config_search_keyword" value="" placeholder="${fixedMenu.search_placeholder}">` +
-        `<div class="invalid-feedback"></div><div class="valid-feedback"></div>` +
-        `<small class="form-text text-muted"></small></div></div>` +
-        `<div id="pywebio-scope-task_config_search_results"></div>` +
-        `<div id="pywebio-scope-task_config_menu_items">` +
+      : // 实例页：搜索框（MenuSearch 单独渲染）+ 配置树
         menuItem('Overview', '总览') +
         menu
           .map(g => {
@@ -747,8 +745,7 @@ export function Shell({
             // data-group 供事件委托识别展开/收起
             return `<details data-group="${g.key}"${open}><summary>${g.name}</summary>${children}</details>`
           })
-          .join('') +
-        `</div>`
+          .join('')
 
   const chipItems = (): ChipItem[] => {
     const shortOf = (key: string, name: string) => {
@@ -892,7 +889,12 @@ export function Shell({
             </div>
             <div id="pywebio-scope-contents">
               <div id="pywebio-scope-aside" ref={asideRef} dangerouslySetInnerHTML={{ __html: asideHtml }} />
-              <div id="pywebio-scope-menu" ref={menuRef} className={menuClass + menuXClass} dangerouslySetInnerHTML={{ __html: menuHtml }} />
+              <div id="pywebio-scope-menu" ref={menuRef} className={menuClass + menuXClass}>
+                {/* 配置搜索：菜单树仍用旧的字符串注入（一行没动，避免碰菜单渲染路径），
+                    只把搜索框这一块换成真组件（长卿 2026-11-28：原来完全没反应）。 */}
+                {showMenuSearch && <MenuSearch instance={instanceName} />}
+                <div id="pywebio-scope-task_config_menu_items" dangerouslySetInnerHTML={{ __html: menuItemsHtml }} />
+              </div>
               {!isMobile &&
                 <button
                   type="button"

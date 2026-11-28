@@ -24,7 +24,7 @@
 // 另外：老 UI 的「分组懒渲染」是 PyWebIO 的妥协（服务端逐个 scope 推送），
 // React 一次渲染完即可，这里**不做懒渲染、不做骨架屏**。
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { apiGet, instSeg } from '../../api/client'
 import { Shell } from '../../components/Shell'
 import { ArgBlock, type Group } from './groups'
@@ -54,6 +54,11 @@ type ConfigResp = { task: string; groups: Group[]; error?: string }
 function scrollToGroup(groupId: string) {
   const el = document.getElementById(groupId)
   if (!el) return
+  scrollToNode(el)
+}
+
+/** 把某个元素滚进它真正可滚的祖先容器（分组导航与搜索落点共用）。 */
+function scrollToNode(el: HTMLElement) {
   // 找到第一个「真的能滚」的祖先容器。
   // 注意不能只看 overflowY：集合页里内层 #pywebio-scope-content 也是
   // overflow-y:auto，但被 .oc-glass 撑满（scrollHeight === clientHeight），
@@ -66,7 +71,14 @@ function scrollToGroup(groupId: string) {
     if (scrollStyle && box.scrollHeight > box.clientHeight + 1) { container = box; break }
     box = box.parentElement
   }
-  if (!container) return
+  if (!container) {
+    // 没有「有明显可滚空间」的祖先容器时兜底：直接让浏览器把元素滚进视口。
+    // 实测（2026-11-28 无头 900px 视口）：#pywebio-scope-groups 的
+    // scrollHeight === clientHeight（内容把容器撑满），页面靠 document 滚动，
+    // 上面那轮探测必然找不到容器 —— 不兜底的话搜索命中「不动也不滚」。
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    return
+  }
   // 手算相对容器的偏移再设 scrollTop。
   // 不能用 scrollIntoView：它会选中「最近的滚动祖先」（集合页里就是那个
   // 滚不动的内层 content）并提前停手，外层容器永远不动 —— 2026-11-20 实测。
@@ -125,15 +137,22 @@ export function ConfigBody({
   name,
   task,
   hideShell = false,
+  targetArg: targetArgProp,
 }: {
   name: string
   task: string
   /** true 时不自带 Shell 外壳 —— 供页签页嵌在自己的 Shell 里 */
   hideShell?: boolean
+  /** 搜索落点（Group.Arg）；集合页从 ?arg= 拿到后显式传入，普通页自己读 URL */
+  targetArg?: string
 }) {
   const [groups, setGroups] = useState<Group[]>([])
   const toast = useToast()
   const [loaded, setLoaded] = useState(false)
+  // 配置搜索的落点：?arg=Group.Arg（MenuSearch 跳转时带上），
+  // 具体定位逻辑见下面 useEffect 的注释（参数容器 id 只带参数名，不带组名）。
+  const [searchParams] = useSearchParams()
+  const targetArg = targetArgProp ?? (searchParams.get('arg') || '')
   useEffect(() => {
     // task 为空时（路由参数丢失，如切实例后落在 /config/{name} 无任务段）不发请求：
     // 之前会请求 /newapi/config/{name}/task/ 打到 SPA 回退返回 HTML，JSON 解析失败；
@@ -145,6 +164,54 @@ export function ConfigBody({
       setGroups(r.groups)
     }).catch(e => toast.error(String(e))).finally(() => setLoaded(true))
   }, [name, task])
+
+  // 搜索落点：等分组渲染完，把目标参数滚进视野并高亮 1.8 秒
+  // （.config-search-target 由 assets/gui/css/alas.css 提供动画，老 UI 同款）。
+  //
+  // ⚠️ 不能直接按 id 后缀 `Group_Arg` 去查参数容器：新 UI 的参数容器 id 是
+  // `pywebio-scope-arg_container-{控件类型}-{参数名}`（groups.tsx 的
+  // scopeIdFor），**只带参数名，不带组名** —— 实测 62 个容器里
+  // arg_container-checkbox-Enable 这种，按 Group_Arg 后缀永远匹配不到，
+  // 搜索点进去不滚动也不高亮。正确做法：先按组名定位组容器
+  // （pywebio-scope-group_{组名}），再在组内按参数名后缀找。
+  useEffect(() => {
+    if (!targetArg || !loaded || !groups.length) return
+    const parts = targetArg.split('.')
+    const groupName = parts.length >= 2 ? parts[parts.length - 2] : ''
+    const argName = parts[parts.length - 1] || ''
+    let attempts = 0
+    let timer = 0
+    const findNode = (): HTMLElement | null => {
+      const groupEl = document.getElementById('pywebio-scope-group_' + groupName)
+      if (!groupEl) return null
+      const containers = groupEl.querySelectorAll<HTMLElement>(
+        '[id^="pywebio-scope-arg_container-"], [id^="pywebio-scope-arg_contianer-"]',
+      )
+      // 先精确匹配「以 -参数名 结尾」，同名参数（不同组）不会互相干扰，
+      // 因为查找范围已经限制在本组内。
+      for (const el of Array.from(containers)) {
+        if (el.id.endsWith('-' + argName)) return el
+      }
+      return null
+    }
+    const focus = () => {
+      const node = findNode()
+      if (!node) {
+        // 分组渲染、图片等可能比首帧晚一点；最多重试 10 次（约 500ms）
+        if (attempts++ < 10) timer = window.setTimeout(focus, 50)
+        return
+      }
+      // 滚动容器不固定（独立配置页滚 #pywebio-scope-groups，集合页滚外层）
+      // —— 用与分组导航同一套「找真的能滚的祖先」逻辑。
+      scrollToNode(node)
+      node.classList.remove('config-search-target')
+      void node.offsetWidth
+      node.classList.add('config-search-target')
+      window.setTimeout(() => node.classList.remove('config-search-target'), 1800)
+    }
+    focus()
+    return () => window.clearTimeout(timer)
+  }, [targetArg, loaded, groups])
 
   const setArg = (group: string, argName: string, value: any) => {
     setGroups(gs => gs.map(g => g.group !== group ? g : {
